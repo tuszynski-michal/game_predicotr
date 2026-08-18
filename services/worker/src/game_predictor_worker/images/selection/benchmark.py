@@ -27,6 +27,7 @@ from .contracts import (
     ImageSelectionResult,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionGroupStatus,
     SequenceRange,
@@ -487,6 +488,16 @@ class InstrumentedRangeVerifier:
                     start=group.range_start,
                     end=group.range_end,
                     confidence=0.98,
+                ),
+                reason_codes=("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                label_observations=tuple(
+                    RangeLabelObservation(
+                        position_index=position,
+                        sequence_number=group.range_start + position,
+                        confidence=0.98,
+                        route="benchmark_annotation",
+                    )
+                    for position in (0, 1, 4)
                 ),
             ),
         )

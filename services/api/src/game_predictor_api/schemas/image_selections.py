@@ -161,6 +161,14 @@ class ImageSelectionGroupPageResponse(ApiModel):
     next_after_group_order: int | None = Field(default=None, ge=0)
 
 
+class ImageSelectionRangeLabelObservationResponse(ApiModel):
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int = Field(ge=1)
+    confidence: float = Field(ge=0, le=1)
+    route: str = Field(min_length=1, max_length=64)
+    range_start: int = Field(ge=1)
+
+
 class ImageSelectionCandidateResponse(ApiModel):
     id: UUID
     run_id: UUID
@@ -170,6 +178,13 @@ class ImageSelectionCandidateResponse(ApiModel):
     width: int = Field(ge=1)
     height: int = Field(ge=1)
     display_name: str
+    suggested_range_start: int | None = Field(default=None, ge=1)
+    suggested_range_end: int | None = Field(default=None, ge=1)
+    range_confidence: float | None = Field(default=None, ge=0, le=1)
+    reason_codes: list[str] = Field(default_factory=list)
+    range_label_observations: list[ImageSelectionRangeLabelObservationResponse] = Field(
+        default_factory=list
+    )
 
 
 class ImageSelectionGroupCandidatesResponse(ApiModel):
@@ -308,6 +323,9 @@ def to_image_selection_candidate_response(
     fallback_path = (
         original_path if isinstance(original_path, str) else candidate.source_relative_path
     )
+    suggested_start = candidate.quality_metrics.get("recognizedRangeStart")
+    suggested_end = candidate.quality_metrics.get("recognizedRangeEnd")
+    observations = candidate.quality_metrics.get("rangeLabelObservations")
     return ImageSelectionCandidateResponse(
         id=candidate.id,
         run_id=candidate.run_id,
@@ -317,7 +335,48 @@ def to_image_selection_candidate_response(
         width=candidate.width,
         height=candidate.height,
         display_name=(display_name if isinstance(display_name, str) else Path(fallback_path).name),
+        suggested_range_start=(suggested_start if isinstance(suggested_start, int) else None),
+        suggested_range_end=(suggested_end if isinstance(suggested_end, int) else None),
+        range_confidence=candidate.range_confidence,
+        reason_codes=list(candidate.reason_codes),
+        range_label_observations=_range_label_observation_responses(observations),
     )
+
+
+def _range_label_observation_responses(
+    value: object,
+) -> list[ImageSelectionRangeLabelObservationResponse]:
+    if not isinstance(value, list):
+        return []
+    result: list[ImageSelectionRangeLabelObservationResponse] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        try:
+            position = int(item["positionIndex"])
+            sequence = int(item["sequenceNumber"])
+            confidence = float(item["confidence"])
+            route = str(item["route"])
+            range_start = sequence - position
+            if (
+                not 0 <= position <= 8
+                or range_start < 1
+                or not 0 <= confidence <= 1
+                or not 1 <= len(route) <= 64
+            ):
+                continue
+            result.append(
+                ImageSelectionRangeLabelObservationResponse(
+                    position_index=position,
+                    sequence_number=sequence,
+                    confidence=confidence,
+                    route=route,
+                    range_start=range_start,
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return result
 
 
 def to_image_selection_group_candidates_response(
@@ -375,6 +434,7 @@ __all__ = [
     "ImageSelectionOutputFileResponse",
     "ImageSelectionOutputResponse",
     "ImageSelectionRangeConfirmationCommand",
+    "ImageSelectionRangeLabelObservationResponse",
     "ImageSelectionRecoveryCommand",
     "ImageSelectionRecoveryCreateResponse",
     "ImageSelectionRecoveryPreviewResponse",

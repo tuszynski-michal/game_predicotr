@@ -22,6 +22,7 @@ from game_predictor_worker.images.selection.contracts import (
     ImageSelectionResult,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionContractError,
     SelectionGroupResult,
@@ -66,9 +67,11 @@ from game_predictor_worker.images.selection.manifest import (
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     LEGACY_SELECTOR_MANIFEST_V2,
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
+    PROOF_FIRST_SELECTOR_MANIFEST_V1019,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
@@ -197,6 +200,19 @@ class _StagedOcrVerifier:
         *,
         weak: bool = False,
     ) -> CandidateVerification:
+        observations = (
+            tuple(
+                RangeLabelObservation(
+                    position,
+                    recognized_range.start + position,
+                    0.96,
+                    "layout_anchored",
+                )
+                for position in (0, 1, 4)
+            )
+            if recognized_range is not None and not weak
+            else ()
+        )
         return CandidateVerification(
             representative=RepresentativeAssessment(9, True, True),
             range_evidence=RangeEvidence(
@@ -204,8 +220,12 @@ class _StagedOcrVerifier:
                 (
                     ("RANGE_OCR_FUZZY_CANDIDATE", "RANGE_OCR_STAGED_FAST")
                     if weak
-                    else ("RANGE_OCR_STAGED_FAST",)
+                    else (
+                        "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+                        "RANGE_OCR_STAGED_FAST",
+                    )
                 ),
+                observations,
             ),
         )
 
@@ -787,6 +807,92 @@ def test_single_frame_early_exit_keeps_conflicting_inner_ranges_fail_closed() ->
     assert result.groups[0].range is None
 
 
+def test_v10_19_center_proof_exits_after_one_verification() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=(recognized,) * source_count,
+    )
+
+    result = FastImageSelector(PROOF_FIRST_SELECTOR_MANIFEST_V1019).select(
+        _sources("proof-first-center", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [14]
+    assert result.verification_count == 1
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 14
+    assert "RANGE_CARDINALITY_INFERRED" not in result.groups[0].selected_candidate.reason_codes
+
+
+def test_v10_19_two_label_evidence_never_becomes_automatic() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.99)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=(recognized,) * source_count,
+        fast_weak=True,
+    )
+
+    original_result = verifier._result
+
+    def weak_result(
+        recognized_range: SequenceRange | None,
+        *,
+        weak: bool = False,
+    ) -> CandidateVerification:
+        del weak
+        return CandidateVerification(
+            representative=RepresentativeAssessment(9, True, True),
+            range_evidence=RangeEvidence(
+                recognized_range,
+                (
+                    "RANGE_OCR_FUZZY_CANDIDATE",
+                    "RANGE_OCR_LABEL_LATTICE_TWO_LABEL",
+                ),
+                (
+                    tuple(
+                        RangeLabelObservation(
+                            position,
+                            recognized_range.start + position,
+                            0.99,
+                            "label_lattice",
+                        )
+                        for position in (0, 1)
+                    )
+                    if recognized_range is not None
+                    else ()
+                ),
+            ),
+        )
+
+    verifier._result = weak_result  # type: ignore[method-assign]
+    try:
+        result = FastImageSelector(PROOF_FIRST_SELECTOR_MANIFEST_V1019).select(
+            _sources("proof-first-two-label", source_count),
+            analyzer=_AppearanceAnalyzer(
+                tuple(_appearance_signature(0) for _ in range(source_count))
+            ),
+            verifier=verifier,
+            first_sequence_number=1,
+            anchor_first_group=False,
+            expected_group_count_for_partitioning=1,
+        )
+    finally:
+        verifier._result = original_result  # type: ignore[method-assign]
+
+    assert verifier.full_calls == [14, 10, 19, 4, 25]
+    assert result.groups[0].status is SelectionGroupStatus.RANGE_REQUIRED
+    assert result.groups[0].range is None
+
+
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"][:3])
@@ -994,20 +1100,34 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_18_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_20_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.18"
+    assert DEFAULT_SELECTOR_MANIFEST is SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.20"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6"
+        == "5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020
+    )
+    assert (
+        selector_manifest_for_fingerprint(PROOF_FIRST_SELECTOR_MANIFEST_V1019.fingerprint)
+        is PROOF_FIRST_SELECTOR_MANIFEST_V1019
+    )
+    assert (
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018.fingerprint
+        == "122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6"
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018.fingerprint
+        )
         is SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
     )
     assert (
@@ -1058,8 +1178,8 @@ def test_v10_18_manifest_is_the_default_and_older_versions_remain_resolvable() -
     )
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels == (
+        6,
         12,
-        18,
     )
     assert DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy is not None
     quantile_policy = DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy
@@ -1393,6 +1513,72 @@ def test_v10_10_splits_two_adjacent_ranges_merged_by_appearance_grouping() -> No
     assert "RANGE_MIXED_GROUP_SPLIT" in split[1].selected_candidate.reason_codes  # type: ignore[union-attr]
 
 
+def test_v10_20_splits_a_range_conflict_when_each_adjacent_range_has_local_proof() -> None:
+    sources = _sources("v10-20-conflicting-mixed-group", 9)
+    analyzer = _AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in sources))
+    observations = tuple(analyzer.analyze(source) for source in sources)
+    group = _OpenGroup(group_order=0, top_k=12)
+    for observation in observations:
+        group.add(observation)
+
+    def candidate(index: int, start: int) -> CandidateResult:
+        observation = observations[index]
+        recognized = SequenceRange(start, start + 8, 0.94)
+        return CandidateResult(
+            source=observation.source,
+            decision=CandidateDecision.ELIGIBLE,
+            quality=observation.quality,
+            recognized_range=recognized,
+            reason_codes=("RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT", "RANGE_CONFLICT"),
+            width=observation.width,
+            height=observation.height,
+            range_label_observations=tuple(
+                RangeLabelObservation(
+                    position,
+                    start + position,
+                    0.96,
+                    "label_lattice",
+                )
+                for position in (0, 1, 4)
+            ),
+        )
+
+    first = candidate(0, 100)
+    second = candidate(4, 109)
+    result = SelectionGroupResult(
+        group_order=0,
+        source_count=9,
+        range=None,
+        fingerprint_sha256="1" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.RANGE_REQUIRED,
+        selected_candidate=second,
+        top_candidates=(second, first),
+    )
+
+    split = FastImageSelector(
+        SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020
+    )._split_label_lattice_mixed_group(  # noqa: SLF001
+        result,
+        group=group,
+        completed_ranges={},
+        first_sequence_number=100,
+        sequence_direction="ascending",
+    )
+
+    assert [item.source_count for item in split] == [3, 6]
+    assert [item.range for item in split] == [
+        SequenceRange(100, 108, 0.94),
+        SequenceRange(109, 117, 0.94),
+    ]
+    assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in split)
+    assert all(
+        item.selected_candidate is not None
+        and "RANGE_CONFLICT" not in item.selected_candidate.reason_codes
+        for item in split
+    )
+
+
 @pytest.mark.parametrize(
     ("manifest", "redundant_status"),
     (
@@ -1400,7 +1586,10 @@ def test_v10_10_splits_two_adjacent_ranges_merged_by_appearance_grouping() -> No
             LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
             SelectionGroupStatus.SKIPPED_UNREADABLE,
         ),
-        (DEFAULT_SELECTOR_MANIFEST, SelectionGroupStatus.SKIPPED_EXISTING_RANGE),
+        (
+            SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
+            SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        ),
     ),
 )
 def test_layout_anchored_selectors_collapse_redundant_fragments_and_one_exact_missing_range(
@@ -1539,9 +1728,9 @@ def test_v10_9_exact_gap_keeps_the_best_candidate_in_its_original_group() -> Non
         ),
     ]
 
-    recovered = FastImageSelector(DEFAULT_SELECTOR_MANIFEST)._recover_bounded_best_available_groups(
-        groups
-    )
+    recovered = FastImageSelector(
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
+    )._recover_bounded_best_available_groups(groups)
 
     assert recovered[1].status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
     assert recovered[1].range == SequenceRange(109, 117, 0.9)
@@ -2363,6 +2552,176 @@ class _V10RangeVerifier:
             representative=RepresentativeAssessment(9, True, True),
             range_evidence=RangeEvidence(self.ranges[observation.source.order_index]),
         )
+
+
+@dataclass
+class _StrongV1020RangeVerifier:
+    ranges: tuple[SequenceRange, ...]
+    calls: int = 0
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        self.calls += 1
+        recognized = self.ranges[observation.source.order_index]
+        return CandidateVerification(
+            representative=RepresentativeAssessment(9, True, True),
+            range_evidence=RangeEvidence(
+                recognized,
+                ("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                tuple(
+                    RangeLabelObservation(
+                        position,
+                        recognized.start + position,
+                        0.96,
+                        "layout_anchored",
+                    )
+                    for position in (0, 1, 4)
+                ),
+            ),
+        )
+
+
+@dataclass
+class _ExpectedGuidedV1020RangeVerifier:
+    expected_calls: list[tuple[int, int]] = field(default_factory=list)
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        if observation.source.order_index == 2:
+            return CandidateVerification(
+                RepresentativeAssessment(9, True, True),
+                RangeEvidence(None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)),
+            )
+        start = 1 if observation.source.order_index < 2 else 19
+        recognized = SequenceRange(start, start + 8, 0.96)
+        return CandidateVerification(
+            RepresentativeAssessment(9, True, True),
+            RangeEvidence(
+                recognized,
+                ("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                tuple(
+                    RangeLabelObservation(
+                        position,
+                        recognized.start + position,
+                        0.96,
+                        "layout_anchored",
+                    )
+                    for position in (0, 1, 4)
+                ),
+            ),
+        )
+
+    def verify_expected(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        expected_range: SequenceRange,
+    ) -> CandidateVerification:
+        del observation, expected_board_count
+        self.expected_calls.append((expected_range.start, expected_range.end))
+        return CandidateVerification(
+            RepresentativeAssessment(9, True, True),
+            RangeEvidence(
+                SequenceRange(expected_range.start, expected_range.end, 0.90),
+                ("RANGE_EXPECTED_SEQUENCE_FUZZY_CONFIRMED",),
+                (
+                    RangeLabelObservation(
+                        0,
+                        expected_range.start,
+                        0.96,
+                        "expected_sequence_exact",
+                    ),
+                    RangeLabelObservation(
+                        1,
+                        expected_range.start + 1,
+                        0.95,
+                        "expected_sequence_fuzzy",
+                    ),
+                    RangeLabelObservation(
+                        3,
+                        expected_range.start + 3,
+                        0.94,
+                        "expected_sequence_fuzzy",
+                    ),
+                ),
+            ),
+        )
+
+
+def test_v10_20_preserves_readable_single_frame_between_distinct_pages() -> None:
+    signatures = tuple(_appearance_signature(page) for page in (0, 0, 1, 2, 2))
+    ranges = tuple(
+        SequenceRange(start, start + 8, 0.96)
+        for start in (1, 1, 10, 19, 19)
+    )
+
+    result = FastImageSelector(SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020).select(
+        _sources("v1020-singleton-page", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_StrongV1020RangeVerifier(ranges),
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+
+    assert [group.source_count for group in result.groups] == [2, 1, 2]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in result.groups
+    ] == [(1, 9), (10, 18), (19, 27)]
+
+
+def test_v10_20_confirms_a_readable_singleton_against_only_the_next_expected_range() -> None:
+    signatures = tuple(_appearance_signature(page) for page in (0, 0, 1, 2, 2))
+    verifier = _ExpectedGuidedV1020RangeVerifier()
+
+    result = FastImageSelector(SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020).select(
+        _sources("v1020-expected-singleton", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+
+    assert verifier.expected_calls == [(1, 9), (10, 18), (19, 27)]
+    assert [group.source_count for group in result.groups] == [2, 1, 2]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in result.groups
+    ] == [(1, 9), (10, 18), (19, 27)]
+
+
+def test_v10_20_stops_splitting_after_proven_terminal_range() -> None:
+    pages = (0, 0, 1, 1, 2, 2, 3, 3, 4, 4)
+    signatures = tuple(_appearance_signature(page) for page in pages)
+    ranges = tuple(
+        SequenceRange(1, 9, 0.96) if page == 0 else SequenceRange(10, 18, 0.96)
+        for page in pages
+    )
+    verifier = _StrongV1020RangeVerifier(ranges)
+
+    result = FastImageSelector(SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020).select(
+        _sources("v1020-terminal-tail", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        expected_group_count_for_partitioning=2,
+    )
+
+    assert [group.source_count for group in result.groups] == [2, 2, 6]
+    assert sum(group.source_count for group in result.groups) == len(signatures)
+    assert verifier.calls <= 5
 
 
 def test_v10_1_preserves_contiguous_and_jump_ranges_after_the_first_anchor() -> None:

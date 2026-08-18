@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -529,6 +530,11 @@ class OperationalImageReviewService:
                 "imageWidth": persisted.image_width,
                 "source": "manual_review",
                 "sourceQuad": [{"x": point.x, "y": point.y} for point in persisted.source_quad],
+                **_retained_review_context(
+                    item.geometry,
+                    image_width=persisted.image_width,
+                    image_height=persisted.image_height,
+                ),
                 "transformMatrix": [list(row) for row in persisted.transform_matrix],
             },
             board_relative_path=persisted.board_relative_path,
@@ -579,6 +585,120 @@ class OperationalImageReviewService:
                 "Manual geometry correction is not configured.",
             )
         return self._geometry_recropper, self._artifact_root
+
+
+def _retained_review_context(
+    geometry: Mapping[str, object],
+    *,
+    image_width: int,
+    image_height: int,
+) -> dict[str, object]:
+    retained: dict[str, object] = {}
+    label = geometry.get("sequenceLabelQuad")
+    if label is not None:
+        retained["sequenceLabelQuad"] = label
+    bounds = _parse_source_context_bounds(
+        geometry.get("sourceContextBounds"),
+        image_width=image_width,
+        image_height=image_height,
+    )
+    if bounds is None:
+        bounds = _derive_source_context_bounds(
+            geometry,
+            image_width=image_width,
+            image_height=image_height,
+        )
+    if bounds is not None:
+        retained["sourceContextBounds"] = bounds
+    return retained
+
+
+def _parse_source_context_bounds(
+    value: object,
+    *,
+    image_width: int,
+    image_height: int,
+) -> dict[str, int] | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        x = round(float(value["x"]))
+        y = round(float(value["y"]))
+        width = round(float(value["width"]))
+        height = round(float(value["height"]))
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
+    if x < 0 or y < 0 or width <= 0 or height <= 0:
+        return None
+    bounded_x = min(image_width - 1, x)
+    bounded_y = min(image_height - 1, y)
+    right = min(image_width, bounded_x + width)
+    bottom = min(image_height, bounded_y + height)
+    return {
+        "height": max(1, bottom - bounded_y),
+        "width": max(1, right - bounded_x),
+        "x": bounded_x,
+        "y": bounded_y,
+    }
+
+
+def _derive_source_context_bounds(
+    geometry: Mapping[str, object],
+    *,
+    image_width: int,
+    image_height: int,
+) -> dict[str, int] | None:
+    board = _parse_geometry_points(
+        geometry.get("sourceQuad") or geometry.get("quad") or geometry.get("corners")
+    )
+    if board is None:
+        return None
+    label = _parse_geometry_points(geometry.get("sequenceLabelQuad"))
+    points = board + (label or ())
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    board_width = max(
+        1,
+        max(point[0] for point in board) - min(point[0] for point in board),
+    )
+    board_height = max(
+        1,
+        max(point[1] for point in board) - min(point[1] for point in board),
+    )
+    horizontal_padding = max(12, round(board_width * 0.1))
+    top_padding = max(12, round(board_height * 0.12))
+    bottom_padding = max(
+        12,
+        round(board_height * (0.12 if label is not None else 0.55)),
+    )
+    x = max(0, int(min(xs) - horizontal_padding))
+    y = max(0, int(min(ys) - top_padding))
+    right = min(image_width, int(max(xs) + horizontal_padding + 0.999999))
+    bottom = min(image_height, int(max(ys) + bottom_padding + 0.999999))
+    return {
+        "height": max(1, bottom - y),
+        "width": max(1, right - x),
+        "x": x,
+        "y": y,
+    }
+
+
+def _parse_geometry_points(value: object) -> tuple[tuple[float, float], ...] | None:
+    if not isinstance(value, list | tuple) or len(value) != 4:
+        return None
+    parsed: list[tuple[float, float]] = []
+    for raw_point in value:
+        if not isinstance(raw_point, Mapping):
+            return None
+        try:
+            x = float(raw_point["x"])
+            y = float(raw_point["y"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            return None
+        if not math.isfinite(x) or not math.isfinite(y) or x < 0 or y < 0:
+            return None
+        parsed.append((x, y))
+    return tuple(parsed)
 
 
 __all__ = [

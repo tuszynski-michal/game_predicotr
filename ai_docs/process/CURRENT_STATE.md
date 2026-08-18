@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-16
+last_updated: 2026-08-18
 ---
 
 # Current State
@@ -279,6 +279,57 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   poprawnym rozwiązaniu DNS i odpowiedzi HTTP. Martwy przydział jest zamykany,
   a kontroler wykonuje drugi ograniczony start zamiast publikować niedziałający
   link.
+- Ręczna korekta siatki zachowuje stały natywny kadr referencyjny z numerem;
+  zapis aktualizuje cropy 15 pól, ale nie perspektywę ani skalę prawego
+  podglądu. Osobne CORS-safe klucze cache pozwalają ponownie otworzyć edytor po
+  dowolnej zapisanej rewizji.
+- Kohorta kalibracji siatki obejmuje także zatwierdzone plansze z bezpośredniego
+  importu bez `imageSelectionRunId`; takie próbki uczą i wykorzystują fallback
+  pozycji. Bieżące 63 plansze nie są już błędnie raportowane jako pusta kohorta.
+- Trening symboli można rozpocząć od dowolnej dodatniej liczby kompletnych
+  plansz. Progi 100/1000 są tylko ostrzeżeniami, a aktywna Selekcja Zdjęć nie
+  udaje blokującego joba treningowego.
+- Właściciel odrzucił jakość v10.18 po wykryciu częstych przesunięć zakresu.
+  Run `229913–248184` został anulowany przy `8160/42420`; kolejka nie ma być
+  wznawiana. Audyt wykazał, że wszystkie 3904 automatyczne wybory dwóch
+  ukończonych runów v10.18 dostały `RANGE_CARDINALITY_INFERRED`, a reconciler
+  mógł promować JPEG bez własnego zakresu. TASK-0244 wdraża proof-first v10.19:
+  minimum trzy zgodne etykiety, zero automatu z liczności i zimny limit 7 h.
+- Kandydat v10.19 ma fingerprint
+  `18886fe8f54aaa161f4ab59fd793a6c8c498d9046ec565b45e23d4cb857da351`.
+  Automat wymaga trzech pozycji z jedną parą sąsiadującą i wspólną bazą,
+  zapisuje surowe obserwacje OCR, używa progresywnych poziomów `6 -> 12`,
+  wyłącza poziom 18 oraz nie korzysta z historycznej promocji cache. Zakotwiczona
+  trasa najpierw wykonuje jeden batch wariantu przetworzonego i uruchamia surowe
+  cropy tylko przy braku jednoznacznego dowodu. Reconciler nie wypełnia luk ani
+  nie promuje `RANGE_CARDINALITY_INFERRED`; nieudowodnione grupy pozostają bez
+  zakresu w `range_required`.
+- Admin pokazuje dla kandydata sugestię albo mocny dowód wraz z pozycjami i
+  confidence. Raport v10.19 oddziela automaty, potwierdzenia ręczne, oczekujące,
+  duplikaty i brakujące zakresy; częściowy `waiting_for_review` nie jest błędem,
+  ale `logicalCoverageValid` pozostaje fałszywe do rzeczywistego domknięcia.
+- Pełne testy workera przechodzą `750/750`, API `339` z `25` jawnymi skipami,
+  Admin `201/201`; Ruff, OpenAPI, typecheck Admina i mypy `329` plików są zielone.
+  Pierwszy zimny benchmark v10.19 na 5000 zdjęć zajął `3552,458 s`; dominował OCR
+  (`3214,957 s`, 13 134 cropy). Po optymalizacji przetworzonego batcha i poziomów
+  `6 -> 12` powtórka zajęła `666,585 s` (poprawa `81,2%`) i prognozuje około
+  `1,57 h` dla 42 500 zdjęć. OCR spadł do `438,076 s` i 10 560 cropów; nadal jest
+  zero naruszeń dowodu i zero automatu z liczności.
+- Kontrolowany run v10.19 `7bd76e70-8c9a-4204-bab7-1dbfae32ac27` przeskanował
+  `32079/32079` i początkowo wycofał końcową transakcję kodem
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`: sugerowany kandydat grupy
+  `range_required` był błędnie materializowany jako `selected_automatic`.
+  Warstwa SQL ogranicza teraz flagę wyboru do gotowych statusów i zwalnia oba
+  historyczne warianty wyboru. Ten sam job wznowiono bez OCR; zakończył jako
+  `waiting_for_review` z 1776 automatami, 491 grupami do ustalenia zakresu,
+  316 udowodnionymi duplikatami oraz 1776 plikami w
+  `C:\Users\user\Documents\1-19809 v10.19`.
+- Po tej walidacji uruchomiono pojedynczy kolejny run v10.19
+  `7dbd3a54-8f6f-435d-bdbd-bf9e8373657a` z kompletnego stagingu 42420 JPEG-ów
+  anulowanego v10.18 `229913–248184`. Job
+  `c9524e66-552a-426b-ae54-b36ddd16bad5` zapisuje do
+  `C:\Users\user\Documents\229913-248184 v10.19`; nie uruchamiać równoległego
+  runu selekcji.
 
 ### Wersja 0.1
 
@@ -1454,6 +1505,44 @@ zamiast `93,853847 s` i dał 7 automatów wobec 2. Raporty to
 Walidacja v10.18: pełny worker `738/738`, Ruff i Ruff Formatter dla 519 plików
 oraz mypy dla 328 modułów przechodzą. Następna kolejka ma ruszyć dopiero po
 commicie i kontrolowanym przeładowaniu API oraz lane selekcji na v10.18.
+
+## Bieżąca korekta selekcji v10.20 — 2026-08-18
+
+- Właściciel odrzucił wynik v10.19 po wykryciu błędnych zakresów. Run
+  `70363–93861` (`e6ec9f6f-b424-437d-b2d0-0b94c609e61b`) anulowano przy
+  `19200/42422`; kontroler kolejki PID 19016 został zatrzymany. Nie ma aktywnego
+  joba ani zgody na start następnego etapu.
+- Dla runu `1–19809` zapisano 2583 fizyczne fragmenty: 1776 automatów, 491
+  `range_required` i 316 duplikatów. Wcześniejszy raport błędnie zsumował
+  `1776 + 491 = 2267`; kolejka ustalenia zakresu nie jest liczbą wyborów zdjęcia
+  ani liczbą logicznych właścicieli. Oczekiwana siatka nadal ma 2201 zakresów.
+- V10.20 używa oczekiwanej kolejności jako hipotezy sprawdzanej lokalnym OCR.
+  Akceptuje dwa dokładne odczyty z pełnej geometrii albo trzy pozycje z
+  częściowego viewportu (co najmniej jedna dokładna, dwa wiersze i kolumny).
+  Mocny odczyt innego zakresu oraz twardy problem jakości pozostają fail-closed.
+- Domyślny manifest to `fast-image-selector-v10.20`, adapter v18, fingerprint
+  `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
+  V10.19 zachował fingerprint `18886fe8...` i dawne zachowanie.
+- Liczniki `manual` oraz `rangeRequired` są rozdzielone w checkpointach, API,
+  OpenAPI, Adminie i runnerze. Syntetyczne uzgodnienie 2583/2201 trwa 1,922 s.
+- Następny test produkcyjny zaczyna się od `1–19809` po E2E na małym korpusie.
+  Kolejny prawidłowy folder źródłowy to
+  `E:\777 zd\19810 - 45162`, czyli 2817 zakresów; historyczny staging kończący
+  się na 45152 nie może być użyty.
+- Powtarzający się błąd dostępu pytest usunięto trwale: skasowano niedostępny
+  katalog `%TEMP%\pytest-of-user`, zweryfikowano nowy proces i rozszerzono
+  `run_python_tests.ps1` o izolowany basetemp z PID-em również dla `api:test`.
+- Dodano checksumowany korpus regresyjny 283 zdjęć w kolejności malejącej:
+  17 czytelnych właścicieli zakresów i 3 negatywne przypadki jakościowe. Zimny
+  benchmark trwa `68,298789 s`, wykonuje 48 weryfikacji, osiąga 17/17 logicznych
+  właścicieli, 9 pominiętych fragmentów, bramkę 20/20 i 0 naruszeń dowodu.
+  Raport: `artifacts/image-selection-v1020-low-quality-descending-v18-final.json`.
+- Końcowa walidacja przed `v0.6.26`: pełny Python `1109 passed, 26 skipped`,
+  skupiona regresja selektora `222/222`, Admin `201/201`, Mobile `82/82`,
+  Reviewer `25/25`, Admin API Client `38/38`, Shared TS `24/24`. Ruff, mypy dla
+  329 plików, Prettier, lint, typecheck, OpenAPI oraz składnia 34 skryptów
+  PowerShell przechodzą. TASK-0245 jest zamknięty; kontrolowany run `1–19809`
+  nie został automatycznie uruchomiony.
 
 ## Do not start yet
 

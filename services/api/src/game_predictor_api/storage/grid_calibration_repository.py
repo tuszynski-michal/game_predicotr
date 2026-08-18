@@ -248,7 +248,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             final = _quad(
                 board.board_geometry.get("sourceQuad") or board.board_geometry.get("quad")
             )
-            if run_id is None or detected is None or final is None:
+            if detected is None or final is None:
                 continue
             output.append(
                 VerifiedGeometrySample(

@@ -69,11 +69,15 @@ class SequenceBounds:
         return SequenceRange(start=start, end=end, confidence=1.0)
 
     def group_index_for_range(self, value: SequenceRange) -> int | None:
-        for index in range(self.expected_group_count):
-            expected = self.range_for_group(index)
-            if (value.start, value.end) == (expected.start, expected.end):
-                return index
-        return None
+        anchor = value.start if self.direction == "ascending" else value.end
+        offset = anchor - self.first if self.direction == "ascending" else self.first - anchor
+        if offset < 0 or offset % self.group_size != 0:
+            return None
+        index = offset // self.group_size
+        if index >= self.expected_group_count:
+            return None
+        expected = self.range_for_group(index)
+        return index if (value.start, value.end) == (expected.start, expected.end) else None
 
 
 def parse_sequence_bounds_display_name(

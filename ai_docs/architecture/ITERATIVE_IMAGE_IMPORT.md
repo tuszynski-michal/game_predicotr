@@ -56,10 +56,11 @@ finalny quad review i provenance pipeline'u.
 
 Profil stosuje odporne mediany znormalizowanych przesunięć narożników względem
 quada detektora. Korekty są grupowane według runu Selekcji Zdjęć i pozycji
-planszy. Numer sekwencji nie bierze udziału w inferencji geometrii, ponieważ OCR
-jest późniejszym etapem pipeline'u; eliminuje to zależność cykliczną i ryzyko
-ukrytego przecieku błędu OCR do cięcia. Nieznany scope nie jest zgadywany i
-używa detektora.
+planszy, a próbki bez runu pozostają pełnoprawnym wejściem do fallbacku pozycji.
+Inferencja najpierw szuka zgodnego runu, a następnie fallbacku pozycji. Numer
+sekwencji nie bierze udziału w inferencji geometrii, ponieważ OCR jest
+późniejszym etapem pipeline'u; eliminuje to zależność cykliczną i ryzyko
+ukrytego przecieku błędu OCR do cięcia. Nieznana pozycja używa detektora.
 
 Walidacja jest source-image-disjoint. Kandydat porównuje średni i p95
 znormalizowany błąd narożników oraz kompletność poprawnych projekcji quada z
@@ -73,6 +74,12 @@ Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound
 oryginał i renderuje w canvasie viewport będący sumą planszy oraz etykiety.
 Nie tworzy kolejnego dużego artefaktu. Dla danych historycznych viewport
 rozszerza quad planszy o margines z przewagą dolnej części.
+
+Pierwszy `sourceContextBounds` pozostaje metadanym kadrem referencyjnym przez
+wszystkie ręczne rewizje geometrii. Rewizja nadal materializuje nową planszę
+roboczą i 15 cropów bezpośrednio z oryginału, ale nie zmienia kadru ani skali
+prawego podglądu. Zwykły podgląd i canvas używają osobnych kluczy cache oraz
+CORS, aby ponowne otwarcie edytora nie dziedziczyło niezgodnej odpowiedzi obrazu.
 
 ## Obserwowalność
 

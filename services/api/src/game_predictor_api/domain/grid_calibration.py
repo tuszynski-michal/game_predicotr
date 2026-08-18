@@ -36,7 +36,7 @@ class VerifiedGeometrySample:
     review_item_id: UUID
     source_image_id: UUID
     source_checksum_sha256: str
-    image_selection_run_id: UUID
+    image_selection_run_id: UUID | None
     position_index: int
     image_width: int
     image_height: int
@@ -122,7 +122,11 @@ def build_geometry_manifest(
                 "reviewItemId": str(item.review_item_id),
                 "sourceImageId": str(item.source_image_id),
                 "sourceChecksumSha256": item.source_checksum_sha256,
-                "imageSelectionRunId": str(item.image_selection_run_id),
+                "imageSelectionRunId": (
+                    None
+                    if item.image_selection_run_id is None
+                    else str(item.image_selection_run_id)
+                ),
                 "positionIndex": item.position_index,
                 "imageWidth": item.image_width,
                 "imageHeight": item.image_height,
@@ -247,7 +251,13 @@ def _offset_scopes(
 ) -> list[dict[str, object]]:
     grouped: dict[tuple[str, int], list[list[tuple[float, float]]]] = {}
     for item in samples:
-        run = str(item.get("imageSelectionRunId")) if include_run else "*"
+        raw_run = item.get("imageSelectionRunId")
+        if include_run:
+            if not isinstance(raw_run, str):
+                continue
+            run = raw_run
+        else:
+            run = "*"
         position = item.get("positionIndex")
         width = item.get("imageWidth")
         height = item.get("imageHeight")
@@ -361,7 +371,7 @@ def _quad_is_valid(quad: NormalizedQuad | None) -> bool:
 def _profile_offsets(profile: dict[str, object], item: dict[str, object]) -> NormalizedQuad | None:
     position = item.get("positionIndex")
     run = item.get("imageSelectionRunId")
-    for key, require_run in (("scopes", True),):
+    for key, require_run in (("scopes", True), ("positionFallbacks", False)):
         values = profile.get(key)
         if not isinstance(values, list):
             continue

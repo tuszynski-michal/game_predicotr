@@ -43,6 +43,7 @@ def test_job_progress_reads_nested_api_contract() -> None:
         "groups": 1,
         "selected": 1,
         "manual": 0,
+        "rangeRequired": 0,
         "skipped": 0,
         "errors": 0,
         "verifications": 3,
@@ -460,3 +461,52 @@ def test_failed_terminal_run_is_a_read_only_invalid_audit(
     assert coverage["logicalCoverageValid"] is True
     assert coverage["outputCoverageValid"] is False
     assert stale.read_bytes() == b"preserve-failure-evidence"
+
+
+def test_proof_first_waiting_review_reports_real_gap_without_failing_the_runner() -> None:
+    monitor = _monitor_module()
+    run = {
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 27,
+        "sequenceDirection": "ascending",
+        "expectedGroupCount": 3,
+        "selectorVersion": "fast-image-selector-v10.19",
+    }
+    coverage = monitor._selection_coverage(
+        run,
+        [
+            {
+                "groupOrder": 0,
+                "rangeStart": 1,
+                "rangeEnd": 9,
+                "status": "auto_selected",
+            },
+            {
+                "groupOrder": 1,
+                "rangeStart": None,
+                "rangeEnd": None,
+                "status": "range_required",
+            },
+            {
+                "groupOrder": 2,
+                "rangeStart": 19,
+                "rangeEnd": 27,
+                "status": "range_confirmed",
+            },
+        ],
+    )
+
+    assert coverage["logicalCoverageValid"] is False
+    assert coverage["rangeProjectionConflictFree"] is True
+    assert coverage["provenAutomaticGroups"] == 1
+    assert coverage["manuallyConfirmedGroups"] == 1
+    assert coverage["unresolvedRangeGroups"] == 1
+    assert coverage["missingRanges"] == [{"rangeStart": 10, "rangeEnd": 18}]
+    assert monitor._terminal_report_is_success(
+        "waiting_for_review",
+        {**coverage, "outputCoverageValid": True},
+    )
+    assert not monitor._terminal_report_is_success(
+        "completed",
+        {**coverage, "outputCoverageValid": True},
+    )

@@ -124,6 +124,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "group_count": 12,
             "selected_count": 9,
             "manual_count": 2,
+            "range_required_count": 4,
             "skipped_count": 1,
             "error_count": 3,
             "verification_count": 30,
@@ -137,6 +138,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
                 "groupsFinalized": 3,
                 "verifications": 18,
                 "manual": 2,
+                "rangeRequired": 1,
             },
             "stage_timing": {
                 "counters": {"anchoredOcrAttempts": 8, "fallbackOcrAttempts": 3},
@@ -154,6 +156,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
         "groups": 12,
         "selected": 9,
         "manual": 2,
+        "rangeRequired": 4,
         "skipped": 1,
         "errors": 3,
         "verifications": 30,
@@ -167,6 +170,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "groupsFinalized": 3,
             "verifications": 18,
             "manual": 2,
+            "rangeRequired": 1,
         },
         "stageSeconds": {"geometry": 4.5, "ocr": 7.25},
         "telemetryCounters": {

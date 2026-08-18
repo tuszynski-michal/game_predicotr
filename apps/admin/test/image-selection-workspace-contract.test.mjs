@@ -296,6 +296,16 @@ test('automatically selected groups can be inspected without mutating the run', 
   assert.match(styleSource, /\.manualSelectionAlgorithmBadge/);
 });
 
+test('range audit distinguishes OCR suggestions from strong positional proof', () => {
+  assert.match(manualModalSource, /RangeProofSummary/);
+  assert.match(manualModalSource, /Mocny dowód OCR/);
+  assert.match(manualModalSource, /Sugestia OCR do kontroli/);
+  assert.match(manualModalSource, /rangeLabelObservations/);
+  assert.match(manualModalSource, /suggestedRangeStart/);
+  assert.match(manualModalSource, /poz\. \$\{item\.positionIndex \+ 1\}/);
+  assert.match(styleSource, /\.manualSelectionRangeProof/);
+});
+
 test('job monitor exposes bounded image-selection counters and separate timings', () => {
   assert.match(jobMonitorSource, /job\.progress\.imageSelection/);
   assert.match(jobMonitorSource, /imageSelectionProgress\?\.groups/);
@@ -321,9 +331,10 @@ test('image selection workspace shows live progress and final aggregates', () =>
   assert.match(workspaceSource, /selectionProgress\?\.groups/);
   assert.match(workspaceSource, /selectionProgress\?\.selected/);
   assert.match(workspaceSource, /selectionProgress\?\.manual/);
-  assert.match(workspaceSource, /Roboczo bez numerów/);
-  assert.match(workspaceSource, /To licznik tymczasowy/);
-  assert.match(workspaceSource, /Nierozpoznane zestawy/);
+  assert.match(workspaceSource, /Wybrane grupy/);
+  assert.match(workspaceSource, /Do wyboru zdjęcia/);
+  assert.match(workspaceSource, /Do ustalenia zakresu/);
+  assert.match(workspaceSource, /osobna kolejka nierozpoznanych zakresów/);
   assert.match(workspaceSource, /selectionProgress\?\.skipped/);
   assert.match(workspaceSource, /selectionProgress\?\.errors/);
   assert.match(workspaceSource, /selectionProgress\?\.verifications/);

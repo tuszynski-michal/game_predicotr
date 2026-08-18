@@ -635,6 +635,7 @@ export type {
   ImageSelectionOutputResponse,
   ImageSelectionPurpose,
   ImageSelectionRangeConfirmationCommand,
+  ImageSelectionRangeLabelObservationResponse,
   ImageSelectionRecentWindowResponse,
   ImageSelectionRecoveryCommand,
   ImageSelectionRecoveryCreateResponse,

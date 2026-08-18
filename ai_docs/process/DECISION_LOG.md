@@ -4701,6 +4701,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   zgodnie z późniejszą jawną decyzją właściciela; zachowuje kwantyle i
   partycjonowanie D-189/D-191.
 
+## D-193 — Sekwencja waliduje częściowy OCR i rozdziela sklejone zakresy
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** v10.20 zachowuje niezależny trzyetykietowy dowód v10.19. Może
+  dodatkowo potwierdzić dokładnie następny slot po dwóch dokładnych etykietach
+  pełnej geometrii albo po trzech pozycjach częściowego viewportu, jeśli co
+  najmniej jedna jest dokładna, pozostałe mają dystans OCR najwyżej jeden, a
+  pozycje obejmują dwa wiersze i dwie kolumny. Mocny inny zakres blokuje tę
+  ścieżkę.
+- **Context:** tani deskryptor potrafił skleić sąsiednie strony, a OCR pojedynczej
+  czytelnej klatki mylił jeden znak. Skutkiem były przesunięte zakresy albo
+  utrata właściciela mimo deterministycznej kolejności grup po dziewięć.
+- **Reason:** pełne granice określają jedyny dopuszczalny następny slot, ale nie
+  zastępują dowodu z JPEG-a. Trzy przestrzennie rozłożone obserwacje ograniczają
+  ryzyko pojedynczej pomyłki, a rozszerzenie do pięciu kwantyli występuje tylko
+  przy niezgodności z oczekiwanym slotem.
+- **Consequences:** adapter v18 ma fingerprint
+  `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
+  Sklejone sąsiednie zakresy z osobnym mocnym dowodem są rozdzielane, a
+  nadmiarowe fragmenty po przypisaniu wszystkich slotów są duplikatami, nie
+  logicznymi właścicielami ani pozycjami review. Korpus regresyjny 283 JPEG-ów
+  i 20 ręcznych adnotacji jest obowiązkową bramką zmian tej ścieżki.
+- **Supersedes:** precyzuje D-192 dla niezgodności zakresu i rozszerza proof-first
+  v10.19 bez zmiany historycznych fingerprintów.
+
 ## Szablon nowej decyzji
 
 ```text

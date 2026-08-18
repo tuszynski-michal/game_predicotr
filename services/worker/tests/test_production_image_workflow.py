@@ -67,6 +67,40 @@ def test_grid_profile_uses_run_scope_and_falls_back_without_mutating_detector_qu
     assert detector_quad[0] == Point(10, 10)
 
 
+def test_grid_profile_uses_position_fallback_for_direct_import() -> None:
+    detector_quad = (
+        Point(10, 10),
+        Point(90, 10),
+        Point(90, 90),
+        Point(10, 90),
+    )
+    profile = {
+        "scopes": [],
+        "positionFallbacks": [
+            {
+                "positionIndex": 0,
+                "normalizedCornerOffsets": [
+                    {"x": 0.05, "y": 0.1},
+                    {"x": 0.05, "y": 0.1},
+                    {"x": 0.05, "y": 0.1},
+                    {"x": 0.05, "y": 0.1},
+                ],
+            }
+        ],
+    }
+
+    calibrated = _calibrated_quad(
+        detector_quad,
+        profile=profile,
+        image_selection_run_id=None,
+        position_index=0,
+        image_width=100,
+        image_height=100,
+    )
+
+    assert calibrated[0] == Point(15, 20)
+
+
 def test_page_sequence_continuity_repairs_missing_and_isolated_bad_ocr() -> None:
     resolved, base = _resolve_page_sequence_numbers(
         (None, 2, 9, 4, 5, 6, 7, 8, 9),

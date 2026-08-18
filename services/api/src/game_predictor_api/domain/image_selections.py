@@ -498,11 +498,12 @@ def create_duplicate_range_decision(
         _configuration_error("Manual decision identifiers and revision must be valid.")
     if group.status not in {
         ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
         ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
     }:
         raise ImageSelectionConflictError(
-            "IMAGE_SELECTION_GROUP_NOT_MANUAL",
-            "Only an unresolved manual-review group can be discarded as a duplicate.",
+            "IMAGE_SELECTION_GROUP_NOT_REVIEWABLE",
+            "Only an unresolved review group can be discarded as a duplicate.",
         )
     validate_image_selection_group(
         group_order=group.group_order,

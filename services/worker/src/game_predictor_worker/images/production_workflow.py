@@ -842,7 +842,7 @@ def _grid_offsets(
     image_selection_run_id: str | None,
     position_index: int,
 ) -> tuple[tuple[float, float], ...] | None:
-    for key, require_run in (("scopes", True),):
+    for key, require_run in (("scopes", True), ("positionFallbacks", False)):
         values = profile.get(key)
         if not isinstance(values, Sequence) or isinstance(values, str | bytes):
             continue

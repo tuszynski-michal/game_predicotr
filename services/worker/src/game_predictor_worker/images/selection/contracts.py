@@ -290,11 +290,74 @@ class RepresentativeAssessment:
 
 
 @dataclass(frozen=True, slots=True)
+class RangeLabelObservation:
+    """One persisted OCR label tied to its position on the 3x3 page."""
+
+    position_index: int
+    sequence_number: int
+    confidence: float
+    route: str
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.position_index <= 8:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RANGE_PROOF_INVALID",
+                "A range-proof position must be between zero and eight.",
+            )
+        if (
+            self.sequence_number < 1
+            or not isfinite(self.confidence)
+            or not 0 <= self.confidence <= 1
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RANGE_PROOF_INVALID",
+                "A range-proof OCR observation is invalid.",
+            )
+        if not self.route or len(self.route) > 64:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RANGE_PROOF_INVALID",
+                "A range-proof OCR route is invalid.",
+            )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "confidence": self.confidence,
+            "positionIndex": self.position_index,
+            "rangeStart": self.sequence_number - self.position_index,
+            "route": self.route,
+            "sequenceNumber": self.sequence_number,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> RangeLabelObservation:
+        if not isinstance(value, dict):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RANGE_PROOF_INVALID",
+                "A range-proof OCR observation must be an object.",
+            )
+        try:
+            return cls(
+                position_index=_int_value(value["positionIndex"]),
+                sequence_number=_int_value(value["sequenceNumber"]),
+                confidence=_float_value(value["confidence"]),
+                route=str(value["route"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            if isinstance(error, SelectionContractError):
+                raise
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RANGE_PROOF_INVALID",
+                "A range-proof OCR observation cannot be restored.",
+            ) from error
+
+
+@dataclass(frozen=True, slots=True)
 class RangeEvidence:
     """OCR evidence used only to resolve the sequence range of a group."""
 
     recognized_range: SequenceRange | None
     reason_codes: tuple[str, ...] = ()
+    label_observations: tuple[RangeLabelObservation, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,6 +397,7 @@ class CandidateResult:
     reason_codes: tuple[str, ...]
     width: int = 1
     height: int = 1
+    range_label_observations: tuple[RangeLabelObservation, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -343,6 +407,9 @@ class CandidateResult:
             "qualityMetrics": self.quality.to_dict(),
             "range": (None if self.recognized_range is None else self.recognized_range.to_dict()),
             "reasonCodes": list(self.reason_codes),
+            "rangeLabelObservations": [
+                observation.to_dict() for observation in self.range_label_observations
+            ],
             "sourceRelativePath": self.source.relative_path,
             "width": self.width,
             "height": self.height,
@@ -677,6 +744,9 @@ __all__ = [
     "ImageSelectionResult",
     "ImageSelectionSource",
     "NullSelectionAuditSink",
+    "RangeEvidence",
+    "RangeLabelObservation",
+    "RepresentativeAssessment",
     "SelectionAuditSink",
     "SelectionContractError",
     "SelectionGroupResult",

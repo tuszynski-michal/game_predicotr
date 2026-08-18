@@ -49,6 +49,8 @@ from .adapters import (
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
+    ProofFirstVisibleSequenceLabelRangeRecognizer,
+    SequenceValidatedVisibleSequenceLabelRangeRecognizer,
     TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
@@ -68,6 +70,7 @@ from .contracts import (
     ImageQualityMetrics,
     ImageSelectionResult,
     ImageSelectionSource,
+    RangeLabelObservation,
     SelectionAuditSink,
     SelectionContractError,
     SelectionGroupResult,
@@ -98,8 +101,12 @@ from .manifest import (
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    PROOF_FIRST_RANGE_ADAPTER_VERSION,
+    PROOF_FIRST_SELECTOR_VERSIONS,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION,
+    SEQUENCE_VALIDATED_SELECTOR_VERSION,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     STAGED_OCR_RANGE_ADAPTER_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
@@ -115,6 +122,7 @@ from .output import (
     verify_curated_image_manifest,
 )
 from .ports import SequenceRangeRecognizer
+from .range_proof import has_strong_local_range_proof
 from .recovery import (
     RecoveryEvaluationProgress,
     RecoveryProjection,
@@ -310,12 +318,16 @@ class ImageSelectionJobHandler:
                         source_count=len(sources),
                         expected_group_count=sequence_bounds.expected_group_count,
                     )
-                elif selector_manifest.algorithm_version in {
-                    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
-                    STAGED_OCR_SELECTOR_VERSION,
-                    QUANTILE_SAMPLED_SELECTOR_VERSION,
-                    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
-                }:
+                elif (
+                    selector_manifest.algorithm_version
+                    in {
+                        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                        STAGED_OCR_SELECTOR_VERSION,
+                        QUANTILE_SAMPLED_SELECTOR_VERSION,
+                        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+                    }
+                    or selector_manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                ):
                     expected_group_count_for_partitioning = sequence_bounds.expected_group_count
             persisted_groups = self._store.load_groups(run.id)
             resume_state = _resume_state(job.checkpoint_payload)
@@ -370,6 +382,7 @@ class ImageSelectionJobHandler:
                 existing_groups=existing_groups,
                 sequence_direction=run.sequence_direction.value,
                 first_sequence_number=run.first_sequence_number,
+                last_sequence_number=run.last_sequence_number,
                 maximum_group_source_count=maximum_group_source_count,
                 expected_group_count_for_partitioning=expected_group_count_for_partitioning,
             )
@@ -381,6 +394,12 @@ class ImageSelectionJobHandler:
                         origin_group_ids={},
                     ),
                     bounds=sequence_bounds,
+                    require_local_range_proof=(
+                        selector_manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                    ),
+                    allow_expected_sequence_confirmation=(
+                        selector_manifest.algorithm_version == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                    ),
                 )
                 result = replace(result, groups=projection.groups)
                 self._store.persist_reconciled_groups(
@@ -756,6 +775,32 @@ class ImageSelectionJobHandler:
             fallback_recognizer: SequenceRangeRecognizer
             fast_range_recognizer: SequenceRangeRecognizer | None = None
             if (
+                manifest.range_adapter_version == SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = SequenceValidatedVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == PROOF_FIRST_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = ProofFirstVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
+                    telemetry=telemetry,
+                )
+            elif (
                 manifest.range_adapter_version == STAGED_OCR_RANGE_ADAPTER_VERSION
                 and manifest.progressive_visible_label_fallback_policy is not None
                 and manifest.staged_ocr_policy is not None
@@ -952,6 +997,10 @@ class _DurableSelectionSink(SelectionAuditSink):
             "verification_count",
         )
         self._window_manual_count = _checkpoint_int(prior_checkpoint, "manual_count")
+        self._window_range_required_count = _checkpoint_int(
+            prior_checkpoint,
+            "range_required_count",
+        )
         self._last_recent_window = _prior_recent_window(prior_checkpoint)
 
     def candidate_scanned(
@@ -1056,12 +1105,10 @@ class _DurableSelectionSink(SelectionAuditSink):
             "fileCount": result.input_count,
             "groupCount": len(result.groups),
             "manualCount": sum(
-                group.status
-                in {
-                    SelectionGroupStatus.MANUAL_REQUIRED,
-                    SelectionGroupStatus.RANGE_REQUIRED,
-                }
-                for group in result.groups
+                group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in result.groups
+            ),
+            "rangeRequiredCount": sum(
+                group.status is SelectionGroupStatus.RANGE_REQUIRED for group in result.groups
             ),
             "missingImageRanges": [
                 {"rangeEnd": group.range.end, "rangeStart": group.range.start}
@@ -1131,13 +1178,9 @@ class _DurableSelectionSink(SelectionAuditSink):
             }
             for group in groups
         )
-        manual = sum(
-            group.status
-            in {
-                SelectionGroupStatus.MANUAL_REQUIRED,
-                SelectionGroupStatus.RANGE_REQUIRED,
-            }
-            for group in groups
+        manual = sum(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups)
+        range_required = sum(
+            group.status is SelectionGroupStatus.RANGE_REQUIRED for group in groups
         )
         missing = sum(group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups)
         checkpoint_now = self._context.now()
@@ -1156,6 +1199,10 @@ class _DurableSelectionSink(SelectionAuditSink):
                     state.verification_count - self._window_verification_count,
                 ),
                 "manual": max(0, manual - self._window_manual_count),
+                "rangeRequired": max(
+                    0,
+                    range_required - self._window_range_required_count,
+                ),
             }
         payload: dict[str, object] = {
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -1166,6 +1213,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "group_count": len(groups),
             "selected_count": selected,
             "manual_count": manual,
+            "range_required_count": range_required,
             "missing_image_count": missing,
             "skipped_count": sum(
                 group.status
@@ -1204,7 +1252,7 @@ class _DurableSelectionSink(SelectionAuditSink):
                 total=max(previous.progress_total or 0, self._total),
                 success_count=max(previous.success_count, selected),
                 failure_count=max(previous.failure_count, state.scan_failure_count),
-                review_count=max(previous.review_count, manual),
+                review_count=max(previous.review_count, manual + range_required),
             )
         self._telemetry.increment("persistenceWrites")
         if window_advanced:
@@ -1213,6 +1261,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             self._window_group_count = len(groups)
             self._window_verification_count = state.verification_count
             self._window_manual_count = manual
+            self._window_range_required_count = range_required
 
 
 class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
@@ -1478,29 +1527,62 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             run.last_sequence_number,
             run.sequence_direction,
         )
-        owners = tuple(
-            record
-            for record in records
-            if ImageSelectionGroupStatus(record.status)
-            is not ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE
+        manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
+        proof_first = (
+            manifest is not None and manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
         )
-        duplicates = len(records) - len(owners)
-        expected_duplicates = len(records) - bounds.expected_group_count
-        if len(owners) != bounds.expected_group_count or duplicates != expected_duplicates:
-            raise JobHandlerError(
-                "IMAGE_SELECTION_GROUP_CARDINALITY_MISMATCH",
-                "The committed projection does not have the required logical cardinality.",
+        if proof_first:
+            for group in expected:
+                if group.status is not SelectionGroupStatus.AUTO_SELECTED:
+                    continue
+                selected = group.selected_candidate
+                if (
+                    group.range is None
+                    or selected is None
+                    or selected.recognized_range is None
+                    or (selected.recognized_range.start, selected.recognized_range.end)
+                    != (group.range.start, group.range.end)
+                    or not has_strong_local_range_proof(
+                        selected.recognized_range,
+                        selected.reason_codes,
+                        minimum_confidence=0.90,
+                        label_observations=selected.range_label_observations,
+                        require_position_evidence=True,
+                    )
+                    or bounds.group_index_for_range(group.range) is None
+                    or (
+                        "RANGE_EXPECTED_SEQUENCE_CONFIRMED" in selected.reason_codes
+                        and (group.board_count_consensus is None or group.board_count_consensus < 5)
+                    )
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_RANGE_PROOF_MISSING",
+                        "An automatic selection has no strong local range proof.",
+                    )
+        else:
+            owners = tuple(
+                record
+                for record in records
+                if ImageSelectionGroupStatus(record.status)
+                is not ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE
             )
-        for index, record in enumerate(owners):
-            expected_grid_range = bounds.range_for_group(index)
-            if (record.range_start, record.range_end) != (
-                expected_grid_range.start,
-                expected_grid_range.end,
-            ):
+            duplicates = len(records) - len(owners)
+            expected_duplicates = len(records) - bounds.expected_group_count
+            if len(owners) != bounds.expected_group_count or duplicates != expected_duplicates:
                 raise JobHandlerError(
-                    "IMAGE_SELECTION_SEQUENCE_COVERAGE_MISMATCH",
-                    "The committed projection does not cover the complete sequence grid.",
+                    "IMAGE_SELECTION_GROUP_CARDINALITY_MISMATCH",
+                    "The committed projection does not have the required logical cardinality.",
                 )
+            for index, record in enumerate(owners):
+                expected_grid_range = bounds.range_for_group(index)
+                if (record.range_start, record.range_end) != (
+                    expected_grid_range.start,
+                    expected_grid_range.end,
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_SEQUENCE_COVERAGE_MISMATCH",
+                        "The committed projection does not cover the complete sequence grid.",
+                    )
 
         selected_candidates = tuple(
             session.scalars(
@@ -1525,19 +1607,22 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             SelectionGroupStatus.RANGE_CONFIRMED,
         }
         for record, group in zip(records, expected, strict=True):
-            selected = selected_by_group.get(record.id, [])
+            persisted_selected = selected_by_group.get(record.id, [])
             desired_order = (
                 None
                 if group.selected_candidate is None
                 else group.selected_candidate.source.order_index
             )
             if group.status in ready_statuses:
-                if len(selected) != 1 or selected[0].order_index != desired_order:
+                if (
+                    len(persisted_selected) != 1
+                    or persisted_selected[0].order_index != desired_order
+                ):
                     raise JobHandlerError(
                         "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
                         "The committed representative differs from the reconciled projection.",
                     )
-            elif selected:
+            elif persisted_selected:
                 raise JobHandlerError(
                     "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
                     "A non-ready group retained a selected representative.",
@@ -1711,14 +1796,23 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             .where(
                 ImageSelectionCandidateModel.run_id == run_id,
                 ImageSelectionCandidateModel.group_id == group_id,
-                ImageSelectionCandidateModel.decision
-                == ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                ImageSelectionCandidateModel.decision.in_(
+                    (
+                        ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                        ImageSelectionCandidateDecision.SELECTED_MANUAL,
+                    )
+                ),
             )
             .values(decision=ImageSelectionCandidateDecision.ELIGIBLE)
         )
+        ready_statuses = {
+            SelectionGroupStatus.AUTO_SELECTED,
+            SelectionGroupStatus.MANUALLY_SELECTED,
+            SelectionGroupStatus.RANGE_CONFIRMED,
+        }
         selected_source = (
             None
-            if group.selected_candidate is None
+            if group.selected_candidate is None or group.status not in ready_statuses
             else (
                 group.selected_candidate.source.order_index,
                 group.selected_candidate.source.checksum_sha256,
@@ -1898,6 +1992,10 @@ def _upsert_candidate(
     if candidate.recognized_range is not None:
         metrics["recognizedRangeStart"] = candidate.recognized_range.start
         metrics["recognizedRangeEnd"] = candidate.recognized_range.end
+    if candidate.range_label_observations:
+        metrics["rangeLabelObservations"] = [
+            observation.to_dict() for observation in candidate.range_label_observations
+        ]
     if record is None:
         record = ImageSelectionCandidateModel(
             id=uuid5(
@@ -2025,7 +2123,17 @@ def _candidate_from_record(
         reason_codes=tuple(str(item) for item in record.reason_codes),
         width=record.width,
         height=record.height,
+        range_label_observations=tuple(
+            RangeLabelObservation.from_dict(item)
+            for item in _range_label_observation_values(metrics.get("rangeLabelObservations", []))
+        ),
     )
+
+
+def _range_label_observation_values(value: object) -> tuple[object, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(value)
 
 
 def _quality_from_metrics(metrics: Mapping[str, object]) -> ImageQualityMetrics:

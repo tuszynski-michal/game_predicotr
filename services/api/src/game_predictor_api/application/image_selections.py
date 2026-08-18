@@ -1087,6 +1087,62 @@ class ImageSelectionService:
         run = self.get_run(run_id)
         locked_job = self._lock_run_job(run)
         group = self._get_group(run_id=run_id, group_id=group_id)
+        effective_range_end = range_start + 8 if range_end is None else range_end
+        if effective_range_end - range_start + 1 > 9:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RANGE_INVALID",
+                "A manually confirmed group may contain at most nine layouts.",
+            )
+        existing = self._repository.get_manual_decision(idempotency_key)
+        duplicate_exists = group.status is ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE or any(
+            other.id != group.id
+            and other.status
+            in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.MISSING_IMAGE,
+                ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            }
+            and other.range_start == range_start
+            and other.range_end == effective_range_end
+            for other in self._all_groups(run_id)
+        )
+        if duplicate_exists:
+            proposed_group, proposed = create_duplicate_range_decision(
+                idempotency_key=idempotency_key,
+                group=group,
+                range_start=range_start,
+                range_end=effective_range_end,
+                revision=(
+                    existing.revision
+                    if existing is not None
+                    else self._repository.next_manual_revision(
+                        run_id=run_id,
+                        group_id=group_id,
+                    )
+                ),
+            )
+            if existing is not None:
+                if existing.payload_sha256 != proposed.payload_sha256:
+                    raise ImageSelectionConflictError(
+                        "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                        "The idempotency key was already used for another decision.",
+                    )
+                self._resume_completed_manual_review(
+                    run_id=run_id,
+                    locked_job=locked_job,
+                )
+                return ImageSelectionManualApproval(
+                    replace(proposed_group, updated_at=existing.created_at),
+                    existing,
+                )
+            return self._save_review_decision(
+                run=run,
+                locked_job=locked_job,
+                group=proposed_group,
+                decision=proposed,
+            )
+
         if group.status not in {
             ImageSelectionGroupStatus.RANGE_REQUIRED,
             ImageSelectionGroupStatus.RANGE_CONFIRMED,
@@ -1110,13 +1166,6 @@ class ImageSelectionService:
                 "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                 "The automatic representative no longer exists.",
             )
-        effective_range_end = range_start + 8 if range_end is None else range_end
-        if effective_range_end - range_start + 1 > 9:
-            raise ImageSelectionConflictError(
-                "IMAGE_SELECTION_RANGE_INVALID",
-                "A manually confirmed group may contain at most nine layouts.",
-            )
-        existing = self._repository.get_manual_decision(idempotency_key)
         proposed_group, proposed = create_range_confirmation_decision(
             idempotency_key=idempotency_key,
             group=group,

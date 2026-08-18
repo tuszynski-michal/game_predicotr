@@ -223,12 +223,14 @@ class ImageSelectionRecentWindowResponse(ApiModel):
     groups_finalized: int
     verifications: int
     manual: int
+    range_required: int
 
 
 class ImageSelectionJobProgressResponse(ApiModel):
     groups: int
     selected: int
     manual: int
+    range_required: int
     skipped: int
     errors: int
     verifications: int
@@ -347,6 +349,7 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
             groups=_progress_integer(payload.get("group_count", 0)),
             selected=_progress_integer(payload.get("selected_count", 0)),
             manual=_progress_integer(payload.get("manual_count", 0)),
+            range_required=_progress_integer(payload.get("range_required_count", 0)),
             skipped=_progress_integer(payload.get("skipped_count", 0)),
             errors=_progress_integer(payload.get("error_count", 0)),
             verifications=_progress_integer(payload.get("verification_count", 0)),
@@ -394,6 +397,7 @@ def _image_selection_recent_window(
             groups_finalized=_progress_integer(value["groupsFinalized"]),
             verifications=_progress_integer(value["verifications"]),
             manual=_progress_integer(value["manual"]),
+            range_required=_progress_integer(value.get("rangeRequired", 0)),
         )
     except (KeyError, TypeError, ValueError):
         return None

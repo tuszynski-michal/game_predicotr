@@ -547,6 +547,21 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         original,
         source_relative_path=source_relative_path,
         source_checksum_sha256=hashlib.sha256(source_content).hexdigest(),
+        geometry={
+            **original.geometry,
+            "sequenceLabelQuad": [
+                {"x": 260, "y": 370},
+                {"x": 450, "y": 370},
+                {"x": 450, "y": 395},
+                {"x": 260, "y": 395},
+            ],
+            "sourceContextBounds": {
+                "height": 380,
+                "width": 680,
+                "x": 20,
+                "y": 20,
+            },
+        },
         status="corrected",
         resolved_value={
             "action": "corrected",
@@ -623,6 +638,13 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     assert body["item"]["geometryRevision"] == 1
     assert body["item"]["resolutionRevision"] == 2
     assert body["item"]["resolvedValue"] is None
+    assert body["item"]["geometry"]["sourceContextBounds"] == {
+        "height": 380,
+        "width": 680,
+        "x": 20,
+        "y": 20,
+    }
+    assert body["item"]["geometry"]["sequenceLabelQuad"] == item.geometry["sequenceLabelQuad"]
     assert len(body["geometryRevision"]["cells"]) == 15
     assert all(
         cell["currentSymbolCode"] == cell["predictedSymbolCode"] for cell in body["item"]["cells"]
@@ -657,6 +679,18 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     )
     assert stale.status_code == 409
     assert stale.json()["code"] == "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT"
+
+    second_preview = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
+        params=query,
+        json={
+            "expectedGeometryRevision": 1,
+            "expectedResolutionRevision": 2,
+            "corners": corners,
+        },
+    )
+    assert second_preview.status_code == 200
+    assert second_preview.headers["content-type"] == "image/png"
 
     invalid = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",

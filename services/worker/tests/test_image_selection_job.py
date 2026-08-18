@@ -23,6 +23,8 @@ from game_predictor_api.domain.jobs import (
 from game_predictor_worker.images.selection.adapters import (
     DeterministicParallelCandidateVerifier,
     FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
+    ProofFirstVisibleSequenceLabelRangeRecognizer,
+    SequenceValidatedVisibleSequenceLabelRangeRecognizer,
     TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
 )
 from game_predictor_worker.images.selection.contracts import (
@@ -33,6 +35,7 @@ from game_predictor_worker.images.selection.contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionGroupResult,
     SelectionGroupStatus,
@@ -50,7 +53,9 @@ from game_predictor_worker.images.selection.manifest import (
     DEFAULT_SELECTOR_MANIFEST,
     FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
+    PROOF_FIRST_SELECTOR_MANIFEST_V1019,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
@@ -66,6 +71,13 @@ from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
 
 NOW = datetime(2026, 8, 3, 10, tzinfo=UTC)
+
+
+def _range_proof(start: int) -> tuple[RangeLabelObservation, ...]:
+    return tuple(
+        RangeLabelObservation(position, start + position, 0.96, "layout_anchored")
+        for position in (0, 1, 4)
+    )
 
 
 def _persistence_candidate(order_index: int = 7) -> CandidateResult:
@@ -205,6 +217,14 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
         (
             SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
             TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+            ProofFirstVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+            SequenceValidatedVisibleSequenceLabelRangeRecognizer,
         ),
     ),
 )
@@ -454,6 +474,9 @@ class _Analyzer:
 
 
 class _Verifier:
+    def __init__(self, *, strong_proof: bool = True) -> None:
+        self._strong_proof = strong_proof
+
     def verify(
         self,
         observation: CheapImageObservation,
@@ -467,7 +490,11 @@ class _Verifier:
                 True,
                 True,
             ),
-            range_evidence=RangeEvidence(SequenceRange(1, 9, 0.98)),
+            range_evidence=RangeEvidence(
+                SequenceRange(1, 9, 0.98),
+                (("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",) if self._strong_proof else ()),
+                (_range_proof(1) if self._strong_proof else ()),
+            ),
         )
 
 
@@ -489,7 +516,11 @@ class _PartitionVerifier:
                 True,
                 True,
             ),
-            range_evidence=RangeEvidence(SequenceRange(start, start + 8, 0.98)),
+            range_evidence=RangeEvidence(
+                SequenceRange(start, start + 8, 0.98),
+                ("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                _range_proof(start),
+            ),
         )
 
 
@@ -800,7 +831,7 @@ def test_job_enforces_declared_sequence_group_count_before_publication(
     )
     assert calls == [0, 1, 2]
     assert len(logical_groups) == 1
-    assert logical_groups[0].range == SequenceRange(1, 9, 1.0)
+    assert logical_groups[0].range == SequenceRange(1, 9, 0.98)
     assert store.reconciled_persist_count == 1
     assert store.published is not None
 
@@ -937,7 +968,7 @@ def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
         manifest: SelectorManifest,
     ) -> tuple[_Analyzer, _Verifier]:
         selected_manifests.append(manifest)
-        return _Analyzer(calls=calls), _Verifier()
+        return _Analyzer(calls=calls), _Verifier(strong_proof=False)
 
     handler = ImageSelectionJobHandler(
         store,

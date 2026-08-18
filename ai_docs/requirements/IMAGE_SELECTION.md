@@ -831,3 +831,61 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Dwa różne mocne zakresy wykryte w tym samym wykonanym poziomie są konfliktem
   fail-closed. Zakres spoza zadeklarowanej siatki właściciela również nie może
   uruchomić early exit.
+
+### Proof-first zakres i audyt v10.19 — 2026-08-17
+
+- `auto_selected` wymaga, aby zapisany reprezentant sam dostarczył mocny dowód
+  dokładnie swojego kanonicznego zakresu. Kolejność, deklarowana liczba grup i
+  sąsiednie zakresy nie mogą utworzyć ani zastąpić odczytu OCR.
+- Mocny dowód obejmuje co najmniej trzy różne pozycje plansz, w tym jedną parę
+  sąsiadującą. Wszystkie obserwacje muszą mieć tę samą bazę
+  `sequenceNumber - positionIndex`; dla trasy trzyetykietowej confidence każdej
+  użytej etykiety wynosi co najmniej `0,82`.
+- Dwie etykiety, wynik fuzzy, zakres z liczności, luka oraz kotwica właściciela
+  są wyłącznie sugestią do ręcznego audytu. Grupa pozostaje `range_required`
+  bez kanonicznego `rangeStart/rangeEnd`.
+- Wykrycie tylko części dziewięciu plansz nie blokuje automatu, jeżeli trzy
+  prawidłowo umiejscowione etykiety i jakość wybranego JPEG-a spełniają bramki.
+  Nie wolno syntetyzować niewidocznych etykiet jako odczytów.
+- Reconciler może oznaczyć drugi mocno udowodniony identyczny zakres jako
+  duplikat, lecz nie może wypełniać luk kolejnymi numerami. `skipped_unreadable`
+  oraz `rejected_by_user` nie tworzą zielonego pokrycia wynikowego.
+- UI pokazuje oddzielnie sugestię zakresu i kanoniczny zakres. Dla oglądanego
+  kandydata prezentuje pozycje, odczytane numery, confidence i informację, czy
+  dowód jest mocny; zmiana zdjęcia aktualizuje tylko sugestię formularza.
+- Raport rozdziela automaty z dowodem, ręcznie potwierdzone grupy, zakresy
+  oczekujące, duplikaty i rzeczywiście brakujące zakresy. Stan
+  `waiting_for_review` nie jest błędem procesu, ale nie może udawać pełnej
+  ciągłości.
+- V10.19 zachowuje etapy kwantylowe `50% → 35%+65% → 15%+85%`, wyłącza
+  bezproduktywny poziom OCR 18 i kończy grupę po pierwszym czytelnym kandydacie
+  z mocnym dowodem. Pierwsze i ostatnie zdjęcie nadal nie są próbkami.
+
+### Sekwencyjnie walidowany zakres v10.20 — 2026-08-18
+
+- Deklarowany pełny przedział ustala oczekiwane kolejne zakresy dziewięciu
+  layoutów. Oczekiwany zakres jest wyłącznie hipotezą, którą musi potwierdzić
+  OCR pozycyjny tego samego JPEG-a; nie wolno przypisać go z samego kursora.
+- Poza mocnym dowodem v10.19 automat może zaakceptować dwa dokładne odczyty
+  pozycyjne z pełnej geometrii plansz. Dla częściowego widoku v10.20 wymaga co
+  najmniej trzech pozycji z confidence `>= 0,82`, obejmujących dwie kolumny i
+  dwa wiersze; co najmniej jeden odczyt musi być dokładny, a pozostałe mogą
+  różnić się od oczekiwanej liczby najwyżej jednym znakiem OCR.
+- Mocny niezależny odczyt innego zakresu, konflikt tras, rozmazanie, okluzja
+  albo błąd geometrii blokują promocję. Oczekiwany zakres jest zawsze dokładnie
+  następnym slotem z pełnych granic; nie tworzy się przesuniętych startów `±1`.
+  Jedna obserwacja lub brak wymaganego pokrycia pozostawiają `range_required`.
+- Fizycznych fragmentów może być przejściowo więcej niż oczekiwanych zakresów.
+  Po zablokowaniu wszystkich logicznych właścicieli nadmiarowe fragmenty są
+  oznaczane `skipped_existing_range`, więc liczba właścicieli pozostaje równa
+  liczbie slotów z deklarowanego zakresu.
+  `range_required` jest osobną kolejką i nie jest doliczany do `automat + wybór
+  zdjęcia`. Po ręcznym wskazaniu brakującego zakresu staje się jego właścicielem;
+  wskazanie zakresu istniejącego zapisuje `duplicate_range` i
+  `skipped_existing_range` bez drugiego outputu.
+- Checkpoint oraz API raportują `manual` wyłącznie dla `manual_required` i
+  `rangeRequired` wyłącznie dla `range_required`. Ogólny `review` może być ich
+  sumą, ale UI i raport operatorski muszą pokazywać je osobno.
+- V10.20 ma adapter `visible-sequence-label-range-v18` i fingerprint
+  `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
+  Manifest i fingerprint v10.19 pozostają niezmienne.

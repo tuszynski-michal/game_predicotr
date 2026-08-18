@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('All', 'Api', 'Worker')]
+    [string]$Suite = 'All'
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -8,13 +11,18 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $virtualEnvironmentRoot = Join-Path $repositoryRoot '.venv'
 $pythonPath = Join-Path $virtualEnvironmentRoot 'Scripts\python.exe'
 $pytestTempPath = Join-Path $virtualEnvironmentRoot "pytest-tmp-$PID"
+$testPaths = switch ($Suite) {
+    'Api' { @('services/api/tests') }
+    'Worker' { @('services/worker/tests') }
+    default { @('services/api/tests', 'services/worker/tests') }
+}
 
 if (-not (Test-Path -LiteralPath $pythonPath)) {
     throw 'Python virtual environment is missing. Create .venv before running tests.'
 }
 
 try {
-    & $pythonPath -m pytest services/api/tests services/worker/tests "--basetemp=$pytestTempPath"
+    & $pythonPath -m pytest @testPaths "--basetemp=$pytestTempPath"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

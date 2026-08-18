@@ -442,6 +442,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     select(JobModel.id)
                     .where(
                         JobModel.game_id == game_id,
+                        JobModel.job_type == JobType.SYMBOL_TRAINING,
                         JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
                     )
                     .exists()
@@ -826,9 +827,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         revision = board.geometry_revision + 1
         revised_geometry = dict(artifacts.geometry)
-        sequence_label_quad = board.board_geometry.get("sequenceLabelQuad")
-        if sequence_label_quad is not None:
-            revised_geometry["sequenceLabelQuad"] = sequence_label_quad
+        for retained_key in ("sequenceLabelQuad", "sourceContextBounds"):
+            retained_value = board.board_geometry.get(retained_key)
+            if retained_value is not None and retained_key not in revised_geometry:
+                revised_geometry[retained_key] = retained_value
         record = ImageBoardGeometryRevisionModel(
             review_item_id=review_item_id,
             recognized_board_id=board.id,

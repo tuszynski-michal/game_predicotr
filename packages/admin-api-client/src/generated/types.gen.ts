@@ -1423,9 +1423,29 @@ export type ImageSelectionCandidateResponse = {
    */
   orderIndex: number;
   /**
+   * Rangeconfidence
+   */
+  rangeConfidence?: number | null;
+  /**
+   * Rangelabelobservations
+   */
+  rangeLabelObservations?: Array<ImageSelectionRangeLabelObservationResponse>;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes?: Array<string>;
+  /**
    * Runid
    */
   runId: string;
+  /**
+   * Suggestedrangeend
+   */
+  suggestedRangeEnd?: number | null;
+  /**
+   * Suggestedrangestart
+   */
+  suggestedRangeStart?: number | null;
   /**
    * Width
    */
@@ -1732,6 +1752,10 @@ export type ImageSelectionJobProgressResponse = {
    * Processingdurationseconds
    */
   processingDurationSeconds?: number | null;
+  /**
+   * Rangerequired
+   */
+  rangeRequired: number;
   recentWindow?: ImageSelectionRecentWindowResponse | null;
   /**
    * Selected
@@ -1952,6 +1976,32 @@ export type ImageSelectionRangeConfirmationCommand = {
 };
 
 /**
+ * ImageSelectionRangeLabelObservationResponse
+ */
+export type ImageSelectionRangeLabelObservationResponse = {
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Route
+   */
+  route: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
  * ImageSelectionRecentWindowResponse
  */
 export type ImageSelectionRecentWindowResponse = {
@@ -1971,6 +2021,10 @@ export type ImageSelectionRecentWindowResponse = {
    * Manual
    */
   manual: number;
+  /**
+   * Rangerequired
+   */
+  rangeRequired: number;
   /**
    * Toprocessed
    */

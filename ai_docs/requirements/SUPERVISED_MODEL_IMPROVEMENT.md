@@ -54,6 +54,8 @@ Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
 Wartości 100 i 1000 plansz są progami doradczymi w UI, a nie automatycznym
 wyzwalaczem. Użytkownik może rozpocząć iterację przy innej liczbie, jeżeli
 raport gotowości jawnie pokazuje ryzyko małej lub niezrównoważonej próby.
+Jedynym progiem liczności jest co najmniej jedna kompletna plansza; 5, 10, 63
+lub 100 plansz pozwala uruchomić trening.
 
 ## Podział danych i brak przecieku
 
@@ -114,7 +116,9 @@ Panel Admina dla aktywnej gry pokazuje co najmniej:
 
 - ciężkie etapy działają jako trwały job z checkpointami, postępem i
   możliwością retry,
-- początkowo działa najwyżej jeden ciężki trening lub masowa inferencja naraz,
+- początkowo działa najwyżej jeden ciężki trening lub masowa inferencja naraz;
+  niezależny run Selekcji Zdjęć nie jest błędnie interpretowany jako trwający
+  trening modelu symboli,
 - błąd treningu nie zmienia aktywnego modelu,
 - błąd przeliczenia części oczekujących zachowuje poprzednie predykcje i
   pozwala wznowić operację idempotentnie,

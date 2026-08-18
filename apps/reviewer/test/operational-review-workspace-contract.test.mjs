@@ -46,6 +46,8 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /item\.id,\s*'source'/);
   assert.match(source, /OperationalReviewNativeContext/);
   assert.match(source, /operationalReviewNativeContextViewport/);
+  assert.match(source, /crossOrigin="anonymous"/);
+  assert.match(source, /usage: 'native-context-v2'/);
   assert.match(source, /Edycja dozwolona/);
   assert.match(source, /Brak lokalnego obrazu/);
   assert.match(actions, /IMAGE_REVIEW_CURSOR_STALE/);
@@ -76,6 +78,7 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(geometryEditor, /Array\.from\(\{ length: 15 \}/);
   assert.match(geometryEditor, /previewOperationalReviewGeometry/);
   assert.match(geometryEditor, /saveOperationalReviewGeometry/);
+  assert.match(geometryEditor, /usage: 'geometry-editor-v2'/);
   assert.match(source, /function handleGeometrySaved/);
   assert.match(source, /items: \[updated\]/);
   assert.match(source, /version: cell\.cropChecksumSha256/);

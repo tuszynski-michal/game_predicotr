@@ -53,10 +53,14 @@ from .manifest import (
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS,
+    PROOF_FIRST_SELECTOR_VERSIONS,
+    SEQUENCE_VALIDATED_SELECTOR_VERSION,
     AppearanceDescriptorConfig,
     RangeFreeRepresentativePolicy,
     SelectorManifest,
 )
+from .range_proof import has_strong_local_range_proof
+from .sequence_bounds import SequenceBounds
 
 BEST_AVAILABLE_REASON = "QUALITY_BEST_AVAILABLE"
 CONSENSUS_BACKED_REPRESENTATIVE_REASON = "RANGE_COHERENT_BEST_AVAILABLE"
@@ -535,6 +539,7 @@ class FastImageSelector:
         existing_groups: Iterable[SelectionGroupResult] = (),
         sequence_direction: str = "ascending",
         first_sequence_number: int | None = None,
+        last_sequence_number: int | None = None,
         anchor_first_group: bool = True,
         maximum_group_source_count: int | None = None,
         expected_group_count_for_partitioning: int | None = None,
@@ -549,6 +554,27 @@ class FastImageSelector:
                 "IMAGE_SELECTION_CONFIGURATION_INVALID",
                 "The optional first sequence number must be positive.",
             )
+        sequence_bounds: SequenceBounds | None = None
+        if last_sequence_number is not None:
+            if first_sequence_number is None:
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                    "The last sequence number requires the first sequence number.",
+                )
+            sequence_bounds = SequenceBounds(
+                first_sequence_number,
+                last_sequence_number,
+                sequence_direction,
+            )
+            if (
+                expected_group_count_for_partitioning is not None
+                and expected_group_count_for_partitioning
+                != sequence_bounds.expected_group_count
+            ):
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                    "The expected group count differs from the complete sequence bounds.",
+                )
         if maximum_group_source_count is not None and maximum_group_source_count < 1:
             raise SelectionContractError(
                 "IMAGE_SELECTION_CONFIGURATION_INVALID",
@@ -601,6 +627,23 @@ class FastImageSelector:
                     unresolved_ranges[(group.range.start, group.range.end)] = group.group_order
                 if group.reference_fingerprint_hex is not None:
                     unresolved_fingerprints[group.group_order] = group.reference_fingerprint_hex
+        terminal_range = (
+            None
+            if sequence_bounds is None
+            else sequence_bounds.range_for_group(sequence_bounds.expected_group_count - 1)
+        )
+        terminal_range_seen = terminal_range is not None and any(
+            group.status
+            in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.MANUALLY_SELECTED,
+                SelectionGroupStatus.RANGE_CONFIRMED,
+            }
+            and group.range is not None
+            and (group.range.start, group.range.end)
+            == (terminal_range.start, terminal_range.end)
+            for group in groups
+        )
         current = (
             None
             if resume_state is None or resume_state.current_group is None
@@ -624,9 +667,25 @@ class FastImageSelector:
                 scan_failure_count += 1
             sink.candidate_scanned(observation, group_order=group.group_order)
 
-        def finalize(group: _OpenGroup) -> None:
-            nonlocal verification_count
+        def finalize(
+            group: _OpenGroup,
+            *,
+            expected_range_hint: SequenceRange | None = None,
+        ) -> None:
+            nonlocal terminal_range_seen, verification_count
             previous_groups = tuple(groups)
+            sequence_expected_range_hint = (
+                next_expected_range()
+                if self.manifest.algorithm_version == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                else None
+            )
+            verification_expected_range_hint = expected_range_hint
+            if (
+                verification_expected_range_hint is None
+                and sequence_expected_range_hint is not None
+                and group.source_count <= 2
+            ):
+                verification_expected_range_hint = sequence_expected_range_hint
             legacy_expected_sequence_cursor = (
                 self._next_sequence_cursor(
                     groups,
@@ -656,6 +715,8 @@ class FastImageSelector:
                 first_sequence_number=first_sequence_number,
                 anchor_first_group=anchor_first_group,
                 sequence_direction=sequence_direction,
+                expected_range_hint=verification_expected_range_hint,
+                sequence_expected_range_hint=sequence_expected_range_hint,
             )
             verification_count += count
             for before, after in zip(previous_groups, groups, strict=True):
@@ -691,6 +752,14 @@ class FastImageSelector:
                 groups.append(finalized)
                 sink.group_finalized(finalized)
                 if (
+                    terminal_range is not None
+                    and finalized.status is SelectionGroupStatus.AUTO_SELECTED
+                    and finalized.range is not None
+                    and (finalized.range.start, finalized.range.end)
+                    == (terminal_range.start, terminal_range.end)
+                ):
+                    terminal_range_seen = True
+                if (
                     self.manifest.algorithm_version in EXACT_MULTI_GAP_SELECTOR_VERSIONS
                     and finalized.status is SelectionGroupStatus.AUTO_SELECTED
                     and finalized.range is not None
@@ -705,11 +774,42 @@ class FastImageSelector:
                         sink.group_finalized(recovered)
 
         first_source_index = 0 if resume_state is None else resume_state.checkpoint.next_order_index
+
+        def next_expected_range() -> SequenceRange | None:
+            if sequence_bounds is None:
+                return None
+            previous = next(
+                (group.range for group in reversed(groups) if group.range is not None),
+                None,
+            )
+            if previous is None:
+                return sequence_bounds.range_for_group(0)
+            previous_index = sequence_bounds.group_index_for_range(previous)
+            if previous_index is None or previous_index + 1 >= sequence_bounds.expected_group_count:
+                return None
+            return sequence_bounds.range_for_group(previous_index + 1)
+
         for observation in self._analyze_in_source_order(
             ordered_sources[first_source_index:],
             analyzer=analyzer,
         ):
             processed_count += 1
+            if terminal_range_seen and current is not None:
+                for item in pending:
+                    ingest(current, item)
+                pending.clear()
+                ingest(current, observation)
+                if processed_count % self.manifest.scan_batch_size == 0:
+                    self._save_state(
+                        sink,
+                        processed_count=processed_count,
+                        groups=groups,
+                        current=current,
+                        pending=pending,
+                        scan_failure_count=scan_failure_count,
+                        verification_count=verification_count,
+                    )
+                continue
             adaptive_group_source_count = (
                 None
                 if expected_group_count_for_partitioning is None or current is None
@@ -771,9 +871,32 @@ class FastImageSelector:
             elif pending:
                 if self._hybrid_bounded:
                     if self._is_changed_from_group_majority(current, observation):
-                        pending.append(observation)
-                        if len(pending) >= self.manifest.boundary_confirmation_count:
+                        preserve_singleton = (
+                            self.manifest.algorithm_version
+                            == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                            and len(pending) == 1
+                            and not self._pending_matches(pending[-1], observation)
+                            and (
+                                expected_group_count_for_partitioning is None
+                                or len(groups) + 1 < expected_group_count_for_partitioning
+                            )
+                            and _is_reasonably_readable_observation(
+                                pending[0],
+                                policy=self._representative_policy,
+                            )
+                        )
+                        if preserve_singleton:
                             finalize(current)
+                            singleton = _OpenGroup(
+                                group_order=len(groups),
+                                top_k=self.manifest.top_k,
+                                prefer_first_usable=self._prefer_first_usable,
+                                appearance_only=self._appearance_grouping,
+                                representative_policy=self._representative_policy,
+                            )
+                            ingest(singleton, pending[0])
+                            pending.clear()
+                            finalize(singleton, expected_range_hint=next_expected_range())
                             current = _OpenGroup(
                                 group_order=len(groups),
                                 top_k=self.manifest.top_k,
@@ -781,9 +904,33 @@ class FastImageSelector:
                                 appearance_only=self._appearance_grouping,
                                 representative_policy=self._representative_policy,
                             )
-                            for item in pending:
-                                ingest(current, item)
-                            pending.clear()
+                            ingest(current, observation)
+                        else:
+                            pending.append(observation)
+                            if len(pending) >= self.manifest.boundary_confirmation_count:
+                                readable_boundary = (
+                                    self.manifest.algorithm_version
+                                    != SEQUENCE_VALIDATED_SELECTOR_VERSION
+                                    or any(
+                                        _is_reasonably_readable_observation(
+                                            item,
+                                            policy=self._representative_policy,
+                                        )
+                                        for item in pending
+                                    )
+                                )
+                                if readable_boundary:
+                                    finalize(current)
+                                    current = _OpenGroup(
+                                        group_order=len(groups),
+                                        top_k=self.manifest.top_k,
+                                        prefer_first_usable=self._prefer_first_usable,
+                                        appearance_only=self._appearance_grouping,
+                                        representative_policy=self._representative_policy,
+                                    )
+                                for item in pending:
+                                    ingest(current, item)
+                                pending.clear()
                     else:
                         for item in pending:
                             ingest(current, item)
@@ -811,17 +958,33 @@ class FastImageSelector:
                 if self._pending_matches(pending_anchor, observation):
                     pending.append(observation)
                     if len(pending) >= self.manifest.boundary_confirmation_count:
-                        finalize(current)
-                        current = _OpenGroup(
-                            group_order=len(groups),
-                            top_k=self.manifest.top_k,
-                            prefer_first_usable=self._prefer_first_usable,
-                            appearance_only=self._appearance_grouping,
-                            representative_policy=self._representative_policy,
+                        readable_boundary = (
+                            self.manifest.algorithm_version
+                            != SEQUENCE_VALIDATED_SELECTOR_VERSION
+                            or any(
+                                _is_reasonably_readable_observation(
+                                    item,
+                                    policy=self._representative_policy,
+                                )
+                                for item in pending
+                            )
                         )
-                        for item in pending:
-                            ingest(current, item)
-                        pending.clear()
+                        if readable_boundary:
+                            finalize(current)
+                            current = _OpenGroup(
+                                group_order=len(groups),
+                                top_k=self.manifest.top_k,
+                                prefer_first_usable=self._prefer_first_usable,
+                                appearance_only=self._appearance_grouping,
+                                representative_policy=self._representative_policy,
+                            )
+                            for item in pending:
+                                ingest(current, item)
+                            pending.clear()
+                        else:
+                            for item in pending:
+                                ingest(current, item)
+                            pending.clear()
                 else:
                     # One visually different frame is not a confirmed page
                     # boundary. It is commonly a transition animation, glare,
@@ -832,16 +995,51 @@ class FastImageSelector:
                         self._is_changed_from_group_majority(current, observation)
                         or self._is_boundary_candidate(current, observation)
                     )
-                    for item in pending:
-                        ingest(current, item)
-                    pending.clear()
-                    if self._appearance_grouping:
-                        restart_confirmation = appearance_restart
+                    preserve_singleton = (
+                        self.manifest.algorithm_version
+                        == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                        and len(pending) == 1
+                        and appearance_restart
+                        and (
+                            expected_group_count_for_partitioning is None
+                            or len(groups) + 1 < expected_group_count_for_partitioning
+                        )
+                        and _is_reasonably_readable_observation(
+                            pending[0],
+                            policy=self._representative_policy,
+                        )
+                    )
+                    if preserve_singleton:
+                        finalize(current)
+                        singleton = _OpenGroup(
+                            group_order=len(groups),
+                            top_k=self.manifest.top_k,
+                            prefer_first_usable=self._prefer_first_usable,
+                            appearance_only=self._appearance_grouping,
+                            representative_policy=self._representative_policy,
+                        )
+                        ingest(singleton, pending[0])
+                        pending.clear()
+                        finalize(singleton, expected_range_hint=next_expected_range())
+                        current = _OpenGroup(
+                            group_order=len(groups),
+                            top_k=self.manifest.top_k,
+                            prefer_first_usable=self._prefer_first_usable,
+                            appearance_only=self._appearance_grouping,
+                            representative_policy=self._representative_policy,
+                        )
+                        restart_confirmation = False
                     else:
-                        restart_confirmation = (
-                            self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS
-                            and self._is_changed_from_group_majority(current, observation)
-                        ) or self._is_boundary_candidate(current, observation)
+                        for item in pending:
+                            ingest(current, item)
+                        pending.clear()
+                        if self._appearance_grouping:
+                            restart_confirmation = appearance_restart
+                        else:
+                            restart_confirmation = (
+                                self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS
+                                and self._is_changed_from_group_majority(current, observation)
+                            ) or self._is_boundary_candidate(current, observation)
                     if restart_confirmation:
                         pending.append(observation)
                     else:
@@ -875,7 +1073,10 @@ class FastImageSelector:
                 for observation in pending:
                     ingest(current, observation)
             finalize(current)
-        if self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS:
+        if (
+            self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
+            and self.manifest.algorithm_version not in PROOF_FIRST_SELECTOR_VERSIONS
+        ):
             recovered_groups = self._recover_bounded_best_available_groups(groups)
             for index, recovered in enumerate(recovered_groups):
                 if recovered != groups[index]:
@@ -1141,6 +1342,8 @@ class FastImageSelector:
         first_sequence_number: int | None,
         anchor_first_group: bool,
         sequence_direction: str,
+        expected_range_hint: SequenceRange | None = None,
+        sequence_expected_range_hint: SequenceRange | None = None,
     ) -> tuple[SelectionGroupResult, int]:
         if group.reference is None:
             raise SelectionContractError(
@@ -1167,7 +1370,13 @@ class FastImageSelector:
         range_stop_reason: str | None = None
         if adaptive_policy is None:
             for observation in observations_to_verify:
-                verification = verifier.verify(observation, expected_board_count=consensus)
+                verification = self._verify_candidate_batch(
+                    verifier,
+                    (observation,),
+                    expected_board_count=consensus,
+                    include_range_evidence=True,
+                    expected_range_hint=expected_range_hint,
+                )[0]
                 verification = self._enforce_owner_range_alignment(
                     verification,
                     first_sequence_number=first_sequence_number,
@@ -1233,6 +1442,7 @@ class FastImageSelector:
                         level_observations,
                         expected_board_count=consensus,
                         include_range_evidence=True,
+                        expected_range_hint=expected_range_hint,
                     )
                     level_results = tuple(
                         self._enforce_owner_range_alignment(
@@ -1252,6 +1462,20 @@ class FastImageSelector:
                     )
                     range_evidence_conflict = range_evidence_conflict or conflict
                     if range_consensus is not None and not range_evidence_conflict:
+                        expected_mismatch = (
+                            sequence_expected_range_hint is not None
+                            and (
+                                range_consensus.start,
+                                range_consensus.end,
+                            )
+                            != (
+                                sequence_expected_range_hint.start,
+                                sequence_expected_range_hint.end,
+                            )
+                            and next_index < verification_levels[-1]
+                        )
+                        if expected_mismatch:
+                            continue
                         range_stop_reason = "confirmed"
                         break
             stop_after_confirmation = (
@@ -1724,10 +1948,21 @@ class FastImageSelector:
                 range_conflict=range_conflict,
             )
             own_key = None if own_range is None else (own_range.start, own_range.end)
+            has_own_strong_proof = has_strong_local_range_proof(
+                own_range,
+                verification.range_evidence.reason_codes,
+                minimum_confidence=representative_range_threshold,
+                label_observations=verification.range_evidence.label_observations,
+                require_position_evidence=True,
+            )
             exact_range_match = (
                 own_range is not None
                 and own_range.confidence >= representative_range_threshold
                 and own_key == expected_key
+                and (
+                    self.manifest.algorithm_version not in PROOF_FIRST_SELECTOR_VERSIONS
+                    or has_own_strong_proof
+                )
             )
             accepted_by_standard_gate = checked.decision is CandidateDecision.ELIGIBLE
             accepted_by_consensus_gate = (
@@ -1902,8 +2137,11 @@ class FastImageSelector:
 
         if (
             self.manifest.algorithm_version not in LABEL_LATTICE_SAFE_SELECTOR_VERSIONS
-            or result.status is not SelectionGroupStatus.AUTO_SELECTED
-            or result.range is None
+            or result.status
+            not in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.RANGE_REQUIRED,
+            }
             or first_sequence_number is None
             or group.last_source_order_index is None
         ):
@@ -1915,15 +2153,31 @@ class FastImageSelector:
             if (
                 recognized is None
                 or recognized.confidence < threshold
-                or "RANGE_CONFLICT" in candidate.reason_codes
+                or (
+                    "RANGE_CONFLICT" in candidate.reason_codes
+                    and (
+                        self.manifest.algorithm_version
+                        != SEQUENCE_VALIDATED_SELECTOR_VERSION
+                        or not has_strong_local_range_proof(
+                            recognized,
+                            (
+                                reason
+                                for reason in candidate.reason_codes
+                                if reason not in {"RANGE_CONFLICT", "RANGE_OWNER_ANCHOR"}
+                            ),
+                            minimum_confidence=threshold,
+                            label_observations=candidate.range_label_observations,
+                            require_position_evidence=True,
+                        )
+                    )
+                )
             ):
                 continue
             anchor = recognized.start if sequence_direction == "ascending" else recognized.end
             if abs(anchor - first_sequence_number) % recognized.board_count != 0:
                 continue
             by_range.setdefault((recognized.start, recognized.end), []).append(candidate)
-        selected_key = (result.range.start, result.range.end)
-        if selected_key not in by_range or len(by_range) < 2:
+        if len(by_range) < 2:
             return (result,)
 
         ordered_evidence = sorted(
@@ -1943,9 +2197,23 @@ class FastImageSelector:
         representatives: list[tuple[tuple[int, int], CandidateResult]] = []
         for key, candidates in ordered_evidence:
             usable = tuple(
-                candidate
+                replace(
+                    candidate,
+                    reason_codes=tuple(
+                        reason for reason in candidate.reason_codes if reason != "RANGE_CONFLICT"
+                    ),
+                )
                 for candidate in candidates
-                if self._can_use_inferred_best_available(candidate)
+                if self._can_use_inferred_best_available(
+                    replace(
+                        candidate,
+                        reason_codes=tuple(
+                            reason
+                            for reason in candidate.reason_codes
+                            if reason not in {"RANGE_CONFLICT", "RANGE_OWNER_ANCHOR"}
+                        ),
+                    )
+                )
             )
             if not usable:
                 return (result,)
@@ -1987,7 +2255,13 @@ class FastImageSelector:
             reasons = tuple(
                 reason
                 for reason in representative.reason_codes
-                if reason not in {"REPRESENTATIVE_RANGE_MISMATCH", "RANGE_UNKNOWN"}
+                if reason
+                not in {
+                    "RANGE_CONFLICT",
+                    "RANGE_OWNER_ANCHOR",
+                    "REPRESENTATIVE_RANGE_MISMATCH",
+                    "RANGE_UNKNOWN",
+                }
             )
             selected = replace(
                 representative,
@@ -2016,6 +2290,7 @@ class FastImageSelector:
                     group_order=result.group_order + offset,
                     source_count=source_counts[offset],
                     range=recognized,
+                    status=SelectionGroupStatus.AUTO_SELECTED,
                     selected_candidate=selected,
                     top_candidates=self._rank_candidates(range_candidates, recognized),
                 )
@@ -2175,6 +2450,16 @@ class FastImageSelector:
                 recognized is None
                 or recognized.confidence < self.manifest.thresholds.minimum_range_confidence
                 or "RANGE_OCR_FUZZY_CANDIDATE" in reasons
+                or (
+                    self.manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                    and not has_strong_local_range_proof(
+                        recognized,
+                        reasons,
+                        minimum_confidence=self.manifest.thresholds.minimum_range_confidence,
+                        label_observations=verification.range_evidence.label_observations,
+                        require_position_evidence=True,
+                    )
+                )
             ):
                 continue
             evidence.setdefault((recognized.start, recognized.end), []).append(
@@ -2286,9 +2571,24 @@ class FastImageSelector:
         *,
         expected_board_count: int | None,
         include_range_evidence: bool,
+        expected_range_hint: SequenceRange | None = None,
     ) -> tuple[CandidateVerification, ...]:
+        verify_expected = getattr(verifier, "verify_expected", None)
         verify_many = getattr(verifier, "verify_many", None)
-        if callable(verify_many):
+        if (
+            include_range_evidence
+            and expected_range_hint is not None
+            and callable(verify_expected)
+        ):
+            results = tuple(
+                verify_expected(
+                    observation,
+                    expected_board_count=expected_board_count,
+                    expected_range=expected_range_hint,
+                )
+                for observation in observations
+            )
+        elif callable(verify_many):
             results = tuple(
                 verify_many(
                     observations,
@@ -2744,6 +3044,7 @@ class FastImageSelector:
                 reason_codes=reasons,
                 width=observation.width,
                 height=observation.height,
+                range_label_observations=verification.range_evidence.label_observations,
             )
         recognized_range = verification.range_evidence.recognized_range
         representative = verification.representative
@@ -2836,6 +3137,7 @@ class FastImageSelector:
             reason_codes=unique_reasons,
             width=observation.width,
             height=observation.height,
+            range_label_observations=verification.range_evidence.label_observations,
         )
 
     def _is_first_usable_verification(
@@ -2849,7 +3151,20 @@ class FastImageSelector:
         if (
             recognized_range is None
             or recognized_range.confidence < self.manifest.thresholds.minimum_range_confidence
-            or verification.board_count != recognized_range.board_count
+            or (
+                self.manifest.algorithm_version not in PROOF_FIRST_SELECTOR_VERSIONS
+                and verification.board_count != recognized_range.board_count
+            )
+            or (
+                self.manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                and not has_strong_local_range_proof(
+                    recognized_range,
+                    verification.range_evidence.reason_codes,
+                    minimum_confidence=self.manifest.thresholds.minimum_range_confidence,
+                    label_observations=verification.range_evidence.label_observations,
+                    require_position_evidence=True,
+                )
+            )
         ):
             return False
         candidate = self._candidate_result(

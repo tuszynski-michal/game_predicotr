@@ -342,6 +342,15 @@ class MemoryImageSelectionRepository:
                         else candidate.decision
                     )
                 )
+            elif (
+                decision.resolution is ImageSelectionManualResolution.DUPLICATE_RANGE
+                and candidate.decision
+                in {
+                    ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                    ImageSelectionCandidateDecision.SELECTED_MANUAL,
+                }
+            ):
+                expected = ImageSelectionCandidateDecision.ELIGIBLE
             self.candidates[index] = ImageSelectionCandidate(
                 id=candidate.id,
                 run_id=candidate.run_id,
@@ -501,9 +510,23 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         checksum_sha256=hashlib.sha256(content).hexdigest(),
         width=120,
         height=80,
-        quality_metrics={"displayName": "camera-0001.jpg", "groupSourceCount": 1},
-        range_confidence=None,
-        reason_codes=("REPRESENTATIVE_RANGE_UNKNOWN",),
+        quality_metrics={
+            "displayName": "camera-0001.jpg",
+            "groupSourceCount": 1,
+            "recognizedRangeStart": 1,
+            "recognizedRangeEnd": 9,
+            "rangeLabelObservations": [
+                {
+                    "confidence": 0.96,
+                    "positionIndex": 4,
+                    "rangeStart": 1,
+                    "route": "label_lattice",
+                    "sequenceNumber": 5,
+                }
+            ],
+        },
+        range_confidence=0.94,
+        reason_codes=("RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT",),
         decision=ImageSelectionCandidateDecision.ELIGIBLE,
         created_at=datetime(2026, 8, 9, tzinfo=UTC),
     )
@@ -524,10 +547,30 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         preview = client.get(
             f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates/{candidate.id}/file"
         )
+        candidates = client.get(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates"
+        )
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.14"
+    assert (
+        history.json()["items"][0]["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    )
+    assert candidates.status_code == 200, candidates.text
+    candidate_payload = candidates.json()["items"][0]
+    assert candidate_payload["suggestedRangeStart"] == 1
+    assert candidate_payload["suggestedRangeEnd"] == 9
+    assert candidate_payload["rangeConfidence"] == 0.94
+    assert candidate_payload["reasonCodes"] == ["RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT"]
+    assert candidate_payload["rangeLabelObservations"] == [
+        {
+            "confidence": 0.96,
+            "positionIndex": 4,
+            "rangeStart": 1,
+            "route": "label_lattice",
+            "sequenceNumber": 5,
+        }
+    ]
     assert history.json()["items"][0]["sequenceRangeStart"] == 1
     assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
@@ -634,7 +677,7 @@ def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
     assert preview["problemGroupCount"] == 1
     assert preview["candidateCount"] == 1
     assert preview["blockCount"] == 1
-    assert preview["selectorVersion"] == "fast-image-selector-v10.14"
+    assert preview["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
     assert first.status_code == 200, first.text
     assert repeated.status_code == 200, repeated.text
     assert first.json()["created"] is True
@@ -1185,6 +1228,64 @@ def test_range_queue_accepts_start_only_and_changes_representative() -> None:
     assert confirmed.json()["group"]["selectedCandidateId"] == str(replacement.id)
     assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
     assert repository.candidates[1].decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+
+
+def test_range_queue_joins_an_existing_range_without_conflict() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="7" * 64,
+        selector_fingerprint="6" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW, review_count=1),
+    )
+    owner = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.AUTO_SELECTED),
+        range_start=1,
+        range_end=9,
+    )
+    unresolved = _group(run.id, 1, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    candidate = replace(
+        _manual_candidate(run.id, unresolved.id, 1),
+        decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+    )
+    unresolved = replace(unresolved, selected_candidate_id=candidate.id)
+    repository.groups.extend((owner, unresolved))
+    repository.candidates.append(candidate)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    key = uuid4()
+    command = {
+        "idempotencyKey": str(key),
+        "rangeStart": 1,
+    }
+
+    with client:
+        joined = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{unresolved.id}/confirm-range",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{unresolved.id}/confirm-range",
+            json=command,
+        )
+
+    assert joined.status_code == 200, joined.text
+    assert replay.json() == joined.json()
+    assert joined.json()["group"]["status"] == "skipped_existing_range"
+    assert joined.json()["group"]["selectedCandidateId"] is None
+    assert joined.json()["decision"]["resolution"] == "duplicate_range"
+    assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
+    assert len(repository.manual_decisions) == 1
 
 
 @pytest.mark.parametrize(

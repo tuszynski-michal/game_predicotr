@@ -71,6 +71,7 @@ def _job_progress(job: dict[str, Any]) -> dict[str, object]:
         "groups": selection_progress.get("groups", 0),
         "selected": selection_progress.get("selected", 0),
         "manual": selection_progress.get("manual", 0),
+        "rangeRequired": selection_progress.get("rangeRequired", 0),
         "skipped": selection_progress.get("skipped", 0),
         "errors": selection_progress.get("errors", 0),
         "verifications": selection_progress.get("verifications", 0),
@@ -299,6 +300,10 @@ def _selection_coverage(
 
     owners = [group for group in groups if group.get("status") != "skipped_existing_range"]
     duplicates = len(groups) - len(owners)
+    proof_first = run.get("selectorVersion") in {
+        "fast-image-selector-v10.19",
+        "fast-image-selector-v10.20",
+    }
     expected_ranges = _expected_ranges(run)
     expected_count = run.get("expectedGroupCount")
     if not isinstance(expected_count, int) and expected_ranges is not None:
@@ -317,6 +322,17 @@ def _selection_coverage(
     duplicate_ranges = sorted(item for item, count in range_counts.items() if count > 1)
     off_grid = sorted(item for item in range_counts if item not in expected_set)
     ordered_ranges_match = expected_ranges is not None and owner_ranges == expected_ranges
+    automatic_groups = [group for group in owners if group.get("status") == "auto_selected"]
+    automatic_ranges_present = all(
+        isinstance(group.get("rangeStart"), int) and isinstance(group.get("rangeEnd"), int)
+        for group in automatic_groups
+    )
+    range_projection_conflict_free = bool(
+        expected_ranges is not None
+        and automatic_ranges_present
+        and not duplicate_ranges
+        and not off_grid
+    )
     logical_coverage_valid = bool(
         isinstance(expected_count, int)
         and len(owners) == expected_count
@@ -331,7 +347,22 @@ def _selection_coverage(
         "physicalGroups": len(groups),
         "expectedLogicalGroups": expected_count,
         "logicalGroups": len(owners),
+        "resolvedRangeGroups": len(owner_ranges),
         "duplicateGroups": duplicates,
+        "provenAutomaticGroups": len(automatic_groups),
+        "manuallyConfirmedGroups": sum(
+            status_counts.get(status, 0) for status in ("manually_selected", "range_confirmed")
+        ),
+        "unresolvedRangeGroups": sum(
+            1
+            for group in owners
+            if not isinstance(group.get("rangeStart"), int)
+            or not isinstance(group.get("rangeEnd"), int)
+        ),
+        "unreadableOrRejectedGroups": sum(
+            status_counts.get(status, 0)
+            for status in ("missing_image", "skipped_unreadable", "rejected_by_user")
+        ),
         "groupStatusCounts": status_counts,
         "missingRanges": [{"rangeStart": start, "rangeEnd": end} for start, end in missing],
         "duplicateRanges": [
@@ -339,6 +370,8 @@ def _selection_coverage(
         ],
         "offGridRanges": [{"rangeStart": start, "rangeEnd": end} for start, end in off_grid],
         "logicalCoverageValid": logical_coverage_valid,
+        "rangeProjectionConflictFree": range_projection_conflict_free,
+        "proofFirstRun": proof_first,
     }
 
 
@@ -439,7 +472,11 @@ def _finalize_terminal_run(
     saved_now = 0
     job = run.get("job")
     job_status = job.get("status") if isinstance(job, dict) else None
-    if job_status in {"completed", "waiting_for_review"} and coverage["logicalCoverageValid"]:
+    may_reconcile_ready_output = bool(
+        coverage["logicalCoverageValid"]
+        or (coverage["proofFirstRun"] and coverage["rangeProjectionConflictFree"])
+    )
+    if job_status in {"completed", "waiting_for_review"} and may_reconcile_ready_output:
         saved_now = _reconcile_terminal_output(
             client,
             run_id,
@@ -452,6 +489,18 @@ def _finalize_terminal_run(
         output_coverage["outputCoverageValid"] = False
     coverage.update(output_coverage)
     return coverage, saved_now, cursor
+
+
+def _terminal_report_is_success(job_status: object, report: dict[str, object]) -> bool:
+    if job_status == "completed":
+        return bool(report["logicalCoverageValid"] and report["outputCoverageValid"])
+    if job_status != "waiting_for_review":
+        return False
+    if report.get("proofFirstRun") is True:
+        return bool(
+            report.get("rangeProjectionConflictFree") is True and report["outputCoverageValid"]
+        )
+    return bool(report["logicalCoverageValid"] and report["outputCoverageValid"])
 
 
 def _parse_args() -> argparse.Namespace:
@@ -592,6 +641,7 @@ def _resume_existing(options: argparse.Namespace) -> int:
                             "groups",
                             "selected",
                             "manual",
+                            "rangeRequired",
                             "skipped",
                             "errors",
                             "verifications",
@@ -629,13 +679,7 @@ def _resume_existing(options: argparse.Namespace) -> int:
                         flush=True,
                     )
                 _write_report(options.report, report)
-                return (
-                    0
-                    if job["status"] in {"completed", "waiting_for_review"}
-                    and report["logicalCoverageValid"]
-                    and report["outputCoverageValid"]
-                    else 1
-                )
+                return 0 if _terminal_report_is_success(job["status"], report) else 1
             saved_now, export_cursor = _save_ready_groups(
                 client,
                 run_id,
@@ -857,6 +901,7 @@ def main() -> int:
                             "groups",
                             "selected",
                             "manual",
+                            "rangeRequired",
                             "skipped",
                             "errors",
                             "verifications",
@@ -894,13 +939,7 @@ def main() -> int:
                         flush=True,
                     )
                 _write_report(options.report, report)
-                return (
-                    0
-                    if job["status"] in {"completed", "waiting_for_review"}
-                    and report["logicalCoverageValid"]
-                    and report["outputCoverageValid"]
-                    else 1
-                )
+                return 0 if _terminal_report_is_success(job["status"], report) else 1
             saved_now, export_cursor = _save_ready_groups(
                 client,
                 run_id,

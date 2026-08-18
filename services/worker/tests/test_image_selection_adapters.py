@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from _thread import LockType
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from statistics import StatisticsError
@@ -37,6 +38,8 @@ from game_predictor_worker.images.selection.adapters import (
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PillowThumbnailLoader,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
+    ProofFirstVisibleSequenceLabelRangeRecognizer,
+    SequenceValidatedVisibleSequenceLabelRangeRecognizer,
     TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     _VisibleLabel,
@@ -55,6 +58,7 @@ from game_predictor_worker.images.selection.contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SequenceRange,
 )
@@ -103,7 +107,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.18"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.20"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -317,6 +321,15 @@ class _BatchCandidateVerifier:
                     SequenceRange(start, start + 8, 0.95) if include_range_evidence else None
                 ),
                 reason_codes=(),
+                label_observations=(
+                    (
+                        RangeLabelObservation(0, start, 0.96, "label_lattice"),
+                        RangeLabelObservation(1, start + 1, 0.95, "label_lattice"),
+                        RangeLabelObservation(4, start + 4, 0.94, "label_lattice"),
+                    )
+                    if include_range_evidence
+                    else ()
+                ),
             ),
         )
 
@@ -1859,6 +1872,356 @@ def test_v10_12_rejects_ambiguous_two_label_lattice_hypotheses() -> None:
     assert reasons == ("RANGE_LABEL_LATTICE_WEAK_AMBIGUOUS",)
 
 
+def test_v10_19_accepts_three_position_lattice_only_with_an_adjacent_pair() -> None:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for position in range(9):
+        crop = np.full((20, 120, 3), position + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+            )
+        )
+        recognitions[id(crop)] = (
+            Recognition(str(5000 + position), 0.94)
+            if position in {1, 2, 7}
+            else Recognition("", 0.0)
+        )
+
+    class _Scripted(ProofFirstVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    result = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+    recognized, reasons = result
+
+    assert recognized == SequenceRange(5000, 5008, 0.94)
+    assert reasons == ("RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT",)
+    assert tuple(
+        (item.position_index, item.sequence_number, item.route)
+        for item in result.label_observations
+    ) == (
+        (1, 5001, "label_lattice"),
+        (2, 5002, "label_lattice"),
+        (7, 5007, "label_lattice"),
+    )
+
+
+def test_v10_19_rejects_three_non_adjacent_or_only_two_position_labels() -> None:
+    recognizer = ProofFirstVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+    labels = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 120, 3), position + 1, dtype=np.uint8),
+            center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+        )
+        for position in range(9)
+    )
+
+    non_adjacent = tuple(
+        Recognition(str(7000 + position), 0.96) if position in {1, 4, 7} else Recognition("", 0.0)
+        for position in range(9)
+    )
+    two_only = tuple(
+        Recognition(str(7000 + position), 0.96) if position in {1, 2} else Recognition("", 0.0)
+        for position in range(9)
+    )
+
+    assert recognizer._three_label_hypotheses(labels, non_adjacent, (1080, 1920)) == []
+    assert recognizer._three_label_hypotheses(labels, two_only, (1080, 1920)) == []
+    assert (
+        recognizer._anchored_evidence_hypotheses(
+            {position: non_adjacent[position] for position in {1, 4, 7}}
+        )
+        == ()
+    )
+
+
+def test_v10_19_anchored_three_label_proof_records_its_provenance() -> None:
+    recognizer = ProofFirstVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+    evidence = recognizer._anchored_evidence_hypotheses(
+        {
+            1: Recognition("8101", 0.96),
+            2: Recognition("8102", 0.95),
+            7: Recognition("8107", 0.94),
+        }
+    )
+
+    assert evidence == ((SequenceRange(8100, 8108, 0.94), "three"),)
+    recognized, reasons = recognizer._record_anchored_resolution(evidence[0])
+    assert recognized == SequenceRange(8100, 8108, 0.94)
+    assert "RANGE_PROOF_MINIMUM_THREE_POSITIONS" in reasons
+    assert "RANGE_PROOF_ADJACENT_PAIR" in reasons
+
+
+def test_v10_20_preserves_two_position_board_evidence_for_sequence_validation() -> None:
+    recognizer = SequenceValidatedVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+    evidence = recognizer._anchored_evidence_hypotheses(
+        {
+            1: Recognition("9101", 0.96),
+            6: Recognition("9106", 0.84),
+        },
+        observed_positions={0, 1, 2, 3, 4, 6},
+    )
+
+    assert evidence == ((SequenceRange(9100, 9108, 0.82), "two"),)
+    recognized, reasons = recognizer._record_anchored_resolution(evidence[0])
+    result = recognizer._proof_result(recognized, reasons)
+
+    assert result.recognized_range == SequenceRange(9100, 9108, 0.82)
+    assert tuple(
+        (item.position_index, item.sequence_number, item.route)
+        for item in result.label_observations
+    ) == (
+        (1, 9101, "layout_anchored_suggestion"),
+        (6, 9106, "layout_anchored_suggestion"),
+    )
+
+
+def test_v10_20_maps_clear_partial_two_by_two_label_window_to_board_positions() -> None:
+    labels = (
+        _VisibleLabel(
+            crop=np.full((44, 154, 3), 1, dtype=np.uint8),
+            center=(555.0, 888.0),
+        ),
+        _VisibleLabel(
+            crop=np.full((59, 177, 3), 2, dtype=np.uint8),
+            center=(840.0, 912.0),
+        ),
+        _VisibleLabel(
+            crop=np.full((62, 173, 3), 3, dtype=np.uint8),
+            center=(527.0, 1062.0),
+        ),
+        _VisibleLabel(
+            crop=np.full((72, 197, 3), 4, dtype=np.uint8),
+            center=(822.0, 1089.0),
+        ),
+    )
+    recognizer = SequenceValidatedVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+    recognizer._use_viewport_lattice = True
+
+    positions = recognizer._label_lattice_positions(labels, (2704, 1520))
+    hypotheses = recognizer._three_label_hypotheses(
+        labels,
+        (
+            Recognition("379909", 0.99),
+            Recognition("379910", 0.99),
+            Recognition("379912", 0.98),
+            Recognition("379913", 0.91),
+        ),
+        (2704, 1520),
+    )
+
+    assert positions == {0: 0, 1: 1, 2: 3, 3: 4}
+    assert hypotheses[0][1] == SequenceRange(379909, 379917, 0.94)
+
+
+@pytest.mark.parametrize(
+    ("recognitions", "expected_recognized"),
+    (
+        (
+            (
+                Recognition("100", 0.96),
+                Recognition("10I", 0.95),
+                Recognition("1O3", 0.94),
+                Recognition("noise", 0.93),
+            ),
+            True,
+        ),
+        (
+            (
+                Recognition("100", 0.96),
+                Recognition("10I", 0.95),
+                Recognition("noise", 0.94),
+                Recognition("noise", 0.93),
+            ),
+            False,
+        ),
+        (
+            (
+                Recognition("10O", 0.96),
+                Recognition("10I", 0.95),
+                Recognition("1O3", 0.94),
+                Recognition("noise", 0.93),
+            ),
+            False,
+        ),
+    ),
+)
+def test_v10_20_expected_sequence_confirmation_requires_three_positions_and_one_exact(
+    recognitions: tuple[Recognition, ...],
+    expected_recognized: bool,
+) -> None:
+    labels = (
+        _VisibleLabel(np.full((44, 154, 3), 1, dtype=np.uint8), (547.0, 892.0)),
+        _VisibleLabel(np.full((44, 154, 3), 2, dtype=np.uint8), (836.0, 892.0)),
+        _VisibleLabel(np.full((44, 154, 3), 3, dtype=np.uint8), (547.0, 1081.0)),
+        _VisibleLabel(np.full((44, 154, 3), 4, dtype=np.uint8), (836.0, 1081.0)),
+    )
+
+    class _ScriptedExpectedRecognizer(SequenceValidatedVisibleSequenceLabelRangeRecognizer):
+        def recognize(
+            self,
+            rgb_image: np.ndarray,
+            boards: tuple[BoardDetection, ...],
+        ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+            del rgb_image, boards
+            return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+
+        @classmethod
+        def _prioritized_label_candidates(
+            cls,
+            rgb_image: np.ndarray,
+        ) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return labels
+
+        def _recognize_many(
+            self,
+            crops: tuple[np.ndarray, ...],
+        ) -> tuple[Recognition, ...]:
+            assert len(crops) == len(recognitions)
+            return recognitions
+
+    recognizer = _ScriptedExpectedRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    result = recognizer.recognize_expected(
+        np.zeros((2704, 1520, 3), dtype=np.uint8),
+        (),
+        expected_range=SequenceRange(100, 108, 0.99),
+    )
+
+    assert (result.recognized_range is not None) is expected_recognized
+    if expected_recognized:
+        assert result.recognized_range == SequenceRange(100, 108, 0.90)
+        assert result.reason_codes == ("RANGE_EXPECTED_SEQUENCE_FUZZY_CONFIRMED",)
+        assert tuple(item.route for item in result.label_observations) == (
+            "expected_sequence_exact",
+            "expected_sequence_fuzzy",
+            "expected_sequence_fuzzy",
+        )
+
+
+def test_v10_20_expected_sequence_confirmation_never_overrides_independent_range() -> None:
+    class _IndependentlyResolvedRecognizer(SequenceValidatedVisibleSequenceLabelRangeRecognizer):
+        def recognize(
+            self,
+            rgb_image: np.ndarray,
+            boards: tuple[BoardDetection, ...],
+        ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+            del rgb_image, boards
+            return SequenceRange(109, 117, 0.96), ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+
+    recognizer = _IndependentlyResolvedRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12,)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    result = recognizer.recognize_expected(
+        np.zeros((2704, 1520, 3), dtype=np.uint8),
+        (),
+        expected_range=SequenceRange(100, 108, 0.99),
+    )
+
+    assert result.recognized_range == SequenceRange(109, 117, 0.96)
+    assert result.reason_codes == ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+
+
+def test_v10_19_processed_anchored_proof_skips_raw_crop_fallback() -> None:
+    class _Scripted(ProofFirstVisibleSequenceLabelRangeRecognizer):
+        def _layout_anchor_is_safe(self, boards: tuple[BoardDetection, ...]) -> bool:
+            return bool(boards)
+
+        def _recognize_processed_boards(
+            self,
+            rgb_image: np.ndarray,
+            boards: tuple[BoardDetection, ...],
+            *,
+            cache: Mapping[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+        ) -> dict[int, Recognition | tuple[Recognition, ...]] | None:
+            del rgb_image, boards, cache
+            return {
+                1: Recognition("9101", 0.96),
+                2: Recognition("9102", 0.95),
+                7: Recognition("9107", 0.94),
+            }
+
+        def _recognize_boards(
+            self,
+            rgb_image: np.ndarray,
+            boards: tuple[BoardDetection, ...],
+            *,
+            cache: dict[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+        ) -> dict[int, tuple[Recognition, ...]] | None:
+            del rgb_image, boards, cache
+            raise AssertionError("raw OCR must not run after a strong processed proof")
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(6, 12)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+    boards = tuple(
+        BoardDetection(
+            position_index=position,
+            quad=(Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)),
+            bounding_box=(0, 0, 10, 10),
+            red_border_score=0.8,
+            refined_from_grid=False,
+        )
+        for position in range(9)
+    )
+
+    recognized, reasons = recognizer._recognize_progressive_layout(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        boards,
+        cache={},
+    )
+
+    assert recognized == SequenceRange(9100, 9108, 0.94)
+    assert "RANGE_PROOF_MINIMUM_THREE_POSITIONS" in reasons
+
+
 def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
     tmp_path: Path,
 ) -> None:
@@ -2109,6 +2472,7 @@ class _IsolatedVerifierProbe:
     slot: int
     state: _ParallelProbeState
     calls: list[int] = field(default_factory=list)
+    expected_calls: list[tuple[int, int]] = field(default_factory=list)
     active: bool = False
 
     def verify(
@@ -2135,6 +2499,20 @@ class _IsolatedVerifierProbe:
             with self.state.lock:
                 self.active = False
                 self.state.active -= 1
+
+    def verify_expected(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        expected_range: SequenceRange,
+    ) -> CandidateVerification:
+        del observation, expected_board_count
+        self.expected_calls.append((expected_range.start, expected_range.end))
+        return CandidateVerification(
+            representative=RepresentativeAssessment(9, True, True),
+            range_evidence=RangeEvidence(expected_range),
+        )
 
 
 def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order() -> None:
@@ -2183,8 +2561,17 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationItems"] == 4
     assert counters["parallelVerificationWorkerSlots"] == 2
 
+    expected = SequenceRange(145, 153, 0.99)
+    expected_result = verifier.verify_expected(
+        observations[0],
+        expected_board_count=9,
+        expected_range=expected,
+    )
+    assert expected_result.recognized_range == expected
+    assert workers[0].expected_calls == [(145, 153)]
 
-def test_standalone_cli_uses_v10_17_and_fails_closed_without_ocr_model(
+
+def test_standalone_cli_uses_v10_20_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -2239,7 +2626,7 @@ def test_standalone_cli_uses_v10_17_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.18"
+    assert report["selectorVersion"] == "fast-image-selector-v10.20"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

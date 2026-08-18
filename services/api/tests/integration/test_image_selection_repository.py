@@ -33,6 +33,7 @@ from game_predictor_worker.images.selection.contracts import (
     SequenceRange,
 )
 from game_predictor_worker.images.selection.job import SqlAlchemyImageSelectionJobStore
+from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from sqlalchemy import create_engine, inspect, update
 from sqlalchemy.engine import URL, make_url
@@ -292,6 +293,96 @@ def test_final_projection_reassigns_selected_ranges_atomically(
         assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in persisted)
         assert persisted[0].selected_candidate is not None
         assert persisted[0].selected_candidate.source.order_index == 2
+    finally:
+        engine.dispose()
+
+
+def test_proof_first_projection_keeps_review_candidate_eligible(
+    isolated_image_selection_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_selection_database), "head")
+    engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 17, 18, tzinfo=UTC)
+    candidate = CandidateResult(
+        source=ImageSelectionSource(
+            order_index=0,
+            relative_path="source/0.jpg",
+            stored_relative_path="00000000.jpg",
+            checksum_sha256="a" * 64,
+            size_bytes=1024,
+        ),
+        decision=CandidateDecision.ELIGIBLE,
+        quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+        recognized_range=None,
+        reason_codes=("RANGE_LABEL_LATTICE_INCOMPLETE",),
+        width=1080,
+        height=1920,
+    )
+    review_group = SelectionGroupResult(
+        group_order=0,
+        source_count=1,
+        range=None,
+        fingerprint_sha256="b" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.RANGE_REQUIRED,
+        selected_candidate=candidate,
+        top_candidates=(candidate,),
+    )
+
+    try:
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="proof-first-review-candidate-test",
+                name="Proof-first review candidate test",
+                status=GameStatus.DRAFT,
+            )
+            run, created = ImageSelectionService(
+                SqlAlchemyImageSelectionRepository(session)
+            ).create_run(
+                game_id=game.id,
+                source_selection_id=uuid4(),
+                input_manifest_sha256="1" * 64,
+                selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
+                first_sequence_number=1,
+                last_sequence_number=9,
+            )
+            session.commit()
+        assert created is True
+
+        claimed = SqlAlchemyWorkerJobStore(session_factory).claim_next(
+            worker_id="proof-first-review-candidate-worker",
+            worker_version="v0.6-proof-first-test",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=now,
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert claimed is not None and claimed.lease_token is not None
+        store = SqlAlchemyImageSelectionJobStore(session_factory)
+        store.persist_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(review_group,),
+            group_sources={},
+            persisted_at=now,
+        )
+
+        store.persist_reconciled_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(review_group,),
+            persisted_at=now + timedelta(seconds=1),
+        )
+
+        persisted = store.load_groups(run.id)
+        assert len(persisted) == 1
+        assert persisted[0].status is SelectionGroupStatus.RANGE_REQUIRED
+        assert persisted[0].selected_candidate is None
+        assert len(persisted[0].top_candidates) == 1
+        assert persisted[0].top_candidates[0].decision is CandidateDecision.ELIGIBLE
     finally:
         engine.dispose()
 

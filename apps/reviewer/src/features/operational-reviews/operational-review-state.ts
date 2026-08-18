@@ -317,6 +317,12 @@ export function operationalReviewNativeContextViewport(
 ): OperationalReviewGeometryViewport {
   const boundedWidth = Math.max(1, Math.round(imageWidth));
   const boundedHeight = Math.max(1, Math.round(imageHeight));
+  const retainedViewport = parseGeometryViewport(
+    item.geometry.sourceContextBounds,
+    boundedWidth,
+    boundedHeight,
+  );
+  if (retainedViewport !== null) return retainedViewport;
   const board = operationalReviewGeometryCorners(
     item,
     boundedWidth,
@@ -520,6 +526,7 @@ export function operationalReviewAssetUrl(
   asset: OperationalReviewAssetKind,
   options: {
     readonly cellIndex?: number;
+    readonly usage?: string;
     readonly version?: string;
   } = {},
 ): string {
@@ -534,6 +541,7 @@ export function operationalReviewAssetUrl(
       importJobId: context.importJobId,
     });
     if (options.version !== undefined) query.set('v', options.version);
+    if (options.usage !== undefined) query.set('usage', options.usage);
     return `${base}${assetPath}?${query.toString()}`;
   }
   const url = new URL(assetPath, base);
@@ -542,7 +550,44 @@ export function operationalReviewAssetUrl(
   if (options.version !== undefined) {
     url.searchParams.set('v', options.version);
   }
+  if (options.usage !== undefined) {
+    url.searchParams.set('usage', options.usage);
+  }
   return url.toString();
+}
+
+function parseGeometryViewport(
+  value: unknown,
+  imageWidth: number,
+  imageHeight: number,
+): OperationalReviewGeometryViewport | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as {
+    readonly height?: unknown;
+    readonly width?: unknown;
+    readonly x?: unknown;
+    readonly y?: unknown;
+  };
+  if (
+    !isNonNegativeFiniteNumber(candidate.x) ||
+    !isNonNegativeFiniteNumber(candidate.y) ||
+    !isNonNegativeFiniteNumber(candidate.width) ||
+    !isNonNegativeFiniteNumber(candidate.height) ||
+    candidate.width <= 0 ||
+    candidate.height <= 0
+  ) {
+    return null;
+  }
+  const x = Math.min(imageWidth - 1, Math.round(candidate.x));
+  const y = Math.min(imageHeight - 1, Math.round(candidate.y));
+  const right = Math.min(imageWidth, x + Math.round(candidate.width));
+  const bottom = Math.min(imageHeight, y + Math.round(candidate.height));
+  return {
+    height: Math.max(1, bottom - y),
+    width: Math.max(1, right - x),
+    x,
+    y,
+  };
 }
 
 export function operationalReviewJobLabel(job: JobResponse): string {

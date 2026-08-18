@@ -30,6 +30,7 @@ from game_predictor_worker.images.selection.adapters import (
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    SequenceValidatedVisibleSequenceLabelRangeRecognizer,
     TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
@@ -51,6 +52,7 @@ from game_predictor_worker.images.selection.job import (
 from game_predictor_worker.images.selection.manifest import (
     DEFAULT_SELECTOR_MANIFEST,
     LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION,
+    SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION,
     STAGED_OCR_RANGE_ADAPTER_VERSION,
     TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
     ProgressiveVisibleLabelFallbackPolicy,
@@ -382,7 +384,21 @@ def _run_standalone_image_selection(
             assert fallback_policy is not None
             if DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy is not None:
                 anchor_policy = DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy
-                if DEFAULT_SELECTOR_MANIFEST.range_adapter_version in {
+                if (
+                    DEFAULT_SELECTOR_MANIFEST.range_adapter_version
+                    == SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION
+                ):
+                    window_policy = DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy
+                    assert window_policy is not None
+                    fallback_range_recognizer = (
+                        SequenceValidatedVisibleSequenceLabelRangeRecognizer(
+                            ocr,
+                            fallback_policy,
+                            anchor_policy,
+                            window_policy,
+                        )
+                    )
+                elif DEFAULT_SELECTOR_MANIFEST.range_adapter_version in {
                     STAGED_OCR_RANGE_ADAPTER_VERSION,
                     TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
                 }:

@@ -69,7 +69,7 @@ test('builds scope-bound asset URLs and validates cell indexes', () => {
       { gameId: 'game one', importJobId: 'job/one' },
       'item/one',
       'cell',
-      { cellIndex: 14, version: 'crop-sha' },
+      { cellIndex: 14, usage: 'grid', version: 'crop-sha' },
     ),
   );
   assert.equal(
@@ -79,6 +79,7 @@ test('builds scope-bound asset URLs and validates cell indexes', () => {
   assert.equal(url.searchParams.get('gameId'), 'game one');
   assert.equal(url.searchParams.get('importJobId'), 'job/one');
   assert.equal(url.searchParams.get('v'), 'crop-sha');
+  assert.equal(url.searchParams.get('usage'), 'grid');
   assert.throws(
     () =>
       operationalReviewAssetUrl(
@@ -144,6 +145,32 @@ test('native context includes the OCR number quad and uses a safe historical fal
   assert.ok(withLabel.y < 200);
   assert.ok(withLabel.y + withLabel.height > 470);
   assert.ok(historical.y + historical.height > 500);
+});
+
+test('native context keeps retained source bounds after geometry changes', () => {
+  const retained = {
+    height: 260,
+    width: 440,
+    x: 180,
+    y: 170,
+  };
+  const item = {
+    ...reviewItem(),
+    geometry: {
+      sourceContextBounds: retained,
+      sourceQuad: [
+        { x: 400, y: 300 },
+        { x: 700, y: 320 },
+        { x: 680, y: 500 },
+        { x: 380, y: 480 },
+      ],
+    },
+  };
+
+  assert.deepEqual(
+    operationalReviewNativeContextViewport(item, 1000, 800),
+    retained,
+  );
 });
 
 test('prefers accepted sequence and formats textual status and confidence', () => {

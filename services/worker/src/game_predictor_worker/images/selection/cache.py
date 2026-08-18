@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Lock
 from time import perf_counter
+from typing import cast
 from uuid import uuid4
 
 from .contracts import (
@@ -18,6 +19,7 @@ from .contracts import (
     CheapImageObservation,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionContractError,
     SequenceRange,
@@ -373,6 +375,30 @@ class CachedCandidateVerifier:
             include_range_evidence=True,
         )
 
+    def verify_expected(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        expected_range: SequenceRange,
+    ) -> CandidateVerification:
+        """Forward order-guided verification without polluting normal cache keys."""
+
+        verify_expected = getattr(self._delegate, "verify_expected", None)
+        if callable(verify_expected):
+            return cast(
+                CandidateVerification,
+                verify_expected(
+                    observation,
+                    expected_board_count=expected_board_count,
+                    expected_range=expected_range,
+                ),
+            )
+        return self._delegate.verify(
+            observation,
+            expected_board_count=expected_board_count,
+        )
+
     def assess_representative(
         self,
         observation: CheapImageObservation,
@@ -652,6 +678,9 @@ def _verification_to_dict(value: CandidateVerification) -> dict[str, object]:
     recognized = value.range_evidence.recognized_range
     return {
         "rangeEvidence": {
+            "labelObservations": [
+                observation.to_dict() for observation in value.range_evidence.label_observations
+            ],
             "range": None if recognized is None else recognized.to_dict(),
             "reasonCodes": list(value.range_evidence.reason_codes),
         },
@@ -692,6 +721,10 @@ def _verification_from_dict(value: object) -> CandidateVerification:
         range_evidence=RangeEvidence(
             recognized_range=recognized,
             reason_codes=_reason_codes(range_evidence.get("reasonCodes")),
+            label_observations=tuple(
+                RangeLabelObservation.from_dict(item)
+                for item in _observation_values(range_evidence.get("labelObservations", []))
+            ),
         ),
     )
 
@@ -706,6 +739,12 @@ def _reason_codes(value: object) -> tuple[str, ...]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError("Cached reason codes are invalid.")
     return tuple(value)
+
+
+def _observation_values(value: object) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError("Cached range-label observations are invalid.")
+    return value
 
 
 __all__ = [

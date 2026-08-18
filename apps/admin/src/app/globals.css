@@ -1101,6 +1101,22 @@ nav {
   min-height: 36px;
 }
 
+.manualSelectionRangeProof {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--accent) 12%);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.manualSelectionRangeProof strong {
+  color: var(--ink);
+}
+
 .activeGameContext {
   display: flex;
   align-items: center;

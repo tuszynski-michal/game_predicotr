@@ -58,8 +58,10 @@ zaakceptowany przez człowieka. Akceptacja bez edycji siatki jest prawidłowym
 przykładem zerowej korekty.
 
 Profil jest ograniczony do gry, źródła Selekcji Zdjęć i pozycji planszy 1–9.
-Brak pasującego profilu oznacza jawny fallback do detektora. Kandydat nie staje
-się aktywny bez bramki jakości i potwierdzenia właściciela.
+Plansze z bezpośredniego importu bez runu Selekcji Zdjęć również należą do
+kohorty; uczą fallbacku właściwego dla pozycji. Brak pasującego profilu oznacza
+jawny fallback do detektora. Kandydat nie staje się aktywny bez bramki jakości
+i potwierdzenia właściciela.
 
 Jeżeli po dwóch iteracjach i reprezentatywnej partii ponad 10% layoutów nadal
 wymaga korekty siatki albo błąd p95 nie poprawia się na odseparowanych
@@ -74,6 +76,11 @@ podział train/validation/test odbywa się po zdjęciu i sesji.
 - Numer ma być widoczny bez otwierania edytora siatki.
 - Dla historycznych danych bez geometrii etykiety stosowany jest bezpieczny
   rozszerzony viewport.
+- Zapis ręcznej korekty siatki nie zmienia kadru, perspektywy ani skali prawego
+  podglądu źródłowego. Reviewer zachowuje ten sam fragment oryginału z numerem,
+  a odświeża wyłącznie 15 cropów używanych do wyboru symboli.
+- Każdą bieżącą rewizję geometrii można ponownie edytować; wcześniejszy odczyt
+  obrazu w podglądzie nie może zablokować źródła dla canvasa korekty.
 - Oryginalny JPEG i pełnowymiarowa normalizacja pozostają niezmienne.
 - Artefakt `500×300` pozostaje deterministycznym wejściem pipeline'u, ale nie
   może być prezentowany jako podgląd jakości oryginału.

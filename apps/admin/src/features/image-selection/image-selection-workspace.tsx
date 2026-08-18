@@ -1159,12 +1159,12 @@ export function ImageSelectionWorkspace({
                 value={selectionProgress?.selected}
               />
               <Metric
-                label={
-                  isPollableRunStatus(run.job.status)
-                    ? 'Roboczo bez numerów'
-                    : 'Nierozpoznane zestawy'
-                }
+                label="Do wyboru zdjęcia"
                 value={selectionProgress?.manual}
+              />
+              <Metric
+                label="Do ustalenia zakresu"
+                value={selectionProgress?.rangeRequired}
               />
               <Metric
                 label="Pominięte grupy-duplikaty"
@@ -1189,10 +1189,10 @@ export function ImageSelectionWorkspace({
               />
             </dl>
             {isPollableRunStatus(run.job.status) &&
-            (selectionProgress?.manual ?? 0) > 0 ? (
+            (selectionProgress?.rangeRequired ?? 0) > 0 ? (
               <p className="fieldHint">
-                To licznik tymczasowy. Grupy są automatycznie rozliczane, gdy
-                selektor znajdzie kolejną pewną kotwicę numerów.
+                To osobna kolejka nierozpoznanych zakresów. Nie jest doliczana
+                do automatycznych ani manualnych wyborów zdjęcia.
               </p>
             ) : null}
 

@@ -1167,7 +1167,10 @@ function OperationalReviewBoard({
                   context,
                   item.id,
                   'source',
-                  { version: item.sourceChecksumSha256 },
+                  {
+                    usage: 'native-context-v2',
+                    version: item.sourceChecksumSha256,
+                  },
                 )}
               />
             )}
@@ -1255,6 +1258,7 @@ function OperationalReviewNativeContext({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         alt={alt}
+        crossOrigin="anonymous"
         onError={() => setFailed(true)}
         onLoad={(event) =>
           setNaturalSize({

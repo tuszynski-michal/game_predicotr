@@ -39,6 +39,7 @@ from .contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionContractError,
     SequenceRange,
@@ -65,6 +66,7 @@ from .ports import (
     ImageQualityAnalyzer,
     LatticeFingerprint,
     LatticeFingerprintAnalyzer,
+    RangeRecognitionResult,
     SequenceRangeRecognizer,
     ThumbnailFrame,
     ThumbnailLoader,
@@ -72,6 +74,15 @@ from .ports import (
 from .telemetry import StageTimingCollector
 
 OPENCV_INTERNAL_THREAD_BUDGET = 1
+
+
+def _range_recognition_parts(
+    value: tuple[SequenceRange | None, tuple[str, ...]] | RangeRecognitionResult,
+) -> tuple[SequenceRange | None, tuple[str, ...], tuple[RangeLabelObservation, ...]]:
+    if isinstance(value, RangeRecognitionResult):
+        return value.recognized_range, value.reason_codes, value.label_observations
+    recognized_range, reason_codes = value
+    return recognized_range, reason_codes, ()
 
 
 def configure_opencv_thread_budget(
@@ -1663,6 +1674,7 @@ class PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
     """Resolve a range from a bounded partial lattice before broad OCR fallback."""
 
     version = "visible-sequence-label-range-v9"
+    _require_adjacent_strong_positions = False
 
     def recognize_layout_hypotheses(
         self,
@@ -1891,6 +1903,9 @@ class PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
                 for position, confidence in matching.items()
                 if confidence >= self._layout_policy.minimum_strong_label_confidence
             }
+            has_adjacent_high_confidence = any(
+                position + 1 in high_confidence for position in high_confidence
+            )
             observed_four = four_positions & observed_positions
             observed_high = high_confidence & observed_positions
             if has_four_window and len(observed_four) >= 2:
@@ -1905,6 +1920,7 @@ class PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
             elif (
                 len(high_confidence) >= self._layout_policy.strong_label_count
                 and len(observed_high) >= 2
+                and (not self._require_adjacent_strong_positions or has_adjacent_high_confidence)
             ):
                 evidence.append(
                     (
@@ -2162,6 +2178,7 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
     _minimum_lattice_label_count = 3
     _weak_lattice_reason = "RANGE_OCR_LABEL_LATTICE_THREE_LABEL"
     _weak_lattice_route = "labelLatticeThree"
+    _weak_lattice_is_fuzzy = True
 
     def recognize(
         self,
@@ -2278,9 +2295,13 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
                 return None, ("RANGE_LABEL_LATTICE_WEAK_AMBIGUOUS",)
             if self._telemetry is not None:
                 self._telemetry.increment(f"rangeRoute.{self._weak_lattice_route}")
-            return recognized, (
-                "RANGE_OCR_FUZZY_CANDIDATE",
-                self._weak_lattice_reason,
+            return recognized, tuple(
+                dict.fromkeys(
+                    (
+                        *(("RANGE_OCR_FUZZY_CANDIDATE",) if self._weak_lattice_is_fuzzy else ()),
+                        self._weak_lattice_reason,
+                    )
+                )
             )
         return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
 
@@ -2416,6 +2437,704 @@ class TwoLabelConsensusVisibleSequenceLabelRangeRecognizer(
             key=lambda item: (item[0], -item[1].start),
             reverse=True,
         )
+
+
+class ProofFirstVisibleSequenceLabelRangeRecognizer(
+    FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer
+):
+    """Resolve only position-backed three/four-label range evidence.
+
+    V10.19 deliberately removes the two-label route.  Three-label lattice
+    evidence becomes strong only when the labels agree on one ``number -
+    position`` base and include at least one adjacent pair.  The same adjacency
+    rule is applied to the layout-anchored route.
+    """
+
+    version = "visible-sequence-label-range-v15"
+    _minimum_lattice_label_count = 3
+    _weak_lattice_reason = "RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT"
+    _weak_lattice_route = "labelLatticeThreeAdjacent"
+    _weak_lattice_is_fuzzy = False
+    _require_adjacent_strong_positions = True
+
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        progressive_policy: ProgressiveVisibleLabelFallbackPolicy,
+        layout_policy: LayoutAnchorPolicy,
+        window_policy: ContiguousSequenceWindowPolicy,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        super().__init__(
+            recognizer,
+            progressive_policy,
+            layout_policy,
+            window_policy,
+            telemetry=telemetry,
+        )
+        self._proof_observations: dict[
+            tuple[int, int], dict[tuple[int, str], RangeLabelObservation]
+        ] = {}
+        self._processed_recognition_cache: dict[tuple[tuple[int, int], ...], Recognition] = {}
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        self._proof_observations.clear()
+        self._processed_recognition_cache.clear()
+        recognized, reasons = super().recognize(rgb_image, boards)
+        return cast(
+            tuple[SequenceRange | None, tuple[str, ...]],
+            self._proof_result(recognized, reasons),
+        )
+
+    def recognize_layout_hypotheses(
+        self,
+        rgb_image: NDArray[np.uint8],
+        hypotheses: tuple[tuple[BoardDetection, ...], ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        self._proof_observations.clear()
+        self._processed_recognition_cache.clear()
+        recognized, reasons = super().recognize_layout_hypotheses(rgb_image, hypotheses)
+        return cast(
+            tuple[SequenceRange | None, tuple[str, ...]],
+            self._proof_result(recognized, reasons),
+        )
+
+    def _proof_result(
+        self,
+        recognized: SequenceRange | None,
+        reasons: tuple[str, ...],
+    ) -> RangeRecognitionResult:
+        values = (
+            tuple(
+                observation
+                for by_range in self._proof_observations.values()
+                for observation in by_range.values()
+            )
+            if recognized is None
+            else tuple(
+                self._proof_observations.get((recognized.start, recognized.end), {}).values()
+            )
+        )
+        if recognized is not None:
+            strong_values = tuple(
+                observation
+                for observation in values
+                if not observation.route.endswith("_suggestion")
+            )
+            if strong_values:
+                values = strong_values
+        observations = tuple(
+            sorted(
+                values,
+                key=lambda item: (
+                    item.sequence_number - item.position_index,
+                    item.position_index,
+                    item.route,
+                    -item.confidence,
+                ),
+            )
+        )
+        if self._telemetry is not None:
+            outcome = "accepted" if recognized is not None else "rejected"
+            self._telemetry.increment(f"rangeProof.{outcome}")
+            if recognized is None:
+                for reason in dict.fromkeys(reasons):
+                    self._telemetry.increment(f"rangeProofRejection.{reason}")
+        return RangeRecognitionResult(recognized, reasons, observations)
+
+    def _recognize_progressive_layout(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+        *,
+        cache: dict[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]] | None:
+        """Try one processed OCR batch before paying for raw crop variants."""
+
+        if not self._layout_anchor_is_safe(boards):
+            return None
+        ordered = tuple(sorted(boards, key=lambda board: board.position_index))
+        observed = tuple(board for board in ordered if board.red_border_score >= 0.20)
+        processed_recognitions = self._recognize_processed_boards(
+            rgb_image,
+            observed,
+            cache=cache,
+        )
+        if processed_recognitions is None:
+            return None
+        if self._telemetry is not None:
+            self._telemetry.increment("layoutAnchoredOcrAttempts")
+            self._telemetry.increment("layoutAnchoredObservedOcrCrops", len(observed))
+        observed_positions = {board.position_index for board in observed}
+        processed_evidence = self._anchored_evidence_hypotheses(
+            processed_recognitions,
+            observed_positions=observed_positions,
+        )
+        if len(processed_evidence) == 1 and processed_evidence[0][1] != "two":
+            if self._telemetry is not None:
+                self._telemetry.increment("layoutAnchoredProcessedFirstResolved")
+            return self._record_anchored_resolution(processed_evidence[0])
+        if len(processed_evidence) > 1 and self._telemetry is not None:
+            self._telemetry.increment("layoutAnchoredProcessedFirstAmbiguous")
+
+        recognitions = self._recognize_boards(rgb_image, observed, cache=cache)
+        if recognitions is None:
+            return None
+        evidence = self._anchored_evidence_hypotheses(
+            recognitions,
+            observed_positions=observed_positions,
+        )
+        if len(evidence) == 1:
+            if evidence[0][1] != "two":
+                return self._record_anchored_resolution(evidence[0])
+            observed_weak_evidence = evidence[0]
+        else:
+            observed_weak_evidence = None
+        if len(evidence) > 1:
+            if self._telemetry is not None:
+                self._telemetry.increment("layoutAnchoredOcrAmbiguous")
+            return None, ("RANGE_OCR_LAYOUT_ANCHORED_AMBIGUOUS",)
+
+        synthesized = tuple(board for board in ordered if board.red_border_score < 0.20)
+        missing_recognitions = self._recognize_boards(rgb_image, synthesized, cache=cache)
+        if missing_recognitions is None:
+            return None
+        recognitions.update(missing_recognitions)
+        if self._telemetry is not None:
+            self._telemetry.increment("layoutAnchoredSynthesizedOcrCrops", len(synthesized))
+            self._telemetry.increment("layoutAnchoredOcrCrops", len(recognitions))
+        evidence = self._anchored_evidence_hypotheses(
+            recognitions,
+            observed_positions=observed_positions,
+        )
+        if len(evidence) != 1:
+            if self._telemetry is not None:
+                self._telemetry.increment(
+                    "layoutAnchoredOcrAmbiguous" if evidence else "layoutAnchoredOcrIncomplete"
+                )
+            if evidence:
+                return None, ("RANGE_OCR_LAYOUT_ANCHORED_AMBIGUOUS",)
+            if observed_weak_evidence is not None:
+                return self._record_anchored_resolution(observed_weak_evidence)
+            return None
+        return self._record_anchored_resolution(evidence[0])
+
+    def _recognize_processed_boards(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+        *,
+        cache: Mapping[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+    ) -> dict[int, Recognition | tuple[Recognition, ...]] | None:
+        pending: list[tuple[BoardDetection, tuple[tuple[int, int], ...], NDArray[np.uint8]]] = []
+        result: dict[int, Recognition | tuple[Recognition, ...]] = {}
+        try:
+            for board in boards:
+                key = tuple((point.x, point.y) for point in board.quad)
+                complete = cache.get(key)
+                if complete is not None:
+                    result[board.position_index] = complete
+                    continue
+                processed = self._processed_recognition_cache.get(key)
+                if processed is not None:
+                    result[board.position_index] = processed
+                    continue
+                _, processed_crop, _ = extract_sequence_number_crop(rgb_image, board.quad)
+                pending.append((board, key, processed_crop))
+            if pending:
+                recognitions = self._recognize_many(tuple(item[2] for item in pending))
+                for (board, key, _), recognition in zip(
+                    pending,
+                    recognitions,
+                    strict=True,
+                ):
+                    self._processed_recognition_cache[key] = recognition
+                    result[board.position_index] = recognition
+                if self._telemetry is not None:
+                    self._telemetry.increment("layoutAnchoredProcessedFirstCrops", len(pending))
+        except (SequenceOcrError, ValueError):
+            return None
+        return result
+
+    def _recognize_boards(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+        *,
+        cache: dict[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+    ) -> dict[int, tuple[Recognition, ...]] | None:
+        """Complete a failed processed-first attempt with raw OCR only."""
+
+        pending: list[
+            tuple[
+                BoardDetection,
+                tuple[tuple[int, int], ...],
+                NDArray[np.uint8],
+                NDArray[np.uint8],
+            ]
+        ] = []
+        result: dict[int, tuple[Recognition, ...]] = {}
+        try:
+            for board in boards:
+                key = tuple((point.x, point.y) for point in board.quad)
+                complete = cache.get(key)
+                if complete is not None:
+                    result[board.position_index] = complete
+                    continue
+                raw, processed_crop, _ = extract_sequence_number_crop(rgb_image, board.quad)
+                pending.append((board, key, raw, processed_crop))
+            missing_processed = tuple(
+                item for item in pending if item[1] not in self._processed_recognition_cache
+            )
+            if missing_processed:
+                processed_recognitions = self._recognize_many(
+                    tuple(item[3] for item in missing_processed)
+                )
+                for item, recognition in zip(
+                    missing_processed,
+                    processed_recognitions,
+                    strict=True,
+                ):
+                    self._processed_recognition_cache[item[1]] = recognition
+            if pending:
+                raw_recognitions = self._recognize_many(tuple(item[2] for item in pending))
+                for (board, key, _, _), raw_recognition in zip(
+                    pending,
+                    raw_recognitions,
+                    strict=True,
+                ):
+                    processed_recognition = self._processed_recognition_cache[key]
+                    candidates = [processed_recognition]
+                    if (
+                        raw_recognition.normalized_number is not None
+                        and raw_recognition.confidence
+                        >= self._layout_policy.minimum_raw_variant_confidence
+                    ):
+                        candidates.append(raw_recognition)
+                    by_number: dict[int | None, Recognition] = {}
+                    for candidate in candidates:
+                        current = by_number.get(candidate.normalized_number)
+                        if current is None or candidate.confidence > current.confidence:
+                            by_number[candidate.normalized_number] = candidate
+                    options = tuple(
+                        sorted(
+                            by_number.values(),
+                            key=lambda item: (
+                                item.normalized_number is None,
+                                -(item.normalized_number or 0),
+                                -item.confidence,
+                            ),
+                        )
+                    )
+                    cache[key] = options
+                    result[board.position_index] = options
+                if self._telemetry is not None:
+                    self._telemetry.increment("layoutAnchoredRawFallbackCrops", len(pending))
+        except (SequenceOcrError, ValueError):
+            return None
+        return result
+
+    def _remember_observations(
+        self,
+        *,
+        start: int,
+        by_position: Mapping[int, Recognition | tuple[Recognition, ...]],
+        route: str,
+        minimum_confidence: float,
+    ) -> None:
+        key = (start, start + 8)
+        values = self._proof_observations.setdefault(key, {})
+        for position, value in by_position.items():
+            options = value if isinstance(value, tuple) else (value,)
+            matches = tuple(
+                recognition
+                for recognition in options
+                if recognition.normalized_number == start + position
+                and recognition.confidence >= minimum_confidence
+            )
+            if not matches:
+                continue
+            recognition = max(matches, key=lambda item: item.confidence)
+            observation = RangeLabelObservation(
+                position_index=position,
+                sequence_number=start + position,
+                confidence=recognition.confidence,
+                route=route,
+            )
+            identity = (position, route)
+            current = values.get(identity)
+            if current is None or observation.confidence > current.confidence:
+                values[identity] = observation
+
+    def _contiguous_window_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int], SequenceRange]]:
+        hypotheses = super()._contiguous_window_hypotheses(
+            labels,
+            recognitions,
+            image_shape,
+        )
+        positions = self._label_lattice_positions(labels, image_shape)
+        by_position = {
+            position: recognitions[index]
+            for index, position in positions.items()
+            if index < len(recognitions)
+        }
+        for _, recognized in hypotheses:
+            self._remember_observations(
+                start=recognized.start,
+                by_position=by_position,
+                route="label_lattice",
+                minimum_confidence=self._layout_policy.minimum_ocr_confidence,
+            )
+        return hypotheses
+
+    def _anchored_evidence_hypotheses(
+        self,
+        recognitions: Mapping[int, Recognition | tuple[Recognition, ...]],
+        *,
+        observed_positions: set[int] | None = None,
+    ) -> tuple[tuple[SequenceRange, str], ...]:
+        evidence = super()._anchored_evidence_hypotheses(
+            recognitions,
+            observed_positions=observed_positions,
+        )
+        for recognized, tier in evidence:
+            if tier not in {"three", "four"}:
+                continue
+            self._remember_observations(
+                start=recognized.start,
+                by_position=recognitions,
+                route="layout_anchored",
+                minimum_confidence=(
+                    self._layout_policy.minimum_ocr_confidence
+                    if tier == "four"
+                    else self._layout_policy.minimum_strong_label_confidence
+                ),
+            )
+        return evidence
+
+    def _three_label_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int, int], SequenceRange]]:
+        if len(labels) != len(recognitions):
+            return []
+        positions = self._label_lattice_positions(labels, image_shape)
+        evidence: dict[int, dict[int, float]] = {}
+        for index, recognition in enumerate(recognitions):
+            number = recognition.normalized_number
+            position = positions.get(index)
+            if (
+                number is None
+                or position is None
+                or recognition.confidence < self._layout_policy.minimum_strong_label_confidence
+                or number - position < 1
+            ):
+                continue
+            start = number - position
+            current = evidence.setdefault(start, {})
+            current[position] = max(current.get(position, 0.0), recognition.confidence)
+
+        hypotheses: list[tuple[tuple[int, int, int], SequenceRange]] = []
+        for start, by_position in evidence.items():
+            positions_for_start = frozenset(by_position)
+            self._remember_observations(
+                start=start,
+                by_position={
+                    position: Recognition(str(start + position), confidence)
+                    for position, confidence in by_position.items()
+                },
+                route="label_lattice_suggestion",
+                minimum_confidence=self._layout_policy.minimum_strong_label_confidence,
+            )
+            if len(positions_for_start) < 3 or not any(
+                position + 1 in positions_for_start for position in positions_for_start
+            ):
+                continue
+            confidences = tuple(by_position.values())
+            score = (
+                len(positions_for_start),
+                int(round(min(confidences) * 1000)),
+                int(round(sum(confidences) / len(confidences) * 1000)),
+            )
+            hypotheses.append((score, SequenceRange(start=start, end=start + 8, confidence=0.94)))
+            self._remember_observations(
+                start=start,
+                by_position={
+                    position: Recognition(str(start + position), confidence)
+                    for position, confidence in by_position.items()
+                },
+                route="label_lattice",
+                minimum_confidence=self._layout_policy.minimum_strong_label_confidence,
+            )
+        return sorted(
+            hypotheses,
+            key=lambda item: (item[0], -item[1].start),
+            reverse=True,
+        )
+
+    def _record_anchored_resolution(
+        self,
+        evidence: tuple[SequenceRange, str],
+    ) -> tuple[SequenceRange, tuple[str, ...]]:
+        recognized, reasons = super()._record_anchored_resolution(evidence)
+        if evidence[1] not in {"three", "four"}:
+            return recognized, reasons
+        return recognized, tuple(
+            dict.fromkeys(
+                (
+                    *reasons,
+                    "RANGE_PROOF_BASE_CONSISTENT",
+                    "RANGE_PROOF_MINIMUM_THREE_POSITIONS",
+                    "RANGE_PROOF_ADJACENT_PAIR",
+                )
+            )
+        )
+
+
+class SequenceValidatedVisibleSequenceLabelRangeRecognizer(
+    ProofFirstVisibleSequenceLabelRangeRecognizer
+):
+    """Preserve two-label board evidence for ordered v10.20 confirmation."""
+
+    version = "visible-sequence-label-range-v18"
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        self._use_viewport_lattice = not boards
+        try:
+            return super().recognize(rgb_image, boards)
+        finally:
+            self._use_viewport_lattice = False
+
+    def recognize_layout_hypotheses(
+        self,
+        rgb_image: NDArray[np.uint8],
+        hypotheses: tuple[tuple[BoardDetection, ...], ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        self._use_viewport_lattice = False
+        return super().recognize_layout_hypotheses(rgb_image, hypotheses)
+
+    def recognize_expected(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+        *,
+        expected_range: SequenceRange,
+    ) -> RangeRecognitionResult:
+        """Confirm one ordered singleton without replacing independent OCR proof.
+
+        The expected range is only a hypothesis from already proven sequence
+        order.  Independent recognition always wins.  The fallback accepts the
+        hypothesis only when at least three well-positioned labels support it,
+        one label is an exact OCR match, and two rows and columns are covered.
+        Off-grid or already-owned alternatives are deliberately not invented:
+        the caller supplies the sole next range allowed by sequence bounds.
+        """
+
+        normal = self.recognize(rgb_image, boards)
+        recognized, reasons, observations = _range_recognition_parts(normal)
+        expected_key = (expected_range.start, expected_range.end)
+        recognized_key = (
+            None if recognized is None else (recognized.start, recognized.end)
+        )
+        strong_normal_reason = any(
+            reason
+            in {
+                "RANGE_OCR_LABEL_LATTICE_WINDOW",
+                "RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT",
+                "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+                "RANGE_OCR_LAYOUT_ANCHORED_FOUR_LABEL",
+            }
+            for reason in reasons
+        )
+        if (
+            (recognized is not None and recognized_key != expected_key)
+            or (recognized_key == expected_key and strong_normal_reason)
+            or any(
+                reason in {"RANGE_CONFLICT", "RANGE_OCR_FUSED_EVIDENCE_CONFLICT"}
+                for reason in reasons
+            )
+        ):
+            return RangeRecognitionResult(recognized, reasons, observations)
+
+        labels = self._prioritized_label_candidates(rgb_image)[:12]
+        if len(labels) < 4:
+            return RangeRecognitionResult(recognized, reasons, observations)
+        self._use_viewport_lattice = True
+        try:
+            positions = self._label_lattice_positions(labels, rgb_image.shape[:2])
+        finally:
+            self._use_viewport_lattice = False
+        if len(set(positions.values())) < 4:
+            return RangeRecognitionResult(recognized, reasons, observations)
+        try:
+            recognitions = self._recognize_many(tuple(label.crop for label in labels))
+        except (SequenceOcrError, ValueError):
+            return RangeRecognitionResult(recognized, reasons, observations)
+
+        expected_score = self._expected_sequence_support(
+            recognitions,
+            positions=positions,
+            start=expected_range.start,
+        )
+        if expected_score is None:
+            return RangeRecognitionResult(recognized, reasons, observations)
+        supported, exact, _ = expected_score
+
+        proof = tuple(
+            RangeLabelObservation(
+                position_index=position,
+                sequence_number=expected_range.start + position,
+                confidence=min(recognitions[index].confidence, 0.99),
+                route=(
+                    "expected_sequence_exact"
+                    if position in exact
+                    else "expected_sequence_fuzzy"
+                ),
+            )
+            for index, position in sorted(positions.items(), key=lambda item: item[1])
+            if position in supported
+        )
+        return RangeRecognitionResult(
+            SequenceRange(expected_range.start, expected_range.end, 0.90),
+            ("RANGE_EXPECTED_SEQUENCE_FUZZY_CONFIRMED",),
+            proof,
+        )
+
+    def _expected_sequence_support(
+        self,
+        recognitions: Sequence[Recognition],
+        *,
+        positions: Mapping[int, int],
+        start: int,
+    ) -> tuple[frozenset[int], frozenset[int], float] | None:
+        by_position: dict[int, tuple[int, float]] = {}
+        for index, recognition in enumerate(recognitions):
+            position = positions.get(index)
+            if (
+                position is None
+                or recognition.confidence < self._layout_policy.minimum_strong_label_confidence
+            ):
+                continue
+            distance = _bounded_edit_distance(
+                recognition.raw_text,
+                str(start + position),
+            )
+            if distance > 1:
+                continue
+            current = by_position.get(position)
+            if current is None or (distance, -recognition.confidence) < (
+                current[0],
+                -current[1],
+            ):
+                by_position[position] = (distance, recognition.confidence)
+        supported = frozenset(by_position)
+        exact = frozenset(
+            position for position, (distance, _) in by_position.items() if distance == 0
+        )
+        if (
+            len(supported) < 3
+            or not exact
+            or len({position // 3 for position in supported}) < 2
+            or len({position % 3 for position in supported}) < 2
+        ):
+            return None
+        return supported, exact, sum(confidence for _, confidence in by_position.values())
+
+    # V10.20 deliberately uses per-recognition state to enable this fallback
+    # only for boardless/expected routes; older immutable adapters stay class-bound.
+    def _label_lattice_positions(  # type: ignore[override]
+        self,
+        labels: Sequence[_VisibleLabel],
+        image_shape: tuple[int, int],
+    ) -> dict[int, int]:
+        """Map a partial 2x2 label window without inventing a third axis.
+
+        The generic lattice fitter needs three row and three column peaks. A
+        clear perspective photo can expose four complete labels in the first
+        progressive OCR batch while fragments from the same two rows create a
+        false third peak. V10.20 uses the stable cabinet viewport as a bounded
+        fallback and keeps the dynamic fit for photos outside that viewport.
+        """
+
+        dynamic = super()._label_lattice_positions(labels, image_shape)
+        if not getattr(self, "_use_viewport_lattice", False):
+            return dynamic
+        height, width = image_shape
+        column_centers = (0.36, 0.55, 0.74)
+        row_centers = (0.33, 0.40, 0.47)
+        viewport: dict[int, int] = {}
+        for index, label in enumerate(labels):
+            if not self._is_likely_lattice_label(label, image_shape=image_shape):
+                continue
+            x_ratio = label.center[0] / width
+            y_ratio = label.center[1] / height
+            column = min(range(3), key=lambda item: abs(x_ratio - column_centers[item]))
+            row = min(range(3), key=lambda item: abs(y_ratio - row_centers[item]))
+            if (
+                abs(x_ratio - column_centers[column]) <= 0.12
+                and abs(y_ratio - row_centers[row]) <= 0.055
+            ):
+                viewport[index] = row * 3 + column
+        viewport_positions = set(viewport.values())
+        viewport_rows = {position // 3 for position in viewport_positions}
+        viewport_columns = {position % 3 for position in viewport_positions}
+        if (
+            len(viewport_positions) >= 4
+            and len(viewport_rows) >= 2
+            and len(viewport_columns) >= 2
+        ):
+            return viewport
+        return dynamic
+
+    def _anchored_evidence_hypotheses(
+        self,
+        recognitions: Mapping[int, Recognition | tuple[Recognition, ...]],
+        *,
+        observed_positions: set[int] | None = None,
+    ) -> tuple[tuple[SequenceRange, str], ...]:
+        evidence = (
+            PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer._anchored_evidence_hypotheses(
+                self,
+                recognitions,
+                observed_positions=observed_positions,
+            )
+        )
+        for recognized, tier in evidence:
+            if tier in {"three", "four"}:
+                self._remember_observations(
+                    start=recognized.start,
+                    by_position=recognitions,
+                    route="layout_anchored",
+                    minimum_confidence=(
+                        self._layout_policy.minimum_ocr_confidence
+                        if tier == "four"
+                        else self._layout_policy.minimum_strong_label_confidence
+                    ),
+                )
+            elif tier == "two":
+                self._remember_observations(
+                    start=recognized.start,
+                    by_position=recognitions,
+                    route="layout_anchored_suggestion",
+                    minimum_confidence=self._layout_policy.minimum_strong_label_confidence,
+                )
+        return evidence
 
 
 def _bounded_edit_distance(first: str, second: str, *, maximum: int = 1) -> int:
@@ -2707,6 +3426,21 @@ class BoundedGridCandidateVerifier:
             staged_fast=False,
         )
 
+    def verify_expected(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        expected_range: SequenceRange,
+    ) -> CandidateVerification:
+        del expected_board_count
+        return self._verify_with_recognizer(
+            observation,
+            range_recognizer=self._range_recognizer,
+            staged_fast=False,
+            expected_range=expected_range,
+        )
+
     def verify_fast(
         self,
         observation: CheapImageObservation,
@@ -2728,6 +3462,7 @@ class BoundedGridCandidateVerifier:
         *,
         range_recognizer: SequenceRangeRecognizer,
         staged_fast: bool,
+        expected_range: SequenceRange | None = None,
     ) -> CandidateVerification:
         if self._telemetry is not None:
             self._telemetry.increment("rangeEvidenceVerifications")
@@ -2738,6 +3473,7 @@ class BoundedGridCandidateVerifier:
         boards: tuple[BoardDetection, ...] = ()
         layout_hypotheses: tuple[tuple[BoardDetection, ...], ...] = ()
         representative_reasons: tuple[str, ...] = ()
+        label_observations: tuple[RangeLabelObservation, ...] = ()
         try:
             path = _safe_source_path(
                 self._source_root,
@@ -2782,16 +3518,28 @@ class BoundedGridCandidateVerifier:
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
-                if layout_hypotheses and isinstance(
+                recognition_result: (
+                    tuple[SequenceRange | None, tuple[str, ...]] | RangeRecognitionResult
+                )
+                recognize_expected = getattr(range_recognizer, "recognize_expected", None)
+                if expected_range is not None and callable(recognize_expected):
+                    recognition_result = recognize_expected(
+                        rgb,
+                        boards,
+                        expected_range=expected_range,
+                    )
+                elif layout_hypotheses and isinstance(
                     range_recognizer,
                     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
                 ):
-                    recognized_range, reasons = range_recognizer.recognize_layout_hypotheses(
-                        rgb,
-                        layout_hypotheses,
+                    recognition_result = range_recognizer.recognize_layout_hypotheses(
+                        rgb, layout_hypotheses
                     )
                 else:
-                    recognized_range, reasons = range_recognizer.recognize(rgb, boards)
+                    recognition_result = range_recognizer.recognize(rgb, boards)
+                recognized_range, reasons, label_observations = _range_recognition_parts(
+                    recognition_result
+                )
         except (SelectionContractError, SequenceOcrError, ValueError) as error:
             reason = (
                 error.code
@@ -2838,6 +3586,7 @@ class BoundedGridCandidateVerifier:
             range_evidence=RangeEvidence(
                 recognized_range=recognized_range,
                 reason_codes=reasons,
+                label_observations=label_observations,
             ),
         )
 
@@ -2937,6 +3686,8 @@ class BoundedGridCandidateVerifier:
         self._telemetry.increment(f"rangeStop.{reason}")
         self._telemetry.increment("rangeEvidenceCandidates", evidence_count)
         self._telemetry.increment("rangeGroupCandidates", candidate_count)
+        self._telemetry.increment(f"rangeEvidenceGroupSize.{evidence_count}")
+        self._telemetry.increment(f"rangeCandidatePoolSize.{candidate_count}")
 
     def record_staged_fast_outcome(
         self,
@@ -3062,6 +3813,7 @@ class FullCandidateVerifier:
         )
         recognized_range: SequenceRange | None = None
         range_reasons: tuple[str, ...] = ()
+        label_observations: tuple[RangeLabelObservation, ...] = ()
         if include_range_evidence and geometry_complete:
             if self._telemetry is not None:
                 self._telemetry.increment("anchoredOcrAttempts")
@@ -3069,9 +3821,9 @@ class FullCandidateVerifier:
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
-                recognized_range, range_reasons = self._range_recognizer.recognize(
-                    rgb,
-                    detection.boards,
+                recognition_result = self._range_recognizer.recognize(rgb, detection.boards)
+                recognized_range, range_reasons, label_observations = _range_recognition_parts(
+                    recognition_result
                 )
             if self._telemetry is not None:
                 self._telemetry.increment(
@@ -3090,12 +3842,13 @@ class FullCandidateVerifier:
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
-                fallback_range, fallback_reasons = self._fallback_range_recognizer.recognize(
-                    rgb,
-                    detection.boards,
+                fallback_result = self._fallback_range_recognizer.recognize(rgb, detection.boards)
+                fallback_range, fallback_reasons, fallback_observations = _range_recognition_parts(
+                    fallback_result
                 )
             if fallback_range is not None:
                 recognized_range = fallback_range
+                label_observations = fallback_observations
                 if self._couple_fallback_to_representative:
                     geometry_complete = True
                     full_frame_visible = True
@@ -3128,6 +3881,7 @@ class FullCandidateVerifier:
             range_evidence=RangeEvidence(
                 recognized_range=recognized_range,
                 reason_codes=range_reasons,
+                label_observations=label_observations,
             ),
         )
 
@@ -3204,6 +3958,28 @@ class DeterministicParallelCandidateVerifier:
         *,
         expected_board_count: int | None,
     ) -> CandidateVerification:
+        return self._verifiers[0].verify(
+            observation,
+            expected_board_count=expected_board_count,
+        )
+
+    def verify_expected(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        expected_range: SequenceRange,
+    ) -> CandidateVerification:
+        verify_expected = getattr(self._verifiers[0], "verify_expected", None)
+        if callable(verify_expected):
+            return cast(
+                CandidateVerification,
+                verify_expected(
+                    observation,
+                    expected_board_count=expected_board_count,
+                    expected_range=expected_range,
+                ),
+            )
         return self._verifiers[0].verify(
             observation,
             expected_board_count=expected_board_count,
@@ -3536,6 +4312,8 @@ __all__ = [
     "LayoutAnchoredVisibleSequenceLabelRangeRecognizer",
     "LabelLatticeSafeVisibleSequenceLabelRangeRecognizer",
     "PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer",
+    "ProofFirstVisibleSequenceLabelRangeRecognizer",
+    "SequenceValidatedVisibleSequenceLabelRangeRecognizer",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
     "OpenCvAppearanceFingerprintAnalyzer",

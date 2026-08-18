@@ -24,11 +24,14 @@ from .manifest import (
     ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     CARDINALITY_GUARDED_SELECTOR_VERSION,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+    PROOF_FIRST_SELECTOR_VERSIONS,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SEQUENCE_VALIDATED_SELECTOR_VERSION,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
     SelectorManifest,
 )
+from .range_proof import has_strong_local_range_proof
 from .sequence_bounds import SequenceBounds
 
 _PROTECTED_USER_STATUSES = {
@@ -197,15 +200,18 @@ def evaluate_recovery(
                     require_representative_range_evidence(
                         local.groups,
                         allow_exact_gap=(
-                            manifest.algorithm_version
-                            in {
-                                CARDINALITY_GUARDED_SELECTOR_VERSION,
-                                CARDINALITY_PARTITIONED_SELECTOR_VERSION,
-                                ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
-                                STAGED_OCR_SELECTOR_VERSION,
-                                QUANTILE_SAMPLED_SELECTOR_VERSION,
-                                SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
-                            }
+                            (
+                                manifest.algorithm_version
+                                in {
+                                    CARDINALITY_GUARDED_SELECTOR_VERSION,
+                                    CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+                                    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                                    STAGED_OCR_SELECTOR_VERSION,
+                                    QUANTILE_SAMPLED_SELECTOR_VERSION,
+                                    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+                                }
+                                or manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                            )
                             and bounds is not None
                         ),
                     )
@@ -236,7 +242,16 @@ def evaluate_recovery(
         projection=(
             projection
             if bounds is None
-            else reconcile_projection_to_sequence_bounds(projection, bounds=bounds)
+            else reconcile_projection_to_sequence_bounds(
+                projection,
+                bounds=bounds,
+                require_local_range_proof=(
+                    manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                ),
+                allow_expected_sequence_confirmation=(
+                    manifest.algorithm_version == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                ),
+            )
         ),
         block_count=len(prepared),
         candidate_count=candidate_count,
@@ -386,8 +401,17 @@ def reconcile_projection_to_sequence_bounds(
     projection: RecoveryProjection,
     *,
     bounds: SequenceBounds,
+    require_local_range_proof: bool = False,
+    allow_expected_sequence_confirmation: bool = False,
 ) -> RecoveryProjection:
     """Enforce one logical owner for every group in the declared inclusive range."""
+
+    if require_local_range_proof:
+        return _reconcile_proof_first_projection(
+            projection,
+            bounds=bounds,
+            allow_expected_sequence_confirmation=allow_expected_sequence_confirmation,
+        )
 
     assignment = _sequence_assignment(projection.groups, bounds=bounds)
     owner_order_by_slot = {
@@ -444,10 +468,343 @@ def reconcile_projection_to_sequence_bounds(
     return replace(projection, groups=tuple(normalized))
 
 
+def _reconcile_proof_first_projection(
+    projection: RecoveryProjection,
+    *,
+    bounds: SequenceBounds,
+    allow_expected_sequence_confirmation: bool,
+) -> RecoveryProjection:
+    """Validate proven ranges without manufacturing missing sequence ownership."""
+
+    normalized: list[SelectionGroupResult] = []
+    owner_order_by_range: dict[tuple[int, int], int] = {}
+    for group in projection.groups:
+        if group.status in _PROTECTED_USER_STATUSES:
+            if group.range is not None and bounds.group_index_for_range(group.range) is None:
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_PROTECTED_RANGE_CONFLICT",
+                    "A protected user decision falls outside the declared sequence bounds.",
+                )
+            if group.range is not None:
+                key = (group.range.start, group.range.end)
+                if key in owner_order_by_range:
+                    raise SelectionContractError(
+                        "IMAGE_SELECTION_PROTECTED_RANGE_CONFLICT",
+                        "Two protected user decisions claim the same sequence range.",
+                    )
+                owner_order_by_range[key] = group.group_order
+            normalized.append(replace(group, duplicate_of_group_order=None))
+            continue
+
+        if (
+            group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+            and group.range is not None
+            and bounds.group_index_for_range(group.range) is not None
+            and any(
+                _same_range(candidate.recognized_range, group.range)
+                and has_strong_local_range_proof(
+                    candidate.recognized_range,
+                    candidate.reason_codes,
+                    minimum_confidence=0.90,
+                    label_observations=candidate.range_label_observations,
+                    require_position_evidence=True,
+                )
+                for candidate in group.top_candidates
+            )
+        ):
+            key = (group.range.start, group.range.end)
+            owner_order = owner_order_by_range.get(key)
+            if owner_order is not None:
+                normalized.append(
+                    replace(
+                        group,
+                        selected_candidate=None,
+                        top_candidates=(),
+                        duplicate_of_group_order=owner_order,
+                    )
+                )
+                continue
+
+        selected = group.selected_candidate
+        proven = (
+            group.status is SelectionGroupStatus.AUTO_SELECTED
+            and group.range is not None
+            and selected is not None
+            and _same_range(selected.recognized_range, group.range)
+            and has_strong_local_range_proof(
+                selected.recognized_range,
+                selected.reason_codes,
+                minimum_confidence=0.90,
+                label_observations=selected.range_label_observations,
+                require_position_evidence=True,
+            )
+            and bounds.group_index_for_range(group.range) is not None
+        )
+        if proven:
+            assert group.range is not None
+            key = (group.range.start, group.range.end)
+            owner_order = owner_order_by_range.get(key)
+            if owner_order is None:
+                owner_order_by_range[key] = group.group_order
+                normalized.append(replace(group, duplicate_of_group_order=None))
+            else:
+                normalized.append(
+                    replace(
+                        group,
+                        status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                        selected_candidate=None,
+                        top_candidates=(),
+                        duplicate_of_group_order=owner_order,
+                    )
+                )
+            continue
+
+        candidates = _proof_first_review_candidates(group)
+        if group.status is SelectionGroupStatus.SKIPPED_UNREADABLE:
+            normalized.append(
+                replace(
+                    group,
+                    range=None,
+                    selected_candidate=None,
+                    top_candidates=candidates,
+                    duplicate_of_group_order=None,
+                )
+            )
+            continue
+        normalized.append(
+            replace(
+                group,
+                range=None,
+                status=SelectionGroupStatus.RANGE_REQUIRED,
+                selected_candidate=(candidates[0] if candidates else None),
+                top_candidates=candidates,
+                duplicate_of_group_order=None,
+            )
+        )
+
+    return replace(
+        projection,
+        groups=(
+            _promote_expected_sequence_matches(
+                tuple(normalized),
+                bounds=bounds,
+            )
+            if allow_expected_sequence_confirmation
+            else tuple(normalized)
+        ),
+    )
+
+
+def _proof_first_review_candidates(
+    group: SelectionGroupResult,
+) -> tuple[CandidateResult, ...]:
+    candidates = (
+        () if group.selected_candidate is None else (group.selected_candidate,)
+    ) + group.top_candidates
+    result: list[CandidateResult] = []
+    seen: set[tuple[int, str]] = set()
+    for candidate in candidates:
+        identity = (candidate.source.order_index, candidate.source.checksum_sha256)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        result.append(replace(candidate, decision=CandidateDecision.ELIGIBLE))
+    return tuple(result)
+
+
+def _promote_expected_sequence_matches(
+    groups: tuple[SelectionGroupResult, ...],
+    *,
+    bounds: SequenceBounds,
+) -> tuple[SelectionGroupResult, ...]:
+    """Use ordered slots as hypotheses, never as unverified canonical truth."""
+
+    if len(groups) < bounds.expected_group_count:
+        return groups
+    locked_slots: dict[int, int] = {}
+    for physical_index, group in enumerate(groups):
+        selected = group.selected_candidate
+        if (
+            group.status is SelectionGroupStatus.AUTO_SELECTED
+            and group.range is not None
+            and selected is not None
+            and _same_range(selected.recognized_range, group.range)
+            and has_strong_local_range_proof(
+                selected.recognized_range,
+                selected.reason_codes,
+                minimum_confidence=0.90,
+                label_observations=selected.range_label_observations,
+                require_position_evidence=True,
+            )
+        ):
+            slot = bounds.group_index_for_range(group.range)
+            if slot is not None:
+                locked_slots[physical_index] = slot
+
+    try:
+        assignment = _sequence_assignment(
+            groups,
+            bounds=bounds,
+            locked_slots=locked_slots,
+            allow_skipped_owners=False,
+        )
+    except SelectionContractError:
+        # Conflicting OCR anchors make the ordered hypothesis ambiguous. Keep the
+        # existing proof-first result for manual range review instead of failing
+        # the complete run or manufacturing sequence ownership.
+        return groups
+    owner_physical_by_slot = {
+        slot: physical_index
+        for physical_index, slot in enumerate(assignment)
+        if slot is not None
+    }
+    owner_order_by_slot = {
+        slot: groups[physical_index].group_order
+        for slot, physical_index in owner_physical_by_slot.items()
+    }
+    promoted: list[SelectionGroupResult] = []
+    for physical_index, (group, slot) in enumerate(zip(groups, assignment, strict=True)):
+        if slot is None:
+            recognized_slot = (
+                None if group.range is None else bounds.group_index_for_range(group.range)
+            )
+            owner_slot = (
+                recognized_slot
+                if recognized_slot in owner_order_by_slot
+                else min(
+                    owner_physical_by_slot,
+                    key=lambda candidate_slot: (
+                        abs(owner_physical_by_slot[candidate_slot] - physical_index),
+                        owner_physical_by_slot[candidate_slot] > physical_index,
+                        candidate_slot,
+                    ),
+                )
+            )
+            promoted.append(
+                replace(
+                    group,
+                    range=bounds.range_for_group(owner_slot),
+                    status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                    selected_candidate=None,
+                    top_candidates=(),
+                    duplicate_of_group_order=owner_order_by_slot[owner_slot],
+                )
+            )
+            continue
+        if group.status is not SelectionGroupStatus.RANGE_REQUIRED:
+            promoted.append(group)
+            continue
+        expected = bounds.range_for_group(slot)
+        candidate = _expected_sequence_candidate(group, expected=expected)
+        if candidate is None:
+            promoted.append(group)
+            continue
+        selected = replace(
+            candidate,
+            decision=CandidateDecision.SELECTED_AUTOMATIC,
+            recognized_range=SequenceRange(
+                expected.start,
+                expected.end,
+                max(0.90, candidate.recognized_range.confidence)
+                if candidate.recognized_range is not None
+                else 0.90,
+            ),
+            reason_codes=tuple(
+                dict.fromkeys((*candidate.reason_codes, "RANGE_EXPECTED_SEQUENCE_CONFIRMED"))
+            ),
+        )
+        identity = (selected.source.order_index, selected.source.checksum_sha256)
+        candidates = tuple(
+            selected if (item.source.order_index, item.source.checksum_sha256) == identity else item
+            for item in _proof_first_review_candidates(group)
+        )
+        promoted.append(
+            replace(
+                group,
+                range=selected.recognized_range,
+                status=SelectionGroupStatus.AUTO_SELECTED,
+                selected_candidate=selected,
+                top_candidates=candidates,
+                duplicate_of_group_order=None,
+            )
+        )
+    return tuple(promoted)
+
+
+def _expected_sequence_candidate(
+    group: SelectionGroupResult,
+    *,
+    expected: SequenceRange,
+) -> CandidateResult | None:
+    usable: list[CandidateResult] = []
+    blocking_reasons = {
+        "IMAGE_OCCLUDED",
+        "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+        "QUALITY_BLUR",
+        "QUALITY_LAYOUT_BLUR",
+        "RANGE_CARDINALITY_INFERRED",
+        "RANGE_CONFLICT",
+        "RANGE_EXACT_GAP_INFERRED",
+        "RANGE_INFERRED_FROM_BOUNDED_GAP",
+        "RANGE_OCR_FUSED_EVIDENCE_CONFLICT",
+        "RANGE_OWNER_ANCHOR",
+    }
+    for candidate in _proof_first_review_candidates(group):
+        geometry_support = (
+            group.board_count_consensus is not None
+            and group.board_count_consensus >= 5
+        ) or "RANGE_OCR_LAYOUT_ANCHORED_TWO_LABEL" in candidate.reason_codes
+        if not geometry_support:
+            continue
+        if candidate.recognized_range is not None and not _same_range(
+            candidate.recognized_range,
+            expected,
+        ):
+            continue
+        if any(
+            reason in blocking_reasons or reason.startswith("IMAGE_SELECTION_SCAN_")
+            for reason in candidate.reason_codes
+        ):
+            continue
+        strong_observations = tuple(
+            observation
+            for observation in candidate.range_label_observations
+            if observation.confidence >= 0.82
+        )
+        if any(
+            observation.position_index >= expected.board_count
+            or observation.sequence_number != expected.start + observation.position_index
+            for observation in strong_observations
+        ):
+            continue
+        if len({observation.position_index for observation in strong_observations}) < 2:
+            continue
+        usable.append(candidate)
+    if not usable:
+        return None
+    return min(
+        usable,
+        key=lambda candidate: (
+            -len(
+                {
+                    observation.position_index
+                    for observation in candidate.range_label_observations
+                    if observation.confidence >= 0.82
+                }
+            ),
+            -candidate.quality.overall_score,
+            candidate.source.order_index,
+            candidate.source.checksum_sha256,
+        ),
+    )
+
+
 def _sequence_assignment(
     groups: tuple[SelectionGroupResult, ...],
     *,
     bounds: SequenceBounds,
+    locked_slots: dict[int, int] | None = None,
+    allow_skipped_owners: bool = True,
 ) -> tuple[int | None, ...]:
     """Choose exactly N ordered owners while preserving hard user decisions."""
 
@@ -475,11 +832,20 @@ def _sequence_assignment(
                 continue
             slot = physical_index - skipped
             if slot < expected:
-                keep_cost = _keep_assignment_cost(
-                    group,
-                    expected=bounds.range_for_group(slot),
-                    slot=slot,
-                    bounds=bounds,
+                locked_slot = None if locked_slots is None else locked_slots.get(physical_index)
+                keep_cost = (
+                    _INFINITE_ASSIGNMENT_COST
+                    if (locked_slot is not None and locked_slot != slot)
+                    or (
+                        not allow_skipped_owners
+                        and group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+                    )
+                    else _keep_assignment_cost(
+                        group,
+                        expected=bounds.range_for_group(slot),
+                        slot=slot,
+                        bounds=bounds,
+                    )
                 )
                 if prior + keep_cost < current[skipped]:
                     current[skipped] = prior + keep_cost
@@ -487,7 +853,10 @@ def _sequence_assignment(
             if (
                 skipped < extra
                 and group.status not in _PROTECTED_USER_STATUSES
-                and group.source_count <= max_skippable_sources
+                and (
+                    group.source_count <= max_skippable_sources
+                    or group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+                )
             ):
                 skip_cost = _skip_assignment_cost(group, max_skippable_sources)
                 if prior + skip_cost < current[skipped + 1]:

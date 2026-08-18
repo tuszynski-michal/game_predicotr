@@ -69,7 +69,10 @@ export function OperationalReviewGeometryEditor({
     context,
     item.id,
     'source',
-    { version: item.sourceChecksumSha256 },
+    {
+      usage: 'geometry-editor-v2',
+      version: item.sourceChecksumSha256,
+    },
   );
   const cornersKey = corners === null ? '' : JSON.stringify(corners);
   const previewIsCurrent = previewUrl !== null && previewKey === cornersKey;

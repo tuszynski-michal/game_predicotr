@@ -2325,10 +2325,61 @@
             "title": "Orderindex",
             "type": "integer"
           },
+          "rangeConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeconfidence"
+          },
+          "rangeLabelObservations": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionRangeLabelObservationResponse"
+            },
+            "title": "Rangelabelobservations",
+            "type": "array"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
           "runId": {
             "format": "uuid",
             "title": "Runid",
             "type": "string"
+          },
+          "suggestedRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedrangeend"
+          },
+          "suggestedRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedrangestart"
           },
           "width": {
             "minimum": 1.0,
@@ -2889,6 +2940,10 @@
             ],
             "title": "Processingdurationseconds"
           },
+          "rangeRequired": {
+            "title": "Rangerequired",
+            "type": "integer"
+          },
           "recentWindow": {
             "anyOf": [
               {
@@ -2955,6 +3010,7 @@
           "groups",
           "selected",
           "manual",
+          "rangeRequired",
           "skipped",
           "errors",
           "verifications"
@@ -3324,6 +3380,48 @@
         "title": "ImageSelectionRangeConfirmationCommand",
         "type": "object"
       },
+      "ImageSelectionRangeLabelObservationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          },
+          "route": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Route",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "sequenceNumber",
+          "confidence",
+          "route",
+          "rangeStart"
+        ],
+        "title": "ImageSelectionRangeLabelObservationResponse",
+        "type": "object"
+      },
       "ImageSelectionRecentWindowResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3343,6 +3441,10 @@
             "title": "Manual",
             "type": "integer"
           },
+          "rangeRequired": {
+            "title": "Rangerequired",
+            "type": "integer"
+          },
           "toProcessed": {
             "title": "Toprocessed",
             "type": "integer"
@@ -3358,7 +3460,8 @@
           "elapsedSeconds",
           "groupsFinalized",
           "verifications",
-          "manual"
+          "manual",
+          "rangeRequired"
         ],
         "title": "ImageSelectionRecentWindowResponse",
         "type": "object"

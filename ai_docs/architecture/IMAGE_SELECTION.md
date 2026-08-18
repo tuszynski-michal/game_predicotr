@@ -1258,6 +1258,99 @@ Verifier pojedynczego JPEG-a nie zmienia semantyki, dlatego v10.18 może czytać
 zgodny cache v10.17–v10.12. Nowy fingerprint opisuje wyłącznie inną regułę
 zatrzymania i akceptacji grupy.
 
+## Proof-first range pipeline v10.19
+
+`ProofFirstVisibleSequenceLabelRangeRecognizer` zwraca rozszerzony
+`RangeRecognitionResult`. Obok zakresu i kodów przyczyny zawiera surowe
+`RangeLabelObservation(positionIndex, sequenceNumber, confidence, route)`.
+Obserwacje przechodzą przez verifier, `CandidateResult`, cache i trwałe
+`quality_metrics`; API wystawia je w audycie bez uznawania sugestii za domenowy
+zakres grupy.
+
+Wspólna funkcja `has_strong_local_range_proof` jest bramką zarówno engine, jak
+i końcowego reconciler/persistence invariant. Akceptuje tylko jawne trasy
+trzech/czterech etykiet, odrzuca fuzzy, dwie etykiety oraz wszystkie trasy
+inferencyjne. Następnie odtwarza bazę z każdej obserwacji, wymaga minimum trzech
+pozycji i pary sąsiadującej. Dzięki temu modyfikacja jednej cyfry o `±1` albo
+przesunięcie pozycji unieważnia automat.
+
+Engine nadal wykonuje tani skan całego wejścia potrzebny do granic, lecz drogi
+verifier uruchamia etapami dla kwantyli `1, 3, 5`. Mocny środek przechodzący
+bramkę jakości kończy grupę natychmiast. Poziom 18 usunięto z manifestu v10.19;
+fallback etykiet wykonuje poziomy `6 -> 12`. Zakotwiczona trasa najpierw OCR-uje
+jednym batchem wariant przetworzony i dopiero przy braku jednoznacznego dowodu
+dobiera wariant surowy. Niezależna trasa lattice nadal bierze udział w fuzji,
+więc rozbieżność zakresów pozostaje blokująca. Po pięciu nieudanych próbkach
+grupa pozostaje do review. Telemetria zapisuje rozkład liczby zweryfikowanych
+JPEG-ów na grupę oraz przyczyny odrzuceń dowodu.
+
+`_reconcile_proof_first_projection` nie wywołuje przypisania kardynalnego ani
+odtwarzania luk. Zachowuje mocno udowodnionych właścicieli, scala wyłącznie
+udowodnione duplikaty, a każdy inny automat degraduje do `range_required` z
+osobną sugestią kandydata. Warstwa zapisu ponownie sprawdza invariant przed
+commitem transakcji. Historyczne fingerprinty zachowują dawny reconciler.
+
+Kandydat zachowany wyłącznie jako sugestia dla `range_required` pozostaje w
+`top_candidates` z decyzją `eligible`. Samo pole `selected_candidate` projekcji
+nie może zmienić go w `selected_automatic`; decyzje `selected_automatic` oraz
+`selected_manual` są materializowane tylko dla gotowych statusów
+`auto_selected`, `manually_selected` i `range_confirmed`. Normalizacja przed
+zapisem zwalnia oba historyczne warianty flagi wyboru także wtedy, gdy grupa
+wraca do review.
+
+Domyślny manifest to `fast-image-selector-v10.19`, fingerprint
+`18886fe8f54aaa161f4ab59fd793a6c8c498d9046ec565b45e23d4cb857da351`.
+V10.19 celowo nie promuje cache pełnej weryfikacji ze starszych wersji, ponieważ
+zmieniła się semantyka dowodu i jego trwały payload.
+
+## Sekwencyjna walidacja zakresu v10.20
+
+V10.20 zachowuje proof-first v10.19 jako niezależną ścieżkę trzyetykietową, ale
+dodaje osobny adapter
+`SequenceValidatedVisibleSequenceLabelRangeRecognizer`. Adapter v18 mapuje
+częściowe okno etykiet na pozycje stabilnego viewportu i zachowuje dwie zgodne,
+wysokiej pewności obserwacje zakotwiczone w pełnej geometrii jako sugestię.
+Historyczny adapter v15 nie zmienia zachowania.
+
+Po standardowej reconciliacji mocne automaty są blokowane jako kotwice swoich
+slotów. Programowanie dynamiczne wyznacza monotoniczną hipotezę slotu dla
+pozostałych fizycznych fragmentów. Nie zapisuje jej bez dowodu. Kandydat
+`range_required` jest promowany po dwóch dokładnych etykietach z zakotwiczonej
+geometrii albo po trzech wspierających pozycjach częściowego viewportu, z czego
+jedna jest dokładna, a pokrycie obejmuje co najmniej dwa wiersze i dwie kolumny.
+Mocny niezależny odczyt innego zakresu zawsze wygrywa i blokuje hipotezę.
+Sprzeczne kotwice wyłączają promocję sekwencyjną zamiast kończyć cały job.
+
+Jeżeli wczesny kwantyl wskazuje inny slot niż dokładnie następny oczekiwany,
+verifier rozszerza próbę do maksymalnie pięciu wewnętrznych kwantyli. Dwa
+sąsiednie zakresy z osobnym mocnym dowodem są rozdzielane nawet wtedy, gdy tani
+deskryptor wyglądu skleił je w jeden fragment. Po monotonicznym przypisaniu
+nadmiarowe fragmenty nie są właścicielami ani pozycjami review: wskazują
+istniejącego właściciela jako `skipped_existing_range`.
+
+`SequenceBounds.group_index_for_range` wylicza indeks arytmetycznie w O(1).
+Złożoność uzgodnienia pozostaje O(`physical_groups * extra_groups`) i w
+syntetycznym przypadku 2583/2201 wyniosła 1,922 s. Nie dodaje to kosztu OCR ani
+dekodowania JPEG-ów.
+
+Rzeczywisty korpus regresyjny zawiera 283 zdjęcia w kolejności malejącej,
+17 ręcznie potwierdzonych zakresów oraz trzy negatywne przykłady jakościowe.
+Adnotacje są związane checksumami z plikami. Zimny benchmark v10.20 trwa
+`68,298789 s`, wykonuje 48 pełnych weryfikacji i kończy z 17 logicznymi
+właścicielami, 17/17 pokrytymi slotami, 9 pominiętymi fragmentami, bramką
+adnotacji 20/20 i zerem automatów bez wymaganego dowodu.
+
+Potwierdzenie zakresu w API najpierw sprawdza istniejącego rozwiązanego
+właściciela. Jeżeli istnieje, to samo polecenie tworzy idempotentną decyzję
+`duplicate_range`, zmienia fragment na `skipped_existing_range` i demotuje jego
+wcześniej automatycznego kandydata do `eligible`. Jawny endpoint odrzucenia
+duplikatu pozostaje zgodny wstecznie.
+
+Postęp ma dwa niezależne pola: `manual_count/manual` dla wyboru JPEG-a oraz
+`range_required_count/rangeRequired` dla ustalenia numerów. `review_count`
+pozostaje sumą operacyjną do sterowania jobem, lecz nie jest liczbą logicznych
+grup ani miarą skuteczności automatu.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

@@ -125,6 +125,9 @@ cohort_freeze -> dataset_build -> training -> onnx_export
 Każdy etap zapisuje checkpoint. Retry potwierdza fingerprint wejścia i nie
 tworzy drugiej wersji z tym samym kluczem idempotencji. Początkowo blokada per
 gra dopuszcza najwyżej jeden ciężki trening albo masową ponowną inferencję.
+Zapytanie blokady obejmuje wyłącznie joby tego pionu, a nie niezależne joby
+Selekcji Zdjęć. Progi 100 i 1000 pozostają metadanymi doradczymi; utworzenie
+kohorty wymaga tylko co najmniej jednej kompletnej decyzji.
 
 TASK-0146 realizuje pierwsze dwa etapy workera: `dataset_build` i `training`.
 Używa wybranej wcześniej architektury `spatial-symbol-cnn-v1`, trenuje od zera

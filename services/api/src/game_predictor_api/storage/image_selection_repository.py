@@ -563,6 +563,21 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 )
                 .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
             )
+        elif decision.resolution is ImageSelectionManualResolution.DUPLICATE_RANGE:
+            self._session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == group.run_id,
+                    ImageSelectionCandidateModel.group_id == group.id,
+                    ImageSelectionCandidateModel.decision.in_(
+                        (
+                            ImageSelectionCandidateDecision.SELECTED_AUTOMATIC.value,
+                            ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+                        )
+                    ),
+                )
+                .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
+            )
         selected = (
             None
             if decision.candidate_id is None

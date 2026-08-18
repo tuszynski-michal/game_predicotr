@@ -2991,3 +2991,130 @@ class ReviewFeedbackExportModel(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class RepresentativeRankingCohortModel(Base):
+    __tablename__ = "representative_ranking_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND manifest_schema_version > 0",
+            name="ck_representative_ranking_cohorts_versions",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_representative_ranking_cohorts_checksum",
+        ),
+        CheckConstraint(
+            "positive_count >= 0 AND pair_count >= 0 AND excluded_ambiguous_count >= 0 "
+            "AND folder_count >= 0 AND group_count >= 0",
+            name="ck_representative_ranking_cohorts_counts",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "iteration_number",
+            name="uq_representative_ranking_cohorts_iteration",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_representative_ranking_cohorts_manifest",
+        ),
+        Index("ix_representative_ranking_cohorts_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    positive_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    pair_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    excluded_ambiguous_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    folder_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    group_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RepresentativeRankingIterationModel(Base):
+    __tablename__ = "representative_ranking_iterations"
+    __table_args__ = (
+        CheckConstraint(
+            "model_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_representative_ranking_iterations_checksum",
+        ),
+        CheckConstraint(
+            "feature_version <> '' AND model_version <> '' AND btrim(status) <> ''",
+            name="ck_representative_ranking_iterations_values",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "model_checksum_sha256",
+            name="uq_representative_ranking_iterations_model",
+        ),
+        Index("ix_representative_ranking_iterations_cohort_created", "cohort_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("representative_ranking_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    feature_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    report: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RepresentativeRankingActivationModel(Base):
+    __tablename__ = "representative_ranking_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback') AND activation_number > 0",
+            name="ck_representative_ranking_activations_values",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$' AND btrim(actor) <> ''",
+            name="ck_representative_ranking_activations_checksum",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_representative_ranking_activations_number",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_representative_ranking_activations_idempotency",
+        ),
+        Index("ix_representative_ranking_activations_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    iteration_id: Mapped[UUID] = mapped_column(
+        ForeignKey("representative_ranking_iterations.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("representative_ranking_iterations.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

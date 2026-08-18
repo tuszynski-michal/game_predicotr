@@ -1574,3 +1574,11 @@ Managed manifest przechowuje poświadczony zakres, worker sortuje go numerycznie
 a `sequence-number-from-attested-range-v1` pomija OCR numerów i przypisuje
 plansze row-major. Niepełna geometria pozostaje w korekcie bez przesunięcia
 pozostałych numerów; zwykłe nazwy nadal korzystają z historycznego OCR.
+
+W `v0.6.30` worker ma kohortę `representative-quality-ranking-cohort-v1`,
+deterministyczny trening `representative-quality-mlp-v1`, eksport ONNX i
+snapshot `shadow`. Job może przypiąć snapshot przez
+`representative_ranker_snapshot`; diagnostyka zapisuje ranking rekomendowany
+przez model bez zmiany wyniku v10.21. Migracja `0044_representative_ranking`
+tworzy osobne tabele kohort, iteracji i historii aktywacji. Promocja do v10.22
+nie została wykonana.

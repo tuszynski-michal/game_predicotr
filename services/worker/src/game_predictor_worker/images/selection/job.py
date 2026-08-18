@@ -124,6 +124,7 @@ from .output import (
 )
 from .ports import SequenceRangeRecognizer
 from .range_proof import has_strong_local_range_proof
+from .ranker import RepresentativeRankerSnapshot, shadow_recommendations
 from .recovery import (
     RecoveryEvaluationProgress,
     RecoveryProjection,
@@ -414,6 +415,7 @@ class ImageSelectionJobHandler:
                     persisted_at=context.now(),
                 )
                 sink.projection_reconciled(result.groups)
+            self._attach_shadow_ranker_report(job, result, sink)
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
 
@@ -466,6 +468,33 @@ class ImageSelectionJobHandler:
             )
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
+
+    def _attach_shadow_ranker_report(
+        self,
+        job: Job,
+        result: ImageSelectionResult,
+        sink: _DurableSelectionSink,
+    ) -> None:
+        value = job.input_payload.get("representative_ranker_snapshot")
+        if value is None:
+            return
+        if not isinstance(value, Mapping):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_RANKER_SNAPSHOT_INVALID",
+                "The representative ranker snapshot must be an object.",
+            )
+        try:
+            snapshot = RepresentativeRankerSnapshot.from_dict(value)
+            if snapshot.status != "shadow":
+                raise ValueError("Only shadow ranker snapshots are accepted by v10.21.")
+            model_path = _safe_artifact_file(self._artifact_root, snapshot.model_relative_path)
+            report = shadow_recommendations(snapshot, result.groups, model_path=model_path)
+        except (OSError, ValueError, RuntimeError) as error:
+            raise JobHandlerError(
+                "IMAGE_SELECTION_RANKER_SNAPSHOT_INVALID",
+                "The representative ranker snapshot could not be evaluated.",
+            ) from error
+        sink.set_shadow_ranker_report(report)
 
     def _run_range_recovery(
         self,
@@ -987,6 +1016,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         }
         self._last_state: SelectorResumeState | None = None
         self._diagnostic: dict[str, object] | None = None
+        self._shadow_ranker_report: dict[str, object] | None = None
         self._error_samples = _prior_error_samples(prior_checkpoint)
         self._processing_started_at = context.now()
         self._prior_processing_seconds = _prior_processing_duration(prior_checkpoint)
@@ -1137,6 +1167,8 @@ class _DurableSelectionSink(SelectionAuditSink):
             "verificationCache": self._verification_cache_metrics(),
             "stageTiming": self._telemetry.snapshot(),
         }
+        if self._shadow_ranker_report is not None:
+            payload["representativeRankerShadow"] = self._shadow_ranker_report
         content = json.dumps(
             payload,
             ensure_ascii=True,
@@ -1164,6 +1196,9 @@ class _DurableSelectionSink(SelectionAuditSink):
             "relativePath": target.relative_to(self._artifact_root).as_posix(),
             "sizeBytes": len(content),
         }
+
+    def set_shadow_ranker_report(self, report: Mapping[str, object]) -> None:
+        self._shadow_ranker_report = dict(report)
 
     def _checkpoint(
         self,

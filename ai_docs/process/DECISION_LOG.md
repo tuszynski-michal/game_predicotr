@@ -4778,6 +4778,23 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   źródło zakresu. Historyczne importy bez `seq_*` nadal używają OCR i pozostają
   odtwarzalne.
 
+## D-197 — Ranker jakości działa najpierw wyłącznie w cieniu
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** `representative-quality-mlp-v1` uczy się na jawnie zamrożonych,
+  checksumowanych śladach ręcznej selekcji. Ocenia siedem surowych metryk jakości
+  i względną pozycję zdjęcia, ale w pierwszym wdrożeniu tylko raportuje ranking
+  pięciu kandydatów w już istniejącej grupie.
+- **Reason:** ręczne etykiety są wartościowe dla preferencji reprezentanta, ale
+  nie są dowodem granic grup. Oddzielenie rankera od segmentacji ogranicza
+  ryzyko powtórzenia regresji zakresów.
+- **Safety:** Tab i niejednoznaczne pary nie tworzą negatywów; wymagane są
+  checksumy, dwa foldery, 300 grup i 1000 par przed promocją. Snapshot z innym
+  statusem niż `shadow` nie wpływa na v10.21.
+- **Consequences:** kohorty, iteracje i aktywacje mają osobne append-only tabele;
+  aktywny v10.22 wymaga osobnej decyzji właściciela.
+
 ## Szablon nowej decyzji
 
 ```text

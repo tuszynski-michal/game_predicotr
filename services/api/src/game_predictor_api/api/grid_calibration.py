@@ -11,6 +11,7 @@ from game_predictor_api.domain.grid_calibration import GridProfileActivationActi
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_calibration import (
     CreateGridCalibrationCandidateResponse,
+    GeometryCohortDiagnosticsResponse,
     GridCalibrationProfileResponse,
     GridProfileActivationCommand,
     GridProfileActivationCommandResponse,
@@ -19,6 +20,7 @@ from game_predictor_api.schemas.grid_calibration import (
     to_activation_preview_response,
     to_activation_response,
     to_cohort_response,
+    to_diagnostics_response,
     to_profile_response,
 )
 
@@ -53,6 +55,18 @@ def create_grid_calibration_router(
             profile=to_profile_response(profile),
             created=created,
         )
+
+    @router.get(
+        "/cohort-diagnostics",
+        response_model=GeometryCohortDiagnosticsResponse,
+        operation_id="getGridCalibrationCohortDiagnostics",
+        responses=errors,
+    )
+    def cohort_diagnostics(
+        game_id: UUID,
+        service: Annotated[GridCalibrationService, dependency],
+    ) -> GeometryCohortDiagnosticsResponse:
+        return to_diagnostics_response(service.cohort_diagnostics(game_id=game_id))
 
     @router.get(
         "",

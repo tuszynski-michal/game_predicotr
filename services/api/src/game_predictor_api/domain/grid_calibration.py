@@ -99,6 +99,18 @@ class GridProfileActivationPreview:
     can_activate: bool
 
 
+@dataclass(frozen=True, slots=True)
+class GeometryCohortDiagnostics:
+    game_id: UUID
+    accepted_geometry_count: int
+    corrected_geometry_count: int
+    missing_detection_count: int
+    incomplete_geometry_count: int
+    source_image_count: int
+    first_sequence_number: int | None
+    last_sequence_number: int | None
+
+
 def build_geometry_manifest(
     game_id: UUID,
     samples: Iterable[VerifiedGeometrySample],

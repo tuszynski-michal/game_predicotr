@@ -9,6 +9,7 @@ from pydantic import Field
 
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
+    GeometryCohortDiagnostics,
     GridCalibrationProfile,
     GridProfileActivation,
     GridProfileActivationPreview,
@@ -44,6 +45,17 @@ class CreateGridCalibrationCandidateResponse(ApiModel):
     cohort: GeometryCohortResponse
     profile: GridCalibrationProfileResponse
     created: bool
+
+
+class GeometryCohortDiagnosticsResponse(ApiModel):
+    game_id: UUID
+    accepted_geometry_count: int = Field(ge=0)
+    corrected_geometry_count: int = Field(ge=0)
+    missing_detection_count: int = Field(ge=0)
+    incomplete_geometry_count: int = Field(ge=0)
+    source_image_count: int = Field(ge=0)
+    first_sequence_number: int | None = Field(default=None, ge=1)
+    last_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class GridProfileActivationCommand(ApiModel):
@@ -95,6 +107,21 @@ def to_cohort_response(value: GeometryCohort) -> GeometryCohortResponse:
     )
 
 
+def to_diagnostics_response(
+    value: GeometryCohortDiagnostics,
+) -> GeometryCohortDiagnosticsResponse:
+    return GeometryCohortDiagnosticsResponse(
+        game_id=value.game_id,
+        accepted_geometry_count=value.accepted_geometry_count,
+        corrected_geometry_count=value.corrected_geometry_count,
+        missing_detection_count=value.missing_detection_count,
+        incomplete_geometry_count=value.incomplete_geometry_count,
+        source_image_count=value.source_image_count,
+        first_sequence_number=value.first_sequence_number,
+        last_sequence_number=value.last_sequence_number,
+    )
+
+
 def to_profile_response(value: GridCalibrationProfile) -> GridCalibrationProfileResponse:
     return GridCalibrationProfileResponse(
         id=value.id,
@@ -139,6 +166,7 @@ def to_activation_response(value: GridProfileActivation) -> GridProfileActivatio
 
 __all__ = [
     "CreateGridCalibrationCandidateResponse",
+    "GeometryCohortDiagnosticsResponse",
     "GridCalibrationProfileResponse",
     "GridProfileActivationCommand",
     "GridProfileActivationCommandResponse",
@@ -147,5 +175,6 @@ __all__ = [
     "to_activation_preview_response",
     "to_activation_response",
     "to_cohort_response",
+    "to_diagnostics_response",
     "to_profile_response",
 ]

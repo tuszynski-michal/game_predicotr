@@ -2,9 +2,11 @@
 
 import type {
   GridCalibrationProfileResponse,
+  GeometryCohortDiagnosticsResponse,
   GridProfileActivationAction,
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
+  PendingGridReinferencePreviewResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -14,6 +16,8 @@ import {
   createGridCandidate,
   loadGridQuality,
   previewGridActivation,
+  previewPendingGridReinference,
+  startPendingGridReinference,
   type GridQualityClient,
 } from '@/features/model-quality/model-quality-actions';
 
@@ -49,12 +53,17 @@ export function GridQualityPanel({
   const [activations, setActivations] = useState<
     readonly GridProfileActivationResponse[]
   >([]);
+  const [diagnostics, setDiagnostics] =
+    useState<GeometryCohortDiagnosticsResponse | null>(null);
+  const [pendingPreview, setPendingPreview] =
+    useState<PendingGridReinferencePreviewResponse | null>(null);
   const [preview, setPreview] =
     useState<GridProfileActivationPreviewResponse | null>(null);
   const [action, setAction] = useState<GridProfileActivationAction>('activate');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idempotencyKey = useRef<string | null>(null);
@@ -62,14 +71,19 @@ export function GridQualityPanel({
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
-      const result = await loadGridQuality(api, gameId, signal);
+      const [result, pendingResult] = await Promise.all([
+        loadGridQuality(api, gameId, signal),
+        previewPendingGridReinference(api, gameId),
+      ]);
       if (signal?.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
       } else {
         setProfiles(result.profiles);
         setActivations(result.activations);
+        setDiagnostics(result.diagnostics);
       }
+      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -102,6 +116,20 @@ export function GridQualityPanel({
       await refresh();
     }
     setCreating(false);
+  }
+
+  async function recalculatePending() {
+    if (pendingPreview === null || pendingPreview.pendingBoardCount === 0 || recalculating) return;
+    setRecalculating(true);
+    setError('');
+    const result = await startPendingGridReinference(api, gameId);
+    if (result.ok) {
+      setNotice(`Uruchomiono odświeżenie oczekującej siatki (job ${result.job.id}).`);
+      setPendingPreview({ ...pendingPreview, pendingBoardCount: 0 });
+    } else {
+      setError(result.error);
+    }
+    setRecalculating(false);
   }
 
   async function prepareActivation(
@@ -161,6 +189,25 @@ export function GridQualityPanel({
           nie zmienia historycznych ani rozstrzygniętych plansz.
         </p>
       </header>
+      <div className="modelQualityActions">
+        <button
+          className="secondaryButton"
+          disabled={recalculating || pendingPreview?.pendingBoardCount === 0}
+          onClick={() => void recalculatePending()}
+          type="button"
+        >
+          {recalculating
+            ? 'Przeliczanie…'
+            : `Przelicz oczekujące (${pendingPreview?.pendingBoardCount ?? '…'})`}
+        </button>
+        {pendingPreview !== null ? (
+          <small>
+            Chronione: {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
+            {pendingPreview.partiallyResolvedSourceCount}; pominięte:{' '}
+            {pendingPreview.fullyResolvedSourceCount}
+          </small>
+        ) : null}
+      </div>
       <dl className="modelQualityDecisionCounts">
         <div>
           <dt>Aktywny profil</dt>
@@ -194,6 +241,21 @@ export function GridQualityPanel({
           <dd>
             {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
             {metric(latest, 'candidate', 'p95NormalizedCornerError')}
+          </dd>
+        </div>
+        <div>
+          <dt>Geometria zaakceptowana</dt>
+          <dd>{diagnostics?.acceptedGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Geometria poprawiona ręcznie</dt>
+          <dd>{diagnostics?.correctedGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Brak detekcji / niekompletne</dt>
+          <dd>
+            {diagnostics?.missingDetectionCount ?? '—'} /{' '}
+            {diagnostics?.incompleteGeometryCount ?? '—'}
           </dd>
         </div>
       </dl>

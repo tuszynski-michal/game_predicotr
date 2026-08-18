@@ -7,6 +7,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
+    GeometryCohortDiagnostics,
     GridCalibrationProfile,
     GridProfileActivation,
     GridProfileActivationAction,
@@ -17,6 +18,7 @@ from game_predictor_api.domain.jobs import JobConflictError
 
 
 class GridCalibrationRepository(Protocol):
+    def cohort_diagnostics(self, *, game_id: UUID) -> GeometryCohortDiagnostics: ...
     def create_candidate(
         self, *, game_id: UUID
     ) -> tuple[GeometryCohort, GridCalibrationProfile, bool]: ...
@@ -58,6 +60,9 @@ class GridCalibrationService:
         self, *, game_id: UUID
     ) -> tuple[GeometryCohort, GridCalibrationProfile, bool]:
         return self._repository.create_candidate(game_id=game_id)
+
+    def cohort_diagnostics(self, *, game_id: UUID) -> GeometryCohortDiagnostics:
+        return self._repository.cohort_diagnostics(game_id=game_id)
 
     def list_profiles(
         self, *, game_id: UUID, limit: int = 50

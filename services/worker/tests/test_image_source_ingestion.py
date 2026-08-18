@@ -1,9 +1,14 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from game_predictor_api.application.image_imports import (
+    BrowserImageSelectionService,
+    ImageFolderSelectionService,
+)
 from game_predictor_api.domain.jobs import (
     JobType,
     checkpoint_job,
@@ -160,6 +165,60 @@ def test_seq_filenames_reject_invalid_or_overlapping_ranges(tmp_path: Path) -> N
         )
 
     assert caught.value.code == "IMAGE_SEQUENCE_FILENAME_CONFLICT"
+
+
+def test_browser_manifest_preserves_seq_name_while_copying_physical_file(
+    tmp_path: Path,
+) -> None:
+    upload_root = tmp_path / "imports"
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
+    content = stream.getvalue()
+    upload = browser_service.begin(
+        display_name="1-9",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    browser_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="1-9/seq_1-9.jpg",
+        content=content,
+    )
+    browser_service.finalize(upload.upload_id)
+    source = upload.path
+    game_id = uuid4()
+    job = create_job(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "import_kind": "image_directory",
+            "source_selection_id": str(upload.upload_id),
+            "source_directory": str(source.resolve()),
+            "source_display_name": "1-9",
+            "pipeline_fingerprint": FINGERPRINT,
+        },
+        created_at=NOW,
+    )
+
+    store = ManagedOriginalStore(tmp_path / "artifacts")
+    manifest = store.load_or_create_manifest(job, source_directory=source)
+
+    assert manifest.originals[0].source_relative_path == "1-9/seq_1-9.jpg"
+    assert manifest.originals[0].source_storage_relative_path == "00000001.jpg"
+    assert manifest.originals[0].sequence_range_start == 1
+    assert manifest.originals[0].sequence_range_end == 9
+    assert store.ensure_original(manifest, manifest.originals[0]) is True
+    managed_path = tmp_path / "artifacts" / manifest.originals[0].managed_relative_path
+    assert managed_path.read_bytes() == content
 
 
 def test_managed_reprocess_clones_manifest_after_original_folder_was_removed(

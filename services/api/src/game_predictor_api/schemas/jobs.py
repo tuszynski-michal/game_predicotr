@@ -62,6 +62,10 @@ class ImageImportJobPayload(ApiModel):
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_selection_run_id: UUID | None = None
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+    source_manifest_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
     symbol_model: SymbolModelJobSnapshotPayload
 
 

@@ -312,6 +312,9 @@ import type {
   ListPayoutRulesData,
   ListPayoutRulesErrors,
   ListPayoutRulesResponses,
+  ListReadyBrowserImageSelectionsData,
+  ListReadyBrowserImageSelectionsErrors,
+  ListReadyBrowserImageSelectionsResponses,
   ListReviewBatchesData,
   ListReviewBatchesErrors,
   ListReviewBatchesResponses,
@@ -378,6 +381,9 @@ import type {
   PreviewPendingSymbolReinferenceData,
   PreviewPendingSymbolReinferenceErrors,
   PreviewPendingSymbolReinferenceResponses,
+  PreviewReadyBrowserImageImportData,
+  PreviewReadyBrowserImageImportErrors,
+  PreviewReadyBrowserImageImportResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -459,6 +465,9 @@ import type {
   StartPendingSymbolReinferenceData,
   StartPendingSymbolReinferenceErrors,
   StartPendingSymbolReinferenceResponses,
+  StartReadyBrowserImageImportData,
+  StartReadyBrowserImageImportErrors,
+  StartReadyBrowserImageImportResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
@@ -1436,6 +1445,24 @@ export const createImageFolderImport = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List finalized browser staging folders ready for layout import
+ */
+export const listReadyBrowserImageSelections = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListReadyBrowserImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListReadyBrowserImageSelectionsResponses,
+  ListReadyBrowserImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListReadyBrowserImageSelectionsResponses,
+    ListReadyBrowserImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-imports/browser-selections', ...options });
+
+/**
  * Start a browser-native image folder upload
  */
 export const createBrowserImageSelection = <
@@ -1549,6 +1576,58 @@ export const finalizeBrowserImageSelection = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
     ...options,
+  });
+
+/**
+ * Preview a finalized browser staging folder before creating a job
+ */
+export const previewReadyBrowserImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewReadyBrowserImageImportData, ThrowOnError>,
+): RequestResult<
+  PreviewReadyBrowserImageImportResponses,
+  PreviewReadyBrowserImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewReadyBrowserImageImportResponses,
+    PreviewReadyBrowserImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create an idempotent image import from finalized browser staging
+ */
+export const startReadyBrowserImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartReadyBrowserImageImportData, ThrowOnError>,
+): RequestResult<
+  StartReadyBrowserImageImportResponses,
+  StartReadyBrowserImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartReadyBrowserImageImportResponses,
+    StartReadyBrowserImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

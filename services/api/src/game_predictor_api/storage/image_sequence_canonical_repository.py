@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from uuid import UUID
 
 from sqlalchemy import select
@@ -33,6 +34,21 @@ class SqlAlchemyImageSequenceCanonicalRepository(ImageSequenceCanonicalRepositor
             self._session.rollback()
             return set()
         return {int(value) for value in values}
+
+    def canonical_source_checksums(self, game_id: UUID) -> Mapping[int, str]:
+        try:
+            rows = self._session.execute(
+                select(
+                    ImageSequenceCanonicalModel.sequence_number,
+                    ImageSequenceCanonicalModel.source_checksum_sha256,
+                ).where(ImageSequenceCanonicalModel.game_id == game_id)
+            ).all()
+        except ProgrammingError as error:
+            if "image_sequence_canonical" not in str(error).lower():
+                raise
+            self._session.rollback()
+            return {}
+        return {int(number): str(checksum) for number, checksum in rows}
 
 
 __all__ = ["SqlAlchemyImageSequenceCanonicalRepository"]

@@ -16,6 +16,9 @@ import {
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  listReadyBrowserImageSelections as listGeneratedReadyBrowserImageSelections,
+  previewReadyBrowserImageImport as previewGeneratedReadyBrowserImageImport,
+  startReadyBrowserImageImport as startGeneratedReadyBrowserImageImport,
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
@@ -153,6 +156,8 @@ import {
 } from './generated/sdk.gen';
 import type {
   BrowserImageSelectionCreate,
+  BrowserImageImportPreflightCreate,
+  BrowserImageImportStart,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -212,8 +217,11 @@ import type {
 export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  BrowserImageImportPreflightResponse,
+  BrowserImageImportStartResponse,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
+  BrowserReadySelectionResponse,
   CleanupCommandRequest,
   CleanupCountResponse,
   CleanupPreviewResponse,
@@ -545,6 +553,30 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     finalizeBrowserImageSelection: (uploadId: string) =>
       finalizeGeneratedBrowserImageSelection({
         client,
+        path: { upload_id: uploadId },
+      }),
+    listReadyBrowserImageSelections: () =>
+      listGeneratedReadyBrowserImageSelections({
+        client,
+        query: { purpose: 'layout_import' },
+      }),
+    previewReadyBrowserImageImport: (
+      uploadId: string,
+      body: BrowserImageImportPreflightCreate,
+    ) =>
+      previewGeneratedReadyBrowserImageImport({
+        body,
+        client,
+        path: { upload_id: uploadId },
+      }),
+    startReadyBrowserImageImport: (
+      uploadId: string,
+      body: BrowserImageImportStart,
+    ) =>
+      startGeneratedReadyBrowserImageImport({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
         path: { upload_id: uploadId },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>

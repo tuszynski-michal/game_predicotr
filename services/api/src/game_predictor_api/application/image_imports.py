@@ -16,7 +16,11 @@ from secrets import token_urlsafe
 from threading import Lock
 from uuid import UUID, uuid4
 
-from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
+from game_predictor_worker.images.image_file import (
+    ImageFileError,
+    read_jpeg_dimensions,
+    sha256_file,
+)
 from game_predictor_worker.images.pipeline_contract import (
     current_pipeline_manifest,
     pipeline_fingerprint,
@@ -31,6 +35,10 @@ from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.image_selections import (
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
+)
+from game_predictor_api.domain.image_sequence_canonical import (
+    BrowserSequenceManifest,
+    parse_browser_sequence_manifest,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
 
@@ -89,6 +97,13 @@ class BrowserUploadedFile:
     stored_file_name: str
     size_bytes: int
     checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserReadySelection:
+    upload: BrowserImageUpload
+    manifest: BrowserSequenceManifest
+    completed_at: datetime | None
 
 
 class WindowsFolderPicker:
@@ -659,6 +674,112 @@ class BrowserImageSelectionService:
         with self._lock:
             return self._get_upload(upload_id)
 
+    def get_ready(self, upload_id: UUID) -> BrowserReadySelection:
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if upload.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                    "Only layout-import staging can be used here.",
+                )
+            return self._ready_selection(upload, verify_files=True)
+
+    def bind_ready_game(self, upload_id: UUID, game_id: UUID) -> BrowserReadySelection:
+        """Bind an old game-less staging exactly once before its first start."""
+
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if upload.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                    "Only layout-import staging can be bound to a game.",
+                )
+            if upload.game_id is not None and upload.game_id != game_id:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                    "The staged folder belongs to a different game.",
+                )
+            if upload.game_id is None:
+                upload.game_id = game_id
+                self._write_upload_state(upload)
+            return self._ready_selection(upload, verify_files=True)
+
+    def list_ready(self) -> tuple[BrowserReadySelection, ...]:
+        with self._lock:
+            self._remove_expired(self._clock())
+            if not self._upload_root.is_dir():
+                return ()
+            ready: list[BrowserReadySelection] = []
+            for path in sorted(self._upload_root.iterdir(), key=lambda item: item.name.casefold()):
+                if not path.is_dir():
+                    continue
+                try:
+                    upload_id = UUID(path.name)
+                    upload = self._get_upload(upload_id)
+                    if upload.purpose is ImageSelectionPurpose.LAYOUT_IMPORT:
+                        ready.append(self._ready_selection(upload, verify_files=False))
+                except (JobError, ValueError):
+                    continue
+            return tuple(ready)
+
+    def manifest(self, upload_id: UUID) -> BrowserSequenceManifest:
+        return self.get_ready(upload_id).manifest
+
+    def _ready_selection(
+        self,
+        upload: BrowserImageUpload,
+        *,
+        verify_files: bool,
+    ) -> BrowserReadySelection:
+        manifest_path = upload.path / UPLOAD_MANIFEST_FILE_NAME
+        if not manifest_path.is_file():
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_NOT_FINALIZED",
+                "The browser staging has not been finalized.",
+            )
+        try:
+            manifest_bytes = manifest_path.read_bytes()
+            payload = json.loads(manifest_bytes)
+            manifest = parse_browser_sequence_manifest(
+                payload,
+                checksum_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_MANIFEST_INVALID",
+                "The browser manifest cannot be read.",
+            ) from error
+        if len(manifest.files) != upload.expected_file_count:
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_MANIFEST_INVALID",
+                "The browser manifest count differs from the upload state.",
+            )
+        if verify_files:
+            for item in manifest.files:
+                target = upload.path / item.stored_file_name
+                try:
+                    if not target.is_file() or target.stat().st_size != item.size_bytes:
+                        raise OSError("staged file is missing or has a different size")
+                    if sha256_file(target) != item.checksum_sha256:
+                        raise OSError("staged file has a different checksum")
+                except (OSError, ImageFileError) as error:
+                    raise JobConflictError(
+                        "IMAGE_SEQUENCE_MANIFEST_INVALID",
+                        "A staged image is missing or has a different size.",
+                        details={"storedFileName": item.stored_file_name},
+                    ) from error
+        metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
+        completed_at: datetime | None = None
+        if metrics_path.is_file():
+            try:
+                metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                completed_value = metrics.get("completedAt")
+                if isinstance(completed_value, str):
+                    completed_at = datetime.fromisoformat(completed_value)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                completed_at = None
+        return BrowserReadySelection(upload=upload, manifest=manifest, completed_at=completed_at)
+
     def cancel(self, upload_id: UUID) -> None:
         with self._lock:
             upload = self._uploads.pop(upload_id, None)
@@ -829,7 +950,10 @@ class BrowserImageSelectionService:
                 self._replace_upload_journal(upload)
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             return None
-        if upload.created_at + BROWSER_UPLOAD_TTL <= self._clock():
+        if (
+            upload.created_at + BROWSER_UPLOAD_TTL <= self._clock()
+            and not (upload.path / UPLOAD_MANIFEST_FILE_NAME).is_file()
+        ):
             shutil.rmtree(upload.path, ignore_errors=True)
             return None
         return upload
@@ -871,6 +995,7 @@ class BrowserImageSelectionService:
             upload_id
             for upload_id, upload in self._uploads.items()
             if upload.created_at + BROWSER_UPLOAD_TTL <= now
+            and not (upload.path / UPLOAD_MANIFEST_FILE_NAME).is_file()
         ]
         for upload_id in expired_ids:
             upload = self._uploads.pop(upload_id)
@@ -931,6 +1056,7 @@ def inspect_image_folder(path: Path) -> tuple[Path, int]:
 __all__ = [
     "BrowserImageSelectionService",
     "BrowserImageUpload",
+    "BrowserReadySelection",
     "BrowserUploadedFile",
     "BROWSER_UPLOAD_TTL",
     "IMAGE_RELATIVE_PATH_HEADER",

@@ -1,5 +1,7 @@
 """Loopback-only image folder selection and import creation."""
 
+import hashlib
+import json
 from collections.abc import Callable
 from typing import Annotated, cast
 from uuid import UUID
@@ -15,18 +17,24 @@ from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
     BrowserImageUpload,
     ImageFolderSelectionService,
+    ImageSelectionPurpose,
 )
 from game_predictor_api.application.iterative_image_imports import (
     IterativeImageImportService,
 )
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
-from game_predictor_api.domain.jobs import JobError
+from game_predictor_api.domain.jobs import JobConflictError, JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import (
+    BrowserImageImportPreflightCreate,
+    BrowserImageImportPreflightResponse,
+    BrowserImageImportStart,
+    BrowserImageImportStartResponse,
     BrowserImageSelectionCreate,
     BrowserImageSelectionFileUploadResponse,
     BrowserImageSelectionUploadResponse,
+    BrowserReadySelectionResponse,
     CuratedImageImportBatchCreate,
     CuratedImageImportSourceCreate,
     CuratedImageImportSourceResponse,
@@ -82,6 +90,43 @@ def create_image_imports_router(
             uploaded_file_count=len(upload.uploaded_indexes),
             expected_total_bytes=upload.expected_total_bytes,
             uploaded_bytes=upload.uploaded_bytes,
+        )
+
+    def browser_preflight(
+        *,
+        upload_id: UUID,
+        game_id: UUID,
+        service: BrowserImageSelectionService,
+        canonical_service: object | None,
+    ) -> BrowserImageImportPreflightResponse:
+        if canonical_service is None:
+            raise JobError(
+                "IMAGE_SEQUENCE_PREFLIGHT_UNAVAILABLE",
+                "Canonical sequence preflight is not configured.",
+            )
+        ready = service.get_ready(upload_id)
+        if ready.upload.game_id is not None and ready.upload.game_id != game_id:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                "The staged folder belongs to a different game.",
+            )
+        result = cast(ImageSequenceCanonicalService, canonical_service).preflight(
+            game_id=game_id,
+            manifest=ready.manifest,
+        )
+        base = ImageSequenceImportPreflightResponse.from_domain(result)
+        payload = base.model_dump(mode="json", by_alias=True)
+        checksum = hashlib.sha256(
+            json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
+                "ascii"
+            )
+        ).hexdigest()
+        return BrowserImageImportPreflightResponse(
+            **payload,
+            upload_id=upload_id,
+            display_name=ready.upload.display_name,
+            manifest_checksum_sha256=ready.manifest.checksum_sha256,
+            preflight_checksum_sha256=checksum,
         )
 
     @router.post(
@@ -171,6 +216,124 @@ def create_image_imports_router(
     ) -> Response:
         service.cancel(upload_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.get(
+        "/browser-selections",
+        response_model=list[BrowserReadySelectionResponse],
+        operation_id="listReadyBrowserImageSelections",
+        summary="List finalized browser staging folders ready for layout import",
+        responses=responses,
+    )
+    def list_ready_browser_selections(
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        purpose: Annotated[ImageSelectionPurpose | None, Query()] = None,
+    ) -> list[BrowserReadySelectionResponse]:
+        if purpose not in {None, ImageSelectionPurpose.LAYOUT_IMPORT}:
+            return []
+        return [BrowserReadySelectionResponse.from_domain(item) for item in service.list_ready()]
+
+    @router.post(
+        "/browser-selections/{upload_id}/preflight",
+        response_model=BrowserImageImportPreflightResponse,
+        operation_id="previewReadyBrowserImageImport",
+        summary="Preview a finalized browser staging folder before creating a job",
+        responses=responses,
+    )
+    def preview_ready_browser_import(
+        upload_id: UUID,
+        payload: BrowserImageImportPreflightCreate,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        canonical_service: object | None = canonical_parameter,
+    ) -> BrowserImageImportPreflightResponse:
+        return browser_preflight(
+            upload_id=upload_id,
+            game_id=payload.game_id,
+            service=service,
+            canonical_service=canonical_service,
+        )
+
+    @router.post(
+        "/browser-selections/{upload_id}/start",
+        response_model=BrowserImageImportStartResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="startReadyBrowserImageImport",
+        summary="Create an idempotent image import from finalized browser staging",
+        responses=responses,
+    )
+    def start_ready_browser_import(
+        upload_id: UUID,
+        payload: BrowserImageImportStart,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
+        canonical_service: object | None = canonical_parameter,
+    ) -> BrowserImageImportStartResponse:
+        ready = service.bind_ready_game(upload_id, payload.game_id)
+        if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_MANIFEST_CHANGED",
+                "The staged manifest changed after preflight.",
+            )
+        preflight = browser_preflight(
+            upload_id=upload_id,
+            game_id=payload.game_id,
+            service=service,
+            canonical_service=canonical_service,
+        )
+        if preflight.preflight_checksum_sha256 != payload.preflight_checksum_sha256:
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_PREFLIGHT_STALE",
+                "The canonical sequence projection changed after preflight.",
+            )
+        existing = job_service.get_image_import_by_source_selection(
+            game_id=payload.game_id,
+            source_selection_id=upload_id,
+        )
+        if existing is None:
+            canonical_numbers = (
+                sorted(
+                    cast(ImageSequenceCanonicalService, canonical_service).canonical_numbers(
+                        payload.game_id
+                    )
+                )
+                if canonical_service is not None
+                else None
+            )
+            try:
+                job = job_service.create_image_import_job(
+                    game_id=payload.game_id,
+                    selection_id=upload_id,
+                    source_directory=ready.upload.path,
+                    source_display_name=ready.upload.display_name,
+                    pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
+                    canonical_sequence_numbers=canonical_numbers,
+                    source_manifest_sha256=ready.manifest.checksum_sha256,
+                )
+                created = True
+            except JobConflictError as error:
+                if error.code != "JOB_INPUT_ALREADY_EXISTS":
+                    raise
+                existing = job_service.get_image_import_by_source_selection(
+                    game_id=payload.game_id,
+                    source_selection_id=upload_id,
+                )
+                if existing is None:
+                    raise
+                job = existing
+                created = False
+        else:
+            expected_manifest = existing.input_payload.get("source_manifest_sha256")
+            if expected_manifest not in {None, ready.manifest.checksum_sha256}:
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_MANIFEST_CHANGED",
+                    "This staging folder was already used with another manifest.",
+                )
+            job = existing
+            created = False
+        return BrowserImageImportStartResponse(
+            created=created,
+            job=JobResponse.from_domain(job),
+            preflight=preflight,
+        )
 
     @router.post(
         "/folder-selection",

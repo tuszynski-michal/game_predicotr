@@ -73,6 +73,182 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BrowserImageImportPreflightCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId"
+        ],
+        "title": "BrowserImageImportPreflightCreate",
+        "type": "object"
+      },
+      "BrowserImageImportPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeSourceCount": {
+            "minimum": 0.0,
+            "title": "Alternativesourcecount",
+            "type": "integer"
+          },
+          "attestedFileCount": {
+            "minimum": 0.0,
+            "title": "Attestedfilecount",
+            "type": "integer"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "firstUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstunresolvedsequence"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "lastUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastunresolvedsequence"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "newSequenceCount": {
+            "minimum": 0.0,
+            "title": "Newsequencecount",
+            "type": "integer"
+          },
+          "partialSourceCount": {
+            "minimum": 0.0,
+            "title": "Partialsourcecount",
+            "type": "integer"
+          },
+          "preflightChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Preflightchecksumsha256",
+            "type": "string"
+          },
+          "reusedSequenceCount": {
+            "minimum": 0.0,
+            "title": "Reusedsequencecount",
+            "type": "integer"
+          },
+          "skippedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedsourcecount",
+            "type": "integer"
+          },
+          "sourceFileCount": {
+            "minimum": 0.0,
+            "title": "Sourcefilecount",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceFileCount",
+          "attestedFileCount",
+          "newSequenceCount",
+          "reusedSequenceCount",
+          "skippedSourceCount",
+          "partialSourceCount",
+          "alternativeSourceCount",
+          "warnings",
+          "uploadId",
+          "displayName",
+          "manifestChecksumSha256",
+          "preflightChecksumSha256"
+        ],
+        "title": "BrowserImageImportPreflightResponse",
+        "type": "object"
+      },
+      "BrowserImageImportStart": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "preflightChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Preflightchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "manifestChecksumSha256",
+          "preflightChecksumSha256"
+        ],
+        "title": "BrowserImageImportStart",
+        "type": "object"
+      },
+      "BrowserImageImportStartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "preflight": {
+            "$ref": "#/components/schemas/BrowserImageImportPreflightResponse"
+          }
+        },
+        "required": [
+          "created",
+          "job",
+          "preflight"
+        ],
+        "title": "BrowserImageImportStartResponse",
+        "type": "object"
+      },
       "BrowserImageSelectionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -211,6 +387,92 @@
           "gameId"
         ],
         "title": "BrowserImageSelectionUploadResponse",
+        "type": "object"
+      },
+      "BrowserReadySelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "expectedFileCount": {
+            "minimum": 1.0,
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "minimum": 1.0,
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/ImageSelectionPurpose"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "uploadedBytes": {
+            "minimum": 0.0,
+            "title": "Uploadedbytes",
+            "type": "integer"
+          },
+          "uploadedFileCount": {
+            "minimum": 0.0,
+            "title": "Uploadedfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploadId",
+          "displayName",
+          "expectedFileCount",
+          "expectedTotalBytes",
+          "uploadedFileCount",
+          "uploadedBytes",
+          "purpose",
+          "gameId",
+          "createdAt",
+          "completedAt",
+          "manifestChecksumSha256"
+        ],
+        "title": "BrowserReadySelectionResponse",
         "type": "object"
       },
       "CanonicalImageReviewPageResponse": {
@@ -2130,6 +2392,18 @@
               }
             ],
             "title": "Sourcedisplayname"
+          },
+          "sourceManifestSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcemanifestsha256"
           },
           "sourcePipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -14201,6 +14475,77 @@
       }
     },
     "/api/v1/admin/image-imports/browser-selections": {
+      "get": {
+        "operationId": "listReadyBrowserImageSelections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImageSelectionPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BrowserReadySelectionResponse"
+                  },
+                  "title": "Response Listreadybrowserimageselections",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List finalized browser staging folders ready for layout import",
+        "tags": [
+          "image-imports"
+        ]
+      },
       "post": {
         "operationId": "createBrowserImageSelection",
         "parameters": [],
@@ -14592,6 +14937,182 @@
           }
         ],
         "summary": "Finalize a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight": {
+      "post": {
+        "operationId": "previewReadyBrowserImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportPreflightCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageImportPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview a finalized browser staging folder before creating a job",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/start": {
+      "post": {
+        "operationId": "startReadyBrowserImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageImportStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create an idempotent image import from finalized browser staging",
         "tags": [
           "image-imports"
         ]

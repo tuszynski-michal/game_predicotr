@@ -48,6 +48,112 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BrowserImageImportPreflightCreate
+ */
+export type BrowserImageImportPreflightCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * BrowserImageImportPreflightResponse
+ */
+export type BrowserImageImportPreflightResponse = {
+  /**
+   * Alternativesourcecount
+   */
+  alternativeSourceCount: number;
+  /**
+   * Attestedfilecount
+   */
+  attestedFileCount: number;
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Firstunresolvedsequence
+   */
+  firstUnresolvedSequence?: number | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Lastunresolvedsequence
+   */
+  lastUnresolvedSequence?: number | null;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Newsequencecount
+   */
+  newSequenceCount: number;
+  /**
+   * Partialsourcecount
+   */
+  partialSourceCount: number;
+  /**
+   * Preflightchecksumsha256
+   */
+  preflightChecksumSha256: string;
+  /**
+   * Reusedsequencecount
+   */
+  reusedSequenceCount: number;
+  /**
+   * Skippedsourcecount
+   */
+  skippedSourceCount: number;
+  /**
+   * Sourcefilecount
+   */
+  sourceFileCount: number;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
+};
+
+/**
+ * BrowserImageImportStart
+ */
+export type BrowserImageImportStart = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Preflightchecksumsha256
+   */
+  preflightChecksumSha256: string;
+};
+
+/**
+ * BrowserImageImportStartResponse
+ */
+export type BrowserImageImportStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse;
+  preflight: BrowserImageImportPreflightResponse;
+};
+
+/**
  * BrowserImageSelectionCreate
  */
 export type BrowserImageSelectionCreate = {
@@ -129,6 +235,53 @@ export type BrowserImageSelectionUploadResponse = {
    * Uploadedfileindexes
    */
   uploadedFileIndexes: Array<number>;
+};
+
+/**
+ * BrowserReadySelectionResponse
+ */
+export type BrowserReadySelectionResponse = {
+  /**
+   * Completedat
+   */
+  completedAt: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Expectedfilecount
+   */
+  expectedFileCount: number;
+  /**
+   * Expectedtotalbytes
+   */
+  expectedTotalBytes: number;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  purpose: ImageSelectionPurpose;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
+  /**
+   * Uploadedbytes
+   */
+  uploadedBytes: number;
+  /**
+   * Uploadedfilecount
+   */
+  uploadedFileCount: number;
 };
 
 /**
@@ -1295,6 +1448,10 @@ export type ImageImportJobPayload = {
    * Sourcedisplayname
    */
   sourceDisplayName?: string | null;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256?: string | null;
   /**
    * Sourcepipelinefingerprint
    */
@@ -8131,6 +8288,48 @@ export type CreateImageFolderImportResponses = {
 export type CreateImageFolderImportResponse =
   CreateImageFolderImportResponses[keyof CreateImageFolderImportResponses];
 
+export type ListReadyBrowserImageSelectionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Purpose
+     */
+    purpose?: ImageSelectionPurpose | null;
+  };
+  url: '/api/v1/admin/image-imports/browser-selections';
+};
+
+export type ListReadyBrowserImageSelectionsErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListReadyBrowserImageSelectionsError =
+  ListReadyBrowserImageSelectionsErrors[keyof ListReadyBrowserImageSelectionsErrors];
+
+export type ListReadyBrowserImageSelectionsResponses = {
+  /**
+   * Response Listreadybrowserimageselections
+   *
+   * Successful Response
+   */
+  200: Array<BrowserReadySelectionResponse>;
+};
+
+export type ListReadyBrowserImageSelectionsResponse =
+  ListReadyBrowserImageSelectionsResponses[keyof ListReadyBrowserImageSelectionsResponses];
+
 export type CreateBrowserImageSelectionData = {
   body: BrowserImageSelectionCreate;
   path?: never;
@@ -8354,6 +8553,94 @@ export type FinalizeBrowserImageSelectionResponses = {
 
 export type FinalizeBrowserImageSelectionResponse =
   FinalizeBrowserImageSelectionResponses[keyof FinalizeBrowserImageSelectionResponses];
+
+export type PreviewReadyBrowserImageImportData = {
+  body: BrowserImageImportPreflightCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight';
+};
+
+export type PreviewReadyBrowserImageImportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewReadyBrowserImageImportError =
+  PreviewReadyBrowserImageImportErrors[keyof PreviewReadyBrowserImageImportErrors];
+
+export type PreviewReadyBrowserImageImportResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserImageImportPreflightResponse;
+};
+
+export type PreviewReadyBrowserImageImportResponse =
+  PreviewReadyBrowserImageImportResponses[keyof PreviewReadyBrowserImageImportResponses];
+
+export type StartReadyBrowserImageImportData = {
+  body: BrowserImageImportStart;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/start';
+};
+
+export type StartReadyBrowserImageImportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartReadyBrowserImageImportError =
+  StartReadyBrowserImageImportErrors[keyof StartReadyBrowserImageImportErrors];
+
+export type StartReadyBrowserImageImportResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserImageImportStartResponse;
+};
+
+export type StartReadyBrowserImageImportResponse =
+  StartReadyBrowserImageImportResponses[keyof StartReadyBrowserImageImportResponses];
 
 export type ListCuratedImageImportSourcesData = {
   body?: never;

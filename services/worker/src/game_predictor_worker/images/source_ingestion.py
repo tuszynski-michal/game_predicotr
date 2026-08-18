@@ -13,12 +13,21 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 from uuid import UUID
 
-from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.image_sequence_canonical import (
+    parse_browser_sequence_manifest,
+)
+from game_predictor_api.domain.jobs import Job, JobConflictError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
-from .discovery import ImageDiscoveryError, SourceManifest, discover_images
-from .image_file import ImageFileError, sha256_file
+from .discovery import (
+    ImageDiscoveryError,
+    SourceFile,
+    SourceImage,
+    SourceManifest,
+    discover_images,
+)
+from .image_file import ImageFileError, read_jpeg_dimensions, sha256_file
 from .selection.output import (
     CuratedImageEntry,
     CuratedImageManifest,
@@ -26,6 +35,7 @@ from .selection.output import (
 )
 
 SOURCE_INGESTION_CONTRACT = "image-source-ingestion-v1"
+BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
 COPY_CHECKPOINT_BATCH_SIZE = 25
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 SEQUENCE_RANGE_FILENAME_PATTERN = re.compile(
@@ -40,6 +50,7 @@ class ManagedOriginal:
     source_relative_path: str
     managed_relative_path: str
     size_bytes: int
+    source_storage_relative_path: str | None = None
     sequence_range_start: int | None = None
     sequence_range_end: int | None = None
     sequence_range_source: str | None = None
@@ -78,6 +89,19 @@ class ManagedOriginalStore:
             return self._load_manifest(destination, relative_path, job)
         if job.input_payload.get("schema_version") == 3:
             content = _curated_manifest_bytes(job, source_directory)
+            self._write_immutable(destination, content)
+            return self._load_manifest(destination, relative_path, job)
+        browser_manifest = source_directory / BROWSER_SELECTION_MANIFEST
+        if browser_manifest.is_file():
+            try:
+                content = _browser_manifest_bytes(job, source_directory)
+            except (OSError, ImageFileError, ValueError) as error:
+                if isinstance(error, JobHandlerError):
+                    raise
+                raise JobHandlerError(
+                    "IMAGE_SEQUENCE_MANIFEST_INVALID",
+                    "The finalized browser sequence manifest is invalid.",
+                ) from error
             self._write_immutable(destination, content)
             return self._load_manifest(destination, relative_path, job)
         try:
@@ -172,7 +196,7 @@ class ManagedOriginalStore:
             return False
         source = _safe_source_path(
             manifest.source_directory,
-            original.source_relative_path,
+            original.source_storage_relative_path or original.source_relative_path,
         )
         destination.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
@@ -447,8 +471,8 @@ def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
     if has_attested_names:
         originals.sort(
             key=lambda item: (
-                int(item["sequenceRangeStart"]),
-                int(item["sequenceRangeEnd"]),
+                cast(int, item["sequenceRangeStart"]),
+                cast(int, item["sequenceRangeEnd"]),
             )
         )
     payload = {
@@ -548,6 +572,117 @@ def _curated_manifest_bytes(job: Job, source: Path) -> bytes:
     ).encode("utf-8")
 
 
+def _browser_manifest_bytes(job: Job, source: Path) -> bytes:
+    """Build a managed manifest while preserving browser logical filenames."""
+
+    manifest_path = source / BROWSER_SELECTION_MANIFEST
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        browser_manifest = parse_browser_sequence_manifest(
+            json.loads(manifest_bytes),
+            checksum_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        )
+    except JobConflictError as error:
+        raise JobHandlerError(error.code, error.message) from error
+    except (json.JSONDecodeError, ValueError) as error:
+        raise JobHandlerError(
+            "IMAGE_SEQUENCE_MANIFEST_INVALID",
+            "The finalized browser sequence manifest is invalid.",
+        ) from error
+    source_selection_id = job.input_payload.get("source_selection_id")
+    if source_selection_id is not None and str(source_selection_id) != source.name:
+        raise JobHandlerError(
+            "IMAGE_SEQUENCE_MANIFEST_INVALID",
+            "The browser staging folder does not match the job source selection.",
+        )
+    originals: list[dict[str, object]] = []
+    images: list[SourceImage] = []
+    seen_checksums: set[str] = set()
+    for item in browser_manifest.files:
+        physical = _safe_source_path(source, item.stored_file_name)
+        try:
+            stat = physical.stat()
+            width, height = read_jpeg_dimensions(physical)
+            checksum = sha256_file(physical)
+        except (OSError, ImageFileError) as error:
+            raise JobHandlerError(
+                "IMAGE_SOURCE_CHANGED",
+                "A browser-staged image is missing or unreadable.",
+            ) from error
+        if stat.st_size != item.size_bytes or checksum != item.checksum_sha256:
+            raise JobHandlerError(
+                "IMAGE_SOURCE_CHANGED",
+                "A browser-staged image changed after upload: "
+                f"{item.stored_file_name}.",
+            )
+        if checksum in seen_checksums:
+            raise JobHandlerError(
+                "IMAGE_SEQUENCE_DUPLICATE_CHECKSUM",
+                "A seq_* import contains the same JPEG more than once: "
+                f"{item.relative_path}.",
+            )
+        seen_checksums.add(checksum)
+        source_file = SourceFile(
+            relative_path=item.relative_path,
+            size_bytes=item.size_bytes,
+            modified_at_ns=stat.st_mtime_ns,
+        )
+        images.append(
+            SourceImage(
+                checksum_sha256=checksum,
+                width=width,
+                height=height,
+                files=(source_file,),
+            )
+        )
+        entry: dict[str, object] = {
+            "checksumSha256": checksum,
+            "managedRelativePath": f"data/originals/{checksum[:2]}/{checksum}.jpg",
+            "sizeBytes": item.size_bytes,
+            "sourceRelativePath": item.relative_path,
+            "sourceStorageRelativePath": item.stored_file_name,
+            "sourceRelativePaths": [item.relative_path],
+        }
+        if item.sequence_range is not None:
+            entry.update(
+                {
+                    "sequenceRangeEnd": item.sequence_range[1],
+                    "sequenceRangeStart": item.sequence_range[0],
+                    "sequenceRangeSource": "filename",
+                }
+            )
+        originals.append(entry)
+    source_manifest = SourceManifest(
+        images=tuple(images),
+        issues=(),
+        ignored_file_count=0,
+    )
+    if browser_manifest.files[0].sequence_range is not None:
+        originals.sort(
+            key=lambda item: (
+                cast(int, item["sequenceRangeStart"]),
+                cast(int, item["sequenceRangeEnd"]),
+            )
+        )
+    payload = {
+        "browserManifestChecksumSha256": browser_manifest.checksum_sha256,
+        "contractVersion": SOURCE_INGESTION_CONTRACT,
+        "discovery": source_manifest.to_dict(),
+        "gameId": None if job.game_id is None else str(job.game_id),
+        "jobId": str(job.id),
+        "originals": originals,
+        "sequenceRangeSource": (
+            "filename" if browser_manifest.files[0].sequence_range is not None else None
+        ),
+        "sequenceRangeWarnings": [{"code": warning} for warning in browser_manifest.warnings],
+        "schemaVersion": 1,
+        "sourceDirectory": str(source.resolve(strict=True)),
+    }
+    return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+
+
 def _ordered_curated_entries(
     manifest: CuratedImageManifest,
 ) -> tuple[CuratedImageEntry, ...]:
@@ -573,6 +708,7 @@ def _parse_original(value: object) -> ManagedOriginal:
     range_start = item.get("sequenceRangeStart")
     range_end = item.get("sequenceRangeEnd")
     range_source = item.get("sequenceRangeSource")
+    storage_path = item.get("sourceStorageRelativePath")
     if (
         not isinstance(checksum, str)
         or not SHA256_PATTERN.fullmatch(checksum)
@@ -583,16 +719,21 @@ def _parse_original(value: object) -> ManagedOriginal:
         or not isinstance(size, int)
         or isinstance(size, bool)
         or size < 1
-        or (range_start is not None and (
-            not isinstance(range_start, int) or isinstance(range_start, bool) or range_start < 1
-        ))
-        or (range_end is not None and (
-            not isinstance(range_end, int) or isinstance(range_end, bool) or range_end < 1
-        ))
+        or (
+            range_start is not None
+            and (
+                not isinstance(range_start, int) or isinstance(range_start, bool) or range_start < 1
+            )
+        )
+        or (
+            range_end is not None
+            and (not isinstance(range_end, int) or isinstance(range_end, bool) or range_end < 1)
+        )
         or ((range_start is None) != (range_end is None))
         or (range_start is not None and range_end is not None and range_end < range_start)
         or (range_start is not None and range_end is not None and range_end - range_start > 8)
         or (range_source is not None and range_source != "filename")
+        or (storage_path is not None and (not isinstance(storage_path, str) or not storage_path))
     ):
         _invalid_manifest()
     return ManagedOriginal(
@@ -600,6 +741,7 @@ def _parse_original(value: object) -> ManagedOriginal:
         cast(str, source_path),
         cast(str, managed_path),
         cast(int, size),
+        cast(str | None, storage_path),
         cast(int | None, range_start),
         cast(int | None, range_end),
         cast(str | None, range_source),

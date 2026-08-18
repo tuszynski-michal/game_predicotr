@@ -2,9 +2,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalService,
+    parse_browser_sequence_manifest,
 )
 from game_predictor_api.domain.jobs import JobConflictError
 
@@ -67,3 +67,69 @@ def test_preflight_reports_non_attested_folder(tmp_path: Path) -> None:
 
     assert result.attested_file_count == 0
     assert "IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED" in result.warnings
+
+
+def test_manifest_preflight_uses_attested_logical_names_not_physical_names() -> None:
+    manifest = parse_browser_sequence_manifest(
+        {
+            "schemaVersion": 1,
+            "purpose": "layout_import",
+            "orderingPolicy": "natural_relative_path_v1",
+            "files": [
+                {
+                    "orderIndex": 0,
+                    "relativePath": "1-18/seq_1-9.jpg",
+                    "storedFileName": "00000001.jpg",
+                    "sizeBytes": 3,
+                    "checksumSha256": "a" * 64,
+                },
+                {
+                    "orderIndex": 1,
+                    "relativePath": "1-18/seq_10-18.jpg",
+                    "storedFileName": "00000002.jpg",
+                    "sizeBytes": 3,
+                    "checksumSha256": "b" * 64,
+                },
+            ],
+        },
+        checksum_sha256="c" * 64,
+    )
+    service = ImageSequenceCanonicalService(_Repository(set(range(1, 10))))
+
+    result = service.preflight(game_id=uuid4(), manifest=manifest)
+
+    assert result.source_file_count == 2
+    assert result.attested_file_count == 2
+    assert result.new_sequence_count == 9
+    assert result.reused_sequence_count == 9
+    assert result.first_unresolved_sequence == 10
+
+
+def test_manifest_rejects_mixed_attested_and_unattested_names() -> None:
+    with pytest.raises(JobConflictError) as error:
+        parse_browser_sequence_manifest(
+            {
+                "schemaVersion": 1,
+                "purpose": "layout_import",
+                "orderingPolicy": "natural_relative_path_v1",
+                "files": [
+                    {
+                        "orderIndex": 0,
+                        "relativePath": "seq_1-9.jpg",
+                        "storedFileName": "00000001.jpg",
+                        "sizeBytes": 3,
+                        "checksumSha256": "a" * 64,
+                    },
+                    {
+                        "orderIndex": 1,
+                        "relativePath": "photo.jpg",
+                        "storedFileName": "00000002.jpg",
+                        "sizeBytes": 3,
+                        "checksumSha256": "b" * 64,
+                    },
+                ],
+            },
+            checksum_sha256="c" * 64,
+        )
+
+    assert error.value.code == "IMAGE_SEQUENCE_MANIFEST_INVALID"

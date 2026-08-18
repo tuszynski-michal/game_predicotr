@@ -20,6 +20,9 @@ from game_predictor_api.application.image_imports import (
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_sequence_canonical import (
+    ImageSequenceCanonicalService,
+)
 from game_predictor_api.domain.jobs import JobConflictError, JobError
 from game_predictor_api.main import create_app
 from PIL import Image
@@ -277,7 +280,153 @@ def test_browser_native_folder_upload_creates_an_import_token(tmp_path: Path) ->
         assert imported.status_code == 201
         payload = imported.json()["job"]["inputPayload"]
         assert payload["sourceDisplayName"] == "Zdjecia gry"
-        assert "browser-selections" in payload["sourceDirectory"]
+    assert "browser-selections" in payload["sourceDirectory"]
+
+
+class _BrowserCanonicalRepository:
+    def canonical_numbers(self, _game_id: UUID) -> set[int]:
+        return set(range(1, 10))
+
+    def canonical_source_checksums(self, _game_id: UUID) -> dict[int, str]:
+        return {}
+
+
+def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=10 * 1024 * 1024,
+        clock=lambda: NOW,
+    )
+    canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
+    job_service = JobService(repository)
+    image_bytes: list[bytes] = []
+    for color in ((255, 0, 0), (0, 255, 0)):
+        stream = BytesIO()
+        Image.new("RGB", (32, 24), color).save(stream, "JPEG")
+        image_bytes.append(stream.getvalue())
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: job_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: canonical_service,
+        )
+    )
+    total_bytes = sum(len(value) for value in image_bytes)
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "1-18",
+                "expectedFileCount": 2,
+                "expectedTotalBytes": total_bytes,
+                "gameId": str(game_id),
+            },
+        )
+        assert created.status_code == 201
+        upload_id = created.json()["uploadId"]
+        for index, content in enumerate(image_bytes):
+            uploaded = client.put(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/{index}",
+                content=content,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "X-Image-Relative-Path": f"1-18/seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+                },
+            )
+            assert uploaded.status_code == 200
+        finalized = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+        )
+        assert finalized.status_code == 200
+
+        ready = client.get(
+            "/api/v1/admin/image-imports/browser-selections?purpose=layout_import"
+        )
+        assert ready.status_code == 200
+        assert ready.json()[0]["uploadId"] == upload_id
+
+        preflight = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert preflight.status_code == 200
+        report = preflight.json()
+        assert report["sourceFileCount"] == 2
+        assert report["newSequenceCount"] == 9
+        assert report["reusedSequenceCount"] == 9
+        assert report["skippedSourceCount"] == 1
+        assert report["firstUnresolvedSequence"] == 10
+
+        start_payload = {
+            "gameId": str(game_id),
+            "manifestChecksumSha256": report["manifestChecksumSha256"],
+            "preflightChecksumSha256": report["preflightChecksumSha256"],
+        }
+        started = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json=start_payload,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json=start_payload,
+        )
+
+    assert started.status_code == 201
+    assert started.json()["created"] is True
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["created"] is False
+    assert replay.json()["job"]["id"] == started.json()["job"]["id"]
+    assert replay.json()["job"]["inputPayload"]["sourceManifestSha256"] == report[
+        "manifestChecksumSha256"
+    ]
+
+
+def test_game_less_ready_staging_is_bound_once(tmp_path: Path) -> None:
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (20, 30, 40)).save(stream, "JPEG")
+    content = stream.getvalue()
+    upload = service.begin(
+        display_name="history",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="history/seq_1-9.jpg",
+        content=content,
+    )
+    service.finalize(upload.upload_id)
+    game_id = uuid4()
+
+    bound = service.bind_ready_game(upload.upload_id, game_id)
+
+    assert bound.upload.game_id == game_id
+    assert service.get_ready(upload.upload_id).upload.game_id == game_id
+    with pytest.raises(JobError) as error:
+        service.bind_ready_game(upload.upload_id, uuid4())
+    assert error.value.code == "IMAGE_FOLDER_SELECTION_GAME_MISMATCH"
 
 
 def test_browser_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:

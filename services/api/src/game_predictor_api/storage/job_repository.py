@@ -105,6 +105,24 @@ class SqlAlchemyJobRepository(JobRepository):
         record = self._session.scalar(select(JobModel).where(JobModel.input_key == input_key))
         return None if record is None else job_from_record(record)
 
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None:
+        record = self._session.scalar(
+            select(JobModel)
+            .where(
+                JobModel.game_id == game_id,
+                JobModel.job_type == JobType.IMPORT,
+                JobModel.input_payload["source_selection_id"].as_string()
+                == str(source_selection_id),
+            )
+            .order_by(JobModel.created_at.desc(), JobModel.id)
+        )
+        return None if record is None else job_from_record(record)
+
     def list_jobs(
         self,
         *,

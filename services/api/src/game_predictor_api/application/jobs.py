@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
@@ -225,6 +225,13 @@ class JobRepository(Protocol):
 
     def get_job_by_input_key(self, input_key: str) -> Job | None: ...
 
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None: ...
+
     def list_jobs(
         self,
         *,
@@ -344,6 +351,7 @@ class JobService:
         pipeline_fingerprint: str,
         image_selection_run_id: UUID | None = None,
         canonical_sequence_numbers: Sequence[int] | None = None,
+        source_manifest_sha256: str | None = None,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -387,6 +395,8 @@ class JobService:
             input_payload["canonical_sequence_numbers"] = sorted(
                 {int(number) for number in canonical_sequence_numbers if int(number) > 0}
             )
+        if source_manifest_sha256 is not None:
+            input_payload["source_manifest_sha256"] = source_manifest_sha256
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
@@ -825,6 +835,30 @@ class JobService:
             game_id=game_id,
             limit=limit,
         )
+
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None:
+        method = getattr(self._repository, "get_image_import_by_source_selection", None)
+        if callable(method):
+            found = cast(
+                Job | None,
+                method(game_id=game_id, source_selection_id=source_selection_id),
+            )
+            if found is not None:
+                return found
+        for job in self._repository.list_jobs(
+            status=None,
+            job_type=JobType.IMPORT,
+            game_id=game_id,
+            limit=10_000,
+        ):
+            if job.input_payload.get("source_selection_id") == str(source_selection_id):
+                return job
+        return None
 
     def cancel_job(self, job_id: UUID) -> Job:
         job = self._repository.get_job_for_update(job_id)

@@ -45,12 +45,12 @@ class PendingGridReinferenceHandler:
         self._session_factory = session_factory
         self._artifact_root = artifact_root.resolve()
         self._detector = ClassicalPageBoardDetector()
-        self._cropper = SourceDirectBoardCellCropper(cell_output_size=224)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         if job.game_id is None:
             raise JobHandlerError("IMAGE_GRID_REINFERENCE_GAME_MISSING", "The game is missing.")
         profile, fingerprint = _profile_from_payload(job)
+        cell_output_size = _cell_output_size_from_payload(job)
         with self._session_factory() as session:
             rows = list(
                 session.execute(
@@ -84,6 +84,7 @@ class PendingGridReinferenceHandler:
                     position_index=board.position_index,
                     profile=profile,
                     fingerprint=fingerprint,
+                    cell_output_size=cell_output_size,
                 )
             except (OSError, UnidentifiedImageError, ValueError) as error:
                 failures += 1
@@ -186,6 +187,7 @@ class PendingGridReinferenceHandler:
         position_index: int,
         profile: Mapping[str, object],
         fingerprint: str,
+        cell_output_size: int,
     ) -> tuple[dict[str, object], str, str, list[dict[str, object]]]:
         path = _source_path(self._artifact_root, source.relative_path)
         with Image.open(path) as image:
@@ -204,24 +206,44 @@ class PendingGridReinferenceHandler:
         )
         if selected is None:
             raise ValueError("The pending board position is absent from the refreshed grid.")
-        calibrated = _calibrated_quad(
-            selected.quad,
-            profile=profile,
-            image_selection_run_id=None,
-            position_index=position_index,
-            image_width=int(rgb.shape[1]),
-            image_height=int(rgb.shape[0]),
+        calibrated_boards = tuple(
+            BoardGeometry(
+                position_index=detected_board.position_index,
+                quad=_calibrated_quad(
+                    detected_board.quad,
+                    profile=profile,
+                    image_selection_run_id=None,
+                    position_index=detected_board.position_index,
+                    image_width=int(rgb.shape[1]),
+                    image_height=int(rgb.shape[0]),
+                ),
+            )
+            for detected_board in detected.boards
+        )
+        calibrated = next(
+            board.quad
+            for board in calibrated_boards
+            if board.position_index == position_index
         )
         page = PageGeometry(
             status="detected",
             image_width=int(rgb.shape[1]),
             image_height=int(rgb.shape[0]),
-            boards=(BoardGeometry(position_index=position_index, quad=calibrated),),
+            boards=calibrated_boards,
         )
-        cropped = self._cropper.crop(rgb, page)
-        if cropped.status != "cropped" or len(cropped.boards) != 1:
+        cropped = SourceDirectBoardCellCropper(cell_output_size=cell_output_size).crop(rgb, page)
+        if cropped.status != "cropped":
             raise ValueError("The refreshed grid could not be cropped.")
-        result = cropped.boards[0]
+        result = next(
+            (
+                candidate
+                for candidate in cropped.boards
+                if candidate.position_index == position_index
+            ),
+            None,
+        )
+        if result is None:
+            raise ValueError("The refreshed grid crop is missing the pending position.")
         root = PurePosixPath(
             "crops",
             "grid-reinference",
@@ -293,6 +315,16 @@ def _profile_from_payload(job: Job) -> tuple[Mapping[str, object], str]:
     ):
         raise JobHandlerError("IMAGE_GRID_PROFILE_SNAPSHOT_INVALID", "The grid profile is invalid.")
     return profile, fingerprint
+
+
+def _cell_output_size_from_payload(job: Job) -> int:
+    value = job.input_payload.get("cell_output_size", 64)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 16:
+        raise JobHandlerError(
+            "IMAGE_GRID_REINFERENCE_CELL_SIZE_INVALID",
+            "The pending grid crop output size is invalid.",
+        )
+    return value
 
 
 __all__ = ["PendingGridReinferenceHandler"]

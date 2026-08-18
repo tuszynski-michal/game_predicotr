@@ -439,12 +439,18 @@ class JobService:
                 "GRID_PROFILE_SNAPSHOT_INVALID",
                 "The active grid profile snapshot is invalid.",
             )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
         return self._persist_job(
             JobType.IMAGE_GRID_REINFERENCE,
             game_id=game_id,
             input_payload={
                 "schema_version": 1,
                 "inference_kind": "pending_grid_only",
+                "cell_output_size": symbol_model.input_size,
                 "grid_profile": grid_profile,
             },
             game_already_validated=True,

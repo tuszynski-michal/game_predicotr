@@ -593,3 +593,16 @@ wyłącznie od checksum-bound progu `0.88850097`; poniżej progu wynik pozostaje
 sugestią do manual review. Panel może pokazać najwyżej cztery alternatywy.
 Finalny wybór OCR pozostaje otwarty, dlatego automatyczny import całych
 layoutów nadal jest zablokowany.
+
+### Przyrostowe importy `seq_*`
+
+Po decyzji `accepted` albo `corrected` numer sekwencji jest kanoniczny w
+obrębie gry. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
+projekcji: kompletne zakresy są pomijane, częściowe generują wyłącznie brakujące
+plansze, a inne źródło tego samego numeru pozostaje alternatywą audytową.
+Kolejka review jest niezależna od pojedynczego joba i porządkuje oczekujące
+numery rosnąco.
+
+Uczenie symboli może działać na istniejących, kompletnych cropach. Jawne
+`Przelicz oczekujące` zapisuje nowe rewizje sugestii tylko dla pozycji nadal
+`pending`; decyzje człowieka, geometria i staging są chronione transakcją.

@@ -171,6 +171,7 @@ class PendingSymbolReinferenceJobPayload(ApiModel):
 class PendingGridReinferenceJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     inference_kind: Literal["pending_grid_only"]
+    cell_output_size: int = Field(default=64, ge=16)
     grid_profile: GridProfileJobSnapshotPayload
 
 

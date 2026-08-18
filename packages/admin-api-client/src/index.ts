@@ -79,6 +79,7 @@ import {
   listGames as listGeneratedGames,
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
   listGridProfileActivations as listGeneratedGridProfileActivations,
+  getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
@@ -114,6 +115,10 @@ import {
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
+  previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
+  previewPendingGridReinference as previewGeneratedPendingGridReinference,
+  startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
+  startPendingGridReinference as startGeneratedPendingGridReinference,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
@@ -232,6 +237,7 @@ export type {
   GameStatus,
   GameUpdate,
   CreateGridCalibrationCandidateResponse,
+  GeometryCohortDiagnosticsResponse,
   GeometryCohortResponse,
   GridCalibrationProfileResponse,
   GridProfileActivationAction,
@@ -312,6 +318,8 @@ export type {
   MobileReleaseStatus,
   ModelQualityAdvisoryThresholdResponse,
   ModelQualityResponse,
+  PendingSymbolReinferencePreviewResponse,
+  PendingGridReinferencePreviewResponse,
   OperationalImageReviewAlternativeResponse,
   OperationalImageReviewCellResponse,
   OperationalImageReviewCountsResponse,
@@ -1098,6 +1106,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: { limit: options.limit ?? 50 },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    getGridCalibrationCohortDiagnostics: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedGridCalibrationCohortDiagnostics({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
     previewGridProfileActivation: (
       gameId: string,
       profileId: string,
@@ -1131,6 +1148,36 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`grid-profile-rollback:${gameId}`),
         path: { game_id: gameId, profile_id: profileId },
+      }),
+    previewPendingSymbolReinference: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedPendingSymbolReinference({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    startPendingSymbolReinference: (gameId: string) =>
+      startGeneratedPendingSymbolReinference({
+        client,
+        headers: confirmedTargetHeaders(`pending-symbol-reinference:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    previewPendingGridReinference: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedPendingGridReinference({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    startPendingGridReinference: (gameId: string) =>
+      startGeneratedPendingGridReinference({
+        client,
+        headers: confirmedTargetHeaders(`pending-grid-reinference:${gameId}`),
+        path: { game_id: gameId },
       }),
     getOperationalImageReviewItem: (
       reviewItemId: string,

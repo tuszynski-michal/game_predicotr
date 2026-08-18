@@ -132,6 +132,29 @@ export type BrowserImageSelectionUploadResponse = {
 };
 
 /**
+ * CanonicalImageReviewPageResponse
+ */
+export type CanonicalImageReviewPageResponse = {
+  counts: OperationalImageReviewCountsResponse;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<OperationalImageReviewItemResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Previouscursor
+   */
+  previousCursor: string | null;
+};
+
+/**
  * CleanupCommandRequest
  */
 export type CleanupCommandRequest = {
@@ -792,6 +815,44 @@ export type GameUpdate = {
 };
 
 /**
+ * GeometryCohortDiagnosticsResponse
+ */
+export type GeometryCohortDiagnosticsResponse = {
+  /**
+   * Acceptedgeometrycount
+   */
+  acceptedGeometryCount: number;
+  /**
+   * Correctedgeometrycount
+   */
+  correctedGeometryCount: number;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber?: number | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Incompletegeometrycount
+   */
+  incompleteGeometryCount: number;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber?: number | null;
+  /**
+   * Missingdetectioncount
+   */
+  missingDetectionCount: number;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+};
+
+/**
  * GeometryCohortResponse
  */
 export type GeometryCohortResponse = {
@@ -1206,6 +1267,10 @@ export type ImageFolderSelectionResponse = {
  * ImageImportJobPayload
  */
 export type ImageImportJobPayload = {
+  /**
+   * Canonicalsequencenumbers
+   */
+  canonicalSequenceNumbers?: Array<number>;
   /**
    * Imageselectionrunid
    */
@@ -2214,6 +2279,56 @@ export type ImageSelectionRunResponse = {
 export type ImageSelectionSequenceDirection = 'ascending' | 'descending';
 
 /**
+ * ImageSequenceImportPreflightResponse
+ */
+export type ImageSequenceImportPreflightResponse = {
+  /**
+   * Alternativesourcecount
+   */
+  alternativeSourceCount: number;
+  /**
+   * Attestedfilecount
+   */
+  attestedFileCount: number;
+  /**
+   * Firstunresolvedsequence
+   */
+  firstUnresolvedSequence?: number | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Lastunresolvedsequence
+   */
+  lastUnresolvedSequence?: number | null;
+  /**
+   * Newsequencecount
+   */
+  newSequenceCount: number;
+  /**
+   * Partialsourcecount
+   */
+  partialSourceCount: number;
+  /**
+   * Reusedsequencecount
+   */
+  reusedSequenceCount: number;
+  /**
+   * Skippedsourcecount
+   */
+  skippedSourceCount: number;
+  /**
+   * Sourcefilecount
+   */
+  sourceFileCount: number;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
+};
+
+/**
  * ImageSequenceSourceCandidateResponse
  */
 export type ImageSequenceSourceCandidateResponse = {
@@ -2539,7 +2654,9 @@ export type JobResponse = {
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
-    | SymbolTrainingJobPayload;
+    | SymbolTrainingJobPayload
+    | PendingSymbolReinferenceJobPayload
+    | PendingGridReinferenceJobPayload;
   jobType: JobType;
   /**
    * Leaseexpiresat
@@ -2582,7 +2699,9 @@ export type JobType =
   | 'payout'
   | 'snapshot'
   | 'android_build'
-  | 'symbol_training';
+  | 'symbol_training'
+  | 'image_symbol_reinference'
+  | 'image_grid_reinference';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -3961,6 +4080,96 @@ export type PayoutRuleUpdate = {
    * Payoutcredits
    */
   payoutCredits?: number | null;
+};
+
+/**
+ * PendingGridReinferenceJobPayload
+ */
+export type PendingGridReinferenceJobPayload = {
+  /**
+   * Celloutputsize
+   */
+  cellOutputSize?: number;
+  gridProfile: GridProfileJobSnapshotPayload;
+  /**
+   * Inferencekind
+   */
+  inferenceKind: 'pending_grid_only';
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * PendingGridReinferencePreviewResponse
+ */
+export type PendingGridReinferencePreviewResponse = {
+  /**
+   * Fullyresolvedsourcecount
+   */
+  fullyResolvedSourceCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Partiallyresolvedsourcecount
+   */
+  partiallyResolvedSourceCount: number;
+  /**
+   * Pendingboardcount
+   */
+  pendingBoardCount: number;
+  /**
+   * Pendingsourcecount
+   */
+  pendingSourceCount: number;
+  /**
+   * Protectedboardcount
+   */
+  protectedBoardCount: number;
+  /**
+   * Requiresexplicitactivation
+   */
+  requiresExplicitActivation?: boolean;
+};
+
+/**
+ * PendingSymbolReinferenceJobPayload
+ */
+export type PendingSymbolReinferenceJobPayload = {
+  /**
+   * Inferencekind
+   */
+  inferenceKind: 'pending_symbols_only';
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * PendingSymbolReinferencePreviewResponse
+ */
+export type PendingSymbolReinferencePreviewResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Pendingcount
+   */
+  pendingCount: number;
+  /**
+   * Protectedresolvedcount
+   */
+  protectedResolvedCount: number;
+  /**
+   * Requiresexplicitactivation
+   */
+  requiresExplicitActivation?: boolean;
 };
 
 /**
@@ -6475,6 +6684,46 @@ export type CreateGridCalibrationCandidateResponses = {
 export type CreateGridCalibrationCandidateResponse2 =
   CreateGridCalibrationCandidateResponses[keyof CreateGridCalibrationCandidateResponses];
 
+export type GetGridCalibrationCohortDiagnosticsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/cohort-diagnostics';
+};
+
+export type GetGridCalibrationCohortDiagnosticsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridCalibrationCohortDiagnosticsError =
+  GetGridCalibrationCohortDiagnosticsErrors[keyof GetGridCalibrationCohortDiagnosticsErrors];
+
+export type GetGridCalibrationCohortDiagnosticsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCohortDiagnosticsResponse;
+};
+
+export type GetGridCalibrationCohortDiagnosticsResponse =
+  GetGridCalibrationCohortDiagnosticsResponses[keyof GetGridCalibrationCohortDiagnosticsResponses];
+
 export type ListGridProfileActivationsData = {
   body?: never;
   path: {
@@ -8310,6 +8559,45 @@ export type SelectLocalImageFolderResponses = {
 export type SelectLocalImageFolderResponse =
   SelectLocalImageFolderResponses[keyof SelectLocalImageFolderResponses];
 
+export type PreviewImageSequenceImportData = {
+  body: ImageFolderImportCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/preflight';
+};
+
+export type PreviewImageSequenceImportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageSequenceImportError =
+  PreviewImageSequenceImportErrors[keyof PreviewImageSequenceImportErrors];
+
+export type PreviewImageSequenceImportResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSequenceImportPreflightResponse;
+};
+
+export type PreviewImageSequenceImportResponse =
+  PreviewImageSequenceImportResponses[keyof PreviewImageSequenceImportResponses];
+
 export type ReprocessManagedImageImportData = {
   body?: never;
   path: {
@@ -8742,6 +9030,55 @@ export type ListOperationalImageReviewItemsResponses = {
 export type ListOperationalImageReviewItemsResponse =
   ListOperationalImageReviewItemsResponses[keyof ListOperationalImageReviewItemsResponses];
 
+export type ListCanonicalImageReviewItemsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Aftersequence
+     */
+    afterSequence?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/canonical/{game_id}';
+};
+
+export type ListCanonicalImageReviewItemsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListCanonicalImageReviewItemsError =
+  ListCanonicalImageReviewItemsErrors[keyof ListCanonicalImageReviewItemsErrors];
+
+export type ListCanonicalImageReviewItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: CanonicalImageReviewPageResponse;
+};
+
+export type ListCanonicalImageReviewItemsResponse =
+  ListCanonicalImageReviewItemsResponses[keyof ListCanonicalImageReviewItemsResponses];
+
 export type GetImageDatasetCompletenessData = {
   body?: never;
   path: {
@@ -8781,6 +9118,174 @@ export type GetImageDatasetCompletenessResponses = {
 
 export type GetImageDatasetCompletenessResponse =
   GetImageDatasetCompletenessResponses[keyof GetImageDatasetCompletenessResponses];
+
+export type PreviewPendingGridReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}';
+};
+
+export type PreviewPendingGridReinferenceErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingGridReinferenceError =
+  PreviewPendingGridReinferenceErrors[keyof PreviewPendingGridReinferenceErrors];
+
+export type PreviewPendingGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: PendingGridReinferencePreviewResponse;
+};
+
+export type PreviewPendingGridReinferenceResponse =
+  PreviewPendingGridReinferenceResponses[keyof PreviewPendingGridReinferenceResponses];
+
+export type StartPendingGridReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}';
+};
+
+export type StartPendingGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartPendingGridReinferenceError =
+  StartPendingGridReinferenceErrors[keyof StartPendingGridReinferenceErrors];
+
+export type StartPendingGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type StartPendingGridReinferenceResponse =
+  StartPendingGridReinferenceResponses[keyof StartPendingGridReinferenceResponses];
+
+export type PreviewPendingSymbolReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}';
+};
+
+export type PreviewPendingSymbolReinferenceErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingSymbolReinferenceError =
+  PreviewPendingSymbolReinferenceErrors[keyof PreviewPendingSymbolReinferenceErrors];
+
+export type PreviewPendingSymbolReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: PendingSymbolReinferencePreviewResponse;
+};
+
+export type PreviewPendingSymbolReinferenceResponse =
+  PreviewPendingSymbolReinferenceResponses[keyof PreviewPendingSymbolReinferenceResponses];
+
+export type StartPendingSymbolReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}';
+};
+
+export type StartPendingSymbolReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartPendingSymbolReinferenceError =
+  StartPendingSymbolReinferenceErrors[keyof StartPendingSymbolReinferenceErrors];
+
+export type StartPendingSymbolReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type StartPendingSymbolReinferenceResponse =
+  StartPendingSymbolReinferenceResponses[keyof StartPendingSymbolReinferenceResponses];
 
 export type GetImageSequenceSourceSelectionData = {
   body?: never;

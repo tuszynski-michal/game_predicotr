@@ -213,6 +213,57 @@
         "title": "BrowserImageSelectionUploadResponse",
         "type": "object"
       },
+      "CanonicalImageReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OperationalImageReviewCountsResponse"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "previousCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouscursor"
+          }
+        },
+        "required": [
+          "gameId",
+          "items",
+          "counts",
+          "previousCursor",
+          "nextCursor"
+        ],
+        "title": "CanonicalImageReviewPageResponse",
+        "type": "object"
+      },
       "CleanupCommandRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1270,6 +1321,75 @@
         "title": "GameUpdate",
         "type": "object"
       },
+      "GeometryCohortDiagnosticsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedGeometryCount": {
+            "minimum": 0.0,
+            "title": "Acceptedgeometrycount",
+            "type": "integer"
+          },
+          "correctedGeometryCount": {
+            "minimum": 0.0,
+            "title": "Correctedgeometrycount",
+            "type": "integer"
+          },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteGeometryCount": {
+            "minimum": 0.0,
+            "title": "Incompletegeometrycount",
+            "type": "integer"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
+          },
+          "missingDetectionCount": {
+            "minimum": 0.0,
+            "title": "Missingdetectioncount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "acceptedGeometryCount",
+          "correctedGeometryCount",
+          "missingDetectionCount",
+          "incompleteGeometryCount",
+          "sourceImageCount"
+        ],
+        "title": "GeometryCohortDiagnosticsResponse",
+        "type": "object"
+      },
       "GeometryCohortResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1950,6 +2070,14 @@
       "ImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
           "imageSelectionRunId": {
             "anyOf": [
               {
@@ -3829,6 +3957,95 @@
         "title": "ImageSelectionSequenceDirection",
         "type": "string"
       },
+      "ImageSequenceImportPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeSourceCount": {
+            "minimum": 0.0,
+            "title": "Alternativesourcecount",
+            "type": "integer"
+          },
+          "attestedFileCount": {
+            "minimum": 0.0,
+            "title": "Attestedfilecount",
+            "type": "integer"
+          },
+          "firstUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstunresolvedsequence"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "lastUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastunresolvedsequence"
+          },
+          "newSequenceCount": {
+            "minimum": 0.0,
+            "title": "Newsequencecount",
+            "type": "integer"
+          },
+          "partialSourceCount": {
+            "minimum": 0.0,
+            "title": "Partialsourcecount",
+            "type": "integer"
+          },
+          "reusedSequenceCount": {
+            "minimum": 0.0,
+            "title": "Reusedsequencecount",
+            "type": "integer"
+          },
+          "skippedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedsourcecount",
+            "type": "integer"
+          },
+          "sourceFileCount": {
+            "minimum": 0.0,
+            "title": "Sourcefilecount",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceFileCount",
+          "attestedFileCount",
+          "newSequenceCount",
+          "reusedSequenceCount",
+          "skippedSourceCount",
+          "partialSourceCount",
+          "alternativeSourceCount",
+          "warnings"
+        ],
+        "title": "ImageSequenceImportPreflightResponse",
+        "type": "object"
+      },
       "ImageSequenceSourceCandidateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4389,6 +4606,12 @@
               },
               {
                 "$ref": "#/components/schemas/SymbolTrainingJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PendingGridReinferenceJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -4484,7 +4707,9 @@
           "payout",
           "snapshot",
           "android_build",
-          "symbol_training"
+          "symbol_training",
+          "image_symbol_reinference",
+          "image_grid_reinference"
         ],
         "title": "JobType",
         "type": "string"
@@ -6811,6 +7036,144 @@
           }
         },
         "title": "PayoutRuleUpdate",
+        "type": "object"
+      },
+      "PendingGridReinferenceJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cellOutputSize": {
+            "default": 64,
+            "minimum": 16.0,
+            "title": "Celloutputsize",
+            "type": "integer"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "inferenceKind": {
+            "const": "pending_grid_only",
+            "title": "Inferencekind",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "inferenceKind",
+          "gridProfile"
+        ],
+        "title": "PendingGridReinferenceJobPayload",
+        "type": "object"
+      },
+      "PendingGridReinferencePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "fullyResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Fullyresolvedsourcecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "partiallyResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Partiallyresolvedsourcecount",
+            "type": "integer"
+          },
+          "pendingBoardCount": {
+            "minimum": 0.0,
+            "title": "Pendingboardcount",
+            "type": "integer"
+          },
+          "pendingSourceCount": {
+            "minimum": 0.0,
+            "title": "Pendingsourcecount",
+            "type": "integer"
+          },
+          "protectedBoardCount": {
+            "minimum": 0.0,
+            "title": "Protectedboardcount",
+            "type": "integer"
+          },
+          "requiresExplicitActivation": {
+            "default": true,
+            "title": "Requiresexplicitactivation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "pendingBoardCount",
+          "protectedBoardCount",
+          "pendingSourceCount",
+          "partiallyResolvedSourceCount",
+          "fullyResolvedSourceCount"
+        ],
+        "title": "PendingGridReinferencePreviewResponse",
+        "type": "object"
+      },
+      "PendingSymbolReinferenceJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "inferenceKind": {
+            "const": "pending_symbols_only",
+            "title": "Inferencekind",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "inferenceKind",
+          "symbolModel"
+        ],
+        "title": "PendingSymbolReinferenceJobPayload",
+        "type": "object"
+      },
+      "PendingSymbolReinferencePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "pendingCount": {
+            "minimum": 0.0,
+            "title": "Pendingcount",
+            "type": "integer"
+          },
+          "protectedResolvedCount": {
+            "minimum": 0.0,
+            "title": "Protectedresolvedcount",
+            "type": "integer"
+          },
+          "requiresExplicitActivation": {
+            "default": true,
+            "title": "Requiresexplicitactivation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "pendingCount",
+          "protectedResolvedCount"
+        ],
+        "title": "PendingSymbolReinferencePreviewResponse",
         "type": "object"
       },
       "ReviewAlternative": {
@@ -11152,6 +11515,69 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/cohort-diagnostics": {
+      "get": {
+        "operationId": "getGridCalibrationCohortDiagnostics",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryCohortDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Cohort Diagnostics",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations": {
       "get": {
         "operationId": "listGridProfileActivations",
@@ -14531,6 +14957,83 @@
         ]
       }
     },
+    "/api/v1/admin/image-imports/preflight": {
+      "post": {
+        "operationId": "previewImageSequenceImport",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageFolderImportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSequenceImportPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview reuse of already resolved seq_* ranges",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
     "/api/v1/admin/image-imports/{source_job_id}/reprocess": {
       "post": {
         "operationId": "reprocessManagedImageImport",
@@ -15346,6 +15849,98 @@
         ]
       }
     },
+    "/api/v1/admin/image-review-items/canonical/{game_id}": {
+      "get": {
+        "operationId": "listCanonicalImageReviewItems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterSequence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftersequence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalImageReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List the game-wide pending review queue in sequence order",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
     "/api/v1/admin/image-review-items/dataset-completeness/{game_id}": {
       "get": {
         "operationId": "getImageDatasetCompleteness",
@@ -15404,6 +15999,288 @@
           }
         },
         "summary": "Get accepted image sequence completeness for one game",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}": {
+      "get": {
+        "operationId": "previewPendingGridReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingGridReinferencePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview pending-only grid and crop recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}": {
+      "post": {
+        "operationId": "startPendingGridReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start pending-only grid and crop recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}": {
+      "get": {
+        "operationId": "previewPendingSymbolReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingSymbolReinferencePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview the explicit pending-only symbol recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}": {
+      "post": {
+        "operationId": "startPendingSymbolReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start an explicit pending-only symbol recalculation",
         "tags": [
           "image-reviews"
         ]

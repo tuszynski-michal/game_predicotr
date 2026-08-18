@@ -1,14 +1,14 @@
 ---
 title: TASK-0149 pending-only re-inference and import pinning
-status: todo
-last_updated: 2026-08-01
+status: in_progress
+last_updated: 2026-08-19
 ---
 
 # TASK-0149 — Pending-only re-inference and import pinning
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -100,4 +100,9 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Zaimplementowano migrację append-only rewizji predykcji, jawny typ joba
+`image_symbol_reinference`, snapshot aktywnego modelu oraz warunkowy zapis
+pending-only w workerze. Reviewer nakłada najnowszą rewizję na sugestię bez
+zmiany bazowych obserwacji. Dodano także `image_grid_reinference`, diagnostykę
+kohorty, podgląd i przyciski `Przelicz oczekujące` w Adminie. Pozostaje pełny
+odbiór E2E na rzeczywistych danych.

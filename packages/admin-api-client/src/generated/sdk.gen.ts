@@ -147,6 +147,9 @@ import type {
   GetGameData,
   GetGameErrors,
   GetGameResponses,
+  GetGridCalibrationCohortDiagnosticsData,
+  GetGridCalibrationCohortDiagnosticsErrors,
+  GetGridCalibrationCohortDiagnosticsResponses,
   GetHealthData,
   GetHealthResponses,
   GetImageDatasetCompletenessData,
@@ -256,6 +259,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListCanonicalImageReviewItemsData,
+  ListCanonicalImageReviewItemsErrors,
+  ListCanonicalImageReviewItemsResponses,
   ListCuratedImageImportSourcesData,
   ListCuratedImageImportSourcesErrors,
   ListCuratedImageImportSourcesResponses,
@@ -357,12 +363,21 @@ import type {
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
+  PreviewImageSequenceImportData,
+  PreviewImageSequenceImportErrors,
+  PreviewImageSequenceImportResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewPendingGridReinferenceData,
+  PreviewPendingGridReinferenceErrors,
+  PreviewPendingGridReinferenceResponses,
+  PreviewPendingSymbolReinferenceData,
+  PreviewPendingSymbolReinferenceErrors,
+  PreviewPendingSymbolReinferenceResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -438,6 +453,12 @@ import type {
   StartLocalReviewerData,
   StartLocalReviewerErrors,
   StartLocalReviewerResponses,
+  StartPendingGridReinferenceData,
+  StartPendingGridReinferenceErrors,
+  StartPendingGridReinferenceResponses,
+  StartPendingSymbolReinferenceData,
+  StartPendingSymbolReinferenceErrors,
+  StartPendingSymbolReinferenceResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
@@ -747,6 +768,27 @@ export const createGridCalibrationCandidate = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
+    ...options,
+  });
+
+/**
+ * Cohort Diagnostics
+ */
+export const getGridCalibrationCohortDiagnostics = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridCalibrationCohortDiagnosticsData, ThrowOnError>,
+): RequestResult<
+  GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridCalibrationCohortDiagnosticsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCalibrationCohortDiagnosticsResponses,
+    GetGridCalibrationCohortDiagnosticsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/cohort-diagnostics',
     ...options,
   });
 
@@ -1621,6 +1663,32 @@ export const selectLocalImageFolder = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Preview reuse of already resolved seq_* ranges
+ */
+export const previewImageSequenceImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageSequenceImportData, ThrowOnError>,
+): RequestResult<
+  PreviewImageSequenceImportResponses,
+  PreviewImageSequenceImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageSequenceImportResponses,
+    PreviewImageSequenceImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Reprocess an image import from its preserved managed originals
  */
 export const reprocessManagedImageImport = <
@@ -1813,6 +1881,27 @@ export const listOperationalImageReviewItems = <
   });
 
 /**
+ * List the game-wide pending review queue in sequence order
+ */
+export const listCanonicalImageReviewItems = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListCanonicalImageReviewItemsData, ThrowOnError>,
+): RequestResult<
+  ListCanonicalImageReviewItemsResponses,
+  ListCanonicalImageReviewItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListCanonicalImageReviewItemsResponses,
+    ListCanonicalImageReviewItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/canonical/{game_id}',
+    ...options,
+  });
+
+/**
  * Get accepted image sequence completeness for one game
  */
 export const getImageDatasetCompleteness = <
@@ -1830,6 +1919,92 @@ export const getImageDatasetCompleteness = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Preview pending-only grid and crop recalculation
+ */
+export const previewPendingGridReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingGridReinferenceResponses,
+  PreviewPendingGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewPendingGridReinferenceResponses,
+    PreviewPendingGridReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}',
+    ...options,
+  });
+
+/**
+ * Start pending-only grid and crop recalculation
+ */
+export const startPendingGridReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartPendingGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartPendingGridReinferenceResponses,
+  StartPendingGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartPendingGridReinferenceResponses,
+    StartPendingGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}',
+    ...options,
+  });
+
+/**
+ * Preview the explicit pending-only symbol recalculation
+ */
+export const previewPendingSymbolReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingSymbolReinferenceData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingSymbolReinferenceResponses,
+  PreviewPendingSymbolReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewPendingSymbolReinferenceResponses,
+    PreviewPendingSymbolReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}',
+    ...options,
+  });
+
+/**
+ * Start an explicit pending-only symbol recalculation
+ */
+export const startPendingSymbolReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartPendingSymbolReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartPendingSymbolReinferenceResponses,
+  StartPendingSymbolReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartPendingSymbolReinferenceResponses,
+    StartPendingSymbolReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}',
     ...options,
   });
 

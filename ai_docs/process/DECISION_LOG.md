@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-15
+last_updated: 2026-08-19
 ---
 
 # Decision Log
@@ -4808,6 +4808,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   numerów pozostałych plansz; metadane źródła są zachowywane przy zapisie geometrii.
 - **Consequences:** zwykłe importy OCR pozostają bez blokady, a poświadczone
   importy są jednoznaczne dla operatora i audytu.
+
+## D-199 — Kanoniczne sekwencje są idempotentne między importami
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** dla gry para `game_id + sequence_number` ma jednego właściciela
+  po decyzji `accepted/corrected`. Kolejny import pomija ten numer; inne źródło
+  jest alternatywą audytową i nie otwiera review bez jawnej decyzji operatora.
+- **Reason:** ponowne przetwarzanie tych samych pierwszych zdjęć powodowało
+  duplikaty review i wymuszało wielokrotne zatwierdzanie tych samych plansz.
+- **Consequences:** import otrzymuje niezmienny snapshot kanonicznych numerów,
+  a kolejka review jest sortowana po sekwencji i wznawia się od pierwszej luki.
+
+## D-200 — Odświeżenie siatki jest pending-only i rewizyjne
+
+- **Status:** accepted
+- **Date:** 2026-08-19
+- **Decision:** po aktywacji profilu siatki przycisk `Przelicz oczekujące`
+  uruchamia osobny job wyłącznie dla plansz `pending`. Nowe cropy są zapisywane
+  jako rewizja geometrii, a równoległa decyzja człowieka wygrywa przez blokadę.
+- **Reason:** uczenie i poprawa detekcji nie mogą ponownie otwierać ani zmieniać
+  zatwierdzonych plansz ani wymuszać pełnego importu/OCR.
+- **Consequences:** rozwiązane źródła są pomijane, częściowo rozwiązane mogą
+  zostać odświeżone, a późniejsze przeliczenie symboli korzysta z najnowszej
+  rewizji cropów.
 
 ## Szablon nowej decyzji
 

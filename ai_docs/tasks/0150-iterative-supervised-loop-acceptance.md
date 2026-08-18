@@ -1,14 +1,14 @@
 ---
 title: TASK-0150 iterative supervised loop acceptance
-status: todo
-last_updated: 2026-08-01
+status: in_progress
+last_updated: 2026-08-19
 ---
 
 # TASK-0150 — Iterative supervised loop acceptance
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -102,4 +102,7 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Mechanizmy ochrony kanonicznych sekwencji oraz pending-only inferencji są
+dostępne do testu iteracyjnego. Scenariusz dwóch iteracji z aktywacją modelu,
+retry i równoległym zatwierdzeniem pozostaje bramką odbioru, a nie jest jeszcze
+raportowany jako zaliczony.

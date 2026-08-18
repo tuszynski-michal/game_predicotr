@@ -107,7 +107,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.20"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.21"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -2571,7 +2571,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert workers[0].expected_calls == [(145, 153)]
 
 
-def test_standalone_cli_uses_v10_20_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_21_and_requires_range_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -2626,8 +2626,8 @@ def test_standalone_cli_uses_v10_20_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.20"
-    assert report["groups"][0]["status"] == "skipped_unreadable"
+    assert report["selectorVersion"] == "fast-image-selector-v10.21"
+    assert report["groups"][0]["status"] == "range_required"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()
     assert (output_root / "checkpoint.json").is_file()

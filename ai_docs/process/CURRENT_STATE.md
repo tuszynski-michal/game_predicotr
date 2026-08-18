@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 ---
 
 # Current State
@@ -14,6 +14,36 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.6 implementation: source-native Layout Import quality and completeness`
+
+### Przyrostowy import layoutów — implementacja v0.6.34–v0.6.37
+
+- Dodano kanoniczną projekcję `game_id + sequence_number` oraz migracje
+  `0045_canonical_image_sequences`, `0046_image_symbol_prediction_revisions`
+  i `0047_pending_symbol_reinference_job`. Zatwierdzony lub poprawiony numer
+  nie może zostać ponownie otwarty przez kolejny import; alternatywne źródło
+  jest zapisywane wyłącznie jako metadana.
+- Import tworzy snapshot znanych numerów, udostępnia preflight `seq_*` i przed
+  rejestracją pomija kompletne, już rozwiązane źródła. Źródła częściowe są
+  przetwarzane tylko dla brakujących pozycji. Job zapisuje ten snapshot w
+  `canonical_sequence_numbers`, więc restart nie zmienia decyzji.
+- Review ma dodatkową kanoniczną kolejkę gry sortowaną po numerze sekwencji
+  (`/admin/image-review-items/canonical/{game_id}`); kolejka ukrywa numery już
+  zajęte przez kanoniczny rejestr. Job-local review pozostaje dostępny do audytu.
+- Uzgodnienia zaakceptowane podczas retry wygrywają z automatem. Starsze
+  oczekujące duplikaty są oznaczane jako `reused_accepted`, a zapis stagingu
+  jest usuwany.
+- Dodano jawny job `image_symbol_reinference`. Worker czyta istniejące cropy,
+  zapisuje append-only rewizje predykcji i przed każdym zapisem blokuje pozycję;
+  akceptacja/correction/reject wykonana równolegle jest pomijana. Oryginalne
+  obserwacje, decyzje i checksumy nie są nadpisywane.
+- Panel jakości otrzymuje diagnostykę kohorty siatki z rozbiciem na geometrię
+  automatyczną, ręcznie poprawioną, brak detekcji i niekompletne dane.
+- Dodano jawny job `image_grid_reinference` oraz podgląd i przycisk
+  `Przelicz oczekujące`. Worker ponownie wykrywa siatkę i tworzy source-native
+  cropy tylko dla pozycji `pending`, zapisując rewizję geometrii; decyzje
+  `accepted/corrected/rejected` są chronione blokadą i nie są modyfikowane.
+- Przeliczenie symboli korzysta z najnowszej rewizji cropów geometrii, więc po
+  odświeżeniu siatki nie wymaga ponownego importu ani OCR.
 
 ## Zamknięcie wersji 0.5
 

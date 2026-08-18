@@ -29,6 +29,11 @@ po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
 poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
 nie nadpisać artefaktu innej sesji.
 
+W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
+zatwierdzenie oraz `Ctrl+Z`/`A` jako cofnięcie. Handler ignoruje pola edycyjne,
+selecty, przyciski i elementy `contenteditable`, aby skróty nie przejmowały
+interakcji formularza.
+
 Zapis pliku jest atomizowany na poziomie uchwytu: źródłowy Blob jest kopiowany
 bez transformacji, checksum SHA-256 jest porównywany z istniejącym plikiem,
 zapis jest zamykany, a wynik jest odczytywany ponownie i weryfikowany. Usunięcie

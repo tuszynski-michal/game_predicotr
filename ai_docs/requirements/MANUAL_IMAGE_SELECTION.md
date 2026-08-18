@@ -32,12 +32,15 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - Strzałki zmieniają wyświetlane zdjęcie bez zmiany zakresu ani decyzji.
   Operator wybiera trwały skok `1, 2, 5, 7, 10, 15` albo `20` zdjęć; Enter po
   zapisie nadal przechodzi dokładnie o jedno zdjęcie.
-- Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–200%`; oba dotyczą
+- Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–3000%`; oba dotyczą
   wyłącznie prezentacji bieżącego JPEG-a i nie zmieniają pliku zapisywanego na
   dysku. Pełny ekran zawsze pokazuje także bieżący zakres, pozycję i nazwę
   pliku.
-- `Ctrl+Z` cofa ostatnią decyzję i usuwa tylko plik, który aplikacja wcześniej
-  zapisała oraz którego checksum nadal odpowiada źródłu.
+- `Ctrl+Z` albo pojedyncze `A` cofa ostatnią decyzję i usuwa tylko plik, który
+  aplikacja wcześniej zapisała oraz którego checksum nadal odpowiada źródłu.
+- `Enter` albo pojedyncze `F` zatwierdza bieżące zdjęcie; skróty nie działają,
+  gdy fokus znajduje się w polu formularza, selectu, przycisku lub innym
+  elemencie edytowalnym.
 
 ## Trwałość i bezpieczeństwo
 

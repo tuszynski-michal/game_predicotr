@@ -1557,8 +1557,10 @@ Admin ma niezależną zakładkę `Ręczna selekcja` dla awaryjnego przypisywania
 oryginalnych JPEG-ów do kolejnych zakresów `start–start+8`. Działa lokalnie przez
 File System Access API, zapisuje sesję per gra w IndexedDB i nie uruchamia API,
 workera, stagingu ani OCR. Enter zapisuje `seq_*.jpg` i przechodzi do następnego
-zdjęcia, Tab pomija zakres przy tym samym zdjęciu, a Ctrl+Z usuwa wyłącznie
-zweryfikowany plik zapisany przez tę sesję. Implementacja jest gotowa do testu
+zdjęcia, F jest jednoklawiszową alternatywą, Tab pomija zakres przy tym samym
+zdjęciu, a A jest jednoklawiszową alternatywą dla Ctrl+Z i usuwa wyłącznie
+zweryfikowany plik zapisany przez tę sesję. Skróty ignorują fokus formularzy.
+Podgląd można powiększyć do 3000%. Implementacja jest gotowa do testu
 manualnego w przeglądarce; zadanie `0246` pozostaje `in_progress` do akceptacji.
 
 W ramach `v0.6.28` sesja otrzymała IndexedDB v2 z append-only magazynem

@@ -25,10 +25,11 @@ ciągłych zakresów 9 layoutów bez zależności od automatycznego selektora.
 - osobna zakładka w Adminie z wyborem pierwszego layoutu, kierunku oraz dwóch
   lokalnych folderów,
 - naturalne, rekurencyjne listowanie JPEG-ów i zachowanie oryginalnych bajtów,
-- Enter zapisuje `seq_start-end.jpg`, zwiększa zakres o 9 i przechodzi do kolejnego
-  zdjęcia; Tab pomija zakres i pozostawia zdjęcie; strzałki tylko nawigują,
-- sesja jest odtwarzana po zamknięciu i ponownym wejściu; Ctrl+Z bezpiecznie cofa
-  ostatni zapis,
+- Enter albo F zapisuje `seq_start-end.jpg`, zwiększa zakres o 9 i przechodzi do
+  kolejnego zdjęcia; Tab pomija zakres i pozostawia zdjęcie; strzałki tylko
+  nawigują,
+- sesja jest odtwarzana po zamknięciu i ponownym wejściu; Ctrl+Z albo A
+  bezpiecznie cofa ostatni zapis,
 - checksum blokuje nadpisanie lub usunięcie obcego pliku,
 - testy jednostkowe, typecheck i lint Admina przechodzą.
 

@@ -108,7 +108,8 @@ test('offers fullscreen and bounded zoom controls without changing the source fi
   assert.match(workspaceSource, /toggleFullscreen/);
   assert.match(workspaceSource, /requestFullscreen/);
   assert.match(workspaceSource, /Powiększ zdjęcie/);
-  assert.match(workspaceSource, /Math\.min\(2/);
+  assert.match(workspaceSource, /Math\.min\(30/);
+  assert.match(workspaceSource, /zoom >= 30/);
   assert.match(workspaceSource, /manualImageSelectionFullscreenInfo/);
   assert.match(workspaceSource, /Zakres \{range\.start\}–\{range\.end\}/);
 });
@@ -132,4 +133,13 @@ test('defines durable output and training trace manifests', () => {
   assert.match(workspaceSource, /appendTraceEvent/);
   assert.match(workspaceSource, /visibleMilliseconds/);
   assert.equal(typeof writeManualOutputManifest, 'function');
+});
+
+test('supports single-key accept and undo shortcuts without hijacking form fields', () => {
+  assert.match(workspaceSource, /key === 'f'/);
+  assert.match(workspaceSource, /key === 'a'/);
+  assert.match(workspaceSource, /void acceptCurrent\(\)/);
+  assert.match(workspaceSource, /void undoLast\(\)/);
+  assert.match(workspaceSource, /target\?\.tagName === 'INPUT'/);
+  assert.match(workspaceSource, /target\?\.tagName === 'SELECT'/);
 });

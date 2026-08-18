@@ -688,7 +688,15 @@ export function ManualImageSelectionWorkspace({
     const onKeyDown = (event: KeyboardEvent) => {
       if (busyRef.current) return;
       const target = event.target as HTMLElement | null;
-      if (target?.tagName === 'BUTTON') return;
+      if (
+        target?.tagName === 'BUTTON' ||
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'SELECT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      )
+        return;
+      const key = event.key.toLowerCase();
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         moveImage(1);
@@ -701,7 +709,25 @@ export function ManualImageSelectionWorkspace({
       } else if (event.key === 'Tab') {
         event.preventDefault();
         void skipCurrent();
-      } else if (event.ctrlKey && event.key.toLowerCase() === 'z') {
+      } else if (
+        key === 'f' &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        void acceptCurrent();
+      } else if (
+        key === 'a' &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.repeat
+      ) {
+        event.preventDefault();
+        void undoLast();
+      } else if ((event.ctrlKey || event.metaKey) && key === 'z') {
         event.preventDefault();
         void undoLast();
       }
@@ -900,8 +926,8 @@ export function ManualImageSelectionWorkspace({
           <button
             aria-label="Powiększ zdjęcie"
             className="secondaryButton"
-            disabled={zoom >= 2 || busy}
-            onClick={() => setZoom((value) => Math.min(2, value + 0.25))}
+            disabled={zoom >= 30 || busy}
+            onClick={() => setZoom((value) => Math.min(30, value + 0.25))}
             type="button"
           >
             +
@@ -967,7 +993,7 @@ export function ManualImageSelectionWorkspace({
           onClick={() => void undoLast()}
           type="button"
         >
-          Cofnij Ctrl+Z
+          Cofnij A / Ctrl+Z
         </button>
         <button
           className="secondaryButton"
@@ -983,7 +1009,7 @@ export function ManualImageSelectionWorkspace({
           onClick={() => void acceptCurrent()}
           type="button"
         >
-          Zapisz Enter jako seq_{range.start}-{range.end}.jpg
+          Zapisz Enter/F jako seq_{range.start}-{range.end}.jpg
         </button>
         <button
           className="secondaryButton"
@@ -1000,8 +1026,8 @@ export function ManualImageSelectionWorkspace({
         </p>
       ) : null}
       <p className="manualImageSelectionHelp">
-        ←/→ zdjęcie · Enter zapisuje i przechodzi dalej · Tab pomija zakres ·
-        Ctrl+Z cofa ostatnią decyzję
+        ←/→ zdjęcie · Enter/F zapisuje i przechodzi dalej · Tab pomija zakres ·
+        A/Ctrl+Z cofa ostatnią decyzję
       </p>
     </section>
   );

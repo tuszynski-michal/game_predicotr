@@ -1708,3 +1708,11 @@ W `v0.6.54` preflight weryfikuje checksumę poświadczonego
 `_browser_manifest.json` przed utworzeniem job-specific manifestu managed
 originals. Te dwa manifesty mają różne, prawidłowe checksumy; porównywanie ich
 ze sobą błędnie odrzucało każdy rzeczywisty staging po restarcie workera.
+
+Preflight `66a4ad95-da52-4939-ac88-c9fc82c8b480` z wersją ORB 500 zakończył
+się bez błędów technicznych, lecz bezpiecznie skierował `575` czytelnych stron
+do korekty. Kontrola trzech takich stron oraz równomiernej próbki `60/575`
+pokazała, że przyczyną jest zbyt mały limit ORB, nie jakość zdjęć ani próg
+geometrii: `1000` cech daje `60/60` poprawnych rejestracji. `v0.6.56` podnosi
+ten limit, a `featuresVersion` jest częścią przypiętego profilu, więc wymagany
+jest świeży preflight; manifest `e27e03c4…` pozostaje wyłącznie audytowy.

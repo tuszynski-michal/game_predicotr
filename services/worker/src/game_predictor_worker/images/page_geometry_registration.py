@@ -21,14 +21,13 @@ from .geometry import Point, Quad
 
 PAGE_REGISTRATION_VERSION: Final = "verified-page-registration-v1"
 PAGE_REGISTRATION_THRESHOLDS_VERSION: Final = "verified-page-registration-thresholds-v1"
-# Five hundred well-distributed ORB features are sufficient for the strict
-# 35-inlier gate on the real corpus.  The previous 3,000-feature setting spent
-# most of the preflight matching non-discriminative UI detail against every
-# anchor.  This remains a descriptor of the registration policy, not a lower
-# quality geometry result: RANSAC, red-edge checks and the nine-cell proof are
-# unchanged.
-PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-500-features-v1"
-_ORB_FEATURE_COUNT: Final = 500
+# Five hundred features was a throughput optimisation, but it loses enough
+# distinctive pixels on otherwise clear, oblique phone photos that the strict
+# 35-inlier gate never gets a candidate. One thousand features keeps the same
+# fail-closed RANSAC/red-edge proof while restoring those registrations; it is
+# still materially smaller than the original 3,000-feature experiment.
+PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-1000-features-v1"
+_ORB_FEATURE_COUNT: Final = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +205,7 @@ def build_verified_page_registration_profile(
     return {
         "schemaVersion": 1,
         "policy": PAGE_REGISTRATION_VERSION,
+        "featuresVersion": PAGE_REGISTRATION_FEATURES_VERSION,
         "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
         "anchors": anchors[:7],
     }

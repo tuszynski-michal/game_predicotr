@@ -6,6 +6,7 @@ import pytest
 from game_predictor_worker.images import page_geometry_registration
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_FEATURES_VERSION,
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
     build_verified_page_registration_profile,
@@ -141,4 +142,5 @@ def test_profile_keeps_only_complete_reviewed_pages() -> None:
     )
 
     assert profile["policy"] == PAGE_REGISTRATION_VERSION
+    assert profile["featuresVersion"] == PAGE_REGISTRATION_FEATURES_VERSION
     assert [anchor["sourceChecksumSha256"] for anchor in profile["anchors"]] == ["a" * 64]

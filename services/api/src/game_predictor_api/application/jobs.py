@@ -352,6 +352,8 @@ class JobService:
         image_selection_run_id: UUID | None = None,
         canonical_sequence_numbers: Sequence[int] | None = None,
         source_manifest_sha256: str | None = None,
+        start_mode: str | None = None,
+        previous_job_id: UUID | None = None,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -380,7 +382,7 @@ class JobService:
             f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
         ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 2,
+            "schema_version": 2 if start_mode is None else 5,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
@@ -389,6 +391,29 @@ class JobService:
             "source_pipeline_fingerprint": pipeline_fingerprint,
             "symbol_model": symbol_model.to_payload(),
         }
+        if start_mode is not None:
+            grid_profile = (
+                _baseline_grid_profile_snapshot()
+                if self._grid_profile_snapshot_resolver is None
+                else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+            )
+            grid_fingerprint = grid_profile.get("inferenceFingerprint")
+            if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+                raise JobError(
+                    "GRID_PROFILE_SNAPSHOT_INVALID",
+                    "The active grid profile snapshot is invalid.",
+                )
+            effective_pipeline_fingerprint = hashlib.sha256(
+                f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:{grid_fingerprint}".encode(
+                    "ascii"
+                )
+            ).hexdigest()
+            input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
+            input_payload["start_mode"] = start_mode
+            input_payload["previous_job_id"] = (
+                None if previous_job_id is None else str(previous_job_id)
+            )
+            input_payload["grid_profile"] = grid_profile
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
         if canonical_sequence_numbers is not None:
@@ -820,6 +845,9 @@ class JobService:
                 details={"jobId": str(job_id)},
             )
         return job
+
+    def get_job_by_input_key(self, input_key: str) -> Job | None:
+        return self._repository.get_job_by_input_key(input_key)
 
     def list_jobs(
         self,

@@ -78,6 +78,23 @@ class GridProfileJobSnapshotPayload(ApiModel):
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class BrowserImageImportJobPayload(ApiModel):
+    schema_version: Literal[5]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+    start_mode: Literal["reuse_exact", "rerun_current_models"]
+    previous_job_id: UUID | None = None
+    image_selection_run_id: UUID | None = None
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+
+
 class CuratedImageImportJobPayload(ApiModel):
     schema_version: Literal[3]
     import_kind: Literal["image_directory"]
@@ -222,6 +239,7 @@ JobPayloadResponse = (
     ImportJobPayload
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
+    | BrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
@@ -460,6 +478,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
                 return CuratedImageImportJobPayload.model_validate(job.input_payload)
             if job.input_payload.get("schema_version") == 4:
                 return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 5:
+                return BrowserImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:

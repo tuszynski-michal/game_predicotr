@@ -288,7 +288,14 @@ def create_image_imports_router(
             game_id=payload.game_id,
             source_selection_id=upload_id,
         )
-        if existing is None:
+        # A browser staging is immutable, but its old job may be terminal and
+        # pinned to bootstrap models. In that case create one fresh, model-pinned
+        # job while preserving the old job for auditability.
+        requested_mode = payload.start_mode
+        rerun = requested_mode == "rerun_current_models" or existing is None
+        if existing is not None and existing.input_payload.get("schema_version") != 5:
+            rerun = True
+        if rerun:
             canonical_numbers = (
                 sorted(
                     cast(ImageSequenceCanonicalService, canonical_service).canonical_numbers(
@@ -307,14 +314,17 @@ def create_image_imports_router(
                     pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
                     canonical_sequence_numbers=canonical_numbers,
                     source_manifest_sha256=ready.manifest.checksum_sha256,
+                    start_mode="rerun_current_models",
+                    previous_job_id=None if existing is None else existing.id,
                 )
                 created = True
             except JobConflictError as error:
                 if error.code != "JOB_INPUT_ALREADY_EXISTS":
                     raise
-                existing = job_service.get_image_import_by_source_selection(
-                    game_id=payload.game_id,
-                    source_selection_id=upload_id,
+                details = getattr(error, "details", {})
+                existing_id = details.get("existingJobId") if isinstance(details, dict) else None
+                existing = (
+                    job_service.get_job(UUID(str(existing_id))) if existing_id is not None else None
                 )
                 if existing is None:
                     raise

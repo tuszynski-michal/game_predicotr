@@ -63,6 +63,13 @@ Image import schema v3 zawiera:
 Efektywny fingerprint obejmuje wszystkie te wersje. Aktywacja podczas pracy
 joba nie zmienia jego zachowania.
 
+Browserowy import z trwałego stagingu używa schema v5. Oprócz manifestu `seq_*`
+zawiera snapshot aktywnego modelu symboli i profilu siatki oraz ich fingerprinty.
+Tryb `rerun_current_models` tworzy nowy job dla terminalnego importu z innymi
+snapshotami, pozostawiając poprzedni job audytowalny; identyczne żądanie jest
+idempotentne. Staging nie jest ponownie przesyłany, a kanoniczne numery są
+ponownie sprawdzane przed startem.
+
 ## Kohorta i profil geometrii
 
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej

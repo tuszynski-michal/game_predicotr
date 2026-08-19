@@ -48,6 +48,62 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BrowserImageImportJobPayload
+ */
+export type BrowserImageImportJobPayload = {
+  /**
+   * Canonicalsequencenumbers
+   */
+  canonicalSequenceNumbers?: Array<number>;
+  gridProfile: GridProfileJobSnapshotPayload;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Previousjobid
+   */
+  previousJobId?: string | null;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 5;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Startmode
+   */
+  startMode: 'reuse_exact' | 'rerun_current_models';
+  symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
  * BrowserImageImportPreflightCreate
  */
 export type BrowserImageImportPreflightCreate = {
@@ -139,6 +195,10 @@ export type BrowserImageImportStart = {
    * Preflightchecksumsha256
    */
   preflightChecksumSha256: string;
+  /**
+   * Startmode
+   */
+  startMode?: 'reuse_exact' | 'rerun_current_models';
 };
 
 /**
@@ -979,6 +1039,20 @@ export type GeometryCohortDiagnosticsResponse = {
    * Correctedgeometrycount
    */
   correctedGeometryCount: number;
+  /**
+   * Eligiblegeometrycount
+   */
+  eligibleGeometryCount?: number;
+  /**
+   * Excludedgeometrycount
+   */
+  excludedGeometryCount?: number;
+  /**
+   * Exclusionreasoncounts
+   */
+  exclusionReasonCounts?: {
+    [key: string]: number;
+  };
   /**
    * Firstsequencenumber
    */
@@ -2803,6 +2877,7 @@ export type JobResponse = {
     | ImportJobPayload
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
+    | BrowserImageImportJobPayload
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload

@@ -98,7 +98,7 @@ def create_job(
 ) -> Job:
     schema_version = input_payload.get("schema_version")
     supports_pinned_image_model = (
-        schema_version in {2, 3, 4}
+        schema_version in {2, 3, 4, 5}
         and job_type is JobType.IMPORT
         and input_payload.get("import_kind") == "image_directory"
     )

@@ -136,6 +136,7 @@ class BrowserImageImportStart(ApiModel):
     game_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    start_mode: Literal["reuse_exact", "rerun_current_models"] = "reuse_exact"
 
 
 class BrowserImageImportStartResponse(ApiModel):

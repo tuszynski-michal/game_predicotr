@@ -73,6 +73,114 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BrowserImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "previousJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousjobid"
+          },
+          "schemaVersion": {
+            "const": 5,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "startMode": {
+            "enum": [
+              "reuse_exact",
+              "rerun_current_models"
+            ],
+            "title": "Startmode",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "sourceManifestSha256",
+          "startMode",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "BrowserImageImportJobPayload",
+        "type": "object"
+      },
       "BrowserImageImportPreflightCreate": {
         "additionalProperties": false,
         "properties": {
@@ -216,6 +324,15 @@
           "preflightChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Preflightchecksumsha256",
+            "type": "string"
+          },
+          "startMode": {
+            "default": "reuse_exact",
+            "enum": [
+              "reuse_exact",
+              "rerun_current_models"
+            ],
+            "title": "Startmode",
             "type": "string"
           }
         },
@@ -1595,6 +1712,25 @@
             "minimum": 0.0,
             "title": "Correctedgeometrycount",
             "type": "integer"
+          },
+          "eligibleGeometryCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Eligiblegeometrycount",
+            "type": "integer"
+          },
+          "excludedGeometryCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Excludedgeometrycount",
+            "type": "integer"
+          },
+          "exclusionReasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusionreasoncounts",
+            "type": "object"
           },
           "firstSequenceNumber": {
             "anyOf": [
@@ -4853,6 +4989,9 @@
               },
               {
                 "$ref": "#/components/schemas/ImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/BrowserImageImportJobPayload"
               },
               {
                 "$ref": "#/components/schemas/CuratedImageImportJobPayload"

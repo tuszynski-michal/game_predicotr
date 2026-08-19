@@ -219,6 +219,7 @@ export type {
   ArchiveSymbolErrors,
   ArchiveSymbolResponse,
   ArchiveSymbolResponses,
+  BrowserImageImportJobPayload,
   BrowserImageImportPreflightCreate,
   BrowserImageImportPreflightResponse,
   BrowserImageImportStart,

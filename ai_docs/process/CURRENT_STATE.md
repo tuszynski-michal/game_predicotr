@@ -1716,3 +1716,8 @@ pokazała, że przyczyną jest zbyt mały limit ORB, nie jakość zdjęć ani pr
 geometrii: `1000` cech daje `60/60` poprawnych rejestracji. `v0.6.56` podnosi
 ten limit, a `featuresVersion` jest częścią przypiętego profilu, więc wymagany
 jest świeży preflight; manifest `e27e03c4…` pozostaje wyłącznie audytowy.
+
+W `v0.6.57` executor preflightu przetwarza ograniczone partie po 25 stron i
+zapisuje checkpoint po każdej z nich. Nie wysyła już całego stagingu do jednego
+`executor.map`, dzięki czemu restart workera nie może ukrywać postępu ani
+opóźniać anulowania do końca pełnego zbioru.

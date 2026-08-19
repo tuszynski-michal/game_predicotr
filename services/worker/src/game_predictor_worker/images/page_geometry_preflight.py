@@ -27,7 +27,7 @@ from .source_ingestion import (
 
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 1
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
-_CHECKPOINT_BATCH_SIZE = 10
+_CHECKPOINT_BATCH_SIZE = 25
 # Registration is CPU-bound but OpenCV runs most feature work outside the GIL.
 # Four concurrent pages keeps the current workstation busy without competing
 # with the worker process itself or materialising more than four JPEGs at once.
@@ -93,36 +93,44 @@ class PageGeometryPreflightHandler:
         entries: dict[str, object] = {}
         registered = review_required = skipped = 0
         total = len(managed.originals)
-        with ThreadPoolExecutor(max_workers=_REGISTRATION_WORKERS) as executor:
-            results = executor.map(
-                lambda original: self._evaluate_source(
-                    original,
-                    source_directory=managed.source_directory,
-                    payload=payload,
-                    registrar=registrar,
-                ),
-                managed.originals,
+        # Keep the submitted work bounded.  Passing all 2,201 sources to one
+        # executor.map() delayed the first result/checkpoint after a resumed
+        # worker process, making a healthy preflight look stalled and delaying
+        # cancellation.  A bounded page batch has the same deterministic order
+        # and four-way registration, while publishing durable progress between
+        # batches.
+        for batch_start in range(0, total, _CHECKPOINT_BATCH_SIZE):
+            batch = managed.originals[batch_start : batch_start + _CHECKPOINT_BATCH_SIZE]
+            with ThreadPoolExecutor(max_workers=_REGISTRATION_WORKERS) as executor:
+                results = executor.map(
+                    lambda original: self._evaluate_source(
+                        original,
+                        source_directory=managed.source_directory,
+                        payload=payload,
+                        registrar=registrar,
+                    ),
+                    batch,
+                )
+                for checksum, entry, outcome in results:
+                    entries[checksum] = entry
+                    if outcome == "registered":
+                        registered += 1
+                    elif outcome == "review_required":
+                        review_required += 1
+                    else:
+                        skipped += 1
+            processed = batch_start + len(batch)
+            _checkpoint(
+                context,
+                payload,
+                manifest_checksum=None,
+                manifest_relative_path=None,
+                processed=processed,
+                total=total,
+                registered=registered,
+                review_required=review_required,
+                complete=False,
             )
-            for index, (checksum, entry, outcome) in enumerate(results, start=1):
-                entries[checksum] = entry
-                if outcome == "registered":
-                    registered += 1
-                elif outcome == "review_required":
-                    review_required += 1
-                else:
-                    skipped += 1
-                if index % _CHECKPOINT_BATCH_SIZE == 0 or index == total:
-                    _checkpoint(
-                        context,
-                        payload,
-                        manifest_checksum=None,
-                        manifest_relative_path=None,
-                        processed=index,
-                        total=total,
-                        registered=registered,
-                        review_required=review_required,
-                        complete=False,
-                    )
         content = _manifest_bytes(
             job, payload, entries, total, registered, review_required, skipped
         )

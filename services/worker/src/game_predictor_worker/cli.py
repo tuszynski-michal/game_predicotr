@@ -21,6 +21,7 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
+from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
 )
@@ -68,6 +69,7 @@ from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecogn
 from game_predictor_worker.imports.dispatch import ImportJobDispatchHandler
 from game_predictor_worker.imports.handler import LayoutImportStagingHandler
 from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingStore
+from game_predictor_worker.imports.validation_dispatch import ValidationJobDispatchHandler
 from game_predictor_worker.imports.validation_handler import (
     LayoutImportValidationHandler,
 )
@@ -275,6 +277,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
         )
         import_validation_handler = LayoutImportValidationHandler(import_store)
+        validation_dispatch_handler = ValidationJobDispatchHandler(
+            import_validation_handler,
+            PageGeometryPreflightHandler(artifact_root=artifact_root),
+        )
         image_import_handler = ProductionImageImportWorkflow(
             session_factory,
             artifact_root,
@@ -301,7 +307,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         )
         handlers = {
             JobType.IMPORT: import_dispatch_handler,
-            JobType.VALIDATE: import_validation_handler,
+            JobType.VALIDATE: validation_dispatch_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,
             JobType.SYMBOL_TRAINING: SymbolTrainingJobHandler(

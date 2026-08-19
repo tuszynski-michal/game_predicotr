@@ -11,7 +11,7 @@ from typing import cast
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-CALIBRATION_VERSION = "symbol-temperature-calibration-v1"
+CALIBRATION_VERSION = "symbol-temperature-calibration-v2-safe-floor-v1"
 CONFIDENCE_POLICY_VERSION = "symbol-confidence-policy-v1"
 ACTIVE_LEARNING_VERSION = "whole-layout-active-learning-v1"
 CALIBRATION_BIN_COUNT = 10
@@ -20,7 +20,11 @@ AUTO_ACCEPT_MINIMUM_SAMPLES = 20
 AUTO_ACCEPT_MINIMUM_CLASS_SAMPLES = 3
 AUTO_ACCEPT_MINIMUM_CLASS_PRECISION = 0.90
 DEFAULT_ACTIVE_LEARNING_BATCH_SIZE = 30
-TEMPERATURE_MINIMUM = 0.05
+# A tiny perfect cohort can mathematically prefer a near-zero temperature.
+# That turns unknown/blank crops into almost 100% predictions.  Calibration is
+# allowed to sharpen only within a conservative range; geometry still has its
+# own independent validity gate.
+TEMPERATURE_MINIMUM = 0.50
 TEMPERATURE_MAXIMUM = 20.0
 TEMPERATURE_SEARCH_ITERATIONS = 96
 

@@ -3,12 +3,12 @@
   "manifest": {
     "components": {
       "board_crops": {
-        "adapterVersion": "board-cell-crops-v17-source-direct-model-input-v1",
+        "adapterVersion": "board-cell-crops-v18-source-direct-validated-v1",
         "artifacts": [],
         "maturity": "deterministic"
       },
       "board_detection": {
-        "adapterVersion": "page-board-detector-v3-unique-partial-grid-v1",
+        "adapterVersion": "page-board-detector-v4-verified-registration-v1",
         "artifacts": [
           {
             "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
@@ -81,7 +81,7 @@
             "sha256": "a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7"
           }
         ],
-        "calibrationVersion": "symbol-temperature-calibration-v1",
+        "calibrationVersion": "symbol-temperature-calibration-v2-safe-floor-v1",
         "confidencePolicyVersion": "symbol-confidence-policy-v1",
         "maturity": "bootstrap_manual_review_only",
         "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
@@ -120,6 +120,6 @@
       "validation"
     ]
   },
-  "pipelineFingerprint": "654517f38a4f1d32f808c0323ac764d6c14b9263f1733ea8a13d50b59cb4f2d0",
+  "pipelineFingerprint": "c1fc1534b0963f2204a021d6b995b68ce88126c84ba3ae352c4f467542b4ce84",
   "schemaVersion": 1
 }

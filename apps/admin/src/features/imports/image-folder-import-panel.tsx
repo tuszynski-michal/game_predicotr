@@ -346,6 +346,8 @@ export function ImageFolderImportPanel({
         gameId,
         preflight.manifestChecksumSha256,
         preflight.preflightChecksumSha256,
+        preflight.symbolModelInferenceFingerprint,
+        preflight.gridProfileInferenceFingerprint,
       );
       if (!result.ok) {
         setError(result.error);

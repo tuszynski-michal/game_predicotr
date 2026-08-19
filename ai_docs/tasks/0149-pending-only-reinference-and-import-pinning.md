@@ -108,3 +108,6 @@ kohorty, podgląd i przyciski `Przelicz oczekujące` w Adminie. Pozostaje pełny
 odbiór E2E na rzeczywistych danych.
 W v0.6.41 dodano wspólną diagnostykę kwalifikacji geometrii, a import v0.6.42
 przypina aktywne snapshoty siatki i symboli podczas rerunu browserowego stagingu.
+W v0.6.48 preflight zwraca fingerprinty obu snapshotów, a Admin przekazuje je
+przy starcie; zmiana aktywnego modelu pomiędzy preflightem i startem jest
+odrzucana. Naprawiono również wstrzykiwanie JobService do endpointu preflight.

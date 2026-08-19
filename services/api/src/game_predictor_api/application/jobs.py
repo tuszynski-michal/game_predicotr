@@ -849,6 +849,25 @@ class JobService:
     def get_job_by_input_key(self, input_key: str) -> Job | None:
         return self._repository.get_job_by_input_key(input_key)
 
+    def current_image_import_model_fingerprints(self, *, game_id: UUID) -> tuple[str, str]:
+        symbol = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        fingerprint = grid.get("inferenceFingerprint")
+        if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The active grid profile snapshot is invalid.",
+            )
+        return symbol.inference_fingerprint, fingerprint
+
     def list_jobs(
         self,
         *,

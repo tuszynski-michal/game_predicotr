@@ -230,6 +230,11 @@
             "title": "Gameid",
             "type": "string"
           },
+          "gridProfileInferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Gridprofileinferencefingerprint",
+            "type": "string"
+          },
           "lastUnresolvedSequence": {
             "anyOf": [
               {
@@ -277,6 +282,11 @@
             "title": "Sourcefilecount",
             "type": "integer"
           },
+          "symbolModelInferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Symbolmodelinferencefingerprint",
+            "type": "string"
+          },
           "uploadId": {
             "format": "uuid",
             "title": "Uploadid",
@@ -303,7 +313,9 @@
           "uploadId",
           "displayName",
           "manifestChecksumSha256",
-          "preflightChecksumSha256"
+          "preflightChecksumSha256",
+          "symbolModelInferenceFingerprint",
+          "gridProfileInferenceFingerprint"
         ],
         "title": "BrowserImageImportPreflightResponse",
         "type": "object"
@@ -315,6 +327,18 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "gridProfileInferenceFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gridprofileinferencefingerprint"
           },
           "manifestChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -334,6 +358,18 @@
             ],
             "title": "Startmode",
             "type": "string"
+          },
+          "symbolModelInferenceFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelinferencefingerprint"
           }
         },
         "required": [

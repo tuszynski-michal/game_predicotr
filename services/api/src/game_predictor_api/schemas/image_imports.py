@@ -130,6 +130,8 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     display_name: str
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    symbol_model_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class BrowserImageImportStart(ApiModel):
@@ -137,6 +139,12 @@ class BrowserImageImportStart(ApiModel):
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     start_mode: Literal["reuse_exact", "rerun_current_models"] = "reuse_exact"
+    symbol_model_inference_fingerprint: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    grid_profile_inference_fingerprint: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
 
 
 class BrowserImageImportStartResponse(ApiModel):

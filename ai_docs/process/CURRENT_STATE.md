@@ -1672,3 +1672,12 @@ Browserowy import layoutów otrzymał schema v5. Nowy job przypina aktywny model
 symboli i profil siatki oraz ich fingerprinty. Anulowany job z wcześniejszymi
 snapshotami nie jest wznawiany; ponowne kliknięcie tworzy nowy job na tym samym
 stagingu, bez ponownego uploadu, zachowując stary rekord do audytu.
+
+W `v0.6.48` preflight browserowego importu zwraca również fingerprint aktywnego
+modelu symboli i profilu siatki, a start odrzuca nieaktualny snapshot stabilnym
+błędem `IMAGE_SEQUENCE_MODEL_SNAPSHOT_STALE`. Panel Admina przekazuje te wartości
+przy starcie. Naprawiono też brak zależności `JobService` w endpointcie preflight,
+który ujawniałby się dopiero po restarcie API. Aktywny świeży job
+`b0575f5f-8ec1-46d6-8262-8ef0309055c7` pozostaje przypięty do modelu symboli
+`47b6aa0d-2cea-4765-97f0-ee1f86cfc056` i profilu siatki
+`d1046ab9-95db-4467-aae9-ee91fe18dfac`.

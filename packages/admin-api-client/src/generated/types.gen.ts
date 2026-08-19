@@ -138,6 +138,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   gameId: string;
   /**
+   * Gridprofileinferencefingerprint
+   */
+  gridProfileInferenceFingerprint: string;
+  /**
    * Lastunresolvedsequence
    */
   lastUnresolvedSequence?: number | null;
@@ -170,6 +174,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   sourceFileCount: number;
   /**
+   * Symbolmodelinferencefingerprint
+   */
+  symbolModelInferenceFingerprint: string;
+  /**
    * Uploadid
    */
   uploadId: string;
@@ -188,6 +196,10 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
+   * Gridprofileinferencefingerprint
+   */
+  gridProfileInferenceFingerprint?: string | null;
+  /**
    * Manifestchecksumsha256
    */
   manifestChecksumSha256: string;
@@ -199,6 +211,10 @@ export type BrowserImageImportStart = {
    * Startmode
    */
   startMode?: 'reuse_exact' | 'rerun_current_models';
+  /**
+   * Symbolmodelinferencefingerprint
+   */
+  symbolModelInferenceFingerprint?: string | null;
 };
 
 /**

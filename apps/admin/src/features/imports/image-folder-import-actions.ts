@@ -186,6 +186,8 @@ export async function startReadyBrowserImageImport(
   gameId: string,
   manifestChecksumSha256: string,
   preflightChecksumSha256: string,
+  symbolModelInferenceFingerprint?: string,
+  gridProfileInferenceFingerprint?: string,
 ): Promise<
   | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
   | Failure
@@ -195,6 +197,12 @@ export async function startReadyBrowserImageImport(
       gameId,
       manifestChecksumSha256,
       preflightChecksumSha256,
+      ...(symbolModelInferenceFingerprint === undefined
+        ? {}
+        : { symbolModelInferenceFingerprint }),
+      ...(gridProfileInferenceFingerprint === undefined
+        ? {}
+        : { gridProfileInferenceFingerprint }),
     });
     if (result.error !== undefined || result.data === undefined) {
       return {

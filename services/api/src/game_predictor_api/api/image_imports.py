@@ -98,6 +98,7 @@ def create_image_imports_router(
         game_id: UUID,
         service: BrowserImageSelectionService,
         canonical_service: object | None,
+        job_service: JobService,
     ) -> BrowserImageImportPreflightResponse:
         if canonical_service is None:
             raise JobError(
@@ -116,6 +117,9 @@ def create_image_imports_router(
         )
         base = ImageSequenceImportPreflightResponse.from_domain(result)
         payload = base.model_dump(mode="json", by_alias=True)
+        symbol_fingerprint, grid_fingerprint = job_service.current_image_import_model_fingerprints(
+            game_id=game_id
+        )
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
                 "ascii"
@@ -127,6 +131,8 @@ def create_image_imports_router(
             display_name=ready.upload.display_name,
             manifest_checksum_sha256=ready.manifest.checksum_sha256,
             preflight_checksum_sha256=checksum,
+            symbol_model_inference_fingerprint=symbol_fingerprint,
+            grid_profile_inference_fingerprint=grid_fingerprint,
         )
 
     @router.post(
@@ -243,6 +249,7 @@ def create_image_imports_router(
         upload_id: UUID,
         payload: BrowserImageImportPreflightCreate,
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
     ) -> BrowserImageImportPreflightResponse:
         return browser_preflight(
@@ -250,6 +257,7 @@ def create_image_imports_router(
             game_id=payload.game_id,
             service=service,
             canonical_service=canonical_service,
+            job_service=job_service,
         )
 
     @router.post(
@@ -278,7 +286,22 @@ def create_image_imports_router(
             game_id=payload.game_id,
             service=service,
             canonical_service=canonical_service,
+            job_service=job_service,
         )
+        current_symbol, current_grid = job_service.current_image_import_model_fingerprints(
+            game_id=payload.game_id
+        )
+        if (
+            payload.symbol_model_inference_fingerprint is not None
+            and payload.symbol_model_inference_fingerprint != current_symbol
+        ) or (
+            payload.grid_profile_inference_fingerprint is not None
+            and payload.grid_profile_inference_fingerprint != current_grid
+        ):
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_MODEL_SNAPSHOT_STALE",
+                "The active model snapshot changed after preflight.",
+            )
         if preflight.preflight_checksum_sha256 != payload.preflight_checksum_sha256:
             raise JobConflictError(
                 "IMAGE_SEQUENCE_PREFLIGHT_STALE",

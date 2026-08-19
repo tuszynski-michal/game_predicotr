@@ -67,7 +67,11 @@ def _geometry_manifest_descriptor(
 ) -> dict[str, object] | None:
     """Validate an immutable completed geometry preflight before import."""
 
-    if preflight_job_id is None or expected_checksum is None:
+    # Listing the correction queue needs only an immutable, completed
+    # preflight. The checksum is mandatory only when starting an import,
+    # where it protects against the manifest changing between preview and
+    # mutation.
+    if preflight_job_id is None:
         raise JobConflictError(
             "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED",
             "A completed geometry preflight and its immutable checksum are required.",

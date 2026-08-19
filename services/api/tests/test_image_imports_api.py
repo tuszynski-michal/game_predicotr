@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from game_predictor_api.api.image_imports import _geometry_manifest_descriptor
 from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
@@ -458,6 +459,76 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert replay.json()["job"]["inputPayload"]["sourceManifestSha256"] == report[
         "manifestChecksumSha256"
     ]
+
+
+def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:
+    game_id = uuid4()
+    upload_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    checksum = "d" * 64
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(upload_id),
+            "source_directory": "C:/staging",
+            "source_manifest_sha256": "a" * 64,
+            "page_registration_profile": {
+                "policy": "verified-page-registration-v1",
+                "anchors": [{}],
+            },
+            "page_geometry_overrides": {},
+            "canonical_sequence_numbers": [],
+        },
+        created_at=NOW,
+    )
+    lease_token = uuid4()
+    started = start_job(
+        job,
+        worker_version="test-worker",
+        worker_id="test-worker",
+        lease_token=lease_token,
+        lease_expires_at=NOW + timedelta(minutes=5),
+        started_at=NOW,
+    )
+    checkpointed = checkpoint_job(
+        started,
+        lease_token=lease_token,
+        checkpoint_payload={
+            "schema_version": 1,
+            "complete": True,
+            "geometry_manifest_checksum_sha256": checksum,
+            "geometry_manifest_relative_path": f"data/page-geometry-manifests/{checksum}.json",
+        },
+        stage="page_geometry_manifest_ready",
+        current=1,
+        total=1,
+        success_count=1,
+        failure_count=0,
+        review_count=0,
+        updated_at=NOW + timedelta(seconds=1),
+    )
+    repository.add_job(
+        complete_job(
+            checkpointed,
+            lease_token=lease_token,
+            finished_at=NOW + timedelta(seconds=2),
+        )
+    )
+
+    descriptor = _geometry_manifest_descriptor(
+        job_service=service,
+        game_id=game_id,
+        upload_id=upload_id,
+        preflight_job_id=job.id,
+        expected_checksum=None,
+    )
+
+    assert descriptor is not None
+    assert descriptor["checksumSha256"] == checksum
 
 
 def test_game_less_ready_staging_is_bound_once(tmp_path: Path) -> None:

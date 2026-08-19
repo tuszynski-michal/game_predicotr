@@ -1721,3 +1721,8 @@ W `v0.6.57` executor preflightu przetwarza ograniczone partie po 25 stron i
 zapisuje checkpoint po każdej z nich. Nie wysyła już całego stagingu do jednego
 `executor.map`, dzięki czemu restart workera nie może ukrywać postępu ani
 opóźniać anulowania do końca pełnego zbioru.
+
+W `v0.6.58` retry preflightu geometrii resetuje wyłącznie jego pochodne
+liczniki postępu i checkpoint. Job przelicza cały staging deterministycznie,
+więc zachowanie częściowego kursora z przerwanej próby byłoby błędne; retry
+pozostałych rodzajów jobów nadal zachowuje swój trwały postęp.

@@ -30,6 +30,7 @@ from game_predictor_api.domain.jobs import (
     renew_job_lease,
     request_job_cancellation,
     requeue_job,
+    requeue_job_with_fresh_progress,
     start_job,
     update_job_progress,
     wait_for_review,
@@ -343,6 +344,38 @@ def test_cancelled_job_can_be_requeued_from_its_durable_progress() -> None:
     assert requeued.finished_at is None
     assert requeued.cancel_requested_at is None
     assert requeued.lease_token is None
+
+
+def test_fresh_requeue_discards_partial_progress_for_whole_staging_recalculation() -> None:
+    progressed, token = _leased_job()
+    checkpointed_at = datetime(2026, 7, 27, 12, 1, 15, tzinfo=UTC)
+    progressed = update_job_progress(
+        progressed,
+        lease_token=token,
+        stage="page_geometry_registering",
+        current=50,
+        total=2_201,
+        success_count=43,
+        failure_count=0,
+        review_count=0,
+        updated_at=checkpointed_at,
+    )
+    cancelled = acknowledge_job_cancellation(
+        request_job_cancellation(progressed, requested_at=checkpointed_at),
+        lease_token=token,
+        finished_at=checkpointed_at + timedelta(seconds=1),
+    )
+
+    requeued = requeue_job_with_fresh_progress(cancelled)
+
+    assert requeued.status is JobStatus.CREATED
+    assert requeued.stage is None
+    assert requeued.progress_current == 0
+    assert requeued.progress_total is None
+    assert requeued.success_count == 0
+    assert requeued.failure_count == 0
+    assert requeued.review_count == 0
+    assert requeued.checkpoint_payload is None
 
 
 def test_completed_and_failed_jobs_are_terminal_for_cancel() -> None:

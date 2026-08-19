@@ -125,3 +125,6 @@ już błędnie kierowane do korekty wyłącznie przez brak 35 inlierów.
 W v0.6.57 preflight wykonuje ograniczone partie po 25 stron i checkpointuje po
 każdej partii, więc restart workera nie może ukryć postępu ani zablokować
 anulowania na całym stagingu.
+W v0.6.58 retry pełnego preflightu geometrii jawnie resetuje tylko jego
+pochodne liczniki i checkpoint; nie zmienia to zachowania retry dla jobów,
+które rzeczywiście wznawiają trwały kursor.

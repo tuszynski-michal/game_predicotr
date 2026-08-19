@@ -409,6 +409,32 @@ def requeue_job(
     )
 
 
+def requeue_job_with_fresh_progress(
+    job: Job,
+    *,
+    updated_at: datetime | None = None,
+) -> Job:
+    """Requeue a job whose handler deterministically recomputes all progress.
+
+    This is intentionally distinct from :func:`requeue_job`: resumable jobs
+    retain their durable cursor, whereas a whole-staging preflight starts a
+    fresh calculation. Carrying prior partial counters would make its first
+    correct checkpoint look like a progress regression.
+    """
+
+    requeued = requeue_job(job, updated_at=updated_at)
+    return replace(
+        requeued,
+        stage=None,
+        progress_current=0,
+        progress_total=None,
+        success_count=0,
+        failure_count=0,
+        review_count=0,
+        checkpoint_payload=None,
+    )
+
+
 def reopen_completed_job_for_revision(
     job: Job,
     *,

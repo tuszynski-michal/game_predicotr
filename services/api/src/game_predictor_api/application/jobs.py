@@ -24,6 +24,7 @@ from game_predictor_api.domain.jobs import (
     create_job,
     request_job_cancellation,
     requeue_job,
+    requeue_job_with_fresh_progress,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
@@ -1018,6 +1019,11 @@ class JobService:
                 "Job does not exist.",
                 details={"jobId": str(job_id)},
             )
+        if (
+            job.job_type is JobType.VALIDATE
+            and job.input_payload.get("validation_kind") == "page_geometry_preflight"
+        ):
+            return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
 
     def delete_cancelled_image_selection_job(

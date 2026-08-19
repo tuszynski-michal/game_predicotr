@@ -30,6 +30,11 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 from .geometry import ClassicalPageBoardDetector, Point, Quad
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
+from .page_geometry_registration import (
+    PAGE_REGISTRATION_VERSION,
+    VerifiedPageRegistrar,
+    is_complete_ordered_grid,
+)
 from .pipeline_execution import (
     FunctionImageStageAdapter,
     ImagePipelineExecutionError,
@@ -53,7 +58,7 @@ from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
 NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
-DETECTION_ADAPTER_VERSION = "page-board-detector-v3-unique-partial-grid-v1"
+DETECTION_ADAPTER_VERSION = "page-board-detector-v4-verified-registration-v1"
 CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
 SEQUENCE_ADAPTER_VERSION = "sequence-number-ocr-v2-page-continuity-v1"
@@ -135,6 +140,8 @@ class ProductionImageImportWorkflow:
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
+            page_registration_profile=_page_registration_profile_snapshot(job),
+            page_geometry_manifest=_page_geometry_manifest(job, self._artifact_root),
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
         ).adapters()
@@ -259,6 +266,8 @@ class ProductionImageStageAdapterSuite:
         repository_root: Path,
         symbol_model: SymbolModelJobSnapshot | None = None,
         grid_profile: Mapping[str, object] | None = None,
+        page_registration_profile: Mapping[str, object] | None = None,
+        page_geometry_manifest: Mapping[str, object] | None = None,
         image_selection_run_id: str | None = None,
         attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
     ) -> None:
@@ -267,9 +276,15 @@ class ProductionImageStageAdapterSuite:
         self._repository_root = repository_root
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._grid_profile = dict(grid_profile or {})
+        self._page_registration_profile = dict(page_registration_profile or {})
+        self._page_geometry_manifest = dict(page_geometry_manifest or {})
         self._image_selection_run_id = image_selection_run_id
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._detector = ClassicalPageBoardDetector()
+        self._page_registrar = VerifiedPageRegistrar(
+            self._page_registration_profile,
+            load_anchor_rgb=self._load_anchor_rgb,
+        )
         self._cropper = SourceDirectBoardCellCropper(
             cell_output_size=self._symbol_model_snapshot.input_size,
         )
@@ -357,16 +372,68 @@ class ProductionImageStageAdapterSuite:
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        pinned = _registered_page_geometry(
+            self._page_geometry_manifest,
+            context.source_checksum_sha256,
+            image_width=int(rgb.shape[1]),
+            image_height=int(rgb.shape[0]),
+        )
+        if self._page_geometry_manifest:
+            if pinned is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The pinned geometry preflight has no verified page for this source.",
+                )
+            return _registered_geometry_payload(pinned)
+        # A reviewed page profile is the normal path for ``seq_*`` imports.
+        # Every resulting target quad is specific to this source photo; no
+        # coordinates are reused directly from another angle.
+        if self._page_registrar.available:
+            registered = self._page_registrar.register(rgb)
+            if registered is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The page did not pass verified 3x3 geometry registration.",
+                )
+            return {
+                "boards": [
+                    {
+                        "confidence": registered.board_red_edge_coverages[position],
+                        "cropValidity": "verified_page_geometry",
+                        "geometry": {
+                            "quad": [point.to_dict() for point in quad],
+                            "registration": registered.to_payload(),
+                        },
+                        "geometryValidity": "verified",
+                        "positionIndex": position,
+                    }
+                    for position, quad in enumerate(registered.quads)
+                ],
+                "geometryValidity": "verified",
+                "recoveryMode": "verified_page_registration",
+                "registration": registered.to_payload(),
+            }
+
+        # Non-seq legacy imports retain a detector fallback, but it is now
+        # fail-closed: all nine boards must be physically detected and none may
+        # be synthesized/refined from a grid hypothesis.
         result = self._detector.detect(
             rgb,
-            allow_grid_recovery=True,
-            allow_occluded_grid_recovery=True,
-            allow_partial_grid_recovery=True,
+            allow_grid_recovery=False,
+            allow_occluded_grid_recovery=False,
+            allow_partial_grid_recovery=False,
         )
-        if result.status != "detected" or len(result.layout_hypotheses) > 1:
+        if (
+            result.status != "detected"
+            or len(result.boards) != 9
+            or result.layout_hypotheses
+            or any(
+                board.refined_from_grid or board.red_border_score <= 0.0 for board in result.boards
+            )
+        ):
             raise ImagePipelineExecutionError(
-                "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW",
-                "The page grid could not be recovered unambiguously.",
+                "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                "The page has no complete, independently evidenced 3x3 geometry.",
             )
         projected_boards: list[dict[str, object]] = []
         for board in result.boards:
@@ -381,23 +448,34 @@ class ProductionImageStageAdapterSuite:
             projected_boards.append(
                 {
                     "confidence": max(0.0, min(1.0, board.red_border_score)),
+                    "cropValidity": "verified_detector_geometry",
                     "geometry": {
-                        "quad": [point.to_dict() for point in calibrated],
                         "detectorQuad": [point.to_dict() for point in board.quad],
+                        "quad": [point.to_dict() for point in calibrated],
                     },
+                    "geometryValidity": "verified",
                     "positionIndex": board.position_index,
                 }
             )
         return {
-            "boards": [board for board in projected_boards],
-            "recoveryMode": (
-                "unique_partial_grid" if result.layout_hypotheses else "complete_grid"
-            ),
+            "boards": projected_boards,
+            "geometryValidity": "verified",
+            "recoveryMode": "complete_verified_detector",
         }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
-        detections = _boards(_previous(context, "board_detection"))
+        detection_payload = _previous(context, "board_detection")
+        detections = _boards(detection_payload)
+        if (
+            detection_payload.get("geometryValidity") != "verified"
+            or len(detections) != 9
+            or any(board.get("geometryValidity") != "verified" for board in detections)
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CROP_GEOMETRY_UNVERIFIED",
+                "Cell crops require a complete verified 3x3 page geometry.",
+            )
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         geometry = PageGeometry(
             status="detected",
@@ -451,6 +529,7 @@ class ProductionImageStageAdapterSuite:
                     "cellOutputSize": self._symbol_model_snapshot.input_size,
                     "cells": cells,
                     "cropperVersion": CROP_ADAPTER_VERSION,
+                    "cropValidity": "source_direct_verified_geometry",
                     "displayAssetKind": "source_context",
                     "positionIndex": board.position_index,
                     "sourceContextBounds": board.context_bounds.to_dict(),
@@ -574,7 +653,11 @@ class ProductionImageStageAdapterSuite:
             raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         predictions = build_symbol_predictions(
             inference.logits,
-            temperature=self._symbol_model_snapshot.temperature,
+            # Historical model snapshots may contain the former 0.05 floor.
+            # Never let a legacy calibration turn out-of-distribution crops
+            # into synthetic certainty; this is intentionally independent of
+            # the geometry validity decision above.
+            temperature=max(0.50, self._symbol_model_snapshot.temperature),
             class_codes=self._symbol_model_snapshot.class_codes,
             alternative_limit=3,
         )
@@ -602,6 +685,7 @@ class ProductionImageStageAdapterSuite:
             ),
             "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
             "modelVersion": self._symbol_model_snapshot.model_version,
+            "temperatureApplied": max(0.50, self._symbol_model_snapshot.temperature),
         }
 
     def _ocr_recognizer(self) -> PaddleSequenceNumberRecognizer:
@@ -610,6 +694,11 @@ class ProductionImageStageAdapterSuite:
                 self._repository_root / "artifacts/m5-models/sequence-number-ocr-v1"
             )
         return self._ocr
+
+    def _load_anchor_rgb(self, checksum_sha256: str) -> NDArray[np.uint8]:
+        return self._artifacts.load_rgb(
+            f"data/originals/{checksum_sha256[:2]}/{checksum_sha256}.jpg"
+        )
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
         if self._symbol_model is None:
@@ -861,6 +950,192 @@ def _grid_profile_snapshot(job: Job) -> Mapping[str, object]:
                 "The pinned grid profile checksum changed.",
             )
     return cast(Mapping[str, object], profile_payload)
+
+
+def _page_registration_profile_snapshot(job: Job) -> Mapping[str, object]:
+    """Read the separately pinned reviewed-page registration profile.
+
+    It lives beside the active grid calibration profile because its provenance
+    is the same immutable reviewed cohort, while the geometry it produces is a
+    per-target homography rather than a normalized corner offset.
+    """
+
+    grid_snapshot = job.input_payload.get("grid_profile")
+    if not isinstance(grid_snapshot, Mapping):
+        return {}
+    profile = grid_snapshot.get("pageRegistrationProfile")
+    if profile is None:
+        return {}
+    if not isinstance(profile, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile is invalid.",
+        )
+    if profile.get("policy") != PAGE_REGISTRATION_VERSION:
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile has an unsupported policy.",
+        )
+    anchors = profile.get("anchors")
+    if not isinstance(anchors, Sequence) or isinstance(anchors, str | bytes):
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile has no anchor list.",
+        )
+    return cast(Mapping[str, object], profile)
+
+
+def _page_geometry_manifest(job: Job, artifact_root: Path) -> Mapping[str, object]:
+    descriptor = job.input_payload.get("page_geometry_manifest")
+    if descriptor is None:
+        return {}
+    if not isinstance(descriptor, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest descriptor is invalid.",
+        )
+    checksum = descriptor.get("checksumSha256")
+    relative_path = descriptor.get("relativePath")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or not isinstance(relative_path, str)
+        or not relative_path.startswith("data/")
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest descriptor is incomplete.",
+        )
+    path = (artifact_root / Path(*PurePosixPath(relative_path).parts)).resolve()
+    data_root = (artifact_root / "data").resolve()
+    if not path.is_relative_to(data_root):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest path is unsafe.",
+        )
+    try:
+        content = path.read_bytes()
+        value = json.loads(content)
+    except (OSError, json.JSONDecodeError) as error:
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE",
+            "The pinned page geometry manifest cannot be read.",
+        ) from error
+    if hashlib.sha256(content).hexdigest() != checksum or not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT",
+            "The pinned page geometry manifest changed after preflight.",
+        )
+    entries = value.get("entries")
+    if not isinstance(entries, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest has no source entries.",
+        )
+    return cast(Mapping[str, object], entries)
+
+
+def _registered_page_geometry(
+    entries: Mapping[str, object],
+    source_checksum_sha256: str,
+    *,
+    image_width: int,
+    image_height: int,
+) -> Mapping[str, object] | None:
+    raw = entries.get(source_checksum_sha256)
+    if not isinstance(raw, Mapping) or raw.get("status") != "registered":
+        return None
+    quads = raw.get("quads")
+    coverages = raw.get("boardRedEdgeCoverages")
+    if (
+        not isinstance(quads, Sequence)
+        or isinstance(quads, str | bytes)
+        or len(quads) != 9
+        or not isinstance(coverages, Sequence)
+        or isinstance(coverages, str | bytes)
+        or len(coverages) != 9
+    ):
+        return None
+    parsed: list[Quad] = []
+    parsed_coverages: list[float] = []
+    for quad_payload, coverage in zip(quads, coverages, strict=True):
+        quad = _quad_from_payload(quad_payload)
+        if (
+            quad is None
+            or not isinstance(coverage, int | float)
+            or isinstance(coverage, bool)
+            or not 0.0 <= float(coverage) <= 1.0
+        ):
+            return None
+        if any(
+            point.x < 0 or point.x >= image_width or point.y < 0 or point.y >= image_height
+            for point in quad
+        ):
+            return None
+        parsed.append(quad)
+        parsed_coverages.append(float(coverage))
+    if not is_complete_ordered_grid(tuple(parsed), image_width, image_height):
+        return None
+    return {
+        "anchorSourceChecksumSha256": raw.get("anchorSourceChecksumSha256"),
+        "boardRedEdgeCoverages": parsed_coverages,
+        "inlierCount": raw.get("inlierCount"),
+        "inlierRatio": raw.get("inlierRatio"),
+        "meanRedEdgeCoverage": raw.get("meanRedEdgeCoverage"),
+        "p95ReprojectionError": raw.get("p95ReprojectionError"),
+        "quads": parsed,
+        "registrationVersion": raw.get("registrationVersion"),
+        "thresholdsVersion": raw.get("thresholdsVersion"),
+    }
+
+
+def _registered_geometry_payload(geometry: Mapping[str, object]) -> dict[str, object]:
+    quads = cast(Sequence[Quad], geometry["quads"])
+    coverages = cast(Sequence[float], geometry["boardRedEdgeCoverages"])
+    registration = {
+        key: value
+        for key, value in geometry.items()
+        if key not in {"quads", "boardRedEdgeCoverages"}
+    }
+    registration["quads"] = [[point.to_dict() for point in quad] for quad in quads]
+    registration["boardRedEdgeCoverages"] = list(coverages)
+    return {
+        "boards": [
+            {
+                "confidence": coverages[position],
+                "cropValidity": "verified_page_geometry",
+                "geometry": {
+                    "quad": [point.to_dict() for point in quad],
+                    "registration": registration,
+                },
+                "geometryValidity": "verified",
+                "positionIndex": position,
+            }
+            for position, quad in enumerate(quads)
+        ],
+        "geometryValidity": "verified",
+        "recoveryMode": "pinned_verified_page_registration",
+        "registration": registration,
+    }
+
+
+def _quad_from_payload(value: object) -> Quad | None:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
+        return None
+    points: list[Point] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            return None
+        x, y = raw.get("x"), raw.get("y")
+        if (
+            not isinstance(x, int | float)
+            or isinstance(x, bool)
+            or not isinstance(y, int | float)
+            or isinstance(y, bool)
+        ):
+            return None
+        points.append(Point(int(round(x)), int(round(y))))
+    return cast(Quad, tuple(points))
 
 
 def _image_selection_run_id(job: Job) -> str | None:

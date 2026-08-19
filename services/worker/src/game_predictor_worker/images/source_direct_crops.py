@@ -22,7 +22,7 @@ from .rectification import (
     PageGeometry,
 )
 
-SOURCE_DIRECT_CROPPER_VERSION = "board-cell-crops-v17-source-direct-model-input-v1"
+SOURCE_DIRECT_CROPPER_VERSION = "board-cell-crops-v18-source-direct-validated-v1"
 
 
 class SourceDirectCropError(ValueError):
@@ -102,7 +102,10 @@ class SourceDirectBoardCellCropper:
                 boards=(),
                 review_reasons=("BOARD_CROP_UPSTREAM_NEEDS_REVIEW",),
             )
-        if not 1 <= len(geometry.boards) <= 9:
+        # A layout import may only reach symbols from a complete verified page.
+        # Partial pages used to be mathematically projectable, but could be a
+        # whole row out of position and therefore are unsafe classifier input.
+        if len(geometry.boards) != 9:
             return SourceDirectCropResult(
                 status="needs_review",
                 boards=(),

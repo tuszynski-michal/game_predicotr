@@ -546,12 +546,12 @@ def current_pipeline_manifest() -> dict[str, object]:
     return {
         "components": {
             "board_crops": {
-                "adapterVersion": "board-cell-crops-v17-source-direct-model-input-v1",
+                "adapterVersion": "board-cell-crops-v18-source-direct-validated-v1",
                 "artifacts": [],
                 "maturity": "deterministic",
             },
             "board_detection": {
-                "adapterVersion": "page-board-detector-v3-unique-partial-grid-v1",
+                "adapterVersion": "page-board-detector-v4-verified-registration-v1",
                 "artifacts": [
                     {
                         "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
@@ -650,7 +650,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                         ),
                     },
                 ],
-                "calibrationVersion": "symbol-temperature-calibration-v1",
+                "calibrationVersion": "symbol-temperature-calibration-v2-safe-floor-v1",
                 "confidencePolicyVersion": "symbol-confidence-policy-v1",
                 "maturity": "bootstrap_manual_review_only",
                 "modelVersion": "bootstrap-symbol-cnn-onnx-v1",

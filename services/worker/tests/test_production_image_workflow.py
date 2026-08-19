@@ -122,10 +122,7 @@ def test_page_sequence_continuity_rejects_competing_bases() -> None:
 
 
 def test_attested_sequence_range_assigns_row_major_numbers_without_ocr() -> None:
-    detections = tuple(
-        {"positionIndex": index}
-        for index in range(9)
-    )
+    detections = tuple({"positionIndex": index} for index in range(9))
 
     payload = _attested_sequence_payload(detections, (10, 18))
 
@@ -179,6 +176,11 @@ class _AmbiguousDetector:
         return self._result
 
 
+class _UnexpectedDetector:
+    def detect(self, *_args: object, **_kwargs: object) -> DetectionResult:
+        raise AssertionError("a pinned verified page manifest must bypass the legacy detector")
+
+
 def test_production_detection_rejects_multiple_partial_grid_hypotheses(
     tmp_path: Path,
 ) -> None:
@@ -209,7 +211,62 @@ def test_production_detection_rejects_multiple_partial_grid_hypotheses(
     with pytest.raises(ImagePipelineExecutionError) as error:
         suite.board_detection(context)
 
-    assert error.value.code == "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW"
+    assert error.value.code == "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW"
+
+
+def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    normalized_relative = "working/test/normalized.png"
+    normalized_path = artifact_root / "data" / normalized_relative
+    normalized_path.parent.mkdir(parents=True)
+    Image.fromarray(_grid_image(), mode="RGB").save(normalized_path, format="PNG")
+    checksum = "c" * 64
+    quads = []
+    for row in range(3):
+        for column in range(3):
+            left = 60 + column * 200
+            top = 60 + row * 150
+            quads.append(
+                [
+                    Point(left, top).to_dict(),
+                    Point(left + 140, top).to_dict(),
+                    Point(left + 140, top + 80).to_dict(),
+                    Point(left, top + 80).to_dict(),
+                ]
+            )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        page_geometry_manifest={
+            checksum: {
+                "status": "registered",
+                "quads": quads,
+                "boardRedEdgeCoverages": [0.9] * 9,
+                "registrationVersion": "verified-page-registration-v1",
+                "thresholdsVersion": "verified-page-registration-thresholds-v1",
+            }
+        },
+    )
+    suite._detector = _UnexpectedDetector()  # type: ignore[assignment]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=checksum,
+        source_relative_path="unused.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "normalization": {"normalizedRelativePath": normalized_relative},
+        },
+    )
+
+    detection = suite.board_detection(context)
+
+    assert detection["geometryValidity"] == "verified"
+    assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert len(detection["boards"]) == 9
 
 
 def test_production_stages_create_review_ready_board_and_cell_artifacts(

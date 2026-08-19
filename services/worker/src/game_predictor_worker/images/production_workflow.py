@@ -1079,6 +1079,8 @@ def _registered_page_geometry(
     return {
         "anchorSourceChecksumSha256": raw.get("anchorSourceChecksumSha256"),
         "boardRedEdgeCoverages": parsed_coverages,
+        "featureCount": raw.get("featureCount"),
+        "featuresVersion": raw.get("featuresVersion"),
         "inlierCount": raw.get("inlierCount"),
         "inlierRatio": raw.get("inlierRatio"),
         "meanRedEdgeCoverage": raw.get("meanRedEdgeCoverage"),

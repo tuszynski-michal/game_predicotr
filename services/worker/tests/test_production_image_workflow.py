@@ -245,6 +245,8 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
                 "status": "registered",
                 "quads": quads,
                 "boardRedEdgeCoverages": [0.9] * 9,
+                "featureCount": 1000,
+                "featuresVersion": "orb-1000-1500-3000-fallback-v1",
                 "registrationVersion": "verified-page-registration-v1",
                 "thresholdsVersion": "verified-page-registration-thresholds-v1",
             }
@@ -266,6 +268,8 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
 
     assert detection["geometryValidity"] == "verified"
     assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert detection["registration"]["featureCount"] == 1000
+    assert detection["registration"]["featuresVersion"] == "orb-1000-1500-3000-fallback-v1"
     assert len(detection["boards"]) == 9
 
 

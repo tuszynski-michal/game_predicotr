@@ -102,10 +102,10 @@ def test_registration_caches_anchor_features_between_target_pages(
     original = page_geometry_registration._orb_features
     calls = 0
 
-    def observed(image: np.ndarray):
+    def observed(image: np.ndarray, *, feature_count: int):
         nonlocal calls
         calls += 1
-        return original(image)
+        return original(image, feature_count=feature_count)
 
     monkeypatch.setattr(page_geometry_registration, "_orb_features", observed)
     registrar = VerifiedPageRegistrar(
@@ -118,6 +118,37 @@ def test_registration_caches_anchor_features_between_target_pages(
     # One ORB extraction happens when the reviewed anchor is pinned; each
     # target page then computes only its own half-resolution descriptors.
     assert calls == 3
+
+
+def test_registration_uses_larger_orb_budget_only_after_primary_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    anchor, quads = _page()
+    original = page_geometry_registration._orb_features
+    requested_counts: list[int] = []
+
+    def primary_without_features(image: np.ndarray, *, feature_count: int):
+        requested_counts.append(feature_count)
+        # The first primary-budget call builds the reviewed anchor.  Only the
+        # target's first 1,000-feature attempt is made deliberately
+        # insufficient, so the registrar has a valid profile and must take the
+        # bounded fallback path.
+        if feature_count == 1000 and len(requested_counts) > 1:
+            return (), None
+        return original(image, feature_count=feature_count)
+
+    monkeypatch.setattr(page_geometry_registration, "_orb_features", primary_without_features)
+    registrar = VerifiedPageRegistrar(
+        _profile(quads),
+        load_anchor_rgb=lambda _checksum: anchor,
+    )
+
+    result = registrar.register(anchor)
+
+    assert result is not None
+    assert result.feature_count == 1500
+    assert result.to_payload()["featuresVersion"] == PAGE_REGISTRATION_FEATURES_VERSION
+    assert requested_counts == [1000, 1000, 1500, 1500]
 
 
 def test_profile_keeps_only_complete_reviewed_pages() -> None:

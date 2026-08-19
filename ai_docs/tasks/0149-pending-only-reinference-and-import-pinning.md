@@ -128,3 +128,7 @@ anulowania na całym stagingu.
 W v0.6.58 retry pełnego preflightu geometrii jawnie resetuje tylko jego
 pochodne liczniki i checkpoint; nie zmienia to zachowania retry dla jobów,
 które rzeczywiście wznawiają trwały kursor.
+W v0.6.59 deskryptor rejestracji ma deterministyczną politykę
+`1000 → 1500 → 3000`; wyższy budżet może być użyty tylko po nieudanej próbie
+niższego budżetu tej samej strony i nadal musi przejść kompletną bramkę
+geometrii. Realny preflight zostanie powtórzony przed uruchomieniem importu.

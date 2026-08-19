@@ -1726,3 +1726,10 @@ W `v0.6.58` retry preflightu geometrii resetuje wyłącznie jego pochodne
 liczniki postępu i checkpoint. Job przelicza cały staging deterministycznie,
 więc zachowanie częściowego kursora z przerwanej próby byłoby błędne; retry
 pozostałych rodzajów jobów nadal zachowuje swój trwały postęp.
+
+W `v0.6.59` profil rejestracji używa wersjonowanego fallbacku ORB
+`1000 → 1500 → 3000` wyłącznie dla strony, która nie przeszła niższego budżetu.
+Rzeczywiste osiem czytelnych stron pozostawionych przez preflight 1000
+przechodzi w tej polityce: siedem przy 1500, a `11710–11718` przy 3000, przy
+niezmienionych progach RANSAC i czerwonych ramek. Następny preflight będzie
+świeży, a pełny import nadal jest zablokowany aż do zera stron review.

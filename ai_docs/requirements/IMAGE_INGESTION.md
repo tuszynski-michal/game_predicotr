@@ -195,6 +195,13 @@ jednej z maksymalnie siedmiu ręcznie zweryfikowanych stron-wzorców przez
 ORB/RANSAC na obrazie 50%, a następnie przenosi dziewięć niezależnych quadów na
 oryginał i lokalnie dosuwa je wyłącznie do czerwonych ramek.
 
+Polityka deskryptora `orb-1000-1500-3000-fallback-v1` najpierw używa 1000
+cech. Dopiero gdy ta próba nie przejdzie pełnej bramki, ta sama strona jest
+ponawiana z 1500, a następnie z 3000 cechami; wyższy budżet jest więc kosztem
+wyłącznie dla wyjątkowych, czytelnych stron o małej liczbie punktów ORB.
+Każda próba zachowuje identyczne progi RANSAC i dowodu czerwonej ramki, a wynik
+zapisuje użyty budżet oraz wersję polityki w manifeście geometrii.
+
 Wynik jest używalny tylko wtedy, gdy ma wszystkie dziewięć wypukłych,
 niepokrywających się quadów w kolejności row-major, co najmniej 35 inlierów,
 udział 0,23, p95 reprojekcji nie większe niż 2,5 px oraz pokrycie czerwonej

@@ -4877,6 +4877,25 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** historyczny detektor v3 pozostaje odtwarzalny dla legacy
   importów, lecz browserowe `seq_*` nie może do niego wrócić jako fallback.
 
+## D-203 — Rejestracja strony ma deterministyczny fallback budżetu ORB
+
+- **Status:** accepted
+- **Date:** 2026-08-19
+- **Decision:** profil `verified-page-registration-v1` stosuje kolejno 1000,
+  1500 i 3000 cech ORB. Wyższy budżet jest uruchamiany tylko dla tej samej
+  strony, która nie przeszła mniejszego budżetu; wszystkie progi RANSAC,
+  kompletności 3 × 3 i pokrycia czerwonych ramek pozostają bez zmian.
+- **Context:** osiem bardzo czytelnych stron z rzeczywistego stagingu nie
+  miało dostatecznej liczby dopasowań przy 1000 cechach. Siedem przeszło przy
+  1500, a ostatnia przy 3000, ze spełnionymi rygorystycznymi bramkami.
+- **Reason:** jednorodne podniesienie budżetu dla całego stagingu byłoby
+  niepotrzebnym kosztem; poluzowanie progów naruszałoby fail-closed geometrii.
+- **Safety:** wersja polityki i faktycznie użyty budżet są przypięte do profilu
+  i manifestu. Nieudana próba nadal trafia do korekty strony, a nie do croppera
+  ani klasyfikatora symboli.
+- **Consequences:** nowy preflight jest wymagany przed importem. Zmiana nie
+  zmienia kolejności `seq_*`, zatwierdzonych plansz ani historycznych manifestów.
+
 ## Szablon nowej decyzji
 
 ```text

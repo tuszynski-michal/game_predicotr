@@ -21,13 +21,16 @@ from .geometry import Point, Quad
 
 PAGE_REGISTRATION_VERSION: Final = "verified-page-registration-v1"
 PAGE_REGISTRATION_THRESHOLDS_VERSION: Final = "verified-page-registration-thresholds-v1"
-# Five hundred features was a throughput optimisation, but it loses enough
-# distinctive pixels on otherwise clear, oblique phone photos that the strict
-# 35-inlier gate never gets a candidate. One thousand features keeps the same
-# fail-closed RANSAC/red-edge proof while restoring those registrations; it is
-# still materially smaller than the original 3,000-feature experiment.
-PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-1000-features-v1"
-_ORB_FEATURE_COUNT: Final = 1000
+# Registration starts with the 1,000-feature profile used by the overwhelming
+# majority of pages.  A small, visually clear cluster of strongly oblique pages
+# does not retain enough distinct ORB features at that budget, even though it
+# satisfies every geometric/red-frame proof at 1,500 or 3,000 features.  Those
+# larger budgets are therefore a deterministic *fallback*, attempted only after
+# the smaller budget has already failed closed.  This preserves the fast path
+# for ordinary pages while keeping a valid page out of manual correction solely
+# because of an optimisation budget.
+PAGE_REGISTRATION_FEATURES_VERSION: Final = "orb-1000-1500-3000-fallback-v1"
+_ORB_FEATURE_COUNTS: Final = (1000, 1500, 3000)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,11 +54,14 @@ class RegisteredPageGeometry:
     inlier_ratio: float
     p95_reprojection_error: float
     mean_red_edge_coverage: float
+    feature_count: int
 
     def to_payload(self) -> dict[str, object]:
         return {
             "anchorSourceChecksumSha256": self.anchor_source_checksum_sha256,
             "boardRedEdgeCoverages": [round(value, 6) for value in self.board_red_edge_coverages],
+            "featureCount": self.feature_count,
+            "featuresVersion": PAGE_REGISTRATION_FEATURES_VERSION,
             "inlierCount": self.inlier_count,
             "inlierRatio": round(self.inlier_ratio, 6),
             "meanRedEdgeCoverage": round(self.mean_red_edge_coverage, 6),
@@ -100,26 +106,51 @@ class VerifiedPageRegistrar:
     ) -> None:
         self._thresholds = thresholds
         self._load_anchor_rgb = load_anchor_rgb
-        self._anchors = _anchors_from_profile(
+        self._profile = profile
+        self._anchors_by_feature_count: dict[int, tuple[_Anchor, ...]] = {}
+        self._anchors_by_feature_count[_ORB_FEATURE_COUNTS[0]] = _anchors_from_profile(
             profile,
             load_anchor_rgb,
             minimum_inliers=thresholds.minimum_inliers,
+            feature_count=_ORB_FEATURE_COUNTS[0],
         )
 
     @property
     def available(self) -> bool:
-        return bool(self._anchors)
+        return bool(self._anchors_by_feature_count[_ORB_FEATURE_COUNTS[0]])
 
     def register(self, target_rgb: NDArray[np.uint8]) -> RegisteredPageGeometry | None:
-        if not self._anchors or not _valid_rgb(target_rgb):
+        if not self.available or not _valid_rgb(target_rgb):
             return None
         target_half = _half_gray(target_rgb)
-        target_points, target_descriptors = _orb_features(target_half)
-        if target_descriptors is None or len(target_points) < 35:
-            return None
         mask = _red_mask(target_rgb)
+        for feature_count in _ORB_FEATURE_COUNTS:
+            registered = self._register_with_feature_count(
+                target_half,
+                target_rgb=target_rgb,
+                red_mask=mask,
+                feature_count=feature_count,
+            )
+            if registered is not None:
+                return registered
+        return None
+
+    def _register_with_feature_count(
+        self,
+        target_half: NDArray[np.uint8],
+        *,
+        target_rgb: NDArray[np.uint8],
+        red_mask: NDArray[np.uint8],
+        feature_count: int,
+    ) -> RegisteredPageGeometry | None:
+        anchors = self._anchors_for(feature_count)
+        if not anchors:
+            return None
+        target_points, target_descriptors = _orb_features(target_half, feature_count=feature_count)
+        if target_descriptors is None or len(target_points) < self._thresholds.minimum_inliers:
+            return None
         candidates: list[_MatchedAnchor] = []
-        for anchor in self._anchors:
+        for anchor in anchors:
             matched = _match_anchor(
                 anchor,
                 target_points=target_points,
@@ -141,12 +172,26 @@ class VerifiedPageRegistrar:
             registered = _finalize_registration(
                 candidate,
                 target_rgb=target_rgb,
-                red_mask=mask,
+                red_mask=red_mask,
                 thresholds=self._thresholds,
+                feature_count=feature_count,
             )
             if registered is not None:
                 return registered
         return None
+
+    def _anchors_for(self, feature_count: int) -> tuple[_Anchor, ...]:
+        existing = self._anchors_by_feature_count.get(feature_count)
+        if existing is not None:
+            return existing
+        anchors = _anchors_from_profile(
+            self._profile,
+            self._load_anchor_rgb,
+            minimum_inliers=self._thresholds.minimum_inliers,
+            feature_count=feature_count,
+        )
+        self._anchors_by_feature_count[feature_count] = anchors
+        return anchors
 
 
 def build_verified_page_registration_profile(
@@ -216,6 +261,7 @@ def _anchors_from_profile(
     load_anchor_rgb: Callable[[str], NDArray[np.uint8]],
     *,
     minimum_inliers: int,
+    feature_count: int,
 ) -> tuple[_Anchor, ...]:
     if not isinstance(profile, Mapping) or profile.get("policy") != PAGE_REGISTRATION_VERSION:
         return ()
@@ -239,7 +285,7 @@ def _anchors_from_profile(
             continue
         if not _valid_rgb(image):
             continue
-        points, descriptors = _orb_features(_half_gray(image))
+        points, descriptors = _orb_features(_half_gray(image), feature_count=feature_count)
         if descriptors is None or len(points) < minimum_inliers:
             continue
         anchors.append(
@@ -318,6 +364,7 @@ def _finalize_registration(
     target_rgb: NDArray[np.uint8],
     red_mask: NDArray[np.uint8],
     thresholds: PageRegistrationThresholds,
+    feature_count: int,
 ) -> RegisteredPageGeometry | None:
     # The former implementation inspected a 3 x 3 neighbourhood in Python
     # for every sampled edge point and every bounded snap candidate.  Dilating
@@ -351,6 +398,7 @@ def _finalize_registration(
         inlier_ratio=match.inlier_ratio,
         p95_reprojection_error=match.p95_reprojection_error,
         mean_red_edge_coverage=mean_coverage,
+        feature_count=feature_count,
     )
 
 
@@ -364,8 +412,10 @@ def _half_gray(rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
 
 def _orb_features(
     image: NDArray[np.uint8],
+    *,
+    feature_count: int,
 ) -> tuple[Sequence[cv2.KeyPoint], NDArray[np.uint8] | None]:
-    orb = cv2.ORB_create(nfeatures=_ORB_FEATURE_COUNT, fastThreshold=7)  # type: ignore[attr-defined]
+    orb = cv2.ORB_create(nfeatures=feature_count, fastThreshold=7)  # type: ignore[attr-defined]
     return cast(
         tuple[Sequence[cv2.KeyPoint], NDArray[np.uint8] | None],
         orb.detectAndCompute(image, None),

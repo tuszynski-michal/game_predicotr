@@ -1681,3 +1681,25 @@ który ujawniałby się dopiero po restarcie API. Aktywny świeży job
 `b0575f5f-8ec1-46d6-8262-8ef0309055c7` pozostaje przypięty do modelu symboli
 `47b6aa0d-2cea-4765-97f0-ee1f86cfc056` i profilu siatki
 `d1046ab9-95db-4467-aae9-ee91fe18dfac`.
+
+## Fail-closed geometria stron `seq_*` — v0.6.49–v0.6.53
+
+- Bieżący job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` nie jest źródłem geometrii
+  ani treningu. Zostanie oznaczony jako zastąpiony dopiero po zaliczeniu nowego
+  preflightu; nie wznawiać go zwykłym retry.
+- Nowy preflight `page-geometry-preflight-v1` przypina profil maksymalnie siedmiu
+  ręcznie poprawionych stron, snapshot override'ów i content-addressed manifest
+  dziewięciu quadów per checksum. Import `seq_*` bez ukończonego manifestu
+  geometrii jest blokowany; nie wraca do detektora v3.
+- Wynik bez kompletnej, niezależnie zweryfikowanej siatki trafia do lokalnej
+  korekty całej strony. Cropy i symbole otrzymują tylko geometrię verified;
+  `geometryValidity`, `cropValidity` i confidence klasyfikatora są rozdzielone.
+- Kontrola rzeczywistych stron `64–72`, `91–99`, `577–585`, `694–702`,
+  `991–999`, `1603–1611`, `1648–1656`, `1702–1710` i `1918–1926` zaliczyła
+  rejestrację `9/9`. Czterowątkowy pomiar trwał 2,225 s dla dziewięciu stron;
+  szacunek dla 2194 nierozwiązanych źródeł wynosi około 9–12 min plus I/O.
+- Migracja `0048_image_page_geometry_overrides` musi zostać zastosowana przed
+  użyciem edytora korekty. Następny krok operacyjny to preflight stagingu
+  `31259729-de6a-4962-b8df-7aa0c0b7c49b`, a następnie ewentualna korekta stron
+  wskazanych przez manifest. Pełny import zostanie uruchomiony wyłącznie przy
+  `reviewRequiredSourceCount = 0`.

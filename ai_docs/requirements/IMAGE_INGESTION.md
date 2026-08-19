@@ -185,6 +185,29 @@ pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipote
 dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i
 wymaga review; pipeline nie wybiera arbitralnie geometrii.
 
+### Zweryfikowana geometria pełnej strony dla importu `seq_*`
+
+Od v0.6.49 browserowy import z poświadczonym zakresem nie może przekazać do
+croppera wyniku częściowego, syntetycznego ani z zerowym dowodem czerwonej
+ramki. Przed importem powstaje osobny, wznawialny preflight
+`page-board-detector-v4-verified-registration-v1`. Rejestruje on stronę do
+jednej z maksymalnie siedmiu ręcznie zweryfikowanych stron-wzorców przez
+ORB/RANSAC na obrazie 50%, a następnie przenosi dziewięć niezależnych quadów na
+oryginał i lokalnie dosuwa je wyłącznie do czerwonych ramek.
+
+Wynik jest używalny tylko wtedy, gdy ma wszystkie dziewięć wypukłych,
+niepokrywających się quadów w kolejności row-major, co najmniej 35 inlierów,
+udział 0,23, p95 reprojekcji nie większe niż 2,5 px oraz pokrycie czerwonej
+krawędzi co najmniej 0,70 średnio i 0,45 dla każdej planszy. Wynik preflightu
+jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
+joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
+symboli ani technicznego `board_detection failed`.
+
+Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
+rewizję. Operator najpierw przesuwa cztery uchwyty strony, zachowując strukturę
+3 × 3, i może wyjątkowo poprawić pojedynczy quad. Ponowny preflight używa
+snapshotu tych override'ów; zatwierdzone numery i ich cropy nie są tym zmieniane.
+
 ### 5. Odczyt sequence number
 
 #### Import poświadczonych zakresów `seq_*`

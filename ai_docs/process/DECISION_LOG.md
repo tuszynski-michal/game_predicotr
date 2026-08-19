@@ -4859,6 +4859,24 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   logiczną nazwę `seq_*` i fizyczną ścieżkę pliku stagingowego.
 - **Supersedes:** rozszerza D-118 i D-196 bez zmiany ich zasad bezpieczeństwa.
 
+## D-202 — Import `seq_*` wymaga zweryfikowanej geometrii całej strony
+
+- **Status:** accepted
+- **Date:** 2026-08-19
+- **Decision:** import poświadczonych zakresów uruchamia przed pipeline'em
+  niezmienny preflight rejestracji do ręcznie zweryfikowanych stron-wzorców.
+  Do croppera i inferencji dociera wyłącznie kompletna, target-specific siatka
+  dziewięciu quadów z niezależnym dowodem czerwonych ramek.
+- **Reason:** klasyczny detektor łączył ramki z ręką, strzałką i UI, po czym
+  syntetyzował brakujące plansze. Prawidłowy OCR z nazwy pliku nie chronił przed
+  cropem przesuniętym o cały rząd, a confidence symboli nie był dowodem geometrii.
+- **Safety:** brak dowodu staje się kolejką korekty całej strony; nie jest
+  technicznym failure ani wejściem do symboli. Snapshot manifestu, profilu i
+  override'ów jest częścią fingerprintu joba. Ręczna korekta jest append-only,
+  scoped do `game + source checksum` i nie zmienia zatwierdzonych plansz.
+- **Consequences:** historyczny detektor v3 pozostaje odtwarzalny dla legacy
+  importów, lecz browserowe `seq_*` nie może do niego wrócić jako fallback.
+
 ## Szablon nowej decyzji
 
 ```text

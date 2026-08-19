@@ -64,8 +64,19 @@ export function jobErrorSummary(job: JobResponse, limit = 140): string | null {
   return `${summary.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
-export function jobStageLabel(stage: string | null): string {
+export function jobStageLabel(
+  stage: string | null,
+  inputPayload?: JobResponse['inputPayload'],
+): string {
   if (stage === null) return 'Etap nie został jeszcze rozpoczęty';
+  if (
+    stage.endsWith('sequence_ocr') &&
+    inputPayload !== undefined &&
+    'schemaVersion' in inputPayload &&
+    inputPayload.schemaVersion === 5
+  ) {
+    return 'Przypisanie numerów z nazwy pliku — OCR pominięty';
+  }
   return stage.replaceAll('_', ' ');
 }
 

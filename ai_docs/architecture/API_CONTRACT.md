@@ -2048,3 +2048,20 @@ Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
 a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
 operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
 kontraktów.
+
+### Preflight geometrii strony browserowego stagingu
+
+Przed `start` importu `seq_*` Admin tworzy osobny job `validate` i czeka na
+niezmienny manifest geometrii:
+
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflight`,
+- `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflights/{jobId}/review-sources`,
+- `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
+
+Start importu zawiera `geometryPreflightJobId` oraz
+`geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
+dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
+drift albo nierozwiązana strona blokują start stabilnym błędem zamiast powrotu
+do klasycznego detektora. Override ma tylko checksumę źródła, rozmiar obrazu,
+dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.

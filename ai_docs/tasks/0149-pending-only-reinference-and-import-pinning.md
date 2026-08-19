@@ -111,3 +111,7 @@ przypina aktywne snapshoty siatki i symboli podczas rerunu browserowego stagingu
 W v0.6.48 preflight zwraca fingerprinty obu snapshotów, a Admin przekazuje je
 przy starcie; zmiana aktywnego modelu pomiędzy preflightem i startem jest
 odrzucana. Naprawiono również wstrzykiwanie JobService do endpointu preflight.
+W v0.6.49–v0.6.53 browserowy import `seq_*` otrzymał dodatkowy, przypięty
+preflight geometrii strony. Pending-only import nie może już użyć syntetycznej
+lub częściowej siatki: czeka na manifest dziewięciu zweryfikowanych quadów albo
+na append-only korektę całej strony. Odbiór E2E na stagingu pozostaje otwarty.

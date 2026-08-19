@@ -108,3 +108,7 @@ retry i równoległym zatwierdzeniem pozostaje bramką odbioru, a nie jest jeszc
 raportowany jako zaliczony.
 Wdrożono stabilny split źródeł v2 i świeży import z aktualnymi snapshotami;
 pełny odbiór dwóch iteracji pozostaje do wykonania na rzeczywistym jobie.
+Od v0.6.49 trening symboli i ewentualne przeliczenie oczekujących są dodatkowo
+odgrodzone od niezweryfikowanej geometrii strony. Pierwszy rerun stagingu ma
+pozostać review-first; żadna pewność modelu symboli nie może automatycznie
+zaakceptować wyniku ani zastąpić dowodu geometrii.

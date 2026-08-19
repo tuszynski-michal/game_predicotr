@@ -5984,7 +5984,7 @@ export type SymbolTrainingJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1;
+  schemaVersion: 1 | 2;
 };
 
 /**

@@ -102,7 +102,8 @@ def create_job(
         and job_type is JobType.IMPORT
         and input_payload.get("import_kind") == "image_directory"
     )
-    if schema_version != 1 and not supports_pinned_image_model:
+    supports_symbol_training_v2 = schema_version == 2 and job_type is JobType.SYMBOL_TRAINING
+    if schema_version != 1 and not supports_pinned_image_model and not supports_symbol_training_v2:
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
             "Job inputPayload must use a supported schema version.",

@@ -175,7 +175,7 @@ class AndroidBuildJobPayload(ApiModel):
 
 
 class SymbolTrainingJobPayload(ApiModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2]
     cohort_id: UUID
     cohort_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     configuration: dict[str, object]

@@ -75,7 +75,14 @@ class GridProfileJobSnapshotPayload(ApiModel):
     profile_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     activation_id: UUID | None = None
     profile_payload: dict[str, object]
+    page_registration_profile: dict[str, object] | None = None
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PageGeometryManifestJobPayload(ApiModel):
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(min_length=1, max_length=2048)
+    preflight_job_id: UUID
 
 
 class BrowserImageImportJobPayload(ApiModel):
@@ -93,6 +100,7 @@ class BrowserImageImportJobPayload(ApiModel):
     image_selection_run_id: UUID | None = None
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
+    page_geometry_manifest: PageGeometryManifestJobPayload | None = None
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -157,6 +165,17 @@ class LayoutImportValidateJobPayload(ApiModel):
     rules_version_id: UUID
 
 
+class PageGeometryPreflightJobPayload(ApiModel):
+    schema_version: Literal[2]
+    validation_kind: Literal["page_geometry_preflight"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    page_registration_profile: dict[str, object]
+    page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
+    canonical_sequence_numbers: tuple[int, ...] = Field(default=())
+
+
 class PayoutJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
@@ -205,7 +224,9 @@ class ImportJobCreate(ApiModel):
 class ValidateJobCreate(ApiModel):
     job_type: Literal[JobType.VALIDATE]
     game_id: UUID
-    input_payload: ValidateJobPayload | LayoutImportValidateJobPayload
+    input_payload: (
+        ValidateJobPayload | LayoutImportValidateJobPayload | PageGeometryPreflightJobPayload
+    )
 
 
 class PayoutJobCreate(ApiModel):
@@ -245,6 +266,7 @@ JobPayloadResponse = (
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
+    | PageGeometryPreflightJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
@@ -290,6 +312,18 @@ class JobProgressResponse(ApiModel):
     image_selection: ImageSelectionJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
+    )
+    page_geometry_preflight: PageGeometryPreflightJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+
+
+class PageGeometryPreflightJobProgressResponse(ApiModel):
+    complete: bool
+    geometry_manifest_checksum_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
     )
 
 
@@ -359,6 +393,7 @@ class JobResponse(ApiModel):
                 failed=job.failure_count,
                 review=job.review_count,
                 image_selection=_image_selection_progress(job),
+                page_geometry_preflight=_page_geometry_preflight_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -371,6 +406,24 @@ class JobResponse(ApiModel):
             finished_at=job.finished_at,
             cancel_requested_at=job.cancel_requested_at,
         )
+
+
+def _page_geometry_preflight_progress(
+    job: Job,
+) -> PageGeometryPreflightJobProgressResponse | None:
+    if job.job_type is not JobType.VALIDATE or job.checkpoint_payload is None:
+        return None
+    if job.input_payload.get("validation_kind") != "page_geometry_preflight":
+        return None
+    payload = job.checkpoint_payload
+    complete = payload.get("complete") is True
+    checksum = payload.get("geometry_manifest_checksum_sha256")
+    if checksum is not None and (not isinstance(checksum, str) or len(checksum) != 64):
+        return None
+    return PageGeometryPreflightJobProgressResponse(
+        complete=complete,
+        geometry_manifest_checksum_sha256=checksum,
+    )
 
 
 def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | None:
@@ -487,6 +540,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.VALIDATE:
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)
+        if job.input_payload.get("validation_kind") == "page_geometry_preflight":
+            return PageGeometryPreflightJobPayload.model_validate(job.input_payload)
         return ValidateJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.PAYOUT:
         return PayoutJobPayload.model_validate(job.input_payload)

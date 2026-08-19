@@ -1,6 +1,7 @@
 """Composition root for versioned HTTP routes."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import APIRouter
 
@@ -63,6 +64,8 @@ def create_api_router(
     symbol_model_iteration_service_dependency: Callable[..., object],
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
+    page_geometry_override_service_dependency: Callable[..., object],
+    artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -99,6 +102,8 @@ def create_api_router(
             job_service_dependency,
             iterative_image_import_service_dependency,
             image_sequence_canonical_service_dependency,
+            page_geometry_override_service_dependency,
+            artifact_root,
         )
     )
     router.include_router(

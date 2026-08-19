@@ -16,9 +16,11 @@ import {
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
   listReadyBrowserImageSelections as listGeneratedReadyBrowserImageSelections,
   previewReadyBrowserImageImport as previewGeneratedReadyBrowserImageImport,
   startReadyBrowserImageImport as startGeneratedReadyBrowserImageImport,
+  startBrowserPageGeometryPreflight as startGeneratedBrowserPageGeometryPreflight,
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
@@ -50,6 +52,7 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
+  getBrowserPageGeometrySourceAsset as getGeneratedBrowserPageGeometrySourceAsset,
   getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
   getImageSelection as getGeneratedImageSelection,
   getImageSelectionCandidateFile as getGeneratedImageSelectionCandidateFile,
@@ -80,6 +83,7 @@ import {
   getSymbol as getGeneratedSymbol,
   getSymbolModelIteration as getGeneratedSymbolModelIteration,
   listGames as listGeneratedGames,
+  listBrowserPageGeometryReviewSources as listGeneratedBrowserPageGeometryReviewSources,
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
   listGridProfileActivations as listGeneratedGridProfileActivations,
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
@@ -158,6 +162,7 @@ import type {
   BrowserImageSelectionCreate,
   BrowserImageImportPreflightCreate,
   BrowserImageImportStart,
+  BrowserPageGeometryOverrideCreate,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -219,6 +224,11 @@ export type {
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
   BrowserImageImportStartResponse,
+  BrowserPageGeometryOverrideCreate,
+  BrowserPageGeometryOverrideResponse,
+  BrowserPageGeometryPreflightResponse,
+  BrowserPageGeometryReviewSourceResponse,
+  BrowserPageGeometryReviewSourcesResponse,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
   BrowserReadySelectionResponse,
@@ -577,6 +587,53 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
+        path: { upload_id: uploadId },
+      }),
+    startBrowserPageGeometryPreflight: (
+      uploadId: string,
+      body: BrowserImageImportPreflightCreate,
+    ) =>
+      startGeneratedBrowserPageGeometryPreflight({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:page-geometry-preflight`,
+        ),
+        path: { upload_id: uploadId },
+      }),
+    listBrowserPageGeometryReviewSources: (
+      uploadId: string,
+      preflightJobId: string,
+      gameId: string,
+    ) =>
+      listGeneratedBrowserPageGeometryReviewSources({
+        client,
+        path: { preflight_job_id: preflightJobId, upload_id: uploadId },
+        query: { game_id: gameId },
+      }),
+    getBrowserPageGeometrySourceAsset: (
+      uploadId: string,
+      sourceChecksumSha256: string,
+      gameId: string,
+    ) =>
+      getGeneratedBrowserPageGeometrySourceAsset({
+        client,
+        path: {
+          source_checksum_sha256: sourceChecksumSha256,
+          upload_id: uploadId,
+        },
+        query: { game_id: gameId },
+      }),
+    createBrowserPageGeometryOverride: (
+      uploadId: string,
+      body: BrowserPageGeometryOverrideCreate,
+    ) =>
+      createGeneratedBrowserPageGeometryOverride({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:page-geometry-override`,
+        ),
         path: { upload_id: uploadId },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>

@@ -2,6 +2,7 @@ import type {
   AdminApiClient,
   BrowserImageImportPreflightResponse,
   BrowserImageImportStartResponse,
+  BrowserPageGeometryPreflightResponse,
   BrowserReadySelectionResponse,
   ImageFolderSelectionResponse,
   JobResponse,
@@ -18,6 +19,9 @@ export type ImageFolderImportClient = Pick<
   | 'listReadyBrowserImageSelections'
   | 'previewReadyBrowserImageImport'
   | 'startReadyBrowserImageImport'
+  | 'startBrowserPageGeometryPreflight'
+  | 'listBrowserPageGeometryReviewSources'
+  | 'createBrowserPageGeometryOverride'
   | 'cancelBrowserImageSelection'
   | 'getImageDatasetCompleteness'
   | 'getImageSequenceSourceSelection'
@@ -25,6 +29,7 @@ export type ImageFolderImportClient = Pick<
   | 'listCuratedImageImportSources'
   | 'createNextCuratedImageImportBatch'
   | 'listJobs'
+  | 'getJob'
   | 'reprocessManagedImageImport'
   | 'selectImageSequenceSource'
 >;
@@ -186,6 +191,8 @@ export async function startReadyBrowserImageImport(
   gameId: string,
   manifestChecksumSha256: string,
   preflightChecksumSha256: string,
+  geometryPreflightJobId: string,
+  geometryManifestChecksumSha256: string,
   symbolModelInferenceFingerprint?: string,
   gridProfileInferenceFingerprint?: string,
 ): Promise<
@@ -203,12 +210,44 @@ export async function startReadyBrowserImageImport(
       ...(gridProfileInferenceFingerprint === undefined
         ? {}
         : { gridProfileInferenceFingerprint }),
+      geometryPreflightJobId,
+      geometryManifestChecksumSha256,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
           result.error,
           'Nie udało się utworzyć importu layoutów.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function startBrowserPageGeometryPreflight(
+  api: ImageFolderImportClient,
+  uploadId: string,
+  gameId: string,
+): Promise<
+  | { readonly data: BrowserPageGeometryPreflightResponse; readonly ok: true }
+  | Failure
+> {
+  try {
+    const result = await api.startBrowserPageGeometryPreflight(uploadId, {
+      gameId,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się utworzyć preflightu geometrii stron.',
         ),
         ok: false,
       };

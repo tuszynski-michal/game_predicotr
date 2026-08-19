@@ -23,7 +23,15 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalService,
 )
-from game_predictor_api.domain.jobs import JobConflictError, JobError
+from game_predictor_api.domain.jobs import (
+    JobConflictError,
+    JobError,
+    JobType,
+    checkpoint_job,
+    complete_job,
+    create_job,
+    start_job,
+)
 from game_predictor_api.main import create_app
 from PIL import Image
 from test_image_selections import MemoryImageSelectionRepository
@@ -371,10 +379,67 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert report["skippedSourceCount"] == 1
         assert report["firstUnresolvedSequence"] == 10
 
+        geometry_checksum = "d" * 64
+        geometry_job = create_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 2,
+                "validation_kind": "page_geometry_preflight",
+                "source_selection_id": upload_id,
+                "source_directory": str(tmp_path / "imports" / upload_id),
+                "source_manifest_sha256": report["manifestChecksumSha256"],
+                "page_registration_profile": {
+                    "policy": "verified-page-registration-v1",
+                    "anchors": [{}],
+                },
+                "page_geometry_overrides": {},
+                "canonical_sequence_numbers": list(range(1, 10)),
+            },
+            created_at=NOW,
+        )
+        lease_token = uuid4()
+        geometry_job = start_job(
+            geometry_job,
+            worker_version="test-worker",
+            worker_id="test-worker",
+            lease_token=lease_token,
+            lease_expires_at=NOW + timedelta(minutes=5),
+            started_at=NOW,
+        )
+        geometry_job = checkpoint_job(
+            geometry_job,
+            lease_token=lease_token,
+            checkpoint_payload={
+                "schema_version": 1,
+                "complete": True,
+                "geometry_manifest_checksum_sha256": geometry_checksum,
+                "geometry_manifest_relative_path": (
+                    f"data/page-geometry-manifests/{geometry_checksum}.json"
+                ),
+            },
+            stage="page_geometry_manifest_ready",
+            current=2,
+            total=2,
+            success_count=1,
+            failure_count=0,
+            review_count=0,
+            updated_at=NOW + timedelta(seconds=1),
+        )
+        repository.add_job(
+            complete_job(
+                geometry_job,
+                lease_token=lease_token,
+                finished_at=NOW + timedelta(seconds=2),
+            )
+        )
+
         start_payload = {
             "gameId": str(game_id),
             "manifestChecksumSha256": report["manifestChecksumSha256"],
             "preflightChecksumSha256": report["preflightChecksumSha256"],
+            "geometryPreflightJobId": str(geometry_job.id),
+            "geometryManifestChecksumSha256": geometry_checksum,
         }
         started = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",

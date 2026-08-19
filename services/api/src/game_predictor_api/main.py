@@ -56,6 +56,9 @@ from game_predictor_api.application.layout_imports import (
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
+from game_predictor_api.application.page_geometry_overrides import (
+    PageGeometryOverrideService,
+)
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
     ReviewerAccessService,
@@ -176,6 +179,9 @@ from game_predictor_api.storage.layout_import_report_repository import (
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
+from game_predictor_api.storage.page_geometry_override_repository import (
+    SqlAlchemyPageGeometryOverrideRepository,
+)
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
@@ -231,6 +237,7 @@ def create_app(
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
+    page_geometry_override_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -309,6 +316,9 @@ def create_app(
                     artifact_root=resolved_settings.artifact_root,
                 ),
                 SqlAlchemyGridProfileSnapshotResolver(session),
+                page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
+                    SqlAlchemyPageGeometryOverrideRepository(session)
+                ),
                 deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
                     artifact_root=resolved_settings.artifact_root,
                     import_root=resolved_settings.import_root,
@@ -543,6 +553,22 @@ def create_app(
         grid_calibration_service_dependency or default_grid_calibration_service_dependency
     )
 
+    def default_page_geometry_override_service_dependency() -> Iterator[
+        PageGeometryOverrideService
+    ]:
+        with session_factory() as session:
+            try:
+                yield PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_page_geometry_override_dependency = (
+        page_geometry_override_service_dependency
+        or default_page_geometry_override_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -674,6 +700,8 @@ def create_app(
             resolved_symbol_model_iteration_dependency,
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
+            resolved_page_geometry_override_dependency,
+            resolved_settings.artifact_root,
         )
     )
 

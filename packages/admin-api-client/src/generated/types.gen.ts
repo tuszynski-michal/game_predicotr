@@ -64,6 +64,7 @@ export type BrowserImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  pageGeometryManifest?: PageGeometryManifestJobPayload | null;
   /**
    * Pipelinefingerprint
    */
@@ -196,6 +197,14 @@ export type BrowserImageImportStart = {
    */
   gameId: string;
   /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256: string;
+  /**
+   * Geometrypreflightjobid
+   */
+  geometryPreflightJobId: string;
+  /**
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint?: string | null;
@@ -311,6 +320,173 @@ export type BrowserImageSelectionUploadResponse = {
    * Uploadedfileindexes
    */
   uploadedFileIndexes: Array<number>;
+};
+
+/**
+ * BrowserPageGeometryOverrideCreate
+ */
+export type BrowserPageGeometryOverrideCreate = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Finalquads
+   */
+  finalQuads: [
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+    [
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+      PageGeometryPoint,
+    ],
+  ];
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Imageheight
+   */
+  imageHeight: number;
+  /**
+   * Imagewidth
+   */
+  imageWidth: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+};
+
+/**
+ * BrowserPageGeometryOverrideResponse
+ */
+export type BrowserPageGeometryOverrideResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Decisionchecksumsha256
+   */
+  decisionChecksumSha256: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * BrowserPageGeometryPreflightResponse
+ */
+export type BrowserPageGeometryPreflightResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse;
+};
+
+/**
+ * BrowserPageGeometryReviewSourceResponse
+ */
+export type BrowserPageGeometryReviewSourceResponse = {
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd?: number | null;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart?: number | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * BrowserPageGeometryReviewSourcesResponse
+ */
+export type BrowserPageGeometryReviewSourcesResponse = {
+  /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256: string;
+  job: JobResponse;
+  /**
+   * Registeredsourcecount
+   */
+  registeredSourceCount: number;
+  /**
+   * Reviewrequiredsourcecount
+   */
+  reviewRequiredSourceCount: number;
+  /**
+   * Skippedhumanresolvedsourcecount
+   */
+  skippedHumanResolvedSourceCount: number;
+  /**
+   * Sources
+   */
+  sources: Array<BrowserPageGeometryReviewSourceResponse>;
 };
 
 /**
@@ -1311,6 +1487,12 @@ export type GridProfileJobSnapshotPayload = {
    * Inferencefingerprint
    */
   inferenceFingerprint: string;
+  /**
+   * Pageregistrationprofile
+   */
+  pageRegistrationProfile?: {
+    [key: string]: unknown;
+  } | null;
   /**
    * Profilechecksumsha256
    */
@@ -2835,6 +3017,7 @@ export type JobProgressResponse = {
    */
   failed: number;
   imageSelection?: ImageSelectionJobProgressResponse | null;
+  pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
    * Review
    */
@@ -2899,6 +3082,7 @@ export type JobResponse = {
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
+    | PageGeometryPreflightJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
@@ -4143,6 +4327,94 @@ export type OperationalImageReviewResolutionResponse = {
   created: boolean;
   event: OperationalImageReviewResolutionEventResponse;
   item: OperationalImageReviewItemResponse;
+};
+
+/**
+ * PageGeometryManifestJobPayload
+ */
+export type PageGeometryManifestJobPayload = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Preflightjobid
+   */
+  preflightJobId: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+};
+
+/**
+ * PageGeometryPoint
+ */
+export type PageGeometryPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * PageGeometryPreflightJobPayload
+ */
+export type PageGeometryPreflightJobPayload = {
+  /**
+   * Canonicalsequencenumbers
+   */
+  canonicalSequenceNumbers?: Array<number>;
+  /**
+   * Pagegeometryoverrides
+   */
+  pageGeometryOverrides?: {
+    [key: string]: unknown;
+  };
+  /**
+   * Pageregistrationprofile
+   */
+  pageRegistrationProfile: {
+    [key: string]: unknown;
+  };
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 2;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Validationkind
+   */
+  validationKind: 'page_geometry_preflight';
+};
+
+/**
+ * PageGeometryPreflightJobProgressResponse
+ */
+export type PageGeometryPreflightJobProgressResponse = {
+  /**
+   * Complete
+   */
+  complete: boolean;
+  /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256?: string | null;
 };
 
 /**
@@ -6045,7 +6317,10 @@ export type ValidateJobCreate = {
   /**
    * Inputpayload
    */
-  inputPayload: ValidateJobPayload | LayoutImportValidateJobPayload;
+  inputPayload:
+    | ValidateJobPayload
+    | LayoutImportValidateJobPayload
+    | PageGeometryPreflightJobPayload;
   /**
    * Jobtype
    */
@@ -8644,6 +8919,189 @@ export type FinalizeBrowserImageSelectionResponses = {
 
 export type FinalizeBrowserImageSelectionResponse =
   FinalizeBrowserImageSelectionResponses[keyof FinalizeBrowserImageSelectionResponses];
+
+export type StartBrowserPageGeometryPreflightData = {
+  body: BrowserImageImportPreflightCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight';
+};
+
+export type StartBrowserPageGeometryPreflightErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartBrowserPageGeometryPreflightError =
+  StartBrowserPageGeometryPreflightErrors[keyof StartBrowserPageGeometryPreflightErrors];
+
+export type StartBrowserPageGeometryPreflightResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserPageGeometryPreflightResponse;
+};
+
+export type StartBrowserPageGeometryPreflightResponse =
+  StartBrowserPageGeometryPreflightResponses[keyof StartBrowserPageGeometryPreflightResponses];
+
+export type ListBrowserPageGeometryReviewSourcesData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Preflight Job Id
+     */
+    preflight_job_id: string;
+  };
+  query: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources';
+};
+
+export type ListBrowserPageGeometryReviewSourcesErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListBrowserPageGeometryReviewSourcesError =
+  ListBrowserPageGeometryReviewSourcesErrors[keyof ListBrowserPageGeometryReviewSourcesErrors];
+
+export type ListBrowserPageGeometryReviewSourcesResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserPageGeometryReviewSourcesResponse;
+};
+
+export type ListBrowserPageGeometryReviewSourcesResponse =
+  ListBrowserPageGeometryReviewSourcesResponses[keyof ListBrowserPageGeometryReviewSourcesResponses];
+
+export type CreateBrowserPageGeometryOverrideData = {
+  body: BrowserPageGeometryOverrideCreate;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides';
+};
+
+export type CreateBrowserPageGeometryOverrideErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateBrowserPageGeometryOverrideError =
+  CreateBrowserPageGeometryOverrideErrors[keyof CreateBrowserPageGeometryOverrideErrors];
+
+export type CreateBrowserPageGeometryOverrideResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserPageGeometryOverrideResponse;
+};
+
+export type CreateBrowserPageGeometryOverrideResponse =
+  CreateBrowserPageGeometryOverrideResponses[keyof CreateBrowserPageGeometryOverrideResponses];
+
+export type GetBrowserPageGeometrySourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Source Checksum Sha256
+     */
+    source_checksum_sha256: string;
+  };
+  query: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset';
+};
+
+export type GetBrowserPageGeometrySourceAssetErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetBrowserPageGeometrySourceAssetError =
+  GetBrowserPageGeometrySourceAssetErrors[keyof GetBrowserPageGeometrySourceAssetErrors];
+
+export type GetBrowserPageGeometrySourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type PreviewReadyBrowserImageImportData = {
   body: BrowserImageImportPreflightCreate;

@@ -207,6 +207,8 @@ test('previews and starts a recovered browser staging idempotently', async () =>
     'game-1',
     'a'.repeat(64),
     'b'.repeat(64),
+    'geometry-job-1',
+    'c'.repeat(64),
   );
 
   assert.equal(started.ok, true);
@@ -217,6 +219,8 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       'upload-1',
       {
         gameId: 'game-1',
+        geometryManifestChecksumSha256: 'c'.repeat(64),
+        geometryPreflightJobId: 'geometry-job-1',
         manifestChecksumSha256: 'a'.repeat(64),
         preflightChecksumSha256: 'b'.repeat(64),
       },

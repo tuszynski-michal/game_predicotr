@@ -54,6 +54,9 @@ import type {
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
+  CreateBrowserPageGeometryOverrideData,
+  CreateBrowserPageGeometryOverrideErrors,
+  CreateBrowserPageGeometryOverrideResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
@@ -135,6 +138,9 @@ import type {
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
+  GetBrowserPageGeometrySourceAssetData,
+  GetBrowserPageGeometrySourceAssetErrors,
+  GetBrowserPageGeometrySourceAssetResponses,
   GetCuratedImageImportSourceData,
   GetCuratedImageImportSourceErrors,
   GetCuratedImageImportSourceResponses,
@@ -259,6 +265,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListBrowserPageGeometryReviewSourcesData,
+  ListBrowserPageGeometryReviewSourcesErrors,
+  ListBrowserPageGeometryReviewSourcesResponses,
   ListCanonicalImageReviewItemsData,
   ListCanonicalImageReviewItemsErrors,
   ListCanonicalImageReviewItemsResponses,
@@ -456,6 +465,9 @@ import type {
   SelectSymbolImageCandidateData,
   SelectSymbolImageCandidateErrors,
   SelectSymbolImageCandidateResponses,
+  StartBrowserPageGeometryPreflightData,
+  StartBrowserPageGeometryPreflightErrors,
+  StartBrowserPageGeometryPreflightResponses,
   StartLocalReviewerData,
   StartLocalReviewerErrors,
   StartLocalReviewerResponses,
@@ -1575,6 +1587,100 @@ export const finalizeBrowserImageSelection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
+    ...options,
+  });
+
+/**
+ * Build a verified complete-page geometry manifest before layout import
+ */
+export const startBrowserPageGeometryPreflight = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartBrowserPageGeometryPreflightData, ThrowOnError>,
+): RequestResult<
+  StartBrowserPageGeometryPreflightResponses,
+  StartBrowserPageGeometryPreflightErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartBrowserPageGeometryPreflightResponses,
+    StartBrowserPageGeometryPreflightErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List pages requiring full-page geometry correction
+ */
+export const listBrowserPageGeometryReviewSources = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBrowserPageGeometryReviewSourcesData, ThrowOnError>,
+): RequestResult<
+  ListBrowserPageGeometryReviewSourcesResponses,
+  ListBrowserPageGeometryReviewSourcesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBrowserPageGeometryReviewSourcesResponses,
+    ListBrowserPageGeometryReviewSourcesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources',
+    ...options,
+  });
+
+/**
+ * Persist one complete-page geometry correction for a staged source
+ */
+export const createBrowserPageGeometryOverride = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBrowserPageGeometryOverrideData, ThrowOnError>,
+): RequestResult<
+  CreateBrowserPageGeometryOverrideResponses,
+  CreateBrowserPageGeometryOverrideErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBrowserPageGeometryOverrideResponses,
+    CreateBrowserPageGeometryOverrideErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one staged source image for local page-geometry correction
+ */
+export const getBrowserPageGeometrySourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBrowserPageGeometrySourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetBrowserPageGeometrySourceAssetResponses,
+  GetBrowserPageGeometrySourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBrowserPageGeometrySourceAssetResponses,
+    GetBrowserPageGeometrySourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset',
     ...options,
   });
 

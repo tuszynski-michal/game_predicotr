@@ -1735,6 +1735,56 @@ class ImageBoardGeometryRevisionModel(Base):
     )
 
 
+class ImagePageGeometryOverrideModel(Base):
+    """Revisioned human correction for all nine quads on one source photo."""
+
+    __tablename__ = "image_page_geometry_overrides"
+    __table_args__ = (
+        CheckConstraint(
+            "image_width > 0 AND image_height > 0 AND revision > 0",
+            name="ck_image_page_geometry_overrides_values",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND decision_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_page_geometry_overrides_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(final_quads) = 'array' AND jsonb_array_length(final_quads) = 9",
+            name="ck_image_page_geometry_overrides_quads",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "source_checksum_sha256",
+            "revision",
+            name="uq_image_page_geometry_overrides_revision",
+        ),
+        Index(
+            "ix_image_page_geometry_overrides_current",
+            "game_id",
+            "source_checksum_sha256",
+            "revision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_width: Mapped[int] = mapped_column(Integer, nullable=False)
+    image_height: Mapped[int] = mapped_column(Integer, nullable=False)
+    final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ReviewerAccessSessionModel(Base):
     __tablename__ = "reviewer_access_sessions"
     __table_args__ = (

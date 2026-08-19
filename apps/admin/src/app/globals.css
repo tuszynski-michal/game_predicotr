@@ -5450,6 +5450,119 @@ div.imageJobInlineError {
   line-height: 1.5;
 }
 
+.pageGeometryCorrection {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0 4px;
+  padding: 16px;
+  border: 1px solid rgba(255, 190, 87, 0.42);
+  border-radius: 12px;
+  background: rgba(82, 53, 8, 0.14);
+}
+
+.pageGeometryCorrectionHeader,
+.pageGeometryCorrectionHeader > div,
+.pageGeometryControls {
+  display: grid;
+  gap: 8px;
+}
+
+.pageGeometryCorrectionHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.pageGeometryCorrectionHeader h3 {
+  margin: 0;
+  color: #ffd48a;
+  font-size: 0.94rem;
+}
+
+.pageGeometryCorrectionHeader p,
+.geometryInstructions {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.pageGeometryCorrectionGrid {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.48fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.pageGeometryControls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.pageGeometryControls select {
+  min-height: 38px;
+}
+
+.pageGeometryNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pageGeometryCanvas {
+  position: relative;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #03070d;
+}
+
+.pageGeometryCanvas > img {
+  display: block;
+  width: 100%;
+  max-height: min(72vh, 760px);
+  object-fit: contain;
+}
+
+.pageGeometryCanvas > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.pageGeometryBoard {
+  fill: rgba(85, 218, 162, 0.08);
+  stroke: rgba(104, 239, 178, 0.86);
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.pageGeometryBoardSelected {
+  fill: rgba(255, 196, 74, 0.18);
+  stroke: #ffd15b;
+  stroke-width: 3.4;
+}
+
+.pageGeometryHandle {
+  cursor: grab;
+  fill: #ffd15b;
+  stroke: #14130d;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.pageGeometryHandle:active {
+  cursor: grabbing;
+}
+
+.pageGeometryBoardHandle {
+  fill: #73edba;
+}
+
 .curatedBatchHistory {
   display: grid;
   gap: 7px;

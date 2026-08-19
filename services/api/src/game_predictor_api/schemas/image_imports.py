@@ -134,17 +134,67 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class BrowserPageGeometryPreflightResponse(ApiModel):
+    created: bool
+    job: JobResponse
+
+
+class BrowserPageGeometryReviewSourceResponse(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=2048)
+    sequence_range_start: int | None = Field(default=None, ge=1)
+    sequence_range_end: int | None = Field(default=None, ge=1)
+
+
+class BrowserPageGeometryReviewSourcesResponse(ApiModel):
+    job: JobResponse
+    geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    registered_source_count: int = Field(ge=0)
+    review_required_source_count: int = Field(ge=0)
+    skipped_human_resolved_source_count: int = Field(ge=0)
+    sources: list[BrowserPageGeometryReviewSourceResponse]
+
+
+class PageGeometryPoint(ApiModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+
+
+class BrowserPageGeometryOverrideCreate(ApiModel):
+    game_id: UUID
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_width: int = Field(ge=1)
+    image_height: int = Field(ge=1)
+    final_quads: tuple[
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+    ]
+    actor: str = Field(min_length=1, max_length=200)
+
+
+class BrowserPageGeometryOverrideResponse(ApiModel):
+    created: bool
+    id: UUID
+    revision: int = Field(ge=1)
+    decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class BrowserImageImportStart(ApiModel):
     game_id: UUID
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     start_mode: Literal["reuse_exact", "rerun_current_models"] = "reuse_exact"
-    symbol_model_inference_fingerprint: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
-    grid_profile_inference_fingerprint: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{64}$"
-    )
+    symbol_model_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    geometry_preflight_job_id: UUID
+    geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class BrowserImageImportStartResponse(ApiModel):

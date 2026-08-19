@@ -104,6 +104,16 @@
             "title": "Importkind",
             "type": "string"
           },
+          "pageGeometryManifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryManifestJobPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Pipelinefingerprint",
@@ -328,6 +338,16 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Geometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "geometryPreflightJobId": {
+            "format": "uuid",
+            "title": "Geometrypreflightjobid",
+            "type": "string"
+          },
           "gridProfileInferenceFingerprint": {
             "anyOf": [
               {
@@ -375,7 +395,9 @@
         "required": [
           "gameId",
           "manifestChecksumSha256",
-          "preflightChecksumSha256"
+          "preflightChecksumSha256",
+          "geometryPreflightJobId",
+          "geometryManifestChecksumSha256"
         ],
         "title": "BrowserImageImportStart",
         "type": "object"
@@ -540,6 +562,367 @@
           "gameId"
         ],
         "title": "BrowserImageSelectionUploadResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryOverrideCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "finalQuads": {
+            "maxItems": 9,
+            "minItems": 9,
+            "prefixItems": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              }
+            ],
+            "title": "Finalquads",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "imageHeight": {
+            "minimum": 1.0,
+            "title": "Imageheight",
+            "type": "integer"
+          },
+          "imageWidth": {
+            "minimum": 1.0,
+            "title": "Imagewidth",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceChecksumSha256",
+          "imageWidth",
+          "imageHeight",
+          "finalQuads",
+          "actor"
+        ],
+        "title": "BrowserPageGeometryOverrideCreate",
+        "type": "object"
+      },
+      "BrowserPageGeometryOverrideResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "decisionChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Decisionchecksumsha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "id",
+          "revision",
+          "decisionChecksumSha256"
+        ],
+        "title": "BrowserPageGeometryOverrideResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          }
+        },
+        "required": [
+          "created",
+          "job"
+        ],
+        "title": "BrowserPageGeometryPreflightResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryReviewSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "sourceRelativePath"
+        ],
+        "title": "BrowserPageGeometryReviewSourceResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryReviewSourcesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "geometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Geometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "registeredSourceCount": {
+            "minimum": 0.0,
+            "title": "Registeredsourcecount",
+            "type": "integer"
+          },
+          "reviewRequiredSourceCount": {
+            "minimum": 0.0,
+            "title": "Reviewrequiredsourcecount",
+            "type": "integer"
+          },
+          "skippedHumanResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedhumanresolvedsourcecount",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserPageGeometryReviewSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job",
+          "geometryManifestChecksumSha256",
+          "registeredSourceCount",
+          "reviewRequiredSourceCount",
+          "skippedHumanResolvedSourceCount",
+          "sources"
+        ],
+        "title": "BrowserPageGeometryReviewSourcesResponse",
         "type": "object"
       },
       "BrowserReadySelectionResponse": {
@@ -2168,6 +2551,18 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Inferencefingerprint",
             "type": "string"
+          },
+          "pageRegistrationProfile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pageregistrationprofile"
           },
           "profileChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4898,6 +5293,16 @@
               }
             ]
           },
+          "pageGeometryPreflight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "review": {
             "title": "Review",
             "type": "integer"
@@ -5043,6 +5448,9 @@
               },
               {
                 "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
               },
               {
                 "$ref": "#/components/schemas/PayoutJobPayload"
@@ -7165,6 +7573,140 @@
           "created"
         ],
         "title": "OperationalImageReviewResolutionResponse",
+        "type": "object"
+      },
+      "PageGeometryManifestJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "preflightJobId": {
+            "format": "uuid",
+            "title": "Preflightjobid",
+            "type": "string"
+          },
+          "relativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checksumSha256",
+          "relativePath",
+          "preflightJobId"
+        ],
+        "title": "PageGeometryManifestJobPayload",
+        "type": "object"
+      },
+      "PageGeometryPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "PageGeometryPoint",
+        "type": "object"
+      },
+      "PageGeometryPreflightJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
+          "pageGeometryOverrides": {
+            "additionalProperties": true,
+            "title": "Pagegeometryoverrides",
+            "type": "object"
+          },
+          "pageRegistrationProfile": {
+            "additionalProperties": true,
+            "title": "Pageregistrationprofile",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": 2,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "validationKind": {
+            "const": "page_geometry_preflight",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "validationKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceManifestSha256",
+          "pageRegistrationProfile"
+        ],
+        "title": "PageGeometryPreflightJobPayload",
+        "type": "object"
+      },
+      "PageGeometryPreflightJobProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "geometryManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrymanifestchecksumsha256"
+          }
+        },
+        "required": [
+          "complete"
+        ],
+        "title": "PageGeometryPreflightJobProgressResponse",
         "type": "object"
       },
       "PaylineCreate": {
@@ -10413,6 +10955,9 @@
               },
               {
                 "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -15115,6 +15660,345 @@
           }
         ],
         "summary": "Finalize a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight": {
+      "post": {
+        "operationId": "startBrowserPageGeometryPreflight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportPreflightCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Build a verified complete-page geometry manifest before layout import",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources": {
+      "get": {
+        "operationId": "listBrowserPageGeometryReviewSources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "preflight_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preflight Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryReviewSourcesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List pages requiring full-page geometry correction",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides": {
+      "post": {
+        "operationId": "createBrowserPageGeometryOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserPageGeometryOverrideCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Persist one complete-page geometry correction for a staged source",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset": {
+      "get": {
+        "operationId": "getBrowserPageGeometrySourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_checksum_sha256",
+            "required": true,
+            "schema": {
+              "title": "Source Checksum Sha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "Read one staged source image for local page-geometry correction",
         "tags": [
           "image-imports"
         ]

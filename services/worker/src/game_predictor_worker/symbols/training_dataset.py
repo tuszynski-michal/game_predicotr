@@ -16,7 +16,7 @@ from typing import Any, Literal, cast
 
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
-TRAINING_SPLIT_POLICY_VERSION = "source-family-hash-split-v1"
+TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
 DEFAULT_SPLIT_SEED = "game-predictor-m6.6-symbol-split-v1"
 MIN_RECOMMENDED_SAMPLES_PER_SYMBOL = 10
 
@@ -49,6 +49,9 @@ class TrainingDatasetConfig:
     regression_basis_points: int = 1000
     transformation_version: str = "immutable-reviewed-crop-v1"
     split_policy_version: str = TRAINING_SPLIT_POLICY_VERSION
+    # Persisted assignments make the split stable when a later cohort adds sources.
+    # The tuple is used instead of a dict so the configuration remains canonical JSON.
+    source_assignments: tuple[tuple[str, SplitName], ...] = ()
 
     def split_ratios(self) -> tuple[tuple[SplitName, int], ...]:
         values: tuple[tuple[SplitName, int], ...] = (
@@ -76,6 +79,7 @@ class TrainingDatasetConfig:
             "splitPolicyVersion": self.split_policy_version,
             "splitRatiosBasisPoints": dict(self.split_ratios()),
             "transformationVersion": self.transformation_version,
+            "sourceAssignments": {source: split for source, split in self.source_assignments},
         }
 
 
@@ -311,10 +315,63 @@ def _managed_crop(data_root: Path, relative_path: str, checksum: str) -> Path:
     return resolved
 
 
+def build_balanced_source_assignments(
+    sources: Sequence[str],
+    *,
+    seed: str = DEFAULT_SPLIT_SEED,
+    existing: Mapping[str, SplitName] | None = None,
+) -> tuple[tuple[str, SplitName], ...]:
+    """Build a deterministic, source-disjoint split with independent evaluation sets.
+
+    Existing assignments are never changed. New sources are assigned by a seeded
+    hash order to the currently smallest split, which keeps additions stable while
+    yielding 4/1/1/1 for the seven-source cohort used by the first training run.
+    """
+    unique = sorted(set(sources))
+    assignments: dict[str, SplitName] = dict(existing or {})
+    assignments = {
+        source: split
+        for source, split in assignments.items()
+        if source in unique and split in SPLIT_ORDER
+    }
+    pending = [source for source in unique if source not in assignments]
+    # For a fresh cohort reserve one source for each independent split, then put
+    # the remaining sources in train. This is intentionally explicit rather than
+    # ratio-based so small cohorts never silently get an empty validation set.
+    target_order: tuple[SplitName, ...] = ("validation", "test", "regression")
+    fresh_balanced = not assignments and len(pending) >= 4
+    if fresh_balanced:
+        ranked = sorted(
+            pending,
+            key=lambda source: hashlib.sha256(f"{seed}\0{source}".encode()).hexdigest(),
+        )
+        for source, split in zip(ranked[:3], target_order, strict=True):
+            assignments[source] = split
+        pending = [source for source in pending if source not in assignments]
+    counts = Counter(assignments.values())
+    for source in sorted(
+        pending,
+        key=lambda value: hashlib.sha256(f"{seed}\0{value}".encode()).hexdigest(),
+    ):
+        if fresh_balanced:
+            split = "train"
+        else:
+            split = min(
+                SPLIT_ORDER,
+                key=lambda candidate: (counts[candidate], SPLIT_ORDER.index(candidate)),
+            )
+        assignments[source] = split
+        counts[split] += 1
+    return tuple((source, assignments[source]) for source in unique)
+
+
 def _source_split(
     source_family: str,
     config: TrainingDatasetConfig,
 ) -> SplitName:
+    for source, split in config.source_assignments:
+        if source == source_family:
+            return split
     bucket = (
         int.from_bytes(
             hashlib.sha256(
@@ -738,6 +795,7 @@ __all__ = [
     "TRAINING_DATASET_SCHEMA_VERSION",
     "TRAINING_DATASET_VERSION",
     "TRAINING_SPLIT_POLICY_VERSION",
+    "build_balanced_source_assignments",
     "TrainingDatasetArtifact",
     "TrainingDatasetBuildError",
     "TrainingDatasetConfig",

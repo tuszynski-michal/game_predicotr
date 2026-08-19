@@ -106,3 +106,5 @@ Mechanizmy ochrony kanonicznych sekwencji oraz pending-only inferencji są
 dostępne do testu iteracyjnego. Scenariusz dwóch iteracji z aktywacją modelu,
 retry i równoległym zatwierdzeniem pozostaje bramką odbioru, a nie jest jeszcze
 raportowany jako zaliczony.
+Wdrożono stabilny split źródeł v2 i świeży import z aktualnymi snapshotami;
+pełny odbiór dwóch iteracji pozostaje do wykonania na rzeczywistym jobie.

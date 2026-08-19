@@ -7,7 +7,7 @@ import json
 import math
 import statistics
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -109,6 +109,9 @@ class GeometryCohortDiagnostics:
     source_image_count: int
     first_sequence_number: int | None
     last_sequence_number: int | None
+    eligible_geometry_count: int = 0
+    excluded_geometry_count: int = 0
+    exclusion_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 def build_geometry_manifest(

@@ -49,6 +49,7 @@ from game_predictor_worker.symbols.candidate_gate import (
     SymbolCandidateGateResult,
     build_symbol_candidate,
 )
+from game_predictor_worker.symbols.training_dataset import TrainingDatasetConfig
 
 TRAINING_WORKFLOW = "symbol_training"
 CHECKPOINT_SCHEMA_VERSION = 1
@@ -68,6 +69,7 @@ class _IterationSpec:
     configuration: TrainingConfig
     configuration_fingerprint: str
     iteration_number: int
+    dataset_config: TrainingDatasetConfig = TrainingDatasetConfig()
 
 
 class SymbolTrainingJobStore:
@@ -111,6 +113,7 @@ class SymbolTrainingJobStore:
                     "SYMBOL_TRAINING_GAME_MISSING", "Training game is unavailable."
                 )
             config = _training_config(record.configuration_payload)
+            dataset_config = _dataset_config(record.configuration_payload.get("dataset"))
             return _IterationSpec(
                 iteration_id=record.id,
                 game_id=record.game_id,
@@ -120,6 +123,7 @@ class SymbolTrainingJobStore:
                 configuration=config,
                 configuration_fingerprint=fingerprint,
                 iteration_number=record.iteration_number,
+                dataset_config=dataset_config,
             )
 
     def build_dataset(self, spec: _IterationSpec, progress: Any) -> Any:
@@ -129,7 +133,11 @@ class SymbolTrainingJobStore:
                 SqlAlchemyTrainingDatasetCatalogRepository(session),
                 artifact_root=self.artifact_root,
             )
-            return service.build(cohort_id=spec.cohort_id, progress_callback=progress)
+            return service.build(
+                cohort_id=spec.cohort_id,
+                config=spec.dataset_config,
+                progress_callback=progress,
+            )
 
     def update(
         self,
@@ -256,6 +264,7 @@ class SymbolTrainingJobHandler:
 
     def _run(self, context: JobExecutionContext, spec: _IterationSpec) -> None:
         config_payload = _configuration_payload(spec.configuration)
+        config_payload["dataset"] = spec.dataset_config.to_dict()
         input_fingerprint = _input_fingerprint(spec, config_payload)
         model_root = (
             self._store.artifact_root / "data" / "models" / spec.game_code / str(spec.iteration_id)
@@ -289,6 +298,19 @@ class SymbolTrainingJobHandler:
                 "SYMBOL_TRAINING_COHORT_DRIFT", "Built dataset uses another cohort."
             )
         data = _prepared_data(self._store.artifact_root, dataset)
+        source_family_count = int(getattr(dataset, "source_family_count", 4))
+        if source_family_count < 4:
+            self._store.update(
+                spec.iteration_id,
+                status=SymbolModelIterationStatus.REJECTED,
+                gate_metrics={
+                    "sourceFamilyCount": source_family_count,
+                    "trainingPossible": bool(data.train and data.validation),
+                },
+                rejection_reasons=("SYMBOL_TRAINING_INDEPENDENT_SOURCE_COVERAGE_INSUFFICIENT",),
+                updated_at=context.now(),
+            )
+            return
         total = spec.configuration.epochs + CANDIDATE_STAGE_COUNT
         self._store.update(
             spec.iteration_id,
@@ -786,6 +808,45 @@ def _training_config(value: Mapping[str, object]) -> TrainingConfig:
     except (KeyError, TypeError, ValueError, SymbolClassifierError) as error:
         raise JobHandlerError(
             "SYMBOL_TRAINING_CONFIG_INVALID", "Persisted training config is invalid."
+        ) from error
+
+
+def _dataset_config(value: object) -> TrainingDatasetConfig:
+    if value is None:
+        return TrainingDatasetConfig()
+    if not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "SYMBOL_TRAINING_DATASET_CONFIG_INVALID", "Dataset config is invalid."
+        )
+    try:
+        ratios = value.get("splitRatiosBasisPoints", {})
+        if not isinstance(ratios, Mapping):
+            raise TypeError("split ratios")
+        raw_assignments = value.get("sourceAssignments", {})
+        if not isinstance(raw_assignments, Mapping):
+            raise TypeError("source assignments")
+        assignments = tuple(
+            sorted(
+                (str(source), str(split))
+                for source, split in raw_assignments.items()
+                if str(split) in {"train", "validation", "test", "regression"}
+            )
+        )
+        config = TrainingDatasetConfig(
+            seed=str(value["seed"]),
+            split_policy_version=str(value["splitPolicyVersion"]),
+            transformation_version=str(value["transformationVersion"]),
+            train_basis_points=int(ratios["train"]),
+            validation_basis_points=int(ratios["validation"]),
+            test_basis_points=int(ratios["test"]),
+            regression_basis_points=int(ratios["regression"]),
+            source_assignments=assignments,  # type: ignore[arg-type]
+        )
+        config.split_ratios()
+        return config
+    except (KeyError, TypeError, ValueError) as error:
+        raise JobHandlerError(
+            "SYMBOL_TRAINING_DATASET_CONFIG_INVALID", "Dataset config is invalid."
         ) from error
 
 

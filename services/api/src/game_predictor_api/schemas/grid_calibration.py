@@ -56,6 +56,9 @@ class GeometryCohortDiagnosticsResponse(ApiModel):
     source_image_count: int = Field(ge=0)
     first_sequence_number: int | None = Field(default=None, ge=1)
     last_sequence_number: int | None = Field(default=None, ge=1)
+    eligible_geometry_count: int = Field(default=0, ge=0)
+    excluded_geometry_count: int = Field(default=0, ge=0)
+    exclusion_reason_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class GridProfileActivationCommand(ApiModel):
@@ -119,6 +122,9 @@ def to_diagnostics_response(
         source_image_count=value.source_image_count,
         first_sequence_number=value.first_sequence_number,
         last_sequence_number=value.last_sequence_number,
+        eligible_geometry_count=value.eligible_geometry_count,
+        excluded_geometry_count=value.excluded_geometry_count,
+        exclusion_reason_counts=dict(value.exclusion_reason_counts),
     )
 
 

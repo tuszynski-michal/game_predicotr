@@ -106,3 +106,5 @@ pending-only w workerze. Reviewer nakłada najnowszą rewizję na sugestię bez
 zmiany bazowych obserwacji. Dodano także `image_grid_reinference`, diagnostykę
 kohorty, podgląd i przyciski `Przelicz oczekujące` w Adminie. Pozostaje pełny
 odbiór E2E na rzeczywistych danych.
+W v0.6.41 dodano wspólną diagnostykę kwalifikacji geometrii, a import v0.6.42
+przypina aktywne snapshoty siatki i symboli podczas rerunu browserowego stagingu.

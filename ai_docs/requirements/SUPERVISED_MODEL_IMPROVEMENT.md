@@ -62,6 +62,9 @@ lub 100 plansz pozwala uruchomić trening.
 - przykłady pochodzące z tego samego zdjęcia źródłowego albo jego pochodnych
   trafiają tylko do jednej części podziału,
 - podział train/validation/test jest deterministyczny i zapisany w manifeście,
+- polityka `source-family-balanced-split-v2` gwarantuje niezależne, niepuste
+  zbiory przy co najmniej czterech źródłach; przypisania źródeł są zapisywane
+  w konfiguracji i pozostają stabilne po rozszerzeniu kohorty,
 - stały zestaw kontrolny nie może zostać włączony do treningu kolejnej wersji,
 - raport pokazuje liczność per symbol, źródło i część podziału,
 - brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego

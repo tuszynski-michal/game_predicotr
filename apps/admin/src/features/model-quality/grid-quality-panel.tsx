@@ -109,7 +109,9 @@ export function GridQualityPanel({
       setError(result.error);
     } else {
       setNotice(
-        result.response.profile.status === 'candidate_ready'
+        !result.response.created
+          ? 'Profil dla tej samej kohorty już istnieje; używam zapisanej wersji.'
+          : result.response.profile.status === 'candidate_ready'
           ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
           : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
       );
@@ -257,6 +259,14 @@ export function GridQualityPanel({
             {diagnostics?.missingDetectionCount ?? '—'} /{' '}
             {diagnostics?.incompleteGeometryCount ?? '—'}
           </dd>
+        </div>
+        <div>
+          <dt>Kwalifikuje się do profilu</dt>
+          <dd>{diagnostics?.eligibleGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Wykluczone próbki</dt>
+          <dd>{diagnostics?.excludedGeometryCount ?? '—'}</dd>
         </div>
       </dl>
       {latest !== null && latest.rejectionReasons.length > 0 ? (

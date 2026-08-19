@@ -1646,3 +1646,23 @@ Weryfikacja: skupione testy API/workera dotyczące manifestu, preflightu i
 idempotentnego startu przechodzą; Admin typecheck, Ruff i wygenerowany OpenAPI
 są aktualne. Pełne mypy repozytorium nadal zgłasza istniejące błędy w
 `images/selection/ranker.py`, niezwiązane z tą zmianą.
+
+## Diagnostyka siatki i stabilny split symboli — v0.6.41/v0.6.42
+
+Diagnostyka kohorty siatki korzysta z tej samej kwalifikacji co budowa profilu i
+raportuje `eligibleGeometryCount`, `excludedGeometryCount` oraz konkretne
+powody wykluczenia. Dla bieżącej gry oczekiwane jest 63/63 kwalifikujących
+próbek; ponowne utworzenie niezmienionej kohorty jest jawnie idempotentne.
+
+Dataset symboli używa polityki `source-family-balanced-split-v2`. Przy co
+najmniej czterech źródłach manifest zapisuje deterministyczny, niezależny split
+train/validation/test/regression; dla siedmiu źródeł kohorty 63 plansz jest to
+4/1/1/1, czyli 540/135/135/135 cropów. Przypisania źródeł są częścią
+konfiguracji, więc późniejsze rozszerzenie kohorty nie zmienia starszych splitów.
+Kohorta z mniej niż czterema źródłami kończy się kontrolowanym `rejected`, a nie
+technicznym `failed`.
+
+Browserowy import layoutów otrzymał schema v5. Nowy job przypina aktywny model
+symboli i profil siatki oraz ich fingerprinty. Anulowany job z wcześniejszymi
+snapshotami nie jest wznawiany; ponowne kliknięcie tworzy nowy job na tym samym
+stagingu, bez ponownego uploadu, zachowując stary rekord do audytu.

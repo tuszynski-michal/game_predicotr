@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import cast
 from uuid import UUID
@@ -138,7 +139,8 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 ImageReviewItemModel.status.in_(("accepted", "corrected")),
             )
         ).all()
-        accepted = corrected = missing_detection = incomplete = 0
+        accepted = corrected = missing_detection = incomplete = eligible = 0
+        reasons: Counter[str] = Counter()
         sources: set[UUID] = set()
         sequences: list[int] = []
         for review, board, source, stage in rows:
@@ -161,8 +163,12 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             if detected is None:
                 missing_detection += 1
+                reasons["missing_detection"] += 1
             if final is None:
                 incomplete += 1
+                reasons["incomplete_geometry"] += 1
+            if detected is not None and final is not None:
+                eligible += 1
         return GeometryCohortDiagnostics(
             game_id=game_id,
             accepted_geometry_count=accepted,
@@ -172,6 +178,9 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             source_image_count=len(sources),
             first_sequence_number=min(sequences) if sequences else None,
             last_sequence_number=max(sequences) if sequences else None,
+            eligible_geometry_count=eligible,
+            excluded_geometry_count=len(rows) - eligible,
+            exclusion_reason_counts=dict(sorted(reasons.items())),
         )
 
     def list_profiles(self, *, game_id: UUID, limit: int) -> tuple[GridCalibrationProfile, ...]:

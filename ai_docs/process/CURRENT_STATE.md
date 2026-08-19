@@ -1640,7 +1640,13 @@ duplikat. Panel pokazuje raport przed przyciskiem startu oraz komunikat
 `Job utworzony — oczekuje na worker`. Dla bieżącego stagingu read-only preflight
 potwierdzono: `2201` źródeł, `19746` nowych numerów, `63` użyte ponownie,
 `7` pominiętych źródeł, `0` częściowych, `7` alternatywnych oraz pierwszy
-nierozwiązany numer `64`. Job nie został jeszcze uruchomiony.
+nierozwiązany numer `64`. Iteracja symboli v2 `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`
+przeszła bramkę (`candidate_ready`) i została aktywowana. Następnie utworzono
+świeży job importu `b0575f5f-8ec1-46d6-8262-8ef0309055c7` w trybie
+`rerun_current_models`; stary anulowany job `be0a204d-e515-4a64-8716-2ac708454862`
+pozostaje tylko audytowy. Ostatni odczyt: `2232/4402`, etap
+`image_pipeline:sequence_ocr`, `1` błąd źródła i `30` pozycji review; proces
+pozostaje aktywny.
 
 Weryfikacja: skupione testy API/workera dotyczące manifestu, preflightu i
 idempotentnego startu przechodzą; Admin typecheck, Ruff i wygenerowany OpenAPI

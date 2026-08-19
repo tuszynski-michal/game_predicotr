@@ -575,6 +575,14 @@ def _manifest(
             exclusions[str(reason) if reason is not None else "unknown"] += 1
 
     game_id = _text(cohort.get("gameId"), "gameId")
+    asset_paths = {
+        sample.sample_id: _asset_relative_path(sample, config) for sample in samples
+    }
+    sample_rows = []
+    for sample in samples:
+        row = sample.to_dict(split_by_source[sample.source_family])
+        row["assetRelativePath"] = asset_paths[sample.sample_id]
+        sample_rows.append(row)
     return {
         "advisories": advisories,
         "artifactBaseRelativePath": PurePosixPath(
@@ -595,13 +603,24 @@ def _manifest(
             "status": "passed",
         },
         "sampleCount": len(samples),
-        "samples": [sample.to_dict(split_by_source[sample.source_family]) for sample in samples],
+        "samples": sample_rows,
         "schemaVersion": TRAINING_DATASET_SCHEMA_VERSION,
         "sourceFamilyCount": len(split_by_source),
         "splits": split_reports,
         "status": "ready",
         "symbols": symbol_stats,
-    }
+}
+
+
+def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
+    """Keep assets from incompatible dataset policies physically separate."""
+    if config.split_policy_version == "source-family-balanced-split-v2":
+        fingerprint = hashlib.sha256(_canonical_bytes(config.to_dict())).hexdigest()[:16]
+        return PurePosixPath(
+            "assets", f"{config.split_policy_version}-{fingerprint}", sample.crop_checksum[:2],
+            f"{sample.crop_checksum}.png",
+        ).as_posix()
+    return sample.asset_relative_path
 
 
 def _copy_asset(source: Path, destination: Path) -> None:
@@ -640,6 +659,7 @@ def _verify_existing(
     manifest_path: Path,
     manifest_bytes: bytes,
     samples: Sequence[_Sample],
+    config: TrainingDatasetConfig,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     try:
@@ -656,7 +676,9 @@ def _verify_existing(
     unique_samples = {sample.crop_checksum: sample for sample in samples}
     total = len(unique_samples)
     for current, sample in enumerate(unique_samples.values(), start=1):
-        asset = artifact_directory.joinpath(*PurePosixPath(sample.asset_relative_path).parts)
+        asset = artifact_directory.joinpath(
+            *PurePosixPath(_asset_relative_path(sample, config)).parts
+        )
         try:
             observed = hashlib.sha256(asset.read_bytes()).hexdigest()
         except OSError as error:
@@ -730,6 +752,7 @@ def build_cumulative_training_dataset(
             manifest_path,
             manifest_bytes,
             samples,
+            config,
             progress_callback,
         )
     else:
@@ -744,7 +767,9 @@ def build_cumulative_training_dataset(
                 copied.add(sample.crop_checksum)
                 _copy_asset(
                     sample.crop_source_path,
-                    artifact_directory.joinpath(*PurePosixPath(sample.asset_relative_path).parts),
+                    artifact_directory.joinpath(
+                        *PurePosixPath(_asset_relative_path(sample, config)).parts
+                    ),
                 )
                 if progress_callback is not None:
                     progress_callback(len(copied), total_assets)
@@ -765,6 +790,7 @@ def build_cumulative_training_dataset(
                 manifest_path,
                 manifest_bytes,
                 samples,
+                config,
                 progress_callback,
             )
         except TrainingDatasetBuildError:

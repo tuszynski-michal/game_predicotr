@@ -96,9 +96,22 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             source_assignments=assignments,  # type: ignore[arg-type]
         ).to_dict()
         payload = {**model_payload, "dataset": dataset_payload}
-        configuration_fingerprint = hashlib.sha256(
-            json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
-        ).hexdigest()
+        configuration_fingerprint = _payload_checksum(payload)
+        prior_with_configuration = self._session.scalar(
+            select(SymbolModelIterationModel).where(
+                SymbolModelIterationModel.game_id == game_id,
+                SymbolModelIterationModel.cohort_id == cohort_id,
+                SymbolModelIterationModel.configuration_fingerprint == configuration_fingerprint,
+            )
+        )
+        if prior_with_configuration is not None and prior_with_configuration.status in {
+            SymbolModelIterationStatus.FAILED.value,
+            SymbolModelIterationStatus.CANCELLED.value,
+        }:
+            # A failed terminal attempt must remain auditable, but must not make
+            # the owner re-use its broken job when explicitly starting again.
+            payload = {**payload, "retryNonce": str(idempotency_key)}
+            configuration_fingerprint = _payload_checksum(payload)
         job = create_job(
             JobType.SYMBOL_TRAINING,
             game_id=game_id,
@@ -230,3 +243,9 @@ def _to_domain(record: SymbolModelIterationModel) -> SymbolModelIteration:
 
 
 __all__ = ["SqlAlchemySymbolModelIterationRepository"]
+
+
+def _payload_checksum(payload: dict[str, object]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()

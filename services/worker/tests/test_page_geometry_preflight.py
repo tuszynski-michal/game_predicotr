@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -101,23 +100,13 @@ def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) 
             "validation_kind": "page_geometry_preflight",
             "source_selection_id": str(selection_id),
             "source_directory": str(staged),
-            "source_manifest_sha256": "0" * 64,
+            "source_manifest_sha256": hashlib.sha256(browser_manifest).hexdigest(),
             "page_registration_profile": profile,
             "page_geometry_overrides": {},
             "canonical_sequence_numbers": [],
         },
     )
-    source_manifest = ManagedOriginalStore(artifact_root).load_or_create_manifest(
-        job,
-        source_directory=staged,
-    )
-    job = replace(
-        job,
-        input_payload={
-            **job.input_payload,
-            "source_manifest_sha256": source_manifest.checksum_sha256,
-        },
-    )
+    ManagedOriginalStore(artifact_root).load_or_create_manifest(job, source_directory=staged)
     context = _Context()
     handler = PageGeometryPreflightHandler(artifact_root=artifact_root)
 

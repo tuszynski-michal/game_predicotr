@@ -18,7 +18,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 from .page_geometry_registration import PAGE_REGISTRATION_VERSION, VerifiedPageRegistrar
-from .source_ingestion import ManagedOriginal, ManagedOriginalStore, _safe_source_path
+from .source_ingestion import (
+    BROWSER_SELECTION_MANIFEST,
+    ManagedOriginal,
+    ManagedOriginalStore,
+    _safe_source_path,
+)
 
 PAGE_GEOMETRY_MANIFEST_SCHEMA_VERSION = 1
 PAGE_GEOMETRY_PREFLIGHT_VERSION = "page-geometry-preflight-v1"
@@ -67,15 +72,15 @@ class PageGeometryPreflightHandler:
             )
             return
 
+        source_directory = Path(cast(str, payload["sourceDirectory"]))
+        _verify_browser_source_manifest(
+            source_directory,
+            expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
+        )
         managed = self._originals.load_or_create_manifest(
             job,
-            source_directory=Path(cast(str, payload["sourceDirectory"])),
+            source_directory=source_directory,
         )
-        if managed.checksum_sha256 != payload["sourceManifestChecksumSha256"]:
-            raise JobHandlerError(
-                "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_CHANGED",
-                "The browser source manifest changed after geometry preflight was requested.",
-            )
         registrar = VerifiedPageRegistrar(
             cast(Mapping[str, object], payload["pageRegistrationProfile"]),
             load_anchor_rgb=self._load_anchor_rgb,
@@ -365,6 +370,29 @@ def _load_source_rgb(root: Path, relative_path: str) -> np.ndarray:
             "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
             "A staged image cannot be decoded for geometry preflight.",
         ) from error
+
+
+def _verify_browser_source_manifest(source_directory: Path, *, expected_checksum: str) -> None:
+    """Verify the attested browser manifest, not the derived managed manifest.
+
+    `source_manifest_sha256` belongs to `_browser_manifest.json`.  The managed
+    originals manifest is deliberately job-specific (it includes the job ID),
+    so its checksum must never be compared with the browser checksum.
+    """
+
+    manifest_path = source_directory / BROWSER_SELECTION_MANIFEST
+    try:
+        actual_checksum = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_CHANGED",
+            "The browser source manifest is unavailable after geometry preflight was requested.",
+        ) from error
+    if actual_checksum != expected_checksum:
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_CHANGED",
+            "The browser source manifest changed after geometry preflight was requested.",
+        )
 
 
 def _manifest_bytes(

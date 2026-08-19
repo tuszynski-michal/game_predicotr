@@ -115,3 +115,6 @@ W v0.6.49–v0.6.53 browserowy import `seq_*` otrzymał dodatkowy, przypięty
 preflight geometrii strony. Pending-only import nie może już użyć syntetycznej
 lub częściowej siatki: czeka na manifest dziewięciu zweryfikowanych quadów albo
 na append-only korektę całej strony. Odbiór E2E na stagingu pozostaje otwarty.
+W v0.6.54 rozdzielono checksumę poświadczonego manifestu browsera od
+job-specific manifestu managed originals, dzięki czemu preflight może być
+bezpiecznie ponawiany po restarcie workera.

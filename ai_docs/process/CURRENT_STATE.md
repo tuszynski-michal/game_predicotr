@@ -1703,3 +1703,8 @@ który ujawniałby się dopiero po restarcie API. Aktywny świeży job
   `31259729-de6a-4962-b8df-7aa0c0b7c49b`, a następnie ewentualna korekta stron
   wskazanych przez manifest. Pełny import zostanie uruchomiony wyłącznie przy
   `reviewRequiredSourceCount = 0`.
+
+W `v0.6.54` preflight weryfikuje checksumę poświadczonego
+`_browser_manifest.json` przed utworzeniem job-specific manifestu managed
+originals. Te dwa manifesty mają różne, prawidłowe checksumy; porównywanie ich
+ze sobą błędnie odrzucało każdy rzeczywisty staging po restarcie workera.

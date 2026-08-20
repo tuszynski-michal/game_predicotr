@@ -133,6 +133,60 @@ def test_online_scopes_share_one_ready_process_and_public_origin() -> None:
     assert ingress.calls == ["status", "start", "status"]
 
 
+def test_reopening_same_online_scope_is_idempotent_without_revealing_code_again() -> None:
+    lifecycle, access_repository, ingress, _clock = _services()
+    game_id = uuid4()
+    import_job_id = uuid4()
+    first = lifecycle.open_online(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        lease_owner="api-instance-a",
+        lease_expires_at=_now() + timedelta(minutes=10),
+        session_lifetime_minutes=60,
+    )
+
+    reopened = lifecycle.open_online(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        lease_owner="api-instance-b",
+        lease_expires_at=_now() + timedelta(minutes=10),
+        session_lifetime_minutes=60,
+    )
+
+    assert first.created is True
+    assert reopened.created is False
+    assert reopened.assignment.id == first.assignment.id
+    assert reopened.access is None
+    assert reopened.review_url == first.review_url
+    assert len(access_repository._sessions) == 1  # noqa: SLF001
+    assert ingress.start_count == 1
+
+
+def test_reopening_same_local_scope_is_idempotent() -> None:
+    lifecycle, _access_repository, ingress, _clock = _services()
+    game_id = uuid4()
+    import_job_id = uuid4()
+
+    first = lifecycle.open_local(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        lease_owner="api-instance-a",
+        lease_expires_at=_now() + timedelta(minutes=10),
+    )
+    reopened = lifecycle.open_local(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        lease_owner="api-instance-b",
+        lease_expires_at=_now() + timedelta(minutes=10),
+    )
+
+    assert first.created is True
+    assert reopened.created is False
+    assert reopened.assignment.id == first.assignment.id
+    assert reopened.review_url == first.review_url
+    assert ingress.start_count == 0
+
+
 def test_local_scope_reuses_the_online_reviewer_without_creating_a_session() -> None:
     lifecycle, _access_repository, ingress, _clock = _services()
     lifecycle.open_online(

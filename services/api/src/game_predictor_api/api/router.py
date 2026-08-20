@@ -58,6 +58,7 @@ def create_api_router(
     review_service_dependency: Callable[..., object],
     reviewer_access_service_dependency: Callable[..., object],
     reviewer_ingress_service_dependency: Callable[..., object],
+    reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_bootstrap_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
@@ -75,6 +76,7 @@ def create_api_router(
             catalog_service_dependency,
             job_service_dependency,
             reviewer_ingress_service_dependency,
+            reviewer_work_lifecycle_service_dependency,
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))

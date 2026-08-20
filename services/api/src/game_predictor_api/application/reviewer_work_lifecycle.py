@@ -23,6 +23,7 @@ from game_predictor_api.application.reviewer_work_assignments import (
 )
 from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignment,
+    ReviewerWorkAssignmentConflictError,
     ReviewerWorkAssignmentType,
 )
 
@@ -47,6 +48,13 @@ class OpenedReviewerWork:
     ingress: ReviewerIngressStatus
     review_url: str
     access: CreatedReviewerAccess | None
+    created: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewerWorkOverview:
+    assignments: tuple[ReviewerWorkAssignment, ...]
+    ingress: ReviewerIngressStatus
 
 
 class ReviewerWorkLifecycleService:
@@ -71,20 +79,30 @@ class ReviewerWorkLifecycleService:
         lease_expires_at: datetime,
     ) -> OpenedReviewerWork:
         ingress = self._ensure_local_reviewer()
-        assignment = self._assignments.open(
-            game_id=game_id,
-            import_job_id=import_job_id,
-            assignment_type=ReviewerWorkAssignmentType.LOCAL,
-            lease_owner=lease_owner,
-            lease_expires_at=lease_expires_at,
-            before_expire=self._revoke_assignment_session,
-            after_last_online_close=self._stop_shared_ingress_if_current,
-        )
+        try:
+            assignment = self._assignments.open(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                assignment_type=ReviewerWorkAssignmentType.LOCAL,
+                lease_owner=lease_owner,
+                lease_expires_at=lease_expires_at,
+                before_expire=self._revoke_assignment_session,
+                after_last_online_close=self._stop_shared_ingress_if_current,
+            )
+            created = True
+        except ReviewerWorkAssignmentConflictError as error:
+            assignment = self._reuse_active_assignment(
+                error,
+                import_job_id=import_job_id,
+                expected_type=ReviewerWorkAssignmentType.LOCAL,
+            )
+            created = False
         return OpenedReviewerWork(
             assignment=assignment,
             ingress=ingress,
             review_url=_local_review_url(game_id=game_id, import_job_id=import_job_id),
             access=None,
+            created=created,
         )
 
     def open_online(
@@ -121,6 +139,27 @@ class ReviewerWorkLifecycleService:
                 lease_expires_at=lease_expires_at,
                 before_expire=self._revoke_assignment_session,
             )
+        except ReviewerWorkAssignmentConflictError as error:
+            if access is not None:
+                self._access.revoke(access.session.id)
+            assignment = self._reuse_active_assignment(
+                error,
+                import_job_id=import_job_id,
+                expected_type=ReviewerWorkAssignmentType.ONLINE,
+            )
+            ingress = self._ensure_online_reviewer()
+            assert ingress.public_origin is not None
+            assert assignment.reviewer_access_session_id is not None
+            return OpenedReviewerWork(
+                assignment=assignment,
+                ingress=ingress,
+                review_url=_online_review_url(
+                    ingress.public_origin,
+                    assignment.reviewer_access_session_id,
+                ),
+                access=None,
+                created=False,
+            )
         except Exception:
             if access is not None:
                 self._access.revoke(access.session.id)
@@ -132,6 +171,37 @@ class ReviewerWorkLifecycleService:
             ingress=ingress,
             review_url=access.review_url,
             access=access,
+            created=True,
+        )
+
+    def overview(self, game_id: UUID) -> ReviewerWorkOverview:
+        self.stop_if_unused()
+        return ReviewerWorkOverview(
+            assignments=tuple(self._assignments.list_active_for_game(game_id)),
+            ingress=self._ingress.status(),
+        )
+
+    def heartbeat(self, assignment_id: UUID) -> ReviewerWorkAssignment:
+        assignment = self._assignments.get(assignment_id)
+        return self._assignments.heartbeat(
+            assignment_id,
+            lease_token=assignment.lease_token,
+            lease_expires_at=assignment.lease_expires_at,
+        )
+
+    def close_current(
+        self,
+        assignment_id: UUID,
+        *,
+        reason: str,
+        actor: str,
+    ) -> ReviewerWorkAssignment:
+        assignment = self._assignments.get(assignment_id)
+        return self.close(
+            assignment_id,
+            lease_token=assignment.lease_token,
+            reason=reason,
+            actor=actor,
         )
 
     def close(
@@ -192,6 +262,20 @@ class ReviewerWorkLifecycleService:
             return
         self._ingress.stop_if_current(status.instance_id)
 
+    def _reuse_active_assignment(
+        self,
+        error: ReviewerWorkAssignmentConflictError,
+        *,
+        import_job_id: UUID,
+        expected_type: ReviewerWorkAssignmentType,
+    ) -> ReviewerWorkAssignment:
+        if error.code != "REVIEWER_ASSIGNMENT_ALREADY_ACTIVE":
+            raise error
+        assignment = self._assignments.find_active(import_job_id)
+        if assignment is None or assignment.assignment_type is not expected_type:
+            raise error
+        return assignment
+
 
 def _is_local_target(value: str) -> bool:
     parsed = urlparse(value)
@@ -243,8 +327,14 @@ def _local_review_url(*, game_id: UUID, import_job_id: UUID) -> str:
     return urlunparse(parsed._replace(path="/", query=query))
 
 
+def _online_review_url(public_origin: str, session_id: UUID) -> str:
+    parsed = urlparse(public_origin)
+    return urlunparse(parsed._replace(path="/", query=urlencode({"session": str(session_id)})))
+
+
 __all__ = [
     "OpenedReviewerWork",
     "ReviewerProcessLifecycle",
+    "ReviewerWorkOverview",
     "ReviewerWorkLifecycleService",
 ]

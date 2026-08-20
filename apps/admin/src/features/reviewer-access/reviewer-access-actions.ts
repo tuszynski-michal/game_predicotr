@@ -1,21 +1,19 @@
 import type {
   AdminApiClient,
-  ReviewerIngressStatusResponse,
-  ReviewerLocalCommand,
-  ReviewerSessionCreate,
-  ReviewerSessionCreatedResponse,
+  ReviewerWorkAssignmentResponse,
+  ReviewerWorkOpenedResponse,
+  ReviewerWorkOverviewResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
 export type ReviewerAccessClient = Pick<
   AdminApiClient,
-  | 'createReviewerSession'
-  | 'getReviewerIngressStatus'
-  | 'revokeReviewerSession'
-  | 'startLocalReviewer'
-  | 'startReviewerIngress'
-  | 'stopReviewerIngress'
+  | 'closeReviewerWorkAssignment'
+  | 'heartbeatReviewerWorkAssignment'
+  | 'listReviewerWorkAssignments'
+  | 'openLocalReviewerWork'
+  | 'openOnlineReviewerWork'
 >;
 
 export type ReviewerLauncherClient = ReviewerAccessClient &
@@ -24,78 +22,73 @@ export type ReviewerLauncherClient = ReviewerAccessClient &
     'listGames' | 'listJobs' | 'listOperationalImageReviewItems'
   >;
 
-export type IngressResult =
-  | { readonly ingress: ReviewerIngressStatusResponse; readonly ok: true }
-  | {
-      readonly error: string;
-      readonly ingress?: ReviewerIngressStatusResponse;
-      readonly ok: false;
-    };
+export type ReviewerWorkOverviewResult =
+  | { readonly ok: true; readonly overview: ReviewerWorkOverviewResponse }
+  | { readonly error: string; readonly ok: false };
 
-export type PublishedReviewerSessionResult =
-  | {
-      readonly ingress: ReviewerIngressStatusResponse;
-      readonly ok: true;
-      readonly session: ReviewerSessionCreatedResponse;
+export type OpenReviewerWorkResult =
+  | { readonly ok: true; readonly opened: ReviewerWorkOpenedResponse }
+  | { readonly error: string; readonly ok: false };
+
+export type CloseReviewerWorkResult =
+  | { readonly assignmentId: string; readonly ok: true }
+  | { readonly error: string; readonly ok: false };
+
+const actionCommand = { confirmed: true } as const;
+
+export async function loadReviewerWork(
+  api: ReviewerAccessClient,
+  gameId: string,
+): Promise<ReviewerWorkOverviewResult> {
+  try {
+    const result = await api.listReviewerWorkAssignments(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się odczytać aktywnych prac Reviewera.',
+        ),
+        ok: false,
+      };
     }
-  | { readonly error: string; readonly ok: false };
-
-export type LocalReviewerResult =
-  | { readonly ok: true; readonly reviewUrl: string }
-  | { readonly error: string; readonly ok: false };
-
-const ingressCommand = {
-  confirmed: true,
-  target: 'remote-reviewer',
-} as const;
-
-const localCommand: ReviewerLocalCommand = {
-  confirmed: true,
-  target: 'local-reviewer',
-};
+    return { ok: true, overview: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
 
 export async function openLocalReviewer(
   api: ReviewerAccessClient,
   input: { readonly gameId: string; readonly importJobId: string },
-): Promise<LocalReviewerResult> {
+): Promise<OpenReviewerWorkResult> {
   try {
-    const result = await api.startLocalReviewer(localCommand);
+    const result = await api.openLocalReviewerWork(
+      input.gameId,
+      input.importJobId,
+      { lifetimeMinutes: 480 },
+    );
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się uruchomić lokalnej aplikacji Reviewer.',
+          'Nie udało się otworzyć lokalnej pracy Reviewera.',
         ),
         ok: false,
       };
     }
     if (
-      result.data.state !== 'running' ||
-      result.data.reviewerReady !== true ||
-      result.data.publicOrigin !== null
+      result.data.assignment.assignmentType !== 'local' ||
+      !isSafeLocalReviewUrl(result.data.assignment)
     ) {
       return {
-        error: 'Lokalna aplikacja Reviewer nie osiągnęła gotowego stanu.',
+        error: 'Lokalna praca Reviewera zwróciła nieprawidłowy adres.',
         ok: false,
       };
     }
-    const target = new URL(result.data.target);
-    if (
-      target.protocol !== 'http:' ||
-      target.hostname !== '127.0.0.1' ||
-      target.port !== '3001'
-    ) {
-      return {
-        error: 'Lokalna aplikacja Reviewer zwróciła nieprawidłowy adres.',
-        ok: false,
-      };
-    }
-    target.pathname = '/';
-    target.search = '';
-    target.searchParams.set('mode', 'local');
-    target.searchParams.set('gameId', input.gameId);
-    target.searchParams.set('importJobId', input.importJobId);
-    return { ok: true, reviewUrl: target.toString() };
+    return { ok: true, opened: result.data };
   } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
@@ -104,69 +97,35 @@ export async function openLocalReviewer(
   }
 }
 
-export async function loadReviewerIngress(
+export async function openOnlineReviewer(
   api: ReviewerAccessClient,
-): Promise<IngressResult> {
+  input: { readonly gameId: string; readonly importJobId: string },
+): Promise<OpenReviewerWorkResult> {
   try {
-    const result = await api.getReviewerIngressStatus();
+    const result = await api.openOnlineReviewerWork(
+      input.gameId,
+      input.importJobId,
+      { lifetimeMinutes: 480 },
+    );
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się odczytać stanu udostępniania.',
-        ),
-        ok: false,
-      };
-    }
-    return { ingress: result.data, ok: true };
-  } catch {
-    return {
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
-      ok: false,
-    };
-  }
-}
-
-export async function publishReviewerSession(
-  api: ReviewerAccessClient,
-  input: ReviewerSessionCreate,
-): Promise<PublishedReviewerSessionResult> {
-  try {
-    const ingressResult = await api.startReviewerIngress(ingressCommand);
-    if (ingressResult.error !== undefined || ingressResult.data === undefined) {
-      return {
-        error: apiErrorMessage(
-          ingressResult.error,
-          'Nie udało się wystawić aplikacji Reviewer online.',
+          'Nie udało się utworzyć udostępnienia online.',
         ),
         ok: false,
       };
     }
     if (
-      ingressResult.data.state !== 'running' ||
-      ingressResult.data.publicOrigin === null
+      result.data.assignment.assignmentType !== 'online' ||
+      !isSafeOnlineReviewUrl(result.data.assignment)
     ) {
       return {
-        error: 'Tunel nie osiągnął gotowego stanu online.',
+        error: 'Udostępnienie online zwróciło nieprawidłowy adres.',
         ok: false,
       };
     }
-
-    const sessionResult = await api.createReviewerSession(input);
-    if (sessionResult.error !== undefined || sessionResult.data === undefined) {
-      return {
-        error: apiErrorMessage(
-          sessionResult.error,
-          'Nie udało się utworzyć sesji recenzenta.',
-        ),
-        ok: false,
-      };
-    }
-    return {
-      ingress: ingressResult.data,
-      ok: true,
-      session: sessionResult.data,
-    };
+    return { ok: true, opened: result.data };
   } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
@@ -175,44 +134,73 @@ export async function publishReviewerSession(
   }
 }
 
-export async function stopReviewerPublishing(
+export async function heartbeatReviewerWork(
   api: ReviewerAccessClient,
-  sessionId: string | null,
-): Promise<IngressResult> {
+  assignmentId: string,
+): Promise<boolean> {
   try {
-    let revokeError = '';
-    if (sessionId !== null) {
-      const revokeResult = await api.revokeReviewerSession(sessionId);
-      if (revokeResult.error !== undefined || revokeResult.data === undefined) {
-        revokeError = apiErrorMessage(
-          revokeResult.error,
-          'Nie udało się unieważnić bieżącej sesji.',
-        );
-      }
-    }
+    const result = await api.heartbeatReviewerWorkAssignment(
+      assignmentId,
+      actionCommand,
+    );
+    return result.error === undefined && result.data !== undefined;
+  } catch {
+    return false;
+  }
+}
 
-    const stopResult = await api.stopReviewerIngress(ingressCommand);
-    if (stopResult.error !== undefined || stopResult.data === undefined) {
+export async function closeReviewerWork(
+  api: ReviewerAccessClient,
+  assignmentId: string,
+): Promise<CloseReviewerWorkResult> {
+  try {
+    const result = await api.closeReviewerWorkAssignment(
+      assignmentId,
+      actionCommand,
+    );
+    if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
-          stopResult.error,
-          'Nie udało się zatrzymać publicznego tunelu.',
+          result.error,
+          'Nie udało się zatrzymać wybranej pracy Reviewera.',
         ),
         ok: false,
       };
     }
-    if (revokeError !== '') {
-      return {
-        error: `${revokeError} Publiczny tunel został jednak zatrzymany.`,
-        ingress: stopResult.data,
-        ok: false,
-      };
-    }
-    return { ingress: stopResult.data, ok: true };
+    return { assignmentId: result.data.assignmentId, ok: true };
   } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       ok: false,
     };
   }
+}
+
+function isSafeLocalReviewUrl(
+  assignment: ReviewerWorkAssignmentResponse,
+): boolean {
+  if (assignment.reviewUrl === null) return false;
+  const target = new URL(assignment.reviewUrl);
+  return (
+    target.protocol === 'http:' &&
+    target.hostname === '127.0.0.1' &&
+    target.port === '3001' &&
+    target.searchParams.get('mode') === 'local' &&
+    target.searchParams.get('gameId') === assignment.gameId &&
+    target.searchParams.get('importJobId') === assignment.importJobId
+  );
+}
+
+function isSafeOnlineReviewUrl(
+  assignment: ReviewerWorkAssignmentResponse,
+): boolean {
+  if (assignment.reviewUrl === null) return false;
+  const target = new URL(assignment.reviewUrl);
+  return (
+    target.protocol === 'https:' &&
+    target.hostname.endsWith('.trycloudflare.com') &&
+    target.username === '' &&
+    target.password === '' &&
+    target.searchParams.has('session')
+  );
 }

@@ -45,6 +45,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  CloseReviewerWorkAssignmentData,
+  CloseReviewerWorkAssignmentErrors,
+  CloseReviewerWorkAssignmentResponses,
   ConfirmImageSelectionGroupRangeData,
   ConfirmImageSelectionGroupRangeErrors,
   ConfirmImageSelectionGroupRangeResponses,
@@ -262,6 +265,9 @@ import type {
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
+  HeartbeatReviewerWorkAssignmentData,
+  HeartbeatReviewerWorkAssignmentErrors,
+  HeartbeatReviewerWorkAssignmentResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
@@ -334,6 +340,9 @@ import type {
   ListReviewerSymbolsData,
   ListReviewerSymbolsErrors,
   ListReviewerSymbolsResponses,
+  ListReviewerWorkAssignmentsData,
+  ListReviewerWorkAssignmentsErrors,
+  ListReviewerWorkAssignmentsResponses,
   ListReviewFeedbackExportsData,
   ListReviewFeedbackExportsErrors,
   ListReviewFeedbackExportsResponses,
@@ -366,6 +375,12 @@ import type {
   ListVerifiedImageReviewCohortsResponses,
   ListWorkerLanesData,
   ListWorkerLanesResponses,
+  OpenLocalReviewerWorkData,
+  OpenLocalReviewerWorkErrors,
+  OpenLocalReviewerWorkResponses,
+  OpenOnlineReviewerWorkData,
+  OpenOnlineReviewerWorkErrors,
+  OpenOnlineReviewerWorkResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
@@ -904,6 +919,54 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Open or reuse one loopback-only Reviewer work assignment
+ */
+export const openLocalReviewerWork = <ThrowOnError extends boolean = false>(
+  options: Options<OpenLocalReviewerWorkData, ThrowOnError>,
+): RequestResult<
+  OpenLocalReviewerWorkResponses,
+  OpenLocalReviewerWorkErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenLocalReviewerWorkResponses,
+    OpenLocalReviewerWorkErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Open or reuse one scoped online Reviewer work assignment
+ */
+export const openOnlineReviewerWork = <ThrowOnError extends boolean = false>(
+  options: Options<OpenOnlineReviewerWorkData, ThrowOnError>,
+): RequestResult<
+  OpenOnlineReviewerWorkResponses,
+  OpenOnlineReviewerWorkErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenOnlineReviewerWorkResponses,
+    OpenOnlineReviewerWorkErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Reset all layout workflow data for one game
  */
 export const resetGameLayoutData = <ThrowOnError extends boolean = false>(
@@ -963,6 +1026,27 @@ export const getModelQuality = <ThrowOnError extends boolean = false>(
     GetModelQualityErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/model-quality', ...options });
+
+/**
+ * List active scoped Reviewer work for one game
+ */
+export const listReviewerWorkAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListReviewerWorkAssignmentsData, ThrowOnError>,
+): RequestResult<
+  ListReviewerWorkAssignmentsResponses,
+  ListReviewerWorkAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewerWorkAssignmentsResponses,
+    ListReviewerWorkAssignmentsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/reviewer-work-assignments',
+    ...options,
+  });
 
 /**
  * List game rules versions
@@ -3609,6 +3693,58 @@ export const revokeReviewerSession = <ThrowOnError extends boolean = false>(
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke',
     ...options,
+  });
+
+/**
+ * Close only the selected Reviewer work assignment
+ */
+export const closeReviewerWorkAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CloseReviewerWorkAssignmentData, ThrowOnError>,
+): RequestResult<
+  CloseReviewerWorkAssignmentResponses,
+  CloseReviewerWorkAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CloseReviewerWorkAssignmentResponses,
+    CloseReviewerWorkAssignmentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/close',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Heartbeat one active Reviewer work assignment
+ */
+export const heartbeatReviewerWorkAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<HeartbeatReviewerWorkAssignmentData, ThrowOnError>,
+): RequestResult<
+  HeartbeatReviewerWorkAssignmentResponses,
+  HeartbeatReviewerWorkAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    HeartbeatReviewerWorkAssignmentResponses,
+    HeartbeatReviewerWorkAssignmentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

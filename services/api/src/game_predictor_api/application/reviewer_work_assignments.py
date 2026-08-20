@@ -29,6 +29,8 @@ class ReviewerWorkAssignmentRepository(Protocol):
 
     def get_for_update(self, assignment_id: UUID) -> ReviewerWorkAssignment | None: ...
 
+    def get(self, assignment_id: UUID) -> ReviewerWorkAssignment | None: ...
+
     def find_active_for_import(
         self,
         import_job_id: UUID,
@@ -42,6 +44,8 @@ class ReviewerWorkAssignmentRepository(Protocol):
     ) -> ReviewerWorkAssignment: ...
 
     def list_for_import(self, import_job_id: UUID) -> Sequence[ReviewerWorkAssignment]: ...
+
+    def list_active_for_game(self, game_id: UUID) -> Sequence[ReviewerWorkAssignment]: ...
 
     def lock_online_capacity(self) -> AbstractContextManager[None]: ...
 
@@ -74,6 +78,10 @@ class InMemoryReviewerWorkAssignmentRepository:
         return assignment
 
     def get_for_update(self, assignment_id: UUID) -> ReviewerWorkAssignment | None:
+        with self._lock:
+            return self._assignments.get(assignment_id)
+
+    def get(self, assignment_id: UUID) -> ReviewerWorkAssignment | None:
         with self._lock:
             return self._assignments.get(assignment_id)
 
@@ -120,6 +128,19 @@ class InMemoryReviewerWorkAssignmentRepository:
                         item
                         for item in self._assignments.values()
                         if item.import_job_id == import_job_id
+                    ),
+                    key=lambda item: (item.created_at, item.id),
+                )
+            )
+
+    def list_active_for_game(self, game_id: UUID) -> Sequence[ReviewerWorkAssignment]:
+        with self._lock:
+            return tuple(
+                sorted(
+                    (
+                        item
+                        for item in self._assignments.values()
+                        if item.game_id == game_id and item.is_active
                     ),
                     key=lambda item: (item.created_at, item.id),
                 )
@@ -295,7 +316,20 @@ class ReviewerWorkAssignmentService:
         return tuple(expired_assignments)
 
     def get(self, assignment_id: UUID) -> ReviewerWorkAssignment:
-        return self._get_for_update(assignment_id)
+        assignment = self._repository.get(assignment_id)
+        if assignment is None:
+            raise ReviewerWorkAssignmentError(
+                "REVIEWER_ASSIGNMENT_NOT_FOUND",
+                "Reviewer work assignment does not exist.",
+                details={"assignmentId": str(assignment_id)},
+            )
+        return assignment
+
+    def find_active(self, import_job_id: UUID) -> ReviewerWorkAssignment | None:
+        assignment = self._repository.find_active_for_import(import_job_id)
+        if assignment is None or assignment.lease_expires_at <= self._now():
+            return None
+        return assignment
 
     def require_active(
         self,
@@ -396,6 +430,14 @@ class ReviewerWorkAssignmentService:
 
     def list_history(self, import_job_id: UUID) -> Sequence[ReviewerWorkAssignment]:
         return self._repository.list_for_import(import_job_id)
+
+    def list_active_for_game(self, game_id: UUID) -> Sequence[ReviewerWorkAssignment]:
+        now = self._now()
+        return tuple(
+            assignment
+            for assignment in self._repository.list_active_for_game(game_id)
+            if assignment.lease_expires_at > now
+        )
 
     def _get_for_update(self, assignment_id: UUID) -> ReviewerWorkAssignment:
         assignment = self._repository.get_for_update(assignment_id)

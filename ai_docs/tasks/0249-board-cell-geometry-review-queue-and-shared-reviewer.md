@@ -24,7 +24,7 @@ a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. TASK 13 dodał
 bounded bufor `previous/current/next two`. Pełny produkcyjny pipeline importu
 pozostaje na historycznym v18. TASK 14–17 zbudowały trwałe assignments, osobne
 scoped sesje, bezpieczny lifecycle procesu Windows, limit trzech prac online i
-`stop-if-unused`. Kontrakt HTTP oraz przebudowa Admina pozostają otwarte.
+`stop-if-unused`. TASK 18 wystawił kontrakt HTTP i przebudował sekcję Admina.
 
 ## Goal
 
@@ -808,10 +808,10 @@ generowanie i migracje nie należą do bramki TASK 13.
 4. [ukończone w TASK 17] Ograniczyć online do trzech różnych importów. Zatrzymanie jednego
    udostępnienia unieważnia tylko jego sesję; tunel jest zatrzymywany dopiero,
    gdy nie istnieje inne aktywne online assignment.
-5. Przebudować sekcję Admina: select gotowego importu, statystyki zakresu,
+5. [ukończone w TASK 18] Przebudować sekcję Admina: select gotowego importu, statystyki zakresu,
    `Otwórz lokalnie` albo `Utwórz link online`, status i niezależne zatrzymanie.
    Lista nie pokazuje kodu, tokenu ani sekretu po utworzeniu sesji.
-6. Zachować jeden build produkcyjny Reviewera, same-origin allowlist proxy,
+6. [zachowane w TASK 18] Zachować jeden build produkcyjny Reviewera, same-origin allowlist proxy,
    loopback-only lokalny dostęp i istniejące ograniczenia Quick Tunnel.
 
 ### Outcome TASK 14 — trwałe przypisania pracy
@@ -1014,6 +1014,60 @@ pełny zestaw API `387 passed, 30 skipped`; Ruff i ograniczony mypy przeszły.
       bezpieczeństwa Reviewera pozostają bez zmian.
 - [x] TASK 17 nie rozpoczyna endpointów ani UI TASK 18.
 
+### Outcome TASK 18 — assignment-scoped API i sekcja Admina
+
+- Dodano lokalny kontrakt list/open local/open online/heartbeat/close. Wszystkie
+  operacje używają istniejącego `ReviewerWorkLifecycleService`; frontend nie
+  składa już pracy z globalnego startu tunelu i osobnego tworzenia/revoke sesji.
+- Open tego samego importu i trybu jest idempotentny. Pierwsza odpowiedź online
+  ujawnia kod, a ponowienie i lista nie zawierają kodu, bearer/fencing tokenu ani
+  osobnego pola identyfikatora sesji. Publiczny URL może zawierać jego opaque
+  identyfikator. Tryb przeciwny nadal kończy się konfliktem.
+- Composition root wiąże repozytoria assignmentu i sesji jedną transakcją.
+  Stabilne błędy assignments mają statusy 404/409/422, a high-impact guard
+  wymaga dokładnego targetu dla local, online i close.
+- Admin pokazuje select gotowego importu, liczniki plansz, capacity `N/3`, stan
+  wybranego scope'u i listę aktywnych prac. Import bez pracy oferuje local/online;
+  praca online zastępuje local własnym stopem. Każda pozycja listy ma niezależne
+  zakończenie.
+- Kod jest zachowywany wyłącznie w nietrwałym stanie React odpowiedzi create.
+  Reload odtwarza assignments bez sekretu. Background heartbeat nie przesyła
+  lease tokenu.
+- Historyczne endpointy ingress/sessions pozostają kompatybilne, lecz zwykły
+  przepływ Admina ich nie używa. Reviewer, proxy allowlist, baza, migracje,
+  worker oraz pipeline importu pozostały bez zmian.
+
+### Verification TASK 18
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+.\.venv\Scripts\ruff.exe check <zmienione pliki Python>
+.\.venv\Scripts\python.exe -m mypy --follow-imports=skip --ignore-missing-imports <warstwa assignments/lifecycle/storage>
+npm run openapi:check
+npm test --workspace @game-predictor/admin-api-client
+npm test --workspace @game-predictor/admin
+npm run typecheck --workspace @game-predictor/admin
+npm run lint --workspace @game-predictor/admin
+npm run admin:build
+```
+
+Wynik: API `393 passed, 30 skipped`, klient `39 passed`, Admin `211 passed`.
+OpenAPI/generowany klient, Ruff, ograniczony mypy, typecheck i produkcyjny build
+Admina przeszły. ESLint nie zgłosił błędów; zachował dwa wcześniejsze ostrzeżenia
+`no-img-element` w niezwiązanych modułach geometrii i manualnej selekcji.
+
+### Acceptance criteria TASK 18
+
+- [x] Select gotowego importu zachowuje liczniki wszystkich/pending/zakończonych.
+- [x] Local i online otwierają dokładnie jeden assignment wskazanego importu.
+- [x] Idempotentny open nie tworzy drugiej sesji i nie ujawnia kodu ponownie.
+- [x] Lista po reloadzie pokazuje aktywne prace i nie zawiera sekretów ani tokenów.
+- [x] Stop wskazanej pracy nie wywołuje globalnego stopu z frontendu i nie
+      przerywa innego assignmentu.
+- [x] UI pokazuje limit online, stan wspólnego Reviewera oraz loading/empty/error.
+- [x] OpenAPI, generowany klient i high-impact target odpowiadają backendowi.
+- [x] TASK 18 nie zmienia Reviewera, proxy allowlist, bazy, migracji ani pipeline'u.
+
 ### Kryteria odbioru pionu
 
 - dwa lub trzy różne importy mogą być zatwierdzane online równolegle, a kolejny
@@ -1102,5 +1156,6 @@ od zmian liczników. TASK 13 zamknął pion B ograniczonym buforem
 Reviewera został rozpoczęty w TASK 14 od trwałych `reviewer_work_assignments` z
 fencingiem i historią zamknięcia. TASK 15 powiązał assignment online ze scoped
 sesją, TASK 16 zabezpieczył proces Windows i jego stan, a TASK 17 dodał globalny
-limit trzech prac online oraz ogrodzony stop po ostatnim assignmentcie. Publiczne
-endpointy assignments i przebudowa Admina pozostają otwarte jako TASK 18.
+limit trzech prac online oraz ogrodzony stop po ostatnim assignmentcie. TASK 18
+wystawił typowane endpointy assignments i przepiął na nie sekcję Admina bez
+zmiany publicznej granicy Reviewera.

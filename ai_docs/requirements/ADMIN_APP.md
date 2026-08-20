@@ -297,8 +297,9 @@ pełnych plansz i ma:
 
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
-- mieć własny proces i adres; panel Admin wybiera grę oraz import, a przycisk
-  `Utwórz link i wystaw online` uruchamia brakujący produkcyjny Reviewer,
+- mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
+  dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
+  `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
   kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
   oraz unikalny kod wejścia,
 - mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
@@ -313,6 +314,13 @@ pełnych plansz i ma:
 - dopuszczać najwyżej trzy różne aktywne importy online; tryb lokalny nie zajmuje
   tego limitu, a próba czwartego linku kończy się kontrolowanym komunikatem bez
   utworzenia sesji,
+- pokazywać listę aktywnych prac wszystkich gotowych importów wybranej gry i
+  pozwalać zakończyć dokładnie wskazane przypisanie; lista po odświeżeniu nie
+  ujawnia kodu wejścia, bearer tokenu, fencing tokenu ani osobnego pola
+  identyfikatora sesji; publiczny URL może zawierać jego opaque identyfikator,
+- ujawniać kod wejścia wyłącznie bezpośrednio po utworzeniu nowej pracy online;
+  idempotentne ponowienie zwraca istniejące przypisanie bez ponownego pokazania
+  kodu,
 - nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
   wykrycie procesu developerskiego na porcie Reviewera blokuje start z
   czytelnym komunikatem,

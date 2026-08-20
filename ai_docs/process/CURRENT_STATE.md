@@ -1991,4 +1991,21 @@ close oraz jawne lazy recovery wygasłych lease'ów używają compare-and-stop p
 dlatego równoległy open nie otrzyma linku do tunelu zatrzymywanego przez close.
 Rzeczywisty test czterech transakcji PostgreSQL dał dokładnie trzy sukcesy i
 jeden `REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED`. Publiczne endpointy, OpenAPI,
-Admin i Reviewer pozostają bez zmian; są zakresem TASK 18.
+Admin i Reviewer pozostały bez zmian w TASK 17.
+
+TASK 18 wystawił typowany, assignment-scoped kontrakt list/open/heartbeat/close
+i przepiął na niego sekcję `Zatwierdzanie plansz`. Select nadal pokazuje gotowe
+importy i ich liczniki, a pod nim widoczny jest stan wybranego scope'u oraz lista
+wszystkich aktywnych prac gry. Import bez assignmentu oferuje `Otwórz lokalnie`
+oraz `Utwórz link online`; aktywne udostępnienie ma własny stop, który nie
+wywołuje globalnego endpointu tunelu.
+
+Pierwszy open online zwraca kod jednorazowo. Lista, reload i idempotentne
+ponowienie nie zwracają kodu, bearer tokenu, fencing tokenu ani identyfikatora
+sesji. Wygenerowany klient OpenAPI dodaje dokładne high-impact targety per import
+i assignment. Celowane testy HTTP potwierdzają idempotencję, listę bez sekretów,
+heartbeat oraz niezależny close. Pełny zestaw API daje `393 passed, 30 skipped`,
+klient `39 passed`, Admin `211 passed`; produkcyjny build Admina, OpenAPI,
+typecheck TypeScript, Ruff oraz ograniczony mypy zmienionej warstwy domenowej
+przechodzą. Końcowy rzeczywisty scenariusz 3 online + 1 local oraz pomiar
+cold/warm pozostają osobnym checkpointem po TASK 18.

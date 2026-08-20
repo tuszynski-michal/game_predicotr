@@ -5534,6 +5534,142 @@ export type ReviewerSessionUnlockResponse = {
 };
 
 /**
+ * ReviewerWorkActionCommand
+ */
+export type ReviewerWorkActionCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+};
+
+/**
+ * ReviewerWorkAssignmentResponse
+ */
+export type ReviewerWorkAssignmentResponse = {
+  /**
+   * Assignmentid
+   */
+  assignmentId: string;
+  /**
+   * Assignmenttype
+   */
+  assignmentType: 'local' | 'online';
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Heartbeatat
+   */
+  heartbeatAt: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Leaseexpiresat
+   */
+  leaseExpiresAt: string;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Reviewurl
+   */
+  reviewUrl: string | null;
+};
+
+/**
+ * ReviewerWorkClosedResponse
+ */
+export type ReviewerWorkClosedResponse = {
+  /**
+   * Assignmentid
+   */
+  assignmentId: string;
+  /**
+   * Closereason
+   */
+  closeReason: string;
+  /**
+   * Closedat
+   */
+  closedAt: string;
+};
+
+/**
+ * ReviewerWorkHeartbeatResponse
+ */
+export type ReviewerWorkHeartbeatResponse = {
+  /**
+   * Assignmentid
+   */
+  assignmentId: string;
+  /**
+   * Heartbeatat
+   */
+  heartbeatAt: string;
+  /**
+   * Leaseexpiresat
+   */
+  leaseExpiresAt: string;
+};
+
+/**
+ * ReviewerWorkOpenCommand
+ */
+export type ReviewerWorkOpenCommand = {
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * ReviewerWorkOpenedResponse
+ */
+export type ReviewerWorkOpenedResponse = {
+  /**
+   * Accesscode
+   */
+  accessCode: string | null;
+  /**
+   * Accessexpiresat
+   */
+  accessExpiresAt: string | null;
+  assignment: ReviewerWorkAssignmentResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+};
+
+/**
+ * ReviewerWorkOverviewResponse
+ */
+export type ReviewerWorkOverviewResponse = {
+  /**
+   * Activeonlinecount
+   */
+  activeOnlineCount: number;
+  /**
+   * Assignments
+   */
+  assignments: Array<ReviewerWorkAssignmentResponse>;
+  ingress: ReviewerIngressStatusResponse;
+  /**
+   * Maximumonlinecount
+   */
+  maximumOnlineCount?: 3;
+};
+
+/**
  * RulesPublicationIssueResponse
  */
 export type RulesPublicationIssueResponse = {
@@ -7530,6 +7666,102 @@ export type RollbackGridProfileResponses = {
 export type RollbackGridProfileResponse =
   RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
 
+export type OpenLocalReviewerWorkData = {
+  body: ReviewerWorkOpenCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local';
+};
+
+export type OpenLocalReviewerWorkErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type OpenLocalReviewerWorkError =
+  OpenLocalReviewerWorkErrors[keyof OpenLocalReviewerWorkErrors];
+
+export type OpenLocalReviewerWorkResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerWorkOpenedResponse;
+};
+
+export type OpenLocalReviewerWorkResponse =
+  OpenLocalReviewerWorkResponses[keyof OpenLocalReviewerWorkResponses];
+
+export type OpenOnlineReviewerWorkData = {
+  body: ReviewerWorkOpenCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online';
+};
+
+export type OpenOnlineReviewerWorkErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type OpenOnlineReviewerWorkError =
+  OpenOnlineReviewerWorkErrors[keyof OpenOnlineReviewerWorkErrors];
+
+export type OpenOnlineReviewerWorkResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerWorkOpenedResponse;
+};
+
+export type OpenOnlineReviewerWorkResponse =
+  OpenOnlineReviewerWorkResponses[keyof OpenOnlineReviewerWorkResponses];
+
 export type ResetGameLayoutDataData = {
   body: CleanupCommandRequest;
   headers: {
@@ -7657,6 +7889,38 @@ export type GetModelQualityResponses = {
 
 export type GetModelQualityResponse =
   GetModelQualityResponses[keyof GetModelQualityResponses];
+
+export type ListReviewerWorkAssignmentsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/reviewer-work-assignments';
+};
+
+export type ListReviewerWorkAssignmentsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListReviewerWorkAssignmentsError =
+  ListReviewerWorkAssignmentsErrors[keyof ListReviewerWorkAssignmentsErrors];
+
+export type ListReviewerWorkAssignmentsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerWorkOverviewResponse;
+};
+
+export type ListReviewerWorkAssignmentsResponse =
+  ListReviewerWorkAssignmentsResponses[keyof ListReviewerWorkAssignmentsResponses];
 
 export type ListRulesVersionsData = {
   body?: never;
@@ -13213,6 +13477,98 @@ export type RevokeReviewerSessionResponses = {
 
 export type RevokeReviewerSessionResponse =
   RevokeReviewerSessionResponses[keyof RevokeReviewerSessionResponses];
+
+export type CloseReviewerWorkAssignmentData = {
+  body: ReviewerWorkActionCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Assignment Id
+     */
+    assignment_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/close';
+};
+
+export type CloseReviewerWorkAssignmentErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CloseReviewerWorkAssignmentError =
+  CloseReviewerWorkAssignmentErrors[keyof CloseReviewerWorkAssignmentErrors];
+
+export type CloseReviewerWorkAssignmentResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerWorkClosedResponse;
+};
+
+export type CloseReviewerWorkAssignmentResponse =
+  CloseReviewerWorkAssignmentResponses[keyof CloseReviewerWorkAssignmentResponses];
+
+export type HeartbeatReviewerWorkAssignmentData = {
+  body: ReviewerWorkActionCommand;
+  path: {
+    /**
+     * Assignment Id
+     */
+    assignment_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat';
+};
+
+export type HeartbeatReviewerWorkAssignmentErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type HeartbeatReviewerWorkAssignmentError =
+  HeartbeatReviewerWorkAssignmentErrors[keyof HeartbeatReviewerWorkAssignmentErrors];
+
+export type HeartbeatReviewerWorkAssignmentResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerWorkHeartbeatResponse;
+};
+
+export type HeartbeatReviewerWorkAssignmentResponse =
+  HeartbeatReviewerWorkAssignmentResponses[keyof HeartbeatReviewerWorkAssignmentResponses];
 
 export type ArchiveRulesVersionData = {
   body?: never;

@@ -1285,11 +1285,12 @@ każdym spinie.
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 
-Admin web tworzy trwałą, wygasającą sesję Reviewera oraz pokazuje link i kod
-osobno. Kod jest zwracany tylko podczas tworzenia, a PostgreSQL przechowuje
-wyłącznie jego hash. Przycisk publikacji uruchamia produkcyjny Reviewer i
-Quick Tunnel przez typowane lokalne API; osobny przycisk unieważnia bieżącą
-sesję i zatrzymuje tunel.
+Admin web otwiera typowane przypisanie dla wybranego gotowego importu. Pierwsze
+otwarcie online tworzy trwałą, wygasającą sesję i pokazuje link oraz kod osobno;
+kod jest zwracany tylko w tej odpowiedzi, a PostgreSQL przechowuje wyłącznie
+jego hash. Lista po restarcie odtwarza aktywne assignments bez kodów i tokenów.
+Zamknięcie jest operacją per assignment, a nie globalnym stopem składanym przez
+frontend z osobnych wywołań sesji i tunelu.
 
 TASK-0249 wprowadza osobną, trwałą warstwę `reviewer_work_assignments`.
 Assignment określa scope gry/importu, tryb local/online oraz ogrodzony lease z
@@ -1308,6 +1309,13 @@ Zamknięcie pracy unieważnia tylko powiązaną sesję; Quick Tunnel pozostaje p
 innych pracach i jest zatrzymywany ogrodzonym `instanceId` dopiero po ostatnim
 online assignment. Produkcyjny proces Reviewera na loopback pozostaje wspólny
 także dla pracy lokalnej.
+
+Kontrakt HTTP TASK 18 wystawia list/open/heartbeat/close jako lokalne Admin API.
+Warstwa composition root tworzy `ReviewerWorkLifecycleService` z repozytoriami
+assignmentu i sesji współdzielącymi jedną transakcję SQL. Idempotentne ponowienie
+open zwraca istniejący scope bez ponownego ujawnienia kodu. Wygenerowany klient
+i Admin nie wywołują już globalnego `start/stop` w normalnym przepływie sekcji
+zatwierdzania.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko

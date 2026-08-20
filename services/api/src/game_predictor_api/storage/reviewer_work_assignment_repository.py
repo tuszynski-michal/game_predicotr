@@ -106,6 +106,10 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
         )
         return None if record is None else _to_assignment(record)
 
+    def get(self, assignment_id: UUID) -> ReviewerWorkAssignment | None:
+        record = self._session.get(ReviewerWorkAssignmentModel, assignment_id)
+        return None if record is None else _to_assignment(record)
+
     def find_active_for_import(
         self,
         import_job_id: UUID,
@@ -157,6 +161,22 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
             for record in self._session.scalars(
                 select(ReviewerWorkAssignmentModel)
                 .where(ReviewerWorkAssignmentModel.import_job_id == import_job_id)
+                .order_by(
+                    ReviewerWorkAssignmentModel.created_at,
+                    ReviewerWorkAssignmentModel.id,
+                )
+            )
+        )
+
+    def list_active_for_game(self, game_id: UUID) -> Sequence[ReviewerWorkAssignment]:
+        return tuple(
+            _to_assignment(record)
+            for record in self._session.scalars(
+                select(ReviewerWorkAssignmentModel)
+                .where(
+                    ReviewerWorkAssignmentModel.game_id == game_id,
+                    ReviewerWorkAssignmentModel.closed_at.is_(None),
+                )
                 .order_by(
                     ReviewerWorkAssignmentModel.created_at,
                     ReviewerWorkAssignmentModel.id,

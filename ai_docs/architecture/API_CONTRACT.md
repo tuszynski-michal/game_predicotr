@@ -1638,10 +1638,39 @@ startu Reviewera i tunelu ma osobne logi.
 idempotentny i usuwa publiczny origin. Endpointy są częścią Admin API na
 loopback i nie znajdują się na allowliście publicznego proxy Reviewera.
 
-Panel wykonuje start przed `POST /admin/reviewer-sessions`, dzięki czemu nowa
-sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
-próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
-zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
+Endpointy globalnego ingressu i ręcznego tworzenia sesji pozostają kontraktem
+operatorskim/legacy. Panel Admin nie składa już z nich własnego lifecycle'u;
+korzysta z atomowego kontraktu przypisań opisanego niżej.
+
+### Przypisania pracy Reviewera per import
+
+```text
+GET  /api/v1/admin/games/{gameId}/reviewer-work-assignments
+POST /api/v1/admin/games/{gameId}/imports/{importJobId}/reviewer-work-assignments/local
+POST /api/v1/admin/games/{gameId}/imports/{importJobId}/reviewer-work-assignments/online
+POST /api/v1/admin/reviewer-work-assignments/{assignmentId}/heartbeat
+POST /api/v1/admin/reviewer-work-assignments/{assignmentId}/close
+```
+
+Open przyjmuje wyłącznie ograniczony `lifetimeMinutes` od 5 do 1440. Scope
+wynika z path i jest ponownie walidowany w transakcji. Ponowienie otwarcia tego
+samego importu i trybu jest idempotentne: zwraca to samo aktywne przypisanie,
+nie tworzy drugiej sesji ani procesu. Próba zmiany trybu zajętego importu kończy
+się `REVIEWER_ASSIGNMENT_ALREADY_ACTIVE`; czwarta różna praca online zwraca
+`REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED`.
+
+Odpowiedź pierwszego open online zawiera `created = true`, scoped URL, osobno
+jednorazowy `accessCode` i jego czas wygaśnięcia. Idempotentna odpowiedź ma
+`created = false` oraz `accessCode = null`. Lista aktywnych prac zwraca tryb,
+scope, gotowość, URL i niesekretne timestampy, lecz nigdy nie zwraca kodu,
+bearer tokenu, fencing tokenu ani osobnego pola identyfikatora sesji. Publiczny
+URL może zawierać opaque identyfikator sesji. Heartbeat i close są
+scope'owane identyfikatorem assignmentu; klient nie otrzymuje lease tokenu.
+
+Close unieważnia tylko sesję online wskazanego assignmentu. Ostatnia praca
+online uruchamia ogrodzony stop wspólnego tunelu; inne prace online oraz lokalne
+nie są zamykane. Wszystkie mutacje pozostają loopback-only i wymagają lokalnego
+intent header, a open/close dodatkowo dokładnego high-impact targetu.
 
 ### Lokalny start Reviewera bez sesji
 

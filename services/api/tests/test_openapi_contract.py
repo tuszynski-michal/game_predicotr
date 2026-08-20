@@ -530,6 +530,40 @@ def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> No
     assert local_command["properties"]["target"]["const"] == "local-reviewer"
 
 
+def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    list_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/reviewer-work-assignments"
+    ]
+    local_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local"
+    ]
+    online_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online"
+    ]
+    heartbeat_path = schema["paths"][
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat"
+    ]
+    close_path = schema["paths"][
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"
+    ]
+
+    assert list_path["get"]["operationId"] == "listReviewerWorkAssignments"
+    assert local_path["post"]["operationId"] == "openLocalReviewerWork"
+    assert online_path["post"]["operationId"] == "openOnlineReviewerWork"
+    assert heartbeat_path["post"]["operationId"] == "heartbeatReviewerWorkAssignment"
+    assert close_path["post"]["operationId"] == "closeReviewerWorkAssignment"
+    assignment = schema["components"]["schemas"]["ReviewerWorkAssignmentResponse"]
+    assert "leaseToken" not in assignment["properties"]
+    assert "reviewerAccessSessionId" not in assignment["properties"]
+    assert set(schema["components"]["schemas"]["ReviewerWorkOpenedResponse"]["required"]) == {
+        "accessCode",
+        "accessExpiresAt",
+        "assignment",
+        "created",
+    }
+
+
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"

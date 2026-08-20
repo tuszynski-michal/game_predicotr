@@ -7,21 +7,28 @@ const launcherPath = new URL(
   import.meta.url,
 );
 
-test('launcher exposes local code-free and explicit online controls', async () => {
+test('launcher exposes import-scoped local and independent online controls', async () => {
   const source = await readFile(launcherPath, 'utf8');
 
-  assert.match(source, /publishReviewerSession/);
+  assert.match(source, /openOnlineReviewer/);
   assert.match(source, /openLocalReviewer/);
+  assert.match(source, /loadReviewerWork/);
+  assert.match(source, /heartbeatReviewerWork/);
+  assert.match(source, /closeReviewerWork/);
   assert.match(source, /Otwórz lokalnie/);
-  assert.match(source, /bez Internetu i kodu/);
-  assert.match(source, /stopReviewerPublishing/);
-  assert.match(source, /Utwórz link i wystaw online/);
+  assert.match(source, /Utwórz link online/);
   assert.match(source, /Zatrzymaj udostępnianie/);
-  assert.match(source, /session\?\.sessionId/);
+  assert.match(source, /Aktywne prace/);
+  assert.match(source, /activeOnlineCount/);
+  assert.match(source, /maximumOnlineCount/);
+  assert.match(source, /assignmentId/);
   assert.match(source, /listOperationalImageReviewItems/);
   assert.match(source, /Przejdź do Import layoutów/);
   assert.match(source, /reviewCounts\?\.total === 0/);
   assert.match(source, /reviewReadyImports/);
   assert.match(source, /reviewableGames/);
+  assert.doesNotMatch(source, /stopReviewerIngress/);
+  assert.doesNotMatch(source, /revokeReviewerSession/);
+  assert.doesNotMatch(source, /leaseToken/);
   assert.doesNotMatch(source, /game\.status === 'active'/);
 });

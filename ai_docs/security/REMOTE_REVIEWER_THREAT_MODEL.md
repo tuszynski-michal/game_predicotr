@@ -76,6 +76,15 @@ używa `instanceId`, dlatego spóźniona operacja nie zamknie nowszej instancji.
 Wygasłe lease'y są domykane jako `lease_expired`, a ich scoped sesje odwoływane
 przed ponownym użyciem capacity.
 
+Admin API TASK 18 nie ujawnia w liście assignments kodu wejścia, bearer tokenu,
+fencing tokenu ani osobnego pola identyfikatora sesji. Publiczny URL może
+zawierać opaque identyfikator sesji, ale nie jest on sekretem. Kod występuje wyłącznie w odpowiedzi
+na pierwsze utworzenie online; idempotentne ponowienie zwraca `null`. Frontend
+nie przechowuje sekretu w trwałym storage. Open i close wymagają dokładnego
+lokalnego high-impact targetu, a heartbeat nie przyjmuje lease tokenu od
+przeglądarki. Legacy globalne endpointy ingressu nie są używane przez zwykły
+przepływ sekcji zatwierdzania.
+
 ## Retencja i prywatność
 
 Sesja ma TTL od 5 minut do 24 godzin. Administrator przekazuje link i kod

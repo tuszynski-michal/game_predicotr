@@ -13,6 +13,7 @@ import {
   archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
+  closeReviewerWorkAssignment as closeGeneratedReviewerWorkAssignment,
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
@@ -80,6 +81,7 @@ import {
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
+  heartbeatReviewerWorkAssignment as heartbeatGeneratedReviewerWorkAssignment,
   getSymbol as getGeneratedSymbol,
   getSymbolModelIteration as getGeneratedSymbolModelIteration,
   listGames as listGeneratedGames,
@@ -109,6 +111,7 @@ import {
   listReviewFeedbackExports as listGeneratedReviewFeedbackExports,
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
+  listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
@@ -128,6 +131,8 @@ import {
   startPendingGridReinference as startGeneratedPendingGridReinference,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
+  openLocalReviewerWork as openGeneratedLocalReviewerWork,
+  openOnlineReviewerWork as openGeneratedOnlineReviewerWork,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
   rollbackSymbolModel as rollbackGeneratedSymbolModel,
@@ -209,6 +214,8 @@ import type {
   ReviewerSessionCreate,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
+  ReviewerWorkActionCommand,
+  ReviewerWorkOpenCommand,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -407,6 +414,13 @@ export type {
   ReviewerSessionScopeResponse,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
+  ReviewerWorkActionCommand,
+  ReviewerWorkAssignmentResponse,
+  ReviewerWorkClosedResponse,
+  ReviewerWorkHeartbeatResponse,
+  ReviewerWorkOpenCommand,
+  ReviewerWorkOpenedResponse,
+  ReviewerWorkOverviewResponse,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -523,6 +537,52 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
         path: { session_id: sessionId },
+      }),
+    listReviewerWorkAssignments: (gameId: string) =>
+      listGeneratedReviewerWorkAssignments({
+        client,
+        path: { game_id: gameId },
+      }),
+    openLocalReviewerWork: (
+      gameId: string,
+      importJobId: string,
+      body: ReviewerWorkOpenCommand,
+    ) =>
+      openGeneratedLocalReviewerWork({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${importJobId}:local`),
+        path: { game_id: gameId, import_job_id: importJobId },
+      }),
+    openOnlineReviewerWork: (
+      gameId: string,
+      importJobId: string,
+      body: ReviewerWorkOpenCommand,
+    ) =>
+      openGeneratedOnlineReviewerWork({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${importJobId}:online`),
+        path: { game_id: gameId, import_job_id: importJobId },
+      }),
+    heartbeatReviewerWorkAssignment: (
+      assignmentId: string,
+      body: ReviewerWorkActionCommand,
+    ) =>
+      heartbeatGeneratedReviewerWorkAssignment({
+        body,
+        client,
+        path: { assignment_id: assignmentId },
+      }),
+    closeReviewerWorkAssignment: (
+      assignmentId: string,
+      body: ReviewerWorkActionCommand,
+    ) =>
+      closeGeneratedReviewerWorkAssignment({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${assignmentId}`),
+        path: { assignment_id: assignmentId },
       }),
     unlockReviewerSession: (sessionId: string, body: ReviewerSessionUnlock) =>
       unlockGeneratedReviewerSession({

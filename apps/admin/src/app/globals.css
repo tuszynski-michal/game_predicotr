@@ -7028,6 +7028,54 @@ div.imageJobInlineError {
   color: var(--muted);
 }
 
+.reviewerWorkList {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.reviewerWorkList h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.reviewerWorkList ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reviewerWorkList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.reviewerWorkList li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reviewerWorkList li strong,
+.reviewerWorkList li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerWorkList li span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 @media (max-width: 860px) {
   .reviewerLauncherControls,
   .reviewerSessionResult,
@@ -7036,6 +7084,11 @@ div.imageJobInlineError {
   }
 
   .reviewerPrerequisite {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reviewerWorkList li {
     align-items: stretch;
     flex-direction: column;
   }

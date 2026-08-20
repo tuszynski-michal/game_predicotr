@@ -176,6 +176,14 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     local_reviewer_operation, local_reviewer_target = match_high_impact_operation(
         "POST", "/api/v1/admin/reviewer-local/start"
     )
+    reviewer_work_operation, reviewer_work_target = match_high_impact_operation(
+        "POST",
+        f"/api/v1/admin/games/{game_id}/imports/{job_id}/reviewer-work-assignments/online",
+    )
+    reviewer_close_operation, reviewer_close_target = match_high_impact_operation(
+        "POST",
+        f"/api/v1/admin/reviewer-work-assignments/{job_id}/close",
+    )
 
     assert release_operation is not None
     assert release_operation.action == "delete-mobile-release"
@@ -189,6 +197,12 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert local_reviewer_operation is not None
     assert local_reviewer_operation.action == "start-local-reviewer"
     assert local_reviewer_target == "local-reviewer"
+    assert reviewer_work_operation is not None
+    assert reviewer_work_operation.action == "open-online-reviewer-work"
+    assert reviewer_work_target == f"reviewer-work:{job_id}:online"
+    assert reviewer_close_operation is not None
+    assert reviewer_close_operation.action == "close-reviewer-work"
+    assert reviewer_close_target == f"reviewer-work:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:

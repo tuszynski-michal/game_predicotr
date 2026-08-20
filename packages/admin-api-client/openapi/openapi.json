@@ -9545,6 +9545,234 @@
         "title": "ReviewerSessionUnlockResponse",
         "type": "object"
       },
+      "ReviewerWorkActionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmed"
+        ],
+        "title": "ReviewerWorkActionCommand",
+        "type": "object"
+      },
+      "ReviewerWorkAssignmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "assignmentType": {
+            "enum": [
+              "local",
+              "online"
+            ],
+            "title": "Assignmenttype",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "heartbeatAt": {
+            "format": "date-time",
+            "title": "Heartbeatat",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "leaseExpiresAt": {
+            "format": "date-time",
+            "title": "Leaseexpiresat",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reviewUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewurl"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "gameId",
+          "importJobId",
+          "assignmentType",
+          "reviewUrl",
+          "ready",
+          "heartbeatAt",
+          "leaseExpiresAt",
+          "createdAt"
+        ],
+        "title": "ReviewerWorkAssignmentResponse",
+        "type": "object"
+      },
+      "ReviewerWorkClosedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "closeReason": {
+            "title": "Closereason",
+            "type": "string"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "title": "Closedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "closedAt",
+          "closeReason"
+        ],
+        "title": "ReviewerWorkClosedResponse",
+        "type": "object"
+      },
+      "ReviewerWorkHeartbeatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "heartbeatAt": {
+            "format": "date-time",
+            "title": "Heartbeatat",
+            "type": "string"
+          },
+          "leaseExpiresAt": {
+            "format": "date-time",
+            "title": "Leaseexpiresat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "heartbeatAt",
+          "leaseExpiresAt"
+        ],
+        "title": "ReviewerWorkHeartbeatResponse",
+        "type": "object"
+      },
+      "ReviewerWorkOpenCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "lifetimeMinutes": {
+            "default": 480,
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Lifetimeminutes",
+            "type": "integer"
+          }
+        },
+        "title": "ReviewerWorkOpenCommand",
+        "type": "object"
+      },
+      "ReviewerWorkOpenedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accesscode"
+          },
+          "accessExpiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accessexpiresat"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/ReviewerWorkAssignmentResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "assignment",
+          "created",
+          "accessCode",
+          "accessExpiresAt"
+        ],
+        "title": "ReviewerWorkOpenedResponse",
+        "type": "object"
+      },
+      "ReviewerWorkOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeOnlineCount": {
+            "title": "Activeonlinecount",
+            "type": "integer"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewerWorkAssignmentResponse"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "ingress": {
+            "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+          },
+          "maximumOnlineCount": {
+            "const": 3,
+            "default": 3,
+            "title": "Maximumonlinecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignments",
+          "activeOnlineCount",
+          "ingress"
+        ],
+        "title": "ReviewerWorkOverviewResponse",
+        "type": "object"
+      },
       "RulesPublicationIssueResponse": {
         "additionalProperties": false,
         "properties": {
@@ -13098,6 +13326,216 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local": {
+      "post": {
+        "operationId": "openLocalReviewerWork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkOpenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOpenedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open or reuse one loopback-only Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online": {
+      "post": {
+        "operationId": "openOnlineReviewerWork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkOpenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOpenedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open or reuse one scoped online Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/layout-data": {
       "delete": {
         "operationId": "resetGameLayoutData",
@@ -13326,6 +13764,49 @@
         "summary": "Read model and verified-data readiness for one game",
         "tags": [
           "verified-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/reviewer-work-assignments": {
+      "get": {
+        "operationId": "listReviewerWorkAssignments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List active scoped Reviewer work for one game",
+        "tags": [
+          "reviewer-access"
         ]
       }
     },
@@ -23573,6 +24054,199 @@
           }
         ],
         "summary": "Immediately revoke one Reviewer session",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close": {
+      "post": {
+        "operationId": "closeReviewerWorkAssignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkActionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkClosedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Close only the selected Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat": {
+      "post": {
+        "operationId": "heartbeatReviewerWorkAssignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkActionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Heartbeat one active Reviewer work assignment",
         "tags": [
           "reviewer-access"
         ]

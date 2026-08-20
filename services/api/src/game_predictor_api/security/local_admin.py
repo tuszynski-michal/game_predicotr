@@ -116,6 +116,27 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ("POST", "/api/v1/admin/reviewer-ingress/stop"): HighImpactOperation(
         "stop-reviewer-ingress", "remote-reviewer"
     ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local",
+    ): HighImpactOperation(
+        "open-local-reviewer-work",
+        "reviewer-work:{import_job_id}:local",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online",
+    ): HighImpactOperation(
+        "open-online-reviewer-work",
+        "reviewer-work:{import_job_id}:online",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close",
+    ): HighImpactOperation(
+        "close-reviewer-work",
+        "reviewer-work:{assignment_id}",
+    ),
     ("POST", "/api/v1/admin/reviewer-sessions"): HighImpactOperation(
         "create-reviewer-session", "reviewer-session:new"
     ),

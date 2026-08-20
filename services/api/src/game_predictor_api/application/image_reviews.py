@@ -10,11 +10,15 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
+from game_predictor_worker.images.board_cell_geometry_activation import (
+    ACCEPTED_AUDIT_REPORT_CHECKSUM_SHA256,
+)
 from game_predictor_worker.images.board_cell_geometry_contract import (
     BOARD_CELL_COORDINATE_SPACE,
     BOARD_CELL_CORNER_SEMANTICS,
     BOARD_CELL_GEOMETRY_VERSION,
 )
+from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreview,
     ManualBoardCellGeometryPreviewer,
@@ -74,10 +78,15 @@ class CanonicalImageReviewPage:
 class PendingGridReinferencePreview:
     game_id: UUID
     pending_board_count: int
+    recalculable_board_count: int
+    current_v19_board_count: int
     protected_board_count: int
     pending_source_count: int
     partially_resolved_source_count: int
     fully_resolved_source_count: int
+    geometry_version: str
+    cropper_version: str
+    audit_report_checksum_sha256: str
 
 
 class OperationalImageReviewRepository(Protocol):
@@ -108,7 +117,14 @@ class OperationalImageReviewRepository(Protocol):
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
 
-    def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview: ...
+    def pending_grid_reinference_preview(
+        self,
+        game_id: UUID,
+        *,
+        geometry_version: str,
+        cropper_version: str,
+        audit_report_checksum_sha256: str,
+    ) -> PendingGridReinferencePreview: ...
 
     def get_item(
         self,
@@ -336,7 +352,12 @@ class OperationalImageReviewService:
         return self._repository.game_counts(game_id)
 
     def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview:
-        return self._repository.pending_grid_reinference_preview(game_id)
+        return self._repository.pending_grid_reinference_preview(
+            game_id,
+            geometry_version=BOARD_CELL_GEOMETRY_VERSION,
+            cropper_version=CROPPER_VERSION,
+            audit_report_checksum_sha256=ACCEPTED_AUDIT_REPORT_CHECKSUM_SHA256,
+        )
 
     def get_item(
         self,

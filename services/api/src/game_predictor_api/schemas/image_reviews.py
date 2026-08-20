@@ -115,10 +115,15 @@ class PendingSymbolReinferencePreviewResponse(ApiModel):
 class PendingGridReinferencePreviewResponse(ApiModel):
     game_id: UUID
     pending_board_count: int = Field(ge=0)
+    recalculable_board_count: int = Field(ge=0)
+    current_v19_board_count: int = Field(ge=0)
     protected_board_count: int = Field(ge=0)
     pending_source_count: int = Field(ge=0)
     partially_resolved_source_count: int = Field(ge=0)
     fully_resolved_source_count: int = Field(ge=0)
+    geometry_version: str
+    cropper_version: str
+    audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     requires_explicit_activation: bool = True
 
 
@@ -378,10 +383,15 @@ def to_pending_grid_reinference_preview_response(
     return PendingGridReinferencePreviewResponse(
         game_id=preview.game_id,
         pending_board_count=preview.pending_board_count,
+        recalculable_board_count=preview.recalculable_board_count,
+        current_v19_board_count=preview.current_v19_board_count,
         protected_board_count=preview.protected_board_count,
         pending_source_count=preview.pending_source_count,
         partially_resolved_source_count=preview.partially_resolved_source_count,
         fully_resolved_source_count=preview.fully_resolved_source_count,
+        geometry_version=preview.geometry_version,
+        cropper_version=preview.cropper_version,
+        audit_report_checksum_sha256=preview.audit_report_checksum_sha256,
     )
 
 

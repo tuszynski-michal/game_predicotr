@@ -1775,8 +1775,9 @@ jeden Quick Tunnel; zatrzymanie pojedynczej sesji nie może kończyć pozostały
 TASK 1 obejmuje wyłącznie baseline, decyzje i aktualizację testu migracji:
 `0048_image_page_geometry_overrides` jest jedyną oczekiwaną głową po `0047`.
 Był to stan po TASK 1; obecnie istnieje już nieaktywny estymator TASK 3, ale
-integracja produkcyjnego pipeline'u geometrii v19, kolejki i assignments nie
-została rozpoczęta. Ręczny preview i append-only zapis mają już osobny API i UI.
+pełna integracja produkcyjnego pipeline'u geometrii v19, kolejki i assignments
+nie została rozpoczęta. Ręczny preview, append-only zapis i jawny pending-only
+recrop mają już osobny API i UI.
 Punktem bazowym pozostaje `3595a32` (`v0.6.59`). Wcześniejsze niezacommitowane
 zmiany fallbacku importu, kontrolera workerów oraz `apps/admin/next-env.d.ts`
 są zachowane i jawnie wykluczone z przyszłych commitów TASK-0249; następny numer
@@ -1855,5 +1856,25 @@ quadów trafiają do append-only `image_board_geometry_revisions`; historyczne
 rewizje v1 pozostają czytelne z `decisionChecksumSha256 = null`. Reviewer
 zapisuje tylko aktualnie wygenerowany podgląd, blokuje podwójny submit i
 natychmiast pokazuje zwróconą rewizję tej samej planszy ponownie otwartej do
-weryfikacji symboli. Automatyczna aktywacja v19 i pending-only recrop nadal nie
-zostały rozpoczęte.
+weryfikacji symboli.
+
+TASK 8 aktywował automatyczny v19 wyłącznie jako jawną operację
+`Przelicz oczekujące`. Nowy job schema v2 przypina snapshot
+`pending-board-cell-recrop-v19-v1`, wszystkie wersje i fingerprinty geometrii
+oraz croppera, a także checksumę zaliczonego audytu 100 stron. Historyczne joby
+schema v1 nadal wykonują historyczny detektor i cropper v17; pełny pipeline
+importu nadal korzysta z v18.
+
+Worker schema v2 bierze istniejący zweryfikowany quad planszy, szacuje pełną
+geometrię 3 × 5 i wykonuje dokładnie 15 source-direct cropów v19. Brak pełnego
+dowodu pozostawia element w `needsManualGeometry` bez częściowego zapisu.
+Źródło jest sprawdzane checksumą i wymiarami oraz dekodowane raz na stronę.
+Przed zapisem worker blokuje item i planszę oraz ponownie sprawdza status,
+rewizje, źródło, numer, pozycję, geometrię i checksumy. Decyzja człowieka lub
+równoległa korekta zawsze wygrywa; `accepted/corrected/rejected`, istniejące
+v19, OCR, discovery, staging, modele i katalog symboli pozostają nietknięte.
+
+Preview Admina rozróżnia wszystkie oczekujące, `recalculableBoardCount`, już
+aktualne v19 i chronione. Start jest blokowany, gdy nie ma faktycznej pracy.
+TASK 8 nie uruchomił żadnego rzeczywistego joba użytkownika i nie rozpoczął
+pionów kolejki ani wspólnego Reviewera.

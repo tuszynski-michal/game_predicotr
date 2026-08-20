@@ -142,7 +142,13 @@ nieużywany fallback dla joba z przypiętym manifestem oraz używa poprawnej śc
 dla importu legacy bez manifestu. Retry zachowuje ten sam staging, snapshoty i
 id joba, a jego odbiór E2E pozostaje aktywny w trybie review-first.
 
-TASK-0249 oddziela przyszłą geometrię komórek v19 od tego zadania. TASK-0149
-pozostaje bez recropu i korekty geometrii; może wykorzystać zaakceptowaną,
-append-only rewizję cropów dopiero po osobnym odbiorze v19. Do tego czasu
-aktywne zachowanie pending-only i wszystkie ochrony decyzji pozostają bez zmian.
+TASK-0249 oddziela geometrię komórek v19 od tego zadania. TASK-0149 pozostaje
+bez recropu i korekty geometrii; może jedynie wykorzystać osobno odebraną,
+append-only rewizję cropów. Symbolowa reinferencja i wszystkie jej ochrony
+decyzji pozostają bez zmian.
+
+W TASK-0249/TASK 8 osobno odebrano geometrię komórek v19 i podłączono ją do
+istniejącego typu `image_grid_reinference` jako payload schema v2. Ta ścieżka
+wykonuje wyłącznie pending-only recrop i append-only rewizję geometrii; nie
+zmienia zakresu symbolowej reinferencji TASK-0149, nie otwiera decyzji
+rozstrzygniętych i nie uruchamia OCR/discovery.

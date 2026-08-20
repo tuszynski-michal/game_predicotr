@@ -25,6 +25,13 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 )
 from game_predictor_api.main import create_app
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_worker.images.board_cell_geometry_activation import (
+    PENDING_BOARD_CELL_RECROP_VERSION,
+)
+from game_predictor_worker.images.board_cell_geometry_contract import (
+    BOARD_CELL_GEOMETRY_VERSION,
+)
+from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -101,6 +108,51 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
         "pipelineFingerprint": "a" * 64,
         "imageSelectionRunId": str(selection_run_id),
     }
+
+
+def test_pending_grid_reinference_pins_the_accepted_v19_recrop_snapshot(
+    tmp_path: Path,
+) -> None:
+    _client_instance, game_id, service, _repository = _client(tmp_path)
+
+    job = service.create_pending_grid_reinference_job(game_id=game_id)
+    payload = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)["inputPayload"]
+
+    assert payload["schemaVersion"] == 2
+    assert payload["inferenceKind"] == "pending_grid_only"
+    assert payload["cellOutputSize"] == 64
+    assert payload["gridProfile"] is None
+    assert payload["boardCellRecrop"]["activationVersion"] == (PENDING_BOARD_CELL_RECROP_VERSION)
+    assert payload["boardCellRecrop"]["geometryVersion"] == BOARD_CELL_GEOMETRY_VERSION
+    assert payload["boardCellRecrop"]["cropperVersion"] == CROPPER_VERSION
+
+
+def test_historical_pending_grid_reinference_v1_payload_remains_serializable() -> None:
+    job = create_job(
+        JobType.IMAGE_GRID_REINFERENCE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "inference_kind": "pending_grid_only",
+            "cell_output_size": 64,
+            "grid_profile": {
+                "profileId": None,
+                "profileVersion": "detector-baseline-v1",
+                "profileChecksumSha256": "a" * 64,
+                "activationId": None,
+                "profilePayload": {},
+                "pageRegistrationProfile": None,
+                "inferenceFingerprint": "b" * 64,
+            },
+        },
+        created_at=datetime(2026, 8, 20, tzinfo=UTC),
+    )
+
+    payload = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)["inputPayload"]
+
+    assert payload["schemaVersion"] == 1
+    assert payload["boardCellRecrop"] is None
+    assert payload["gridProfile"]["profileVersion"] == "detector-baseline-v1"
 
 
 def test_image_selection_job_exposes_bounded_operational_progress() -> None:

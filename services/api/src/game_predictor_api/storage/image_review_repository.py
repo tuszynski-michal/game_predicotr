@@ -1203,10 +1203,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return self._counts_for_game(game_id)
 
     def pending_grid_reinference_preview(
-        self, game_id: UUID
+        self,
+        game_id: UUID,
+        *,
+        geometry_version: str,
+        cropper_version: str,
+        audit_report_checksum_sha256: str,
     ) -> PendingGridReinferencePreview:
         rows = self._session.execute(
-            select(SourceImageModel.id, ImageReviewItemModel.status)
+            select(
+                SourceImageModel.id,
+                ImageReviewItemModel.status,
+                RecognizedBoardModel.board_geometry,
+            )
             .select_from(ImageReviewItemModel)
             .join(
                 RecognizedBoardModel,
@@ -1218,17 +1227,25 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         ).all()
         source_statuses: dict[UUID, set[str]] = defaultdict(set)
         pending_board_count = 0
+        recalculable_board_count = 0
+        current_v19_board_count = 0
         protected_board_count = 0
-        for source_id, status in rows:
+        for source_id, status, board_geometry in rows:
             source_statuses[source_id].add(str(status))
             if status == "pending":
                 pending_board_count += 1
+                if (
+                    board_geometry.get("geometryVersion") == geometry_version
+                    and board_geometry.get("cropperVersion") == cropper_version
+                ):
+                    current_v19_board_count += 1
+                else:
+                    recalculable_board_count += 1
             else:
                 protected_board_count += 1
         pending_sources = sum("pending" in statuses for statuses in source_statuses.values())
         partial_sources = sum(
-            "pending" in statuses and len(statuses) > 1
-            for statuses in source_statuses.values()
+            "pending" in statuses and len(statuses) > 1 for statuses in source_statuses.values()
         )
         fully_resolved_sources = sum(
             "pending" not in statuses for statuses in source_statuses.values()
@@ -1236,10 +1253,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return PendingGridReinferencePreview(
             game_id=game_id,
             pending_board_count=pending_board_count,
+            recalculable_board_count=recalculable_board_count,
+            current_v19_board_count=current_v19_board_count,
             protected_board_count=protected_board_count,
             pending_source_count=pending_sources,
             partially_resolved_source_count=partial_sources,
             fully_resolved_source_count=fully_resolved_sources,
+            geometry_version=geometry_version,
+            cropper_version=cropper_version,
+            audit_report_checksum_sha256=audit_report_checksum_sha256,
         )
 
     def _cursor_exists(

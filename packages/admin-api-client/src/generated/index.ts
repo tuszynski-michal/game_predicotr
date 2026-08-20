@@ -223,6 +223,7 @@ export type {
   ArchiveSymbolErrors,
   ArchiveSymbolResponse,
   ArchiveSymbolResponses,
+  BoardCellRecropJobSnapshotPayload,
   BrowserImageImportJobPayload,
   BrowserImageImportPreflightCreate,
   BrowserImageImportPreflightResponse,

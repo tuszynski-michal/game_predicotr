@@ -293,10 +293,10 @@ def create_image_reviews_router(
                 "Pending grid reinference is not configured.",
             )
         preview = service.pending_grid_reinference_preview(game_id)
-        if preview.pending_board_count == 0:
+        if preview.recalculable_board_count == 0:
             raise JobError(
                 "IMAGE_GRID_REINFERENCE_EMPTY",
-                "There are no pending board geometries to recalculate.",
+                "There are no pending board geometries requiring the accepted v19 recrop.",
             )
         return JobResponse.from_domain(
             job_service.create_pending_grid_reinference_job(game_id=game_id)

@@ -901,8 +901,8 @@ pozycji strony, pochodzące z dwóch grup źródłowych. Adapter ponownie weryfi
 źródłowy manifest, checksumy i wymiary JPEG-ów oraz checksumę całego
 wyprowadzonego manifestu.
 
-Automatyczny estymator v19 pozostaje czystym, niepodłączonym adapterem pomiędzy
-zweryfikowanym quadem planszy a `BoardCellGeometryManifestV1`. Historyczne
+Automatyczny estymator v19 pozostaje czystym adapterem pomiędzy zweryfikowanym
+quadem planszy a `BoardCellGeometryManifestV1`. Historyczne
 wykrywanie jasnych komponentów dostarcza globalny zbiór kandydatów, natomiast
 nowy bounded-hypothesis locator wyprowadza wspólne osie 5 × 3 bez kosztownego
 skanu wszystkich półpikselowych początków i odstępów. Każdy komponent może
@@ -920,10 +920,11 @@ checksumę manifestu stron, wersję estymatora, progi i deterministyczną próbk
 Raport przechowuje wyniki wszystkich dziewięciu plansz strony, a osobny renderer
 tworzy source-space overlays i arkusze do ręcznej kontroli. Nie zapisuje bazy ani
 nie ingeruje w joby. Audyt 100 stron zaakceptował 888 geometrii; 12 plansz
-pozostało fail-closed bez komórek. Pipeline, aktywny cropper v18, baza, API, UI i
-pending-only recrop pozostają niezmienione.
+pozostało fail-closed bez komórek. Checkpoint nie zmienia pełnego pipeline'u ani
+aktywnego croppera v18, ale jego checksum jest obowiązkową częścią snapshotu
+jawnego pending-only recropu.
 
-Kolejny nieaktywny adapter,
+Adapter
 `board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`, oddziela
 zwalidowaną geometrię od rasteryzacji. Najpierw sprawdza atomowo wszystkie 15
 komórek, ich kolejność, wyprowadzenie z `latticeBoundsQuad`, evidence, wymiary
@@ -932,8 +933,24 @@ jednym source-to-output `warpPerspective` na komórkę. Kanoniczny slot ma
 `100 × 100` i inset `10 px`, ale ani slot, ani plansza `500 × 300` nie są
 materializowane. Cropper nie wykonuje dodatkowego `resize` i nie syntetyzuje
 brakujących pikseli. Wersje geometrii, paddingu, interpolacji, polityki brzegu i
-rozmiar wejścia modelu tworzą immutable fingerprint. Ten etap nie zmienia
-aktywnego adaptera v18 ani kontraktu produkcyjnego pipeline'u.
+rozmiar wejścia modelu tworzą immutable fingerprint. Jest używany przez ręczny
+edytor i osobno uruchamiany pending-only recrop, ale nie zmienia aktywnego
+adaptera v18 ani kontraktu pełnego pipeline'u importu.
+
+Integracja `pending-board-cell-recrop-v19-v1` jest wersjonowaną ścieżką joba
+`image_grid_reinference` schema v2. API przypina checksumę zaakceptowanego
+audytu oraz wszystkie wersje i fingerprinty konfiguracji. Worker odrzuca drift
+snapshotu, korzysta wyłącznie z istniejącego quadu zweryfikowanej planszy i nie
+uruchamia discovery, detektora strony ani OCR. Historyczna schema v1 nadal
+odtwarza dawny detektor i cropper.
+
+Worker grupuje plansze po źródle, weryfikuje checksumę i wymiary JPEG-a oraz
+dekoduje go raz. Niepełne evidence 3 × 5 daje `needsManualGeometry` bez
+częściowych plików. Pełny wynik tworzy immutable 15 PNG i append-only rewizję
+geometrii. Bezpośrednio przed zmianą projekcji blokowane są item i plansza;
+status, rewizje, źródło, numer, pozycja, geometria i checksumy muszą nadal
+odpowiadać snapshotowi. Tym samym równoległa decyzja człowieka zawsze wygrywa,
+a istniejąca ręczna lub automatyczna rewizja v19 nie jest ponownie zapisywana.
 
 Implementacja v16 zachowuje 373 zaakceptowane artefakty v14 bajtowo: każdy
 plik jest ponownie odczytywany i sprawdzany względem zapisanej checksumy przed

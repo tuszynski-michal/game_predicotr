@@ -108,11 +108,17 @@ def create_job(
         and job_type is JobType.VALIDATE
         and input_payload.get("validation_kind") == "page_geometry_preflight"
     )
+    supports_pending_grid_reinference_v2 = (
+        schema_version == 2
+        and job_type is JobType.IMAGE_GRID_REINFERENCE
+        and input_payload.get("inference_kind") == "pending_grid_only"
+    )
     if (
         schema_version != 1
         and not supports_pinned_image_model
         and not supports_symbol_training_v2
         and not supports_page_geometry_preflight_v2
+        and not supports_pending_grid_reinference_v2
     ):
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",

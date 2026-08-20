@@ -48,6 +48,56 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BoardCellRecropJobSnapshotPayload
+ */
+export type BoardCellRecropJobSnapshotPayload = {
+  /**
+   * Activationversion
+   */
+  activationVersion: string;
+  /**
+   * Auditreportchecksumsha256
+   */
+  auditReportChecksumSha256: string;
+  /**
+   * Configurationfingerprintsha256
+   */
+  configurationFingerprintSha256: string;
+  /**
+   * Cropperfingerprintsha256
+   */
+  cropperFingerprintSha256: string;
+  /**
+   * Cropperversion
+   */
+  cropperVersion: string;
+  /**
+   * Estimatorversion
+   */
+  estimatorVersion: string;
+  /**
+   * Geometryversion
+   */
+  geometryVersion: string;
+  /**
+   * Homographyversion
+   */
+  homographyVersion: string;
+  /**
+   * Locatorversion
+   */
+  locatorVersion: string;
+  /**
+   * Thresholdsfingerprintsha256
+   */
+  thresholdsFingerprintSha256: string;
+  /**
+   * Thresholdsversion
+   */
+  thresholdsVersion: string;
+};
+
+/**
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
@@ -4616,11 +4666,12 @@ export type PayoutRuleUpdate = {
  * PendingGridReinferenceJobPayload
  */
 export type PendingGridReinferenceJobPayload = {
+  boardCellRecrop?: BoardCellRecropJobSnapshotPayload | null;
   /**
    * Celloutputsize
    */
   cellOutputSize?: number;
-  gridProfile: GridProfileJobSnapshotPayload;
+  gridProfile?: GridProfileJobSnapshotPayload | null;
   /**
    * Inferencekind
    */
@@ -4628,13 +4679,25 @@ export type PendingGridReinferenceJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1;
+  schemaVersion: 1 | 2;
 };
 
 /**
  * PendingGridReinferencePreviewResponse
  */
 export type PendingGridReinferencePreviewResponse = {
+  /**
+   * Auditreportchecksumsha256
+   */
+  auditReportChecksumSha256: string;
+  /**
+   * Cropperversion
+   */
+  cropperVersion: string;
+  /**
+   * Currentv19Boardcount
+   */
+  currentV19BoardCount: number;
   /**
    * Fullyresolvedsourcecount
    */
@@ -4643,6 +4706,10 @@ export type PendingGridReinferencePreviewResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Geometryversion
+   */
+  geometryVersion: string;
   /**
    * Partiallyresolvedsourcecount
    */
@@ -4659,6 +4726,10 @@ export type PendingGridReinferencePreviewResponse = {
    * Protectedboardcount
    */
   protectedBoardCount: number;
+  /**
+   * Recalculableboardcount
+   */
+  recalculableBoardCount: number;
   /**
    * Requiresexplicitactivation
    */

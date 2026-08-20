@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
@@ -208,11 +208,35 @@ class PendingSymbolReinferenceJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
 
 
+class BoardCellRecropJobSnapshotPayload(ApiModel):
+    activation_version: str = Field(min_length=1, max_length=150)
+    audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_version: str = Field(min_length=1, max_length=150)
+    estimator_version: str = Field(min_length=1, max_length=150)
+    geometry_version: str = Field(min_length=1, max_length=150)
+    homography_version: str = Field(min_length=1, max_length=150)
+    locator_version: str = Field(min_length=1, max_length=150)
+    thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    thresholds_version: str = Field(min_length=1, max_length=150)
+
+
 class PendingGridReinferenceJobPayload(ApiModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2]
     inference_kind: Literal["pending_grid_only"]
     cell_output_size: int = Field(default=64, ge=16)
-    grid_profile: GridProfileJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload | None = None
+    board_cell_recrop: BoardCellRecropJobSnapshotPayload | None = None
+
+    @model_validator(mode="after")
+    def validate_versioned_snapshot(self) -> Self:
+        if self.schema_version == 1:
+            if self.grid_profile is None or self.board_cell_recrop is not None:
+                raise ValueError("schema v1 requires only gridProfile")
+        elif self.board_cell_recrop is None or self.grid_profile is not None:
+            raise ValueError("schema v2 requires only boardCellRecrop")
+        return self
 
 
 class ImportJobCreate(ApiModel):

@@ -73,6 +73,88 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BoardCellRecropJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "activationVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Activationversion",
+            "type": "string"
+          },
+          "auditReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Auditreportchecksumsha256",
+            "type": "string"
+          },
+          "configurationFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configurationfingerprintsha256",
+            "type": "string"
+          },
+          "cropperFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cropperfingerprintsha256",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "estimatorVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Estimatorversion",
+            "type": "string"
+          },
+          "geometryVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Geometryversion",
+            "type": "string"
+          },
+          "homographyVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Homographyversion",
+            "type": "string"
+          },
+          "locatorVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Locatorversion",
+            "type": "string"
+          },
+          "thresholdsFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Thresholdsfingerprintsha256",
+            "type": "string"
+          },
+          "thresholdsVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Thresholdsversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activationVersion",
+          "auditReportChecksumSha256",
+          "configurationFingerprintSha256",
+          "cropperFingerprintSha256",
+          "cropperVersion",
+          "estimatorVersion",
+          "geometryVersion",
+          "homographyVersion",
+          "locatorVersion",
+          "thresholdsFingerprintSha256",
+          "thresholdsVersion"
+        ],
+        "title": "BoardCellRecropJobSnapshotPayload",
+        "type": "object"
+      },
       "BrowserImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8047,6 +8129,16 @@
       "PendingGridReinferenceJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "boardCellRecrop": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellRecropJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cellOutputSize": {
             "default": 64,
             "minimum": 16.0,
@@ -8054,7 +8146,14 @@
             "type": "integer"
           },
           "gridProfile": {
-            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "inferenceKind": {
             "const": "pending_grid_only",
@@ -8062,15 +8161,17 @@
             "type": "string"
           },
           "schemaVersion": {
-            "const": 1,
-            "default": 1,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schemaversion",
             "type": "integer"
           }
         },
         "required": [
-          "inferenceKind",
-          "gridProfile"
+          "schemaVersion",
+          "inferenceKind"
         ],
         "title": "PendingGridReinferenceJobPayload",
         "type": "object"
@@ -8078,6 +8179,20 @@
       "PendingGridReinferencePreviewResponse": {
         "additionalProperties": false,
         "properties": {
+          "auditReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Auditreportchecksumsha256",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "currentV19BoardCount": {
+            "minimum": 0.0,
+            "title": "Currentv19Boardcount",
+            "type": "integer"
+          },
           "fullyResolvedSourceCount": {
             "minimum": 0.0,
             "title": "Fullyresolvedsourcecount",
@@ -8086,6 +8201,10 @@
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
+            "type": "string"
+          },
+          "geometryVersion": {
+            "title": "Geometryversion",
             "type": "string"
           },
           "partiallyResolvedSourceCount": {
@@ -8108,6 +8227,11 @@
             "title": "Protectedboardcount",
             "type": "integer"
           },
+          "recalculableBoardCount": {
+            "minimum": 0.0,
+            "title": "Recalculableboardcount",
+            "type": "integer"
+          },
           "requiresExplicitActivation": {
             "default": true,
             "title": "Requiresexplicitactivation",
@@ -8117,10 +8241,15 @@
         "required": [
           "gameId",
           "pendingBoardCount",
+          "recalculableBoardCount",
+          "currentV19BoardCount",
           "protectedBoardCount",
           "pendingSourceCount",
           "partiallyResolvedSourceCount",
-          "fullyResolvedSourceCount"
+          "fullyResolvedSourceCount",
+          "geometryVersion",
+          "cropperVersion",
+          "auditReportChecksumSha256"
         ],
         "title": "PendingGridReinferencePreviewResponse",
         "type": "object"

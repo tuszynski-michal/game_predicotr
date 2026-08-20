@@ -367,6 +367,14 @@ zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć
 zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie
 propagowane na inne plansze.
 
+Po zaakceptowaniu bramki geometrii panel jakości udostępnia osobną, jawną
+akcję `Przelicz oczekujące`. Przed startem pokazuje wszystkie plansze
+`pending`, liczbę faktycznie wymagającą v19, liczbę już zapisaną w v19,
+chronione decyzje i przypięte wersje geometrii/croppera. Przycisk jest
+nieaktywny, gdy `recalculableBoardCount = 0`, oraz blokuje drugi submit podczas
+tworzenia joba. Operacja nie obiecuje automatycznego rozwiązania: plansze bez
+pełnej geometrii 3 × 5 pozostają do ręcznej korekty.
+
 Przycisk zapisu jest dostępny dopiero po wygenerowaniu podglądu odpowiadającego
 bieżącym czterem punktom. Każde przesunięcie uchwytu unieważnia poprzedni
 podgląd. W trakcie zapisu drugi submit i zamknięcie dialogu są zablokowane, a

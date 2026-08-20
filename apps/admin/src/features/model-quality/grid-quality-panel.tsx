@@ -112,8 +112,8 @@ export function GridQualityPanel({
         !result.response.created
           ? 'Profil dla tej samej kohorty już istnieje; używam zapisanej wersji.'
           : result.response.profile.status === 'candidate_ready'
-          ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
-          : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
+            ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
+            : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
       );
       await refresh();
     }
@@ -121,13 +121,20 @@ export function GridQualityPanel({
   }
 
   async function recalculatePending() {
-    if (pendingPreview === null || pendingPreview.pendingBoardCount === 0 || recalculating) return;
+    if (
+      pendingPreview === null ||
+      pendingPreview.recalculableBoardCount === 0 ||
+      recalculating
+    )
+      return;
     setRecalculating(true);
     setError('');
     const result = await startPendingGridReinference(api, gameId);
     if (result.ok) {
-      setNotice(`Uruchomiono odświeżenie oczekującej siatki (job ${result.job.id}).`);
-      setPendingPreview({ ...pendingPreview, pendingBoardCount: 0 });
+      setNotice(
+        `Uruchomiono odświeżenie geometrii komórek v19 dla oczekujących plansz (job ${result.job.id}).`,
+      );
+      setPendingPreview({ ...pendingPreview, recalculableBoardCount: 0 });
     } else {
       setError(result.error);
     }
@@ -194,19 +201,25 @@ export function GridQualityPanel({
       <div className="modelQualityActions">
         <button
           className="secondaryButton"
-          disabled={recalculating || pendingPreview?.pendingBoardCount === 0}
+          disabled={
+            recalculating || pendingPreview?.recalculableBoardCount === 0
+          }
           onClick={() => void recalculatePending()}
           type="button"
         >
           {recalculating
             ? 'Przeliczanie…'
-            : `Przelicz oczekujące (${pendingPreview?.pendingBoardCount ?? '…'})`}
+            : `Przelicz oczekujące (${pendingPreview?.recalculableBoardCount ?? '…'})`}
         </button>
         {pendingPreview !== null ? (
           <small>
-            Chronione: {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
+            Oczekujące: {pendingPreview.pendingBoardCount}; już w v19:{' '}
+            {pendingPreview.currentV19BoardCount}; chronione:{' '}
+            {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
             {pendingPreview.partiallyResolvedSourceCount}; pominięte:{' '}
-            {pendingPreview.fullyResolvedSourceCount}
+            {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
+            {pendingPreview.geometryVersion}; cropper:{' '}
+            {pendingPreview.cropperVersion}.
           </small>
         ) : null}
       </div>

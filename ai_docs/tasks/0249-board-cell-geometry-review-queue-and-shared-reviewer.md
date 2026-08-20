@@ -15,10 +15,11 @@ TASK 1, czyli stabilizacja baseline'u i decyzji architektonicznych, TASK 2,
 czyli kontrakt i rzeczywisty corpus geometrii komórek, TASK 3, czyli nieaktywny
 automatyczny estymator v19, TASK 4, czyli checkpoint 100 stron, oraz TASK 5,
 czyli nieaktywny source-direct cropper v19, oraz TASK 6, czyli ręczny edytor i
-read-only podgląd 15 finalnych cropów v19, są ukończone. Produkcyjny pipeline,
-oraz TASK 7, czyli append-only zapis ręcznej geometrii v19, są ukończone.
-Produkcyjny pipeline i pending-only recrop opisane poniżej nie zostały jeszcze
-rozpoczęte.
+read-only podgląd 15 finalnych cropów v19, są ukończone. TASK 7, czyli
+append-only zapis ręcznej geometrii v19, oraz TASK 8, czyli jawny pending-only
+recrop na zaakceptowanym v19, również są ukończone. Pełny produkcyjny pipeline
+importu pozostaje na historycznym v18; piony stabilnej kolejki i wspólnego
+Reviewera nie zostały jeszcze rozpoczęte.
 
 ## Goal
 
@@ -129,8 +130,9 @@ Zaakceptowane decyzje baseline'u:
 6. [ukończone w TASK 7] Zapisywać ręczną korektę append-only z checksumą
    źródła, pozycji, wersji i aktora. Ten sam walidator ma obsługiwać automat,
    preview i zapis.
-7. Po zaliczeniu bramki udostępnić pending-only recrop. Nie otwierać ani nie
-   modyfikować elementów rozwiązanych i nie uruchamiać ponownie OCR/discovery.
+7. [ukończone w TASK 8] Po zaliczeniu bramki udostępnić pending-only recrop.
+   Nie otwierać ani nie modyfikować elementów rozwiązanych i nie uruchamiać
+   ponownie OCR/discovery.
 
 ### Outcome TASK 2 — kontrakt i corpus
 
@@ -401,6 +403,71 @@ nieużyty `type: ignore`); TASK 7 nie osłabia tej bramki ani nie zmienia pliku.
 - [x] Pipeline, automatyczny estymator, cropper v18, modele symboli oraz
       rozwiązane decyzje innych plansz pozostają bez zmian.
 
+### Outcome TASK 8 — pending-only recrop v19
+
+- Jawna akcja `Przelicz oczekujące` tworzy teraz job schema v2 z niezmiennym
+  snapshotem `pending-board-cell-recrop-v19-v1`. Snapshot przypina wersje
+  estymatora, locatora, homografii, progów, geometrii, croppera, ich
+  fingerprinty oraz checksumę zaakceptowanego audytu 100 stron.
+- Worker zachowuje historyczne wykonanie schema v1, natomiast schema v2 nie
+  uruchamia klasycznego detektora strony, OCR ani discovery. Dla planszy
+  `pending` korzysta z istniejącego zweryfikowanego quadu strony, uruchamia
+  fail-closed estymator v19 i zapisuje dokładnie 15 source-direct cropów v19.
+- Brak kompletnego 3 × 5 pozostawia element w review jako
+  `needsManualGeometry`; nie powstaje częściowa rewizja ani częściowe pliki.
+  JPEG źródłowy jest weryfikowany checksumą i wymiarami oraz dekodowany tylko
+  raz dla wszystkich plansz tej samej strony.
+- Zapis blokuje ponownie item i planszę oraz porównuje status, rewizje,
+  źródło, numer, pozycję, geometrię i checksumy. `accepted`, `corrected`,
+  `rejected` albo równoległa korekta zawsze wygrywają z workerem. Automatyczny
+  recrop dopisuje rewizję geometrii, nie zmienia statusu review ani nie otwiera
+  rozstrzygniętej pozycji.
+- Istniejąca geometria v19, również ręczna, nie jest nadpisywana. Finalne PNG
+  mają immutable, rewizjonowany namespace; retry jest bezpieczny i raportuje
+  osobno przeliczone, już aktualne, pominięte konkurencyjnie, wymagające ręcznej
+  geometrii i błędy techniczne.
+- Preview API i Admin rozróżniają wszystkie `pending`, kwalifikujące do
+  przeliczenia, już zapisane w v19 oraz chronione. Przycisk jest aktywny tylko
+  dla faktycznej liczby `recalculableBoardCount` i pokazuje przypięte wersje.
+- Aktywny import oraz cropper v18, model i katalog symboli, staging i
+  rozstrzygnięte decyzje pozostają niezmienione. TASK 8 nie uruchamia joba na
+  danych właściciela.
+
+### Verification TASK 8
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/worker/tests/test_pending_grid_reinference.py services/worker/tests/test_board_cell_geometry_crops.py services/worker/tests/test_board_cell_geometry_estimator.py -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_jobs_api.py services/api/tests/test_operational_image_reviews.py services/api/tests/test_openapi_contract.py -q
+npm.cmd test --workspace @game-predictor/admin
+npm.cmd test --workspace @game-predictor/admin-api-client
+npm.cmd run typecheck --workspace @game-predictor/admin
+npm.cmd run lint --workspace @game-predictor/admin
+npm.cmd run openapi:check
+```
+
+Wynik: `22` testy workera, `39` testów API, `212` testów Admina i `38` testów
+generowanego klienta przeszły. Ruff i Prettier dla zmienionych plików,
+typecheck oraz build Admina, build/typecheck klienta, lint zmienionego
+komponentu i kontrola OpenAPI/generowanego klienta przeszły. Ograniczony mypy
+dla obu zmienionych modułów workera przeszedł. Pełny mypy repozytorium nie
+zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
+`AGENTS.md`; TASK 8 nie osłabia tej bramki ani nie ukrywa jej jako zaliczonej.
+
+### Acceptance criteria TASK 8
+
+- [x] Pending-only recrop używa wyłącznie zaakceptowanego, checksum-bound
+      snapshotu v19 i nie zmienia odtwarzalności schema v1 ani croppera v18.
+- [x] Przetwarzane są wyłącznie itemy nadal `pending`; każdy zapis ponownie
+      sprawdza status i wszystkie zależne rewizje pod blokadą.
+- [x] Pełne 3 × 5 daje dokładnie 15 source-direct cropów; niepełna geometria
+      pozostaje fail-closed bez częściowego zapisu.
+- [x] Istniejąca ręczna lub automatyczna rewizja v19 nie jest nadpisywana.
+- [x] OCR, discovery, numery `seq_*`, status review, model symboli, staging i
+      decyzje rozstrzygnięte nie są zmieniane.
+- [x] API/OpenAPI/Admin pokazują kwalifikujące, już aktualne i chronione
+      pozycje oraz blokują pusty start.
+- [x] TASK 8 nie uruchamia rzeczywistego joba i nie rozpoczyna pionu B ani C.
+
 ### Kryteria odbioru pionu
 
 - corpus obejmuje różne kąty, częściowe zasłonięcia i znane błędy v18,
@@ -540,6 +607,7 @@ TASK 1 ustabilizował baseline dokumentacyjny i test głowy migracji. TASK 2 dod
 deterministyczny, fail-closed estymator v19 bez aktywowania go w pipeline. TASK 4
 zaliczył deterministyczny checkpoint 100 stron bez fałszywego sukcesu. Edytor i
 podgląd v19 powstały w TASK 6, a TASK 7 uruchomił ich append-only zapis z pełną
-proweniencją. Pending-only recrop, produkcyjna aktywacja v19 oraz pozostałe dwa
-piony pozostają otwarte i wymagają osobnych poleceń dla kolejnych numerów z
-zaakceptowanego breakdownu.
+proweniencją. TASK 8 udostępnił osobno odbierany pending-only recrop v19 bez
+zmiany pełnego pipeline'u importu. Pozostałe dwa piony oraz ewentualna szersza
+aktywacja produkcyjna pozostają otwarte i wymagają osobnych poleceń dla
+kolejnych numerów z zaakceptowanego breakdownu.

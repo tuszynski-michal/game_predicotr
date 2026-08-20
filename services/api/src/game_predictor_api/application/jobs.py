@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Protocol, cast
 from uuid import UUID
 
+from game_predictor_worker.images.board_cell_geometry_activation import (
+    board_cell_recrop_snapshot,
+)
+
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import (
@@ -468,7 +472,7 @@ class JobService:
         )
 
     def create_pending_grid_reinference_job(self, *, game_id: UUID) -> Job:
-        """Create a job that refreshes geometry and crops for pending boards only."""
+        """Create a pinned v19 recrop job for unresolved boards only."""
 
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -476,30 +480,20 @@ class JobService:
                 "Game does not exist.",
                 details={"gameId": str(game_id)},
             )
-        grid_profile = (
-            _baseline_grid_profile_snapshot()
-            if self._grid_profile_snapshot_resolver is None
-            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
-        )
-        fingerprint = grid_profile.get("inferenceFingerprint")
-        if not isinstance(fingerprint, str) or len(fingerprint) != 64:
-            raise JobError(
-                "GRID_PROFILE_SNAPSHOT_INVALID",
-                "The active grid profile snapshot is invalid.",
-            )
         symbol_model = (
             bootstrap_symbol_model_snapshot()
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
+        recrop_snapshot = board_cell_recrop_snapshot(cell_output_size=symbol_model.input_size)
         return self._persist_job(
             JobType.IMAGE_GRID_REINFERENCE,
             game_id=game_id,
             input_payload={
-                "schema_version": 1,
+                "schema_version": 2,
                 "inference_kind": "pending_grid_only",
                 "cell_output_size": symbol_model.input_size,
-                "grid_profile": grid_profile,
+                "board_cell_recrop": recrop_snapshot,
             },
             game_already_validated=True,
         )

@@ -207,7 +207,7 @@ zaakceptowanych przez właściciela geometrii: trzy dla każdej z dziewięciu
 pozycji, z dwóch rodzin źródeł. Weryfikuje checksumy źródłowego manifestu,
 goldena i JPEG-ów.
 
-Nieaktywny estymator `board-cell-geometry-v19-multi-point-source-direct-v1`
+Estymator `board-cell-geometry-v19-multi-point-source-direct-v1`
 wykrywa komponenty na całej płaszczyźnie planszy, buduje ograniczony zbiór
 hipotez wspólnych osi 5 × 3 i dopiero po jednoznacznym przypisaniu dopasowuje
 homografię guarded RANSAC. Przejście wymaga co najmniej 10 przypisań, 10
@@ -219,7 +219,9 @@ ani pośredniego obrazu planszy.
 Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
 maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
 częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
-globalnych przypisań. Wynik nie aktywuje croppera v19 ani nie zmienia v18.
+globalnych przypisań. Estymator nie zmienia pełnego pipeline'u importu v18;
+po zaliczeniu bramki 100 stron może działać wyłącznie w jawnej operacji
+pending-only opisanej poniżej.
 
 Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
 deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
@@ -227,10 +229,10 @@ estymator dla wszystkich 900 plansz. Raport jest content-addressed i nie zapisuj
 bezwzględnej ścieżki źródła. Audyt próbki z 20 sierpnia 2026 zaakceptował
 wszystkie 888 wyemitowanych geometrii bez przesunięcia o wiersz/kolumnę i bez
 symbolu poza komórką. Pozostałe 12 plansz było kontrolowanymi fallbackami bez
-quadów komórek. Estymator pozostaje nieaktywny do następnego, osobno odbieranego
-etapu.
+quadów komórek. Ten checkpoint jest bramką osobno aktywowanego pending-only
+recropu; nie przełącza pełnego pipeline'u importu.
 
-Nieaktywny cropper
+Cropper
 `board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1` konsumuje
 wyłącznie kompletny, zwalidowany `BoardCellGeometryEntry`. W kanonicznym slocie
 `100 × 100` stosuje stały inset `10 px`, projektuje padded quad do źródła i
@@ -240,8 +242,9 @@ drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
 evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
 resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
 paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
-fingerprintem. Adapter pozostaje poza aktywnym pipeline'em do osobnego odbioru
-integracji.
+fingerprintem. Adapter pozostaje poza pełnym pipeline'em importu; po osobnym
+odbiorze integracji jest aktywny tylko dla ręcznej korekty i jawnego
+pending-only recropu.
 
 Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
 cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
@@ -265,6 +268,25 @@ pośredniej planszy `500 × 300`, tworzy nowe `cropSampleId` dla 15 nowych
 checksum i ponownie otwiera tylko bieżącą planszę do weryfikacji symboli.
 Nie aktywuje estymatora v19 dla pipeline'u ani pending-only recropu innych
 plansz.
+
+Jawny pending-only adapter `pending-board-cell-recrop-v19-v1` jest odrębną
+operacją od zapisu ręcznego i pełnego importu. Job przypina checksumę
+zaakceptowanego audytu 100 stron oraz wersje i fingerprinty locatora,
+homografii, progów, estymatora, geometrii i croppera. Historyczny job schema v1
+pozostaje odtwarzalny; nowe uruchomienie używa schema v2.
+
+Adapter bierze istniejący zweryfikowany quad planszy i nie uruchamia ponownie
+discovery, detektora strony ani OCR numerów. Tylko kompletne evidence 3 × 5
+może utworzyć 15 source-direct cropów i append-only rewizję geometrii. Brak
+pełnej geometrii pozostawia planszę w review bez częściowych plików.
+
+Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
+ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
+sprawdza status itemu, rewizję resolution, rewizję i całą geometrię planszy,
+źródło, pozycję, numer oraz checksumy. Równoległa decyzja człowieka albo
+korekta wygrywa; `accepted`, `corrected`, `rejected` i istniejąca ręczna lub
+automatyczna geometria v19 nie są zmieniane. Operacja nie zmienia modelu,
+katalogu symboli, stagingu ani statusu review.
 
 Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
 pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza

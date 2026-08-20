@@ -17,6 +17,7 @@ from game_predictor_api.application.image_review_assets import (
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
     OperationalImageReviewService,
+    PendingGridReinferencePreview,
 )
 from game_predictor_api.application.reviewer_access import ReviewerAccessService
 from game_predictor_api.config import ApiSettings
@@ -352,6 +353,41 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             rejected=statuses.count("rejected"),
         )
 
+    def pending_grid_reinference_preview(
+        self,
+        game_id: UUID,
+        *,
+        geometry_version: str,
+        cropper_version: str,
+        audit_report_checksum_sha256: str,
+    ) -> PendingGridReinferencePreview:
+        if game_id != self.game_id:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_CONTEXT_NOT_FOUND",
+                "The selected operational review context does not exist.",
+            )
+        items = tuple(self.items.values())
+        pending = tuple(item for item in items if item.status == "pending")
+        current = tuple(
+            item
+            for item in pending
+            if item.geometry.get("geometryVersion") == geometry_version
+            and item.geometry.get("cropperVersion") == cropper_version
+        )
+        return PendingGridReinferencePreview(
+            game_id=game_id,
+            pending_board_count=len(pending),
+            recalculable_board_count=len(pending) - len(current),
+            current_v19_board_count=len(current),
+            protected_board_count=len(items) - len(pending),
+            pending_source_count=len(pending),
+            partially_resolved_source_count=0,
+            fully_resolved_source_count=len(items) - len(pending),
+            geometry_version=geometry_version,
+            cropper_version=cropper_version,
+            audit_report_checksum_sha256=audit_report_checksum_sha256,
+        )
+
 
 def _item(
     game_id: UUID,
@@ -464,6 +500,43 @@ def _resolution_payload(
         ],
         "resolvedBy": "local-admin",
     }
+
+
+def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, _import_job_id = operational_review_context
+    current_id = next(iter(repository.items))
+    current = repository.items[current_id]
+    repository.items[current_id] = replace(
+        current,
+        geometry={
+            **current.geometry,
+            "cropperVersion": ("board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"),
+            "geometryVersion": "board-cell-geometry-v19-multi-point-source-direct-v1",
+        },
+    )
+
+    response = client.get(
+        f"/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pendingBoardCount"] == 3
+    assert payload["recalculableBoardCount"] == 2
+    assert payload["currentV19BoardCount"] == 1
+    assert payload["protectedBoardCount"] == 0
+    assert payload["geometryVersion"] == ("board-cell-geometry-v19-multi-point-source-direct-v1")
+    assert payload["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    assert len(payload["auditReportChecksumSha256"]) == 64
 
 
 def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:

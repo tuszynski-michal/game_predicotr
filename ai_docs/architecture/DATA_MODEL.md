@@ -761,8 +761,9 @@ scalanych albo jedna grupa jest źródłem ręcznego splitu.
 
 ### image_board_geometry_revisions
 
-M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.
-Rekord zawiera:
+M6.5 dodaje append-only historię korekt geometrii operacyjnej planszy. Rewizja
+może pochodzić z ręcznego edytora albo jawnego pending-only recropu; oba źródła
+zachowują poprzednie rekordy i pliki. Rekord zawiera:
 
 - `review_item_id` oraz `recognized_board_id`,
 - rosnącą `revision`,
@@ -778,6 +779,10 @@ croppera, fingerprint, oczekiwane rewizje, aktora oraz
 `decisionChecksumSha256`. Checksum decyzji kanonicznie wiąże te pola; nie jest
 zamiennikiem `command_sha256`, który nadal chroni idempotentny transport.
 Historyczna rewizja v1 może nie mieć checksumy decyzji i pozostaje czytelna.
+Automatyczna rewizja TASK 8 ma `corrected_by = pending-board-cell-recrop-v19`,
+pełne evidence automatycznego estymatora, checksumę przypiętej konfiguracji i
+15 immutable cropów. Nie udaje decyzji człowieka i nie zmienia
+`image_review_items.status` ani `resolution_revision`.
 
 `corners`, wynikowa `geometry` i `crop_artifacts` są JSONB; constraint wymaga
 czterech narożników oraz dokładnie 15 artefaktów cropów. Unikalne
@@ -791,6 +796,12 @@ Accepted/corrected `resolved_value` wskazuje dokładną rewizję geometrii i
 `cropSampleId` każdej z 15 komórek. Dzięki temu późniejsze ulepszenie profilu
 cięcia ani retraining nie zmienia danych, które rzeczywiście zatwierdził
 człowiek.
+
+Pending-only zapis jest dozwolony wyłącznie, gdy zablokowany item nadal ma
+status `pending`, a jego resolution revision oraz pełna projekcja planszy są
+identyczne ze snapshotem workera. Rozwiązana lub równolegle zmieniona pozycja
+nie tworzy rekordu. Istniejąca rewizja geometrii/croppera v19 jest uznawana za
+aktualną i nie jest nadpisywana.
 
 ### reviewer_access_sessions i reviewer_access_audit_events
 

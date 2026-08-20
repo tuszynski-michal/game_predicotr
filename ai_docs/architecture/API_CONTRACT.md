@@ -1477,6 +1477,34 @@ i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
 Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
 UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
 
+Jawny pending-only recrop v19 wykorzystuje:
+
+```text
+GET  /api/v1/admin/image-review-items/pending-grid-reinference/preview/{gameId}
+POST /api/v1/admin/image-review-items/pending-grid-reinference/{gameId}
+```
+
+Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
+`currentV19BoardCount`, `protectedBoardCount`, liczniki źródeł oraz przypięte
+`geometryVersion`, `cropperVersion` i checksumę zaakceptowanego audytu 100
+stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
+jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
+pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+
+Nowy job `image_grid_reinference` używa payloadu schema v2 i snapshotu
+`boardCellRecrop`. Snapshot zawiera wersje i fingerprinty locatora, homografii,
+progów, estymatora, geometrii i croppera oraz checksumę audytu; worker odrzuca
+jakąkolwiek zmianę payloadu stabilnym
+`IMAGE_BOARD_CELL_RECROP_SNAPSHOT_INVALID`. Historyczny payload schema v1 z
+`gridProfile` pozostaje serializowalny i odtwarzalny.
+
+Operacja nie przyjmuje zakresu, ścieżki ani gotowych quadów od klienta. Nie
+uruchamia OCR/discovery i nie zmienia statusu review. Worker zapisuje rewizję
+wyłącznie po ponownej warunkowej kontroli itemu i planszy pod blokadą;
+równoległa decyzja człowieka jest raportowana jako pominięta, a nie jako błąd.
+Niepełna geometria trafia do licznika `needsManualGeometry` bez częściowych
+cropów.
+
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
 ani nie zmienia modelu. `POST` przyjmuje wyłącznie `createdBy`, `gameId` i

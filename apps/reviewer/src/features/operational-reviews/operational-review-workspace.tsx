@@ -296,25 +296,6 @@ export function OperationalReviewWorkspace({
     });
   }
 
-  function handleGeometrySaved(updated: OperationalImageReviewItemResponse) {
-    setPageNotice(
-      `Zapisano siatkę jako rewizję ${updated.geometryRevision}. Plansza i cropy zostały odświeżone.`,
-    );
-    setPage((current) => {
-      if (current === null) return current;
-      const previousStatus = current.items[0]?.status;
-      return {
-        ...current,
-        counts: updateOperationalReviewCounts(
-          current.counts,
-          previousStatus,
-          updated.status,
-        ),
-        items: [updated],
-      };
-    });
-  }
-
   async function handleFreezeCohort() {
     if (selectedGameId === '' || selectedJobId === '' || freezingCohort) {
       return;
@@ -489,7 +470,6 @@ export function OperationalReviewWorkspace({
                     beforeCursor: page?.previousCursor ?? undefined,
                   })
                 }
-                onGeometrySaved={handleGeometrySaved}
                 onReload={() => {
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
@@ -671,7 +651,6 @@ function OperationalReviewBoard({
   onJumpSubmit,
   onNext,
   onPrevious,
-  onGeometrySaved,
   onReload,
   onResolved,
   symbols,
@@ -689,7 +668,6 @@ function OperationalReviewBoard({
   readonly onJumpSubmit: () => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
-  readonly onGeometrySaved: (item: OperationalImageReviewItemResponse) => void;
   readonly onReload: () => void;
   readonly onResolved: (
     resolution: OperationalImageReviewResolutionResponse,
@@ -917,7 +895,6 @@ function OperationalReviewBoard({
               apiBaseUrl={apiBaseUrl}
               importJobId={importJobId}
               item={item}
-              onSaved={onGeometrySaved}
             />
             <button
               aria-label="Poprzednia plansza"

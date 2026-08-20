@@ -14,8 +14,10 @@ last_updated: 2026-08-20
 TASK 1, czyli stabilizacja baseline'u i decyzji architektonicznych, TASK 2,
 czyli kontrakt i rzeczywisty corpus geometrii komórek, TASK 3, czyli nieaktywny
 automatyczny estymator v19, TASK 4, czyli checkpoint 100 stron, oraz TASK 5,
-czyli nieaktywny source-direct cropper v19, są ukończone. Pipeline, edytor, API
-i UI opisane poniżej nie zostały jeszcze rozpoczęte.
+czyli nieaktywny source-direct cropper v19, oraz TASK 6, czyli ręczny edytor i
+read-only podgląd 15 finalnych cropów v19, są ukończone. Produkcyjny pipeline,
+append-only zapis v19 i pending-only recrop opisane poniżej nie zostały jeszcze
+rozpoczęte.
 
 ## Goal
 
@@ -120,7 +122,7 @@ Zaakceptowane decyzje baseline'u:
 4. [ukończone w TASK 5] Wyprowadzać 15 komórek i padding bezpośrednio z
    oryginału w jednym resamplingu. Nie materializować pośrednio rozciągniętej
    planszy.
-5. Zbudować edytor ręczny, w którym cztery główne uchwyty oznaczają granice
+5. [ukończone w TASK 6] Zbudować edytor ręczny, w którym cztery główne uchwyty oznaczają granice
    siatki 5 × 3. Cztery dodatkowe uchwyty krawędziowe są pochodne i nie zmieniają
    semantyki zapisu. Podgląd musi pokazywać wszystkie 15 finalnych cropów.
 6. Zapisywać ręczną korektę append-only z checksumą źródła, pozycji, wersji i
@@ -296,6 +298,47 @@ Zaakceptowane decyzje baseline'u:
       częściowych cropów.
 - [x] Rzeczywisty corpus `27/27` tworzy komplet `405` cropów.
 - [x] Pipeline, cropper v18, modele symboli, baza, API i UI pozostają bez zmian.
+
+### Outcome TASK 6 — ręczny edytor i podgląd v19
+
+- Istniejący modal Reviewera używa semantyki D-204: cztery numerowane uchwyty
+  oznaczają `latticeBoundsQuad`, czyli zewnętrzne granice siatki symboli 5 × 3,
+  a nie czerwoną ramkę planszy.
+- Cztery szare uchwyty krawędziowe są wyprowadzane projektowo z tych samych
+  narożników. Nie uczestniczą w hit-testingu i nie trafiają do komendy API.
+- Overlay 5 × 3 jest liczony przez transform projektowy tego samego quadu,
+  zamiast liniowej interpolacji, więc odpowiada granicom używanym przez
+  source-direct cropper.
+- Read-only endpoint preview używa
+  `manual-board-cell-geometry-v19-preview-v1` i nieaktywnego croppera v19.
+  Zwracany PNG jest contact sheetem `5 × 3` złożonym z dokładnie 15 finalnych
+  cropów `64 × 64`, a nie rasterem pośredniej planszy `500 × 300`.
+- Preview ponownie sprawdza checksumę źródła, rewizje, jednoznaczny numer,
+  evidence, komplet pochodnych cell quadów i pełny source support. Nie zapisuje
+  plików, rewizji ani BLOB-ów.
+- Przycisk historycznego zapisu v1 został odłączony od edytora v19, aby nowe
+  narożniki nie zostały zinterpretowane jako narożniki czerwonej ramki. Jego
+  zastąpienie append-only zapisem v19 należy wyłącznie do TASK 7.
+
+### Verification TASK 6
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/worker/tests/test_manual_board_cell_geometry_preview.py services/worker/tests/test_board_cell_geometry_crops.py -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_operational_image_reviews.py -q
+npm.cmd test --workspace @game-predictor/reviewer
+npm.cmd run openapi:check
+```
+
+### Acceptance criteria TASK 6
+
+- [x] Cztery główne uchwyty mają semantykę granic siatki symboli 5 × 3.
+- [x] Cztery dodatkowe uchwyty są pochodne i nie zmieniają payloadu.
+- [x] Overlay zachowuje perspektywę i korzysta z tego samego quadu co cropper.
+- [x] Podgląd pokazuje dokładnie 15 finalnych source-direct cropów row-major.
+- [x] Preview używa walidacji v19 i nie tworzy plików ani rewizji.
+- [x] Historyczny zapis nie może zapisać narożników o nowej semantyce.
+- [x] Cropper v18, pipeline, modele symboli, baza i decyzje review pozostają bez
+      zmian.
 
 ### Kryteria odbioru pionu
 

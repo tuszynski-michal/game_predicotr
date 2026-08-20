@@ -10451,7 +10451,7 @@ export type PreviewOperationalImageReviewGeometryError =
 
 export type PreviewOperationalImageReviewGeometryResponses = {
   /**
-   * Rectified 500 by 300 board preview
+   * Five by three contact sheet of final source-direct crops
    */
   200: unknown;
 };

@@ -11,8 +11,12 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_worker.images.geometry import Point
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreview,
+    ManualBoardCellGeometryPreviewer,
+    ManualBoardCellGeometryPreviewError,
+)
 from game_predictor_worker.images.manual_geometry_recrop import (
-    ManualGeometryPreview,
     ManualGeometryRecropper,
 )
 from game_predictor_worker.images.rectification import BoardCropError
@@ -104,9 +108,7 @@ class OperationalImageReviewRepository(Protocol):
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
 
-    def pending_grid_reinference_preview(
-        self, game_id: UUID
-    ) -> PendingGridReinferencePreview: ...
+    def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview: ...
 
     def get_item(
         self,
@@ -186,10 +188,12 @@ class OperationalImageReviewService:
         repository: OperationalImageReviewRepository,
         *,
         artifact_root: Path | None = None,
+        board_cell_geometry_previewer: ManualBoardCellGeometryPreviewer | None = None,
         geometry_recropper: ManualGeometryRecropper | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_root = artifact_root
+        self._board_cell_geometry_previewer = board_cell_geometry_previewer
         self._geometry_recropper = geometry_recropper
 
     def list_items(
@@ -333,9 +337,7 @@ class OperationalImageReviewService:
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
         return self._repository.game_counts(game_id)
 
-    def pending_grid_reinference_preview(
-        self, game_id: UUID
-    ) -> PendingGridReinferencePreview:
+    def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview:
         return self._repository.pending_grid_reinference_preview(game_id)
 
     def get_item(
@@ -511,7 +513,7 @@ class OperationalImageReviewService:
         expected_geometry_revision: int,
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
-    ) -> ManualGeometryPreview:
+    ) -> ManualBoardCellGeometryPreview:
         command = validate_image_review_geometry_command(
             corners=corners,
             expected_geometry_revision=expected_geometry_revision,
@@ -524,20 +526,35 @@ class OperationalImageReviewService:
             import_job_id=import_job_id,
         )
         self._require_current_geometry_command(item, command)
-        recropper, artifact_root = self._require_geometry_dependencies()
+        sequence_number = item.queue_sequence_number
+        if sequence_number is None and item.geometry.get("sequenceSource") == "filename":
+            sequence_number = item.suggested_sequence_number
+        if sequence_number is None:
+            raise ImageReviewConflictError(
+                "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED",
+                "Board-cell geometry preview requires an unambiguous sequence number.",
+            )
+        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
         source = resolve_operational_source_asset(item, artifact_root)
         try:
-            return recropper.preview(
+            return previewer.preview(
                 source_path=source.path,
                 expected_source_sha256=item.source_checksum_sha256,
-                corners=(
-                    Point(command.corners[0].x, command.corners[0].y),
-                    Point(command.corners[1].x, command.corners[1].y),
-                    Point(command.corners[2].x, command.corners[2].y),
-                    Point(command.corners[3].x, command.corners[3].y),
+                source_order_index=item.source_order_index,
+                source_image_id=str(item.source_image_id),
+                source_image_relative_path=item.source_relative_path,
+                source_group=str(item.import_job_id),
+                sequence_number=sequence_number,
+                position_index=item.position_index,
+                lattice_bounds_quad=(
+                    (float(command.corners[0].x), float(command.corners[0].y)),
+                    (float(command.corners[1].x), float(command.corners[1].y)),
+                    (float(command.corners[2].x), float(command.corners[2].y)),
+                    (float(command.corners[3].x), float(command.corners[3].y)),
                 ),
+                decision_checksum_sha256=command.command_sha256,
             )
-        except BoardCropError as error:
+        except ManualBoardCellGeometryPreviewError as error:
             raise ImageReviewConflictError(error.code, str(error)) from error
 
     def correct_geometry(
@@ -668,6 +685,16 @@ class OperationalImageReviewService:
                 "Manual geometry correction is not configured.",
             )
         return self._geometry_recropper, self._artifact_root
+
+    def _require_board_cell_geometry_preview_dependencies(
+        self,
+    ) -> tuple[ManualBoardCellGeometryPreviewer, Path]:
+        if self._board_cell_geometry_previewer is None or self._artifact_root is None:
+            raise ImageReviewConflictError(
+                "BOARD_CELL_GEOMETRY_PREVIEW_UNAVAILABLE",
+                "The v19 board-cell geometry preview is not configured.",
+            )
+        return self._board_cell_geometry_previewer, self._artifact_root
 
 
 def _retained_review_context(

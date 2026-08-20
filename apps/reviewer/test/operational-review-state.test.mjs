@@ -12,10 +12,12 @@ import {
   operationalReviewAssetUrl,
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
   operationalReviewNativeContextViewport,
   operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
+  operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
   operationalReviewResolutionAction,
   operationalReviewSequence,
@@ -384,6 +386,40 @@ test('parses manual geometry corners and binds preview/save to both revisions', 
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
     },
   );
+});
+
+test('prefers v19 lattice bounds and derives four read-only projective edge handles', () => {
+  const latticeBoundsQuad = [
+    { x: 100, y: 80 },
+    { x: 550, y: 110 },
+    { x: 500, y: 360 },
+    { x: 130, y: 330 },
+  ];
+  const item = {
+    ...reviewItem(),
+    geometry: {
+      latticeBoundsQuad,
+      sourceQuad: [
+        { x: 20, y: 20 },
+        { x: 580, y: 20 },
+        { x: 580, y: 390 },
+        { x: 20, y: 390 },
+      ],
+    },
+  };
+
+  const corners = operationalReviewGeometryCorners(item, 600, 400);
+  const handles = operationalReviewGeometryEdgeHandles(corners);
+
+  assert.deepEqual(corners, latticeBoundsQuad);
+  assert.equal(handles.length, 4);
+  assert.deepEqual(operationalReviewPointInLattice(corners, 0, 0), corners[0]);
+  assert.deepEqual(operationalReviewPointInLattice(corners, 1, 0), corners[1]);
+  assert.deepEqual(operationalReviewPointInLattice(corners, 1, 1), corners[2]);
+  assert.deepEqual(operationalReviewPointInLattice(corners, 0, 1), corners[3]);
+  const command = buildOperationalReviewGeometryPreviewCommand(item, corners);
+  assert.deepEqual(command.corners, latticeBoundsQuad);
+  assert.equal(Object.hasOwn(command, 'edgeHandles'), false);
 });
 
 test('limits geometry editing to one board viewport and preserves source coordinates', () => {

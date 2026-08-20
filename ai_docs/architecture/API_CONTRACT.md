@@ -1459,12 +1459,18 @@ wersji croppera, ścieżki i checksumy cropu. Endpointy assetów rozwiązują
 wyłącznie względne ścieżki pod `<artifact-root>/data`, blokują traversal i
 sprawdzają checksumę przed wysłaniem pliku.
 
-Geometry revision przyjmuje cztery narożniki w przestrzeni oryginalnego obrazu
-oraz expected geometry i resolution revision. Preview zwraca PNG kanonicznej
-planszy 500 × 300 i nie zapisuje pliku ani rewizji. Zapis wymaga dodatkowo UUID
-idempotencji i aktora; backend/worker generuje nową planszę i dokładnie 15
+Preview geometrii przyjmuje cztery narożniki zewnętrznych granic siatki symboli
+5 × 3 w przestrzeni oryginalnego obrazu oraz expected geometry i resolution
+revision. Zwraca PNG `5 × 3` złożony z dokładnie 15 finalnych cropów
+source-direct v19 i nie zapisuje pliku ani rewizji. Cztery pochodne uchwyty
+krawędziowe nie należą do payloadu.
+
+Historyczny zapis geometry revision nadal wymaga dodatkowo UUID idempotencji i
+aktora; backend/worker generuje nową planszę i dokładnie 15
 cropów, zapisuje ścieżki oraz checksumy i ponownie otwiera review item. Klient
 nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+Do czasu TASK 7 Reviewer nie wywołuje tego historycznego zapisu z edytora v19,
+ponieważ jego cztery punkty miały inną semantykę narożników planszy.
 
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu

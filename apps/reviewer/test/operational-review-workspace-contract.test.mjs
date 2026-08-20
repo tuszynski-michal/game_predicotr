@@ -72,15 +72,20 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(geometryEditor, /operationalReviewPointInCanvas/);
   assert.match(geometryEditor, /onPointerMove/);
   assert.match(geometryEditor, /onPointerUp=\{finishDragging\}/);
-  assert.match(geometryEditor, /onSaved\(result\.geometry\.item\)/);
   assert.match(geometryEditor, /for \(let column = 0; column <= 5/);
   assert.match(geometryEditor, /for \(let row = 0; row <= 3/);
+  assert.match(geometryEditor, /operationalReviewPointInLattice/);
+  assert.match(geometryEditor, /operationalReviewGeometryEdgeHandles/);
   assert.match(geometryEditor, /Array\.from\(\{ length: 15 \}/);
   assert.match(geometryEditor, /previewOperationalReviewGeometry/);
-  assert.match(geometryEditor, /saveOperationalReviewGeometry/);
-  assert.match(geometryEditor, /usage: 'geometry-editor-v2'/);
-  assert.match(source, /function handleGeometrySaved/);
-  assert.match(source, /items: \[updated\]/);
+  assert.doesNotMatch(geometryEditor, /saveOperationalReviewGeometry/);
+  assert.match(
+    geometryEditor,
+    /usage: 'board-cell-geometry-editor-v19-preview-v1'/,
+  );
+  assert.match(geometryEditor, /15 finalnych cropów source-direct/);
+  assert.match(geometryEditor, /backgroundSize: '500% 300%'/);
+  assert.doesNotMatch(geometryEditor, /Zapisz nową rewizję/);
   assert.match(source, /version: cell\.cropChecksumSha256/);
   assert.match(source, /version: item\.sourceChecksumSha256/);
   assert.match(source, /Zamroź kohortę/);

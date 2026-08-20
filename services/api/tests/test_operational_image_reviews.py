@@ -37,6 +37,9 @@ from game_predictor_api.domain.image_reviews import (
     ValidatedImageReviewResolution,
 )
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreviewer,
+)
 from game_predictor_worker.images.manual_geometry_recrop import ManualGeometryRecropper
 
 
@@ -547,8 +550,10 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         original,
         source_relative_path=source_relative_path,
         source_checksum_sha256=hashlib.sha256(source_content).hexdigest(),
+        queue_sequence_number=1,
         geometry={
             **original.geometry,
+            "sequenceSource": "filename",
             "sequenceLabelQuad": [
                 {"x": 260, "y": 370},
                 {"x": 450, "y": 370},
@@ -589,6 +594,7 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     service = OperationalImageReviewService(
         repository,
         artifact_root=tmp_path,
+        board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
         geometry_recropper=ManualGeometryRecropper(),
     )
     client = TestClient(
@@ -615,6 +621,14 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     )
     assert preview.status_code == 200
     assert preview.headers["content-type"] == "image/png"
+    assert preview.headers["x-board-cell-count"] == "15"
+    assert preview.headers["x-board-cell-preview-kind"] == "contact-sheet-5x3"
+    assert preview.headers["x-board-cell-cropper-version"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    contact_sheet = cv2.imdecode(np.frombuffer(preview.content, dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert contact_sheet is not None
+    assert contact_sheet.shape[:2] == (3 * 64, 5 * 64)
     assert not (tmp_path / "data" / "image-review-geometry").exists()
 
     idempotency_key = uuid4()
@@ -708,6 +722,36 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     )
     assert invalid.status_code == 409
     assert invalid.json()["code"] == "IMAGE_REVIEW_GEOMETRY_CORNERS_INVALID"
+
+
+def test_v19_geometry_preview_does_not_treat_an_unattested_suggestion_as_sequence(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    item = next(iter(repository.items.values()))
+
+    response = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json={
+            "expectedGeometryRevision": item.geometry_revision,
+            "expectedResolutionRevision": item.resolution_revision,
+            "corners": [
+                {"x": 0, "y": 0},
+                {"x": 10, "y": 0},
+                {"x": 10, "y": 10},
+                {"x": 0, "y": 10},
+            ],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
 
 
 def test_cursor_queue_is_bounded_reversible_and_scope_bound(

@@ -67,6 +67,12 @@ from .grid_calibration import (
     build_profile_document,
     profile_document_bytes,
 )
+from .manual_board_cell_geometry_preview import (
+    MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_VERSION,
+    ManualBoardCellGeometryPreview,
+    ManualBoardCellGeometryPreviewer,
+    ManualBoardCellGeometryPreviewError,
+)
 from .rectification import (
     CALIBRATED_CROPPER_VERSION,
     V2_CROPPER_VERSION,
@@ -138,6 +144,10 @@ __all__ = [
     "GridCalibrationError",
     "GridCalibrationProfiles",
     "INTERPOLATION_VERSION",
+    "MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_VERSION",
+    "ManualBoardCellGeometryPreview",
+    "ManualBoardCellGeometryPreviewError",
+    "ManualBoardCellGeometryPreviewer",
     "PerspectiveBoardCellCropperV2",
     "PerspectiveBoardCellCropperV2Calibrated",
     "PROFILE_SET_VERSION",

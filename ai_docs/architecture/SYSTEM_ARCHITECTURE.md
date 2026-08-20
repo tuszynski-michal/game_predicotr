@@ -864,6 +864,13 @@ prostokątne sloty, lecz jej obraz w źródle może być dowolnym poprawnym wypu
 quadem perspektywicznym. Walidator celowo nie ma guardu prostopadłości w
 źródle.
 
+Read-only adapter `manual-board-cell-geometry-v19-preview-v1` pozwala
+Reviewerowi sprawdzić tę geometrię przed jej utrwaleniem. UI przesyła tylko
+cztery narożniki `latticeBoundsQuad`; cztery punkty krawędziowe są projekcyjną
+pochodną prezentacyjną. Worker wyprowadza 15 cell quadów tym samym kontraktem,
+wykonuje source-direct cropper v19 i składa finalne cropy w contact sheet `5 ×
+3`. Podgląd nie zapisuje artefaktów ani nie zmienia aktywnego pipeline'u v18.
+
 Kontrakt rozróżnia evidence automatyczne od `human_reviewed/manual_override`.
 Automat nie przechodzi bez co najmniej 10 wiarygodnych centrów, 9 unikalnych
 inlierów oraz pokrycia wszystkich wierszy i kolumn; człowiek nie otrzymuje

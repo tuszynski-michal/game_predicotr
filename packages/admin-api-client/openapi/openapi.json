@@ -18428,7 +18428,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Rectified 500 by 300 board preview"
+            "description": "Five by three contact sheet of final source-direct crops"
           },
           "403": {
             "content": {
@@ -18476,7 +18476,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview a corrected board without persisting files or revisions",
+        "summary": "Preview 15 corrected v19 board-cell crops without persistence",
         "tags": [
           "image-reviews"
         ]

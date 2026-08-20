@@ -2327,7 +2327,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview a corrected board without persisting files or revisions
+ * Preview 15 corrected v19 board-cell crops without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,

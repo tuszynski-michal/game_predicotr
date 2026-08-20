@@ -259,7 +259,11 @@ export function operationalReviewGeometryCorners(
 ): OperationalReviewGeometryCorners {
   const geometry = item.geometry;
   const raw =
-    geometry.sourceQuad ?? geometry.quad ?? geometry.corners ?? undefined;
+    geometry.latticeBoundsQuad ??
+    geometry.sourceQuad ??
+    geometry.quad ??
+    geometry.corners ??
+    undefined;
   if (Array.isArray(raw) && raw.length === 4) {
     const parsed = raw.map(parseGeometryPoint);
     if (parsed.every((point) => point !== null)) {
@@ -273,6 +277,63 @@ export function operationalReviewGeometryCorners(
     { x: imageWidth - insetX - 1, y: insetY },
     { x: imageWidth - insetX - 1, y: imageHeight - insetY - 1 },
     { x: insetX, y: imageHeight - insetY - 1 },
+  ];
+}
+
+export function operationalReviewPointInLattice(
+  corners: OperationalReviewGeometryCorners,
+  columnRatio: number,
+  rowRatio: number,
+): OperationalImageReviewGeometryPoint {
+  const [topLeft, topRight, bottomRight, bottomLeft] = corners;
+  if (columnRatio === 0 && rowRatio === 0) return topLeft;
+  if (columnRatio === 1 && rowRatio === 0) return topRight;
+  if (columnRatio === 1 && rowRatio === 1) return bottomRight;
+  if (columnRatio === 0 && rowRatio === 1) return bottomLeft;
+  const dx1 = topRight.x - bottomRight.x;
+  const dx2 = bottomLeft.x - bottomRight.x;
+  const dx3 = topLeft.x - topRight.x + bottomRight.x - bottomLeft.x;
+  const dy1 = topRight.y - bottomRight.y;
+  const dy2 = bottomLeft.y - bottomRight.y;
+  const dy3 = topLeft.y - topRight.y + bottomRight.y - bottomLeft.y;
+  const determinant = dx1 * dy2 - dx2 * dy1;
+  let projectiveX = 0;
+  let projectiveY = 0;
+  if (Math.abs(determinant) > Number.EPSILON) {
+    projectiveX = (dx3 * dy2 - dx2 * dy3) / determinant;
+    projectiveY = (dx1 * dy3 - dx3 * dy1) / determinant;
+  }
+  const scale = projectiveX * columnRatio + projectiveY * rowRatio + 1;
+  if (!Number.isFinite(scale) || Math.abs(scale) <= Number.EPSILON) {
+    return {
+      x:
+        topLeft.x +
+        (topRight.x - topLeft.x) * columnRatio +
+        (bottomLeft.x - topLeft.x) * rowRatio,
+      y:
+        topLeft.y +
+        (topRight.y - topLeft.y) * columnRatio +
+        (bottomLeft.y - topLeft.y) * rowRatio,
+    };
+  }
+  const a = topRight.x - topLeft.x + projectiveX * topRight.x;
+  const b = bottomLeft.x - topLeft.x + projectiveY * bottomLeft.x;
+  const d = topRight.y - topLeft.y + projectiveX * topRight.y;
+  const e = bottomLeft.y - topLeft.y + projectiveY * bottomLeft.y;
+  return {
+    x: (a * columnRatio + b * rowRatio + topLeft.x) / scale,
+    y: (d * columnRatio + e * rowRatio + topLeft.y) / scale,
+  };
+}
+
+export function operationalReviewGeometryEdgeHandles(
+  corners: OperationalReviewGeometryCorners,
+): OperationalReviewGeometryCorners {
+  return [
+    operationalReviewPointInLattice(corners, 0.5, 0),
+    operationalReviewPointInLattice(corners, 1, 0.5),
+    operationalReviewPointInLattice(corners, 0.5, 1),
+    operationalReviewPointInLattice(corners, 0, 0.5),
   ];
 }
 

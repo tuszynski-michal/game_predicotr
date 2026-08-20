@@ -243,6 +243,14 @@ paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
 fingerprintem. Adapter pozostaje poza aktywnym pipeline'em do osobnego odbioru
 integracji.
 
+Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
+cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
+i uruchamia dokładnie ten cropper v19 dla rozmiaru modelu `64 × 64`. Odpowiedź
+HTTP jest contact sheetem `5 × 3` z finalnych cropów; nie jest kanoniczną
+planszą `500 × 300`, nie zapisuje artefaktów i nie aktywuje v19 w produkcyjnym
+pipeline. Cztery uchwyty krawędziowe UI są wyłącznie pochodne i nie stanowią
+wejścia geometrii.
+
 Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
 pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza
 dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i

@@ -306,12 +306,12 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-preview",
         response_class=Response,
         operation_id="previewOperationalImageReviewGeometry",
-        summary="Preview a corrected board without persisting files or revisions",
+        summary="Preview 15 corrected v19 board-cell crops without persistence",
         responses={
             **ERROR_RESPONSES,
             200: {
                 "content": {"image/png": {}},
-                "description": "Rectified 500 by 300 board preview",
+                "description": "Five by three contact sheet of final source-direct crops",
             },
         },
     )
@@ -339,9 +339,15 @@ def create_image_reviews_router(
             ),
         )
         return Response(
-            content=preview.board_png,
+            content=preview.contact_sheet_png,
             media_type="image/png",
-            headers={"Cache-Control": "no-store"},
+            headers={
+                "Cache-Control": "no-store",
+                "X-Board-Cell-Count": str(len(preview.cells)),
+                "X-Board-Cell-Cropper-Fingerprint-Sha256": (preview.cropper_fingerprint_sha256),
+                "X-Board-Cell-Cropper-Version": preview.cropper_version,
+                "X-Board-Cell-Preview-Kind": "contact-sheet-5x3",
+            },
         )
 
     @router.post(

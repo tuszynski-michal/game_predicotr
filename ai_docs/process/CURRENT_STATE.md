@@ -1831,3 +1831,13 @@ Fingerprint dla aktualnego wejścia modelu `64 × 64` wynosi
 Rzeczywisty corpus daje `27/27` plansz i `405/405` cropów. Cropper pozostaje
 niepodłączony; aktywny v18, pipeline, modele, baza, API i UI nie zostały
 zmienione.
+
+TASK 6 podłączył cropper v19 wyłącznie do read-only podglądu ręcznego edytora.
+Cztery numerowane uchwyty oznaczają teraz zewnętrzne granice siatki symboli
+5 × 3, overlay korzysta z projekcji perspektywicznej, a cztery szare uchwyty
+krawędziowe są wyłącznie pochodne i nie wchodzą do payloadu. Endpoint preview
+zwraca jeden PNG będący contact sheetem `5 × 3` z dokładnie 15 finalnych cropów
+`64 × 64`; nie materializuje planszy `500 × 300`, nie zapisuje plików ani
+rewizji. Historyczny zapis geometrii został odłączony od edytora do czasu
+wdrożenia append-only kontraktu v19 w TASK 7. Produkcyjny pipeline, aktywny
+cropper v18, baza, modele symboli i istniejące decyzje pozostają bez zmian.

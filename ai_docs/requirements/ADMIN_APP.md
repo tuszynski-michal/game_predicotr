@@ -252,8 +252,11 @@ Dla niepewnego elementu administrator otrzymuje:
 Bootstrap etykiet symboli działa na poziomie całego layoutu. Panel pokazuje
 piętnaście komórek, pozwala przypisywać symbole skrótami, zatwierdzić layout i
 wyróżnia komórki niepewne. Jeżeli granice są błędne, administrator przechodzi
-do osobnego trybu geometrii, przesuwa cztery narożniki rzeczywistej ramy planszy
-na zdjęciu oraz widzi wynikową ukośną siatkę 5 × 3, kanoniczną planszę i cropy.
+do osobnego trybu geometrii i przesuwa cztery narożniki zewnętrznych granic
+siatki symboli 5 × 3 na zdjęciu, a nie narożniki czerwonej ramki. Cztery
+dodatkowe uchwyty krawędziowe są wyprowadzane z głównego quadu i nie zmieniają
+zapisywanej semantyki. Podgląd pokazuje ukośną siatkę oraz wszystkie 15
+finalnych cropów source-direct.
 Edytor pokazuje zakres profilu `(source_group, board_position)`, jego anchory,
 wersję oraz zachowanie exact/interpolation/clamp przed zapisaniem nowej,
 niezmiennej wersji profilu kalibracji.
@@ -356,8 +359,9 @@ nierozwiązanych plansz.
 
 Pełne zdjęcie źródłowe pozostaje dostępne wyłącznie w kontekście korekty
 geometrii. Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb
-czterech narożników na oryginalnym obrazie. Podgląd pokazuje ukośną siatkę 5 × 3,
-wyprostowaną planszę oraz nowe cropy. Zapis geometrii tworzy nowe wersje plików
+czterech narożników granic siatki symboli na oryginalnym obrazie. Podgląd
+pokazuje projektową siatkę 5 × 3 oraz wszystkie 15 finalnych cropów bez
+pośredniego rastra planszy. Zapis geometrii tworzy nowe wersje plików
 i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
 zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć do
 zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie

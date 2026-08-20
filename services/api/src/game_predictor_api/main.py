@@ -10,6 +10,9 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreviewer,
+)
 from game_predictor_worker.images.manual_geometry_recrop import (
     ManualGeometryRecropper,
 )
@@ -463,6 +466,7 @@ def create_app(
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
                     artifact_root=resolved_settings.artifact_root,
+                    board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
                     geometry_recropper=ManualGeometryRecropper(),
                 )
                 session.commit()

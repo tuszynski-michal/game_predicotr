@@ -1958,6 +1958,80 @@ class ReviewerAccessAuditEventModel(Base):
     )
 
 
+class ReviewerWorkAssignmentModel(Base):
+    __tablename__ = "reviewer_work_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "assignment_type IN ('local', 'online')",
+            name="ck_reviewer_work_assignments_type",
+        ),
+        CheckConstraint(
+            "length(btrim(lease_owner)) BETWEEN 1 AND 200",
+            name="ck_reviewer_work_assignments_lease_owner",
+        ),
+        CheckConstraint(
+            "heartbeat_at >= created_at AND lease_expires_at > heartbeat_at "
+            "AND updated_at >= heartbeat_at",
+            name="ck_reviewer_work_assignments_lease_timestamps",
+        ),
+        CheckConstraint(
+            "(closed_at IS NULL AND close_reason IS NULL AND closed_by IS NULL) "
+            "OR (closed_at IS NOT NULL AND closed_at >= heartbeat_at "
+            "AND close_reason IS NOT NULL AND closed_by IS NOT NULL "
+            "AND length(btrim(close_reason)) BETWEEN 1 AND 100 "
+            "AND length(btrim(closed_by)) BETWEEN 1 AND 200)",
+            name="ck_reviewer_work_assignments_closure",
+        ),
+        Index(
+            "uq_reviewer_work_assignments_active_import",
+            "import_job_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        Index(
+            "ix_reviewer_work_assignments_active_lease",
+            "lease_expires_at",
+            "import_job_id",
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        Index(
+            "ix_reviewer_work_assignments_scope_history",
+            "game_id",
+            "import_job_id",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    assignment_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    lease_owner: Mapped[str] = mapped_column(String(200), nullable=False)
+    lease_token: Mapped[UUID] = mapped_column(nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    closed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageVerifiedCohortExportModel(Base):
     __tablename__ = "image_verified_cohort_exports"
     __table_args__ = (

@@ -60,6 +60,7 @@ PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
 IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
 IMAGE_REVIEW_QUEUE_PROJECTION_REVISION = "0049_image_review_queue_projection"
 IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
+REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -131,7 +132,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     image_page_geometry_overrides = script.get_revision(IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION)
     image_review_queue_projection = script.get_revision(IMAGE_REVIEW_QUEUE_PROJECTION_REVISION)
     image_review_first_save_wins = script.get_revision(IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION)
-    assert script.get_heads() == [IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION]
+    reviewer_work_assignments = script.get_revision(REVIEWER_WORK_ASSIGNMENTS_REVISION)
+    assert script.get_heads() == [REVIEWER_WORK_ASSIGNMENTS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -242,6 +244,32 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_review_queue_projection.down_revision == IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION
     assert image_review_first_save_wins is not None
     assert image_review_first_save_wins.down_revision == IMAGE_REVIEW_QUEUE_PROJECTION_REVISION
+    assert reviewer_work_assignments is not None
+    assert reviewer_work_assignments.down_revision == IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION
+
+
+def test_reviewer_work_assignments_migration_is_scoped_fenced_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}:{REVIEWER_WORK_ASSIGNMENTS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEWER_WORK_ASSIGNMENTS_REVISION}:{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table reviewer_work_assignments" in upgrade_sql
+    assert "assignment_type in ('local', 'online')" in upgrade_sql
+    assert "uq_reviewer_work_assignments_active_import" in upgrade_sql
+    assert "where closed_at is null" in upgrade_sql
+    assert "lease_expires_at > heartbeat_at" in upgrade_sql
+    assert "ck_reviewer_work_assignments_closure" in upgrade_sql
+    assert "drop table reviewer_work_assignments" in downgrade_output.getvalue().lower()
 
 
 def test_image_review_first_save_wins_migration_is_durable_and_reversible() -> None:

@@ -859,6 +859,41 @@ Append-only `reviewer_access_audit_events` zapisuje `created`,
 `unlock_failed`, `unlocked`, `locked` i `revoked`. Decyzje plansz pozostają w
 istniejącym audycie review, a ich aktor ma postać `reviewer-session:<UUID>`.
 
+### reviewer_work_assignments
+
+Trwałe przypisanie pracy jest oddzielone od sesji dostępowej oraz procesu
+Reviewera. Wiąże dokładnie `game_id + import_job_id`, ma typ `local` albo
+`online` i przechowuje ogrodzony lease (`lease_owner`, `lease_token`,
+`heartbeat_at`, `lease_expires_at`). Import musi należeć do wskazanej gry, być
+gotowym importem obrazów i zawierać pozycje review; repozytorium blokuje rekord
+importu przed utworzeniem przypisania.
+
+Częściowy unikalny indeks po `import_job_id`, ograniczony do
+`closed_at IS NULL`, gwarantuje najwyżej jedno aktywne przypisanie na import.
+Różne importy nie współdzielą tego ograniczenia. Heartbeat wymaga aktualnego
+tokenu i niewygasłego lease; zapis stosuje ten sam token jako fencing condition.
+
+Zamknięcie nie usuwa rekordu ani tokenu lease. Uzupełnia atomowo `closed_at`,
+`close_reason` i `closed_by`, dlatego ponowne otwarcie tego samego importu tworzy
+nowy rekord, a wcześniejszy pozostaje historią. Wygasły aktywny wpis jest
+zamykany z powodem `lease_expired` przed utworzeniem następcy. Tabela nie
+przechowuje kodu wejścia, bearer tokenu, URL tunelu ani danych procesu.
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| game_id | UUID | FK `games`, część scope'u |
+| import_job_id | UUID | FK `jobs`, najwyżej jeden aktywny |
+| assignment_type | varchar(16) | `local` albo `online` |
+| lease_owner | varchar(200) | niepusty identyfikator właściciela lease |
+| lease_token | UUID | fencing token, pozostaje w historii |
+| heartbeat_at | timestamptz | monotoniczny heartbeat |
+| lease_expires_at | timestamptz | późniejszy niż heartbeat |
+| closed_at | timestamptz nullable | `NULL` oznacza aktywne przypisanie |
+| close_reason | varchar(100) nullable | ustawiane razem z zamknięciem |
+| closed_by | varchar(200) nullable | aktor zamknięcia |
+| created_at / updated_at | timestamptz | trwałe czasy lifecycle'u |
+
 ### image_verified_cohort_exports
 
 Zamrożony materiał z operacyjnego review jest wersjonowany per gra i import

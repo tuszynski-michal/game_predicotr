@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-08-15
+last_updated: 2026-08-20
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -37,6 +37,7 @@ sesji i kodu.
 - etykiety symboli, statusy i audyt decyzji,
 - kod wejścia, bearer token i identyfikator sesji,
 - integralność zakresu `(gameId, importJobId)`,
+- trwałe przypisanie pracy `local/online` ograniczone do tego samego scope'u,
 - administrator tworzący i odwołujący sesję,
 - zdalny recenzent podejmujący decyzje jako `reviewer-session:<UUID>`,
 - dostawca tunelu transportujący zaszyfrowany ruch.
@@ -57,6 +58,13 @@ sesji i kodu.
 | clickjacking/XSS | CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, brak zewnętrznych skryptów |
 | utrata Internetu lub komputera | zapis atomowy; po powrocie recenzent wznawia kolejkę, a tunel można odtworzyć z nowym URL |
 | logi z sekretami | skrypty zapisują wyłącznie publiczny URL/PID; kod i bearer nie są logowane |
+
+`reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
+wyłącznie scope, typ pracy, fencing token lease, heartbeat i historię
+zamknięcia. Nie zawiera kodu, bearer tokenu, publicznego URL ani parametrów
+procesu. Aktywny assignment nie zastępuje autoryzacji przez
+`reviewer_access_sessions`; integracja lifecycle'ów nastąpi dopiero przed
+udostępnieniem wielu linków.
 
 ## Retencja i prywatność
 

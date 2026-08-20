@@ -22,7 +22,9 @@ projekcję topologii kolejki, liczniki i `queueVersion`, TASK 10 przepiął na n
 listowanie, TASK 11 dodał transakcyjne first-save-wins oraz audyt `superseded`,
 a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. TASK 13 dodał
 bounded bufor `previous/current/next two`. Pełny produkcyjny pipeline importu
-pozostaje na historycznym v18; pion wspólnego Reviewera nie został rozpoczęty.
+pozostaje na historycznym v18. TASK 14 rozpoczął pion wspólnego Reviewera od
+trwałego, ogrodzonego modelu przypisań pracy; integracja sesji, procesu, tunelu
+i Admina pozostaje otwarta.
 
 ## Goal
 
@@ -794,7 +796,7 @@ generowanie i migracje nie należą do bramki TASK 13.
 
 ### Zakres przyszłej implementacji
 
-1. Dodać `reviewer_work_assignments`: najwyżej jedno aktywne przypisanie na
+1. [ukończone w TASK 14] Dodać `reviewer_work_assignments`: najwyżej jedno aktywne przypisanie na
    import, typ local/online, lease/heartbeat, scope i historia zamknięcia.
 2. Rozdzielić lifecycle przypisania/sesji od lifecycle'u procesu Reviewera i
    Quick Tunnel. Jeden proces i URL obsługują wszystkie aktywne scope'y.
@@ -810,6 +812,55 @@ generowanie i migracje nie należą do bramki TASK 13.
    Lista nie pokazuje kodu, tokenu ani sekretu po utworzeniu sesji.
 6. Zachować jeden build produkcyjny Reviewera, same-origin allowlist proxy,
    loopback-only lokalny dostęp i istniejące ograniczenia Quick Tunnel.
+
+### Outcome TASK 14 — trwałe przypisania pracy
+
+- Migracja `0051_reviewer_work_assignments` dodaje osobną od sesji dostępowej i
+  procesu tabelę scope'owaną przez `game_id + import_job_id`.
+- Typ `local/online`, właściciel, fencing token, heartbeat i wygaśnięcie lease
+  mają wspólne constrainty czasu. Częściowy unikalny indeks po aktywnym
+  `import_job_id` gwarantuje najwyżej jedno aktywne przypisanie na import.
+- Lifecycle domenowy odrzuca pustego właściciela, naiwne timestampy, cofnięcie
+  heartbeat, zły token i odnowienie wygasłego lease. Zapis SQL aktualizuje
+  aktywny rekord wyłącznie przy zgodnym fencing tokenie.
+- Zamknięcie zachowuje rekord, scope i lease oraz dopisuje `closed_at`, powód i
+  aktora. Wygasły assignment jest zamykany jako `lease_expired` przed
+  utworzeniem następcy; historia pozostaje deterministycznie listowalna.
+- Scope jest walidowany pod blokadą import joba według tej samej gotowości co
+  istniejąca sesja Reviewera: import obrazów tej gry, status
+  `waiting_for_review/completed` i co najmniej jeden review item.
+- TASK 14 nie uruchamia procesu Reviewera ani Quick Tunnel, nie łączy jeszcze
+  assignmentu z sesją, nie wprowadza limitu trzech linków i nie zmienia API,
+  OpenAPI, Admina ani Reviewera.
+
+### Verification TASK 14
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_reviewer_work_assignments.py services/api/tests/test_migration_baseline.py -q
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+.\.venv\Scripts\ruff.exe check <zmienione pliki Python>
+.\.venv\Scripts\python.exe -m mypy --follow-imports=skip --ignore-missing-imports <nowe moduły>
+npm run db:migrate
+npm run db:current
+```
+
+Wynik: testy domeny i migracji dały `42 passed`, rzeczywisty cykl PostgreSQL i
+repozytorium `2 passed`, a pełny zestaw API `367 passed, 29 skipped`. Ruff i
+ograniczony mypy nowych modułów przeszły. Lokalna baza działa na
+`0051_reviewer_work_assignments (head)`.
+
+### Acceptance criteria TASK 14
+
+- [x] Dla jednego importu istnieje najwyżej jeden rekord z `closed_at IS NULL`.
+- [x] Różne typy przypisania używają jednego modelu scope'u i lease.
+- [x] Heartbeat oraz zapis są ogrodzone tokenem i nie odnawiają wygasłego lease.
+- [x] Zamknięte i automatycznie odzyskane wpisy pozostają trwałą historią.
+- [x] Scope jest związany z gotowym importem obrazów wskazanej gry.
+- [x] Migracja ma poprawny downgrade, a model przechodzi rzeczywisty test
+      PostgreSQL i pełne testy API.
+- [x] TASK 14 nie rozpoczyna lifecycle'u procesu/tunelu, limitu online ani UI.
 
 ### Kryteria odbioru pionu
 
@@ -895,6 +946,8 @@ zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolej
 TASK 10 przepiął operacyjne listowanie na jeden klucz, TASK 11 utrwalił
 first-save-wins i audyt `superseded`, a TASK 12 rozdzielił konflikt komendy itemu
 od zmian liczników. TASK 13 zamknął pion B ograniczonym buforem
-`previous/current/next two` i prefetchowaniem zasobów sąsiadów. Cały pion
-wspólnego Reviewera pozostaje otwarty i wymaga osobnych poleceń dla kolejnych
-numerów z zaakceptowanego breakdownu.
+`previous/current/next two` i prefetchowaniem zasobów sąsiadów. Pion wspólnego
+Reviewera został rozpoczęty w TASK 14 od trwałych `reviewer_work_assignments` z
+fencingiem i historią zamknięcia. Integracja assignment/session, współdzielony
+proces i tunel, limit online oraz UI pozostają otwarte i wymagają osobnych
+poleceń dla kolejnych numerów z zaakceptowanego breakdownu.

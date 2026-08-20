@@ -1932,3 +1932,17 @@ propagowane do wcześniej pobranych stron, więc przejście dalej nie przywraca
 starego snapshotu. Konflikt topologii podczas prefetchu pozostaje fail-closed;
 zwykły błąd transportu zachowuje bieżącą planszę i foreground fallback. API,
 OpenAPI, baza, pipeline oraz pion wspólnego Reviewera pozostały bez zmian.
+
+TASK 14 rozpoczął pion wspólnego Reviewera od trwałej warstwy danych i
+lifecycle'u `reviewer_work_assignments`. Migracja `0051` zapisuje scope
+`game_id + import_job_id`, typ `local/online`, właściciela, fencing token,
+heartbeat i wygaśnięcie lease oraz pełne dane zamknięcia. Częściowy unikalny
+indeks gwarantuje najwyżej jedno aktywne przypisanie na import; po zamknięciu
+można utworzyć następcę bez utraty historii.
+
+Odnowienie wymaga aktualnego, niewygasłego tokenu, a zapis SQL powtarza fencing
+condition. Wygasły wpis jest jawnie zamykany jako `lease_expired`. Scope jest
+walidowany pod blokadą gotowego image import joba i wymaga istniejącej pozycji
+review. Lokalna baza działa na `0051_reviewer_work_assignments (head)`. TASK 14
+nie zmienił API/OpenAPI, Admina, Reviewera, sesji dostępowych, procesu Windows,
+Quick Tunnel ani limitu trzech przypisań online; są to następne etapy pionu C.

@@ -15,7 +15,7 @@ from uuid import UUID
 IMAGE_REVIEW_CELL_COUNT = 15
 MAX_IMAGE_REVIEW_ALTERNATIVES = 4
 MAX_IMAGE_REVIEW_PAGE_SIZE = 50
-IMAGE_REVIEW_CURSOR_VERSION = 1
+IMAGE_REVIEW_CURSOR_VERSION = 2
 BASE_GEOMETRY_REVISION = 0
 
 
@@ -110,15 +110,9 @@ class ImageReviewItem:
             str(self.id),
         )
 
-    def cursor_key_for(self, view: ImageReviewView) -> tuple[int, int, int, str]:
-        if view is ImageReviewView.ALL:
-            return (
-                0,
-                self.source_order_index,
-                self.position_index,
-                str(self.id),
-            )
-        return self.cursor_key
+    @property
+    def queue_order_key(self) -> tuple[int, int, str]:
+        return (self.source_order_index, self.position_index, str(self.id))
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +137,13 @@ class ImageReviewPage:
     counts: ImageReviewCounts
     has_previous: bool
     has_next: bool
+    queue_version: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImageReviewCursor:
+    key: tuple[int, int, str]
+    queue_version: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,13 +408,15 @@ def encode_image_review_cursor(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView,
-    key: tuple[int, int, int, str],
+    key: tuple[int, int, str],
+    queue_version: int,
 ) -> str:
     payload = canonical_image_review_bytes(
         {
             "gameId": str(game_id),
             "importJobId": str(import_job_id),
             "key": list(key),
+            "queueVersion": queue_version,
             "version": IMAGE_REVIEW_CURSOR_VERSION,
             "view": view.value,
         }
@@ -427,11 +430,12 @@ def decode_image_review_cursor(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView,
-) -> tuple[int, int, int, str]:
+) -> ImageReviewCursor:
     try:
         padding = "=" * (-len(value) % 4)
         payload = json.loads(base64.b64decode(value + padding, altchars=b"-_", validate=True))
         key = payload["key"]
+        queue_version = payload["queueVersion"]
         parsed_game_id = UUID(payload["gameId"])
         parsed_job_id = UUID(payload["importJobId"])
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -446,25 +450,33 @@ def decode_image_review_cursor(
         or parsed_game_id != game_id
         or parsed_job_id != import_job_id
         or not isinstance(key, list)
-        or len(key) != 4
-        or any(
-            not isinstance(key[index], int) or isinstance(key[index], bool) for index in range(3)
-        )
-        or any(key[index] < 0 for index in range(3))
-        or not isinstance(key[3], str)
+        or len(key) != 3
+        or not isinstance(key[0], int)
+        or isinstance(key[0], bool)
+        or not isinstance(key[1], int)
+        or isinstance(key[1], bool)
+        or key[0] < 0
+        or key[1] < 0
+        or not isinstance(key[2], str)
+        or not isinstance(queue_version, int)
+        or isinstance(queue_version, bool)
+        or queue_version < 1
     ):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CURSOR_SCOPE_INVALID",
             "The operational review cursor does not belong to this queue.",
         )
     try:
-        UUID(key[3])
+        UUID(key[2])
     except ValueError as error:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CURSOR_INVALID",
             "The operational review cursor item identity is invalid.",
         ) from error
-    return cast(tuple[int, int, int, str], tuple(key))
+    return ImageReviewCursor(
+        key=cast(tuple[int, int, str], tuple(key)),
+        queue_version=queue_version,
+    )
 
 
 def validate_image_review_resolution(

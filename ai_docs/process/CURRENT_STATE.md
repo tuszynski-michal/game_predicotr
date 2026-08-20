@@ -1888,3 +1888,16 @@ liczniki bez zmiany topologii, a dodanie lub usunięcie pozycji zmienia wersję.
 Istniejące elementy są backfillowane fail-closed i zachowują source-order po
 restarcie. Endpointy, kursory, resume, Admin i Reviewer nadal nie korzystają z
 nowej projekcji — jest to zakres następnego, osobno zlecanego TASK 10.
+
+TASK 10 przepiął job-local listowanie Reviewera na projekcję 0049. Wszystkie
+widoki, keyset cursor v2, poprzedni/następny i wznowienie używają teraz tego
+samego klucza `(source_order_index, position_index, review_item_id)`;
+`sequence_number` nie wpływa na położenie. Odpowiedź zwraca trwały
+`queueVersion`, a kursor jest unieważniany wyłącznie po zmianie topologii, nie
+po decyzji zmieniającej status lub liczniki. Liczniki są czytane z
+`image_review_queue_states`. OpenAPI i klient zostały wygenerowane ponownie.
+First-save-wins, `superseded`, rozróżnienie konfliktów komendy oraz mały bufor
+Reviewera pozostają zakresem kolejnych osobno zlecanych zadań.
+Read-only smoke największego rzeczywistego importu (`19 746` pozycji,
+`19 745 pending`) zwrócił pierwszą pending i oba kierunki nawigacji w około
+`72 ms`.

@@ -260,7 +260,8 @@ def _execute_physical_profile(
             game_id=game_id,
             import_job_id=job_id,
             view=ImageReviewView.PENDING,
-            key=middle.items[0].cursor_key,
+            key=middle.items[0].queue_order_key,
+            queue_version=middle.queue_version,
         )
 
     read_samples: list[float] = []

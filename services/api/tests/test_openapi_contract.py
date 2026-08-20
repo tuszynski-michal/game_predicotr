@@ -421,6 +421,9 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "completed",
         "all",
     }
+    page_schema = schema["components"]["schemas"]["OperationalImageReviewPageResponse"]
+    assert "queueVersion" in page_schema["required"]
+    assert page_schema["properties"]["queueVersion"]["minimum"] == 0
 
     item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
     assert item_schema["properties"]["cells"]["minItems"] == 15

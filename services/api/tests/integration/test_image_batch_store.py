@@ -15,10 +15,12 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
+    ImageReviewConflictError,
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
     ImageReviewResolutionCell,
+    ImageReviewView,
     validate_image_review_geometry_command,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
@@ -185,6 +187,23 @@ def _add_review_projection_source(
     )
     session.add(review)
     session.flush()
+    session.add_all(
+        CellObservationModel(
+            recognized_board_id=board.id,
+            row_index=index // 5,
+            column_index=index % 5,
+            crop_relative_path=f"crops/{source_name}-{index}.png",
+            crop_checksum_sha256=f"{sequence_number * 100 + index:064x}",
+            cropper_version="projection-test-cropper",
+            prediction={
+                "symbolCode": "test",
+                "confidence": 1.0,
+                "alternatives": [{"symbolCode": "test", "confidence": 1.0}],
+            },
+            created_at=created_at,
+        )
+        for index in range(15)
+    )
     return review.id, board.id
 
 
@@ -292,7 +311,7 @@ def test_image_review_queue_projection_backfills_and_tracks_durable_state(
                 "sequenceNumber": 1,
                 "symbolCodes": ["test"] * 15,
             }
-            later_board.sequence_number = 999
+            later_board.sequence_number = 1
             session.commit()
 
         image_store = SqlAlchemyImageBatchStore(session_factory)
@@ -340,6 +359,38 @@ def test_image_review_queue_projection_backfills_and_tracks_durable_state(
             assert projected[-1].source_order_index == 8
             assert projected[-1].position_index == 5
 
+            operational = OperationalImageReviewService(
+                SqlAlchemyOperationalImageReviewRepository(session)
+            )
+            resumed = operational.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                after_cursor=None,
+                before_cursor=None,
+                sequence_number=None,
+                resume_at_first_pending=True,
+                limit=1,
+            )
+            assert resumed.queue_version == 2
+            assert resumed.items[0].id == middle_review_id
+            assert resumed.items[0].source_order_index == 4
+            assert resumed.previous_cursor is not None
+            assert resumed.next_cursor is not None
+            after_resumed = operational.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                after_cursor=resumed.next_cursor,
+                before_cursor=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=1,
+            )
+            assert after_resumed.items[0].id == later_review_id
+            assert after_resumed.items[0].suggested_sequence_number == 1
+            topology_cursor = resumed.next_cursor
+
         with Session(engine) as session:
             immutable_item = session.get(ImageReviewQueueItemModel, middle_review_id)
             assert immutable_item is not None
@@ -362,6 +413,21 @@ def test_image_review_queue_projection_backfills_and_tracks_durable_state(
             assert state.total_count == 2
             assert state.pending_count == 1
             assert state.corrected_count == 1
+            operational = OperationalImageReviewService(
+                SqlAlchemyOperationalImageReviewRepository(session)
+            )
+            with pytest.raises(ImageReviewConflictError) as stale:
+                operational.list_items(
+                    game_id=game.id,
+                    import_job_id=job.id,
+                    view=ImageReviewView.ALL,
+                    after_cursor=topology_cursor,
+                    before_cursor=None,
+                    sequence_number=None,
+                    resume_at_first_pending=False,
+                    limit=1,
+                )
+            assert stale.value.code == "IMAGE_REVIEW_CURSOR_STALE"
     finally:
         engine.dispose()
 

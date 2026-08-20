@@ -93,6 +93,7 @@ class OperationalImageReviewPageResponse(ApiModel):
     view: ImageReviewView
     items: tuple[OperationalImageReviewItemResponse, ...]
     counts: OperationalImageReviewCountsResponse
+    queue_version: int = Field(ge=0)
     previous_cursor: str | None
     next_cursor: str | None
 
@@ -353,6 +354,7 @@ def to_operational_page_response(
             completed=page.counts.completed,
             total=page.counts.total,
         ),
+        queue_version=page.queue_version,
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,
     )

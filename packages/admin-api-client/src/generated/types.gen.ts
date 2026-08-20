@@ -4277,6 +4277,10 @@ export type OperationalImageReviewPageResponse = {
    * Previouscursor
    */
   previousCursor: string | null;
+  /**
+   * Queueversion
+   */
+  queueVersion: number;
   view: ImageReviewView;
 };
 

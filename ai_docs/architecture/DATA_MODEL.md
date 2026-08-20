@@ -745,6 +745,12 @@ jednoznacznego powiązania source-order kończy się fail-closed. Migracja
 backfilluje wszystkie istniejące elementy i odmawia ukończenia, jeżeli choć
 jeden z nich nie ma tego powiązania.
 
+Job-local read model używa tej projekcji bez ponownego wyprowadzania kolejności
+z numeru sekwencji albo bieżącego statusu. Keyset cursor przechowuje zamrożony
+klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu
+`image_review_queue_states`. Zmiana statusu może usunąć element z filtrowanego
+widoku, ale nie usuwa jego granicy z niezmiennej topologii.
+
 ### image_review_resolution_events
 
 Każda accepted/corrected/rejected decyzja i systemowe ponowne otwarcie konfliktu

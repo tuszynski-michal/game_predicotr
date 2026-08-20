@@ -1427,9 +1427,10 @@ Lista wymaga `gameId` i `importJobId`, używa bounded cursor i przyjmuje widok
 elementy pozostają edytowalne. Osobna aplikacja Reviewer używa `all` jako
 aktywnej kolejki nawigacyjnej; `pending/completed` pozostają projekcjami
 statusów i liczników, a nie filtrem usuwającym element z bieżącej sesji po
-zapisie. Kolejność jest deterministyczna po zaakceptowanym `sequenceNumber`, a
-przed jego akceptacją po stabilnej pozycji źródła i planszy. Odpowiedź zawiera
-cursor poprzedni/następny oraz liczniki, ale nie całą kolejkę.
+zapisie. Kolejność jest zawsze deterministyczna po trwałym kluczu
+`(source_order_index, position_index, review_item_id)` i nie zmienia się po
+zaakceptowaniu `sequenceNumber`. Odpowiedź zawiera cursor poprzedni/następny,
+`queueVersion` oraz liczniki, ale nie całą kolejkę.
 
 Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
 aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
@@ -1442,11 +1443,16 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
-Kursor jest opaque i związany z `gameId`, `importJobId` oraz wybraną projekcją.
-W aktywnej projekcji `all` zapis accepted/corrected nie usuwa elementu, więc
-wcześniejszy kursor nadal może do niego wrócić. Rozmiar strony jest ograniczony
-do 50, a Reviewer zawsze żąda `limit = 1`. Pełny import nigdy nie jest
-zwracany jako jedna odpowiedź.
+Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem oraz trwałym
+`queueVersion`. Schema cursora v2 zawiera dokładnie klucz
+`(source_order_index, position_index, review_item_id)`; sortowanie, keyset,
+poprzedni/następny i resume używają tego samego klucza we wszystkich widokach.
+Status i `sequence_number` nie są częścią klucza. Zapis accepted/corrected nie
+zmienia topologii ani `queueVersion`, więc wcześniejszy kursor nadal może wrócić
+do tego elementu także wtedy, gdy przestał należeć do widoku `pending`. Zmiana
+topologii unieważnia cursor kodem `IMAGE_REVIEW_CURSOR_STALE`. Liczniki pochodzą
+z trwałej projekcji. Rozmiar strony jest ograniczony do 50, a Reviewer zawsze
+żąda `limit = 1`. Pełny import nigdy nie jest zwracany jako jedna odpowiedź.
 
 Bez kursora wejściowego lub po reloadzie lista `all` wskazuje pierwszą planszę
 `pending`; jeśli nie ma żadnej pending, wskazuje pierwszą planszę importu.

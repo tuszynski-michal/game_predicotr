@@ -7473,6 +7473,11 @@
             ],
             "title": "Previouscursor"
           },
+          "queueVersion": {
+            "minimum": 0.0,
+            "title": "Queueversion",
+            "type": "integer"
+          },
           "view": {
             "$ref": "#/components/schemas/ImageReviewView"
           }
@@ -7483,6 +7488,7 @@
           "view",
           "items",
           "counts",
+          "queueVersion",
           "previousCursor",
           "nextCursor"
         ],

@@ -61,6 +61,7 @@ class OperationalImageReviewPage:
     view: ImageReviewView
     items: tuple[ImageReviewItem, ...]
     counts: ImageReviewCounts
+    queue_version: int
     previous_cursor: str | None
     next_cursor: str | None
 
@@ -98,8 +99,9 @@ class OperationalImageReviewRepository(Protocol):
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
-        after_key: tuple[int, int, int, str] | None,
-        before_key: tuple[int, int, int, str] | None,
+        after_key: tuple[int, int, str] | None,
+        before_key: tuple[int, int, str] | None,
+        expected_queue_version: int | None,
         sequence_number: int | None,
         resume_at_first_pending: bool,
         limit: int,
@@ -250,7 +252,7 @@ class OperationalImageReviewService:
                 "resumeAtFirstPending with view=all.",
             )
         self._repository.require_context(game_id=game_id, import_job_id=import_job_id)
-        after_key = (
+        after = (
             decode_image_review_cursor(
                 after_cursor,
                 game_id=game_id,
@@ -260,7 +262,7 @@ class OperationalImageReviewService:
             if after_cursor
             else None
         )
-        before_key = (
+        before = (
             decode_image_review_cursor(
                 before_cursor,
                 game_id=game_id,
@@ -274,24 +276,37 @@ class OperationalImageReviewService:
             game_id=game_id,
             import_job_id=import_job_id,
             view=view,
-            after_key=after_key,
-            before_key=before_key,
+            after_key=after.key if after is not None else None,
+            before_key=before.key if before is not None else None,
+            expected_queue_version=(
+                after.queue_version
+                if after is not None
+                else before.queue_version if before is not None else None
+            ),
             sequence_number=sequence_number,
             resume_at_first_pending=resume_at_first_pending,
             limit=limit,
         )
+        if page.queue_version is None or (page.items and page.queue_version < 1):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_QUEUE_PROJECTION_INVALID",
+                "The operational review queue did not provide a durable topology version.",
+            )
+        queue_version = page.queue_version
         return OperationalImageReviewPage(
             game_id=game_id,
             import_job_id=import_job_id,
             view=view,
             items=page.items,
             counts=page.counts,
+            queue_version=queue_version,
             previous_cursor=(
                 encode_image_review_cursor(
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
-                    key=page.items[0].cursor_key_for(view),
+                    key=page.items[0].queue_order_key,
+                    queue_version=queue_version,
                 )
                 if page.items and page.has_previous
                 else None
@@ -301,7 +316,8 @@ class OperationalImageReviewService:
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
-                    key=page.items[-1].cursor_key_for(view),
+                    key=page.items[-1].queue_order_key,
+                    queue_version=queue_version,
                 )
                 if page.items and page.has_next
                 else None

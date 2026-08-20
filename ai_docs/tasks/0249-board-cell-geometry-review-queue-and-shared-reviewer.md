@@ -486,7 +486,7 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
 
 1. [ukończone w TASK 9] Dodać trwałą projekcję kolejki importu i stan liczników z niezmiennym kluczem
    `(source_order_index, position_index, review_item_id)` oraz `queueVersion`.
-2. Zmienić listowanie, keyset cursor, wybór pierwszej pending, poprzedni/następny
+2. [ukończone w TASK 10] Zmienić listowanie, keyset cursor, wybór pierwszej pending, poprzedni/następny
    i resume tak, aby używały dokładnie tego samego klucza.
 3. Zaimplementować transakcyjne first-save-wins dla
    `game_id + sequence_number`. Przegrane oczekujące wystąpienia oznaczać jako
@@ -547,6 +547,62 @@ pakietami oraz wcześniejszy `unused-ignore`, a nie błąd nowych modeli.
       fail-closed.
 - [x] TASK 9 nie rozpoczyna przepięcia endpointów ani konkurencyjnego
       first-save-wins.
+
+### Outcome TASK 10 — wspólny klucz listowania i nawigacji
+
+- Job-local endpoint operacyjny czyta pozycje i statusy z trwałej projekcji
+  `image_review_queue_items`; sortowanie, keyset cursor, poprzedni/następny oraz
+  resume używają wyłącznie `(source_order_index, position_index, review_item_id)`.
+- `sequence_number` pozostał filtrem i wartością domenową. Zmiana numeru ani
+  statusu nie zmienia położenia elementu i nie unieważnia kursora.
+- Opaque cursor schema v2 wiąże klucz z `gameId`, `importJobId`, widokiem i
+  trwałym `queueVersion`. Tylko zmiana topologii powoduje
+  `IMAGE_REVIEW_CURSOR_STALE`; zmiana liczników nie podnosi wersji.
+- Odpowiedź API zwraca `queueVersion`, a liczniki operacyjne i game-wide są
+  odczytywane z `image_review_queue_states`. OpenAPI i generowany klient zostały
+  zaktualizowane.
+- Pierwsze wejście/reload w `all` wybiera pierwszą `pending` według kolejności
+  źródłowej, a przy jej braku pierwszy element importu. Nawigacja w lewo nadal
+  obejmuje elementy już rozstrzygnięte.
+- TASK 10 nie implementuje first-save-wins, statusu `superseded`, semantyki
+  konkurencyjnego zapisu ani bufora Reviewera z kolejnych zadań.
+
+### Acceptance criteria TASK 10
+
+- [x] Wszystkie widoki job-local używają jednego niezmiennego klucza kolejki.
+- [x] Status i numer sekwencji nie są częścią keyset cursora ani sortowania.
+- [x] Kursor zachowuje ważność po rozwiązaniu elementu granicznego.
+- [x] Zmiana topologii i `queueVersion` odrzuca stary kursor fail-closed.
+- [x] Resume i poprzedni/następny używają tej samej kolejności źródłowej.
+- [x] Liczniki oraz `queueVersion` pochodzą z trwałej projekcji.
+- [x] Kontrakt OpenAPI zawiera `queueVersion`; klient pozostaje generowany.
+- [x] TASK 10 nie rozpoczyna first-save-wins ani zmian bufora Reviewera.
+
+### Verification TASK 10
+
+```powershell
+npm run db:migrate
+npm run db:current
+\.venv\Scripts\python.exe -m pytest services/api/tests -v --tb=short
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_image_batch_store.py::test_image_review_queue_projection_backfills_and_tracks_durable_state -q
+npm test --workspace @game-predictor/admin-api-client
+npm test --workspace @game-predictor/reviewer
+npm run typecheck --workspace @game-predictor/admin-api-client
+npm run typecheck --workspace @game-predictor/reviewer
+npm run openapi:check
+```
+
+Wynik: baza działa na `0049 (head)` i zawiera 33 174 pozycje w czterech
+trwałych kolejkach. Pełny zestaw API dał `357 passed, 27 skipped`, a osobny
+test PostgreSQL projekcji, resume, nawigacji i stale po zmianie topologii
+przeszedł. Klient API dał `38 passed`, Reviewer `26 passed`; oba typechecki,
+OpenAPI i Ruff dla zmienionych modułów przeszły. Mypy doszedł do dwóch
+wcześniejszych, niezwiązanych błędów w `symbol_model_iteration_repository.py`
+(`arg-type` i `unused-ignore`); nie wykazał błędu w kodzie TASK 10.
+Read-only smoke największej rzeczywistej kolejki (`19 746` wszystkich,
+`19 745 pending`) zwrócił pierwszą pending wraz z oboma kierunkami nawigacji i
+`queueVersion = 1` w `72,43 ms`.
 
 ### Kryteria odbioru pionu
 

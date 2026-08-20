@@ -48,9 +48,10 @@ from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
-    ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
+    ImageReviewQueueItemModel,
+    ImageReviewQueueStateModel,
     ImageReviewResolutionEventModel,
     ImageSequenceAlternativeModel,
     ImageSequenceCanonicalModel,
@@ -66,10 +67,10 @@ ReviewRow = tuple[
     ImageReviewItemModel,
     RecognizedBoardModel,
     SourceImageModel,
-    ImageImportJobFileModel,
+    ImageReviewQueueItemModel,
     JobModel,
 ]
-OrderKey = tuple[int, int, int, str]
+OrderKey = tuple[int, int, str]
 
 
 class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -331,23 +332,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         view: ImageReviewView,
         after_key: OrderKey | None,
         before_key: OrderKey | None,
+        expected_queue_version: int | None,
         sequence_number: int | None,
         resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage:
         self.require_context(game_id=game_id, import_job_id=import_job_id)
-        order = _order_expressions(view)
-        query = _base_query(game_id, import_job_id, view)
-        cursor = after_key or before_key
-        if cursor is not None and not self._cursor_exists(
-            query,
-            order,
-            cursor,
-        ):
+        queue_version, _counts = self._queue_snapshot(import_job_id)
+        if expected_queue_version is not None and expected_queue_version != queue_version:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CURSOR_STALE",
-                "The operational review cursor is stale; reload the queue.",
+                "The operational review queue topology changed; reload the queue.",
             )
+        order = _queue_order_expressions()
+        query = _base_query(game_id, import_job_id, view)
         if after_key is not None:
             query = query.where(_lexicographic_after(order, after_key))
         elif before_key is not None:
@@ -365,11 +363,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 .first()
             )
             if pending_row is not None:
-                pending_item, pending_board, _source, pending_association, _job = pending_row
+                pending_item, _pending_board, _source, pending_queue_item, _job = pending_row
                 pending_key: OrderKey = (
-                    0,
-                    pending_association.order_index,
-                    pending_board.position_index,
+                    pending_queue_item.source_order_index,
+                    pending_queue_item.position_index,
                     str(pending_item.id),
                 )
                 query = query.where(
@@ -394,7 +391,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
-                    items[0].cursor_key_for(view),
+                    items[0].queue_order_key,
                 )
             )
             has_next = (
@@ -402,7 +399,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
-                    items[-1].cursor_key_for(view),
+                    items[-1].queue_order_key,
                 )
                 if descending
                 else extra
@@ -410,11 +407,18 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         else:
             has_previous = False
             has_next = False
+        final_queue_version, final_counts = self._queue_snapshot(import_job_id)
+        if final_queue_version != queue_version:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CURSOR_STALE",
+                "The operational review queue topology changed while it was read.",
+            )
         return ImageReviewPage(
             items=items,
-            counts=self._counts(game_id, import_job_id),
+            counts=final_counts,
             has_previous=has_previous,
             has_next=has_next,
+            queue_version=final_queue_version,
         )
 
     def list_canonical_pending_items(
@@ -442,7 +446,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .exists()
         )
         query = query.where(or_(RecognizedBoardModel.sequence_number.is_(None), ~canonical_exists))
-        order = _order_expressions(ImageReviewView.PENDING)
+        order = _sequence_order_expressions(ImageReviewView.PENDING)
         if after_sequence is not None:
             query = query.where(
                 or_(
@@ -554,9 +558,9 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             self._session.execute(
                 _base_query(game_id, import_job_id, None)
                 .order_by(
-                    ImageImportJobFileModel.order_index,
-                    RecognizedBoardModel.position_index,
-                    ImageReviewItemModel.id,
+                    ImageReviewQueueItemModel.source_order_index,
+                    ImageReviewQueueItemModel.position_index,
+                    ImageReviewQueueItemModel.review_item_id,
                 )
                 .with_for_update()
             )
@@ -583,9 +587,9 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 _base_game_query(game_id)
                 .order_by(
                     JobModel.id,
-                    ImageImportJobFileModel.order_index,
-                    RecognizedBoardModel.position_index,
-                    ImageReviewItemModel.id,
+                    ImageReviewQueueItemModel.source_order_index,
+                    ImageReviewQueueItemModel.position_index,
+                    ImageReviewQueueItemModel.review_item_id,
                 )
                 .with_for_update()
             )
@@ -1096,7 +1100,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return [by_code[code] for code in symbol_codes]
 
     def _items_from_rows(self, rows: Sequence[ReviewRow]) -> tuple[ImageReviewItem, ...]:
-        board_ids = [board.id for _item, board, _source, _association, _job in rows]
+        board_ids = [board.id for _item, board, _source, _queue_item, _job in rows]
         observations_by_board: dict[UUID, list[CellObservationModel]] = defaultdict(list)
         if board_ids:
             observations = self._session.scalars(
@@ -1122,7 +1126,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 )
             ).all():
                 revisions_by_board[revision.recognized_board_id] = revision
-            item_ids = [item.id for item, _board, _source, _association, _job in rows]
+            item_ids = [item.id for item, _board, _source, _queue_item, _job in rows]
             if item_ids:
                 for symbol_revision in self._session.scalars(
                     select(ImageSymbolPredictionRevisionModel)
@@ -1140,61 +1144,64 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 item,
                 board,
                 source,
-                association,
+                queue_item,
                 job,
                 observations_by_board[board.id],
                 revisions_by_board.get(board.id),
                 predictions_by_item.get(item.id),
             )
-            for item, board, source, association, job in rows
+            for item, board, source, queue_item, job in rows
         )
 
     def _counts(self, game_id: UUID, import_job_id: UUID) -> ImageReviewCounts:
-        rows = self._session.execute(
-            select(ImageReviewItemModel.status, func.count())
-            .select_from(ImageReviewItemModel)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-            )
-            .join(
-                SourceImageModel,
-                SourceImageModel.id == RecognizedBoardModel.source_image_id,
-            )
-            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-            .where(
-                JobModel.id == import_job_id,
-                JobModel.game_id == game_id,
-            )
-            .group_by(ImageReviewItemModel.status)
-        ).all()
-        values = {status: int(count) for status, count in rows}
-        return ImageReviewCounts(
-            pending=values.get("pending", 0),
-            accepted=values.get("accepted", 0),
-            corrected=values.get("corrected", 0),
-            rejected=values.get("rejected", 0),
-        )
+        del game_id
+        return self._queue_snapshot(import_job_id)[1]
 
     def _counts_for_game(self, game_id: UUID) -> ImageReviewCounts:
-        rows = self._session.execute(
-            select(ImageReviewItemModel.status, func.count())
-            .select_from(ImageReviewItemModel)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        totals = self._session.execute(
+            select(
+                func.coalesce(func.sum(ImageReviewQueueStateModel.pending_count), 0),
+                func.coalesce(func.sum(ImageReviewQueueStateModel.accepted_count), 0),
+                func.coalesce(func.sum(ImageReviewQueueStateModel.corrected_count), 0),
+                func.coalesce(func.sum(ImageReviewQueueStateModel.rejected_count), 0),
             )
-            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .select_from(ImageReviewQueueStateModel)
+            .join(JobModel, JobModel.id == ImageReviewQueueStateModel.import_job_id)
             .where(JobModel.game_id == game_id)
-            .group_by(ImageReviewItemModel.status)
-        ).all()
-        values = {status: int(count) for status, count in rows}
+        ).one()
         return ImageReviewCounts(
-            pending=values.get("pending", 0),
-            accepted=values.get("accepted", 0),
-            corrected=values.get("corrected", 0),
-            rejected=values.get("rejected", 0),
+            pending=int(totals[0]),
+            accepted=int(totals[1]),
+            corrected=int(totals[2]),
+            rejected=int(totals[3]),
+        )
+
+    def _queue_snapshot(self, import_job_id: UUID) -> tuple[int, ImageReviewCounts]:
+        state = self._session.scalar(
+            select(ImageReviewQueueStateModel)
+            .where(ImageReviewQueueStateModel.import_job_id == import_job_id)
+            .execution_options(populate_existing=True)
+        )
+        if state is None:
+            projected_count = int(
+                self._session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewQueueItemModel)
+                    .where(ImageReviewQueueItemModel.import_job_id == import_job_id)
+                )
+                or 0
+            )
+            if projected_count:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_QUEUE_PROJECTION_INVALID",
+                    "The operational review queue state is missing.",
+                )
+            return 0, ImageReviewCounts(pending=0, accepted=0, corrected=0, rejected=0)
+        return state.queue_version, ImageReviewCounts(
+            pending=state.pending_count,
+            accepted=state.accepted_count,
+            corrected=state.corrected_count,
+            rejected=state.rejected_count,
         )
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
@@ -1264,15 +1271,6 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             audit_report_checksum_sha256=audit_report_checksum_sha256,
         )
 
-    def _cursor_exists(
-        self,
-        query: Any,
-        order: tuple[ColumnElement[object], ...],
-        key: OrderKey,
-    ) -> bool:
-        statement = query.where(_lexicographic_equal(order, key))
-        return self._session.execute(statement.limit(1)).first() is not None
-
     def _exists_before(
         self,
         game_id: UUID,
@@ -1280,7 +1278,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         view: ImageReviewView,
         key: OrderKey,
     ) -> bool:
-        order = _order_expressions(view)
+        order = _queue_order_expressions()
         return (
             self._session.execute(
                 _base_query(game_id, import_job_id, view)
@@ -1297,7 +1295,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         view: ImageReviewView,
         key: OrderKey,
     ) -> bool:
-        order = _order_expressions(view)
+        order = _queue_order_expressions()
         return (
             self._session.execute(
                 _base_query(game_id, import_job_id, view)
@@ -1318,7 +1316,7 @@ def _base_query(
             ImageReviewItemModel,
             RecognizedBoardModel,
             SourceImageModel,
-            ImageImportJobFileModel,
+            ImageReviewQueueItemModel,
             JobModel,
         )
         .join(
@@ -1327,19 +1325,19 @@ def _base_query(
         )
         .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
         .join(
-            ImageImportJobFileModel,
+            ImageReviewQueueItemModel,
             and_(
-                ImageImportJobFileModel.job_id == SourceImageModel.import_job_id,
-                ImageImportJobFileModel.file_execution_key == SourceImageModel.file_execution_key,
+                ImageReviewQueueItemModel.review_item_id == ImageReviewItemModel.id,
+                ImageReviewQueueItemModel.import_job_id == SourceImageModel.import_job_id,
             ),
         )
         .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
         .where(JobModel.id == import_job_id, JobModel.game_id == game_id)
     )
     if view is ImageReviewView.PENDING:
-        query = query.where(ImageReviewItemModel.status == "pending")
+        query = query.where(ImageReviewQueueItemModel.status == "pending")
     elif view is ImageReviewView.COMPLETED:
-        query = query.where(ImageReviewItemModel.status.in_(("accepted", "corrected")))
+        query = query.where(ImageReviewQueueItemModel.status.in_(("accepted", "corrected")))
     return query
 
 
@@ -1349,7 +1347,7 @@ def _base_game_query(game_id: UUID) -> Any:
             ImageReviewItemModel,
             RecognizedBoardModel,
             SourceImageModel,
-            ImageImportJobFileModel,
+            ImageReviewQueueItemModel,
             JobModel,
         )
         .join(
@@ -1358,10 +1356,10 @@ def _base_game_query(game_id: UUID) -> Any:
         )
         .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
         .join(
-            ImageImportJobFileModel,
+            ImageReviewQueueItemModel,
             and_(
-                ImageImportJobFileModel.job_id == SourceImageModel.import_job_id,
-                ImageImportJobFileModel.file_execution_key == SourceImageModel.file_execution_key,
+                ImageReviewQueueItemModel.review_item_id == ImageReviewItemModel.id,
+                ImageReviewQueueItemModel.import_job_id == SourceImageModel.import_job_id,
             ),
         )
         .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
@@ -1384,7 +1382,9 @@ def _sequence_expression(view: ImageReviewView) -> ColumnElement[int]:
     return resolved_sequence
 
 
-def _order_expressions(view: ImageReviewView) -> tuple[ColumnElement[object], ...]:
+def _sequence_order_expressions(
+    view: ImageReviewView,
+) -> tuple[ColumnElement[object], ...]:
     raw_sequence = _sequence_expression(view)
     sequence: ColumnElement[object] = cast(
         ColumnElement[object],
@@ -1392,9 +1392,17 @@ def _order_expressions(view: ImageReviewView) -> tuple[ColumnElement[object], ..
     )
     return (
         sequence,
-        cast(ColumnElement[object], ImageImportJobFileModel.order_index),
+        cast(ColumnElement[object], ImageReviewQueueItemModel.source_order_index),
         cast(ColumnElement[object], RecognizedBoardModel.position_index),
         cast(ColumnElement[object], ImageReviewItemModel.id.cast(String)),
+    )
+
+
+def _queue_order_expressions() -> tuple[ColumnElement[object], ...]:
+    return (
+        cast(ColumnElement[object], ImageReviewQueueItemModel.source_order_index),
+        cast(ColumnElement[object], ImageReviewQueueItemModel.position_index),
+        cast(ColumnElement[object], ImageReviewQueueItemModel.review_item_id.cast(String)),
     )
 
 
@@ -1409,12 +1417,6 @@ def _lexicographic_after(
             expressions[0] == key[0],
             expressions[1] == key[1],
             expressions[2] > key[2],
-        ),
-        and_(
-            expressions[0] == key[0],
-            expressions[1] == key[1],
-            expressions[2] == key[2],
-            expressions[3] > key[3],
         ),
     )
 
@@ -1431,12 +1433,6 @@ def _lexicographic_before(
             expressions[1] == key[1],
             expressions[2] < key[2],
         ),
-        and_(
-            expressions[0] == key[0],
-            expressions[1] == key[1],
-            expressions[2] == key[2],
-            expressions[3] < key[3],
-        ),
     )
 
 
@@ -1451,7 +1447,7 @@ def _item_from_records(
     item: ImageReviewItemModel,
     board: RecognizedBoardModel,
     source: SourceImageModel,
-    association: ImageImportJobFileModel,
+    queue_item: ImageReviewQueueItemModel,
     job: JobModel,
     observations: Sequence[CellObservationModel],
     geometry_revision: ImageBoardGeometryRevisionModel | None,
@@ -1593,8 +1589,8 @@ def _item_from_records(
         source_image_id=source.id,
         recognized_board_id=board.id,
         status=item.status,
-        source_order_index=association.order_index,
-        position_index=board.position_index,
+        source_order_index=queue_item.source_order_index,
+        position_index=queue_item.position_index,
         queue_sequence_number=queue_sequence,
         suggested_sequence_number=board.sequence_number,
         source_relative_path=source.relative_path,

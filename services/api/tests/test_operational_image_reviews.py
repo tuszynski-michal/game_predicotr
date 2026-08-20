@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -54,6 +56,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         self.game_id = game_id
         self.import_job_id = import_job_id
         self.items = {item.id: item for item in items}
+        self.queue_version = 1 if self.items else 0
         self.events: dict[UUID, list[ImageReviewResolutionEvent]] = {}
         self.geometry_revisions: dict[UUID, list[ImageReviewGeometryRevision]] = {}
         self.staging: dict[UUID, tuple[int, tuple[str, ...]]] = {}
@@ -71,8 +74,9 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
-        after_key: tuple[int, int, int, str] | None,
-        before_key: tuple[int, int, int, str] | None,
+        after_key: tuple[int, int, str] | None,
+        before_key: tuple[int, int, str] | None,
+        expected_queue_version: int | None,
         sequence_number: int | None,
         resume_at_first_pending: bool,
         limit: int,
@@ -93,8 +97,17 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.queue_sequence_number
             return item.queue_sequence_number or item.suggested_sequence_number
 
-        def key(item: ImageReviewItem) -> tuple[int, int, int, str]:
-            return item.cursor_key_for(view)
+        if (
+            expected_queue_version is not None
+            and expected_queue_version != self.queue_version
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CURSOR_STALE",
+                "The operational review queue topology changed.",
+            )
+
+        def key(item: ImageReviewItem) -> tuple[int, int, str]:
+            return item.queue_order_key
 
         candidates = [
             item
@@ -112,18 +125,8 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 first_pending_key = key(first_pending)
                 candidates = [item for item in candidates if key(item) >= first_pending_key]
         if after_key is not None:
-            if not any(key(item) == after_key for item in candidates):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_CURSOR_STALE",
-                    "The operational review cursor is stale.",
-                )
             candidates = [item for item in candidates if key(item) > after_key]
         if before_key is not None:
-            if not any(key(item) == before_key for item in candidates):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_CURSOR_STALE",
-                    "The operational review cursor is stale.",
-                )
             candidates = [item for item in candidates if key(item) < before_key]
             visible = candidates[-limit:]
         else:
@@ -139,6 +142,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 visible and any(key(item) < key(visible[0]) for item in all_for_view)
             ),
             has_next=bool(visible and any(key(item) > key(visible[-1]) for item in all_for_view)),
+            queue_version=self.queue_version,
         )
 
     def get_item(
@@ -936,8 +940,20 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         "completed": 0,
         "total": 3,
     }
+    assert first_body["queueVersion"] == 1
     assert first_body["previousCursor"] is None
     assert first_body["nextCursor"]
+    padding = "=" * (-len(first_body["nextCursor"]) % 4)
+    cursor_payload = json.loads(
+        base64.urlsafe_b64decode(first_body["nextCursor"] + padding)
+    )
+    assert cursor_payload["version"] == 2
+    assert cursor_payload["queueVersion"] == 1
+    assert cursor_payload["key"] == [
+        first_body["items"][-1]["sourceOrderIndex"],
+        first_body["items"][-1]["positionIndex"],
+        first_body["items"][-1]["id"],
+    ]
 
     second = client.get(
         "/api/v1/admin/image-review-items",
@@ -965,6 +981,56 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         },
     )
     assert wrong_scope.status_code in {404, 409}
+
+
+def test_pending_cursor_survives_boundary_resolution_but_not_topology_change(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    query = {
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "view": "pending",
+        "limit": 1,
+    }
+    first = client.get("/api/v1/admin/image-review-items", params=query)
+    assert first.status_code == 200
+    first_body = first.json()
+    first_item = repository.items[UUID(first_body["items"][0]["id"])]
+
+    resolved = client.post(
+        f"/api/v1/admin/image-review-items/{first_item.id}/resolution",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json=_resolution_payload(
+            first_item,
+            idempotency_key=uuid4(),
+            action="corrected",
+            sequence_number=999,
+            corrected_cell=0,
+        ),
+    )
+    assert resolved.status_code == 200
+
+    next_page = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "afterCursor": first_body["nextCursor"]},
+    )
+    assert next_page.status_code == 200
+    assert next_page.json()["items"][0]["sourceOrderIndex"] == 1
+    assert next_page.json()["queueVersion"] == 1
+
+    repository.queue_version += 1
+    stale = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "afterCursor": first_body["nextCursor"]},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "IMAGE_REVIEW_CURSOR_STALE"
 
 
 def test_all_view_keeps_source_order_and_cursor_valid_after_resolution(

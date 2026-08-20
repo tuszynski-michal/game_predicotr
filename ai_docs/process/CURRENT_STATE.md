@@ -1918,5 +1918,17 @@ odczytane z trwałej projekcji po zapisie. Zmiana sąsiedniego itemu nie blokuje
 komendy; rzeczywisty konflikt bieżącego itemu ma stabilny
 `IMAGE_REVIEW_REVISION_CONFLICT` z oczekiwaną i aktualną rewizją. Reviewer ufa
 snapshotowi serwera i zachowuje UUID idempotencji przy ponowieniu niezmienionej
-komendy po niejednoznacznym błędzie transportu. Strategia bounded bufora
-`previous/current/next two` pozostaje wyłącznie zakresem TASK 13.
+komendy po niejednoznacznym błędzie transportu.
+
+TASK 13 dodał bounded bufor Reviewera `previous/current/next two`. Każda z
+maksymalnie czterech stron nadal pochodzi z osobnego żądania `limit = 1`;
+poprzednik i pierwszy następnik są pobierani równolegle, a drugi następnik
+sekwencyjnie po własnym kursorze. Przejście po gotowym sąsiedzie nie pokazuje
+pełnoekranowego loadingu, a brakujący brzeg jest uzupełniany w tle.
+
+Reviewer prefetchuje również widoczne zasoby trzech sąsiadów, ale nie utrzymuje
+pełnej kolejki w React. Autorytatywne liczniki i `queueVersion` z resolution są
+propagowane do wcześniej pobranych stron, więc przejście dalej nie przywraca
+starego snapshotu. Konflikt topologii podczas prefetchu pozostaje fail-closed;
+zwykły błąd transportu zachowuje bieżącą planszę i foreground fallback. API,
+OpenAPI, baza, pipeline oraz pion wspólnego Reviewera pozostały bez zmian.

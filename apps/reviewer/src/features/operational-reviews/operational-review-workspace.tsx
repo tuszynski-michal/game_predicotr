@@ -6,7 +6,6 @@ import type {
   OperationalImageReviewCountsResponse,
   OperationalImageReviewGeometryResponse,
   OperationalImageReviewItemResponse,
-  OperationalImageReviewPageResponse,
   OperationalImageReviewResolutionResponse,
   SymbolResponse,
   VerifiedCohortExportResponse,
@@ -21,6 +20,7 @@ import {
   loadOperationalReviewJobs,
   loadOperationalReviewPage,
   loadOperationalReviewSymbols,
+  prefetchOperationalReviewPageBuffer,
   resolveOperationalReview,
   type LoadOperationalReviewPageOptions,
   type OperationalReviewsClient,
@@ -29,18 +29,24 @@ import { OperationalReviewGeometryEditor } from '@/features/operational-reviews/
 import {
   buildOperationalReviewResolutionCommand,
   buildOperationalReviewSymbolShortcuts,
+  createOperationalReviewPageBuffer,
   formatOperationalConfidence,
   isOperationalReviewDraftChangedFromCurrent,
   isOperationalReviewTypingTarget,
   operationalReviewAssetUrl,
+  operationalReviewBufferedAssetUrls,
   operationalReviewDraftSymbols,
   operationalReviewJobLabel,
   operationalReviewKeyboardAction,
   operationalReviewNativeContextViewport,
-  operationalReviewPageAfterResolution,
+  operationalReviewPageBufferAdvance,
+  operationalReviewPageBufferAfterResolution,
+  operationalReviewPageBufferReplaceCurrent,
+  operationalReviewPageBufferRetreat,
   operationalReviewResolutionIdempotencyKey,
   operationalReviewSequence,
   operationalReviewStatusLabel,
+  type OperationalReviewPageBuffer,
   updateOperationalReviewCounts,
 } from '@/features/operational-reviews/operational-review-state';
 
@@ -94,8 +100,8 @@ export function OperationalReviewWorkspace({
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [symbolsError, setSymbolsError] = useState('');
-  const [page, setPage] = useState<OperationalImageReviewPageResponse | null>(
-    null,
+  const [pageBuffer, setPageBuffer] = useState<OperationalReviewPageBuffer>(
+    () => createOperationalReviewPageBuffer(null),
   );
   const [pageState, setPageState] = useState<LoadState>('ready');
   const [pageError, setPageError] = useState('');
@@ -114,7 +120,17 @@ export function OperationalReviewWorkspace({
   const jobsRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
+  const pageBufferRequestId = useRef(0);
+  const pageBufferRef = useRef(pageBuffer);
   const cohortRequestId = useRef(0);
+
+  const commitPageBuffer = useCallback(
+    (nextBuffer: OperationalReviewPageBuffer) => {
+      pageBufferRef.current = nextBuffer;
+      setPageBuffer(nextBuffer);
+    },
+    [],
+  );
 
   const refreshGames = useCallback(async () => {
     const requestId = ++gamesRequestId.current;
@@ -174,14 +190,65 @@ export function OperationalReviewWorkspace({
     setSymbolsState('ready');
   }, [api, selectedGameId]);
 
+  const prefetchPageBuffer = useCallback(
+    async (bufferRequestId: number) => {
+      const buffer = pageBufferRef.current;
+      const currentItemId = buffer.current?.items[0]?.id ?? null;
+      if (
+        buffer.current === null ||
+        selectedGameId === '' ||
+        selectedJobId === ''
+      ) {
+        return;
+      }
+      const isCurrentRequest = () =>
+        mounted.current &&
+        bufferRequestId === pageBufferRequestId.current &&
+        (pageBufferRef.current.current?.items[0]?.id ?? null) === currentItemId;
+      const result = await prefetchOperationalReviewPageBuffer(
+        api,
+        {
+          gameId: selectedGameId,
+          importJobId: selectedJobId,
+          view: REVIEW_QUEUE_VIEW,
+        },
+        buffer,
+      );
+      if (!isCurrentRequest()) return;
+      if (!result.ok) {
+        pageBufferRequestId.current += 1;
+        setPageState('error');
+        setPageError(result.error);
+        setCursorConflict(true);
+        return;
+      }
+      commitPageBuffer(result.buffer);
+    },
+    [api, commitPageBuffer, selectedGameId, selectedJobId],
+  );
+
+  const activatePageBuffer = useCallback(
+    (nextBuffer: OperationalReviewPageBuffer) => {
+      const bufferRequestId = ++pageBufferRequestId.current;
+      commitPageBuffer(nextBuffer);
+      setPageState('ready');
+      setPageError('');
+      setCursorConflict(false);
+      void prefetchPageBuffer(bufferRequestId);
+    },
+    [commitPageBuffer, prefetchPageBuffer],
+  );
+
   const refreshPage = useCallback(
     async (navigation: PageNavigation = {}) => {
       if (selectedGameId === '' || selectedJobId === '') {
-        setPage(null);
+        pageBufferRequestId.current += 1;
+        commitPageBuffer(createOperationalReviewPageBuffer(null));
         setPageState('ready');
         return;
       }
       const requestId = ++pageRequestId.current;
+      pageBufferRequestId.current += 1;
       setPageState('loading');
       setPageError('');
       setCursorConflict(false);
@@ -199,10 +266,9 @@ export function OperationalReviewWorkspace({
         setCursorConflict(result.isCursorConflict);
         return;
       }
-      setPage(result.page);
-      setPageState('ready');
+      activatePageBuffer(createOperationalReviewPageBuffer(result.page));
     },
-    [api, selectedGameId, selectedJobId],
+    [activatePageBuffer, api, commitPageBuffer, selectedGameId, selectedJobId],
   );
 
   const refreshCohorts = useCallback(async () => {
@@ -263,8 +329,30 @@ export function OperationalReviewWorkspace({
     games.find((candidate) => candidate.id === selectedGameId) ?? null;
   const selectedJob =
     jobs.find((candidate) => candidate.id === selectedJobId) ?? null;
+  const page = pageBuffer.current;
   const item = page?.items[0] ?? null;
   const counts = page?.counts ?? EMPTY_COUNTS;
+  const bufferedAssetUrls = useMemo(
+    () =>
+      operationalReviewBufferedAssetUrls(apiBaseUrl, selectedJobId, pageBuffer),
+    [apiBaseUrl, pageBuffer, selectedJobId],
+  );
+
+  useEffect(() => {
+    const images = bufferedAssetUrls.map((source) => {
+      const image = new window.Image();
+      image.crossOrigin = 'anonymous';
+      image.decoding = 'async';
+      image.src = source;
+      return image;
+    });
+    return () => {
+      for (const image of images) {
+        image.onload = null;
+        image.onerror = null;
+      }
+    };
+  }, [bufferedAssetUrls]);
 
   function jumpToSequence() {
     const sequenceNumber = Number(jumpValue);
@@ -281,15 +369,27 @@ export function OperationalReviewWorkspace({
         ? `Układ #${resolution.item.sequenceNumber ?? '—'} zapisano jako ${operationalReviewStatusLabel(resolution.item.status).toLocaleLowerCase('pl-PL')}.`
         : 'Ten sam zapis był już przyjęty — nie utworzono drugiej rewizji.',
     );
-    setPage((current) =>
-      current === null
-        ? current
-        : operationalReviewPageAfterResolution(current, resolution),
-    );
-    if (page?.nextCursor !== null && page?.nextCursor !== undefined) {
-      void refreshPage({ afterCursor: page.nextCursor });
+    const currentBuffer = pageBufferRef.current;
+    if (currentBuffer.current?.items[0]?.id !== resolution.item.id) {
+      void refreshPage({ resumeAtFirstPending: true });
       return;
     }
+    const resolvedBuffer = operationalReviewPageBufferAfterResolution(
+      currentBuffer,
+      resolution,
+    );
+    const advancedBuffer = operationalReviewPageBufferAdvance(resolvedBuffer);
+    if (advancedBuffer !== resolvedBuffer) {
+      activatePageBuffer(advancedBuffer);
+      return;
+    }
+    const nextCursor = resolvedBuffer.current?.nextCursor;
+    if (nextCursor != null) {
+      commitPageBuffer(resolvedBuffer);
+      void refreshPage({ afterCursor: nextCursor });
+      return;
+    }
+    activatePageBuffer(resolvedBuffer);
   }
 
   function handleGeometrySaved(
@@ -300,10 +400,12 @@ export function OperationalReviewWorkspace({
         ? `Zapisano rewizję geometrii ${geometry.geometryRevision.revision}. Plansza wróciła do weryfikacji symboli.`
         : 'Ta sama rewizja geometrii była już zapisana — nie utworzono duplikatu.',
     );
-    setPage((current) => {
-      if (current === null) return current;
-      const previousStatus = current.items[0]?.status;
-      return {
+    const currentBuffer = pageBufferRef.current;
+    const current = currentBuffer.current;
+    if (current === null || current.items[0]?.id !== geometry.item.id) return;
+    const previousStatus = current.items[0]?.status;
+    activatePageBuffer(
+      operationalReviewPageBufferReplaceCurrent(currentBuffer, {
         ...current,
         counts: updateOperationalReviewCounts(
           current.counts,
@@ -311,8 +413,32 @@ export function OperationalReviewWorkspace({
           geometry.item.status,
         ),
         items: [geometry.item],
-      };
-    });
+      }),
+    );
+  }
+
+  function showNextPage() {
+    const currentBuffer = pageBufferRef.current;
+    const advancedBuffer = operationalReviewPageBufferAdvance(currentBuffer);
+    if (advancedBuffer !== currentBuffer) {
+      activatePageBuffer(advancedBuffer);
+      return;
+    }
+    const nextCursor = currentBuffer.current?.nextCursor;
+    if (nextCursor != null) void refreshPage({ afterCursor: nextCursor });
+  }
+
+  function showPreviousPage() {
+    const currentBuffer = pageBufferRef.current;
+    const retreatedBuffer = operationalReviewPageBufferRetreat(currentBuffer);
+    if (retreatedBuffer !== currentBuffer) {
+      activatePageBuffer(retreatedBuffer);
+      return;
+    }
+    const previousCursor = currentBuffer.current?.previousCursor;
+    if (previousCursor != null) {
+      void refreshPage({ beforeCursor: previousCursor });
+    }
   }
 
   async function handleFreezeCohort() {
@@ -480,16 +606,8 @@ export function OperationalReviewWorkspace({
                 onJumpChange={setJumpValue}
                 onJumpSubmit={jumpToSequence}
                 onGeometrySaved={handleGeometrySaved}
-                onNext={() =>
-                  void refreshPage({
-                    afterCursor: page?.nextCursor ?? undefined,
-                  })
-                }
-                onPrevious={() =>
-                  void refreshPage({
-                    beforeCursor: page?.previousCursor ?? undefined,
-                  })
-                }
+                onNext={showNextPage}
+                onPrevious={showPreviousPage}
                 onReload={() => {
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
@@ -936,7 +1054,7 @@ function OperationalReviewBoard({
             <button
               aria-label="Poprzednia plansza"
               className="operationalReviewArrow"
-              disabled={!hasPrevious}
+              disabled={!hasPrevious || isSaving}
               onClick={onPrevious}
               type="button"
             >

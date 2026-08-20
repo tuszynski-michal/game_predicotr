@@ -20,9 +20,9 @@ append-only zapis ręcznej geometrii v19, oraz TASK 8, czyli jawny pending-only
 recrop na zaakceptowanym v19, również są ukończone. TASK 9 dodał trwałą
 projekcję topologii kolejki, liczniki i `queueVersion`, TASK 10 przepiął na nią
 listowanie, TASK 11 dodał transakcyjne first-save-wins oraz audyt `superseded`,
-a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. Pełny
-produkcyjny pipeline importu pozostaje na historycznym v18; bounded bufor i pion
-wspólnego Reviewera nie zostały rozpoczęte.
+a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. TASK 13 dodał
+bounded bufor `previous/current/next two`. Pełny produkcyjny pipeline importu
+pozostaje na historycznym v18; pion wspólnego Reviewera nie został rozpoczęty.
 
 ## Goal
 
@@ -496,7 +496,7 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
 4. [ukończone w TASK 12] Odróżnić rzeczywiście nieaktualną komendę elementu od
    prawidłowej decyzji, po której zmieniły się liczniki. Sama zmiana sąsiedniego
    elementu nie może unieważniać kursora bieżącej pozycji.
-5. Dostosować Reviewer do małego, ograniczonego bufora
+5. [ukończone w TASK 13] Dostosować Reviewer do małego, ograniczonego bufora
    `previous/current/next two`, bez ładowania całych 19 745 pozycji do pamięci.
 
 ### Outcome TASK 9 — trwała projekcja kolejki
@@ -728,6 +728,57 @@ sekund i zostały przerwane zgodnie z limitem `AGENTS.md`. Wąski mypy uruchomio
 bez workerowego source rootu pokazał wyłącznie znany problem `import-untyped`
 między pakietami oraz wcześniejszy `unused-ignore`, a nie błąd w kodzie TASK 12.
 
+### Outcome TASK 13 — bounded bufor Reviewera
+
+- Reviewer utrzymuje najwyżej cztery jednopozycyjne odpowiedzi API: jednego
+  poprzednika, bieżącą planszę i dwóch następników. Każde pobranie nadal używa
+  `limit = 1`; pełna kolejka nie jest materializowana w React ani w jednym
+  żądaniu.
+- Poprzednik i pierwszy następnik są pobierani równolegle, a drugi następnik
+  dopiero z kursora pierwszego. Przejście po gotowym sąsiedzie jest lokalnym
+  przesunięciem okna, po którym brakujący brzeg jest uzupełniany w tle.
+- Prefetch obejmuje również 15 cropów i pojedynczy widok planszy każdego
+  sąsiada w ograniczonym oknie. Bieżące zasoby są ładowane przez widoczny ekran,
+  a strony wypadające z okna są usuwane ze stanu React.
+- Pomyślna resolution z TASK 12 aktualizuje bieżący item i propaguje jej
+  autorytatywne liczniki oraz `queueVersion` do stron już znajdujących się w
+  buforze przed natychmiastowym przejściem dalej.
+- Nieaktualny kursor wykryty również podczas prefetchu pozostaje fail-closed i
+  wymaga przeładowania. Zwykły błąd transportu prefetchu nie usuwa bieżącej
+  planszy; nawigacja wykonuje wtedy dotychczasowy foreground fallback.
+- TASK 13 nie zmienia API, OpenAPI, bazy, topologii kolejki, first-save-wins ani
+  lifecycle'u wspólnego Reviewera z pionu C.
+
+### Acceptance criteria TASK 13
+
+- [x] Stan klienta zawiera najwyżej `previous + current + 2 next` strony.
+- [x] Każda strona jest pobierana osobnym żądaniem z `limit = 1`.
+- [x] Gotowy następnik i poprzednik są pokazywane bez pełnoekranowego ponownego
+      ładowania, a brakujący brzeg jest uzupełniany bounded w tle.
+- [x] Prefetch zasobów obejmuje wyłącznie poprzednika oraz dwóch następników.
+- [x] Resolution nie przywraca starych liczników z wcześniej pobranego
+      następnika.
+- [x] Konflikt topologii pozostaje fail-closed, a błąd transportu prefetchu ma
+      bezpieczny foreground fallback.
+- [x] TASK 13 nie rozpoczyna pionu C ani nie zmienia kontraktu backendu.
+
+### Verification TASK 13
+
+```powershell
+npm.cmd test --workspace @game-predictor/reviewer
+npm.cmd run typecheck --workspace @game-predictor/reviewer
+npm.cmd exec --workspace @game-predictor/reviewer -- eslint src/features/operational-reviews/operational-review-actions.ts src/features/operational-reviews/operational-review-state.ts src/features/operational-reviews/operational-review-workspace.tsx
+npm.cmd run reviewer:build
+```
+
+Wynik: Reviewer dał `33 passed`; typecheck, celowany ESLint trzech zmienionych
+modułów, Prettier i produkcyjny build Next.js przeszły. Test async prefetchu
+potwierdził dokładnie trzy jednopozycyjne żądania dla pustego okna sąsiadów, a
+test stanu potwierdził limit czterech stron, przesuwanie w obu kierunkach,
+bounded prefetch 48 zasobów trzech sąsiadów oraz zachowanie autorytatywnego
+snapshotu resolution. API, OpenAPI i baza nie zostały zmienione, dlatego ich
+generowanie i migracje nie należą do bramki TASK 13.
+
 ### Kryteria odbioru pionu
 
 - kolejność pozycji jest identyczna przed i po ich zatwierdzeniu,
@@ -843,6 +894,7 @@ proweniencją. TASK 8 udostępnił osobno odbierany pending-only recrop v19 bez
 zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolejki,
 TASK 10 przepiął operacyjne listowanie na jeden klucz, TASK 11 utrwalił
 first-save-wins i audyt `superseded`, a TASK 12 rozdzielił konflikt komendy itemu
-od zmian liczników. Bounded bufor oraz cały pion wspólnego Reviewera pozostają
-otwarte i wymagają osobnych poleceń dla kolejnych numerów z zaakceptowanego
-breakdownu.
+od zmian liczników. TASK 13 zamknął pion B ograniczonym buforem
+`previous/current/next two` i prefetchowaniem zasobów sąsiadów. Cały pion
+wspólnego Reviewera pozostaje otwarty i wymaga osobnych poleceń dla kolejnych
+numerów z zaakceptowanego breakdownu.

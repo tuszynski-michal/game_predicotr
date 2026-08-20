@@ -1141,8 +1141,12 @@ nie ma — pierwszą planszę importu. Pomyślny zapis przesuwa kursor do nastę
 elementu pełnej kolejności, natomiast poprzedni kursor nadal może wskazać
 planszę właśnie zatwierdzoną. Klient pobiera każdą pozycję bounded z
 `limit = 1`; pełna nawigacja nie oznacza materializacji wszystkich itemów w
-React ani odpowiedzi API. Sąsiednie elementy mogą być prefetchowane wyłącznie
-w bounded oknie.
+React ani odpowiedzi API. Reviewer utrzymuje dokładnie ograniczone okno
+`previous/current/next two`: poprzednik i pierwszy następnik mogą być pobierane
+równolegle, drugi następnik dopiero po kursorze pierwszego. Zasoby obrazu
+sąsiadów są ładowane z wyprzedzeniem, lecz po przesunięciu okna ich strony nie
+pozostają w stanie React. Buforowany następnik dziedziczy autorytatywne liczniki
+i `queueVersion` zwrócone przez późniejszą komendę bieżącego itemu.
 
 Akceptacja pozostaje atomową komendą całej planszy z expected revision i UUID
 idempotencji. Pojedyncze `Enter` albo kliknięcie wysyła jedną komendę bez

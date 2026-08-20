@@ -341,7 +341,11 @@ Przy pierwszym wejściu albo pełnym odświeżeniu aplikacja ustawia bieżącą
 pozycję na pierwszej planszy `pending`. Jeżeli nie istnieje żadna plansza
 `pending`, zaczyna od pierwszej planszy importu. Nie oznacza to pobrania pełnej
 kolejki do klienta: każda bieżąca plansza i sąsiad są nadal pobierane bounded,
-z limitem jednej planszy.
+z limitem jednej planszy. Reviewer utrzymuje najwyżej cztery takie odpowiedzi:
+jedną poprzednią, bieżącą i dwie następne. Metadane oraz zasoby obrazu
+poprzednika i dwóch następców są prefetchowane, a przejście po gotowym sąsiedzie
+nie pokazuje pełnoekranowego stanu ładowania. Przesunięcie okna usuwa dalsze
+pozycje ze stanu React; nie wolno materializować całego importu.
 
 Symbole są mapowane według stabilnej kolejności katalogu gry: klawisze
 `1`–`9`, `0` dla dziesiątego, a następne pozycje kolejno do klawiszy w

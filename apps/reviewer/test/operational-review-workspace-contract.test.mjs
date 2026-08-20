@@ -31,8 +31,14 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /resumeAtFirstPending: true/);
   assert.match(source, /Wszystkie plansze/);
   assert.doesNotMatch(source, /onViewChange/);
-  assert.match(source, /afterCursor: page\.nextCursor/);
-  assert.match(source, /beforeCursor: page\?\.previousCursor/);
+  assert.match(actions, /OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT/);
+  assert.match(actions, /operationalReviewPageBufferAppendNext/);
+  assert.match(actions, /operationalReviewPageBufferSetPrevious/);
+  assert.match(source, /prefetchOperationalReviewPageBuffer/);
+  assert.match(source, /operationalReviewPageBufferAdvance/);
+  assert.match(source, /operationalReviewPageBufferRetreat/);
+  assert.match(source, /afterCursor: nextCursor/);
+  assert.match(source, /beforeCursor: previousCursor/);
   assert.match(source, /const canAdvance =/);
   assert.match(source, /canAdvance\s*\?\s*'Dalej'/);
   assert.match(
@@ -58,7 +64,7 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /operationalReviewKeyboardAction/);
   assert.match(source, /globalThis\.crypto\.randomUUID/);
   assert.match(source, /resolutionIdempotencyKey/);
-  assert.match(source, /operationalReviewPageAfterResolution/);
+  assert.match(source, /operationalReviewPageBufferAfterResolution/);
   assert.match(source, /operationalReviewSuggestions/);
   assert.match(source, /operationalReviewLegend/);
   assert.match(source, /naciśnij Enter, aby od razu zapisać/);

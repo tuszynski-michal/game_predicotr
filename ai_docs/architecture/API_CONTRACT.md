@@ -1471,7 +1471,10 @@ zmienia topologii ani `queueVersion`, więc wcześniejszy kursor nadal może wr�
 do tego elementu także wtedy, gdy przestał należeć do widoku `pending`. Zmiana
 topologii unieważnia cursor kodem `IMAGE_REVIEW_CURSOR_STALE`. Liczniki pochodzą
 z trwałej projekcji. Rozmiar strony jest ograniczony do 50, a Reviewer zawsze
-żąda `limit = 1`. Pełny import nigdy nie jest zwracany jako jedna odpowiedź.
+żąda `limit = 1`. Klient może równolegle pobrać jednego poprzednika i
+sekwencyjnie dwóch następców, ale utrzymuje najwyżej okno
+`previous/current/next two`; każdy jego element pozostaje osobną odpowiedzią
+jednopozycyjną. Pełny import nigdy nie jest zwracany jako jedna odpowiedź.
 
 Bez kursora wejściowego lub po reloadzie lista `all` wskazuje pierwszą planszę
 `pending`; jeśli nie ma żadnej pending, wskazuje pierwszą planszę importu.

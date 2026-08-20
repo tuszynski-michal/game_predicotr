@@ -17,9 +17,13 @@ import type {
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 import {
   isImageImportJob,
+  operationalReviewPageBufferAppendNext,
+  operationalReviewPageBufferSetPrevious,
   orderOperationalReviewGames,
   orderOperationalReviewJobs,
   orderOperationalReviewSymbols,
+  OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT,
+  type OperationalReviewPageBuffer,
 } from './operational-review-state.ts';
 
 export type OperationalReviewsClient = Pick<
@@ -280,6 +284,81 @@ export async function loadOperationalReviewPage(
       ok: false,
     };
   }
+}
+
+export type OperationalReviewPageBufferPrefetchResult =
+  | {
+      readonly buffer: OperationalReviewPageBuffer;
+      readonly ok: true;
+    }
+  | {
+      readonly error: string;
+      readonly isCursorConflict: true;
+      readonly ok: false;
+    };
+
+export async function prefetchOperationalReviewPageBuffer(
+  api: OperationalReviewsClient,
+  options: Pick<
+    LoadOperationalReviewPageOptions,
+    'gameId' | 'importJobId' | 'view'
+  >,
+  buffer: OperationalReviewPageBuffer,
+): Promise<OperationalReviewPageBufferPrefetchResult> {
+  const current = buffer.current;
+  if (current === null) return { buffer, ok: true };
+
+  const previousPromise =
+    buffer.previous === null && current.previousCursor !== null
+      ? loadOperationalReviewPage(api, {
+          ...options,
+          beforeCursor: current.previousCursor,
+        })
+      : Promise.resolve(null);
+  const nextPromise = (async () => {
+    const pages: OperationalImageReviewPageResponse[] = [];
+    let cursor = (buffer.next.at(-1) ?? current).nextCursor ?? undefined;
+    while (
+      buffer.next.length + pages.length <
+        OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT &&
+      cursor !== undefined
+    ) {
+      const result = await loadOperationalReviewPage(api, {
+        ...options,
+        afterCursor: cursor,
+      });
+      if (!result.ok) return { pages, result };
+      pages.push(result.page);
+      cursor = result.page.nextCursor ?? undefined;
+    }
+    return { pages, result: null };
+  })();
+  const [previousResult, nextResult] = await Promise.all([
+    previousPromise,
+    nextPromise,
+  ]);
+  const conflict = [previousResult, nextResult.result].find(
+    (result) => result !== null && !result.ok && result.isCursorConflict,
+  );
+  if (conflict !== undefined && conflict !== null && !conflict.ok) {
+    return {
+      error: conflict.error,
+      isCursorConflict: true,
+      ok: false,
+    };
+  }
+
+  let prefetched = buffer;
+  if (previousResult?.ok === true) {
+    prefetched = operationalReviewPageBufferSetPrevious(
+      prefetched,
+      previousResult.page,
+    );
+  }
+  for (const page of nextResult.pages) {
+    prefetched = operationalReviewPageBufferAppendNext(prefetched, page);
+  }
+  return { buffer: prefetched, ok: true };
 }
 
 export interface ResolveOperationalReviewOptions {

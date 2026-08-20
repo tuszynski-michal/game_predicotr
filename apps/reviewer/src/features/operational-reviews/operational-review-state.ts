@@ -212,6 +212,154 @@ export function operationalReviewPageAfterResolution(
   };
 }
 
+export const OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT = 2;
+
+export interface OperationalReviewPageBuffer {
+  readonly current: OperationalImageReviewPageResponse | null;
+  readonly next: readonly OperationalImageReviewPageResponse[];
+  readonly previous: OperationalImageReviewPageResponse | null;
+}
+
+export function createOperationalReviewPageBuffer(
+  current: OperationalImageReviewPageResponse | null,
+): OperationalReviewPageBuffer {
+  return { current, next: [], previous: null };
+}
+
+export function operationalReviewPageBufferSetPrevious(
+  buffer: OperationalReviewPageBuffer,
+  previous: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null || buffer.previous !== null) return buffer;
+  const reviewItemId = previous.items[0]?.id;
+  if (
+    reviewItemId === undefined ||
+    reviewItemId === buffer.current.items[0]?.id ||
+    buffer.next.some((page) => page.items[0]?.id === reviewItemId)
+  ) {
+    return buffer;
+  }
+  return {
+    ...buffer,
+    previous: operationalReviewPageWithQueueSnapshot(previous, buffer.current),
+  };
+}
+
+export function operationalReviewPageBufferAppendNext(
+  buffer: OperationalReviewPageBuffer,
+  next: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (
+    buffer.current === null ||
+    buffer.next.length >= OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT
+  ) {
+    return buffer;
+  }
+  const reviewItemId = next.items[0]?.id;
+  if (
+    reviewItemId === undefined ||
+    reviewItemId === buffer.current.items[0]?.id ||
+    reviewItemId === buffer.previous?.items[0]?.id ||
+    buffer.next.some((page) => page.items[0]?.id === reviewItemId)
+  ) {
+    return buffer;
+  }
+  return {
+    ...buffer,
+    next: [
+      ...buffer.next,
+      operationalReviewPageWithQueueSnapshot(next, buffer.current),
+    ],
+  };
+}
+
+export function operationalReviewPageBufferAdvance(
+  buffer: OperationalReviewPageBuffer,
+): OperationalReviewPageBuffer {
+  const current = buffer.current;
+  const next = buffer.next[0];
+  if (current === null || next === undefined) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    {
+      current: next,
+      next: buffer.next.slice(1),
+      previous: current,
+    },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferRetreat(
+  buffer: OperationalReviewPageBuffer,
+): OperationalReviewPageBuffer {
+  const current = buffer.current;
+  const previous = buffer.previous;
+  if (current === null || previous === null) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    {
+      current: previous,
+      next: [current, ...buffer.next].slice(
+        0,
+        OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT,
+      ),
+      previous: null,
+    },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferReplaceCurrent(
+  buffer: OperationalReviewPageBuffer,
+  current: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    { ...buffer, current },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferAfterResolution(
+  buffer: OperationalReviewPageBuffer,
+  resolution: OperationalImageReviewResolutionResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null) return buffer;
+  return operationalReviewPageBufferReplaceCurrent(
+    buffer,
+    operationalReviewPageAfterResolution(buffer.current, resolution),
+  );
+}
+
+function operationalReviewPageBufferWithQueueSnapshot(
+  buffer: OperationalReviewPageBuffer,
+  snapshot: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  return {
+    current:
+      buffer.current === null
+        ? null
+        : operationalReviewPageWithQueueSnapshot(buffer.current, snapshot),
+    next: buffer.next
+      .slice(0, OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT)
+      .map((page) => operationalReviewPageWithQueueSnapshot(page, snapshot)),
+    previous:
+      buffer.previous === null
+        ? null
+        : operationalReviewPageWithQueueSnapshot(buffer.previous, snapshot),
+  };
+}
+
+function operationalReviewPageWithQueueSnapshot(
+  page: OperationalImageReviewPageResponse,
+  snapshot: OperationalImageReviewPageResponse,
+): OperationalImageReviewPageResponse {
+  return {
+    ...page,
+    counts: snapshot.counts,
+    queueVersion: snapshot.queueVersion,
+  };
+}
+
 export function operationalReviewDraftSymbols(
   item: OperationalImageReviewItemResponse,
 ): readonly string[] {
@@ -641,6 +789,42 @@ export function operationalReviewAssetUrl(
     url.searchParams.set('usage', options.usage);
   }
   return url.toString();
+}
+
+export function operationalReviewBufferedAssetUrls(
+  apiBaseUrl: string,
+  importJobId: string,
+  buffer: OperationalReviewPageBuffer,
+): readonly string[] {
+  const pages = [
+    ...(buffer.previous === null ? [] : [buffer.previous]),
+    ...buffer.next.slice(0, OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT),
+  ];
+  const urls = new Set<string>();
+  for (const page of pages) {
+    const item = page.items[0];
+    if (item === undefined) continue;
+    const context = { gameId: item.gameId, importJobId };
+    for (const cell of item.cells) {
+      urls.add(
+        operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'cell', {
+          cellIndex: cell.cellIndex,
+          version: cell.cropChecksumSha256,
+        }),
+      );
+    }
+    urls.add(
+      item.geometry.displayAssetKind === 'source_context'
+        ? operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'board', {
+            version: item.boardChecksumSha256,
+          })
+        : operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'source', {
+            usage: 'native-context-v2',
+            version: item.sourceChecksumSha256,
+          }),
+    );
+  }
+  return [...urls];
 }
 
 function parseGeometryViewport(

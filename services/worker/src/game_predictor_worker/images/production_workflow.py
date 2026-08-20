@@ -281,8 +281,15 @@ class ProductionImageStageAdapterSuite:
         self._image_selection_run_id = image_selection_run_id
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._detector = ClassicalPageBoardDetector()
+        # A pinned preflight manifest is the complete geometry authority for a
+        # ``seq_*`` import.  Loading the fallback registration anchors in that
+        # case is both unnecessary work and, more importantly, makes a fully
+        # verified import depend on artifacts it will never consume.
+        registration_profile = (
+            {} if self._page_geometry_manifest else self._page_registration_profile
+        )
         self._page_registrar = VerifiedPageRegistrar(
-            self._page_registration_profile,
+            registration_profile,
             load_anchor_rgb=self._load_anchor_rgb,
         )
         self._cropper = SourceDirectBoardCellCropper(
@@ -696,9 +703,7 @@ class ProductionImageStageAdapterSuite:
         return self._ocr
 
     def _load_anchor_rgb(self, checksum_sha256: str) -> NDArray[np.uint8]:
-        return self._artifacts.load_rgb(
-            f"data/originals/{checksum_sha256[:2]}/{checksum_sha256}.jpg"
-        )
+        return self._artifacts.load_rgb(f"originals/{checksum_sha256[:2]}/{checksum_sha256}.jpg")
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
         if self._symbol_model is None:

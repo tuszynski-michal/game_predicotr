@@ -16,6 +16,9 @@ from game_predictor_worker.images.geometry import (
     DetectionResult,
     Point,
 )
+from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_VERSION,
+)
 from game_predictor_worker.images.pipeline_execution import (
     ImagePipelineExecutionError,
     ImageStageContext,
@@ -163,6 +166,49 @@ def _grid_image() -> np.ndarray:
     return image
 
 
+def _grid_quads() -> list[list[dict[str, int]]]:
+    return [
+        [
+            Point(60 + column * 200, 60 + row * 150).to_dict(),
+            Point(200 + column * 200, 60 + row * 150).to_dict(),
+            Point(200 + column * 200, 140 + row * 150).to_dict(),
+            Point(60 + column * 200, 140 + row * 150).to_dict(),
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+
+
+def test_page_registration_anchor_loads_from_managed_data_root(tmp_path: Path) -> None:
+    artifact_root = tmp_path / "artifacts"
+    source_content_path = tmp_path / "anchor.jpg"
+    Image.fromarray(_grid_image(), mode="RGB").save(source_content_path, format="JPEG")
+    content = source_content_path.read_bytes()
+    checksum = hashlib.sha256(content).hexdigest()
+    anchor_path = artifact_root / "data" / "originals" / checksum[:2] / f"{checksum}.jpg"
+    anchor_path.parent.mkdir(parents=True)
+    anchor_path.write_bytes(content)
+
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        page_registration_profile={
+            "policy": PAGE_REGISTRATION_VERSION,
+            "anchors": [
+                {
+                    "sourceChecksumSha256": checksum,
+                    "imageWidth": 680,
+                    "imageHeight": 640,
+                    "quads": _grid_quads(),
+                }
+            ],
+        },
+    )
+
+    assert suite._page_registrar.available is True
+
+
 class _AmbiguousDetector:
     version = "ambiguous-detector-test-v1"
 
@@ -240,6 +286,17 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
         artifact_root,
         repository_root=Path.cwd(),
         symbol_model=_candidate_snapshot(),
+        page_registration_profile={
+            "policy": PAGE_REGISTRATION_VERSION,
+            "anchors": [
+                {
+                    "sourceChecksumSha256": "a" * 64,
+                    "imageWidth": 680,
+                    "imageHeight": 640,
+                    "quads": _grid_quads(),
+                }
+            ],
+        },
         page_geometry_manifest={
             checksum: {
                 "status": "registered",
@@ -253,6 +310,7 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
         },
     )
     suite._detector = _UnexpectedDetector()  # type: ignore[assignment]
+    assert suite._page_registrar.available is False
     context = ImageStageContext(
         job_id=uuid4(),
         file_execution_key="f" * 64,

@@ -48,7 +48,18 @@ function Repair-WindowsProcessPath {
         [Environment]::GetEnvironmentVariables('Process').Keys |
             Where-Object { [string]$_ -ieq 'Path' }
     )
-    if ($pathKeys.Count -ne 1) {
+    # Some host shells expose both `PATH` and `Path` even after .NET has
+    # normalized their equal values.  Windows treats those names as the same
+    # variable, so failing a worker control command in that harmless case is
+    # worse than accepting the already-equivalent environment.  We still fail
+    # safely if competing values remain, because a child process would then
+    # have an ambiguous executable search path.
+    $distinctPathValues = @(
+        $pathKeys |
+            ForEach-Object { [Environment]::GetEnvironmentVariable([string]$_, 'Process') } |
+            Select-Object -Unique
+    )
+    if ($pathKeys.Count -ne 1 -and $distinctPathValues.Count -ne 1) {
         throw 'Windows process environment could not be normalized to one Path variable.'
     }
 }

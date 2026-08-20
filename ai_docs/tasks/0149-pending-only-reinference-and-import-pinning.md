@@ -1,7 +1,7 @@
 ---
 title: TASK-0149 pending-only re-inference and import pinning
 status: in_progress
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 ---
 
 # TASK-0149 — Pending-only re-inference and import pinning
@@ -132,3 +132,17 @@ W v0.6.59 deskryptor rejestracji ma deterministyczną politykę
 `1000 → 1500 → 3000`; wyższy budżet może być użyty tylko po nieudanej próbie
 niższego budżetu tej samej strony i nadal musi przejść kompletną bramkę
 geometrii. Realny preflight zostanie powtórzony przed uruchomieniem importu.
+
+Preflight `9950ec44-146b-4219-9e23-0de6e83b4b89` spełnił bramkę operacyjną:
+`2194` stron zarejestrowanych, `7` kanonicznie pominiętych i `0` wymagających
+korekty. Import `b2d9b299-a851-4e17-9ba3-dacaa7966978` przypina wynikowy
+manifest geometrii `61e8c5b2…`. Pierwsza próba ujawniła błąd wyłącznie podczas
+eager-load fallbackowych anchorów (`data/data/originals`); poprawka wyłącza ten
+nieużywany fallback dla joba z przypiętym manifestem oraz używa poprawnej ścieżki
+dla importu legacy bez manifestu. Retry zachowuje ten sam staging, snapshoty i
+id joba, a jego odbiór E2E pozostaje aktywny w trybie review-first.
+
+TASK-0249 oddziela przyszłą geometrię komórek v19 od tego zadania. TASK-0149
+pozostaje bez recropu i korekty geometrii; może wykorzystać zaakceptowaną,
+append-only rewizję cropów dopiero po osobnym odbiorze v19. Do tego czasu
+aktywne zachowanie pending-only i wszystkie ochrony decyzji pozostają bez zmian.

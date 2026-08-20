@@ -196,9 +196,24 @@ function Test-ProcessIdentity {
     catch {
         return $null
     }
+    # ConvertFrom-Json materializes ISO 8601 values as DateTime on some
+    # PowerShell versions. Casting that value back to string produces a
+    # locale-specific timestamp (for example `08/19/2026 11:04:37`) and made a
+    # healthy worker appear stale immediately after every script invocation.
+    # Normalize either representation before comparing a process identity.
+    $expectedStartValue = $Identity.startTimeUtc
+    $expectedStart = if ($expectedStartValue -is [DateTime]) {
+        $expectedStartValue.ToUniversalTime().ToString('o')
+    }
+    elseif ($expectedStartValue -is [DateTimeOffset]) {
+        $expectedStartValue.UtcDateTime.ToString('o')
+    }
+    else {
+        [string]$expectedStartValue
+    }
     if (
         $process.ProcessName -ine [string]$Identity.processName -or
-        $actualStart -ne [string]$Identity.startTimeUtc
+        $actualStart -ne $expectedStart
     ) {
         return $null
     }

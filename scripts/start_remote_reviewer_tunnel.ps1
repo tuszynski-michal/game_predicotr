@@ -88,34 +88,7 @@ function Test-PublicOriginReady {
         [string]$PublicOrigin
     )
 
-    try {
-        $publicUri = [Uri]$PublicOrigin
-        if (
-            $publicUri.Scheme -ne "https" -or
-            $publicUri.DnsSafeHost -notlike "*.trycloudflare.com" -or
-            -not $publicUri.IsDefaultPort -or
-            $publicUri.AbsolutePath -ne "/"
-        ) {
-            return $false
-        }
-        $dnsResult = Resolve-DnsName `
-            -Name $publicUri.DnsSafeHost `
-            -Type A `
-            -DnsOnly `
-            -QuickTimeout `
-            -ErrorAction Stop
-        if ($null -eq $dnsResult) {
-            return $false
-        }
-        $response = Invoke-WebRequest `
-            -Uri $PublicOrigin `
-            -UseBasicParsing `
-            -TimeoutSec 5
-        return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
-    }
-    catch {
-        return $false
-    }
+    return Test-ReviewerPublicOriginReady -PublicOrigin $PublicOrigin
 }
 
 function Write-Result {

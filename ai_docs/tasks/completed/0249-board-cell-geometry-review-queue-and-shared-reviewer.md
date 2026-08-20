@@ -1,6 +1,6 @@
 ---
 title: TASK-0249 board cell geometry, stable review queue and shared Reviewer
-status: in_progress
+status: done
 release: '0.6'
 last_updated: 2026-08-20
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-20
 
 ## Status
 
-`in_progress`
+`done`
 
 TASK 1, czyli stabilizacja baseline'u i decyzji architektonicznych, TASK 2,
 czyli kontrakt i rzeczywisty corpus geometrii komórek, TASK 3, czyli nieaktywny
@@ -24,7 +24,8 @@ a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. TASK 13 dodał
 bounded bufor `previous/current/next two`. Pełny produkcyjny pipeline importu
 pozostaje na historycznym v18. TASK 14–17 zbudowały trwałe assignments, osobne
 scoped sesje, bezpieczny lifecycle procesu Windows, limit trzech prac online i
-`stop-if-unused`. TASK 18 wystawił kontrakt HTTP i przebudował sekcję Admina.
+`stop-if-unused`. TASK 18 wystawił kontrakt HTTP i przebudował sekcję Admina,
+a TASK 19 zakończył pion rzeczywistym odbiorem współdzielonego Reviewera.
 
 ## Goal
 
@@ -1068,6 +1069,75 @@ Admina przeszły. ESLint nie zgłosił błędów; zachował dwa wcześniejsze os
 - [x] OpenAPI, generowany klient i high-impact target odpowiadają backendowi.
 - [x] TASK 18 nie zmienia Reviewera, proxy allowlist, bazy, migracji ani pipeline'u.
 
+### Outcome TASK 19 — końcowy odbiór współdzielonego Reviewera
+
+- Jeden zintegrowany scenariusz HTTP obejmuje trzy prace online i jedną lokalną,
+  równoległy idempotentny open, reload klienta, listę bez sekretów, niezależne
+  zamykanie oraz stop dokładnie po ostatniej pracy online.
+- Rzeczywisty restart API wykrył błąd prezentacji lokalnej pracy: zdrowy
+  loopback Reviewer był oznaczany jako `ready=false`, ponieważ mapper wymagał
+  stanu publicznego tunelu `running`. Local zależy teraz od gotowości Reviewera,
+  natomiast online dodatkowo od aktywnego publicznego originu.
+- Lifecycle procesu Windows wykonuje ograniczony retry ścieżki executable i
+  korzysta niezależnie z `Process.Path`, `MainModule.FileName` oraz WMI. Nie
+  osłabiono fencing: PID, start time, process name i rzeczywista ścieżka nadal
+  muszą być zgodne przed publikacją albo zatrzymaniem stanu.
+- Nowy Quick Tunnel może chwilowo otrzymać lokalny negatywny cache DNS mimo
+  gotowej rejestracji Cloudflare. Health check próbuje kolejno lokalnego DNS,
+  `1.1.1.1`, `8.8.8.8` oraz Cloudflare DNS-over-HTTPS. Dla publicznego adresu
+  z resolvera curl używa `--resolve`, ale nadal weryfikuje właściwy hostname,
+  SNI i certyfikat TLS.
+- Rzeczywisty odbiór na trzech gotowych importach gry wykonał równocześnie dwie
+  prace online i jedną local. Cold start zajął `13,396 s`, warm reuse
+  `1,243 s`; oba linki miały ten sam publiczny origin.
+- Publiczna sesja po unlock widziała dokładnie jedną grę i jeden import. Próba
+  odczytu drugiego importu oraz endpointów browser stagingu, assignments i
+  image storage zwróciła `403`. Publiczny root nie zawierał Admina.
+- Zamknięcie pierwszego scope'u pozostawiło drugi link online. Ostatni online
+  close zatrzymał tunnel, a local pozostał gotowy. Na końcu liczba aktywnych
+  assignments oraz procesów cloudflared wynosiła zero; kod i bearer nie zostały
+  zapisane w raporcie ani logu.
+
+### Verification TASK 19
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_reviewer_process_lifecycle_scripts.py services/api/tests/test_reviewer_ingress.py services/api/tests/test_reviewer_work_lifecycle.py services/api/tests/test_reviewer_work_api.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q --tb=short
+npm run openapi:check
+npm test --workspace @game-predictor/reviewer
+npm test --workspace @game-predictor/admin
+npm run lint --workspace @game-predictor/reviewer
+npm run lint --workspace @game-predictor/admin
+npm run typecheck --workspace @game-predictor/reviewer
+npm run typecheck --workspace @game-predictor/admin
+npm run powershell:check
+```
+
+Wynik: celowany lifecycle `31 passed`, pełne API `395 passed, 30 skipped`,
+PostgreSQL `3 passed`, Reviewer `33 passed`, Admin `211 passed`. OpenAPI,
+Ruff, ESLint, TypeScript i parser PowerShell przeszły. Pełny mypy doszedł do
+wcześniejszego, niezwiązanego `unused-ignore` w
+`symbol_model_iteration_repository.py:96`; zmienione moduły nie zgłosiły
+nowego błędu.
+
+### Acceptance criteria TASK 19
+
+- [x] Izolowany E2E potwierdza `3 online + 1 local` na jednym Reviewerze.
+- [x] Rzeczywisty E2E potwierdza `2 online + 1 local` na wszystkich trzech
+      dostępnych gotowych importach bez drugiego procesu albo tunelu.
+- [x] Równoległy open jest idempotentny i nie współdzieli pliku logu.
+- [x] Reload i restart API odzyskują assignment bez duplikatu oraz z poprawnym
+      stanem gotowości local.
+- [x] Cold start mieści się w limicie 60 sekund, a warm open ponownie używa
+      originu ponad dziesięć razy szybciej.
+- [x] Stop jednego linku nie przerywa drugiego; ostatni online stop zamyka
+      tunnel bez przerywania pracy local.
+- [x] Publiczny proxy jest scoped i nie wystawia Admina, stagingu, assignments,
+      storage ani danych innego importu.
+- [x] Po odbiorze nie pozostał aktywny assignment, cloudflared ani plik cookie.
+
 ### Kryteria odbioru pionu
 
 - dwa lub trzy różne importy mogą być zatwierdzane online równolegle, a kolejny
@@ -1158,4 +1228,7 @@ fencingiem i historią zamknięcia. TASK 15 powiązał assignment online ze scop
 sesją, TASK 16 zabezpieczył proces Windows i jego stan, a TASK 17 dodał globalny
 limit trzech prac online oraz ogrodzony stop po ostatnim assignmentcie. TASK 18
 wystawił typowane endpointy assignments i przepiął na nie sekcję Admina bez
-zmiany publicznej granicy Reviewera.
+zmiany publicznej granicy Reviewera. TASK 19 naprawił gotowość local oraz
+odporność procesu i health checku na przejściowo niedostępną ścieżkę executable
+i negatywny cache DNS, a następnie zamknął pion rzeczywistym odbiorem cold/warm,
+scope'u publicznego i cleanupu.

@@ -63,9 +63,10 @@ class ReviewerWorkAssignmentResponse(ApiModel):
         assignment: ReviewerWorkAssignment,
         ingress: ReviewerIngressStatus,
     ) -> ReviewerWorkAssignmentResponse:
-        reviewer_ready = ingress.reviewer_ready is True and ingress.state == "running"
+        reviewer_ready = ingress.reviewer_ready is True
         ready = reviewer_ready and (
-            assignment.assignment_type.value == "local" or ingress.public_origin is not None
+            assignment.assignment_type.value == "local"
+            or (ingress.state == "running" and ingress.public_origin is not None)
         )
         review_url: str | None = None
         if assignment.assignment_type.value == "local":

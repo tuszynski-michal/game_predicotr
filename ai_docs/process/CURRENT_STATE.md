@@ -2007,5 +2007,23 @@ i assignment. Celowane testy HTTP potwierdzają idempotencję, listę bez sekret
 heartbeat oraz niezależny close. Pełny zestaw API daje `393 passed, 30 skipped`,
 klient `39 passed`, Admin `211 passed`; produkcyjny build Admina, OpenAPI,
 typecheck TypeScript, Ruff oraz ograniczony mypy zmienionej warstwy domenowej
-przechodzą. Końcowy rzeczywisty scenariusz 3 online + 1 local oraz pomiar
-cold/warm pozostają osobnym checkpointem po TASK 18.
+przechodzą. Końcowy rzeczywisty scenariusz wielu scope'ów oraz pomiar cold/warm
+stanowiły osobny checkpoint po TASK 18 i zostały ukończone w TASK 19.
+
+TASK 19 zamknął checkpoint współdzielonego Reviewera. Izolowany E2E potwierdza
+`3 online + 1 local`, idempotentny równoległy open, reload bez sekretów oraz
+stop dopiero po ostatnim online assignmentcie. Rzeczywisty odbiór wykorzystał
+wszystkie trzy dostępne gotowe importy jako `2 online + 1 local`: cold start
+wyniósł `13,396 s`, warm reuse `1,243 s`, oba linki użyły jednego originu i
+jednego procesu. Obcy import oraz publiczne endpointy stagingu, assignments i
+storage zwróciły `403`; Admin nie był wystawiony.
+
+Odbiór wykrył i naprawił dwa błędy środowiskowe. Local assignment po restarcie
+API jest gotowy także przy prawidłowym stanie tunelu `stopped`. Tożsamość
+procesu Windows zachowuje pełny fencing, ale ścieżkę executable odczytuje z
+ograniczonym retry przez `Process.Path`, `MainModule` i WMI. Health check nowego
+Quick Tunnel jest odporny na lokalny negatywny cache DNS dzięki ograniczonym
+fallbackom `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS; połączenie po
+adresie nadal weryfikuje hostname, SNI i certyfikat TLS. Po teście nie pozostał
+aktywny assignment, cloudflared ani testowy plik cookie. TASK-0249 jest
+ukończony.

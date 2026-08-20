@@ -41,6 +41,16 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
     ['GET', '/api/v1/admin/image-review-cohort-exports'],
     ['POST', '/api/v1/admin/mobile-releases'],
     ['GET', '/api/v1/admin/image-storage'],
+    ['GET', `/api/v1/admin/games/${sessionId}/reviewer-work-assignments`],
+    [
+      'POST',
+      `/api/v1/admin/games/${sessionId}/imports/${itemId}/reviewer-work-assignments/online`,
+    ],
+    ['GET', '/api/v1/admin/image-imports/browser-selections'],
+    [
+      'POST',
+      `/api/v1/admin/image-imports/browser-selections/${sessionId}/start`,
+    ],
     ['GET', '/api/v1/admin/reviewer-ingress'],
     ['POST', '/api/v1/admin/reviewer-ingress/start'],
     ['POST', '/api/v1/admin/reviewer-ingress/stop'],

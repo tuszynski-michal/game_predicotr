@@ -588,16 +588,22 @@ Uruchom PostgreSQL, migracje, API i Admin. Nie uruchamiaj `reviewer:dev`,
 ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
 
 1. otwórz `Zatwierdzanie`,
-2. wybierz grę i import zdjęć,
-3. kliknij `Utwórz link i wystaw online`,
-4. poczekaj na stan `online`,
-5. skopiuj publiczny link oraz osobno kod.
+2. wybierz grę, a następnie gotowy import zdjęć z listy,
+3. kliknij `Otwórz lokalnie` albo `Utwórz link online`,
+4. dla pracy online poczekaj na stan `gotowy`,
+5. skopiuj publiczny link oraz osobno kod pokazany wyłącznie po pierwszym
+   utworzeniu assignmentu.
 
-Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
-Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
-komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
-ponownie. Zimny start ma twardy limit 60 sekund; nie wymaga restartu komputera.
-Proces uruchomiony przez `npm run api:dev` automatycznie przeładowuje zmiany API.
+Praca lokalna uruchamia lub wykorzystuje gotowego Reviewera na loopback i nie
+zajmuje limitu online. Maksymalnie trzy różne importy mogą być jednocześnie
+udostępnione online; każdy ma własny kod, sesję i przycisk zakończenia, ale
+wszystkie wykorzystują jeden produkcyjny Reviewer oraz jeden Quick Tunnel.
+Przycisk online uruchamia brakujące procesy, czeka na gotowość i tworzy scoped
+sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz komunikat o trybie
+developerskim, zatrzymaj okno z `reviewer:dev` i kliknij ponownie. Zimny start
+ma twardy limit 60 sekund; zdrowy warm ingress jest używany ponownie bez nowego
+procesu i bez zmiany publicznego originu. Proces uruchomiony przez
+`npm run api:dev` automatycznie przeładowuje zmiany API.
 Awaryjny odpowiednik CLI:
 
 ```powershell
@@ -613,6 +619,13 @@ uruchom ponownie `npm run api:dev` w zwykłym PowerShellu Windows z dostępem do
 wychodzącego HTTPS; restart komputera nie jest potrzebny. Firewall może
 blokować Admin i API od strony sieci przychodzącej, ale proces API musi móc
 nawiązać wychodzące połączenie HTTPS dla jawnie uruchamianego Quick Tunnel.
+
+Nowy losowy hostname Quick Tunnel może przez kilka sekund być ukryty przez
+lokalny negatywny cache DNS. Kontroler sprawdza ograniczenie kolejno przez
+lokalny resolver, `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS. Jeżeli
+adres jest już widoczny tylko w publicznym DNS, health check używa curl
+`--resolve`: połączenie nadal wymaga zgodnego hostname'u, SNI i certyfikatu TLS.
+Nie trzeba ręcznie czyścić cache DNS ani ponawiać startu z drugiego terminala.
 
 `start` uruchamia proces w tle i pokazuje losowy adres
 `https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego
@@ -638,9 +651,14 @@ Wyślij link i kod dwoma osobnymi kanałami. Odbiorca nie instaluje klienta VPN:
 otwiera link w przeglądarce i podaje kod. Kod ma najwyżej pięć prób, a sesja
 wygasa najpóźniej po 24 godzinach.
 
-Po zakończeniu kliknij `Zatrzymaj udostępnianie`. Panel próbuje unieważnić
-bieżącą sesję i zawsze zatrzymuje publiczny tunel. Decyzje plansz i audyt
-pozostają w PostgreSQL. Awaryjnie:
+Po zakończeniu użyj `Zakończ pracę` przy właściwym imporcie. Panel unieważnia
+tylko sesję tego assignmentu. Pozostałe linki działają nadal, a Quick Tunnel
+jest zatrzymywany dopiero po zamknięciu ostatniej aktywnej pracy online. Praca
+lokalna może pozostać aktywna, ponieważ nie publikuje portu. Po odświeżeniu
+Admin odtwarza assignmenty z PostgreSQL, lecz ze względów bezpieczeństwa nie
+pokazuje ponownie jednorazowego kodu. Decyzje plansz i audyt pozostają w
+PostgreSQL. Awaryjny globalny stop jest przeznaczony wyłącznie do sytuacji, w
+której nie ma już aktywnych prac online:
 
 ```powershell
 npm run reviewer:remote:stop

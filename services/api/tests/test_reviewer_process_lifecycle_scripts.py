@@ -86,6 +86,7 @@ $secondPaths = New-ReviewerAttemptPaths `
     -InstanceId ([Guid]::NewGuid())
 @{
     instanceId = $state.instanceId
+    executablePath = $state.executablePath
     matched = $matched.isMatch
     reusedPidMatched = $reusedPid.isMatch
     reusedPidReason = $reusedPid.reason
@@ -99,6 +100,7 @@ $secondPaths = New-ReviewerAttemptPaths `
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout.splitlines()[-1])
     assert payload["matched"] is True
+    assert Path(payload["executablePath"]).resolve() == Path(POWERSHELL).resolve()
     assert payload["reusedPidMatched"] is False
     assert payload["reusedPidReason"] == "start-time"
     assert payload["firstLog"] != payload["secondLog"]
@@ -185,6 +187,66 @@ try { 'acquired' } finally { Exit-ReviewerLifecycleLock -Mutex $mutex }
         if holder.poll() is None:
             holder.kill()
             holder.communicate(timeout=5)
+
+
+def test_public_origin_probe_can_bypass_only_a_negative_local_dns_cache() -> None:
+    completed = _run_powershell(
+        """
+. $env:GP_LIFECYCLE_HELPER
+$script:resolvedHost = $null
+$script:probeHost = $null
+$script:probeUsesSystemDns = $null
+$ready = Test-ReviewerPublicOriginReady `
+    -PublicOrigin 'https://bounded-review.trycloudflare.com' `
+    -Resolver {
+        param($hostName)
+        $script:resolvedHost = $hostName
+        [pscustomobject]@{
+            usesSystemDns = $false
+            addresses = @('203.0.113.10', '203.0.113.11')
+        }
+    } `
+    -Probe {
+        param($publicUri, $resolution)
+        $script:probeHost = $publicUri.DnsSafeHost
+        $script:probeUsesSystemDns = [bool]$resolution.usesSystemDns
+        return @($resolution.addresses).Count -eq 2
+    }
+$invalid = Test-ReviewerPublicOriginReady `
+    -PublicOrigin 'https://example.invalid/admin' `
+    -Resolver { throw 'invalid origins must not resolve' } `
+    -Probe { throw 'invalid origins must not probe' }
+$parsedAddresses = @(Get-ReviewerDnsJsonIpv4Address -Response ([pscustomobject]@{
+    Answer = @(
+        [pscustomobject]@{ type = 1; data = '203.0.113.20' },
+        [pscustomobject]@{ type = 28; data = '2001:db8::1' },
+        [pscustomobject]@{ type = 1; data = 'not-an-address' },
+        [pscustomobject]@{ type = 1; data = '203.0.113.20' },
+        [pscustomobject]@{ type = 1; data = '203.0.113.21' }
+    )
+}))
+@{
+    ready = $ready
+    invalid = $invalid
+    resolvedHost = $script:resolvedHost
+    probeHost = $script:probeHost
+    probeUsesSystemDns = $script:probeUsesSystemDns
+    parsedAddresses = $parsedAddresses
+} | ConvertTo-Json -Compress
+""",
+        environment={"GP_LIFECYCLE_HELPER": str(LIFECYCLE_HELPER)},
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout.splitlines()[-1])
+    assert payload == {
+        "invalid": False,
+        "parsedAddresses": ["203.0.113.20", "203.0.113.21"],
+        "probeHost": "bounded-review.trycloudflare.com",
+        "probeUsesSystemDns": False,
+        "ready": True,
+        "resolvedHost": "bounded-review.trycloudflare.com",
+    }
 
 
 def test_all_reviewer_lifecycle_controllers_are_valid_powershell() -> None:

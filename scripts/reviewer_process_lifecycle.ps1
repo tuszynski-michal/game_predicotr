@@ -123,8 +123,7 @@ function New-ReviewerProcessIdentity {
         [Guid]$InstanceId
     )
 
-    $Process.Refresh()
-    $executablePath = $Process.Path
+    $executablePath = Get-ReviewerProcessExecutablePath -Process $Process
     if ([string]::IsNullOrWhiteSpace($executablePath)) {
         throw "Cannot determine the executable path for PID $($Process.Id)."
     }
@@ -134,6 +133,277 @@ function New-ReviewerProcessIdentity {
         processStartedAt = $Process.StartTime.ToUniversalTime().ToString('o')
         executablePath = [IO.Path]::GetFullPath($executablePath)
         processName = $Process.ProcessName
+    }
+}
+
+function Get-ReviewerProcessExecutablePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Diagnostics.Process]$Process,
+        [ValidateRange(1, 20)]
+        [int]$MaximumAttempts = 10,
+        [ValidateRange(0, 500)]
+        [int]$RetryDelayMilliseconds = 50
+    )
+
+    for ($attempt = 0; $attempt -lt $MaximumAttempts; $attempt++) {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            return $null
+        }
+
+        $candidates = [Collections.Generic.List[string]]::new()
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($Process.Path)) {
+                $candidates.Add([string]$Process.Path)
+            }
+        }
+        catch {
+            # Process.Path is transiently unavailable for some Windows executables.
+        }
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($Process.MainModule.FileName)) {
+                $candidates.Add([string]$Process.MainModule.FileName)
+            }
+        }
+        catch {
+            # MainModule can have the same transient access window as Process.Path.
+        }
+        if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+            try {
+                $record = Get-CimInstance `
+                    -ClassName Win32_Process `
+                    -Filter "ProcessId = $($Process.Id)" `
+                    -ErrorAction Stop
+                if (-not [string]::IsNullOrWhiteSpace($record.ExecutablePath)) {
+                    $candidates.Add([string]$record.ExecutablePath)
+                }
+            }
+            catch {
+                # The managed probes remain authoritative when WMI is unavailable.
+            }
+        }
+
+        foreach ($candidate in $candidates) {
+            try {
+                return [IO.Path]::GetFullPath($candidate)
+            }
+            catch {
+                # Continue to the next independently obtained candidate.
+            }
+        }
+        if ($attempt + 1 -lt $MaximumAttempts -and $RetryDelayMilliseconds -gt 0) {
+            Start-Sleep -Milliseconds $RetryDelayMilliseconds
+        }
+    }
+    return $null
+}
+
+function Resolve-ReviewerPublicOriginAddress {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$HostName
+    )
+
+    try {
+        $local = Resolve-DnsName `
+            -Name $HostName `
+            -Type A `
+            -DnsOnly `
+            -QuickTimeout `
+            -ErrorAction Stop
+        $addresses = @(
+            $local |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_.IPAddress) } |
+                ForEach-Object { [string]$_.IPAddress } |
+                Sort-Object -Unique
+        )
+        if ($addresses.Count -gt 0) {
+            return [pscustomobject]@{
+                usesSystemDns = $true
+                addresses = $addresses
+            }
+        }
+    }
+    catch {
+        # A newly created Quick Tunnel can be hidden by a local negative DNS cache.
+    }
+
+    foreach ($server in @("1.1.1.1", "8.8.8.8")) {
+        try {
+            $public = Resolve-DnsName `
+                -Name $HostName `
+                -Type A `
+                -Server $server `
+                -DnsOnly `
+                -QuickTimeout `
+                -ErrorAction Stop
+            $addresses = @(
+                $public |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_.IPAddress) } |
+                    ForEach-Object { [string]$_.IPAddress } |
+                    Sort-Object -Unique
+            )
+            if ($addresses.Count -gt 0) {
+                return [pscustomobject]@{
+                    usesSystemDns = $false
+                    addresses = $addresses
+                }
+            }
+        }
+        catch {
+            # Try the next bounded public resolver.
+        }
+    }
+    try {
+        $dnsOverHttpsUri = (
+            "https://cloudflare-dns.com/dns-query?name=" +
+            [Uri]::EscapeDataString($HostName) +
+            "&type=A"
+        )
+        $dnsOverHttps = Invoke-RestMethod `
+            -Uri $dnsOverHttpsUri `
+            -Headers @{ Accept = "application/dns-json" } `
+            -TimeoutSec 5 `
+            -ErrorAction Stop
+        if ([int]$dnsOverHttps.Status -eq 0) {
+            $addresses = @(Get-ReviewerDnsJsonIpv4Address -Response $dnsOverHttps)
+            if ($addresses.Count -gt 0) {
+                return [pscustomobject]@{
+                    usesSystemDns = $false
+                    addresses = $addresses
+                }
+            }
+        }
+    }
+    catch {
+        # The bounded controller will retry or fail closed when DoH is unavailable.
+    }
+    return [pscustomobject]@{
+        usesSystemDns = $false
+        addresses = @()
+    }
+}
+
+function Get-ReviewerDnsJsonIpv4Address {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Response
+    )
+
+    $addresses = [Collections.Generic.List[string]]::new()
+    foreach ($answer in @($Response.Answer)) {
+        if ([int]$answer.type -ne 1) {
+            continue
+        }
+        $parsedAddress = $null
+        if (
+            [Net.IPAddress]::TryParse([string]$answer.data, [ref]$parsedAddress) -and
+            $parsedAddress.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork
+        ) {
+            $addresses.Add($parsedAddress.ToString())
+        }
+    }
+    return @($addresses | Sort-Object -Unique)
+}
+
+function Invoke-ReviewerPublicOriginProbe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Uri]$PublicUri,
+        [Parameter(Mandatory = $true)]
+        [object]$Resolution
+    )
+
+    if ([bool]$Resolution.usesSystemDns) {
+        try {
+            $response = Invoke-WebRequest `
+                -Uri $PublicUri.AbsoluteUri `
+                -UseBasicParsing `
+                -TimeoutSec 5
+            return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+        }
+        catch {
+            return $false
+        }
+    }
+
+    $curl = Get-Command -Name "curl.exe" -ErrorAction SilentlyContinue
+    if ($null -eq $curl) {
+        return $false
+    }
+    foreach ($address in @($Resolution.addresses)) {
+        try {
+            $statusText = & $curl.Source `
+                --silent `
+                --show-error `
+                --output NUL `
+                --write-out '%{http_code}' `
+                --connect-timeout 3 `
+                --max-time 5 `
+                --resolve "$($PublicUri.DnsSafeHost):443:$address" `
+                $PublicUri.AbsoluteUri `
+                2>$null
+            if ($LASTEXITCODE -ne 0) {
+                continue
+            }
+            $statusCode = 0
+            if (
+                [int]::TryParse(
+                    ([string]$statusText).Trim(),
+                    [ref]$statusCode
+                ) -and
+                $statusCode -ge 200 -and
+                $statusCode -lt 500
+            ) {
+                return $true
+            }
+        }
+        catch {
+            # Try the next independently resolved address.
+        }
+    }
+    return $false
+}
+
+function Test-ReviewerPublicOriginReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublicOrigin,
+        [scriptblock]$Resolver = $null,
+        [scriptblock]$Probe = $null
+    )
+
+    try {
+        $publicUri = [Uri]$PublicOrigin
+        if (
+            $publicUri.Scheme -ne "https" -or
+            $publicUri.DnsSafeHost -notlike "*.trycloudflare.com" -or
+            -not $publicUri.IsDefaultPort -or
+            $publicUri.AbsolutePath -ne "/" -or
+            -not [string]::IsNullOrWhiteSpace($publicUri.Query) -or
+            -not [string]::IsNullOrWhiteSpace($publicUri.Fragment)
+        ) {
+            return $false
+        }
+        $resolution = if ($null -eq $Resolver) {
+            Resolve-ReviewerPublicOriginAddress -HostName $publicUri.DnsSafeHost
+        }
+        else {
+            & $Resolver $publicUri.DnsSafeHost
+        }
+        if ($null -eq $resolution -or @($resolution.addresses).Count -eq 0) {
+            return $false
+        }
+        if ($null -ne $Probe) {
+            return [bool](& $Probe $publicUri $resolution)
+        }
+        return Invoke-ReviewerPublicOriginProbe `
+            -PublicUri $publicUri `
+            -Resolution $resolution
+    }
+    catch {
+        return $false
     }
 }
 
@@ -166,7 +436,14 @@ function Test-ReviewerProcessIdentity {
         if ($process.StartTime.ToUniversalTime().Ticks -ne $expectedStartedAt.UtcDateTime.Ticks) {
             return [pscustomobject]@{ isMatch = $false; process = $process; reason = "start-time" }
         }
-        $actualExecutable = [IO.Path]::GetFullPath($process.Path)
+        $actualExecutable = Get-ReviewerProcessExecutablePath -Process $process
+        if ([string]::IsNullOrWhiteSpace($actualExecutable)) {
+            return [pscustomobject]@{
+                isMatch = $false
+                process = $process
+                reason = "executable-unavailable"
+            }
+        }
         if (-not $actualExecutable.Equals($expectedExecutable, [StringComparison]::OrdinalIgnoreCase)) {
             return [pscustomobject]@{ isMatch = $false; process = $process; reason = "executable" }
         }

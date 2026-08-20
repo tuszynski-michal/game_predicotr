@@ -171,6 +171,7 @@ class PendingGridReinferenceHandler:
                 failures += 1
                 context.checkpoint(
                     checkpoint_payload={
+                        "schema_version": 1,
                         "kind": "pending-grid-reinference-v1",
                         "processed": processed,
                         "skippedConcurrentResolution": skipped,
@@ -246,6 +247,7 @@ class PendingGridReinferenceHandler:
                     processed += 1
             context.checkpoint(
                 checkpoint_payload={
+                    "schema_version": 1,
                     "kind": "pending-grid-reinference-v1",
                     "processed": processed,
                     "skippedConcurrentResolution": skipped,
@@ -597,6 +599,7 @@ class PendingGridReinferenceHandler:
         last_error: str | None,
     ) -> None:
         payload: dict[str, object] = {
+            "schema_version": 1,
             "kind": "pending-board-cell-recrop-v19-v1",
             "processed": processed,
             "alreadyCurrentV19": already_current,

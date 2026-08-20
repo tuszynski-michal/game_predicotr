@@ -30,6 +30,14 @@ from game_predictor_worker.images.pending_grid_reinference import (
 )
 
 
+class _CheckpointCapture:
+    def __init__(self) -> None:
+        self.payload: dict[str, object] | None = None
+
+    def checkpoint(self, **kwargs: object) -> None:
+        self.payload = cast(dict[str, object], kwargs["checkpoint_payload"])
+
+
 def _canonical_board(*, missing_column: bool = False) -> np.ndarray:
     board: np.ndarray = np.full((300, 500, 3), (22, 11, 19), dtype=np.uint8)
     colours = (
@@ -124,6 +132,25 @@ def test_v2_snapshot_is_pinned_to_the_accepted_estimator_cropper_and_audit() -> 
     changed = {**snapshot, "geometryVersion": "changed"}
     with pytest.raises(BoardCellRecropSnapshotError):
         validate_board_cell_recrop_snapshot(changed, cell_output_size=64)
+
+
+def test_v2_checkpoint_uses_the_runtime_schema() -> None:
+    context = _CheckpointCapture()
+
+    PendingGridReinferenceHandler._checkpoint_v2(
+        cast(Any, context),
+        total=1,
+        processed=1,
+        already_current=0,
+        skipped=0,
+        needs_review=0,
+        failures=0,
+        last_error=None,
+    )
+
+    assert context.payload is not None
+    assert context.payload["schema_version"] == 1
+    assert context.payload["kind"] == "pending-board-cell-recrop-v19-v1"
 
 
 def test_v2_prepares_exactly_15_source_direct_v19_crops_without_legacy_detector(

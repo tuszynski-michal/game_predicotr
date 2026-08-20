@@ -64,7 +64,7 @@ class PendingSymbolReinferenceHandler:
         total = len(rows)
         if total == 0:
             context.checkpoint(
-                checkpoint_payload={"kind": "pending-symbol-reinference-v1", "processed": 0},
+                checkpoint_payload=_checkpoint_payload(processed=0, skipped=0),
                 stage="symbol_reinference",
                 current=0,
                 total=0,
@@ -116,11 +116,7 @@ class PendingSymbolReinferenceHandler:
                         )
                     processed += 1
             context.checkpoint(
-                checkpoint_payload={
-                    "kind": "pending-symbol-reinference-v1",
-                    "processed": processed,
-                    "skippedConcurrentResolution": skipped,
-                },
+                checkpoint_payload=_checkpoint_payload(processed=processed, skipped=skipped),
                 stage="symbol_reinference",
                 current=processed + skipped,
                 total=total,
@@ -285,6 +281,15 @@ def _artifact_path(root: Path, relative_path: str) -> Path:
             "IMAGE_SYMBOL_REINFERENCE_CROP_PATH_INVALID", "A crop path escapes storage."
         )
     return path
+
+
+def _checkpoint_payload(*, processed: int, skipped: int) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "kind": "pending-symbol-reinference-v1",
+        "processed": processed,
+        "skippedConcurrentResolution": skipped,
+    }
 
 
 def _model_path(

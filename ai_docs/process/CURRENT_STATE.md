@@ -1768,6 +1768,10 @@ Preview i oba workery reinferencji ograniczają teraz pracę do oczekujących
 plansz importów `waiting_for_review`, dzięki czemu anulowany `b057…` nie jest
 wliczany do bieżącego `b2d9…`. Każdy zapis nadal ponownie sprawdza status
 planszy; decyzje `accepted/corrected/rejected` są chronione.
+Świeży worker potwierdził wejście do ścieżki v2, po czym pierwsza próba
+checkpointu wykryła brak wspólnego `schema_version=1`. Poprawka obejmuje
+checkpointy grid v1/v2 i symbolowej reinferencji; job nie doszedł przed nią do
+zapisu żadnej planszy.
 
 ## TASK-0249 — baseline geometrii komórek i Reviewera
 

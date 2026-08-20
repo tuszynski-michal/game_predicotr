@@ -161,3 +161,7 @@ workera używa jawnej dyspozycji schema v2 i nie wymaga historycznego
 grid-reinference filtrują źródłowy import do stanu `waiting_for_review`.
 Anulowane oraz nieudane importy nie zasilają już nowych przeliczeń. Ochrona
 `accepted/corrected/rejected` i warunkowy zapis pod blokadą pozostają bez zmian.
+Pierwszy retry na świeżym workerze ujawnił brak wymaganego `schema_version=1`
+w checkpointach obu handlerów reinferencji. Grid v1/v2 oraz symbole zapisują
+teraz checkpoint zgodny ze wspólnym runtime; regresja obejmuje zarówno payload
+v19, jak i symbolowy.

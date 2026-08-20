@@ -13,9 +13,6 @@ from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
 )
-from game_predictor_worker.images.manual_geometry_recrop import (
-    ManualGeometryRecropper,
-)
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
@@ -467,7 +464,6 @@ def create_app(
                     SqlAlchemyOperationalImageReviewRepository(session),
                     artifact_root=resolved_settings.artifact_root,
                     board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
-                    geometry_recropper=ManualGeometryRecropper(),
                 )
                 session.commit()
             except BaseException:

@@ -1641,6 +1641,11 @@ def _geometry_revision_from_record(
         revision=record.revision,
         idempotency_key=record.idempotency_key,
         command_sha256=record.command_sha256,
+        decision_checksum_sha256=(
+            cast(str, record.geometry["decisionChecksumSha256"])
+            if isinstance(record.geometry.get("decisionChecksumSha256"), str)
+            else None
+        ),
         corners=corners,
         board_relative_path=record.board_relative_path,
         board_checksum_sha256=record.board_checksum_sha256,

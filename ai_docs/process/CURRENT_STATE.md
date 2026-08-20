@@ -1775,12 +1775,12 @@ jeden Quick Tunnel; zatrzymanie pojedynczej sesji nie może kończyć pozostały
 TASK 1 obejmuje wyłącznie baseline, decyzje i aktualizację testu migracji:
 `0048_image_page_geometry_overrides` jest jedyną oczekiwaną głową po `0047`.
 Był to stan po TASK 1; obecnie istnieje już nieaktywny estymator TASK 3, ale
-integracja pipeline'u geometrii v19, kolejki, assignments, API i UI nie została
-rozpoczęta.
+integracja produkcyjnego pipeline'u geometrii v19, kolejki i assignments nie
+została rozpoczęta. Ręczny preview i append-only zapis mają już osobny API i UI.
 Punktem bazowym pozostaje `3595a32` (`v0.6.59`). Wcześniejsze niezacommitowane
 zmiany fallbacku importu, kontrolera workerów oraz `apps/admin/next-env.d.ts`
 są zachowane i jawnie wykluczone z przyszłych commitów TASK-0249; następny numer
-`v0.6.*` nie został jeszcze przydzielony.
+`v0.6.*` jest przydzielany dopiero przy zamknięciu każdego osobnego TASK.
 
 TASK 2 dodał nieaktywny `BoardCellGeometryManifestV1` oraz rzeczywisty corpus
 v19. Kontrakt oddziela quady plansz z `PageGeometryManifestV1` od granic siatki
@@ -1838,6 +1838,22 @@ Cztery numerowane uchwyty oznaczają teraz zewnętrzne granice siatki symboli
 krawędziowe są wyłącznie pochodne i nie wchodzą do payloadu. Endpoint preview
 zwraca jeden PNG będący contact sheetem `5 × 3` z dokładnie 15 finalnych cropów
 `64 × 64`; nie materializuje planszy `500 × 300`, nie zapisuje plików ani
-rewizji. Historyczny zapis geometrii został odłączony od edytora do czasu
-wdrożenia append-only kontraktu v19 w TASK 7. Produkcyjny pipeline, aktywny
-cropper v18, baza, modele symboli i istniejące decyzje pozostają bez zmian.
+rewizji. W samym TASK 6 historyczny zapis geometrii został odłączony od edytora,
+aby nie pomylić semantyki narożników. Produkcyjny pipeline, aktywny cropper v18,
+baza, modele symboli i istniejące decyzje pozostały wtedy bez zmian.
+
+TASK 7 zastąpił aktywną ścieżkę zapisu v1 kontraktem
+`manual-board-cell-geometry-v19-append-only-v1`. Preview i zapis używają teraz
+tego samego `BoardCellGeometryEntry`, walidatora i source-direct croppera v19.
+Zapis tworzy dokładnie 15 nowych, niezmiennych cropów w rewizjonowanym
+namespace, a istniejący source-native obraz referencyjny pozostaje bez
+dodatkowego przeskalowania.
+
+Checksum decyzji wiąże źródło, pozycję, numer planszy, quad, wersje, oczekiwane
+rewizje, checksumę komendy i aktora. Pełna proweniencja oraz 15 source/padded
+quadów trafiają do append-only `image_board_geometry_revisions`; historyczne
+rewizje v1 pozostają czytelne z `decisionChecksumSha256 = null`. Reviewer
+zapisuje tylko aktualnie wygenerowany podgląd, blokuje podwójny submit i
+natychmiast pokazuje zwróconą rewizję tej samej planszy ponownie otwartej do
+weryfikacji symboli. Automatyczna aktywacja v19 i pending-only recrop nadal nie
+zostały rozpoczęte.

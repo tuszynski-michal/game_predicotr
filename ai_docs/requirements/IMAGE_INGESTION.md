@@ -251,6 +251,21 @@ planszą `500 × 300`, nie zapisuje artefaktów i nie aktywuje v19 w produkcyjny
 pipeline. Cztery uchwyty krawędziowe UI są wyłącznie pochodne i nie stanowią
 wejścia geometrii.
 
+Ręczny zapis `manual-board-cell-geometry-v19-append-only-v1` ponownie wykonuje
+ten sam walidowany preview i utrwala wyłącznie jego 15 finalnych cropów
+source-direct. Każdy zapis tworzy nowy namespace rewizji; pliki i rekordy
+wcześniejszej rewizji nie są nadpisywane. Checksum decyzji obejmuje checksumę i
+tożsamość źródła, source-order, pozycję planszy, numer sekwencji,
+`latticeBoundsQuad`, wersje geometrii i croppera, oczekiwane rewizje, checksumę
+komendy oraz aktora. Historyczny `manual-review-geometry-v1` pozostaje
+odtwarzalny, lecz nie obsługuje aktywnego edytora v19.
+
+Zapis zachowuje istniejący source-native obraz referencyjny bez tworzenia
+pośredniej planszy `500 × 300`, tworzy nowe `cropSampleId` dla 15 nowych
+checksum i ponownie otwiera tylko bieżącą planszę do weryfikacji symboli.
+Nie aktywuje estymatora v19 dla pipeline'u ani pending-only recropu innych
+plansz.
+
 Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
 pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza
 dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i

@@ -40,7 +40,6 @@ from game_predictor_api.main import create_app
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
 )
-from game_predictor_worker.images.manual_geometry_recrop import ManualGeometryRecropper
 
 
 class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -298,6 +297,11 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             revision=revision_number,
             idempotency_key=idempotency_key,
             command_sha256=command.command_sha256,
+            decision_checksum_sha256=(
+                str(artifacts.geometry["decisionChecksumSha256"])
+                if "decisionChecksumSha256" in artifacts.geometry
+                else None
+            ),
             corners=command.corners,
             board_relative_path=artifacts.board_relative_path,
             board_checksum_sha256=artifacts.board_checksum_sha256,
@@ -595,7 +599,6 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         repository,
         artifact_root=tmp_path,
         board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
-        geometry_recropper=ManualGeometryRecropper(),
     )
     client = TestClient(
         create_app(
@@ -659,6 +662,26 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         "y": 20,
     }
     assert body["item"]["geometry"]["sequenceLabelQuad"] == item.geometry["sequenceLabelQuad"]
+    assert body["item"]["geometry"]["source"] == "manual_override"
+    assert body["item"]["geometry"]["cornerSemantics"] == ("symbol-lattice-outer-bounds-5x3")
+    assert body["item"]["geometry"]["geometryVersion"] == (
+        "board-cell-geometry-v19-multi-point-source-direct-v1"
+    )
+    assert body["item"]["geometry"]["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    assert body["item"]["geometry"]["sourceImageChecksumSha256"] == (item.source_checksum_sha256)
+    assert body["item"]["geometry"]["sourceOrderIndex"] == item.source_order_index
+    assert body["item"]["geometry"]["positionIndex"] == item.position_index
+    assert body["item"]["geometry"]["correctedBy"] == "local-admin"
+    assert len(body["item"]["geometry"]["cells"]) == 15
+    assert (
+        body["geometryRevision"]["decisionChecksumSha256"]
+        == (body["item"]["geometry"]["decisionChecksumSha256"])
+    )
+    assert body["geometryRevision"]["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
     assert len(body["geometryRevision"]["cells"]) == 15
     assert all(
         cell["currentSymbolCode"] == cell["predictedSymbolCode"] for cell in body["item"]["cells"]
@@ -667,7 +690,21 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         revised["cropSampleId"] != previous.crop_sample_id
         for revised, previous in zip(body["item"]["cells"], item.cells, strict=True)
     )
-    assert len(list((tmp_path / "data" / "image-review-geometry").rglob("*.png"))) == 16
+    persisted_cells = list(
+        (tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png")
+    )
+    assert len(persisted_cells) == 15
+    assert not (tmp_path / "data" / "image-review-geometry").exists()
+    first_revision = repository.geometry_revisions[item.id][0]
+    for cell in first_revision.cells:
+        persisted = cv2.imread(str(tmp_path / "data" / cell.crop_relative_path))
+        assert persisted is not None
+        size = 64
+        expected = contact_sheet[
+            cell.row_index * size : (cell.row_index + 1) * size,
+            cell.column_index * size : (cell.column_index + 1) * size,
+        ]
+        assert np.array_equal(persisted, expected)
     assert repository.items[untouched.id] == untouched
 
     retry = client.post(
@@ -706,12 +743,43 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     assert second_preview.status_code == 200
     assert second_preview.headers["content-type"] == "image/png"
 
+    second_corners = [
+        {"x": 95, "y": 62},
+        {"x": 625, "y": 67},
+        {"x": 630, "y": 347},
+        {"x": 90, "y": 342},
+    ]
+    second_saved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
+        params=query,
+        json={
+            "idempotencyKey": str(uuid4()),
+            "expectedGeometryRevision": 1,
+            "expectedResolutionRevision": 2,
+            "corners": second_corners,
+            "correctedBy": "second-owner",
+        },
+    )
+    assert second_saved.status_code == 200, second_saved.text
+    assert second_saved.json()["geometryRevision"]["revision"] == 2
+    assert second_saved.json()["item"]["geometryRevision"] == 2
+    assert second_saved.json()["item"]["resolutionRevision"] == 3
+    assert len(repository.geometry_revisions[item.id]) == 2
+    assert repository.geometry_revisions[item.id][0] == first_revision
+    assert (
+        repository.geometry_revisions[item.id][1].decision_checksum_sha256
+        != first_revision.decision_checksum_sha256
+    )
+    assert (
+        len(list((tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png"))) == 30
+    )
+
     invalid = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
         params=query,
         json={
-            "expectedGeometryRevision": 1,
-            "expectedResolutionRevision": 2,
+            "expectedGeometryRevision": 2,
+            "expectedResolutionRevision": 3,
             "corners": [
                 {"x": 90, "y": 60},
                 {"x": 630, "y": 350},
@@ -752,6 +820,25 @@ def test_v19_geometry_preview_does_not_treat_an_unattested_suggestion_as_sequenc
 
     assert response.status_code == 409
     assert response.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
+
+    saved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json={
+            "idempotencyKey": str(uuid4()),
+            "expectedGeometryRevision": item.geometry_revision,
+            "expectedResolutionRevision": item.resolution_revision,
+            "corners": [
+                {"x": 0, "y": 0},
+                {"x": 10, "y": 0},
+                {"x": 10, "y": 10},
+                {"x": 0, "y": 10},
+            ],
+            "correctedBy": "local-admin",
+        },
+    )
+    assert saved.status_code == 409
+    assert saved.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
 
 
 def test_cursor_queue_is_bounded_reversible_and_scope_bound(

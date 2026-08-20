@@ -78,14 +78,15 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(geometryEditor, /operationalReviewGeometryEdgeHandles/);
   assert.match(geometryEditor, /Array\.from\(\{ length: 15 \}/);
   assert.match(geometryEditor, /previewOperationalReviewGeometry/);
-  assert.doesNotMatch(geometryEditor, /saveOperationalReviewGeometry/);
-  assert.match(
-    geometryEditor,
-    /usage: 'board-cell-geometry-editor-v19-preview-v1'/,
-  );
+  assert.match(geometryEditor, /saveOperationalReviewGeometry/);
+  assert.match(geometryEditor, /buildOperationalReviewGeometryCommand/);
+  assert.match(geometryEditor, /!previewIsCurrent \|\| saving/);
+  assert.match(geometryEditor, /usage: 'board-cell-geometry-editor-v19-v1'/);
   assert.match(geometryEditor, /15 finalnych cropów source-direct/);
   assert.match(geometryEditor, /backgroundSize: '500% 300%'/);
-  assert.doesNotMatch(geometryEditor, /Zapisz nową rewizję/);
+  assert.match(geometryEditor, /Zapisz nową rewizję/);
+  assert.match(source, /onGeometrySaved=\{handleGeometrySaved\}/);
+  assert.match(source, /Plansza wróciła do weryfikacji symboli/);
   assert.match(source, /version: cell\.cropChecksumSha256/);
   assert.match(source, /version: item\.sourceChecksumSha256/);
   assert.match(source, /Zamroź kohortę/);

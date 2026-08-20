@@ -6932,6 +6932,7 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -7008,6 +7009,7 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -7122,6 +7124,19 @@
           "cropperVersion": {
             "title": "Cropperversion",
             "type": "string"
+          },
+          "decisionChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions",
+            "title": "Decisionchecksumsha256"
           },
           "id": {
             "format": "uuid",
@@ -18584,7 +18599,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Persist immutable corrected geometry and reopen review",
+        "summary": "Persist immutable v19 symbol-lattice geometry and reopen review",
         "tags": [
           "image-reviews"
         ]

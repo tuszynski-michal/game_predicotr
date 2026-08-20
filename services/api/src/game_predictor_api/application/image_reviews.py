@@ -10,16 +10,16 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
-from game_predictor_worker.images.geometry import Point
+from game_predictor_worker.images.board_cell_geometry_contract import (
+    BOARD_CELL_COORDINATE_SPACE,
+    BOARD_CELL_CORNER_SEMANTICS,
+    BOARD_CELL_GEOMETRY_VERSION,
+)
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreview,
     ManualBoardCellGeometryPreviewer,
     ManualBoardCellGeometryPreviewError,
 )
-from game_predictor_worker.images.manual_geometry_recrop import (
-    ManualGeometryRecropper,
-)
-from game_predictor_worker.images.rectification import BoardCropError
 
 from game_predictor_api.application.image_review_assets import (
     resolve_operational_source_asset,
@@ -189,12 +189,10 @@ class OperationalImageReviewService:
         *,
         artifact_root: Path | None = None,
         board_cell_geometry_previewer: ManualBoardCellGeometryPreviewer | None = None,
-        geometry_recropper: ManualGeometryRecropper | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_root = artifact_root
         self._board_cell_geometry_previewer = board_cell_geometry_previewer
-        self._geometry_recropper = geometry_recropper
 
     def list_items(
         self,
@@ -526,36 +524,10 @@ class OperationalImageReviewService:
             import_job_id=import_job_id,
         )
         self._require_current_geometry_command(item, command)
-        sequence_number = item.queue_sequence_number
-        if sequence_number is None and item.geometry.get("sequenceSource") == "filename":
-            sequence_number = item.suggested_sequence_number
-        if sequence_number is None:
-            raise ImageReviewConflictError(
-                "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED",
-                "Board-cell geometry preview requires an unambiguous sequence number.",
-            )
-        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
-        source = resolve_operational_source_asset(item, artifact_root)
-        try:
-            return previewer.preview(
-                source_path=source.path,
-                expected_source_sha256=item.source_checksum_sha256,
-                source_order_index=item.source_order_index,
-                source_image_id=str(item.source_image_id),
-                source_image_relative_path=item.source_relative_path,
-                source_group=str(item.import_job_id),
-                sequence_number=sequence_number,
-                position_index=item.position_index,
-                lattice_bounds_quad=(
-                    (float(command.corners[0].x), float(command.corners[0].y)),
-                    (float(command.corners[1].x), float(command.corners[1].y)),
-                    (float(command.corners[2].x), float(command.corners[2].y)),
-                    (float(command.corners[3].x), float(command.corners[3].y)),
-                ),
-                decision_checksum_sha256=command.command_sha256,
-            )
-        except ManualBoardCellGeometryPreviewError as error:
-            raise ImageReviewConflictError(error.code, str(error)) from error
+        return self._validated_board_cell_geometry_preview(
+            item=item,
+            command=command,
+        )
 
     def correct_geometry(
         self,
@@ -602,43 +574,63 @@ class OperationalImageReviewService:
             import_job_id=import_job_id,
         )
         self._require_current_geometry_command(item, command)
-        recropper, artifact_root = self._require_geometry_dependencies()
-        source = resolve_operational_source_asset(item, artifact_root)
+        preview = self._validated_board_cell_geometry_preview(
+            item=item,
+            command=command,
+        )
+        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
         try:
-            preview = recropper.preview(
-                source_path=source.path,
-                expected_source_sha256=item.source_checksum_sha256,
-                corners=(
-                    Point(command.corners[0].x, command.corners[0].y),
-                    Point(command.corners[1].x, command.corners[1].y),
-                    Point(command.corners[2].x, command.corners[2].y),
-                    Point(command.corners[3].x, command.corners[3].y),
-                ),
-            )
-            persisted = recropper.persist(
+            persisted = previewer.persist(
                 preview=preview,
                 managed_data_root=artifact_root.resolve() / "data",
-                review_item_id=str(review_item_id),
                 revision=item.geometry_revision + 1,
             )
-        except BoardCropError as error:
+        except ManualBoardCellGeometryPreviewError as error:
             raise ImageReviewConflictError(error.code, str(error)) from error
         artifacts = ImageReviewGeometryArtifacts(
             geometry={
+                "cellOutputSize": persisted.cell_output_size,
+                "cells": [
+                    {
+                        "columnIndex": cell.column_index,
+                        "cropChecksumSha256": cell.checksum_sha256,
+                        "paddedSourceQuad": _quad_dict(cell.padded_source_quad),
+                        "rowIndex": cell.row_index,
+                        "sourceQuad": _quad_dict(cell.source_quad),
+                    }
+                    for cell in persisted.cells
+                ],
+                "commandChecksumSha256": persisted.command_checksum_sha256,
+                "coordinateSpace": BOARD_CELL_COORDINATE_SPACE,
+                "cornerSemantics": BOARD_CELL_CORNER_SEMANTICS,
+                "correctedBy": persisted.corrected_by,
+                "cropperFingerprintSha256": persisted.cropper_fingerprint_sha256,
                 "cropperVersion": persisted.cropper_version,
+                "decisionChecksumSha256": persisted.decision_checksum_sha256,
+                "expectedGeometryRevision": persisted.expected_geometry_revision,
+                "expectedResolutionRevision": persisted.expected_resolution_revision,
+                "geometryVersion": BOARD_CELL_GEOMETRY_VERSION,
                 "imageHeight": persisted.image_height,
                 "imageWidth": persisted.image_width,
-                "source": "manual_review",
-                "sourceQuad": [{"x": point.x, "y": point.y} for point in persisted.source_quad],
+                "latticeBoundsQuad": _quad_dict(persisted.lattice_bounds_quad),
+                "manualGeometryVersion": persisted.manual_geometry_version,
+                "positionIndex": persisted.position_index,
+                "reviewItemId": persisted.review_item_id,
+                "sequenceNumber": persisted.sequence_number,
+                "source": "manual_override",
+                "sourceGroup": persisted.source_group,
+                "sourceImageChecksumSha256": persisted.source_image_checksum_sha256,
+                "sourceImageId": persisted.source_image_id,
+                "sourceImageRelativePath": persisted.source_image_relative_path,
+                "sourceOrderIndex": persisted.source_order_index,
                 **_retained_review_context(
                     item.geometry,
                     image_width=persisted.image_width,
                     image_height=persisted.image_height,
                 ),
-                "transformMatrix": [list(row) for row in persisted.transform_matrix],
             },
-            board_relative_path=persisted.board_relative_path,
-            board_checksum_sha256=persisted.board_checksum_sha256,
+            board_relative_path=item.board_relative_path,
+            board_checksum_sha256=item.board_checksum_sha256,
             cropper_version=persisted.cropper_version,
             cells=tuple(
                 ImageReviewGeometryCellArtifact(
@@ -676,15 +668,46 @@ class OperationalImageReviewService:
                 "The operational review item changed after it was loaded.",
             )
 
-    def _require_geometry_dependencies(
+    def _validated_board_cell_geometry_preview(
         self,
-    ) -> tuple[ManualGeometryRecropper, Path]:
-        if self._geometry_recropper is None or self._artifact_root is None:
+        *,
+        item: ImageReviewItem,
+        command: ValidatedImageReviewGeometryCommand,
+    ) -> ManualBoardCellGeometryPreview:
+        sequence_number = item.queue_sequence_number
+        if sequence_number is None and item.geometry.get("sequenceSource") == "filename":
+            sequence_number = item.suggested_sequence_number
+        if sequence_number is None:
             raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_UNAVAILABLE",
-                "Manual geometry correction is not configured.",
+                "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED",
+                "Board-cell geometry requires an unambiguous sequence number.",
             )
-        return self._geometry_recropper, self._artifact_root
+        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
+        source = resolve_operational_source_asset(item, artifact_root)
+        try:
+            return previewer.preview(
+                source_path=source.path,
+                expected_source_sha256=item.source_checksum_sha256,
+                review_item_id=str(item.id),
+                source_order_index=item.source_order_index,
+                source_image_id=str(item.source_image_id),
+                source_image_relative_path=item.source_relative_path,
+                source_group=str(item.import_job_id),
+                sequence_number=sequence_number,
+                position_index=item.position_index,
+                lattice_bounds_quad=(
+                    (float(command.corners[0].x), float(command.corners[0].y)),
+                    (float(command.corners[1].x), float(command.corners[1].y)),
+                    (float(command.corners[2].x), float(command.corners[2].y)),
+                    (float(command.corners[3].x), float(command.corners[3].y)),
+                ),
+                corrected_by=command.corrected_by,
+                expected_geometry_revision=command.expected_geometry_revision,
+                expected_resolution_revision=command.expected_resolution_revision,
+                command_checksum_sha256=command.command_sha256,
+            )
+        except ManualBoardCellGeometryPreviewError as error:
+            raise ImageReviewConflictError(error.code, str(error)) from error
 
     def _require_board_cell_geometry_preview_dependencies(
         self,
@@ -704,9 +727,18 @@ def _retained_review_context(
     image_height: int,
 ) -> dict[str, object]:
     retained: dict[str, object] = {}
-    label = geometry.get("sequenceLabelQuad")
-    if label is not None:
-        retained["sequenceLabelQuad"] = label
+    display_asset_kind = geometry.get("displayAssetKind")
+    if display_asset_kind == "source_context":
+        retained["displayAssetKind"] = display_asset_kind
+    for key in (
+        "attestedRangeEnd",
+        "attestedRangeStart",
+        "sequenceLabelQuad",
+        "sequenceSource",
+    ):
+        value = geometry.get(key)
+        if value is not None:
+            retained[key] = value
     bounds = _parse_source_context_bounds(
         geometry.get("sourceContextBounds"),
         image_width=image_width,
@@ -759,7 +791,10 @@ def _derive_source_context_bounds(
     image_height: int,
 ) -> dict[str, int] | None:
     board = _parse_geometry_points(
-        geometry.get("sourceQuad") or geometry.get("quad") or geometry.get("corners")
+        geometry.get("latticeBoundsQuad")
+        or geometry.get("sourceQuad")
+        or geometry.get("quad")
+        or geometry.get("corners")
     )
     if board is None:
         return None
@@ -809,6 +844,12 @@ def _parse_geometry_points(value: object) -> tuple[tuple[float, float], ...] | N
             return None
         parsed.append((x, y))
     return tuple(parsed)
+
+
+def _quad_dict(
+    quad: Sequence[tuple[float, float]],
+) -> list[dict[str, float]]:
+    return [{"x": float(point[0]), "y": float(point[1])} for point in quad]
 
 
 __all__ = [

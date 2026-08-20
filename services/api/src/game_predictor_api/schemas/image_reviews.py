@@ -231,7 +231,9 @@ class OperationalImageReviewGeometryPreviewCommand(ApiModel):
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
-    ]
+    ] = Field(
+        description="Source-image outer corners of the 5 by 3 symbol lattice in row-major winding"
+    )
 
 
 class OperationalImageReviewGeometryCommand(OperationalImageReviewGeometryPreviewCommand):
@@ -254,6 +256,13 @@ class OperationalImageReviewGeometryRevisionResponse(ApiModel):
     revision: int = Field(ge=1)
     idempotency_key: UUID
     command_sha256: Sha256
+    decision_checksum_sha256: Sha256 | None = Field(
+        default=None,
+        description=(
+            "Manual v19 decision checksum binding source, board position, versions and actor; "
+            "null only for historical geometry revisions"
+        ),
+    )
     corners: tuple[
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
@@ -451,6 +460,7 @@ def to_operational_geometry_revision_response(
         revision=revision.revision,
         idempotency_key=revision.idempotency_key,
         command_sha256=revision.command_sha256,
+        decision_checksum_sha256=revision.decision_checksum_sha256,
         corners=(
             OperationalImageReviewGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
             OperationalImageReviewGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),

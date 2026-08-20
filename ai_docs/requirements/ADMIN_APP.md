@@ -367,6 +367,13 @@ zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć
 zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie
 propagowane na inne plansze.
 
+Przycisk zapisu jest dostępny dopiero po wygenerowaniu podglądu odpowiadającego
+bieżącym czterem punktom. Każde przesunięcie uchwytu unieważnia poprzedni
+podgląd. W trakcie zapisu drugi submit i zamknięcie dialogu są zablokowane, a
+konflikt rewizji wymaga przeładowania bieżącej planszy. Udany zapis nie
+przechodzi do następnej pozycji: zastępuje bieżący item odpowiedzią backendu i
+pokazuje go jako ponownie oczekujący na weryfikację symboli.
+
 Obsługa narożników musi pozostać zgodna z widoczną treścią obrazu również po
 skalowaniu i dodaniu pustych pasów przez `object-fit: contain`; próg trafienia
 jest stały w pikselach ekranu, a nie w pikselach źródła. Po zapisie Reviewer

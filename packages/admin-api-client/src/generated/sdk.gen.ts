@@ -2353,7 +2353,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable corrected geometry and reopen review
+ * Persist immutable v19 symbol-lattice geometry and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,

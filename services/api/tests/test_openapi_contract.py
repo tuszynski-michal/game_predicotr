@@ -447,6 +447,19 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         geometry_command["properties"]["corners"]["prefixItems"]
         == [{"$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"}] * 4
     )
+    geometry_revision = schema["components"]["schemas"][
+        "OperationalImageReviewGeometryRevisionResponse"
+    ]
+    assert geometry_revision["properties"]["decisionChecksumSha256"]["anyOf"] == [
+        {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        {"type": "null"},
+    ]
+    assert (
+        schema["paths"]["/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions"][
+            "post"
+        ]["summary"]
+        == "Persist immutable v19 symbol-lattice geometry and reopen review"
+    )
 
 
 def test_verified_cohort_openapi_exposes_explicit_freeze_and_history() -> None:

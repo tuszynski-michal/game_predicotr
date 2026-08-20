@@ -1,6 +1,9 @@
 'use client';
 
-import type { OperationalImageReviewItemResponse } from '@game-predictor/admin-api-client';
+import type {
+  OperationalImageReviewGeometryResponse,
+  OperationalImageReviewItemResponse,
+} from '@game-predictor/admin-api-client';
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -12,9 +15,11 @@ import {
 
 import {
   previewOperationalReviewGeometry,
+  saveOperationalReviewGeometry,
   type OperationalReviewsClient,
 } from './operational-review-actions';
 import {
+  buildOperationalReviewGeometryCommand,
   buildOperationalReviewGeometryPreviewCommand,
   operationalReviewAssetUrl,
   operationalReviewGeometryCorners,
@@ -33,6 +38,7 @@ interface OperationalReviewGeometryEditorProps {
   readonly apiBaseUrl: string;
   readonly importJobId: string;
   readonly item: OperationalImageReviewItemResponse;
+  readonly onSaved: (geometry: OperationalImageReviewGeometryResponse) => void;
 }
 
 export function OperationalReviewGeometryEditor({
@@ -40,6 +46,7 @@ export function OperationalReviewGeometryEditor({
   apiBaseUrl,
   importJobId,
   item,
+  onSaved,
 }: OperationalReviewGeometryEditorProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,6 +63,7 @@ export function OperationalReviewGeometryEditor({
   const [previewKey, setPreviewKey] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const context = useMemo(
     () => ({ gameId: item.gameId, importJobId }),
@@ -67,7 +75,7 @@ export function OperationalReviewGeometryEditor({
     item.id,
     'source',
     {
-      usage: 'board-cell-geometry-editor-v19-preview-v1',
+      usage: 'board-cell-geometry-editor-v19-v1',
       version: item.sourceChecksumSha256,
     },
   );
@@ -218,7 +226,7 @@ export function OperationalReviewGeometryEditor({
   );
 
   const refreshPreview = useCallback(async () => {
-    if (corners === null || loadingPreview) return;
+    if (corners === null || loadingPreview || saving) return;
     setLoadingPreview(true);
     setError('');
     const requestedKey = JSON.stringify(corners);
@@ -244,7 +252,48 @@ export function OperationalReviewGeometryEditor({
     previewUrlRef.current = url;
     setPreviewUrl(url);
     setPreviewKey(requestedKey);
-  }, [api, corners, importJobId, item, loadingPreview]);
+  }, [api, corners, importJobId, item, loadingPreview, saving]);
+
+  const saveGeometry = useCallback(async () => {
+    if (corners === null || !previewIsCurrent || saving || loadingPreview)
+      return;
+    setSaving(true);
+    setError('');
+    const result = await saveOperationalReviewGeometry(api, {
+      command: buildOperationalReviewGeometryCommand(
+        item,
+        corners,
+        globalThis.crypto.randomUUID(),
+      ),
+      gameId: item.gameId,
+      importJobId,
+      reviewItemId: item.id,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(
+        result.isRevisionConflict
+          ? `${result.error} Zamknij edytor i przeładuj planszę.`
+          : result.error,
+      );
+      return;
+    }
+    dragIndexRef.current = null;
+    setOpen(false);
+    setCorners(null);
+    setViewport(null);
+    setError('');
+    onSaved(result.geometry);
+  }, [
+    api,
+    corners,
+    importJobId,
+    item,
+    loadingPreview,
+    onSaved,
+    previewIsCurrent,
+    saving,
+  ]);
 
   function updateDraggedCorner(event: ReactPointerEvent<HTMLCanvasElement>) {
     const index = dragIndexRef.current;
@@ -320,6 +369,7 @@ export function OperationalReviewGeometryEditor({
   }
 
   function closeEditor() {
+    if (saving) return;
     dragIndexRef.current = null;
     setOpen(false);
     setCorners(null);
@@ -336,6 +386,7 @@ export function OperationalReviewGeometryEditor({
     setError('');
     setPreviewUrl(null);
     setPreviewKey('');
+    setSaving(false);
     setViewport(null);
     setOpen(true);
   }
@@ -410,7 +461,7 @@ export function OperationalReviewGeometryEditor({
               <h3>15 finalnych cropów source-direct</h3>
               <button
                 className="secondaryButton"
-                disabled={corners === null || loadingPreview}
+                disabled={corners === null || loadingPreview || saving}
                 onClick={() => void refreshPreview()}
                 type="button"
               >
@@ -462,16 +513,25 @@ export function OperationalReviewGeometryEditor({
         ) : null}
         <footer>
           <span>
-            TASK 6 udostępnia bezpieczny podgląd v19. Zapis tej semantyki
-            narożników zostanie włączony dopiero z kontraktem append-only.
+            Zapis utworzy nową rewizję append-only, zachowa poprzednią geometrię
+            i ponownie otworzy symbole zależne od nowych cropów.
           </span>
           <div>
             <button
               className="secondaryButton"
+              disabled={saving}
               onClick={closeEditor}
               type="button"
             >
-              {previewIsCurrent ? 'Zamknij podgląd' : 'Anuluj'}
+              Anuluj
+            </button>
+            <button
+              className="primaryButton"
+              disabled={!previewIsCurrent || saving || loadingPreview}
+              onClick={() => void saveGeometry()}
+              type="button"
+            >
+              {saving ? 'Zapisywanie…' : 'Zapisz nową rewizję'}
             </button>
           </div>
         </footer>

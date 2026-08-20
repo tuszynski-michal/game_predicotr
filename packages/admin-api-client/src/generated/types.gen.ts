@@ -3937,6 +3937,8 @@ export type OperationalImageReviewGeometryCellResponse = {
 export type OperationalImageReviewGeometryCommand = {
   /**
    * Corners
+   *
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
    */
   corners: [
     OperationalImageReviewGeometryPoint,
@@ -3982,6 +3984,8 @@ export type OperationalImageReviewGeometryPoint = {
 export type OperationalImageReviewGeometryPreviewCommand = {
   /**
    * Corners
+   *
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
    */
   corners: [
     OperationalImageReviewGeometryPoint,
@@ -4064,6 +4068,12 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Cropperversion
    */
   cropperVersion: string;
+  /**
+   * Decisionchecksumsha256
+   *
+   * Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions
+   */
+  decisionChecksumSha256?: string | null;
   /**
    * Id
    */

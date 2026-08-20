@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 import cv2
@@ -9,8 +10,10 @@ import pytest
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_CELL_SIZE,
+    MANUAL_BOARD_CELL_GEOMETRY_VERSION,
     ManualBoardCellGeometryPreviewer,
     ManualBoardCellGeometryPreviewError,
+    manual_board_cell_geometry_decision_checksum,
 )
 
 
@@ -38,6 +41,7 @@ def _preview(tmp_path: Path):
     preview = ManualBoardCellGeometryPreviewer().preview(
         source_path=source,
         expected_source_sha256=checksum,
+        review_item_id="review-id",
         source_order_index=10,
         source_image_id="source-id",
         source_image_relative_path="sources/source.png",
@@ -50,7 +54,10 @@ def _preview(tmp_path: Path):
             (560.0, 350.0),
             (60.0, 350.0),
         ),
-        decision_checksum_sha256="d" * 64,
+        corrected_by="local-owner",
+        expected_geometry_revision=2,
+        expected_resolution_revision=4,
+        command_checksum_sha256="d" * 64,
     )
     return preview, colors
 
@@ -61,6 +68,7 @@ def test_manual_v19_preview_contains_exactly_15_final_source_direct_crops(
     preview, colors = _preview(tmp_path)
 
     assert preview.cropper_version == CROPPER_VERSION
+    assert preview.manual_geometry_version == MANUAL_BOARD_CELL_GEOMETRY_VERSION
     assert len(preview.cells) == 15
     assert [(cell.row_index, cell.column_index) for cell in preview.cells] == [
         (row, column) for row in range(3) for column in range(5)
@@ -84,7 +92,137 @@ def test_manual_v19_preview_contains_exactly_15_final_source_direct_crops(
     assert all(
         cell.checksum_sha256 == hashlib.sha256(cell.png).hexdigest() for cell in preview.cells
     )
+    assert preview.decision_checksum_sha256 == manual_board_cell_geometry_decision_checksum(
+        review_item_id="review-id",
+        source_order_index=10,
+        source_image_id="source-id",
+        source_image_checksum_sha256=preview.source_image_checksum_sha256,
+        source_image_relative_path="sources/source.png",
+        source_group="import-id",
+        sequence_number=91,
+        position_index=0,
+        lattice_bounds_quad=preview.lattice_bounds_quad,
+        corrected_by="local-owner",
+        expected_geometry_revision=2,
+        expected_resolution_revision=4,
+        command_checksum_sha256="d" * 64,
+        cropper_fingerprint_sha256=preview.cropper_fingerprint_sha256,
+    )
     assert list(tmp_path.iterdir()) == [tmp_path / "source.png"]
+
+
+def test_manual_v19_persistence_is_append_only_and_keeps_exact_preview_crops(
+    tmp_path: Path,
+) -> None:
+    preview, _ = _preview(tmp_path)
+    previewer = ManualBoardCellGeometryPreviewer()
+    managed_root = tmp_path / "managed"
+
+    with pytest.raises(ManualBoardCellGeometryPreviewError) as provenance_drift:
+        previewer.persist(
+            preview=replace(preview, corrected_by="different-owner"),
+            managed_data_root=managed_root,
+            revision=3,
+        )
+    assert provenance_drift.value.code == "BOARD_CELL_GEOMETRY_ARTIFACT_PROVENANCE_DRIFT"
+    assert not managed_root.exists()
+
+    artifacts = previewer.persist(
+        preview=preview,
+        managed_data_root=managed_root,
+        revision=3,
+    )
+
+    assert artifacts.decision_checksum_sha256 == preview.decision_checksum_sha256
+    assert artifacts.source_image_checksum_sha256 == preview.source_image_checksum_sha256
+    assert artifacts.source_order_index == 10
+    assert artifacts.position_index == 0
+    assert artifacts.corrected_by == "local-owner"
+    assert artifacts.manual_geometry_version == MANUAL_BOARD_CELL_GEOMETRY_VERSION
+    assert len(artifacts.cells) == 15
+    assert [(cell.row_index, cell.column_index) for cell in artifacts.cells] == [
+        (row, column) for row in range(3) for column in range(5)
+    ]
+    for cell, expected in zip(artifacts.cells, preview.cells, strict=True):
+        path = managed_root.joinpath(*Path(cell.relative_path).parts)
+        assert path.read_bytes() == expected.png
+        assert cell.checksum_sha256 == expected.checksum_sha256
+        assert cell.source_quad == expected.source_quad
+        assert cell.padded_source_quad == expected.padded_source_quad
+    assert len(list(managed_root.rglob("*.png"))) == 15
+
+    retried = previewer.persist(
+        preview=preview,
+        managed_data_root=managed_root,
+        revision=3,
+    )
+    assert retried == artifacts
+    assert len(list(managed_root.rglob("*.png"))) == 15
+
+
+def test_manual_v19_decision_checksum_binds_actor_position_and_source(
+    tmp_path: Path,
+) -> None:
+    preview, _ = _preview(tmp_path)
+    common = {
+        "review_item_id": preview.review_item_id,
+        "source_order_index": preview.source_order_index,
+        "source_image_id": preview.source_image_id,
+        "source_image_checksum_sha256": preview.source_image_checksum_sha256,
+        "source_image_relative_path": preview.source_image_relative_path,
+        "source_group": preview.source_group,
+        "sequence_number": preview.sequence_number,
+        "position_index": preview.position_index,
+        "lattice_bounds_quad": preview.lattice_bounds_quad,
+        "corrected_by": preview.corrected_by,
+        "expected_geometry_revision": preview.expected_geometry_revision,
+        "expected_resolution_revision": preview.expected_resolution_revision,
+        "command_checksum_sha256": preview.command_checksum_sha256,
+        "cropper_fingerprint_sha256": preview.cropper_fingerprint_sha256,
+    }
+
+    assert manual_board_cell_geometry_decision_checksum(**common) == (
+        preview.decision_checksum_sha256
+    )
+    assert (
+        manual_board_cell_geometry_decision_checksum(**{**common, "corrected_by": "second-owner"})
+        != preview.decision_checksum_sha256
+    )
+    assert (
+        manual_board_cell_geometry_decision_checksum(**{**common, "position_index": 1})
+        != preview.decision_checksum_sha256
+    )
+    assert (
+        manual_board_cell_geometry_decision_checksum(
+            **{**common, "source_image_checksum_sha256": "a" * 64}
+        )
+        != preview.decision_checksum_sha256
+    )
+
+
+def test_manual_v19_persistence_never_overwrites_a_drifted_revision_file(
+    tmp_path: Path,
+) -> None:
+    preview, _ = _preview(tmp_path)
+    previewer = ManualBoardCellGeometryPreviewer()
+    managed_root = tmp_path / "managed"
+    artifacts = previewer.persist(
+        preview=preview,
+        managed_data_root=managed_root,
+        revision=1,
+    )
+    drifted = managed_root.joinpath(*Path(artifacts.cells[0].relative_path).parts)
+    drifted.write_bytes(b"drifted")
+
+    with pytest.raises(ManualBoardCellGeometryPreviewError) as collision:
+        previewer.persist(
+            preview=preview,
+            managed_data_root=managed_root,
+            revision=1,
+        )
+
+    assert collision.value.code == "BOARD_CELL_GEOMETRY_ARTIFACT_COLLISION"
+    assert drifted.read_bytes() == b"drifted"
 
 
 def test_manual_v19_preview_fails_closed_for_checksum_and_crossed_lattice(
@@ -94,13 +232,17 @@ def test_manual_v19_preview_fails_closed_for_checksum_and_crossed_lattice(
     previewer = ManualBoardCellGeometryPreviewer()
     common = {
         "source_path": source,
+        "review_item_id": "review-id",
         "source_order_index": 0,
         "source_image_id": "source-id",
         "source_image_relative_path": "source.png",
         "source_group": "import-id",
         "sequence_number": 1,
         "position_index": 0,
-        "decision_checksum_sha256": "a" * 64,
+        "corrected_by": "local-owner",
+        "expected_geometry_revision": 0,
+        "expected_resolution_revision": 0,
+        "command_checksum_sha256": "a" * 64,
     }
 
     with pytest.raises(ManualBoardCellGeometryPreviewError) as drifted:

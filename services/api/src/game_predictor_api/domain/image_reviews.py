@@ -273,6 +273,7 @@ class ImageReviewGeometryRevision:
     revision: int
     idempotency_key: UUID
     command_sha256: str
+    decision_checksum_sha256: str | None
     corners: tuple[
         ImageReviewGeometryPoint,
         ImageReviewGeometryPoint,

@@ -1465,12 +1465,17 @@ revision. Zwraca PNG `5 × 3` złożony z dokładnie 15 finalnych cropów
 source-direct v19 i nie zapisuje pliku ani rewizji. Cztery pochodne uchwyty
 krawędziowe nie należą do payloadu.
 
-Historyczny zapis geometry revision nadal wymaga dodatkowo UUID idempotencji i
-aktora; backend/worker generuje nową planszę i dokładnie 15
-cropów, zapisuje ścieżki oraz checksumy i ponownie otwiera review item. Klient
-nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
-Do czasu TASK 7 Reviewer nie wywołuje tego historycznego zapisu z edytora v19,
-ponieważ jego cztery punkty miały inną semantykę narożników planszy.
+Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora. Cztery
+punkty mają tę samą semantykę `latticeBoundsQuad` co preview; backend ponownie
+wykonuje wspólną walidację v19, zapisuje dokładnie 15 finalnych cropów
+source-direct, ich ścieżki, checksumy i quady oraz ponownie otwiera review item.
+Klient nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+
+Odpowiedź rewizji zawiera `decisionChecksumSha256`, które wiąże źródło,
+source-order, pozycję, numer, quad, wersje, oczekiwane rewizje, checksumę komendy
+i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
+Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
+UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
 
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu

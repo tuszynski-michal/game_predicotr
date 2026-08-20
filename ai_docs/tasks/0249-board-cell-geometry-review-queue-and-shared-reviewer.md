@@ -16,7 +16,8 @@ czyli kontrakt i rzeczywisty corpus geometrii komórek, TASK 3, czyli nieaktywny
 automatyczny estymator v19, TASK 4, czyli checkpoint 100 stron, oraz TASK 5,
 czyli nieaktywny source-direct cropper v19, oraz TASK 6, czyli ręczny edytor i
 read-only podgląd 15 finalnych cropów v19, są ukończone. Produkcyjny pipeline,
-append-only zapis v19 i pending-only recrop opisane poniżej nie zostały jeszcze
+oraz TASK 7, czyli append-only zapis ręcznej geometrii v19, są ukończone.
+Produkcyjny pipeline i pending-only recrop opisane poniżej nie zostały jeszcze
 rozpoczęte.
 
 ## Goal
@@ -125,8 +126,9 @@ Zaakceptowane decyzje baseline'u:
 5. [ukończone w TASK 6] Zbudować edytor ręczny, w którym cztery główne uchwyty oznaczają granice
    siatki 5 × 3. Cztery dodatkowe uchwyty krawędziowe są pochodne i nie zmieniają
    semantyki zapisu. Podgląd musi pokazywać wszystkie 15 finalnych cropów.
-6. Zapisywać ręczną korektę append-only z checksumą źródła, pozycji, wersji i
-   aktora. Ten sam walidator ma obsługiwać automat, preview i zapis.
+6. [ukończone w TASK 7] Zapisywać ręczną korektę append-only z checksumą
+   źródła, pozycji, wersji i aktora. Ten sam walidator ma obsługiwać automat,
+   preview i zapis.
 7. Po zaliczeniu bramki udostępnić pending-only recrop. Nie otwierać ani nie
    modyfikować elementów rozwiązanych i nie uruchamiać ponownie OCR/discovery.
 
@@ -340,6 +342,65 @@ npm.cmd run openapi:check
 - [x] Cropper v18, pipeline, modele symboli, baza i decyzje review pozostają bez
       zmian.
 
+### Outcome TASK 7 — append-only zapis ręcznej geometrii v19
+
+- Endpoint zapisu nie używa już aktywnie historycznego
+  `manual-review-geometry-v1`. Preview i zapis przechodzą przez wspólny adapter
+  `manual-board-cell-geometry-v19-append-only-v1`, ten sam kontrakt
+  `BoardCellGeometryEntry` oraz source-direct cropper v19.
+- Decyzja ręczna ma kanoniczną checksumę wiążącą checksumę i tożsamość źródła,
+  `source_order_index`, `position_index`, numer planszy, cztery granice
+  `latticeBoundsQuad`, wersję geometrii, wersję i fingerprint croppera,
+  oczekiwane rewizje, checksumę komendy oraz aktora.
+- Zapis materializuje dokładnie 15 finalnych PNG `64 × 64` w niezmiennym,
+  rewizjonowanym namespace. Nie tworzy planszy `500 × 300`, nie wykonuje
+  dodatkowego resamplingu i nie nadpisuje plików wcześniejszej rewizji.
+- `image_board_geometry_revisions` pozostaje append-only. JSON geometrii
+  zachowuje pełną proweniencję, 15 source/padded quadów oraz checksumy cropów;
+  odpowiedź API ujawnia `decisionChecksumSha256`, z `null` wyłącznie dla
+  historycznych rewizji v1.
+- Reviewer pozwala zapisać tylko podgląd odpowiadający bieżącym narożnikom,
+  blokuje podwójny submit, aktualizuje item odpowiedzią backendu i pozostaje na
+  tej samej planszy ponownie otwartej do weryfikacji symboli.
+- Historyczny adapter v1 i cropper v18 pozostają odtwarzalne. TASK 7 nie
+  aktywuje automatycznego estymatora v19, nie uruchamia pending-only recropu i
+  nie zmienia modeli symboli.
+
+### Verification TASK 7
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/worker/tests/test_manual_board_cell_geometry_preview.py services/worker/tests/test_board_cell_geometry_crops.py -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_operational_image_reviews.py services/api/tests/test_openapi_contract.py services/api/tests/test_local_admin_security.py -q
+npm.cmd test --workspace @game-predictor/reviewer
+npm.cmd test --workspace @game-predictor/admin-api-client
+npm.cmd run lint --workspace @game-predictor/reviewer
+npm.cmd run typecheck --workspace @game-predictor/reviewer
+npm.cmd run openapi:check
+```
+
+Wynik: `11` testów workera, `27` testów API, `26` testów Reviewera i `38`
+testów generowanego klienta przeszło. Ruff, lint, typecheck i build Reviewera
+oraz kontrola OpenAPI/generowanego klienta przeszły. Mypy dla nowego adaptera
+workera przeszedł. Standardowy mypy API nadal raportuje dwa wcześniejsze błędy
+w niezmienionym `symbol_model_iteration_repository.py` (typ mapy splitu i
+nieużyty `type: ignore`); TASK 7 nie osłabia tej bramki ani nie zmienia pliku.
+
+### Acceptance criteria TASK 7
+
+- [x] Preview i zapis korzystają z tej samej walidacji v19 oraz dokładnie tych
+      samych 15 finalnych cropów row-major.
+- [x] Checksum decyzji wiąże źródło, pozycję, wersje i aktora.
+- [x] Każdy zapis tworzy nową rewizję i nie zmienia poprzedniego rekordu ani
+      jego plików; exact retry jest idempotentny.
+- [x] Zapis odrzuca niejednoznaczny numer, drift źródła, nieaktualne rewizje,
+      niepoprawny quad i niekompletny wynik przed zmianą projekcji.
+- [x] Reviewer zapisuje wyłącznie aktualnie obejrzany podgląd i natychmiast
+      przechodzi na zwróconą rewizję cropów bez przejścia do następnej planszy.
+- [x] OpenAPI i generowany klient opisują checksumę decyzji i semantykę
+      `latticeBoundsQuad`.
+- [x] Pipeline, automatyczny estymator, cropper v18, modele symboli oraz
+      rozwiązane decyzje innych plansz pozostają bez zmian.
+
 ### Kryteria odbioru pionu
 
 - corpus obejmuje różne kąty, częściowe zasłonięcia i znane błędy v18,
@@ -478,5 +539,7 @@ TASK 1 ustabilizował baseline dokumentacyjny i test głowy migracji. TASK 2 dod
 ścisły kontrakt oraz zweryfikowany rzeczywisty corpus. TASK 3 dodał
 deterministyczny, fail-closed estymator v19 bez aktywowania go w pipeline. TASK 4
 zaliczył deterministyczny checkpoint 100 stron bez fałszywego sukcesu. Edytor i
-pozostały runtime pozostają otwarte i wymagają osobnych poleceń dla kolejnych
-numerów z zaakceptowanego breakdownu.
+podgląd v19 powstały w TASK 6, a TASK 7 uruchomił ich append-only zapis z pełną
+proweniencją. Pending-only recrop, produkcyjna aktywacja v19 oraz pozostałe dwa
+piony pozostają otwarte i wymagają osobnych poleceń dla kolejnych numerów z
+zaakceptowanego breakdownu.

@@ -4,6 +4,7 @@ import type {
   GameResponse,
   JobResponse,
   OperationalImageReviewCountsResponse,
+  OperationalImageReviewGeometryResponse,
   OperationalImageReviewItemResponse,
   OperationalImageReviewPageResponse,
   OperationalImageReviewResolutionResponse,
@@ -296,6 +297,29 @@ export function OperationalReviewWorkspace({
     });
   }
 
+  function handleGeometrySaved(
+    geometry: OperationalImageReviewGeometryResponse,
+  ) {
+    setPageNotice(
+      geometry.created
+        ? `Zapisano rewizję geometrii ${geometry.geometryRevision.revision}. Plansza wróciła do weryfikacji symboli.`
+        : 'Ta sama rewizja geometrii była już zapisana — nie utworzono duplikatu.',
+    );
+    setPage((current) => {
+      if (current === null) return current;
+      const previousStatus = current.items[0]?.status;
+      return {
+        ...current,
+        counts: updateOperationalReviewCounts(
+          current.counts,
+          previousStatus,
+          geometry.item.status,
+        ),
+        items: [geometry.item],
+      };
+    });
+  }
+
   async function handleFreezeCohort() {
     if (selectedGameId === '' || selectedJobId === '' || freezingCohort) {
       return;
@@ -460,6 +484,7 @@ export function OperationalReviewWorkspace({
                 key={`${item.id}:${item.geometryRevision}:${item.resolutionRevision}`}
                 onJumpChange={setJumpValue}
                 onJumpSubmit={jumpToSequence}
+                onGeometrySaved={handleGeometrySaved}
                 onNext={() =>
                   void refreshPage({
                     afterCursor: page?.nextCursor ?? undefined,
@@ -649,6 +674,7 @@ function OperationalReviewBoard({
   jumpValue,
   onJumpChange,
   onJumpSubmit,
+  onGeometrySaved,
   onNext,
   onPrevious,
   onReload,
@@ -666,6 +692,9 @@ function OperationalReviewBoard({
   readonly jumpValue: string;
   readonly onJumpChange: (value: string) => void;
   readonly onJumpSubmit: () => void;
+  readonly onGeometrySaved: (
+    geometry: OperationalImageReviewGeometryResponse,
+  ) => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
   readonly onReload: () => void;
@@ -895,6 +924,7 @@ function OperationalReviewBoard({
               apiBaseUrl={apiBaseUrl}
               importJobId={importJobId}
               item={item}
+              onSaved={onGeometrySaved}
             />
             <button
               aria-label="Poprzednia plansza"

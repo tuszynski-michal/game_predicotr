@@ -354,7 +354,7 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-revisions",
         response_model=OperationalImageReviewGeometryResponse,
         operation_id="createOperationalImageReviewGeometryRevision",
-        summary="Persist immutable corrected geometry and reopen review",
+        summary="Persist immutable v19 symbol-lattice geometry and reopen review",
         responses=ERROR_RESPONSES,
     )
     def create_operational_image_review_geometry_revision(

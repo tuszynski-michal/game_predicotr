@@ -769,8 +769,15 @@ Rekord zawiera:
 - UUID idempotencji i SHA-256 kanonicznej komendy,
 - cztery narożniki w przestrzeni oryginalnego obrazu,
 - wersję croppera, profilu i pipeline fingerprint,
-- względne ścieżki oraz checksumy wyprostowanej planszy i dokładnie 15 cropów,
+- względną ścieżkę i checksumę obrazu referencyjnego oraz dokładnie 15 cropów,
 - aktora i czas utworzenia.
+
+Rewizja v19 zapisuje w `geometry` także `latticeBoundsQuad`, source/padded quady
+15 komórek, checksumę źródła, source-order, pozycję, numer, wersje geometrii i
+croppera, fingerprint, oczekiwane rewizje, aktora oraz
+`decisionChecksumSha256`. Checksum decyzji kanonicznie wiąże te pola; nie jest
+zamiennikiem `command_sha256`, który nadal chroni idempotentny transport.
+Historyczna rewizja v1 może nie mieć checksumy decyzji i pozostaje czytelna.
 
 `corners`, wynikowa `geometry` i `crop_artifacts` są JSONB; constraint wymaga
 czterech narożników oraz dokładnie 15 artefaktów cropów. Unikalne

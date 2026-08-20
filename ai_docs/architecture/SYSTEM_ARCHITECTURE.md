@@ -871,6 +871,22 @@ pochodną prezentacyjną. Worker wyprowadza 15 cell quadów tym samym kontraktem
 wykonuje source-direct cropper v19 i składa finalne cropy w contact sheet `5 ×
 3`. Podgląd nie zapisuje artefaktów ani nie zmienia aktywnego pipeline'u v18.
 
+Adapter `manual-board-cell-geometry-v19-append-only-v1` jest jedyną aktywną
+ścieżką zapisu z tego edytora. Najpierw wykonuje dokładnie tę samą budowę
+`BoardCellGeometryEntry` i walidację croppera co preview, a następnie zapisuje
+15 finalnych PNG w content-addressed nazwach pod rewizjonowanym namespace.
+Warstwa aplikacyjna zapisuje ich ścieżki, source/padded quady i pełną
+proweniencję w istniejącym `image_board_geometry_revisions`; nowa tabela ani
+BLOB nie są potrzebne.
+
+Osobna checksum decyzji wiąże źródło, stałą pozycję planszy, numer, quad,
+wersję geometrii, fingerprint croppera, rewizje komendy i aktora. Bieżąca
+projekcja przechodzi na nową rewizję dopiero po ponownej kontroli revision w
+repozytorium. Exact retry zwraca poprzedni rekord, a konkurencyjny zapis ze
+starymi rewizjami nie zmienia projekcji. Historyczny adapter
+`manual-review-geometry-v1` pozostaje dostępny wyłącznie do odtwarzania dawnych
+artefaktów.
+
 Kontrakt rozróżnia evidence automatyczne od `human_reviewed/manual_override`.
 Automat nie przechodzi bez co najmniej 10 wiarygodnych centrów, 9 unikalnych
 inlierów oraz pokrycia wszystkich wierszy i kolumn; człowiek nie otrzymuje

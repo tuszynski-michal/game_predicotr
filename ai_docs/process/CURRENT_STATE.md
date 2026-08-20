@@ -1773,6 +1773,16 @@ checkpointu wykryła brak wspólnego `schema_version=1`. Poprawka obejmuje
 checkpointy grid v1/v2 i symbolowej reinferencji; job nie doszedł przed nią do
 zapisu żadnej planszy.
 
+Po poprawkach i restarcie kontrolowanego lane'u recrop
+`9363e55b-3493-4dc5-b296-3e6a21efdb24` zakończył `19 745/19 745`: utworzył
+`19 364` rewizje v19, pozostawił `381` plansz do ręcznej geometrii i nie miał
+błędów technicznych. Kolejny job symboli
+`23f37219-2964-412a-a7f6-0284d334ad9a` zakończył `19 745/19 745` bez błędu.
+Fingerprint wszystkich `64` chronionych decyzji i ich projekcji geometrii był
+identyczny przed i po jobach (`e6395e30…`). Anulowany duplikat `b057…` oraz
+testowy import `0490…` usunięto transakcyjnie; aktywny `b2d9…`, jego staging i
+`19 745` oczekujących pozycji pozostały zachowane.
+
 ## TASK-0249 — baseline geometrii komórek i Reviewera
 
 Na podstawie problemów z cropami symboli, dużą kolejką review i równoległym

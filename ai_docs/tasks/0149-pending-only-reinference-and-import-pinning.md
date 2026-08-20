@@ -165,3 +165,17 @@ Pierwszy retry na świeżym workerze ujawnił brak wymaganego `schema_version=1`
 w checkpointach obu handlerów reinferencji. Grid v1/v2 oraz symbole zapisują
 teraz checkpoint zgodny ze wspólnym runtime; regresja obejmuje zarówno payload
 v19, jak i symbolowy.
+
+Rzeczywisty odbiór na aktywnym imporcie
+`b2d9b299-a851-4e17-9ba3-dacaa7966978` zakończył oba joby statusem
+`completed`. Recrop `9363e55b-3493-4dc5-b296-3e6a21efdb24` objął dokładnie
+`19 745` oczekujących plansz: `19 364` otrzymały rewizję v19, `381` pozostało
+pending do ręcznej geometrii, a błędów technicznych było zero. Następnie
+symbolowa reinferencja `23f37219-2964-412a-a7f6-0284d334ad9a` zapisała
+`19 745/19 745` append-only rewizji bez błędu.
+
+Kontrolny fingerprint `64` decyzji `accepted/corrected/rejected` przed i po obu
+jobach pozostał identyczny:
+`e6395e3026ea1f4e65326328940f58374a2e4e040ee7707dd9b028991f6f7e3b`.
+Anulowany import `b057…` i testowy `0490…` usunięto transakcyjnie po
+potwierdzeniu, że nie zawierały kanonicznych decyzji, kohort ani rewizji.

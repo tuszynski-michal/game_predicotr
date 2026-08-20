@@ -18,7 +18,7 @@ from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import numpy as np
-from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.jobs import Job, JobStatus
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
@@ -146,6 +146,7 @@ class PendingGridReinferenceHandler:
                     .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
                     .where(
                         JobModel.game_id == job.game_id,
+                        JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                         ImageReviewItemModel.status == "pending",
                     )
                     .order_by(ImageReviewItemModel.created_at, ImageReviewItemModel.id)
@@ -379,6 +380,7 @@ class PendingGridReinferenceHandler:
                 )
                 .where(
                     JobModel.game_id == game_id,
+                    JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                     ImageReviewItemModel.status == "pending",
                 )
                 .order_by(

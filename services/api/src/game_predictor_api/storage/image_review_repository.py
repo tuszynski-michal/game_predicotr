@@ -502,6 +502,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
                 .where(
                     JobModel.game_id == game_id,
+                    JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                     ImageReviewItemModel.status == "pending",
                     or_(RecognizedBoardModel.sequence_number.is_(None), ~canonical_exists),
                 )
@@ -1624,7 +1625,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
             .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-            .where(JobModel.game_id == game_id)
+            .where(
+                JobModel.game_id == game_id,
+                JobModel.status == JobStatus.WAITING_FOR_REVIEW,
+            )
         ).all()
         source_statuses: dict[UUID, set[str]] = defaultdict(set)
         pending_board_count = 0

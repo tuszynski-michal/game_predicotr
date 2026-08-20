@@ -15,7 +15,7 @@ from uuid import UUID
 
 import cv2
 import numpy as np
-from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.jobs import Job, JobStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
@@ -60,28 +60,7 @@ class PendingSymbolReinferenceHandler:
             class_codes=snapshot.class_codes,
             input_size=snapshot.input_size,
         )
-        with self._session_factory() as session:
-            rows = list(
-                session.execute(
-                    select(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
-                    .join(
-                        RecognizedBoardModel,
-                        RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-                    )
-                    .join(
-                        SourceImageModel,
-                        SourceImageModel.id == RecognizedBoardModel.source_image_id,
-                    )
-                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                    .where(
-                        JobModel.game_id == job.game_id,
-                        ImageReviewItemModel.status == "pending",
-                    )
-                    .order_by(ImageReviewItemModel.created_at, ImageReviewItemModel.id)
-                )
-                .tuples()
-                .all()
-            )
+        rows = self._pending_rows(job.game_id)
         total = len(rows)
         if total == 0:
             context.checkpoint(
@@ -148,6 +127,34 @@ class PendingSymbolReinferenceHandler:
                 success_count=processed,
                 failure_count=0,
                 review_count=0,
+            )
+
+    def _pending_rows(
+        self,
+        game_id: UUID,
+    ) -> list[tuple[ImageReviewItemModel, RecognizedBoardModel, SourceImageModel]]:
+        with self._session_factory() as session:
+            return list(
+                session.execute(
+                    select(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
+                    .join(
+                        RecognizedBoardModel,
+                        RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                    )
+                    .join(
+                        SourceImageModel,
+                        SourceImageModel.id == RecognizedBoardModel.source_image_id,
+                    )
+                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                    .where(
+                        JobModel.game_id == game_id,
+                        JobModel.status == JobStatus.WAITING_FOR_REVIEW,
+                        ImageReviewItemModel.status == "pending",
+                    )
+                    .order_by(ImageReviewItemModel.created_at, ImageReviewItemModel.id)
+                )
+                .tuples()
+                .all()
             )
 
     def _infer_board(

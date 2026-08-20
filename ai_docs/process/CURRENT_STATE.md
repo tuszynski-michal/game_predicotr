@@ -1758,6 +1758,17 @@ JPEG-ów są poprawne. Bieżąca poprawka ładuje anchor względem zarządzanego
 manifest geometrii. Test regresyjny obejmuje oba warianty. Retry tego samego,
 poprawnie przypiętego joba jest aktywne; nie utworzono nowego uploadu ani joba.
 
+Pierwszy jawny recrop v19 `9363e55b-3493-4dc5-b296-3e6a21efdb24` został
+odebrany przez proces workera uruchomiony przed wprowadzeniem payloadu schema
+v2. Stary kod skierował go do historycznej ścieżki v1 i zakończył przed
+pierwszą planszą błędem `IMAGE_GRID_PROFILE_SNAPSHOT_INVALID`; staging i dane
+importu nie zostały zmienione. Nowy recrop wymaga restartu kontrolowanego lane'u
+po wdrożeniu kodu v2, a nie dodawania historycznego `gridProfile` do payloadu.
+Preview i oba workery reinferencji ograniczają teraz pracę do oczekujących
+plansz importów `waiting_for_review`, dzięki czemu anulowany `b057…` nie jest
+wliczany do bieżącego `b2d9…`. Każdy zapis nadal ponownie sprawdza status
+planszy; decyzje `accepted/corrected/rejected` są chronione.
+
 ## TASK-0249 — baseline geometrii komórek i Reviewera
 
 Na podstawie problemów z cropami symboli, dużą kolejką review i równoległym

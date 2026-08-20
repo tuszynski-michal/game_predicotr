@@ -61,6 +61,12 @@ from game_predictor_worker.images.orchestration_store import (
     ImageOrchestrationStoreError,
     SqlAlchemyImageBatchStore,
 )
+from game_predictor_worker.images.pending_grid_reinference import (
+    PendingGridReinferenceHandler,
+)
+from game_predictor_worker.images.pending_symbol_reinference import (
+    PendingSymbolReinferenceHandler,
+)
 from game_predictor_worker.images.pipeline_store import (
     ImagePipelineStoreError,
     SqlAlchemyImagePipelineStore,
@@ -1120,5 +1126,100 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
             assert refreshed_job.status is JobStatus.CREATED
             assert refreshed_job.error_code is None
             assert refreshed_job.finished_at is None
+    finally:
+        engine.dispose()
+
+
+def test_pending_reinference_excludes_cancelled_imports(
+    isolated_image_batch_database: URL,
+    tmp_path: Path,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 20, 22, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="pending-reinference-scope",
+                name="Pending reinference scope",
+                status=GameStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            active_job = repository.add_job(_image_job(game.id, PIPELINE, now))
+            cancelled_job = repository.add_job(
+                _image_job(game.id, PIPELINE, now + timedelta(seconds=1))
+            )
+            active_record = session.get(JobModel, active_job.id)
+            cancelled_record = session.get(JobModel, cancelled_job.id)
+            assert active_record is not None
+            assert cancelled_record is not None
+            active_record.status = JobStatus.WAITING_FOR_REVIEW
+            cancelled_record.status = JobStatus.CANCELLED
+
+            for index, job in enumerate((active_job, cancelled_job), start=1):
+                file_execution_key = f"{index:064x}"
+                session.add(
+                    ImageFileExecutionModel(
+                        file_execution_key=file_execution_key,
+                        source_checksum_sha256=f"{index + 10:064x}",
+                        pipeline_fingerprint=PIPELINE,
+                        checkpoint_payload={"schemaVersion": 1},
+                        status="waiting_for_review",
+                        review_required=True,
+                        created_at=now,
+                    )
+                )
+                session.flush()
+                session.add(
+                    ImageImportJobFileModel(
+                        job_id=job.id,
+                        file_execution_key=file_execution_key,
+                        order_index=0,
+                        source_relative_path=f"scope-{index}.jpg",
+                        workflow_checkpoint_payload={"schemaVersion": 1},
+                        workflow_status="waiting_for_review",
+                        review_required=True,
+                        created_at=now,
+                    )
+                )
+                session.flush()
+                _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=file_execution_key,
+                    source_checksum=f"{index + 10:064x}",
+                    source_name=f"scope-{index}.jpg",
+                    position_index=0,
+                    sequence_number=index,
+                    status="pending",
+                    created_at=now,
+                )
+            session.commit()
+
+        with Session(engine) as session:
+            review_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            preview = review_repository.pending_grid_reinference_preview(
+                game.id,
+                geometry_version="board-cell-geometry-v19-test",
+                cropper_version="board-cell-crops-v19-test",
+                audit_report_checksum_sha256="a" * 64,
+            )
+            assert review_repository.canonical_pending_count(game.id) == 1
+            assert preview.pending_board_count == 1
+            assert preview.recalculable_board_count == 1
+            assert preview.pending_source_count == 1
+
+        grid_rows = PendingGridReinferenceHandler(session_factory, tmp_path)._pending_v19_rows(
+            game.id
+        )
+        symbol_rows = PendingSymbolReinferenceHandler(
+            session_factory,
+            tmp_path,
+            REPOSITORY_ROOT,
+        )._pending_rows(game.id)
+        assert [row.import_job_id for row in grid_rows] == [active_job.id]
+        assert [row[2].import_job_id for row in symbol_rows] == [active_job.id]
     finally:
         engine.dispose()

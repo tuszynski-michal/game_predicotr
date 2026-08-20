@@ -1518,6 +1518,9 @@ Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
 stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+Preview i worker obejmują wyłącznie importy w stanie `waiting_for_review`.
+Oczekujące projekcje importów `cancelled` albo `failed` pozostają audytowalne,
+ale nie mogą zwiększać zakresu nowego przeliczenia.
 
 Nowy job `image_grid_reinference` używa payloadu schema v2 i snapshotu
 `boardCellRecrop`. Snapshot zawiera wersje i fingerprinty locatora, homografii,
@@ -1793,7 +1796,9 @@ wykluczonych z powodu cropu lub geometrii.
 Tworzy wznawialny job przypięty do konkretnej aktywnej wersji. Backend i worker
 ponownie sprawdzają status oraz rewizję przy zapisie. `accepted`, `corrected` i
 `rejected` są pomijane nawet wtedy, gdy zostały rozwiązane już po starcie joba.
-Wyniki są append-only rewizjami predykcji.
+Wyniki są append-only rewizjami predykcji. Zarówno preview, jak i worker biorą
+pod uwagę wyłącznie oczekujące elementy importów w stanie
+`waiting_for_review`; anulowany lub nieudany import nie jest źródłem pracy.
 
 ## Mobile release
 

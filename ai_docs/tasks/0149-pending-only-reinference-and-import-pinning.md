@@ -152,3 +152,12 @@ istniejącego typu `image_grid_reinference` jako payload schema v2. Ta ścieżka
 wykonuje wyłącznie pending-only recrop i append-only rewizję geometrii; nie
 zmienia zakresu symbolowej reinferencji TASK-0149, nie otwiera decyzji
 rozstrzygniętych i nie uruchamia OCR/discovery.
+
+Odbiór rzeczywisty ujawnił, że worker uruchomiony przed wdrożeniem schema v2
+obsłużył nowy job historyczną ścieżką v1 i zwrócił
+`IMAGE_GRID_PROFILE_SNAPSHOT_INVALID` przed pierwszą planszą. Świeży proces
+workera używa jawnej dyspozycji schema v2 i nie wymaga historycznego
+`gridProfile`. Dodatkowo preview, symbolowa reinferencja i oba warianty
+grid-reinference filtrują źródłowy import do stanu `waiting_for_review`.
+Anulowane oraz nieudane importy nie zasilają już nowych przeliczeń. Ochrona
+`accepted/corrected/rejected` i warunkowy zapis pod blokadą pozostają bez zmian.

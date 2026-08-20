@@ -722,6 +722,29 @@ Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
 niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
 katalogu i może być znacznie większy.
 
+### image_review_queue_items i image_review_queue_states
+
+TASK-0249 utrwala osobną projekcję topologii operacyjnej kolejki per import.
+`image_review_queue_items` zamraża przy utworzeniu elementu review klucz
+`(source_order_index, position_index, review_item_id)` oraz `import_job_id`.
+Wartości topologii pochodzą z `image_import_job_files`, `source_images` i
+`recognized_boards`; późniejsza zmiana statusu albo `sequence_number` nie może
+ich przesunąć. Constraint i guard bazy blokują aktualizację pól klucza.
+
+`status` w projekcji jest transakcyjnym lustrem bieżącego statusu
+`image_review_items`. `image_review_queue_states` przechowuje per import
+`total_count` oraz liczniki `pending/accepted/corrected/rejected` i dodatni
+`queue_version`. Suma liczników musi być równa `total_count`.
+
+`queue_version` jest wersją topologii: rośnie przy dodaniu lub usunięciu
+elementu, ale nie przy zwykłej zmianie statusu, decyzji ani numeru sekwencji.
+Dzięki temu zapis poprawnej decyzji nie unieważnia pozycji tylko dlatego, że
+zmieniły się liczniki. Projekcja i liczniki są utrzymywane przez transakcyjne
+triggery PostgreSQL, obejmujące zarówno zapis API, jak i workera. Brak
+jednoznacznego powiązania source-order kończy się fail-closed. Migracja
+backfilluje wszystkie istniejące elementy i odmawia ukończenia, jeżeli choć
+jeden z nich nie ma tego powiązania.
+
 ### image_review_resolution_events
 
 Każda accepted/corrected/rejected decyzja i systemowe ponowne otwarcie konfliktu

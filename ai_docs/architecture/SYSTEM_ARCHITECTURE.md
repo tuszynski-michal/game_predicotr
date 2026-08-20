@@ -1126,6 +1126,16 @@ zapisie. Widoki `Do weryfikacji` i `Plansze kompletne` pozostają projekcjami
 statusów i liczników, lecz nie wyznaczają osobnych kolejek nawigacyjnych ani
 drugiego magazynu decyzji.
 
+Topologia tej kolejki jest utrwalona osobno w
+`image_review_queue_items` pod niezmiennym kluczem
+`(source_order_index, position_index, review_item_id)`. Stan per import w
+`image_review_queue_states` zawiera trwałe liczniki oraz `queueVersion`, który
+opisuje wyłącznie zmianę topologii, nie zmianę statusu czy numeru planszy.
+Transakcyjne triggery bazy utrzymują projekcję jednakowo dla zapisów API i
+workera oraz nie dopuszczają elementu bez jednoznacznego source-order. Bieżący
+kontrakt listowania nie konsumuje jeszcze tej projekcji; przepięcie keyset,
+resume i sąsiadów jest osobnym krokiem TASK-0249.
+
 Po wejściu lub reloadzie backend wskazuje pierwszą planszę pending, a gdy jej
 nie ma — pierwszą planszę importu. Pomyślny zapis przesuwa kursor do następnego
 elementu pełnej kolejności, natomiast poprzedni kursor nadal może wskazać

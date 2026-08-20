@@ -17,9 +17,10 @@ automatyczny estymator v19, TASK 4, czyli checkpoint 100 stron, oraz TASK 5,
 czyli nieaktywny source-direct cropper v19, oraz TASK 6, czyli ręczny edytor i
 read-only podgląd 15 finalnych cropów v19, są ukończone. TASK 7, czyli
 append-only zapis ręcznej geometrii v19, oraz TASK 8, czyli jawny pending-only
-recrop na zaakceptowanym v19, również są ukończone. Pełny produkcyjny pipeline
-importu pozostaje na historycznym v18; piony stabilnej kolejki i wspólnego
-Reviewera nie zostały jeszcze rozpoczęte.
+recrop na zaakceptowanym v19, również są ukończone. TASK 9 dodał trwałą
+projekcję topologii kolejki, liczniki i `queueVersion`. Pełny produkcyjny
+pipeline importu pozostaje na historycznym v18; endpointy kolejki nadal używają
+historycznego listowania, a pion wspólnego Reviewera nie został rozpoczęty.
 
 ## Goal
 
@@ -483,7 +484,7 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
 
 ### Zakres przyszłej implementacji
 
-1. Dodać trwałą projekcję kolejki importu i stan liczników z niezmiennym kluczem
+1. [ukończone w TASK 9] Dodać trwałą projekcję kolejki importu i stan liczników z niezmiennym kluczem
    `(source_order_index, position_index, review_item_id)` oraz `queueVersion`.
 2. Zmienić listowanie, keyset cursor, wybór pierwszej pending, poprzedni/następny
    i resume tak, aby używały dokładnie tego samego klucza.
@@ -495,6 +496,57 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
    unieważniać kursora bieżącej pozycji.
 5. Dostosować Reviewer do małego, ograniczonego bufora
    `previous/current/next two`, bez ładowania całych 19 745 pozycji do pamięci.
+
+### Outcome TASK 9 — trwała projekcja kolejki
+
+- Migracja `0049_image_review_queue_projection` dodaje per import
+  `image_review_queue_items` i `image_review_queue_states`.
+- Niezmienny klucz pozycji jest przechwytywany z source-order i pozycji planszy
+  przy tworzeniu review itemu. Guard bazy blokuje późniejszą zmianę topologii.
+- Stan przechowuje dokładne liczniki wszystkich czterech istniejących statusów.
+  `queueVersion` rośnie tylko przy zmianie topologii, więc decyzja albo korekta
+  geometrii aktualizuje liczniki bez przesuwania kolejki.
+- Projekcja jest utrzymywana transakcyjnie w PostgreSQL dla wszystkich ścieżek
+  API i workera. Brak source-order lub brak projekcji kończy zapis fail-closed.
+- Migracja backfilluje istniejące elementy i kontroluje kompletność przed
+  włączeniem triggerów. Usunięcie elementu czyści pochodną projekcję i stan
+  pustej kolejki, bez pozostawienia niezgodnych liczników.
+- TASK 9 nie zmienia listowania, kursorów, resume, endpointów, OpenAPI, Admina
+  ani Reviewera. Ich przełączenie na nową projekcję należy wyłącznie do TASK 10.
+
+### Verification TASK 9
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_migration_baseline.py -q
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_image_batch_store.py -k 'queue_projection or reuses_execution' -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q
+.\.venv\Scripts\ruff.exe check services/api/alembic/versions/0049_image_review_queue_projection.py services/api/src/game_predictor_api/storage/models.py services/api/tests/test_migration_baseline.py services/api/tests/integration/test_image_batch_store.py services/api/tests/integration/test_postgres_baseline.py
+```
+
+Wynik: pełny zestaw API dał `356 passed, 27 skipped`; ponadto `2` rzeczywiste
+testy projekcji i ścieżek statusu oraz pełny cykl
+upgrade/downgrade/upgrade PostgreSQL przeszły. Ruff i Prettier dla zmienionych
+modułów przeszły. Pełny mypy `services/api/src` i
+`services/worker/src` nie zwrócił wyniku przez 60 sekund i został przerwany
+zgodnie z limitem `AGENTS.md`; wcześniejsza węższa próba uruchomiona bez obu
+source rootów pokazała wyłącznie znane problemy rozpoznania importów między
+pakietami oraz wcześniejszy `unused-ignore`, a nie błąd nowych modeli.
+
+### Acceptance criteria TASK 9
+
+- [x] Każdy istniejący i nowy review item ma dokładnie jedną trwałą pozycję
+      `(source_order_index, position_index, review_item_id)` w swoim imporcie.
+- [x] Zmiana statusu albo `sequence_number` nie zmienia klucza ani
+      `queueVersion`.
+- [x] Dodanie lub usunięcie pozycji zmienia `queueVersion`, a liczniki pozostają
+      zgodne z lustrzanymi statusami.
+- [x] Backfill, zapis API, zapis workera i restart procesu zachowują tę samą
+      projekcję oraz liczniki.
+- [x] Niepełne powiązanie source-order i próba zmiany topologii kończą się
+      fail-closed.
+- [x] TASK 9 nie rozpoczyna przepięcia endpointów ani konkurencyjnego
+      first-save-wins.
 
 ### Kryteria odbioru pionu
 
@@ -608,6 +660,7 @@ deterministyczny, fail-closed estymator v19 bez aktywowania go w pipeline. TASK 
 zaliczył deterministyczny checkpoint 100 stron bez fałszywego sukcesu. Edytor i
 podgląd v19 powstały w TASK 6, a TASK 7 uruchomił ich append-only zapis z pełną
 proweniencją. TASK 8 udostępnił osobno odbierany pending-only recrop v19 bez
-zmiany pełnego pipeline'u importu. Pozostałe dwa piony oraz ewentualna szersza
-aktywacja produkcyjna pozostają otwarte i wymagają osobnych poleceń dla
-kolejnych numerów z zaakceptowanego breakdownu.
+zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolejki
+bez zmiany kontraktu listowania. Przepięcie operacyjnych endpointów, konkurencja
+first-save-wins i cały pion wspólnego Reviewera pozostają otwarte i wymagają
+osobnych poleceń dla kolejnych numerów z zaakceptowanego breakdownu.

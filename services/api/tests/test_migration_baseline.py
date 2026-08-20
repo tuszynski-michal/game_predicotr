@@ -58,6 +58,7 @@ CANONICAL_IMAGE_SEQUENCES_REVISION = "0045_canonical_image_sequences"
 IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION = "0046_image_symbol_prediction_revisions"
 PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
 IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
+IMAGE_REVIEW_QUEUE_PROJECTION_REVISION = "0049_image_review_queue_projection"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -127,7 +128,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     pending_symbol_reinference_job = script.get_revision(PENDING_SYMBOL_REINFERENCE_JOB_REVISION)
     image_page_geometry_overrides = script.get_revision(IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION)
-    assert script.get_heads() == [IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION]
+    image_review_queue_projection = script.get_revision(IMAGE_REVIEW_QUEUE_PROJECTION_REVISION)
+    assert script.get_heads() == [IMAGE_REVIEW_QUEUE_PROJECTION_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -230,11 +232,45 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert canonical_image_sequences.down_revision == REPRESENTATIVE_RANKING_REVISION
     assert image_symbol_prediction_revisions.down_revision == CANONICAL_IMAGE_SEQUENCES_REVISION
     assert (
-        pending_symbol_reinference_job.down_revision
-        == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+        pending_symbol_reinference_job.down_revision == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
     )
     assert image_page_geometry_overrides is not None
     assert image_page_geometry_overrides.down_revision == PENDING_SYMBOL_REINFERENCE_JOB_REVISION
+    assert image_review_queue_projection is not None
+    assert image_review_queue_projection.down_revision == IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION
+
+
+def test_image_review_queue_projection_migration_is_durable_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION}:{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}:{IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_review_queue_states" in upgrade_sql
+    assert "create table image_review_queue_items" in upgrade_sql
+    assert "uq_image_review_queue_items_order_key" in upgrade_sql
+    assert "create function project_image_review_queue_insert" in upgrade_sql
+    assert "create function project_image_review_queue_status" in upgrade_sql
+    assert "create function guard_image_review_queue_topology" in upgrade_sql
+    assert "create trigger trg_image_review_queue_insert" in upgrade_sql
+    assert "create trigger trg_image_review_queue_status" in upgrade_sql
+    assert "source_order_index" in upgrade_sql
+    assert "queue_version" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop trigger trg_image_review_queue_insert" in downgrade_sql
+    assert "drop function project_image_review_queue_insert" in downgrade_sql
+    assert "drop table image_review_queue_items" in downgrade_sql
+    assert "drop table image_review_queue_states" in downgrade_sql
 
 
 def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:

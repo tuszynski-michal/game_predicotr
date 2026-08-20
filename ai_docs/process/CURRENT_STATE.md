@@ -1878,3 +1878,13 @@ Preview Admina rozróżnia wszystkie oczekujące, `recalculableBoardCount`, już
 aktualne v19 i chronione. Start jest blokowany, gdy nie ma faktycznej pracy.
 TASK 8 nie uruchomił żadnego rzeczywistego joba użytkownika i nie rozpoczął
 pionów kolejki ani wspólnego Reviewera.
+
+TASK 9 rozpoczął pion stabilnej kolejki wyłącznie od warstwy danych. Migracja
+`0049_image_review_queue_projection` tworzy trwałe pozycje per import pod
+kluczem `(source_order_index, position_index, review_item_id)` oraz stan z
+licznikami `pending/accepted/corrected/rejected` i `queueVersion`. Triggery
+PostgreSQL obejmują wszystkie ścieżki zapisu API i workera; status aktualizuje
+liczniki bez zmiany topologii, a dodanie lub usunięcie pozycji zmienia wersję.
+Istniejące elementy są backfillowane fail-closed i zachowują source-order po
+restarcie. Endpointy, kursory, resume, Admin i Reviewer nadal nie korzystają z
+nowej projekcji — jest to zakres następnego, osobno zlecanego TASK 10.

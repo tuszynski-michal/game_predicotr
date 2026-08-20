@@ -1581,6 +1581,89 @@ class ImageReviewItemModel(Base):
     )
 
 
+class ImageReviewQueueStateModel(Base):
+    __tablename__ = "image_review_queue_states"
+    __table_args__ = (
+        CheckConstraint(
+            "queue_version > 0 AND total_count >= 0 "
+            "AND pending_count >= 0 AND accepted_count >= 0 "
+            "AND corrected_count >= 0 AND rejected_count >= 0",
+            name="ck_image_review_queue_states_nonnegative",
+        ),
+        CheckConstraint(
+            "total_count = pending_count + accepted_count + corrected_count + rejected_count",
+            name="ck_image_review_queue_states_total",
+        ),
+    )
+
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    queue_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    total_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    pending_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    accepted_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    corrected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    rejected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageReviewQueueItemModel(Base):
+    __tablename__ = "image_review_queue_items"
+    __table_args__ = (
+        CheckConstraint(
+            "source_order_index >= 0 AND position_index BETWEEN 0 AND 8",
+            name="ck_image_review_queue_items_position",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected', 'rejected')",
+            name="ck_image_review_queue_items_status",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "source_order_index",
+            "position_index",
+            "review_item_id",
+            name="uq_image_review_queue_items_order_key",
+        ),
+        Index(
+            "ix_image_review_queue_items_job_status_order",
+            "import_job_id",
+            "status",
+            "source_order_index",
+            "position_index",
+            "review_item_id",
+        ),
+    )
+
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_order_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageReviewResolutionEventModel(Base):
     __tablename__ = "image_review_resolution_events"
     __table_args__ = (

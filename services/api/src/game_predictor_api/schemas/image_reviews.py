@@ -83,6 +83,7 @@ class OperationalImageReviewCountsResponse(ApiModel):
     accepted: int = Field(ge=0)
     corrected: int = Field(ge=0)
     rejected: int = Field(ge=0)
+    superseded: int = Field(ge=0)
     completed: int = Field(ge=0)
     total: int = Field(ge=0)
 
@@ -351,6 +352,7 @@ def to_operational_page_response(
             accepted=page.counts.accepted,
             corrected=page.counts.corrected,
             rejected=page.counts.rejected,
+            superseded=page.counts.superseded,
             completed=page.counts.completed,
             total=page.counts.total,
         ),
@@ -371,6 +373,7 @@ def to_canonical_page_response(
             accepted=page.counts.accepted,
             corrected=page.counts.corrected,
             rejected=page.counts.rejected,
+            superseded=page.counts.superseded,
             completed=page.counts.completed,
             total=page.counts.total,
         ),

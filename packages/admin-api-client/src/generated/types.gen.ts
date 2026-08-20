@@ -3950,6 +3950,10 @@ export type OperationalImageReviewCountsResponse = {
    */
   rejected: number;
   /**
+   * Superseded
+   */
+  superseded: number;
+  /**
    * Total
    */
   total: number;

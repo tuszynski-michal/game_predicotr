@@ -109,6 +109,7 @@ def build_verified_cohort_source(
             "accepted": counts.accepted,
             "corrected": counts.corrected,
             "rejected": counts.rejected,
+            "superseded": counts.superseded,
         },
         "boards": ordered,
     }

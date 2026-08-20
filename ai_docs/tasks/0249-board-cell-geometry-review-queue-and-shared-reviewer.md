@@ -18,9 +18,10 @@ czyli nieaktywny source-direct cropper v19, oraz TASK 6, czyli ręczny edytor i
 read-only podgląd 15 finalnych cropów v19, są ukończone. TASK 7, czyli
 append-only zapis ręcznej geometrii v19, oraz TASK 8, czyli jawny pending-only
 recrop na zaakceptowanym v19, również są ukończone. TASK 9 dodał trwałą
-projekcję topologii kolejki, liczniki i `queueVersion`. Pełny produkcyjny
-pipeline importu pozostaje na historycznym v18; endpointy kolejki nadal używają
-historycznego listowania, a pion wspólnego Reviewera nie został rozpoczęty.
+projekcję topologii kolejki, liczniki i `queueVersion`, TASK 10 przepiął na nią
+listowanie, a TASK 11 dodał transakcyjne first-save-wins oraz audyt
+`superseded`. Pełny produkcyjny pipeline importu pozostaje na historycznym v18;
+TASK 12 i pion wspólnego Reviewera nie zostały rozpoczęte.
 
 ## Goal
 
@@ -488,7 +489,7 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
    `(source_order_index, position_index, review_item_id)` oraz `queueVersion`.
 2. [ukończone w TASK 10] Zmienić listowanie, keyset cursor, wybór pierwszej pending, poprzedni/następny
    i resume tak, aby używały dokładnie tego samego klucza.
-3. Zaimplementować transakcyjne first-save-wins dla
+3. [ukończone w TASK 11] Zaimplementować transakcyjne first-save-wins dla
    `game_id + sequence_number`. Przegrane oczekujące wystąpienia oznaczać jako
    `superseded`, zachowując źródło i audyt.
 4. Odróżnić rzeczywiście nieaktualną komendę elementu od prawidłowej decyzji,
@@ -604,6 +605,74 @@ Read-only smoke największej rzeczywistej kolejki (`19 746` wszystkich,
 `19 745 pending`) zwrócił pierwszą pending wraz z oboma kierunkami nawigacji i
 `queueVersion = 1` w `72,43 ms`.
 
+### Outcome TASK 11 — first-save-wins i audyt przegranych źródeł
+
+- Migracja `0050_image_review_first_save_wins` dodaje terminalny status i event
+  `superseded` oraz osobny, trwały licznik per import.
+- Zapis accepted/corrected serializuje wyłącznie wspólny klucz
+  `game_id + sequence_number` przez transakcyjny advisory lock i atomowy insert
+  kanonicznego właściciela. Różne numery nie są globalnie blokowane.
+- Zwycięzca zachowuje staging i kanoniczną projekcję. Wszystkie znane pending
+  tego samego numeru są w tej samej transakcji oznaczane `superseded`; staging
+  przegranych jest usuwany, natomiast review item, źródło, alternatywa i event
+  pozostają audytowalne.
+- Równoległa komenda, której pozycja została już systemowo zastąpiona, zapisuje
+  idempotentny event przegranej komendy i zwraca kontrolowany wynik
+  `superseded`. Nie nadpisuje właściciela.
+- `queueVersion` nie zmienia się przy tej zmianie statusu. Triggery aktualizują
+  dokładne liczniki, a ponowne otwarcie `superseded` korektą geometrii jest
+  blokowane fail-closed.
+- Worker przy ponownym źródle już kanonicznego numeru używa tej samej semantyki
+  statusu, eventu i alternatywnego źródła. `superseded` nie jest materializowany
+  do layout staging ani do kohorty treningowej.
+- TASK 11 nie zmienia semantyki konfliktu zwykłej nieaktualnej komendy (TASK 12)
+  ani strategii bufora Reviewera.
+
+### Acceptance criteria TASK 11
+
+- [x] Dwie równoległe decyzje jednego numeru utrwalają dokładnie jednego
+      kanonicznego właściciela.
+- [x] Przegrana pozycja kończy się kontrolowanym `superseded`, nie błędem SQL ani
+      drugim staging row.
+- [x] Pozostałe pending tego numeru są zastępowane bez zmiany topologii i
+      `queueVersion`.
+- [x] Źródło, kanoniczny właściciel, alternatywa i append-only event pozostają
+      audytowalne po restarcie.
+- [x] `accepted/corrected/rejected` nie są automatycznie zastępowane, a
+      `superseded` nie może zostać ponownie otwarty korektą geometrii.
+- [x] Liczniki trwałej projekcji i kontraktu API obejmują osobny
+      `superseded`, zaś `completed` pozostaje `accepted + corrected`.
+- [x] TASK 11 nie rozpoczyna TASK 12 ani bounded bufora Reviewera.
+
+### Verification TASK 11
+
+```powershell
+npm run db:migrate
+npm run db:current
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_image_batch_store.py::test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_loser -q
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q
+npm test --workspace @game-predictor/admin-api-client
+npm test --workspace @game-predictor/reviewer
+npm run typecheck --workspace @game-predictor/admin-api-client
+npm run typecheck --workspace @game-predictor/reviewer
+npm run reviewer:build
+npm run openapi:check
+```
+
+Wynik: lokalna baza działa na `0050 (head)`, a suma pięciu trwałych liczników
+w czterech kolejkach jest równa wszystkim `33 174` pozycjom. API dało
+`358 passed, 28 skipped`. Rzeczywisty równoległy test PostgreSQL oraz pełny
+cykl baseline przeszły. Klient API dał `38 passed`, Reviewer `26 passed`; oba
+typechecki TypeScript, build Reviewera, OpenAPI, Ruff i Prettier przeszły.
+Pełny worker dał `841 passed`; trzy niezwiązane testy datasetu treningowego
+kończą się istniejącym `WinError 3` w atomowym `os.replace` pod zbyt długą
+ścieżką `%TEMP%`. Ich osobne ponowienie dało ten sam błąd. Mypy dotarł do dwóch
+wcześniejszych, niezwiązanych błędów w
+`symbol_model_iteration_repository.py` (`arg-type`, `unused-ignore`) i nie
+zgłosił problemu w kodzie TASK 11.
+
 ### Kryteria odbioru pionu
 
 - kolejność pozycji jest identyczna przed i po ich zatwierdzeniu,
@@ -716,7 +785,8 @@ deterministyczny, fail-closed estymator v19 bez aktywowania go w pipeline. TASK 
 zaliczył deterministyczny checkpoint 100 stron bez fałszywego sukcesu. Edytor i
 podgląd v19 powstały w TASK 6, a TASK 7 uruchomił ich append-only zapis z pełną
 proweniencją. TASK 8 udostępnił osobno odbierany pending-only recrop v19 bez
-zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolejki
-bez zmiany kontraktu listowania. Przepięcie operacyjnych endpointów, konkurencja
-first-save-wins i cały pion wspólnego Reviewera pozostają otwarte i wymagają
-osobnych poleceń dla kolejnych numerów z zaakceptowanego breakdownu.
+zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolejki,
+TASK 10 przepiął operacyjne listowanie na jeden klucz, a TASK 11 utrwalił
+first-save-wins i audyt `superseded`. Rozróżnienie pozostałych konfliktów
+komendy, bounded bufor oraz cały pion wspólnego Reviewera pozostają otwarte i
+wymagają osobnych poleceń dla kolejnych numerów z zaakceptowanego breakdownu.

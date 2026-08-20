@@ -1901,3 +1901,14 @@ Reviewera pozostają zakresem kolejnych osobno zlecanych zadań.
 Read-only smoke największego rzeczywistego importu (`19 746` pozycji,
 `19 745 pending`) zwrócił pierwszą pending i oba kierunki nawigacji w około
 `72 ms`.
+
+TASK 11 wdrożył first-save-wins dla równoległych decyzji tego samego
+`game_id + sequence_number`. Migracja `0050_image_review_first_save_wins`
+dodaje status/event oraz trwały licznik `superseded`. Zapis jest serializowany
+wyłącznie per numer; atomowa projekcja kanoniczna ma jednego właściciela, a
+pozostałe pending zachowują źródło i append-only audyt jako `superseded` bez
+zmiany `queueVersion` i bez staging row. Równoległa przegrana komenda zwraca
+kontrolowany wynik, a jej exact retry pozostaje idempotentny. Worker używa tej
+samej semantyki dla ponownie napotkanego kanonicznego zakresu. Reviewer pokazuje
+osobny status i licznik. TASK 12 (semantyka innych konfliktów komendy) oraz mały
+bufor Reviewera pozostają otwarte.

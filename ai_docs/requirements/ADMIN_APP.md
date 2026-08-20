@@ -351,6 +351,12 @@ do następnej planszy w pełnej kolejności. Skróty nie działają podczas pisa
 w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
 blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
+Jeżeli inny reviewer wcześniej zapisze kanoniczną decyzję dla tej samej gry i
+numeru, bieżąca oczekująca pozycja otrzymuje kontrolowany status `superseded`.
+Reviewer pokazuje ten status i osobny licznik, nie traktuje go jako technicznego
+błędu zapisu i nie pozwala korektą geometrii ponownie otworzyć przegranego
+źródła. Kanoniczny właściciel oraz oba źródła pozostają audytowalne.
+
 Plansza accepted/corrected pozostaje dostępna w widoku `Plansze kompletne` i
 może zostać ponownie edytowana. Zmiana tworzy kolejną rewizję append-only;
 wcześniejsza decyzja nie jest usuwana. Późniejsza inferencja albo trening nigdy

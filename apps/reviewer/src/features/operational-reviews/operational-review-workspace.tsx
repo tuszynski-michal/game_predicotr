@@ -67,6 +67,7 @@ const EMPTY_COUNTS: OperationalImageReviewCountsResponse = {
   corrected: 0,
   pending: 0,
   rejected: 0,
+  superseded: 0,
   total: 0,
 };
 
@@ -576,7 +577,8 @@ function OperationalReviewCohortPanel({
       <div>
         <strong>{counts.completed} zweryfikowanych plansz</strong>
         <span>
-          {counts.pending} oczekujących · {counts.rejected} odrzuconych
+          {counts.pending} oczekujących · {counts.rejected} odrzuconych ·{' '}
+          {counts.superseded} zastąpionych
         </span>
       </div>
       <div className="operationalReviewCohortLatest">
@@ -977,6 +979,10 @@ function OperationalReviewBoard({
               <dt>Odrzucone</dt>
               <dd>{counts.rejected}</dd>
             </div>
+            <div>
+              <dt>Zastąpione</dt>
+              <dd>{counts.superseded}</dd>
+            </div>
           </dl>
           <form
             onSubmit={(event) => {
@@ -1334,7 +1340,7 @@ function OperationalReviewEmpty({
       <p>
         {counts.total > 0
           ? `Kolejka zawiera ${counts.total} układów. Wróć do pierwszej planszy oczekującej na zatwierdzenie.`
-          : `Do weryfikacji: ${counts.pending}. Kompletne: ${counts.completed}. Odrzucone: ${counts.rejected}.`}
+          : `Do weryfikacji: ${counts.pending}. Kompletne: ${counts.completed}. Odrzucone: ${counts.rejected}. Zastąpione: ${counts.superseded}.`}
       </p>
       <button className="secondaryButton" onClick={onReset} type="button">
         Wróć do pierwszej niezatwierdzonej

@@ -12,7 +12,7 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0049_image_review_queue_projection"
+HEAD_REVISION = "0050_image_review_first_save_wins"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 EXPECTED_TABLES = {
     "alembic_version",

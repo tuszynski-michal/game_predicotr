@@ -1537,7 +1537,7 @@ class ImageReviewItemModel(Base):
     __tablename__ = "image_review_items"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected', 'rejected')",
+            "status IN ('pending', 'accepted', 'corrected', 'rejected', 'superseded')",
             name="ck_image_review_items_status",
         ),
         CheckConstraint(
@@ -1587,11 +1587,13 @@ class ImageReviewQueueStateModel(Base):
         CheckConstraint(
             "queue_version > 0 AND total_count >= 0 "
             "AND pending_count >= 0 AND accepted_count >= 0 "
-            "AND corrected_count >= 0 AND rejected_count >= 0",
+            "AND corrected_count >= 0 AND rejected_count >= 0 "
+            "AND superseded_count >= 0",
             name="ck_image_review_queue_states_nonnegative",
         ),
         CheckConstraint(
-            "total_count = pending_count + accepted_count + corrected_count + rejected_count",
+            "total_count = pending_count + accepted_count + corrected_count "
+            "+ rejected_count + superseded_count",
             name="ck_image_review_queue_states_total",
         ),
     )
@@ -1606,6 +1608,7 @@ class ImageReviewQueueStateModel(Base):
     accepted_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     corrected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     rejected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    superseded_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -1626,7 +1629,7 @@ class ImageReviewQueueItemModel(Base):
             name="ck_image_review_queue_items_position",
         ),
         CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected', 'rejected')",
+            "status IN ('pending', 'accepted', 'corrected', 'rejected', 'superseded')",
             name="ck_image_review_queue_items_status",
         ),
         UniqueConstraint(
@@ -1672,7 +1675,7 @@ class ImageReviewResolutionEventModel(Base):
             name="ck_image_review_resolution_events_revision",
         ),
         CheckConstraint(
-            "action IN ('accepted', 'corrected', 'rejected', 'reopened')",
+            "action IN ('accepted', 'corrected', 'rejected', 'reopened', 'superseded')",
             name="ck_image_review_resolution_events_action",
         ),
         CheckConstraint(

@@ -1443,6 +1443,15 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
+Zapis accepted/corrected jest serializowany dla `gameId + sequenceNumber`.
+Pierwsza poprawnie utrwalona kanoniczna decyzja wygrywa. Pozostałe oczekujące
+wystąpienia tego numeru przechodzą terminalnie do `superseded`, zachowują
+źródło i append-only event, nie tworzą staging row i nie zastępują właściciela.
+Równoległa komenda przegranej pozycji otrzymuje kontrolowaną odpowiedź z itemem
+i eventem `superseded`, a exact retry zachowuje idempotencję. Liczniki odpowiedzi
+obejmują osobne pole `superseded`; `completed` nadal oznacza wyłącznie
+`accepted + corrected`.
+
 Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem oraz trwałym
 `queueVersion`. Schema cursora v2 zawiera dokładnie klucz
 `(source_order_index, position_index, review_item_id)`; sortowanie, keyset,

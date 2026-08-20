@@ -88,7 +88,13 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.status == "pending"
             if view is ImageReviewView.COMPLETED:
                 return item.status in {"accepted", "corrected"}
-            return item.status in {"pending", "accepted", "corrected", "rejected"}
+            return item.status in {
+                "pending",
+                "accepted",
+                "corrected",
+                "rejected",
+                "superseded",
+            }
 
         def effective_sequence_number(item: ImageReviewItem) -> int | None:
             if view is ImageReviewView.PENDING:
@@ -97,10 +103,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.queue_sequence_number
             return item.queue_sequence_number or item.suggested_sequence_number
 
-        if (
-            expected_queue_version is not None
-            and expected_queue_version != self.queue_version
-        ):
+        if expected_queue_version is not None and expected_queue_version != self.queue_version:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CURSOR_STALE",
                 "The operational review queue topology changed.",
@@ -355,6 +358,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             accepted=statuses.count("accepted"),
             corrected=statuses.count("corrected"),
             rejected=statuses.count("rejected"),
+            superseded=statuses.count("superseded"),
         )
 
     def pending_grid_reinference_preview(
@@ -937,6 +941,7 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         "accepted": 0,
         "corrected": 0,
         "rejected": 0,
+        "superseded": 0,
         "completed": 0,
         "total": 3,
     }
@@ -944,9 +949,7 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
     assert first_body["previousCursor"] is None
     assert first_body["nextCursor"]
     padding = "=" * (-len(first_body["nextCursor"]) % 4)
-    cursor_payload = json.loads(
-        base64.urlsafe_b64decode(first_body["nextCursor"] + padding)
-    )
+    cursor_payload = json.loads(base64.urlsafe_b64decode(first_body["nextCursor"] + padding))
     assert cursor_payload["version"] == 2
     assert cursor_payload["queueVersion"] == 1
     assert cursor_payload["key"] == [

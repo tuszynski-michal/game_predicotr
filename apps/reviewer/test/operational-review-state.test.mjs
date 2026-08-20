@@ -284,6 +284,7 @@ test('updates counts when the last visible board changes status', () => {
     corrected: 1,
     pending: 4,
     rejected: 1,
+    superseded: 0,
     total: 8,
   };
   assert.deepEqual(
@@ -294,6 +295,7 @@ test('updates counts when the last visible board changes status', () => {
       corrected: 1,
       pending: 3,
       rejected: 1,
+      superseded: 0,
       total: 8,
     },
   );
@@ -305,6 +307,19 @@ test('updates counts when the last visible board changes status', () => {
       corrected: 2,
       pending: 4,
       rejected: 1,
+      superseded: 0,
+      total: 8,
+    },
+  );
+  assert.deepEqual(
+    updateOperationalReviewCounts(counts, 'pending', 'superseded'),
+    {
+      accepted: 2,
+      completed: 3,
+      corrected: 1,
+      pending: 3,
+      rejected: 1,
+      superseded: 1,
       total: 8,
     },
   );

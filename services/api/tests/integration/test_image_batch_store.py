@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
@@ -45,6 +47,8 @@ from game_predictor_api.storage.models import (
     ImageReviewQueueItemModel,
     ImageReviewQueueStateModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceAlternativeModel,
+    ImageSequenceCanonicalModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -428,6 +432,213 @@ def test_image_review_queue_projection_backfills_and_tracks_durable_state(
                     limit=1,
                 )
             assert stale.value.code == "IMAGE_REVIEW_CURSOR_STALE"
+    finally:
+        engine.dispose()
+
+
+def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_loser(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 20, 14, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="first-save-wins",
+                name="First save wins",
+                status=GameStatus.ACTIVE,
+            )
+            CatalogService(SqlAlchemyCatalogRepository(session)).create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            jobs = (
+                repository.add_job(_image_job(game.id, PIPELINE, now)),
+                repository.add_job(_image_job(game.id, PIPELINE, now + timedelta(seconds=1))),
+            )
+            session.commit()
+
+        review_ids: list[UUID] = []
+        for index, job in enumerate(jobs, start=1):
+            registered = image_store.register_file(
+                job.id,
+                source_checksum_sha256=f"{index}" * 64,
+                pipeline_fingerprint=PIPELINE,
+                source_relative_path=f"source-{index}.jpg",
+                order_index=0,
+                registered_at=now,
+            )
+            with Session(engine) as session:
+                review_id, _board_id = _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=registered.file_execution_key,
+                    source_checksum=f"{index}" * 64,
+                    source_name=f"source-{index}.jpg",
+                    position_index=0,
+                    sequence_number=1,
+                    status="pending",
+                    created_at=now,
+                )
+                review_ids.append(review_id)
+                session.commit()
+
+        ready = Barrier(2)
+
+        def resolve(review_id: UUID, job_id: UUID) -> tuple[UUID, str, str]:
+            with Session(engine, expire_on_commit=False) as session:
+                service = OperationalImageReviewService(
+                    SqlAlchemyOperationalImageReviewRepository(session)
+                )
+                current = service.get_item(
+                    review_id,
+                    game_id=game.id,
+                    import_job_id=job_id,
+                )
+                cells = tuple(
+                    ImageReviewResolutionCell(
+                        cell_index=cell.cell_index,
+                        crop_sample_id=cell.crop_sample_id,
+                        symbol_code="test",
+                    )
+                    for cell in current.cells
+                )
+                ready.wait(timeout=10)
+                resolved, event, created = service.resolve_item(
+                    review_id,
+                    game_id=game.id,
+                    import_job_id=job_id,
+                    idempotency_key=uuid4(),
+                    expected_revision=0,
+                    action=ImageReviewAction.ACCEPTED,
+                    sequence_number=1,
+                    geometry_revision=0,
+                    cells=cells,
+                    rejection_reason=None,
+                    resolved_by=f"reviewer-{job_id}",
+                )
+                assert created is True
+                session.commit()
+                return resolved.id, resolved.status, event.action
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = tuple(
+                executor.map(
+                    lambda pair: resolve(*pair),
+                    zip(review_ids, (jobs[0].id, jobs[1].id), strict=True),
+                )
+            )
+
+        assert sorted(status for _item_id, status, _action in results) == [
+            "accepted",
+            "superseded",
+        ]
+        assert sorted(action for _item_id, _status, action in results) == [
+            "accepted",
+            "superseded",
+        ]
+
+        with Session(engine) as session:
+            canonical = session.scalar(
+                select(ImageSequenceCanonicalModel).where(
+                    ImageSequenceCanonicalModel.game_id == game.id,
+                    ImageSequenceCanonicalModel.sequence_number == 1,
+                )
+            )
+            assert canonical is not None
+            assert canonical.review_item_id in review_ids
+            assert (
+                session.scalar(select(func.count()).select_from(ImageSequenceCanonicalModel)) == 1
+            )
+            losing_id = next(
+                review_id for review_id in review_ids if review_id != canonical.review_item_id
+            )
+            loser = session.get(ImageReviewItemModel, losing_id)
+            assert loser is not None
+            assert loser.status == "superseded"
+            assert loser.resolution_revision == 2
+            assert loser.resolved_value is not None
+            assert loser.resolved_value["canonicalReviewItemId"] == str(canonical.review_item_id)
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSequenceAlternativeModel)
+                    .where(ImageSequenceAlternativeModel.game_id == game.id)
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewResolutionEventModel)
+                    .where(ImageReviewResolutionEventModel.action == "superseded")
+                )
+                == 2
+            )
+            assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 1
+            states = session.scalars(
+                select(ImageReviewQueueStateModel).where(
+                    ImageReviewQueueStateModel.import_job_id.in_((jobs[0].id, jobs[1].id))
+                )
+            ).all()
+            assert len(states) == 2
+            assert all(state.queue_version == 1 and state.total_count == 1 for state in states)
+            assert sum(state.accepted_count for state in states) == 1
+            assert sum(state.superseded_count for state in states) == 1
+            assert sum(state.pending_count for state in states) == 0
+
+            operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            blocked_geometry = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=0,
+                expected_resolution_revision=loser.resolution_revision,
+                corrected_by="late-reviewer",
+            )
+            with pytest.raises(ImageReviewConflictError) as protected:
+                operational_repository.save_geometry_revision(
+                    review_item_id=losing_id,
+                    game_id=game.id,
+                    import_job_id=next(
+                        job.id
+                        for job, review_id in zip(jobs, review_ids, strict=True)
+                        if review_id == losing_id
+                    ),
+                    idempotency_key=uuid4(),
+                    command=blocked_geometry,
+                    artifacts=ImageReviewGeometryArtifacts(
+                        geometry={"source": "blocked-test"},
+                        board_relative_path="blocked/board.png",
+                        board_checksum_sha256="f" * 64,
+                        cropper_version="blocked-test",
+                        cells=tuple(
+                            ImageReviewGeometryCellArtifact(
+                                row_index=index // 5,
+                                column_index=index % 5,
+                                crop_relative_path=f"blocked/cell-{index}.png",
+                                crop_checksum_sha256=f"{index + 500:064x}",
+                            )
+                            for index in range(15)
+                        ),
+                    ),
+                    created_at=now + timedelta(minutes=1),
+                )
+            assert protected.value.code == "IMAGE_REVIEW_SUPERSEDED"
     finally:
         engine.dispose()
 

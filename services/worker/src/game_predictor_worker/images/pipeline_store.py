@@ -229,8 +229,8 @@ class SqlAlchemyImagePipelineStore:
                         )
                     )
                 if canonical is not None:
-                    pending_duplicate = session.scalar(
-                        select(ImageReviewItemModel)
+                    pending_duplicate_row = session.execute(
+                        select(ImageReviewItemModel, RecognizedBoardModel)
                         .join(
                             RecognizedBoardModel,
                             RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
@@ -241,20 +241,49 @@ class SqlAlchemyImagePipelineStore:
                             ImageReviewItemModel.status == "pending",
                         )
                         .with_for_update()
-                    )
-                    if pending_duplicate is not None:
-                        pending_duplicate.status = "rejected"
-                        pending_duplicate.resolved_value = {
+                    ).one_or_none()
+                    if pending_duplicate_row is not None:
+                        pending_duplicate, pending_board = pending_duplicate_row
+                        resolved_value: dict[str, object] = {
+                            "action": "superseded",
+                            "canonicalImportJobId": str(canonical.import_job_id),
+                            "canonicalReviewItemId": str(canonical.review_item_id),
+                            "reason": "canonical_sequence_already_resolved",
                             "sequenceNumber": normalized_sequence_number,
-                            "rejectionReason": "reused_accepted",
                         }
-                        pending_duplicate.resolved_by = "canonical-import"
+                        actor = "system:canonical-import"
+                        revision = pending_duplicate.resolution_revision + 1
+                        idempotency_key = uuid5(
+                            NAMESPACE_URL,
+                            "image-review-superseded:"
+                            f"{job.game_id}:{normalized_sequence_number}:"
+                            f"{canonical.review_item_id}:{pending_duplicate.id}",
+                        )
+                        session.add(
+                            ImageReviewResolutionEventModel(
+                                review_item_id=pending_duplicate.id,
+                                revision=revision,
+                                idempotency_key=idempotency_key,
+                                action="superseded",
+                                command_sha256=_review_command_sha256(
+                                    action="superseded",
+                                    resolved_value=resolved_value,
+                                    resolved_by=actor,
+                                ),
+                                resolved_value=resolved_value,
+                                resolved_by=actor,
+                                created_at=executed_at,
+                            )
+                        )
+                        pending_duplicate.status = "superseded"
+                        pending_duplicate.resolved_value = resolved_value
+                        pending_duplicate.resolved_by = actor
                         pending_duplicate.resolved_at = executed_at
-                        pending_duplicate.resolution_revision += 1
+                        pending_duplicate.resolution_revision = revision
+                        pending_board.status = "rejected"
                         session.execute(
                             delete(ImageLayoutStagingRowModel).where(
-                                ImageLayoutStagingRowModel.review_item_id
-                                == pending_duplicate.id
+                                ImageLayoutStagingRowModel.review_item_id == pending_duplicate.id
                             )
                         )
                     if (
@@ -279,7 +308,7 @@ class SqlAlchemyImagePipelineStore:
                                     import_job_id=job_id,
                                     source_checksum_sha256=source.checksum_sha256,
                                     source_relative_path=source.relative_path,
-                                    reason="reused_accepted",
+                                    reason="superseded_first_save_wins",
                                 )
                             )
                     continue
@@ -556,7 +585,7 @@ class SqlAlchemyImagePipelineStore:
             materialized = 0
             accepted = 0
             for item, board in rows:
-                if item.status == "rejected":
+                if item.status in {"rejected", "superseded"}:
                     continue
                 accepted += 1
                 resolution = cast(Mapping[str, object], item.resolved_value)

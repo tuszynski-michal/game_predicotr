@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import BigInteger, String, and_, delete, func, literal, null, or_, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -37,6 +39,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageSequenceSourceSelection,
     ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
+    canonical_image_review_bytes,
     crop_sample_id,
     validate_image_review_resolution,
 )
@@ -639,6 +642,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution: ValidatedImageReviewResolution,
         resolved_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
+        if resolution.action.value in {"accepted", "corrected"}:
+            self._acquire_sequence_lock(game_id, cast(int, resolution.sequence_number))
         locked = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -663,6 +668,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     "The idempotency key already represents another command.",
                 )
             return locked, _event_from_record(prior), False
+        if locked.status == "superseded":
+            if resolution.action.value in {"accepted", "corrected"}:
+                return self._record_late_superseded_command(
+                    locked=locked,
+                    game_id=game_id,
+                    import_job_id=import_job_id,
+                    idempotency_key=idempotency_key,
+                    resolution=resolution,
+                    resolved_at=resolved_at,
+                )
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SUPERSEDED",
+                "A superseded source cannot replace its canonical decision.",
+            )
         if locked.resolution_revision != expected_revision:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_REVISION_CONFLICT",
@@ -705,24 +724,27 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The operational review projection is incomplete.",
             )
         revision = item_record.resolution_revision + 1
-        event_record = ImageReviewResolutionEventModel(
-            review_item_id=review_item_id,
-            revision=revision,
-            idempotency_key=idempotency_key,
-            action=resolution.action.value,
-            command_sha256=resolution.command_sha256,
-            resolved_value=dict(resolution.resolved_value),
-            resolved_by=resolution.resolved_by,
-            created_at=resolved_at,
-        )
-        self._session.add(event_record)
-        item_record.status = resolution.action.value
-        item_record.resolved_value = dict(resolution.resolved_value)
-        item_record.resolved_by = resolution.resolved_by
-        item_record.resolved_at = resolved_at
-        item_record.resolution_revision = revision
-        board.status = resolution.action.value
+        affected_source_ids = {source.id}
         if resolution.action.value == "rejected":
+            event_record = self._append_resolution_event(
+                item=item_record,
+                revision=revision,
+                idempotency_key=idempotency_key,
+                action="rejected",
+                command_sha256=resolution.command_sha256,
+                resolved_value=dict(resolution.resolved_value),
+                resolved_by=resolution.resolved_by,
+                created_at=resolved_at,
+            )
+            self._apply_review_outcome(
+                item=item_record,
+                board=board,
+                status="rejected",
+                resolved_value=dict(resolution.resolved_value),
+                resolved_by=resolution.resolved_by,
+                resolved_at=resolved_at,
+                revision=revision,
+            )
             self._session.execute(
                 delete(ImageLayoutStagingRowModel).where(
                     ImageLayoutStagingRowModel.import_job_id == import_job_id,
@@ -733,13 +755,16 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             symbols = tuple(cell.symbol_code for cell in resolution.cells)
             mobile_codes = self._mobile_codes(game_id, symbols)
             resolved_sequence = cast(int, resolution.sequence_number)
-            canonical = self._session.scalar(
-                select(ImageSequenceCanonicalModel)
-                .where(
-                    ImageSequenceCanonicalModel.game_id == game_id,
-                    ImageSequenceCanonicalModel.sequence_number == resolved_sequence,
-                )
-                .with_for_update()
+            canonical = self._claim_canonical_sequence(
+                game_id=game_id,
+                sequence_number=resolved_sequence,
+                review_item_id=review_item_id,
+                board=board,
+                source=source,
+                import_job_id=import_job_id,
+                status=resolution.action.value,
+                resolution_revision=revision,
+                created_at=resolved_at,
             )
             staging = self._session.get(
                 ImageLayoutStagingRowModel,
@@ -749,7 +774,26 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 },
                 with_for_update=True,
             )
-            if canonical is None or canonical.review_item_id == review_item_id:
+            if canonical.review_item_id == review_item_id:
+                event_record = self._append_resolution_event(
+                    item=item_record,
+                    revision=revision,
+                    idempotency_key=idempotency_key,
+                    action=resolution.action.value,
+                    command_sha256=resolution.command_sha256,
+                    resolved_value=dict(resolution.resolved_value),
+                    resolved_by=resolution.resolved_by,
+                    created_at=resolved_at,
+                )
+                self._apply_review_outcome(
+                    item=item_record,
+                    board=board,
+                    status=resolution.action.value,
+                    resolved_value=dict(resolution.resolved_value),
+                    resolved_by=resolution.resolved_by,
+                    resolved_at=resolved_at,
+                    revision=revision,
+                )
                 if staging is None:
                     self._session.add(
                         ImageLayoutStagingRowModel(
@@ -769,83 +813,65 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 else:
                     staging.sequence_number = resolved_sequence
                     staging.cells = mobile_codes
-                if canonical is None:
-                    self._session.add(
-                        ImageSequenceCanonicalModel(
-                            game_id=game_id,
-                            sequence_number=resolved_sequence,
-                            review_item_id=review_item_id,
-                            recognized_board_id=board.id,
-                            import_job_id=import_job_id,
-                            source_image_id=source.id,
-                            source_checksum_sha256=source.checksum_sha256,
-                            board_checksum_sha256=board.board_checksum_sha256,
-                            status=resolution.action.value,
-                            resolution_revision=revision,
-                            geometry_revision=board.geometry_revision,
-                            created_at=resolved_at,
-                            updated_at=resolved_at,
-                        )
-                    )
-                else:
-                    canonical.status = resolution.action.value
-                    canonical.resolution_revision = revision
-                    canonical.geometry_revision = board.geometry_revision
-                    canonical.board_checksum_sha256 = board.board_checksum_sha256
-                    canonical.updated_at = resolved_at
-            else:
-                alternative_exists = self._session.scalar(
-                    select(ImageSequenceAlternativeModel.id).where(
-                        ImageSequenceAlternativeModel.game_id == game_id,
-                        ImageSequenceAlternativeModel.sequence_number == resolved_sequence,
-                        ImageSequenceAlternativeModel.import_job_id == import_job_id,
-                        ImageSequenceAlternativeModel.source_checksum_sha256
-                        == source.checksum_sha256,
+                canonical.status = resolution.action.value
+                canonical.resolution_revision = revision
+                canonical.geometry_revision = board.geometry_revision
+                canonical.board_checksum_sha256 = board.board_checksum_sha256
+                canonical.updated_at = resolved_at
+                affected_source_ids.update(
+                    self._supersede_pending_sequence_occurrences(
+                        game_id=game_id,
+                        sequence_number=resolved_sequence,
+                        canonical=canonical,
+                        excluded_review_item_ids={review_item_id},
+                        resolved_at=resolved_at,
                     )
                 )
-                if alternative_exists is None:
-                    self._session.add(
-                        ImageSequenceAlternativeModel(
-                            game_id=game_id,
-                            sequence_number=resolved_sequence,
-                            import_job_id=import_job_id,
-                            source_checksum_sha256=source.checksum_sha256,
-                            source_relative_path=source.relative_path,
-                            reason="reused_accepted",
-                        )
-                    )
+            else:
+                superseded_value = _superseded_resolved_value(
+                    canonical=canonical,
+                    sequence_number=resolved_sequence,
+                    reason="canonical_sequence_claim_lost",
+                    attempted_action=resolution.action.value,
+                )
+                event_record = self._append_resolution_event(
+                    item=item_record,
+                    revision=revision,
+                    idempotency_key=idempotency_key,
+                    action="superseded",
+                    command_sha256=resolution.command_sha256,
+                    resolved_value=superseded_value,
+                    resolved_by=resolution.resolved_by,
+                    created_at=resolved_at,
+                )
+                self._apply_review_outcome(
+                    item=item_record,
+                    board=board,
+                    status="superseded",
+                    resolved_value=superseded_value,
+                    resolved_by=resolution.resolved_by,
+                    resolved_at=resolved_at,
+                    revision=revision,
+                )
+                self._add_alternative_source(
+                    game_id=game_id,
+                    sequence_number=resolved_sequence,
+                    source=source,
+                    reason="superseded_first_save_wins",
+                )
                 if staging is not None:
                     self._session.delete(staging)
+                affected_source_ids.update(
+                    self._supersede_pending_sequence_occurrences(
+                        game_id=game_id,
+                        sequence_number=resolved_sequence,
+                        canonical=canonical,
+                        excluded_review_item_ids={review_item_id},
+                        resolved_at=resolved_at,
+                    )
+                )
         self._session.flush()
-        pending_count = self._session.scalar(
-            select(func.count())
-            .select_from(ImageReviewItemModel)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-            )
-            .where(
-                RecognizedBoardModel.source_image_id == source.id,
-                ImageReviewItemModel.status == "pending",
-            )
-        )
-        if int(pending_count or 0) > 0:
-            source.status = "waiting_for_review"
-        else:
-            accepted_count = self._session.scalar(
-                select(func.count())
-                .select_from(ImageReviewItemModel)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-                )
-                .where(
-                    RecognizedBoardModel.source_image_id == source.id,
-                    ImageReviewItemModel.status.in_(("accepted", "corrected")),
-                )
-            )
-            source.status = "accepted" if int(accepted_count or 0) else "rejected"
-        source.processed_at = resolved_at
+        self._refresh_source_states(affected_source_ids, processed_at=resolved_at)
         self._session.flush()
         updated = self.get_item(
             review_item_id,
@@ -858,6 +884,344 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The resolved review projection cannot be reloaded.",
             )
         return updated, _event_from_record(event_record), True
+
+    def _acquire_sequence_lock(self, game_id: UUID, sequence_number: int) -> None:
+        self._session.execute(
+            select(
+                func.pg_advisory_xact_lock(_sequence_advisory_lock_key(game_id, sequence_number))
+            )
+        )
+
+    def _claim_canonical_sequence(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        review_item_id: UUID,
+        board: RecognizedBoardModel,
+        source: SourceImageModel,
+        import_job_id: UUID,
+        status: str,
+        resolution_revision: int,
+        created_at: datetime,
+    ) -> ImageSequenceCanonicalModel:
+        self._session.execute(
+            postgresql_insert(ImageSequenceCanonicalModel)
+            .values(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                review_item_id=review_item_id,
+                recognized_board_id=board.id,
+                import_job_id=import_job_id,
+                source_image_id=source.id,
+                source_checksum_sha256=source.checksum_sha256,
+                board_checksum_sha256=board.board_checksum_sha256,
+                status=status,
+                resolution_revision=resolution_revision,
+                geometry_revision=board.geometry_revision,
+                created_at=created_at,
+                updated_at=created_at,
+            )
+            .on_conflict_do_nothing(constraint="pk_image_sequence_canonical")
+        )
+        canonical = self._session.scalar(
+            select(ImageSequenceCanonicalModel)
+            .where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == sequence_number,
+            )
+            .with_for_update()
+        )
+        if canonical is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CANONICAL_CLAIM_FAILED",
+                "The canonical sequence claim could not be persisted.",
+            )
+        return canonical
+
+    def _record_late_superseded_command(
+        self,
+        *,
+        locked: ImageReviewItem,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        resolution: ValidatedImageReviewResolution,
+        resolved_at: datetime,
+    ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
+        sequence_number = cast(int, resolution.sequence_number)
+        superseded_sequence = (
+            locked.resolved_value.get("sequenceNumber")
+            if locked.resolved_value is not None
+            else None
+        )
+        if superseded_sequence != sequence_number:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SUPERSEDED",
+                "A superseded source cannot be reassigned to another sequence.",
+            )
+        canonical = self._session.scalar(
+            select(ImageSequenceCanonicalModel)
+            .where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == sequence_number,
+            )
+            .with_for_update()
+        )
+        if canonical is None or canonical.review_item_id == locked.id:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_REVISION_CONFLICT",
+                "The operational review item changed after it was loaded.",
+            )
+        item = self._session.get(ImageReviewItemModel, locked.id, with_for_update=True)
+        board = self._session.get(
+            RecognizedBoardModel,
+            locked.recognized_board_id,
+            with_for_update=True,
+        )
+        source = (
+            self._session.get(SourceImageModel, board.source_image_id, with_for_update=True)
+            if board is not None
+            else None
+        )
+        if item is None or board is None or source is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The operational review projection is incomplete.",
+            )
+        revision = item.resolution_revision + 1
+        resolved_value = _superseded_resolved_value(
+            canonical=canonical,
+            sequence_number=sequence_number,
+            reason="canonical_sequence_claim_lost",
+            attempted_action=resolution.action.value,
+        )
+        event = self._append_resolution_event(
+            item=item,
+            revision=revision,
+            idempotency_key=idempotency_key,
+            action="superseded",
+            command_sha256=resolution.command_sha256,
+            resolved_value=resolved_value,
+            resolved_by=resolution.resolved_by,
+            created_at=resolved_at,
+        )
+        self._apply_review_outcome(
+            item=item,
+            board=board,
+            status="superseded",
+            resolved_value=resolved_value,
+            resolved_by=resolution.resolved_by,
+            resolved_at=resolved_at,
+            revision=revision,
+        )
+        self._add_alternative_source(
+            game_id=game_id,
+            sequence_number=sequence_number,
+            source=source,
+            reason="superseded_first_save_wins",
+        )
+        self._session.execute(
+            delete(ImageLayoutStagingRowModel).where(
+                ImageLayoutStagingRowModel.review_item_id == item.id
+            )
+        )
+        self._refresh_source_states({source.id}, processed_at=resolved_at)
+        self._session.flush()
+        updated = self.get_item(
+            item.id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        if updated is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The superseded review projection cannot be reloaded.",
+            )
+        return updated, _event_from_record(event), True
+
+    def _supersede_pending_sequence_occurrences(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        canonical: ImageSequenceCanonicalModel,
+        excluded_review_item_ids: set[UUID],
+        resolved_at: datetime,
+    ) -> set[UUID]:
+        rows = self._session.execute(
+            select(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(
+                JobModel.game_id == game_id,
+                RecognizedBoardModel.sequence_number == sequence_number,
+                ImageReviewItemModel.status == "pending",
+                ImageReviewItemModel.id.not_in(excluded_review_item_ids),
+            )
+            .order_by(ImageReviewItemModel.id)
+            .with_for_update()
+        ).all()
+        source_ids: set[UUID] = set()
+        for item, board, source in rows:
+            revision = item.resolution_revision + 1
+            resolved_value = _superseded_resolved_value(
+                canonical=canonical,
+                sequence_number=sequence_number,
+                reason="canonical_sequence_resolved_elsewhere",
+            )
+            actor = "system:first-save-wins"
+            idempotency_key = uuid5(
+                NAMESPACE_URL,
+                f"image-review-superseded:{game_id}:{sequence_number}:{canonical.review_item_id}:{item.id}",
+            )
+            command_sha256 = hashlib.sha256(
+                canonical_image_review_bytes(
+                    {
+                        "action": "superseded",
+                        "resolvedBy": actor,
+                        "resolvedValue": resolved_value,
+                    }
+                )
+            ).hexdigest()
+            self._append_resolution_event(
+                item=item,
+                revision=revision,
+                idempotency_key=idempotency_key,
+                action="superseded",
+                command_sha256=command_sha256,
+                resolved_value=resolved_value,
+                resolved_by=actor,
+                created_at=resolved_at,
+            )
+            self._apply_review_outcome(
+                item=item,
+                board=board,
+                status="superseded",
+                resolved_value=resolved_value,
+                resolved_by=actor,
+                resolved_at=resolved_at,
+                revision=revision,
+            )
+            self._session.execute(
+                delete(ImageLayoutStagingRowModel).where(
+                    ImageLayoutStagingRowModel.review_item_id == item.id
+                )
+            )
+            self._add_alternative_source(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                source=source,
+                reason="superseded_first_save_wins",
+            )
+            source_ids.add(source.id)
+        return source_ids
+
+    def _append_resolution_event(
+        self,
+        *,
+        item: ImageReviewItemModel,
+        revision: int,
+        idempotency_key: UUID,
+        action: str,
+        command_sha256: str,
+        resolved_value: Mapping[str, object],
+        resolved_by: str,
+        created_at: datetime,
+    ) -> ImageReviewResolutionEventModel:
+        event = ImageReviewResolutionEventModel(
+            review_item_id=item.id,
+            revision=revision,
+            idempotency_key=idempotency_key,
+            action=action,
+            command_sha256=command_sha256,
+            resolved_value=dict(resolved_value),
+            resolved_by=resolved_by,
+            created_at=created_at,
+        )
+        self._session.add(event)
+        return event
+
+    @staticmethod
+    def _apply_review_outcome(
+        *,
+        item: ImageReviewItemModel,
+        board: RecognizedBoardModel,
+        status: str,
+        resolved_value: Mapping[str, object],
+        resolved_by: str,
+        resolved_at: datetime,
+        revision: int,
+    ) -> None:
+        item.status = status
+        item.resolved_value = dict(resolved_value)
+        item.resolved_by = resolved_by
+        item.resolved_at = resolved_at
+        item.resolution_revision = revision
+        board.status = "rejected" if status == "superseded" else status
+
+    def _add_alternative_source(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        source: SourceImageModel,
+        reason: str,
+    ) -> None:
+        exists = self._session.scalar(
+            select(ImageSequenceAlternativeModel.id).where(
+                ImageSequenceAlternativeModel.game_id == game_id,
+                ImageSequenceAlternativeModel.sequence_number == sequence_number,
+                ImageSequenceAlternativeModel.import_job_id == source.import_job_id,
+                ImageSequenceAlternativeModel.source_checksum_sha256 == source.checksum_sha256,
+            )
+        )
+        if exists is None:
+            self._session.add(
+                ImageSequenceAlternativeModel(
+                    game_id=game_id,
+                    sequence_number=sequence_number,
+                    import_job_id=source.import_job_id,
+                    source_checksum_sha256=source.checksum_sha256,
+                    source_relative_path=source.relative_path,
+                    reason=reason,
+                )
+            )
+
+    def _refresh_source_states(
+        self,
+        source_ids: set[UUID],
+        *,
+        processed_at: datetime,
+    ) -> None:
+        for source_id in sorted(source_ids, key=str):
+            source = self._session.get(SourceImageModel, source_id, with_for_update=True)
+            if source is None:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_PROJECTION_MISSING",
+                    "A source affected by a review decision no longer exists.",
+                )
+            statuses = tuple(
+                self._session.scalars(
+                    select(ImageReviewItemModel.status)
+                    .join(
+                        RecognizedBoardModel,
+                        RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                    )
+                    .where(RecognizedBoardModel.source_image_id == source_id)
+                ).all()
+            )
+            if "pending" in statuses:
+                source.status = "waiting_for_review"
+            elif any(status in {"accepted", "corrected"} for status in statuses):
+                source.status = "accepted"
+            else:
+                source.status = "rejected"
+            source.processed_at = processed_at
 
     def list_resolution_events(
         self,
@@ -944,6 +1308,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     "The geometry idempotency key already represents another command.",
                 )
             return locked, _geometry_revision_from_record(prior), False
+        if locked.status == "superseded":
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SUPERSEDED",
+                "A superseded source cannot be reopened or replace the canonical decision.",
+            )
         if (
             locked.geometry_revision != command.expected_geometry_revision
             or locked.resolution_revision != command.expected_resolution_revision
@@ -1164,6 +1533,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 func.coalesce(func.sum(ImageReviewQueueStateModel.accepted_count), 0),
                 func.coalesce(func.sum(ImageReviewQueueStateModel.corrected_count), 0),
                 func.coalesce(func.sum(ImageReviewQueueStateModel.rejected_count), 0),
+                func.coalesce(func.sum(ImageReviewQueueStateModel.superseded_count), 0),
             )
             .select_from(ImageReviewQueueStateModel)
             .join(JobModel, JobModel.id == ImageReviewQueueStateModel.import_job_id)
@@ -1174,6 +1544,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             accepted=int(totals[1]),
             corrected=int(totals[2]),
             rejected=int(totals[3]),
+            superseded=int(totals[4]),
         )
 
     def _queue_snapshot(self, import_job_id: UUID) -> tuple[int, ImageReviewCounts]:
@@ -1196,12 +1567,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     "IMAGE_REVIEW_QUEUE_PROJECTION_INVALID",
                     "The operational review queue state is missing.",
                 )
-            return 0, ImageReviewCounts(pending=0, accepted=0, corrected=0, rejected=0)
+            return 0, ImageReviewCounts(
+                pending=0,
+                accepted=0,
+                corrected=0,
+                rejected=0,
+                superseded=0,
+            )
         return state.queue_version, ImageReviewCounts(
             pending=state.pending_count,
             accepted=state.accepted_count,
             corrected=state.corrected_count,
             rejected=state.rejected_count,
+            superseded=state.superseded_count,
         )
 
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
@@ -1623,6 +2001,30 @@ def _event_from_record(
         resolved_by=record.resolved_by,
         created_at=record.created_at,
     )
+
+
+def _sequence_advisory_lock_key(game_id: UUID, sequence_number: int) -> int:
+    digest = hashlib.sha256(f"{game_id}:{sequence_number}".encode("ascii")).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=True)
+
+
+def _superseded_resolved_value(
+    *,
+    canonical: ImageSequenceCanonicalModel,
+    sequence_number: int,
+    reason: str,
+    attempted_action: str | None = None,
+) -> dict[str, object]:
+    value: dict[str, object] = {
+        "action": "superseded",
+        "canonicalImportJobId": str(canonical.import_job_id),
+        "canonicalReviewItemId": str(canonical.review_item_id),
+        "reason": reason,
+        "sequenceNumber": sequence_number,
+    }
+    if attempted_action is not None:
+        value["attemptedAction"] = attempted_action
+    return value
 
 
 def _geometry_revision_from_record(

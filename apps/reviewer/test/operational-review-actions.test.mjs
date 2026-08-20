@@ -135,6 +135,7 @@ test('loads exactly one scope-bound board from the stable all-status queue', asy
       corrected: 0,
       pending: 2999,
       rejected: 0,
+      superseded: 0,
       total: 3000,
     },
     gameId: activeGame.id,

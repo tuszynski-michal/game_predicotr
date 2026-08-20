@@ -59,6 +59,7 @@ IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION = "0046_image_symbol_prediction_revis
 PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
 IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
 IMAGE_REVIEW_QUEUE_PROJECTION_REVISION = "0049_image_review_queue_projection"
+IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -129,7 +130,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     pending_symbol_reinference_job = script.get_revision(PENDING_SYMBOL_REINFERENCE_JOB_REVISION)
     image_page_geometry_overrides = script.get_revision(IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION)
     image_review_queue_projection = script.get_revision(IMAGE_REVIEW_QUEUE_PROJECTION_REVISION)
-    assert script.get_heads() == [IMAGE_REVIEW_QUEUE_PROJECTION_REVISION]
+    image_review_first_save_wins = script.get_revision(IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION)
+    assert script.get_heads() == [IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -238,6 +240,33 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_page_geometry_overrides.down_revision == PENDING_SYMBOL_REINFERENCE_JOB_REVISION
     assert image_review_queue_projection is not None
     assert image_review_queue_projection.down_revision == IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION
+    assert image_review_first_save_wins is not None
+    assert image_review_first_save_wins.down_revision == IMAGE_REVIEW_QUEUE_PROJECTION_REVISION
+
+
+def test_image_review_first_save_wins_migration_is_durable_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}:{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}:{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column superseded_count bigint" in upgrade_sql
+    assert "'superseded'" in upgrade_sql
+    assert "create or replace function project_image_review_queue_status" in upgrade_sql
+    assert "superseded_count = superseded_count" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "cannot downgrade first-save-wins while superseded audit rows exist" in downgrade_sql
+    assert "drop column superseded_count" in downgrade_sql
 
 
 def test_image_review_queue_projection_migration_is_durable_and_reversible() -> None:

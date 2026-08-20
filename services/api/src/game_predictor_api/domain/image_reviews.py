@@ -121,6 +121,7 @@ class ImageReviewCounts:
     accepted: int
     corrected: int
     rejected: int
+    superseded: int = 0
 
     @property
     def completed(self) -> int:
@@ -128,7 +129,7 @@ class ImageReviewCounts:
 
     @property
     def total(self) -> int:
-        return self.pending + self.accepted + self.corrected + self.rejected
+        return self.pending + self.accepted + self.corrected + self.rejected + self.superseded
 
 
 @dataclass(frozen=True, slots=True)

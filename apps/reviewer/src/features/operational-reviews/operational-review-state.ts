@@ -79,6 +79,7 @@ export function operationalReviewStatusLabel(status: string): string {
     corrected: 'Poprawiona',
     pending: 'Do weryfikacji',
     rejected: 'Odrzucona',
+    superseded: 'Zastąpiona wcześniejszą decyzją',
   };
   return labels[status] ?? `Nieznany status: ${status}`;
 }
@@ -95,16 +96,19 @@ export function updateOperationalReviewCounts(
   let accepted = counts.accepted;
   let corrected = counts.corrected;
   let rejected = counts.rejected;
+  let superseded = counts.superseded;
 
   if (previousStatus === 'pending') pending = Math.max(0, pending - 1);
   if (previousStatus === 'accepted') accepted = Math.max(0, accepted - 1);
   if (previousStatus === 'corrected') corrected = Math.max(0, corrected - 1);
   if (previousStatus === 'rejected') rejected = Math.max(0, rejected - 1);
+  if (previousStatus === 'superseded') superseded = Math.max(0, superseded - 1);
 
   if (nextStatus === 'pending') pending += 1;
   if (nextStatus === 'accepted') accepted += 1;
   if (nextStatus === 'corrected') corrected += 1;
   if (nextStatus === 'rejected') rejected += 1;
+  if (nextStatus === 'superseded') superseded += 1;
 
   return {
     accepted,
@@ -112,6 +116,7 @@ export function updateOperationalReviewCounts(
     corrected,
     pending,
     rejected,
+    superseded,
     total: counts.total,
   };
 }

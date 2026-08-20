@@ -715,8 +715,9 @@ geometrii wymaga nowej decyzji albo jawnej migracji w późniejszym zadaniu.
 Każda recognized board ma dokładnie jeden operacyjny element review M7.
 `snapshot` zamraża źródło, planszę, geometrię, OCR, 15 predykcji i pełny
 fingerprint. `resolved_value` dla accepted/corrected zawiera jawnie
-zaakceptowany numer i 15 kodów symboli; rejected zawiera powód. Rewizja rośnie
-po atomowej decyzji całej planszy.
+zaakceptowany numer i 15 kodów symboli; rejected zawiera powód. Systemowy
+`superseded` wskazuje kanonicznego właściciela numeru, przyczynę i zachowane
+źródło przegranej decyzji. Rewizja rośnie po atomowej decyzji całej planszy.
 
 Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
 niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
@@ -733,8 +734,9 @@ ich przesunąć. Constraint i guard bazy blokują aktualizację pól klucza.
 
 `status` w projekcji jest transakcyjnym lustrem bieżącego statusu
 `image_review_items`. `image_review_queue_states` przechowuje per import
-`total_count` oraz liczniki `pending/accepted/corrected/rejected` i dodatni
-`queue_version`. Suma liczników musi być równa `total_count`.
+`total_count` oraz liczniki
+`pending/accepted/corrected/rejected/superseded` i dodatni `queue_version`.
+Suma liczników musi być równa `total_count`.
 
 `queue_version` jest wersją topologii: rośnie przy dodaniu lub usunięciu
 elementu, ale nie przy zwykłej zmianie statusu, decyzji ani numeru sekwencji.
@@ -753,9 +755,11 @@ widoku, ale nie usuwa jego granicy z niezmiennej topologii.
 
 ### image_review_resolution_events
 
-Każda accepted/corrected/rejected decyzja i systemowe ponowne otwarcie konfliktu
-numeracji tworzą append-only event z rewizją, UUID idempotencji, kanonicznym
-SHA-256 komendy, aktorem, wartością i czasem. Unikalne
+Każda accepted/corrected/rejected decyzja, systemowe `superseded` oraz ponowne
+otwarcie konfliktu numeracji tworzą append-only event z rewizją, UUID
+idempotencji, kanonicznym SHA-256 komendy, aktorem, wartością i czasem. Event
+`superseded` zachowuje numer, identyfikatory kanonicznego właściciela, przyczynę
+i opcjonalną akcję przegranej komendy. Unikalne
 `(review_item_id, revision)` zachowuje historię, a
 `(review_item_id, idempotency_key)` sprawia, że exact retry nie dodaje drugiego
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
@@ -1119,7 +1123,7 @@ UNIQUE (cohort_id, review_item_id)
 rewizję review i geometrii, 15 `cropSampleId`, checksumy i ścieżki cropów, kod
 symbolu człowieka, zdjęcie źródłowe, import oraz pipeline. Nie zawiera binariów.
 Kohorta jest append-only. `accepted` i `corrected` mogą wejść do treningu;
-`rejected`, `pending` i niekompletne decyzje pozostają policzone w manifeście
+`rejected`, `superseded`, `pending` i niekompletne decyzje pozostają policzone w manifeście
 stanu, ale nie tworzą pozycji treningowych.
 
 ### symbol_model_iterations

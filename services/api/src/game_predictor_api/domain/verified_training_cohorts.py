@@ -138,6 +138,9 @@ def build_verified_training_cohort_source(
         elif item.status == "rejected":
             rejected_count += 1
             exclusion_reason = "human_rejected"
+        elif item.status == "superseded":
+            rejected_count += 1
+            exclusion_reason = "superseded_by_canonical_sequence"
         elif item.status in {"accepted", "corrected"}:
             try:
                 boards.append(build_verified_board_manifest(item))

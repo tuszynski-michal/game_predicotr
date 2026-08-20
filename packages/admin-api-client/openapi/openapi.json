@@ -6951,6 +6951,11 @@
             "title": "Rejected",
             "type": "integer"
           },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
           "total": {
             "minimum": 0.0,
             "title": "Total",
@@ -6962,6 +6967,7 @@
           "accepted",
           "corrected",
           "rejected",
+          "superseded",
           "completed",
           "total"
         ],

@@ -306,8 +306,13 @@ pełnych plansz i ma:
   tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
   strony otwartej przez loopback,
 - pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
-  `Zatrzymaj udostępnianie`, który unieważnia bieżącą sesję i zamyka publiczny
-  tunel; decyzje zapisane wcześniej w audycie pozostają w bazie,
+  `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
+  wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
+  aktywnych prac online i kończy się dopiero po ostatniej, a decyzje zapisane
+  wcześniej w audycie pozostają w bazie,
+- dopuszczać najwyżej trzy różne aktywne importy online; tryb lokalny nie zajmuje
+  tego limitu, a próba czwartego linku kończy się kontrolowanym komunikatem bez
+  utworzenia sesji,
 - nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
   wykrycie procesu developerskiego na porcie Reviewera blokuje start z
   czytelnym komunikatem,

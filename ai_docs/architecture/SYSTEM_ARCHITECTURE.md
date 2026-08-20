@@ -1301,9 +1301,13 @@ Lifecycle pracy korzysta z jednego współdzielonego procesu Reviewera. Zdrowy
 lokalny proces jest ponownie używany przez kolejne scope'y, a zdrowy online
 ingress dostarcza jeden publiczny origin dla oddzielnych sesji. Assignment
 online wskazuje własną scoped `reviewer_access_session`; assignment local nie
-tworzy sesji. Zamknięcie pracy unieważnia tylko powiązaną sesję i zachowuje
-proces/Quick Tunnel. Serializacja startu między procesami Windows oraz
-`stop-if-unused` ostatniego online assignmentu są osobnymi kolejnymi etapami.
+tworzy sesji i nie zajmuje online capacity. Transakcyjny advisory lock
+serializuje otwarcie, zamknięcie i lazy recovery wygasłych prac online między
+procesami API. Najwyżej trzy różne importy mogą mieć aktywny tryb online.
+Zamknięcie pracy unieważnia tylko powiązaną sesję; Quick Tunnel pozostaje przy
+innych pracach i jest zatrzymywany ogrodzonym `instanceId` dopiero po ostatnim
+online assignment. Produkcyjny proces Reviewera na loopback pozostaje wspólny
+także dla pracy lokalnej.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko

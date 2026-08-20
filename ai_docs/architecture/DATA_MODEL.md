@@ -877,14 +877,22 @@ procesu ani ingressu.
 
 Częściowy unikalny indeks po `import_job_id`, ograniczony do
 `closed_at IS NULL`, gwarantuje najwyżej jedno aktywne przypisanie na import.
-Różne importy nie współdzielą tego ograniczenia. Heartbeat wymaga aktualnego
-tokenu i niewygasłego lease; zapis stosuje ten sam token jako fencing condition.
+Różne importy nie współdzielą tego ograniczenia. Online capacity jest jednak
+globalnie ograniczona do trzech różnych aktywnych importów. Każde otwarcie,
+zamknięcie i odzyskanie wygasłych prac online przechodzi przez jeden
+transakcyjny advisory lock PostgreSQL, dlatego równoległe transakcje nie mogą
+osobno zobaczyć wolnego czwartego miejsca. Local assignment nie zajmuje online
+capacity. Heartbeat wymaga aktualnego tokenu i niewygasłego lease; zapis stosuje
+ten sam token jako fencing condition.
 
 Zamknięcie nie usuwa rekordu ani tokenu lease. Uzupełnia atomowo `closed_at`,
 `close_reason` i `closed_by`, dlatego ponowne otwarcie tego samego importu tworzy
 nowy rekord, a wcześniejszy pozostaje historią. Wygasły aktywny wpis jest
-zamykany z powodem `lease_expired` przed utworzeniem następcy. Tabela nie
-przechowuje kodu wejścia, bearer tokenu, URL tunelu ani danych procesu.
+zamykany z powodem `lease_expired` przed utworzeniem następcy i powoduje
+unieważnienie własnej scoped sesji. Gdy nie pozostaje żaden aktywny online
+assignment, warstwa lifecycle wykonuje ogrodzony `stop-if-current` wspólnego
+tunelu. Tabela nie przechowuje kodu wejścia, bearer tokenu, URL tunelu ani
+danych procesu.
 
 | Pole | Typ | Uwagi |
 |---|---|---|

@@ -69,7 +69,12 @@ historię zamknięcia. Nie zawiera kodu, bearer tokenu, publicznego URL ani
 parametrów procesu. Złożony FK nie pozwala przypiąć sesji innej gry/importu, a
 aktywny assignment nadal nie zastępuje autoryzacji przez
 `reviewer_access_sessions`. Zamknięcie jednego assignmentu unieważnia wyłącznie
-jego sesję i nie zatrzymuje współdzielonego ingressu.
+jego sesję i nie zatrzymuje współdzielonego ingressu, jeżeli istnieje inny
+aktywny scope online. Globalny limit trzech online assignmentów i decyzja
+`stop-if-unused` są serializowane transakcyjnym advisory lockiem. Ostatni stop
+używa `instanceId`, dlatego spóźniona operacja nie zamknie nowszej instancji.
+Wygasłe lease'y są domykane jako `lease_expired`, a ich scoped sesje odwoływane
+przed ponownym użyciem capacity.
 
 ## Retencja i prywatność
 

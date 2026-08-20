@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.reviewer_work_assignments import (
@@ -193,6 +193,39 @@ def test_open_recovers_an_expired_assignment_before_creating_its_successor() -> 
     assert history[0].close_reason == "lease_expired"
     assert history[0].closed_by == "reviewer-assignment-recovery"
     assert history[1] == second
+
+
+def test_service_enforces_global_online_capacity_before_session_factory() -> None:
+    repository = InMemoryReviewerWorkAssignmentRepository()
+    service = ReviewerWorkAssignmentService(repository, now=_now)
+    for index in range(3):
+        service.open(
+            game_id=uuid4(),
+            import_job_id=uuid4(),
+            assignment_type=ReviewerWorkAssignmentType.ONLINE,
+            reviewer_access_session_id=uuid4(),
+            lease_owner=f"api-instance-{index}",
+            lease_expires_at=_now() + timedelta(seconds=30),
+        )
+    session_factory_called = False
+
+    def create_session() -> UUID:
+        nonlocal session_factory_called
+        session_factory_called = True
+        return uuid4()
+
+    with pytest.raises(ReviewerWorkAssignmentConflictError) as limit:
+        service.open(
+            game_id=uuid4(),
+            import_job_id=uuid4(),
+            assignment_type=ReviewerWorkAssignmentType.ONLINE,
+            online_session_factory=create_session,
+            lease_owner="api-instance-four",
+            lease_expires_at=_now() + timedelta(seconds=30),
+        )
+
+    assert limit.value.code == "REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED"
+    assert session_factory_called is False
 
 
 def test_assignment_rejects_naive_timestamps_and_blank_lease_owner() -> None:

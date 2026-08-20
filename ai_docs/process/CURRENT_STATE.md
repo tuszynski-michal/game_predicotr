@@ -1977,3 +1977,18 @@ Każda próba startu ma unikalne logi w
 Reviewer nie zmieniły się. Limit trzech prac online oraz decyzja
 `stop-if-unused` na podstawie ostatniego aktywnego assignmentu pozostają w
 TASK 17.
+
+TASK 17 domknął domenowy lifecycle współdzielonego ingressu. Online capacity
+jest ograniczona do trzech różnych aktywnych importów i serializowana
+transakcyjnym advisory lockiem PostgreSQL; local assignment nie zajmuje limitu.
+Sprawdzenie istniejącego scope'u i limitu odbywa się przed ensure-running oraz
+utworzeniem scoped sesji, więc odrzucona czwarta praca nie pozostawia sesji ani
+nie uruchamia dodatkowego procesu.
+
+Zamknięcie jednego assignmentu odwołuje wyłącznie jego sesję. Ostatni online
+close oraz jawne lazy recovery wygasłych lease'ów używają compare-and-stop po
+`instanceId` z TASK 16. Blokada capacity obejmuje także ensure-running i zapis,
+dlatego równoległy open nie otrzyma linku do tunelu zatrzymywanego przez close.
+Rzeczywisty test czterech transakcji PostgreSQL dał dokładnie trzy sukcesy i
+jeden `REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED`. Publiczne endpointy, OpenAPI,
+Admin i Reviewer pozostają bez zmian; są zakresem TASK 18.

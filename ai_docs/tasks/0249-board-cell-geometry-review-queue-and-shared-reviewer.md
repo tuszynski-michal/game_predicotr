@@ -22,9 +22,9 @@ projekcję topologii kolejki, liczniki i `queueVersion`, TASK 10 przepiął na n
 listowanie, TASK 11 dodał transakcyjne first-save-wins oraz audyt `superseded`,
 a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. TASK 13 dodał
 bounded bufor `previous/current/next two`. Pełny produkcyjny pipeline importu
-pozostaje na historycznym v18. TASK 14 rozpoczął pion wspólnego Reviewera od
-trwałego, ogrodzonego modelu przypisań pracy; integracja sesji, procesu, tunelu
-i Admina pozostaje otwarta.
+pozostaje na historycznym v18. TASK 14–17 zbudowały trwałe assignments, osobne
+scoped sesje, bezpieczny lifecycle procesu Windows, limit trzech prac online i
+`stop-if-unused`. Kontrakt HTTP oraz przebudowa Admina pozostają otwarte.
 
 ## Goal
 
@@ -805,7 +805,7 @@ generowanie i migracje nie należą do bramki TASK 13.
    przez mutex/lock oraz atomowy stan zawierający PID, start time, executable i
    instance id. Każda próba startu ma unikalne logi, a publikacja stanu następuje
    dopiero po health checku.
-4. Ograniczyć online do trzech różnych importów. Zatrzymanie jednego
+4. [ukończone w TASK 17] Ograniczyć online do trzech różnych importów. Zatrzymanie jednego
    udostępnienia unieważnia tylko jego sesję; tunel jest zatrzymywany dopiero,
    gdy nie istnieje inne aktywne online assignment.
 5. Przebudować sekcję Admina: select gotowego importu, statystyki zakresu,
@@ -960,6 +960,60 @@ przeszły.
 - [x] Równoległe próby nie współdzielą plików logu ani wyniku kontrolera API.
 - [x] Publiczny kontrakt, baza, limit online oraz UI pozostają bez zmian.
 
+### Outcome TASK 17 — limit online i stop ostatniego assignmentu
+
+- `ReviewerWorkAssignmentService` serializuje online capacity jednym
+  transakcyjnym advisory lockiem PostgreSQL; repozytorium in-memory zachowuje tę
+  samą semantykę dla testów współbieżności. Maksymalnie trzy różne importy mogą
+  mieć aktywny assignment online, a local assignment nie zajmuje limitu.
+- Sprawdzenie zajętego importu i limitu następuje przed zapewnieniem ingressu i
+  utworzeniem sesji. Czwarta praca kończy się stabilnym
+  `REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED` z licznikami `3/3` i nie zostawia
+  sesji ani drugiego tunelu.
+- Capacity lock obejmuje również ensure-running, utworzenie scoped sesji i
+  zapis assignmentu. Równoległy open nie może więc otrzymać linku do instancji,
+  którą właśnie zatrzymuje close ostatniej pracy.
+- Zamknięcie odwołuje tylko sesję wskazanego assignmentu. Ingress pozostaje,
+  dopóki istnieje inny online assignment; ostatni close wykonuje
+  compare-and-stop po aktualnym `instanceId` z TASK 16.
+- Lazy recovery domyka wszystkie wygasłe online lease'y pod tą samą blokadą,
+  unieważnia ich sesje i zwalnia capacity. Jawne `stop_if_unused` zatrzymuje
+  osierocony ingress, gdy nie ma już aktywnej pracy online.
+- TASK 17 nie zmienia bazy, publicznego API/OpenAPI, Admina ani Reviewera. Select
+  importu, lista prac i przyciski per assignment pozostają TASK 18.
+
+### Verification TASK 17
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_reviewer_work_assignments.py services/api/tests/test_reviewer_work_lifecycle.py services/api/tests/test_reviewer_ingress.py services/api/tests/test_reviewer_process_lifecycle_scripts.py -q --tb=short
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+.\.venv\Scripts\ruff.exe check <zmienione pliki Python>
+.\.venv\Scripts\python.exe -m mypy --follow-imports=skip --ignore-missing-imports <zmienione moduły aplikacyjne>
+```
+
+Test współbieżności PostgreSQL uruchamia cztery niezależne transakcje i wymaga
+dokładnie trzech sukcesów oraz jednego kontrolowanego limitu. Test aplikacyjny
+blokuje stop ostatniego assignmentu, równolegle rozpoczyna nową pracę i
+potwierdza, że nowa sesja powstaje dopiero na następnej instancji ingressu.
+Wynik celowany dał `33 passed`, rzeczywisty baseline PostgreSQL `3 passed`, a
+pełny zestaw API `387 passed, 30 skipped`; Ruff i ograniczony mypy przeszły.
+
+### Acceptance criteria TASK 17
+
+- [x] Nigdy nie powstają więcej niż trzy aktywne online assignmenty, również
+      przy czterech równoległych transakcjach PostgreSQL.
+- [x] Local assignment działa równolegle i nie zużywa online capacity.
+- [x] Odrzucona czwarta praca nie uruchamia ingressu i nie tworzy sesji.
+- [x] Zamknięcie jednej z kilku prac odwołuje tylko jej scoped sesję i nie
+      zatrzymuje tunelu.
+- [x] Ostatni close lub recovery wygasłych prac wykonuje ogrodzony stop bieżącej
+      instancji; równoległy open nie otrzymuje starego URL.
+- [x] Historia zamknięć, fencing lease, jeden assignment na import i granice
+      bezpieczeństwa Reviewera pozostają bez zmian.
+- [x] TASK 17 nie rozpoczyna endpointów ani UI TASK 18.
+
 ### Kryteria odbioru pionu
 
 - dwa lub trzy różne importy mogą być zatwierdzane online równolegle, a kolejny
@@ -1047,7 +1101,6 @@ od zmian liczników. TASK 13 zamknął pion B ograniczonym buforem
 `previous/current/next two` i prefetchowaniem zasobów sąsiadów. Pion wspólnego
 Reviewera został rozpoczęty w TASK 14 od trwałych `reviewer_work_assignments` z
 fencingiem i historią zamknięcia. TASK 15 powiązał assignment online ze scoped
-sesją i dodał orkiestrację ponownie używającą jednego procesu/publicznego URL
-bez globalnego stopu pojedynczej pracy. Synchronizacja Windows, limit online,
-`stop-if-unused` oraz UI pozostają otwarte i wymagają osobnych poleceń dla
-kolejnych numerów z zaakceptowanego breakdownu.
+sesją, TASK 16 zabezpieczył proces Windows i jego stan, a TASK 17 dodał globalny
+limit trzech prac online oraz ogrodzony stop po ostatnim assignmentcie. Publiczne
+endpointy assignments i przebudowa Admina pozostają otwarte jako TASK 18.

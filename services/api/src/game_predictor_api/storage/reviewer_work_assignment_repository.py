@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -160,6 +161,33 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
                     ReviewerWorkAssignmentModel.created_at,
                     ReviewerWorkAssignmentModel.id,
                 )
+            )
+        )
+
+    @contextmanager
+    def lock_online_capacity(self) -> Iterator[None]:
+        # The two stable 32-bit keys encode "GPRE" / "VIEW". PostgreSQL keeps
+        # this transaction-scoped lock until commit/rollback, including after
+        # this context exits, so a concurrent API transaction cannot pass the
+        # capacity decision before the current assignment mutation is durable.
+        self._session.execute(select(func.pg_advisory_xact_lock(0x47505245, 0x56494557)))
+        yield
+
+    def list_active_online(self) -> Sequence[ReviewerWorkAssignment]:
+        return tuple(
+            _to_assignment(record)
+            for record in self._session.scalars(
+                select(ReviewerWorkAssignmentModel)
+                .where(
+                    ReviewerWorkAssignmentModel.assignment_type
+                    == ReviewerWorkAssignmentType.ONLINE.value,
+                    ReviewerWorkAssignmentModel.closed_at.is_(None),
+                )
+                .order_by(
+                    ReviewerWorkAssignmentModel.created_at,
+                    ReviewerWorkAssignmentModel.id,
+                )
+                .with_for_update()
             )
         )
 

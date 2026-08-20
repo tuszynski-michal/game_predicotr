@@ -1,13 +1,18 @@
 import os
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from game_predictor_api.application.reviewer_work_assignments import (
+    ReviewerWorkAssignmentService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignmentConflictError,
@@ -275,5 +280,112 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
         assert rows[1].id == second.id
         assert rows[1].reviewer_access_session_id == access_session_id
         assert rows[1].closed_at is None
+    finally:
+        engine.dispose()
+
+
+def test_online_assignment_capacity_is_serialized_across_postgres_transactions(
+    isolated_database: URL,
+) -> None:
+    config = _migration_config(isolated_database)
+    command.upgrade(config, "head")
+    engine = create_engine(isolated_database, pool_pre_ping=True)
+    now = datetime(2026, 8, 20, 12, tzinfo=UTC)
+    scopes = [(uuid4(), uuid4(), uuid4()) for _index in range(4)]
+    job_payload = '{"schema_version":1,"import_kind":"image_directory"}'
+
+    class TrustedScopeRepository(SqlAlchemyReviewerWorkAssignmentRepository):
+        def lock_scope(self, _game_id, _import_job_id) -> bool:
+            return True
+
+    try:
+        with engine.begin() as connection:
+            for index, (game_id, import_job_id, access_session_id) in enumerate(scopes):
+                connection.execute(
+                    text(
+                        "INSERT INTO games (id, code, name, status, expected_layout_count) "
+                        "VALUES (:id, :code, :name, 'draft', 19809)"
+                    ),
+                    {
+                        "id": game_id,
+                        "code": f"capacity-{index}",
+                        "name": f"Capacity {index}",
+                    },
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO jobs ("
+                        "id, job_type, game_id, status, input_payload, input_key, "
+                        "progress_current, success_count, failure_count, "
+                        "review_count, attempt_count"
+                        ") VALUES ("
+                        ":id, 'import', :game_id, 'waiting_for_review', "
+                        "CAST(:payload AS jsonb), :input_key, 0, 0, 0, 0, 0"
+                        ")"
+                    ),
+                    {
+                        "id": import_job_id,
+                        "game_id": game_id,
+                        "payload": job_payload,
+                        "input_key": f"{index + 1}" * 64,
+                    },
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO reviewer_access_sessions ("
+                        "id, game_id, import_job_id, code_salt, code_hash, failed_attempts, "
+                        "created_at, expires_at"
+                        ") VALUES ("
+                        ":id, :game_id, :import_job_id, :code_salt, :code_hash, 0, "
+                        ":created_at, :expires_at"
+                        ")"
+                    ),
+                    {
+                        "id": access_session_id,
+                        "game_id": game_id,
+                        "import_job_id": import_job_id,
+                        "code_salt": bytes([index + 1]) * 16,
+                        "code_hash": bytes([index + 1]) * 32,
+                        "created_at": now,
+                        "expires_at": now + timedelta(hours=1),
+                    },
+                )
+
+        barrier = Barrier(len(scopes))
+
+        def open_online(scope) -> str:
+            game_id, import_job_id, access_session_id = scope
+            barrier.wait(timeout=5)
+            try:
+                with Session(engine, expire_on_commit=False) as session, session.begin():
+                    service = ReviewerWorkAssignmentService(
+                        TrustedScopeRepository(session),
+                        now=lambda: now,
+                    )
+                    service.open(
+                        game_id=game_id,
+                        import_job_id=import_job_id,
+                        assignment_type=ReviewerWorkAssignmentType.ONLINE,
+                        reviewer_access_session_id=access_session_id,
+                        lease_owner="postgres-capacity-test",
+                        lease_expires_at=now + timedelta(minutes=10),
+                    )
+                return "opened"
+            except ReviewerWorkAssignmentConflictError as error:
+                return error.code
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            outcomes = list(executor.map(open_online, scopes))
+
+        assert outcomes.count("opened") == 3
+        assert outcomes.count("REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED") == 1
+        with engine.connect() as connection:
+            active_online_count = connection.scalar(
+                text(
+                    "SELECT COUNT(*) FROM reviewer_work_assignments "
+                    "WHERE assignment_type = 'online' AND closed_at IS NULL"
+                )
+            )
+        assert active_online_count == 3
     finally:
         engine.dispose()

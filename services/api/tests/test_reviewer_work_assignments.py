@@ -124,6 +124,7 @@ def test_service_allows_only_one_active_assignment_and_preserves_reopen_history(
         game_id=game_id,
         import_job_id=import_job_id,
         assignment_type=ReviewerWorkAssignmentType.ONLINE,
+        reviewer_access_session_id=uuid4(),
         lease_owner="api-instance-a",
         lease_expires_at=clock[0] + timedelta(seconds=30),
     )
@@ -172,6 +173,7 @@ def test_open_recovers_an_expired_assignment_before_creating_its_successor() -> 
         game_id=game_id,
         import_job_id=import_job_id,
         assignment_type=ReviewerWorkAssignmentType.ONLINE,
+        reviewer_access_session_id=uuid4(),
         lease_owner="api-instance-a",
         lease_expires_at=clock[0] + timedelta(seconds=10),
     )
@@ -181,6 +183,7 @@ def test_open_recovers_an_expired_assignment_before_creating_its_successor() -> 
         game_id=game_id,
         import_job_id=import_job_id,
         assignment_type=ReviewerWorkAssignmentType.ONLINE,
+        reviewer_access_session_id=uuid4(),
         lease_owner="api-instance-b",
         lease_expires_at=clock[0] + timedelta(seconds=10),
     )
@@ -214,6 +217,31 @@ def test_assignment_rejects_naive_timestamps_and_blank_lease_owner() -> None:
             created_at=_now(),
         )
     assert blank_owner.value.code == "REVIEWER_ASSIGNMENT_VALUE_INVALID"
+
+
+def test_assignment_mode_requires_exactly_one_online_access_session() -> None:
+    with pytest.raises(ReviewerWorkAssignmentError) as missing_online_session:
+        create_reviewer_work_assignment(
+            game_id=uuid4(),
+            import_job_id=uuid4(),
+            assignment_type=ReviewerWorkAssignmentType.ONLINE,
+            lease_owner="api-instance-a",
+            lease_expires_at=_now() + timedelta(seconds=30),
+            created_at=_now(),
+        )
+    assert missing_online_session.value.code == "REVIEWER_ASSIGNMENT_SESSION_INVALID"
+
+    with pytest.raises(ReviewerWorkAssignmentError) as unexpected_local_session:
+        create_reviewer_work_assignment(
+            game_id=uuid4(),
+            import_job_id=uuid4(),
+            assignment_type=ReviewerWorkAssignmentType.LOCAL,
+            reviewer_access_session_id=uuid4(),
+            lease_owner="api-instance-a",
+            lease_expires_at=_now() + timedelta(seconds=30),
+            created_at=_now(),
+        )
+    assert unexpected_local_session.value.code == "REVIEWER_ASSIGNMENT_SESSION_INVALID"
 
 
 def test_service_rejects_a_scope_that_is_not_a_ready_image_import() -> None:

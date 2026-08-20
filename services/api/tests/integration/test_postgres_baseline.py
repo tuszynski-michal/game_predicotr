@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0051_reviewer_work_assignments"
+HEAD_REVISION = "0052_reviewer_assignment_sessions"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 EXPECTED_TABLES = {
     "alembic_version",
@@ -167,6 +167,7 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
     engine = create_engine(isolated_database, pool_pre_ping=True)
     game_id = uuid4()
     import_job_id = uuid4()
+    access_session_id = uuid4()
     now = datetime(2026, 8, 20, 12, tzinfo=UTC)
     job_payload = '{"schema_version":1,"import_kind":"image_directory"}'
 
@@ -196,6 +197,26 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
                     "input_key": "a" * 64,
                 },
             )
+            connection.execute(
+                text(
+                    "INSERT INTO reviewer_access_sessions ("
+                    "id, game_id, import_job_id, code_salt, code_hash, failed_attempts, "
+                    "created_at, expires_at"
+                    ") VALUES ("
+                    ":id, :game_id, :import_job_id, :code_salt, :code_hash, 0, "
+                    ":created_at, :expires_at"
+                    ")"
+                ),
+                {
+                    "id": access_session_id,
+                    "game_id": game_id,
+                    "import_job_id": import_job_id,
+                    "code_salt": b"s" * 16,
+                    "code_hash": b"h" * 32,
+                    "created_at": now,
+                    "expires_at": now + timedelta(hours=1),
+                },
+            )
         first = create_reviewer_work_assignment(
             game_id=game_id,
             import_job_id=import_job_id,
@@ -212,6 +233,7 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
             game_id=game_id,
             import_job_id=import_job_id,
             assignment_type=ReviewerWorkAssignmentType.ONLINE,
+            reviewer_access_session_id=access_session_id,
             lease_owner="test-owner-2",
             lease_expires_at=now + timedelta(seconds=31),
             created_at=now + timedelta(seconds=1),
@@ -251,6 +273,7 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
         assert rows[0].closed_at == closed_at
         assert rows[0].close_reason == "owner_stopped"
         assert rows[1].id == second.id
+        assert rows[1].reviewer_access_session_id == access_session_id
         assert rows[1].closed_at is None
     finally:
         engine.dispose()

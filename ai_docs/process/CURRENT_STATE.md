@@ -1946,3 +1946,18 @@ walidowany pod blokadą gotowego image import joba i wymaga istniejącej pozycji
 review. Lokalna baza działa na `0051_reviewer_work_assignments (head)`. TASK 14
 nie zmienił API/OpenAPI, Admina, Reviewera, sesji dostępowych, procesu Windows,
 Quick Tunnel ani limitu trzech przypisań online; są to następne etapy pionu C.
+
+TASK 15 połączył lifecycle assignmentu online z właściwą scoped sesją, nadal
+oddzielając oba od procesu Reviewera i Quick Tunnel. Migracja `0052` dodaje
+opcjonalny `reviewer_access_session_id`, wymagany dokładnie dla trybu online;
+złożony FK obejmujący sesję, grę i import nie pozwala powiązać obcego scope'u.
+Jedna sesja należy najwyżej do jednego assignmentu.
+
+Nowy `ReviewerWorkLifecycleService` używa zdrowego loopback Reviewera ponownie
+dla pracy lokalnej i online, a kolejne sesje online otrzymują ten sam aktywny
+publiczny origin. Każdy import ma osobną sesję i assignment. Zamknięcie pracy
+unieważnia wyłącznie jej sesję i nie ma dostępu do globalnego `stop`; nieudane
+otwarcie kompensuje utworzenie sesji przez revoke. Lokalna baza działa na
+`0052_reviewer_assignment_sessions (head)`. Synchronizacja start/status/stop
+między procesami Windows, limit trzech online, `stop-if-unused`, endpointy i UI
+pozostają poza TASK 15.

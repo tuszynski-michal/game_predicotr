@@ -17,6 +17,7 @@ from game_predictor_api.domain.reviewer_work_assignments import (
     create_reviewer_work_assignment,
     expire_reviewer_work_assignment,
     renew_reviewer_work_assignment,
+    require_active_reviewer_work_assignment,
 )
 
 
@@ -137,8 +138,10 @@ class ReviewerWorkAssignmentService:
         game_id: UUID,
         import_job_id: UUID,
         assignment_type: ReviewerWorkAssignmentType,
+        reviewer_access_session_id: UUID | None = None,
         lease_owner: str,
         lease_expires_at: datetime,
+        before_expire: Callable[[ReviewerWorkAssignment], None] | None = None,
     ) -> ReviewerWorkAssignment:
         now = self._now()
         if not self._repository.lock_scope(game_id, import_job_id):
@@ -154,6 +157,7 @@ class ReviewerWorkAssignmentService:
             game_id=game_id,
             import_job_id=import_job_id,
             assignment_type=assignment_type,
+            reviewer_access_session_id=reviewer_access_session_id,
             lease_owner=lease_owner,
             lease_expires_at=lease_expires_at,
             created_at=now,
@@ -174,11 +178,30 @@ class ReviewerWorkAssignmentService:
                 actor="reviewer-assignment-recovery",
                 expired_at=now,
             )
+            if before_expire is not None:
+                before_expire(active)
             self._repository.save_active(
                 expired,
                 expected_lease_token=active.lease_token,
             )
         return self._repository.add(candidate)
+
+    def get(self, assignment_id: UUID) -> ReviewerWorkAssignment:
+        return self._get_for_update(assignment_id)
+
+    def require_active(
+        self,
+        assignment_id: UUID,
+        *,
+        lease_token: UUID,
+    ) -> ReviewerWorkAssignment:
+        assignment = self._get_for_update(assignment_id)
+        require_active_reviewer_work_assignment(
+            assignment,
+            lease_token=lease_token,
+            checked_at=self._now(),
+        )
+        return assignment
 
     def heartbeat(
         self,

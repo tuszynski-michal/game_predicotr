@@ -60,11 +60,12 @@ sesji i kodu.
 | logi z sekretami | skrypty zapisują wyłącznie publiczny URL/PID; kod i bearer nie są logowane |
 
 `reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
-wyłącznie scope, typ pracy, fencing token lease, heartbeat i historię
-zamknięcia. Nie zawiera kodu, bearer tokenu, publicznego URL ani parametrów
-procesu. Aktywny assignment nie zastępuje autoryzacji przez
-`reviewer_access_sessions`; integracja lifecycle'ów nastąpi dopiero przed
-udostępnieniem wielu linków.
+scope, typ pracy, identyfikator sesji online, fencing token lease, heartbeat i
+historię zamknięcia. Nie zawiera kodu, bearer tokenu, publicznego URL ani
+parametrów procesu. Złożony FK nie pozwala przypiąć sesji innej gry/importu, a
+aktywny assignment nadal nie zastępuje autoryzacji przez
+`reviewer_access_sessions`. Zamknięcie jednego assignmentu unieważnia wyłącznie
+jego sesję i nie zatrzymuje współdzielonego ingressu.
 
 ## Retencja i prywatność
 

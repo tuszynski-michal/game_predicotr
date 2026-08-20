@@ -61,6 +61,7 @@ IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
 IMAGE_REVIEW_QUEUE_PROJECTION_REVISION = "0049_image_review_queue_projection"
 IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
 REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
+REVIEWER_ASSIGNMENT_SESSIONS_REVISION = "0052_reviewer_assignment_sessions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -133,7 +134,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     image_review_queue_projection = script.get_revision(IMAGE_REVIEW_QUEUE_PROJECTION_REVISION)
     image_review_first_save_wins = script.get_revision(IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION)
     reviewer_work_assignments = script.get_revision(REVIEWER_WORK_ASSIGNMENTS_REVISION)
-    assert script.get_heads() == [REVIEWER_WORK_ASSIGNMENTS_REVISION]
+    reviewer_assignment_sessions = script.get_revision(REVIEWER_ASSIGNMENT_SESSIONS_REVISION)
+    assert script.get_heads() == [REVIEWER_ASSIGNMENT_SESSIONS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -246,6 +248,33 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_review_first_save_wins.down_revision == IMAGE_REVIEW_QUEUE_PROJECTION_REVISION
     assert reviewer_work_assignments is not None
     assert reviewer_work_assignments.down_revision == IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION
+    assert reviewer_assignment_sessions is not None
+    assert reviewer_assignment_sessions.down_revision == REVIEWER_WORK_ASSIGNMENTS_REVISION
+
+
+def test_reviewer_assignment_sessions_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{REVIEWER_WORK_ASSIGNMENTS_REVISION}:{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}:{REVIEWER_WORK_ASSIGNMENTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column reviewer_access_session_id uuid" in upgrade_sql
+    assert "ck_reviewer_work_assignments_session_mode" in upgrade_sql
+    assert "fk_reviewer_work_assignments_session_scope" in upgrade_sql
+    assert "uq_reviewer_work_assignments_access_session" in upgrade_sql
+    assert "reviewer_access_session_id is not null" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop column reviewer_access_session_id" in downgrade_sql
+    assert "drop constraint uq_reviewer_access_sessions_scope_identity" in downgrade_sql
 
 
 def test_reviewer_work_assignments_migration_is_scoped_fenced_and_reversible() -> None:

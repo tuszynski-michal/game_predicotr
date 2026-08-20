@@ -861,12 +861,19 @@ istniejącym audycie review, a ich aktor ma postać `reviewer-session:<UUID>`.
 
 ### reviewer_work_assignments
 
-Trwałe przypisanie pracy jest oddzielone od sesji dostępowej oraz procesu
-Reviewera. Wiąże dokładnie `game_id + import_job_id`, ma typ `local` albo
-`online` i przechowuje ogrodzony lease (`lease_owner`, `lease_token`,
-`heartbeat_at`, `lease_expires_at`). Import musi należeć do wskazanej gry, być
-gotowym importem obrazów i zawierać pozycje review; repozytorium blokuje rekord
-importu przed utworzeniem przypisania.
+Trwałe przypisanie pracy jest oddzielone od procesu Reviewera i Quick Tunnel.
+Wiąże dokładnie `game_id + import_job_id`, ma typ `local` albo `online` i
+przechowuje ogrodzony lease (`lease_owner`, `lease_token`, `heartbeat_at`,
+`lease_expires_at`). Import musi należeć do wskazanej gry, być gotowym importem
+obrazów i zawierać pozycje review; repozytorium blokuje rekord importu przed
+utworzeniem przypisania.
+
+Assignment `online` wskazuje dokładnie jedną `reviewer_access_session`, a
+assignment `local` nie może wskazywać sesji. Złożony FK obejmuje identyfikator
+sesji, grę i import, dlatego nie można przypiąć sesji innego scope'u. Jedna
+sesja może należeć najwyżej do jednego assignmentu. Zamknięcie assignmentu
+online unieważnia tylko tę sesję; nie jest operacją zatrzymania współdzielonego
+procesu ani ingressu.
 
 Częściowy unikalny indeks po `import_job_id`, ograniczony do
 `closed_at IS NULL`, gwarantuje najwyżej jedno aktywne przypisanie na import.
@@ -885,6 +892,7 @@ przechowuje kodu wejścia, bearer tokenu, URL tunelu ani danych procesu.
 | game_id | UUID | FK `games`, część scope'u |
 | import_job_id | UUID | FK `jobs`, najwyżej jeden aktywny |
 | assignment_type | varchar(16) | `local` albo `online` |
+| reviewer_access_session_id | UUID nullable | wymagane tylko dla `online`; złożony FK zachowuje scope |
 | lease_owner | varchar(200) | niepusty identyfikator właściciela lease |
 | lease_token | UUID | fencing token, pozostaje w historii |
 | heartbeat_at | timestamptz | monotoniczny heartbeat |

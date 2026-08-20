@@ -37,6 +37,7 @@ class ReviewerWorkAssignment:
     game_id: UUID
     import_job_id: UUID
     assignment_type: ReviewerWorkAssignmentType
+    reviewer_access_session_id: UUID | None
     lease_owner: str
     lease_token: UUID
     heartbeat_at: datetime
@@ -57,6 +58,7 @@ def create_reviewer_work_assignment(
     game_id: UUID,
     import_job_id: UUID,
     assignment_type: ReviewerWorkAssignmentType,
+    reviewer_access_session_id: UUID | None = None,
     lease_owner: str,
     lease_token: UUID | None = None,
     lease_expires_at: datetime,
@@ -71,11 +73,20 @@ def create_reviewer_work_assignment(
             "REVIEWER_ASSIGNMENT_LEASE_EXPIRY_INVALID",
             "Assignment lease expiry must be later than its creation time.",
         )
+    if (assignment_type is ReviewerWorkAssignmentType.LOCAL) != (
+        reviewer_access_session_id is None
+    ):
+        raise ReviewerWorkAssignmentError(
+            "REVIEWER_ASSIGNMENT_SESSION_INVALID",
+            "A local assignment cannot have an access session and an online "
+            "assignment must have exactly one access session.",
+        )
     return ReviewerWorkAssignment(
         id=uuid4(),
         game_id=game_id,
         import_job_id=import_job_id,
         assignment_type=assignment_type,
+        reviewer_access_session_id=reviewer_access_session_id,
         lease_owner=owner,
         lease_token=lease_token or uuid4(),
         heartbeat_at=now,

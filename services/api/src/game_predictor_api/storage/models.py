@@ -1882,6 +1882,12 @@ class ReviewerAccessSessionModel(Base):
             "failed_attempts BETWEEN 0 AND 5",
             name="ck_reviewer_access_sessions_failed_attempts",
         ),
+        UniqueConstraint(
+            "id",
+            "game_id",
+            "import_job_id",
+            name="uq_reviewer_access_sessions_scope_identity",
+        ),
         Index("ix_reviewer_access_sessions_token_hash", "token_hash", unique=True),
     )
 
@@ -1966,6 +1972,11 @@ class ReviewerWorkAssignmentModel(Base):
             name="ck_reviewer_work_assignments_type",
         ),
         CheckConstraint(
+            "(assignment_type = 'local' AND reviewer_access_session_id IS NULL) "
+            "OR (assignment_type = 'online' AND reviewer_access_session_id IS NOT NULL)",
+            name="ck_reviewer_work_assignments_session_mode",
+        ),
+        CheckConstraint(
             "length(btrim(lease_owner)) BETWEEN 1 AND 200",
             name="ck_reviewer_work_assignments_lease_owner",
         ),
@@ -2001,6 +2012,22 @@ class ReviewerWorkAssignmentModel(Base):
             "created_at",
             "id",
         ),
+        Index(
+            "uq_reviewer_work_assignments_access_session",
+            "reviewer_access_session_id",
+            unique=True,
+            postgresql_where=text("reviewer_access_session_id IS NOT NULL"),
+        ),
+        ForeignKeyConstraint(
+            ["reviewer_access_session_id", "game_id", "import_job_id"],
+            [
+                "reviewer_access_sessions.id",
+                "reviewer_access_sessions.game_id",
+                "reviewer_access_sessions.import_job_id",
+            ],
+            name="fk_reviewer_work_assignments_session_scope",
+            ondelete="RESTRICT",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -2013,6 +2040,7 @@ class ReviewerWorkAssignmentModel(Base):
         nullable=False,
     )
     assignment_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    reviewer_access_session_id: Mapped[UUID | None] = mapped_column(nullable=True)
     lease_owner: Mapped[str] = mapped_column(String(200), nullable=False)
     lease_token: Mapped[UUID] = mapped_column(nullable=False)
     heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

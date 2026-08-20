@@ -798,8 +798,9 @@ generowanie i migracje nie należą do bramki TASK 13.
 
 1. [ukończone w TASK 14] Dodać `reviewer_work_assignments`: najwyżej jedno aktywne przypisanie na
    import, typ local/online, lease/heartbeat, scope i historia zamknięcia.
-2. Rozdzielić lifecycle przypisania/sesji od lifecycle'u procesu Reviewera i
-   Quick Tunnel. Jeden proces i URL obsługują wszystkie aktywne scope'y.
+2. [ukończone w TASK 15] Rozdzielić lifecycle przypisania/sesji od lifecycle'u
+   procesu Reviewera i Quick Tunnel. Jeden proces i URL obsługują wszystkie
+   aktywne scope'y.
 3. Serializować `ensure-running/status/stop-if-unused` między procesami Windows
    przez mutex/lock oraz atomowy stan zawierający PID, start time, executable i
    instance id. Każda próba startu ma unikalne logi, a publikacja stanu następuje
@@ -861,6 +862,55 @@ ograniczony mypy nowych modułów przeszły. Lokalna baza działa na
 - [x] Migracja ma poprawny downgrade, a model przechodzi rzeczywisty test
       PostgreSQL i pełne testy API.
 - [x] TASK 14 nie rozpoczyna lifecycle'u procesu/tunelu, limitu online ani UI.
+
+### Outcome TASK 15 — assignment/session niezależne od shared ingressu
+
+- Migracja `0052_reviewer_assignment_sessions` wiąże assignment online z
+  dokładnie jedną scoped `reviewer_access_session`. Złożony FK po
+  `session_id + game_id + import_job_id` blokuje przypięcie obcej sesji, a
+  constraint trybu zabrania sesji dla pracy lokalnej.
+- `ReviewerWorkLifecycleService` zapewnia gotowość jednego współdzielonego
+  procesu. Kolejne prace online ponownie używają zdrowego publicznego originu,
+  a praca lokalna ponownie używa gotowego loopback Reviewera także wtedy, gdy
+  istnieje tunel.
+- Każdy assignment online zachowuje własną sesję i kod. Zamknięcie assignmentu
+  unieważnia tylko tę sesję; warstwa TASK 15 celowo nie ma operacji globalnego
+  `stop`.
+- Nieudane utworzenie assignmentu po utworzeniu sesji kompensuje operację przez
+  revoke. Odzyskanie wygasłego assignmentu również unieważnia jego dawną sesję
+  przed utworzeniem następcy.
+- TASK 15 nie dodaje endpointów ani UI, limitu trzech prac online,
+  `stop-if-unused` ani synchronizacji procesów Windows. Są to późniejsze,
+  niezależnie odbierane zadania pionu C.
+
+### Verification TASK 15
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_reviewer_work_assignments.py services/api/tests/test_reviewer_work_lifecycle.py services/api/tests/test_reviewer_access.py services/api/tests/test_reviewer_ingress.py services/api/tests/test_migration_baseline.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+.\.venv\Scripts\ruff.exe check <zmienione pliki Python>
+.\.venv\Scripts\python.exe -m mypy --follow-imports=skip --ignore-missing-imports <zmienione moduły aplikacyjne>
+npm run db:migrate
+npm run db:current
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_postgres_baseline.py -q --tb=short
+```
+
+Wynik celowany: `62 passed`, a pełny zestaw API dał `374 passed, 29 skipped`;
+Ruff i mypy przeszły. Lokalna baza oraz rzeczywisty cykl PostgreSQL przeszły na
+`0052_reviewer_assignment_sessions (head)`, a test integracyjny dał `2 passed`.
+
+### Acceptance criteria TASK 15
+
+- [x] Online assignment wskazuje jedną sesję o identycznym scope gry/importu.
+- [x] Local assignment nie tworzy ani nie przechowuje sesji dostępowej.
+- [x] Dwa różne importy ponownie używają jednego procesu i publicznego originu,
+      zachowując oddzielne sesje i lease.
+- [x] Zamknięcie jednego assignmentu unieważnia wyłącznie jego sesję i nie
+      wywołuje globalnego zatrzymania ingressu.
+- [x] Nieudane otwarcie nie pozostawia aktywnej, osieroconej sesji.
+- [x] Migracja zachowuje scope w bazie i ma odwracalny downgrade.
+- [x] TASK 15 nie rozpoczyna TASK 16 ani późniejszych zmian API/UI/limitu.
 
 ### Kryteria odbioru pionu
 
@@ -948,6 +998,8 @@ first-save-wins i audyt `superseded`, a TASK 12 rozdzielił konflikt komendy ite
 od zmian liczników. TASK 13 zamknął pion B ograniczonym buforem
 `previous/current/next two` i prefetchowaniem zasobów sąsiadów. Pion wspólnego
 Reviewera został rozpoczęty w TASK 14 od trwałych `reviewer_work_assignments` z
-fencingiem i historią zamknięcia. Integracja assignment/session, współdzielony
-proces i tunel, limit online oraz UI pozostają otwarte i wymagają osobnych
-poleceń dla kolejnych numerów z zaakceptowanego breakdownu.
+fencingiem i historią zamknięcia. TASK 15 powiązał assignment online ze scoped
+sesją i dodał orkiestrację ponownie używającą jednego procesu/publicznego URL
+bez globalnego stopu pojedynczej pracy. Synchronizacja Windows, limit online,
+`stop-if-unused` oraz UI pozostają otwarte i wymagają osobnych poleceń dla
+kolejnych numerów z zaakceptowanego breakdownu.

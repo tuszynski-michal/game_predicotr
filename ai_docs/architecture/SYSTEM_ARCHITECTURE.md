@@ -1281,14 +1281,19 @@ wyłącznie jego hash. Przycisk publikacji uruchamia produkcyjny Reviewer i
 Quick Tunnel przez typowane lokalne API; osobny przycisk unieważnia bieżącą
 sesję i zatrzymuje tunel.
 
-TASK-0249 wprowadza przed dalszą przebudową procesu osobną, trwałą warstwę
-`reviewer_work_assignments`. Assignment określa scope gry/importu, tryb
-local/online oraz ogrodzony lease z heartbeat i historią zamknięcia. Częściowy
-unikalny indeks gwarantuje najwyżej jedno aktywne przypisanie dla importu, ale
-nie ogranicza równoległej pracy nad różnymi importami. Assignment nie jest
-sesją uwierzytelniającą i nie przechowuje URL ani stanu procesu; połączenie obu
-lifecycle'ów oraz współdzielenie jednego Reviewera/Quick Tunnel pozostaje
-następnym etapem pionu C.
+TASK-0249 wprowadza osobną, trwałą warstwę `reviewer_work_assignments`.
+Assignment określa scope gry/importu, tryb local/online oraz ogrodzony lease z
+heartbeat i historią zamknięcia. Częściowy unikalny indeks gwarantuje najwyżej
+jedno aktywne przypisanie dla importu, ale nie ogranicza równoległej pracy nad
+różnymi importami.
+
+Lifecycle pracy korzysta z jednego współdzielonego procesu Reviewera. Zdrowy
+lokalny proces jest ponownie używany przez kolejne scope'y, a zdrowy online
+ingress dostarcza jeden publiczny origin dla oddzielnych sesji. Assignment
+online wskazuje własną scoped `reviewer_access_session`; assignment local nie
+tworzy sesji. Zamknięcie pracy unieważnia tylko powiązaną sesję i zachowuje
+proces/Quick Tunnel. Serializacja startu między procesami Windows oraz
+`stop-if-unused` ostatniego online assignmentu są osobnymi kolejnymi etapami.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko

@@ -107,6 +107,13 @@ class OperationalImageReviewRepository(Protocol):
         limit: int,
     ) -> ImageReviewPage: ...
 
+    def queue_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> tuple[int, ImageReviewCounts]: ...
+
     def list_canonical_pending_items(
         self,
         *,
@@ -281,7 +288,9 @@ class OperationalImageReviewService:
             expected_queue_version=(
                 after.queue_version
                 if after is not None
-                else before.queue_version if before is not None else None
+                else before.queue_version
+                if before is not None
+                else None
             ),
             sequence_number=sequence_number,
             resume_at_first_pending=resume_at_first_pending,
@@ -450,6 +459,23 @@ class OperationalImageReviewService:
             resolution=resolution,
             resolved_at=datetime.now(UTC),
         )
+
+    def queue_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> tuple[int, ImageReviewCounts]:
+        queue_version, counts = self._repository.queue_snapshot(
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        if queue_version < 1:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_QUEUE_PROJECTION_INVALID",
+                "The operational review queue did not provide a durable topology version.",
+            )
+        return queue_version, counts
 
     def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness:
         report = self._repository.dataset_completeness(game_id)

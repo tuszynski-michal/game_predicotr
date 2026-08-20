@@ -51,6 +51,7 @@ from game_predictor_api.schemas.image_reviews import (
     to_canonical_page_response,
     to_image_dataset_completeness_response,
     to_image_sequence_source_selection_response,
+    to_operational_counts_response,
     to_operational_event_response,
     to_operational_geometry_revision_response,
     to_operational_item_response,
@@ -465,10 +466,16 @@ def create_image_reviews_router(
             rejection_reason=payload.rejection_reason,
             resolved_by=reviewer_actor or payload.resolved_by,
         )
+        queue_version, counts = service.queue_snapshot(
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
         return OperationalImageReviewResolutionResponse(
             item=to_operational_item_response(item),
             event=to_operational_event_response(event),
             created=created,
+            counts=to_operational_counts_response(counts),
+            queue_version=queue_version,
         )
 
     @router.get(

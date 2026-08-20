@@ -4389,12 +4389,17 @@ export type OperationalImageReviewResolutionEventResponse = {
  * OperationalImageReviewResolutionResponse
  */
 export type OperationalImageReviewResolutionResponse = {
+  counts: OperationalImageReviewCountsResponse;
   /**
    * Created
    */
   created: boolean;
   event: OperationalImageReviewResolutionEventResponse;
   item: OperationalImageReviewItemResponse;
+  /**
+   * Queueversion
+   */
+  queueVersion: number;
 };
 
 /**

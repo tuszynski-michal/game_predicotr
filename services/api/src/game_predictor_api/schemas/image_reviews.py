@@ -18,6 +18,7 @@ from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_ALTERNATIVES,
     ImageDatasetCompleteness,
     ImageReviewAction,
+    ImageReviewCounts,
     ImageReviewGeometryRevision,
     ImageReviewItem,
     ImageReviewResolutionEvent,
@@ -223,6 +224,8 @@ class OperationalImageReviewResolutionResponse(ApiModel):
     item: OperationalImageReviewItemResponse
     event: OperationalImageReviewResolutionEventResponse
     created: bool
+    counts: OperationalImageReviewCountsResponse
+    queue_version: int = Field(ge=1)
 
 
 class OperationalImageReviewGeometryPoint(ApiModel):
@@ -347,15 +350,7 @@ def to_operational_page_response(
         import_job_id=page.import_job_id,
         view=page.view,
         items=tuple(to_operational_item_response(item) for item in page.items),
-        counts=OperationalImageReviewCountsResponse(
-            pending=page.counts.pending,
-            accepted=page.counts.accepted,
-            corrected=page.counts.corrected,
-            rejected=page.counts.rejected,
-            superseded=page.counts.superseded,
-            completed=page.counts.completed,
-            total=page.counts.total,
-        ),
+        counts=to_operational_counts_response(page.counts),
         queue_version=page.queue_version,
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,
@@ -368,17 +363,23 @@ def to_canonical_page_response(
     return CanonicalImageReviewPageResponse(
         game_id=page.game_id,
         items=tuple(to_operational_item_response(item) for item in page.items),
-        counts=OperationalImageReviewCountsResponse(
-            pending=page.counts.pending,
-            accepted=page.counts.accepted,
-            corrected=page.counts.corrected,
-            rejected=page.counts.rejected,
-            superseded=page.counts.superseded,
-            completed=page.counts.completed,
-            total=page.counts.total,
-        ),
+        counts=to_operational_counts_response(page.counts),
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,
+    )
+
+
+def to_operational_counts_response(
+    counts: ImageReviewCounts,
+) -> OperationalImageReviewCountsResponse:
+    return OperationalImageReviewCountsResponse(
+        pending=counts.pending,
+        accepted=counts.accepted,
+        corrected=counts.corrected,
+        rejected=counts.rejected,
+        superseded=counts.superseded,
+        completed=counts.completed,
+        total=counts.total,
     )
 
 
@@ -521,6 +522,7 @@ __all__ = [
     "OperationalImageReviewResolutionEventResponse",
     "OperationalImageReviewResolutionResponse",
     "to_operational_event_response",
+    "to_operational_counts_response",
     "to_operational_geometry_revision_response",
     "to_operational_item_response",
     "to_operational_page_response",

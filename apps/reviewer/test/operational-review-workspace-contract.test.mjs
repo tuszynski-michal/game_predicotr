@@ -57,6 +57,8 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /isOperationalReviewTypingTarget/);
   assert.match(source, /operationalReviewKeyboardAction/);
   assert.match(source, /globalThis\.crypto\.randomUUID/);
+  assert.match(source, /resolutionIdempotencyKey/);
+  assert.match(source, /operationalReviewPageAfterResolution/);
   assert.match(source, /operationalReviewSuggestions/);
   assert.match(source, /operationalReviewLegend/);
   assert.match(source, /naciśnij Enter, aby od razu zapisać/);

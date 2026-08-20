@@ -1150,6 +1150,12 @@ dodatkowego modala. Backend nie ufa klawiaturze ani stanowi klienta i nadal
 egzekwuje komplet 15 komórek, aktywny katalog symboli, geometrię, rewizję oraz
 idempotencję.
 
+Klient zachowuje UUID dla ponowienia tej samej, niezmienionej komendy po błędzie
+transportu. Backend odróżnia konflikt rewizji bieżącego itemu od zmiany
+liczników lub sąsiada. Po poprawnym zapisie zwraca snapshot trwałych liczników i
+`queueVersion` z tej samej transakcji; Reviewer nie wykonuje lokalnej projekcji
+statusów dla resolution.
+
 Korekta siatki działa przed decyzją symbolu. Zapisuje nową immutable rewizję
 geometrii, wyprostowanej planszy i 15 cropów z checksumami, a następnie
 ponownie otwiera operacyjny review item. Stare `cropSampleId`, etykiety i

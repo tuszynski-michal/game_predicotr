@@ -7665,6 +7665,9 @@
       "OperationalImageReviewResolutionResponse": {
         "additionalProperties": false,
         "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OperationalImageReviewCountsResponse"
+          },
           "created": {
             "title": "Created",
             "type": "boolean"
@@ -7674,12 +7677,19 @@
           },
           "item": {
             "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+          },
+          "queueVersion": {
+            "minimum": 1.0,
+            "title": "Queueversion",
+            "type": "integer"
           }
         },
         "required": [
           "item",
           "event",
-          "created"
+          "created",
+          "counts",
+          "queueVersion"
         ],
         "title": "OperationalImageReviewResolutionResponse",
         "type": "object"

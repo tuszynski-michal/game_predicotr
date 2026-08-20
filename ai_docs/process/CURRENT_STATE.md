@@ -1910,5 +1910,13 @@ pozostałe pending zachowują źródło i append-only audyt jako `superseded` be
 zmiany `queueVersion` i bez staging row. Równoległa przegrana komenda zwraca
 kontrolowany wynik, a jej exact retry pozostaje idempotentny. Worker używa tej
 samej semantyki dla ponownie napotkanego kanonicznego zakresu. Reviewer pokazuje
-osobny status i licznik. TASK 12 (semantyka innych konfliktów komendy) oraz mały
-bufor Reviewera pozostają otwarte.
+osobny status i licznik.
+
+TASK 12 rozdzielił konkurencyjność komendy bieżącej planszy od zmian stanu
+całej kolejki. Resolution zwraca teraz autorytatywny `queueVersion` i liczniki
+odczytane z trwałej projekcji po zapisie. Zmiana sąsiedniego itemu nie blokuje
+komendy; rzeczywisty konflikt bieżącego itemu ma stabilny
+`IMAGE_REVIEW_REVISION_CONFLICT` z oczekiwaną i aktualną rewizją. Reviewer ufa
+snapshotowi serwera i zachowuje UUID idempotencji przy ponowieniu niezmienionej
+komendy po niejednoznacznym błędzie transportu. Strategia bounded bufora
+`previous/current/next two` pozostaje wyłącznie zakresem TASK 13.

@@ -529,6 +529,13 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                     resolved_by=f"reviewer-{job_id}",
                 )
                 assert created is True
+                queue_version, counts = service.queue_snapshot(
+                    game_id=game.id,
+                    import_job_id=job_id,
+                )
+                assert queue_version == 1
+                assert counts.total == 1
+                assert counts.accepted + counts.superseded == 1
                 session.commit()
                 return resolved.id, resolved.status, event.action
 

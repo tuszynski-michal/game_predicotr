@@ -6,7 +6,9 @@ import type {
   OperationalImageReviewGeometryCommand,
   OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryPreviewCommand,
+  OperationalImageReviewPageResponse,
   OperationalImageReviewResolutionCommand,
+  OperationalImageReviewResolutionResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -189,6 +191,25 @@ export function operationalReviewKeyboardAction(
   return symbol === null
     ? { type: 'none' }
     : { symbolCode: symbol.code, type: 'set-symbol' };
+}
+
+export function operationalReviewResolutionIdempotencyKey(
+  currentKey: string | null,
+  createKey: () => string,
+): string {
+  return currentKey ?? createKey();
+}
+
+export function operationalReviewPageAfterResolution(
+  page: OperationalImageReviewPageResponse,
+  resolution: OperationalImageReviewResolutionResponse,
+): OperationalImageReviewPageResponse {
+  return {
+    ...page,
+    counts: resolution.counts,
+    items: [resolution.item],
+    queueVersion: resolution.queueVersion,
+  };
 }
 
 export function operationalReviewDraftSymbols(

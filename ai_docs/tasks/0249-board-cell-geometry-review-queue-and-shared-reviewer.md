@@ -19,9 +19,10 @@ read-only podgląd 15 finalnych cropów v19, są ukończone. TASK 7, czyli
 append-only zapis ręcznej geometrii v19, oraz TASK 8, czyli jawny pending-only
 recrop na zaakceptowanym v19, również są ukończone. TASK 9 dodał trwałą
 projekcję topologii kolejki, liczniki i `queueVersion`, TASK 10 przepiął na nią
-listowanie, a TASK 11 dodał transakcyjne first-save-wins oraz audyt
-`superseded`. Pełny produkcyjny pipeline importu pozostaje na historycznym v18;
-TASK 12 i pion wspólnego Reviewera nie zostały rozpoczęte.
+listowanie, TASK 11 dodał transakcyjne first-save-wins oraz audyt `superseded`,
+a TASK 12 rozdzielił konflikt rewizji itemu od zmian liczników. Pełny
+produkcyjny pipeline importu pozostaje na historycznym v18; bounded bufor i pion
+wspólnego Reviewera nie zostały rozpoczęte.
 
 ## Goal
 
@@ -492,9 +493,9 @@ zwrócił wyniku przez 90 sekund i został przerwany zgodnie z limitem
 3. [ukończone w TASK 11] Zaimplementować transakcyjne first-save-wins dla
    `game_id + sequence_number`. Przegrane oczekujące wystąpienia oznaczać jako
    `superseded`, zachowując źródło i audyt.
-4. Odróżnić rzeczywiście nieaktualną komendę elementu od prawidłowej decyzji,
-   po której zmieniły się liczniki. Sama zmiana sąsiedniego elementu nie może
-   unieważniać kursora bieżącej pozycji.
+4. [ukończone w TASK 12] Odróżnić rzeczywiście nieaktualną komendę elementu od
+   prawidłowej decyzji, po której zmieniły się liczniki. Sama zmiana sąsiedniego
+   elementu nie może unieważniać kursora bieżącej pozycji.
 5. Dostosować Reviewer do małego, ograniczonego bufora
    `previous/current/next two`, bez ładowania całych 19 745 pozycji do pamięci.
 
@@ -673,6 +674,60 @@ wcześniejszych, niezwiązanych błędów w
 `symbol_model_iteration_repository.py` (`arg-type`, `unused-ignore`) i nie
 zgłosił problemu w kodzie TASK 11.
 
+### Outcome TASK 12 — konflikt itemu i autorytatywny wynik komendy
+
+- Pomyślna odpowiedź resolution zawiera `queueVersion` oraz pełne `counts`
+  odczytane z trwałej projekcji po wykonaniu zapisu i triggerów. Reviewer używa
+  tego snapshotu zamiast lokalnie odejmować i dodawać status bieżącego itemu.
+- `expectedRevision` chroni wyłącznie wskazany review item. Zmiana sąsiedniej
+  pozycji albo liczników nie blokuje poprawnej komendy i nie zmienia
+  `queueVersion`.
+- Rzeczywiście stara komenda zwraca `IMAGE_REVIEW_REVISION_CONFLICT` ze scope
+  `item`, identyfikatorem, oczekiwaną i aktualną rewizją oraz aktualnym statusem.
+  Konflikt geometrii i konflikt topologii kursora pozostają odrębnymi kodami.
+- Reviewer zachowuje ten sam UUID idempotencji dla ponowienia niezmienionej
+  komendy po błędzie transportu. Zmiana numeru albo symbolu zeruje próbę; exact
+  retry odzyskuje wcześniejszy sukces jako `created = false` wraz z aktualnymi
+  licznikami.
+- TASK 12 nie implementuje bufora `previous/current/next two`, prefetchu ani
+  lifecycle'u wspólnego Reviewera.
+
+### Acceptance criteria TASK 12
+
+- [x] Decyzja bieżącego itemu przechodzi po równoległej zmianie sąsiedniej
+      pozycji, jeżeli jego własna rewizja nadal odpowiada komendzie.
+- [x] Pomyślna odpowiedź i exact retry zawierają dokładne trwałe liczniki oraz
+      `queueVersion` po transakcji.
+- [x] Tylko zmiana rewizji bieżącego itemu daje item-scoped konflikt z danymi
+      umożliwiającymi jednoznaczne przeładowanie.
+- [x] Reviewer nie wyprowadza liczników resolution z lokalnego snapshotu i
+      ponawia niezmienioną komendę z tym samym UUID.
+- [x] OpenAPI oraz generowany klient obejmują nowy snapshot odpowiedzi.
+- [x] TASK 12 nie rozpoczyna bounded bufora ani pionu C.
+
+### Verification TASK 12
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_image_batch_store.py::test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_loser -q
+npm test --workspace @game-predictor/admin-api-client
+npm test --workspace @game-predictor/reviewer
+npm run typecheck --workspace @game-predictor/admin-api-client
+npm run typecheck --workspace @game-predictor/reviewer
+npm run reviewer:build
+npm run openapi:check
+```
+
+Wynik: pełny zestaw API dał `359 passed, 28 skipped`, a rzeczywisty równoległy
+test PostgreSQL potwierdził first-save-wins oraz snapshot liczników po zapisie.
+Klient API dał `38 passed`, Reviewer `28 passed`; oba typechecki TypeScript,
+build Reviewera, OpenAPI, Ruff, Prettier i celowany ESLint przeszły. Pełny ESLint
+workspace Reviewera oraz mypy obu source rootów nie zwróciły wyniku przez 60
+sekund i zostały przerwane zgodnie z limitem `AGENTS.md`. Wąski mypy uruchomiony
+bez workerowego source rootu pokazał wyłącznie znany problem `import-untyped`
+między pakietami oraz wcześniejszy `unused-ignore`, a nie błąd w kodzie TASK 12.
+
 ### Kryteria odbioru pionu
 
 - kolejność pozycji jest identyczna przed i po ich zatwierdzeniu,
@@ -786,7 +841,8 @@ zaliczył deterministyczny checkpoint 100 stron bez fałszywego sukcesu. Edytor 
 podgląd v19 powstały w TASK 6, a TASK 7 uruchomił ich append-only zapis z pełną
 proweniencją. TASK 8 udostępnił osobno odbierany pending-only recrop v19 bez
 zmiany pełnego pipeline'u importu. TASK 9 utrwalił topologię i liczniki kolejki,
-TASK 10 przepiął operacyjne listowanie na jeden klucz, a TASK 11 utrwalił
-first-save-wins i audyt `superseded`. Rozróżnienie pozostałych konfliktów
-komendy, bounded bufor oraz cały pion wspólnego Reviewera pozostają otwarte i
-wymagają osobnych poleceń dla kolejnych numerów z zaakceptowanego breakdownu.
+TASK 10 przepiął operacyjne listowanie na jeden klucz, TASK 11 utrwalił
+first-save-wins i audyt `superseded`, a TASK 12 rozdzielił konflikt komendy itemu
+od zmian liczników. Bounded bufor oraz cały pion wspólnego Reviewera pozostają
+otwarte i wymagają osobnych poleceń dla kolejnych numerów z zaakceptowanego
+breakdownu.

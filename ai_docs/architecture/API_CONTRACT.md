@@ -1443,6 +1443,16 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
+Odpowiedź resolution zawiera zapisany item i event, `created`, a także
+autorytatywne `counts` oraz `queueVersion` odczytane z trwałej projekcji po
+zapisie. Zmiana statusu sąsiedniej pozycji nie unieważnia komendy bieżącego
+itemu. Tylko różnica `expectedRevision` i aktualnej rewizji tego itemu zwraca
+`IMAGE_REVIEW_REVISION_CONFLICT`; szczegóły wskazują `conflictScope = item`,
+identyfikator oraz rewizje oczekiwaną i aktualną. Konflikt geometrii pozostaje
+osobnym kodem. Exact retry tego samego UUID zwraca `created = false` wraz z
+bieżącym snapshotem liczników, nawet jeżeli od pierwszego zapisu zmieniły się
+inne elementy kolejki.
+
 Zapis accepted/corrected jest serializowany dla `gameId + sequenceNumber`.
 Pierwsza poprawnie utrwalona kanoniczna decyzja wygrywa. Pozostałe oczekujące
 wystąpienia tego numeru przechodzą terminalnie do `superseded`, zachowują

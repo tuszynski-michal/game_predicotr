@@ -424,6 +424,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             queue_version=final_queue_version,
         )
 
+    def queue_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> tuple[int, ImageReviewCounts]:
+        self.require_context(game_id=game_id, import_job_id=import_job_id)
+        return self._queue_snapshot(import_job_id)
+
     def list_canonical_pending_items(
         self,
         *,
@@ -686,6 +695,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_REVISION_CONFLICT",
                 "The operational review item changed after it was loaded.",
+                details={
+                    "actualRevision": locked.resolution_revision,
+                    "actualStatus": locked.status,
+                    "conflictScope": "item",
+                    "expectedRevision": expected_revision,
+                    "reviewItemId": str(review_item_id),
+                },
             )
         active_codes = self.active_symbol_codes(game_id)
         revalidated = validate_image_review_resolution(

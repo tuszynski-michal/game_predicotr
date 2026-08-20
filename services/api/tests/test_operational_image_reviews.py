@@ -148,6 +148,15 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             queue_version=self.queue_version,
         )
 
+    def queue_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> tuple[int, ImageReviewCounts]:
+        self.require_context(game_id=game_id, import_job_id=import_job_id)
+        return self.queue_version, self._counts()
+
     def get_item(
         self,
         review_item_id: UUID,
@@ -193,6 +202,13 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_REVISION_CONFLICT",
                 "The operational review item changed after it was loaded.",
+                details={
+                    "actualRevision": item.resolution_revision,
+                    "actualStatus": item.status,
+                    "conflictScope": "item",
+                    "expectedRevision": expected_revision,
+                    "reviewItemId": str(review_item_id),
+                },
             )
         revision = item.resolution_revision + 1
         event = ImageReviewResolutionEvent(
@@ -1243,6 +1259,79 @@ def test_whole_board_resolution_is_idempotent_and_reeditable(
         params=query,
     )
     assert [event["revision"] for event in history.json()] == [1, 2]
+
+
+def test_resolution_uses_item_revision_and_returns_authoritative_queue_snapshot(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    items = sorted(repository.items.values(), key=lambda value: value.source_order_index)
+    current, neighbor, remaining = items
+    endpoint = f"/api/v1/admin/image-review-items/{current.id}/resolution"
+    context = {"gameId": str(game_id), "importJobId": str(import_job_id)}
+    command_key = uuid4()
+    command = _resolution_payload(current, idempotency_key=command_key)
+
+    neighbor_response = client.post(
+        f"/api/v1/admin/image-review-items/{neighbor.id}/resolution",
+        params=context,
+        json=_resolution_payload(neighbor, idempotency_key=uuid4()),
+    )
+    assert neighbor_response.status_code == 200
+
+    resolved = client.post(endpoint, params=context, json=command)
+    assert resolved.status_code == 200
+    assert resolved.json()["created"] is True
+    assert resolved.json()["queueVersion"] == 1
+    assert resolved.json()["counts"] == {
+        "pending": 1,
+        "accepted": 2,
+        "corrected": 0,
+        "rejected": 0,
+        "superseded": 0,
+        "completed": 2,
+        "total": 3,
+    }
+
+    last_response = client.post(
+        f"/api/v1/admin/image-review-items/{remaining.id}/resolution",
+        params=context,
+        json=_resolution_payload(remaining, idempotency_key=uuid4()),
+    )
+    assert last_response.status_code == 200
+
+    exact_retry = client.post(endpoint, params=context, json=command)
+    assert exact_retry.status_code == 200
+    assert exact_retry.json()["created"] is False
+    assert exact_retry.json()["queueVersion"] == 1
+    assert exact_retry.json()["counts"]["pending"] == 0
+    assert exact_retry.json()["counts"]["accepted"] == 3
+
+    stale = client.post(
+        endpoint,
+        params=context,
+        json=_resolution_payload(
+            repository.items[current.id],
+            idempotency_key=uuid4(),
+            expected_revision=0,
+            action="corrected",
+            corrected_cell=0,
+        ),
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "IMAGE_REVIEW_REVISION_CONFLICT"
+    assert stale.json()["details"] == {
+        "actualRevision": 1,
+        "actualStatus": "accepted",
+        "conflictScope": "item",
+        "expectedRevision": 0,
+        "reviewItemId": str(current.id),
+    }
 
 
 def test_resolution_rejects_stale_revision_and_changed_idempotent_command(

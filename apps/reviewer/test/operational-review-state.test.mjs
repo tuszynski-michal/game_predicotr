@@ -15,10 +15,12 @@ import {
   operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
   operationalReviewNativeContextViewport,
+  operationalReviewPageAfterResolution,
   operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
+  operationalReviewResolutionIdempotencyKey,
   operationalReviewResolutionAction,
   operationalReviewSequence,
   operationalReviewStatusLabel,
@@ -275,6 +277,65 @@ test('submits on Enter or ArrowRight and ignores repeat, typing and open dialogs
     symbolCode: 'symbol-1',
     type: 'set-symbol',
   });
+});
+
+test('reuses the idempotency key while retrying one unchanged resolution', () => {
+  let created = 0;
+  const createKey = () => {
+    created += 1;
+    return '11111111-1111-4111-8111-111111111111';
+  };
+  const first = operationalReviewResolutionIdempotencyKey(null, createKey);
+  const retry = operationalReviewResolutionIdempotencyKey(first, createKey);
+
+  assert.equal(first, '11111111-1111-4111-8111-111111111111');
+  assert.equal(retry, first);
+  assert.equal(created, 1);
+});
+
+test('applies the authoritative queue snapshot returned by a resolution', () => {
+  const item = reviewItem();
+  const page = {
+    counts: {
+      accepted: 0,
+      completed: 0,
+      corrected: 0,
+      pending: 3,
+      rejected: 0,
+      superseded: 0,
+      total: 3,
+    },
+    gameId: 'game-1',
+    importJobId: 'job-1',
+    items: [item],
+    nextCursor: null,
+    previousCursor: null,
+    queueVersion: 4,
+    view: 'all',
+  };
+  const authoritativeCounts = {
+    accepted: 1,
+    completed: 1,
+    corrected: 0,
+    pending: 1,
+    rejected: 0,
+    superseded: 1,
+    total: 3,
+  };
+  const resolvedItem = { ...item, resolutionRevision: 4, status: 'accepted' };
+
+  const updated = operationalReviewPageAfterResolution(page, {
+    counts: authoritativeCounts,
+    created: true,
+    event: {},
+    item: resolvedItem,
+    queueVersion: 5,
+  });
+
+  assert.equal(updated.counts, authoritativeCounts);
+  assert.deepEqual(updated.items, [resolvedItem]);
+  assert.equal(updated.queueVersion, 5);
+  assert.equal(updated.nextCursor, null);
 });
 
 test('updates counts when the last visible board changes status', () => {

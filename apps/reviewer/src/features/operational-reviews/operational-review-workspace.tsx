@@ -37,6 +37,8 @@ import {
   operationalReviewJobLabel,
   operationalReviewKeyboardAction,
   operationalReviewNativeContextViewport,
+  operationalReviewPageAfterResolution,
+  operationalReviewResolutionIdempotencyKey,
   operationalReviewSequence,
   operationalReviewStatusLabel,
   updateOperationalReviewCounts,
@@ -279,23 +281,15 @@ export function OperationalReviewWorkspace({
         ? `Układ #${resolution.item.sequenceNumber ?? '—'} zapisano jako ${operationalReviewStatusLabel(resolution.item.status).toLocaleLowerCase('pl-PL')}.`
         : 'Ten sam zapis był już przyjęty — nie utworzono drugiej rewizji.',
     );
+    setPage((current) =>
+      current === null
+        ? current
+        : operationalReviewPageAfterResolution(current, resolution),
+    );
     if (page?.nextCursor !== null && page?.nextCursor !== undefined) {
       void refreshPage({ afterCursor: page.nextCursor });
       return;
     }
-    setPage((current) => {
-      if (current === null) return current;
-      const previousStatus = current.items[0]?.status;
-      return {
-        ...current,
-        counts: updateOperationalReviewCounts(
-          current.counts,
-          previousStatus,
-          resolution.item.status,
-        ),
-        items: [resolution.item],
-      };
-    });
   }
 
   function handleGeometrySaved(
@@ -721,6 +715,9 @@ function OperationalReviewBoard({
   const [saveError, setSaveError] = useState('');
   const [revisionConflict, setRevisionConflict] = useState(false);
   const savingRef = useRef(false);
+  const [resolutionIdempotencyKey, setResolutionIdempotencyKey] = useState<
+    string | null
+  >(null);
   const shortcuts = useMemo(
     () => buildOperationalReviewSymbolShortcuts(symbols),
     [symbols],
@@ -789,6 +786,7 @@ function OperationalReviewBoard({
           index === selectedCellIndex ? symbolCode : value,
         ),
       );
+      setResolutionIdempotencyKey(null);
       setSaveError('');
       setRevisionConflict(false);
     },
@@ -817,11 +815,16 @@ function OperationalReviewBoard({
     setIsSaving(true);
     setSaveError('');
     setRevisionConflict(false);
+    const idempotencyKey = operationalReviewResolutionIdempotencyKey(
+      resolutionIdempotencyKey,
+      () => globalThis.crypto.randomUUID(),
+    );
+    setResolutionIdempotencyKey(idempotencyKey);
     const command = buildOperationalReviewResolutionCommand(
       item,
       sequenceNumber,
       draftSymbols,
-      globalThis.crypto.randomUUID(),
+      idempotencyKey,
     );
     const result = await resolveOperationalReview(api, {
       command,
@@ -836,6 +839,7 @@ function OperationalReviewBoard({
       setRevisionConflict(result.isRevisionConflict);
       return;
     }
+    setResolutionIdempotencyKey(null);
     onResolved(result.resolution);
   }, [
     api,
@@ -847,6 +851,7 @@ function OperationalReviewBoard({
     item,
     onNext,
     onResolved,
+    resolutionIdempotencyKey,
     sequenceIsValid,
     sequenceNumber,
     setIsSaving,
@@ -1032,7 +1037,9 @@ function OperationalReviewBoard({
               min="1"
               onChange={(event) => {
                 setSequenceDraft(event.target.value);
+                setResolutionIdempotencyKey(null);
                 setSaveError('');
+                setRevisionConflict(false);
               }}
               type="number"
               value={sequenceDraft}

@@ -747,6 +747,12 @@ jednoznacznego powiązania source-order kończy się fail-closed. Migracja
 backfilluje wszystkie istniejące elementy i odmawia ukończenia, jeżeli choć
 jeden z nich nie ma tego powiązania.
 
+Konkurencyjność komendy planszy jest niezależna od wersji tej projekcji.
+`expectedRevision` porównuje wyłącznie rewizję wskazanego
+`image_review_items`, natomiast `queue_version` chroni wyłącznie topologię.
+Odpowiedź poprawnego zapisu czyta liczniki projekcji już po wykonaniu triggerów;
+nie rekonstruuje ich z poprzedniego snapshotu klienta.
+
 Job-local read model używa tej projekcji bez ponownego wyprowadzania kolejności
 z numeru sekwencji albo bieżącego statusu. Keyset cursor przechowuje zamrożony
 klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu

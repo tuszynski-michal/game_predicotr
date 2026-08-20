@@ -258,7 +258,21 @@ test('submits a scope-bound whole-board command and classifies revision conflict
     sequenceNumber: 29,
   };
   let received;
-  const resolution = { created: true, event: {}, item: {} };
+  const resolution = {
+    counts: {
+      accepted: 1,
+      completed: 1,
+      corrected: 0,
+      pending: 2,
+      rejected: 0,
+      superseded: 0,
+      total: 3,
+    },
+    created: true,
+    event: {},
+    item: {},
+    queueVersion: 1,
+  };
   const success = await resolveOperationalReview(
     {
       resolveOperationalImageReviewItem: async (...args) => {

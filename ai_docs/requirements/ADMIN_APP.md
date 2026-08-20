@@ -351,6 +351,15 @@ do następnej planszy w pełnej kolejności. Skróty nie działają podczas pisa
 w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
 blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
+Klucz idempotencji jednej niezmienionej komendy jest zachowywany także po
+niejednoznacznym błędzie transportu. Ponowienie może więc odzyskać poprawnie
+utrwaloną decyzję zamiast wysłać nową komendę na starej rewizji. Pomyślny zapis
+zwraca trwały `queueVersion` i dokładne liczniki po całej transakcji, w tym po
+ewentualnym zastąpieniu innych źródeł. Reviewer nie wyprowadza tych liczników z
+lokalnej tablicy. Przeładowanie bieżącej planszy jest wymagane tylko przy
+konflikcie jej rewizji lub geometrii; zmiana sąsiedniej pozycji albo samych
+liczników nie jest konfliktem komendy.
+
 Jeżeli inny reviewer wcześniej zapisze kanoniczną decyzję dla tej samej gry i
 numeru, bieżąca oczekująca pozycja otrzymuje kontrolowany status `superseded`.
 Reviewer pokazuje ten status i osobny licznik, nie traktuje go jako technicznego

@@ -4944,9 +4944,12 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   `accepted/corrected/rejected`. Kanoniczna projekcja z D-199 zachowuje jednego
   właściciela, a przegrane wystąpienia pozostają audytowalne. Liczniki i
   `queueVersion` muszą pochodzić z trwałej projekcji, nie z klientowej tablicy.
-- **Consequences:** kolejka kanoniczna sortowana dziś po `sequence_number` oraz
-  cursor zależny od zmiennego stanu wymagają osobnej migracji i zmiany kontraktu;
-  nie są zmieniane w baseline TASK-0249.
+- **Consequences:** migracje 0049–0050 utrwalają topologię, liczniki i
+  first-save-wins. Cursor v2 zależy wyłącznie od klucza źródłowego oraz
+  `queueVersion`, a resolution zwraca autorytatywny snapshot liczników po
+  transakcji. `expectedRevision` dotyczy wyłącznie bieżącego itemu; zmiana
+  sąsiada nie jest konfliktem komendy. Reviewer zachowuje UUID przy ponowieniu
+  niezmienionej komendy po błędzie transportu.
 - **Supersedes:** rozszerza D-093 i D-199, zastępując kolejność sekwencyjną
   niezmienną kolejnością źródłową dla operacyjnego Reviewera.
 

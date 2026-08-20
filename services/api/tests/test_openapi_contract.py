@@ -438,6 +438,9 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "geometryRevision",
         "resolvedBy",
     } == set(command_schema["required"])
+    resolution_schema = schema["components"]["schemas"]["OperationalImageReviewResolutionResponse"]
+    assert {"counts", "queueVersion"}.issubset(resolution_schema["required"])
+    assert resolution_schema["properties"]["queueVersion"]["minimum"] == 1
     geometry_command = schema["components"]["schemas"]["OperationalImageReviewGeometryCommand"]
     assert {
         "corners",

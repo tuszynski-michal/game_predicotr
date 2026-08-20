@@ -618,6 +618,22 @@ nawiązać wychodzące połączenie HTTPS dla jawnie uruchamianego Quick Tunnel.
 `https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego
 publicznego originu.
 
+Kontrolery `reviewer:remote:start`, `reviewer:remote:status`,
+`reviewer:remote:stop` oraz lokalny start używają tego samego nazwanego mutexu
+Windows. Równoległe wywołania są serializowane i mają ograniczony czas
+oczekiwania. Stan w `.runtime/` jest publikowany atomowo dopiero po potwierdzeniu
+gotowości procesu i zawiera PID, czas startu, executable oraz losowy identyfikator
+instancji. Dzięki temu stary plik stanu albo PID ponownie użyty przez inny proces
+nie powoduje jego zatrzymania. Nie usuwaj ręcznie pliku stanu podczas aktywnego
+startu; `status` zgłosi niepełny lub niezgodny stan jako `stale`.
+
+Każda próba startu zapisuje osobne pliki w
+`.runtime/reviewer-lifecycle-logs/`, więc równoległy albo kolejny start nie
+próbuje ponownie otworzyć jednego używanego pliku logu. Pliki wynikowe poleceń
+API są również unikalne i znajdują się w
+`.runtime/reviewer-ingress-controller-results/`. Oba katalogi są danymi
+diagnostycznymi runtime i nie zawierają kodu sesji ani bearer tokenu.
+
 Wyślij link i kod dwoma osobnymi kanałami. Odbiorca nie instaluje klienta VPN:
 otwiera link w przeglądarce i podaje kod. Kod ma najwyżej pięć prób, a sesja
 wygasa najpóźniej po 24 godzinach.

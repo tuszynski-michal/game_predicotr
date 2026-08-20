@@ -9,16 +9,17 @@ Set-StrictMode -Version Latest
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $processEnvironmentScript = Join-Path $PSScriptRoot "windows_process_environment.ps1"
-if (-not (Test-Path -LiteralPath $processEnvironmentScript -PathType Leaf)) {
-    throw "Windows process environment helper is unavailable: $processEnvironmentScript"
+$lifecycleScript = Join-Path $PSScriptRoot "reviewer_process_lifecycle.ps1"
+foreach ($requiredScript in @($processEnvironmentScript, $lifecycleScript)) {
+    if (-not (Test-Path -LiteralPath $requiredScript -PathType Leaf)) {
+        throw "Reviewer lifecycle helper is unavailable: $requiredScript"
+    }
+    . $requiredScript
 }
-. $processEnvironmentScript
 Repair-WindowsProcessPath
 
 $runtimeDirectory = Join-Path $projectRoot ".runtime"
 $statePath = Join-Path $runtimeDirectory "local-reviewer.json"
-$reviewerOutPath = Join-Path $runtimeDirectory "local-reviewer-app.out.log"
-$reviewerErrorPath = Join-Path $runtimeDirectory "local-reviewer-app.error.log"
 $reviewerUrl = "http://127.0.0.1:3001"
 $reviewerStartupAttempts = 40
 
@@ -62,28 +63,37 @@ function Write-Result {
     )
 }
 
-try {
+function Invoke-LocalReviewerStart {
     if (Test-LocalReviewerReady) {
         $existingStartedAt = $null
-        if (Test-Path -LiteralPath $statePath -PathType Leaf) {
-            try {
-                $existingState = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 |
-                    ConvertFrom-Json
+        $existingInstanceId = $null
+        $existingState = Read-ReviewerJsonState -LiteralPath $statePath
+        if ($null -ne $existingState) {
+            if ($null -ne $existingState.PSObject.Properties["startedAt"]) {
                 $existingStartedAt = $existingState.startedAt
             }
-            catch {
-                $existingStartedAt = $null
+            if ($null -ne $existingState.PSObject.Properties["instanceId"]) {
+                $existingInstanceId = $existingState.instanceId
             }
         }
-        Write-Result @{
+        return @{
             state = "running"
             publicOrigin = $null
             target = $reviewerUrl
             startedAt = $existingStartedAt
             reviewerReady = $true
+            instanceId = $existingInstanceId
             message = "Local Reviewer is already running."
         }
-        exit 0
+    }
+
+    $existingState = Read-ReviewerJsonState -LiteralPath $statePath
+    if ($null -ne $existingState) {
+        $identity = Test-ReviewerProcessIdentity -State $existingState
+        if ($identity.isMatch) {
+            Stop-Process -Id $identity.process.Id
+        }
+        Remove-Item -LiteralPath $statePath -Force
     }
 
     $npmCommand = Get-Command -Name "npm.cmd" -ErrorAction SilentlyContinue
@@ -95,14 +105,30 @@ try {
         throw "Reviewer production build is missing. Run npm run reviewer:build."
     }
 
+    $instanceId = [Guid]::NewGuid()
+    $logs = New-ReviewerAttemptPaths `
+        -RuntimeDirectory $runtimeDirectory `
+        -Prefix "reviewer-app" `
+        -InstanceId $instanceId
     $reviewerProcess = Start-Process `
         -FilePath $npmCommand.Source `
         -ArgumentList @("run", "reviewer:start") `
         -WorkingDirectory $projectRoot `
-        -RedirectStandardOutput $reviewerOutPath `
-        -RedirectStandardError $reviewerErrorPath `
+        -RedirectStandardOutput $logs.out `
+        -RedirectStandardError $logs.error `
         -PassThru `
         -WindowStyle Hidden
+    try {
+        $processIdentity = New-ReviewerProcessIdentity `
+            -Process $reviewerProcess `
+            -InstanceId $instanceId
+    }
+    catch {
+        if (-not $reviewerProcess.HasExited) {
+            Stop-Process -Id $reviewerProcess.Id
+        }
+        throw
+    }
 
     for ($attempt = 0; $attempt -lt $reviewerStartupAttempts; $attempt++) {
         Start-Sleep -Milliseconds 500
@@ -114,45 +140,73 @@ try {
         if (-not $reviewerProcess.HasExited) {
             Stop-Process -Id $reviewerProcess.Id
         }
-        throw "Reviewer did not become ready within 20 seconds. Check .runtime local-reviewer-app logs."
+        throw "Reviewer did not become ready within 20 seconds. Check the unique reviewer-lifecycle-logs entry."
+    }
+    $verifiedIdentity = Test-ReviewerProcessIdentity -State ([pscustomobject]$processIdentity)
+    if (-not $verifiedIdentity.isMatch) {
+        if (-not $reviewerProcess.HasExited) {
+            Stop-Process -Id $reviewerProcess.Id
+        }
+        throw "Reviewer process identity changed before local state publication."
     }
 
     $startedAt = [DateTimeOffset]::Now.ToString("o")
     $state = [ordered]@{
-        pid = $reviewerProcess.Id
+        schemaVersion = 2
+        instanceId = $processIdentity.instanceId
+        pid = $processIdentity.pid
+        processStartedAt = $processIdentity.processStartedAt
+        executablePath = $processIdentity.executablePath
+        processName = $processIdentity.processName
         target = $reviewerUrl
         startedAt = $startedAt
+        stdoutLogPath = $logs.out
+        stderrLogPath = $logs.error
     }
-    $temporaryStatePath = "$statePath.tmp"
-    [IO.File]::WriteAllText(
-        $temporaryStatePath,
-        ($state | ConvertTo-Json),
-        [Text.UTF8Encoding]::new($false)
-    )
-    Move-Item -LiteralPath $temporaryStatePath -Destination $statePath -Force
+    try {
+        Write-ReviewerAtomicJson -LiteralPath $statePath -Value $state
+    }
+    catch {
+        if (-not $reviewerProcess.HasExited) {
+            Stop-Process -Id $reviewerProcess.Id
+        }
+        throw
+    }
 
-    Write-Result @{
+    return @{
         state = "running"
         publicOrigin = $null
         target = $reviewerUrl
         startedAt = $startedAt
         reviewerReady = $true
+        instanceId = $processIdentity.instanceId
         message = "Local Reviewer is running."
     }
 }
-catch {
-    if ($Json) {
-        Write-Result @{
-            state = "error"
-            publicOrigin = $null
-            target = $reviewerUrl
-            startedAt = $null
-            reviewerReady = $false
-            message = $_.Exception.Message
-        }
-    }
-    else {
-        Write-Error $_
-    }
-    exit 1
+
+$lifecycleMutex = $null
+$exitCode = 0
+try {
+    $lifecycleMutex = Enter-ReviewerLifecycleLock `
+        -ProjectRoot $projectRoot `
+        -TimeoutMilliseconds 25000
+    Write-Result (Invoke-LocalReviewerStart)
 }
+catch {
+    $exitCode = 1
+    Write-Result @{
+        state = "error"
+        publicOrigin = $null
+        target = $reviewerUrl
+        startedAt = $null
+        reviewerReady = $false
+        instanceId = $null
+        message = $_.Exception.Message
+    }
+}
+finally {
+    if ($null -ne $lifecycleMutex) {
+        Exit-ReviewerLifecycleLock -Mutex $lifecycleMutex
+    }
+}
+exit $exitCode

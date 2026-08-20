@@ -27,6 +27,16 @@ developerski i dopiero potem tworzy Quick Tunnel. Stop zamyka wyłącznie
 publiczną ekspozycję; PostgreSQL, API i Admin przez cały czas pozostają na
 loopback.
 
+Lifecycle jednego procesu Reviewera i Quick Tunnel jest serializowany między
+procesami Windows nazwanym mutexem zależnym od repozytorium. Stan schema v2 jest
+publikowany atomowo dopiero po health checku i wiąże PID z czasem uruchomienia,
+pełną ścieżką executable oraz losowym `instanceId`, dlatego ponowne użycie PID
+nie pozwala zatrzymać obcego procesu. Każda próba startu ma osobne logi, a
+kontroler API ma osobny plik wyniku dla każdego wywołania. Operacja
+compare-and-stop po `instanceId` stanowi fencing dla późniejszego
+`stop-if-unused`; decyzja, kiedy wspólny tunel jest nieużywany, należy do
+lifecycle'u assignments, nie do skryptów procesu.
+
 ## Kontekst
 
 ```mermaid

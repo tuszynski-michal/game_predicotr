@@ -1,7 +1,10 @@
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Barrier
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -75,6 +78,7 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
                 "target": "http://127.0.0.1:3001",
                 "startedAt": "2026-07-31T12:00:00+02:00",
                 "reviewerReady": True,
+                "instanceId": "11111111-2222-3333-4444-555555555555",
             }
         )
 
@@ -82,12 +86,14 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
         tmp_path,
         powershell_executable="powershell.exe",
         runner=runner,
+        request_id_factory=lambda: UUID(int=1),
     )
 
     status = service.start()
 
     assert status.state == "running"
     assert status.public_origin == "https://safe-name.trycloudflare.com"
+    assert status.instance_id == UUID("11111111-2222-3333-4444-555555555555")
     assert calls == [
         (
             [
@@ -99,7 +105,12 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
                 str(scripts / "start_remote_reviewer_tunnel.ps1"),
                 "-Json",
                 "-ResultPath",
-                str(tmp_path / ".runtime" / "reviewer-ingress-controller-result.json"),
+                str(
+                    tmp_path
+                    / ".runtime"
+                    / "reviewer-ingress-controller-results"
+                    / "00000000-0000-0000-0000-000000000001.json"
+                ),
             ],
             tmp_path,
             60,
@@ -132,7 +143,11 @@ def test_ingress_service_starts_only_the_loopback_reviewer_without_public_origin
             }
         )
 
-    service = ReviewerIngressService(tmp_path, runner=runner)
+    service = ReviewerIngressService(
+        tmp_path,
+        runner=runner,
+        request_id_factory=lambda: UUID(int=2),
+    )
 
     status = service.start_local()
 
@@ -150,7 +165,12 @@ def test_ingress_service_starts_only_the_loopback_reviewer_without_public_origin
                 str(script),
                 "-Json",
                 "-ResultPath",
-                str(tmp_path / ".runtime" / "reviewer-ingress-controller-result.json"),
+                str(
+                    tmp_path
+                    / ".runtime"
+                    / "reviewer-ingress-controller-results"
+                    / "00000000-0000-0000-0000-000000000002.json"
+                ),
             ],
             tmp_path,
             30,
@@ -214,6 +234,83 @@ def test_ingress_service_fails_closed_for_invalid_or_failed_output(tmp_path: Pat
         failed.start()
     assert failed_error.value.code == "REVIEWER_INGRESS_COMMAND_FAILED"
     assert "sensitive" not in failed_error.value.message
+
+
+def test_compare_stop_passes_only_the_expected_instance_fence(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    stop_script = scripts / "stop_remote_reviewer_tunnel.ps1"
+    stop_script.write_text("# controlled", encoding="utf-8")
+    calls: list[list[str]] = []
+    instance_id = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+    def runner(command, _working_directory, _timeout_seconds):
+        calls.append(list(command))
+        return _completed(
+            {
+                "state": "stopped",
+                "publicOrigin": None,
+                "target": "http://127.0.0.1:3001",
+                "startedAt": None,
+                "reviewerReady": None,
+                "instanceId": None,
+            }
+        )
+
+    service = ReviewerIngressService(
+        tmp_path,
+        runner=runner,
+        request_id_factory=lambda: UUID(int=3),
+    )
+
+    status = service.stop_if_current(instance_id)
+
+    assert status.state == "stopped"
+    assert calls[0][-2:] == ["-ExpectedInstanceId", str(instance_id)]
+
+
+def test_independent_api_processes_use_unique_controller_result_paths(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "get_remote_reviewer_tunnel_status.ps1").write_text(
+        "# controlled",
+        encoding="utf-8",
+    )
+    barrier = Barrier(2)
+    result_paths: list[str] = []
+
+    def runner(command, _working_directory, _timeout_seconds):
+        result_paths.append(command[command.index("-ResultPath") + 1])
+        barrier.wait(timeout=2)
+        return _completed(
+            {
+                "state": "stopped",
+                "publicOrigin": None,
+                "target": "http://127.0.0.1:3001",
+                "startedAt": None,
+                "reviewerReady": False,
+                "instanceId": None,
+            }
+        )
+
+    services = (
+        ReviewerIngressService(
+            tmp_path,
+            runner=runner,
+            request_id_factory=lambda: UUID(int=4),
+        ),
+        ReviewerIngressService(
+            tmp_path,
+            runner=runner,
+            request_id_factory=lambda: UUID(int=5),
+        ),
+    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        states = list(executor.map(lambda service: service.status(), services))
+
+    assert [state.state for state in states] == ["stopped", "stopped"]
+    assert len(set(result_paths)) == 2
+    assert all("reviewer-ingress-controller-results" in path for path in result_paths)
 
 
 class _FakeIngress:

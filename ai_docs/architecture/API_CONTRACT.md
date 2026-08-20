@@ -1623,6 +1623,17 @@ z ograniczonym timeoutem do 60 sekund. Start zapewnia produkcyjny Reviewer na lo
 blokuje wykryty serwer developerski, uruchamia outbound-only Quick Tunnel i
 zwraca stan, publiczny origin, lokalny target, czas startu i gotowość Reviewera.
 
+Skrypty używają wspólnego, nazwanego mutexu Windows dla danego repozytorium,
+więc `start`, `status`, lokalny `start` i `stop` nie modyfikują lifecycle'u
+równolegle nawet wtedy, gdy wywołują je różne procesy API. Stan procesu schema
+v2 jest zapisywany atomowo dopiero po health checku i zawiera `instanceId`, PID,
+czas startu procesu, pełną ścieżkę executable i nazwę procesu. Status oraz stop
+ufają PID wyłącznie po zgodności całej tożsamości. Wewnętrzny kontroler ma także
+compare-and-stop po oczekiwanym `instanceId`; niezgodność pozostawia nowszą
+instancję bez zmian. Publiczny kontrakt HTTP i enum stanów pozostają bez zmian.
+Każde wywołanie API zapisuje wynik kontrolera do osobnego pliku, a każda próba
+startu Reviewera i tunelu ma osobne logi.
+
 `state` przyjmuje `running`, `stopped`, `stale` albo `degraded`. Stop jest
 idempotentny i usuwa publiczny origin. Endpointy są częścią Admin API na
 loopback i nie znajdują się na allowliście publicznego proxy Reviewera.

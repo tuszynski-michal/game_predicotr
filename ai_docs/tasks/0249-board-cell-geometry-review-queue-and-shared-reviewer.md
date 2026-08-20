@@ -801,7 +801,7 @@ generowanie i migracje nie należą do bramki TASK 13.
 2. [ukończone w TASK 15] Rozdzielić lifecycle przypisania/sesji od lifecycle'u
    procesu Reviewera i Quick Tunnel. Jeden proces i URL obsługują wszystkie
    aktywne scope'y.
-3. Serializować `ensure-running/status/stop-if-unused` między procesami Windows
+3. [ukończone w TASK 16] Serializować `ensure-running/status/stop-if-unused` między procesami Windows
    przez mutex/lock oraz atomowy stan zawierający PID, start time, executable i
    instance id. Każda próba startu ma unikalne logi, a publikacja stanu następuje
    dopiero po health checku.
@@ -911,6 +911,54 @@ Ruff i mypy przeszły. Lokalna baza oraz rzeczywisty cykl PostgreSQL przeszły n
 - [x] Nieudane otwarcie nie pozostawia aktywnej, osieroconej sesji.
 - [x] Migracja zachowuje scope w bazie i ma odwracalny downgrade.
 - [x] TASK 15 nie rozpoczyna TASK 16 ani późniejszych zmian API/UI/limitu.
+
+### Outcome TASK 16 — serializowany lifecycle procesu Windows
+
+- Wspólny helper PowerShell wyprowadza nazwany mutex z pełnej ścieżki
+  repozytorium i serializuje z ograniczonym timeoutem zdalny start, status,
+  stop oraz lokalny start Reviewera także między niezależnymi procesami API.
+- Stan lokalny i zdalny schema v2 jest publikowany atomowo dopiero po health
+  checku. Tożsamość procesu wiąże `instanceId`, PID, czas uruchomienia, pełną
+  ścieżkę executable i nazwę procesu; niezgodność lub ponowne użycie PID nie
+  pozwala zatrzymać obcego procesu.
+- Każda próba startu ma unikalne pliki stdout/stderr/log w
+  `.runtime/reviewer-lifecycle-logs`. Każde wywołanie kontrolera API ma również
+  unikalny plik wyniku, więc niezależne procesy nie współdzielą otwartego pliku.
+- Start publikuje stan dopiero po gotowości publicznego originu oraz produkcyjnego
+  Reviewera. Kontrolowany compare-and-stop wymaga oczekiwanego `instanceId` i
+  nie zatrzymuje nowszej instancji.
+- TASK 16 nie zmienia publicznego API/OpenAPI, bazy, Admina ani Reviewera. Nie
+  dodaje limitu trzech prac online i nie decyduje jeszcze, kiedy ostatni
+  assignment ma zatrzymać wspólny tunel; to pozostaje TASK 17.
+
+### Verification TASK 16
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_reviewer_process_lifecycle_scripts.py services/api/tests/test_reviewer_ingress.py services/api/tests/test_reviewer_work_lifecycle.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest services/api/tests -q --tb=short
+.\.venv\Scripts\ruff.exe check services/api/src/game_predictor_api/application/reviewer_ingress.py services/api/tests/test_reviewer_ingress.py services/api/tests/test_reviewer_process_lifecycle_scripts.py
+.\.venv\Scripts\python.exe -m mypy --follow-imports=skip --ignore-missing-imports services/api/src/game_predictor_api/application/reviewer_ingress.py
+```
+
+Testy procesowe uruchamiają niezależne procesy PowerShell i potwierdzają
+mutual exclusion, atomowy stan, odrzucenie PID z innym czasem startu, unikalne
+logi oraz compare-and-stop na rzeczywistym procesie testowym. Nie uruchamiają
+rzeczywistego Quick Tunnel ani nie zmieniają aktywnego ingressu operatora.
+Wynik celowany dał `18 passed`, a pełny zestaw API `380 passed, 29 skipped`;
+Ruff, ograniczony mypy i parser wszystkich zmienionych skryptów PowerShell
+przeszły.
+
+### Acceptance criteria TASK 16
+
+- [x] Równoległe kontrolery jednego repozytorium są serializowane nazwanym
+      mutexem z ograniczonym oczekiwaniem i odzyskaniem porzuconej blokady.
+- [x] Opublikowany stan zawiera pełną tożsamość procesu i powstaje atomowo
+      dopiero po health checku.
+- [x] Status i stop nie ufają samemu PID oraz nie zatrzymują procesu o
+      niezgodnej tożsamości.
+- [x] Spóźniony compare-and-stop nie zatrzymuje nowszego `instanceId`.
+- [x] Równoległe próby nie współdzielą plików logu ani wyniku kontrolera API.
+- [x] Publiczny kontrakt, baza, limit online oraz UI pozostają bez zmian.
 
 ### Kryteria odbioru pionu
 

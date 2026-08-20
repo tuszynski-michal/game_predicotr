@@ -1961,3 +1961,19 @@ otwarcie kompensuje utworzenie sesji przez revoke. Lokalna baza działa na
 `0052_reviewer_assignment_sessions (head)`. Synchronizacja start/status/stop
 między procesami Windows, limit trzech online, `stop-if-unused`, endpointy i UI
 pozostają poza TASK 15.
+
+TASK 16 zabezpieczył współdzielony proces Reviewera i Quick Tunnel przed
+równoległymi kontrolerami Windows. Zdalny start/status/stop i lokalny start
+używają jednego nazwanego mutexu per repozytorium z ograniczonym oczekiwaniem.
+Stan schema v2 jest publikowany atomowo dopiero po health checku i wiąże PID z
+czasem startu, pełną ścieżką executable, nazwą procesu oraz losowym
+`instanceId`; stary stan ani PID użyty ponownie nie pozwala zatrzymać obcego
+procesu.
+
+Każda próba startu ma unikalne logi w
+`.runtime/reviewer-lifecycle-logs`, a każde wywołanie z API osobny plik wyniku w
+`.runtime/reviewer-ingress-controller-results`. Wewnętrzny compare-and-stop po
+`instanceId` stanowi fencing dla następnego etapu. Publiczne API, baza, Admin i
+Reviewer nie zmieniły się. Limit trzech prac online oraz decyzja
+`stop-if-unused` na podstawie ostatniego aktywnego assignmentu pozostają w
+TASK 17.

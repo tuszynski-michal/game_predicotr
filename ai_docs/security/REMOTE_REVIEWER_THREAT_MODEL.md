@@ -58,6 +58,10 @@ sesji i kodu.
 | clickjacking/XSS | CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, brak zewnętrznych skryptów |
 | utrata Internetu lub komputera | zapis atomowy; po powrocie recenzent wznawia kolejkę, a tunel można odtworzyć z nowym URL |
 | logi z sekretami | skrypty zapisują wyłącznie publiczny URL/PID; kod i bearer nie są logowane |
+| równoległy start z dwóch procesów API | nazwany mutex Windows serializuje start/status/stop dla repozytorium; stan jest publikowany dopiero po health checku |
+| ponowne użycie PID albo stary plik stanu | pełna tożsamość procesu obejmuje PID, czas startu, executable i losowy instance id; niezgodny proces nie jest zatrzymywany |
+| zatrzymanie nowszej instancji przez spóźnione żądanie | wewnętrzny compare-and-stop wymaga zgodnego instance id i pozostawia nowszą instancję bez zmian |
+| blokada wspólnego pliku logu lub wyniku | każda próba startu i każde wywołanie kontrolera API używa unikalnej ścieżki |
 
 `reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
 scope, typ pracy, identyfikator sesji online, fencing token lease, heartbeat i

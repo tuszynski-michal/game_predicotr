@@ -180,6 +180,69 @@ Produkcyjna ścieżka v0.6 zastępuje pośredni raster planszy kontraktem
 - geometria przechowuje `sourceContextBounds`, `displayAssetKind` oraz
   `cellOutputSize`, aby Reviewer i audyt nie zgadywały pochodzenia obrazu.
 
+Aktywny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
+niezmieniony do czasu odbioru następcy. TASK-0249 wprowadza najpierw nieaktywny
+kontrakt `BoardCellGeometryManifestV1` dla
+`board-cell-geometry-v19-multi-point-source-direct-v1`:
+
+- geometria komórek jest osobnym artefaktem od `PageGeometryManifestV1`;
+  poprawne położenie dziewięciu plansz nie jest automatycznie dowodem poprawnych
+  granic 15 komórek,
+- cztery punkty `latticeBoundsQuad` oznaczają TL/TR/BR/BL zewnętrznych granic
+  siatki symboli 5 × 3 w pikselach źródła,
+- perspektywiczny quad musi być wypukły i uporządkowany, ale boki nie muszą być
+  prostopadłe ani równoległe na zdjęciu,
+- 15 `cellQuads` ma dokładną kolejność row-major i jest deterministycznie
+  wyprowadzane z tego samego transformu projektowego; rozbieżność blokuje
+  manifest,
+- geometria automatyczna musi zachować wersje locatora, homografii i progów,
+  co najmniej 10 wiarygodnych centrów, 9 inlierów oraz pokrycie 3 wierszy i
+  5 kolumn; geometria ręczna zamiast syntetycznych metryk przechowuje checksumę
+  decyzji,
+- manifest jest kanoniczny i content-addressed. Zmiana źródła, etykiety,
+  kolejności, granic albo proweniencji zmienia checksumę.
+
+Rzeczywisty descriptor `board-cell-geometry-v19-real-corpus.json` przypina 27
+zaakceptowanych przez właściciela geometrii: trzy dla każdej z dziewięciu
+pozycji, z dwóch rodzin źródeł. Weryfikuje checksumy źródłowego manifestu,
+goldena i JPEG-ów.
+
+Nieaktywny estymator `board-cell-geometry-v19-multi-point-source-direct-v1`
+wykrywa komponenty na całej płaszczyźnie planszy, buduje ograniczony zbiór
+hipotez wspólnych osi 5 × 3 i dopiero po jednoznacznym przypisaniu dopasowuje
+homografię guarded RANSAC. Przejście wymaga co najmniej 10 przypisań, 10
+wiarygodnych centrów, 9 inlierów, wszystkich wierszy i kolumn oraz P95
+residualu nie większego niż 10 px. Zewnętrzne granice siatki i wszystkie 15
+komórek są następnie projektowane do pikseli źródła; estymator nie tworzy cropu
+ani pośredniego obrazu planszy.
+
+Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
+maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
+częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
+globalnych przypisań. Wynik nie aktywuje croppera v19 ani nie zmienia v18.
+
+Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
+deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
+estymator dla wszystkich 900 plansz. Raport jest content-addressed i nie zapisuje
+bezwzględnej ścieżki źródła. Audyt próbki z 20 sierpnia 2026 zaakceptował
+wszystkie 888 wyemitowanych geometrii bez przesunięcia o wiersz/kolumnę i bez
+symbolu poza komórką. Pozostałe 12 plansz było kontrolowanymi fallbackami bez
+quadów komórek. Estymator pozostaje nieaktywny do następnego, osobno odbieranego
+etapu.
+
+Nieaktywny cropper
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1` konsumuje
+wyłącznie kompletny, zwalidowany `BoardCellGeometryEntry`. W kanonicznym slocie
+`100 × 100` stosuje stały inset `10 px`, projektuje padded quad do źródła i
+wykonuje jeden `warpPerspective` bezpośrednio z oryginalnego RGB do rozmiaru
+wejścia przypiętego modelu. Nie materializuje planszy `500 × 300`, nie wykonuje
+drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
+evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
+resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
+paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
+fingerprintem. Adapter pozostaje poza aktywnym pipeline'em do osobnego odbioru
+integracji.
+
 Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
 pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza
 dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i

@@ -57,6 +57,7 @@ REPRESENTATIVE_RANKING_REVISION = "0044_representative_ranking"
 CANONICAL_IMAGE_SEQUENCES_REVISION = "0045_canonical_image_sequences"
 IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION = "0046_image_symbol_prediction_revisions"
 PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
+IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -125,7 +126,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
     )
     pending_symbol_reinference_job = script.get_revision(PENDING_SYMBOL_REINFERENCE_JOB_REVISION)
-    assert script.get_heads() == [PENDING_SYMBOL_REINFERENCE_JOB_REVISION]
+    image_page_geometry_overrides = script.get_revision(IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION)
+    assert script.get_heads() == [IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -227,7 +229,12 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert representative_ranking.down_revision == IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION
     assert canonical_image_sequences.down_revision == REPRESENTATIVE_RANKING_REVISION
     assert image_symbol_prediction_revisions.down_revision == CANONICAL_IMAGE_SEQUENCES_REVISION
-    assert pending_symbol_reinference_job.down_revision == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+    assert (
+        pending_symbol_reinference_job.down_revision
+        == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+    )
+    assert image_page_geometry_overrides is not None
+    assert image_page_geometry_overrides.down_revision == PENDING_SYMBOL_REINFERENCE_JOB_REVISION
 
 
 def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:

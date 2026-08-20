@@ -4896,6 +4896,85 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** nowy preflight jest wymagany przed importem. Zmiana nie
   zmienia kolejności `seq_*`, zatwierdzonych plansz ani historycznych manifestów.
 
+## D-204 — Geometria komórek v19 wynika z wielopunktowej siatki symboli
+
+- **Status:** accepted
+- **Date:** 2026-08-20
+- **Decision:** lokalizacja dziewięciu plansz na stronie pozostaje pierwszym
+  etapem, ale nie jest geometrią finalnych komórek. Kandydat
+  `board-cell-geometry-v19-multi-point-source-direct-v1` ma dla każdej planszy
+  wyznaczać globalne środki siatki symboli 5 × 3, dopasowywać kanoniczną
+  płaszczyznę przez guarded RANSAC i projektować komórki bezpośrednio ze źródła
+  w jednym resamplingu. Zachowane zostają co najmniej 10 wiarygodnych punktów,
+  9 inlierów, pokrycie wszystkich 3 rzędów i 5 kolumn oraz wersjonowany próg
+  residualu. Cztery punkty ręcznej korekty oznaczają zewnętrzne narożniki
+  siatki symboli 5 × 3, a nie narożniki czerwonej ramki ani całej planszy.
+- **Context:** geometria strony może poprawnie wskazywać dziewięć plansz, lecz
+  obecny crop komórek nadal potrafi przesunąć symbole poza wycinek. Wymuszanie
+  prostopadłych albo równoległych boków w obrazie źródłowym byłoby błędem:
+  perspektywa kamery może dawać trapez lub romb, mimo że płaszczyzna kanoniczna
+  jest prostokątna.
+- **Safety:** kompletna geometria i jej pochodzenie są warunkiem inferencji;
+  confidence symboli nie może ratować geometrii. Historyczny
+  `board-cell-crops-v18-source-direct-validated-v1` i jego manifesty pozostają
+  odtwarzalne. TASK-0249 nie zmienia na tym etapie modelu ani katalogu symboli.
+- **Consequences:** geometria komórek otrzyma osobny, content-addressed manifest,
+  niezależny od `PageGeometryManifestV1`. Ręczny edytor i automatyczny estymator
+  muszą używać tej samej semantyki punktów i tej samej walidacji przed
+  pending-only recropem.
+- **Supersedes:** rozszerza D-064–D-067 i D-202; nie zmienia ich zasad
+  fail-closed ani source-direct.
+
+## D-205 — Kolejka Reviewera zachowuje kolejność źródłową i first-save-wins
+
+- **Status:** accepted
+- **Date:** 2026-08-20
+- **Decision:** niezmienna topologia kolejki jednego importu jest wyznaczana
+  kluczem `(source_order_index, position_index, review_item_id)`. Sortowanie,
+  keyset cursor, wznowienie i nawigacja używają dokładnie tego samego klucza;
+  status i `sequence_number` nie mogą zmieniać położenia elementu. Przy
+  równoległym zatwierdzaniu pierwsza poprawnie zapisana kanoniczna decyzja dla
+  `game_id + sequence_number` wygrywa. Pozostałe oczekujące wystąpienia tego
+  numeru stają się `superseded` i nie powodują błędu kursora.
+- **Context:** kolejka oparta na numerze sekwencji zmienia się w czasie i przy
+  dużym imporcie może odrzucić poprawną decyzję kodem
+  `IMAGE_REVIEW_CURSOR_STALE`. Dwie osoby mogą też niezależnie dojść do tego
+  samego numeru z różnych źródeł.
+- **Safety:** first-save-wins nie nadpisuje ani nie otwiera ponownie decyzji
+  `accepted/corrected/rejected`. Kanoniczna projekcja z D-199 zachowuje jednego
+  właściciela, a przegrane wystąpienia pozostają audytowalne. Liczniki i
+  `queueVersion` muszą pochodzić z trwałej projekcji, nie z klientowej tablicy.
+- **Consequences:** kolejka kanoniczna sortowana dziś po `sequence_number` oraz
+  cursor zależny od zmiennego stanu wymagają osobnej migracji i zmiany kontraktu;
+  nie są zmieniane w baseline TASK-0249.
+- **Supersedes:** rozszerza D-093 i D-199, zastępując kolejność sekwencyjną
+  niezmienną kolejnością źródłową dla operacyjnego Reviewera.
+
+## D-206 — Wiele importów dzieli jeden proces Reviewera i jeden tunel
+
+- **Status:** accepted
+- **Date:** 2026-08-20
+- **Decision:** każdy import może mieć najwyżej jedno aktywne przypisanie pracy,
+  ale równolegle mogą działać przypisania dla różnych importów, w tym maksymalnie
+  trzy udostępnienia online. Wszystkie korzystają z jednego produkcyjnego procesu
+  Reviewera i jednego outbound-only Quick Tunnel. Zatrzymanie udostępnienia
+  unieważnia wyłącznie wskazaną sesję/przypisanie; wspólny tunel kończy się
+  dopiero po wygaśnięciu ostatniego przypisania online.
+- **Context:** osobny start tunelu dla każdego linku koliduje o PID, port i
+  wspólny plik `remote-reviewer-cloudflared.log`. Zatrzymanie całego ingressu
+  wraz z jedną sesją uniemożliwia niezależną pracę dwóch lub trzech osób.
+- **Safety:** scope `game_id + import_job_id`, HttpOnly cookie, code gate,
+  allowlista same-origin proxy i loopback-only tryb lokalny pozostają bez zmian.
+  Lifecycle musi być serializowany między procesami Windows, używać atomowego
+  stanu PID/start-time/executable/instance i unikalnych logów startu. Ponowne
+  `ensure-running` jest idempotentne.
+- **Consequences:** Admin wybiera gotowy import przed utworzeniem lokalnego lub
+  online przypisania. Lista sesji nie ujawnia sekretów. Klient Reviewera używa
+  ograniczonego bufora `previous/current/next two`, a ograniczenia Quick Tunnel
+  pozostają jawne; nie powstaje drugi proces Reviewera ani drugi tunel per link.
+- **Supersedes:** rozszerza D-095, D-120 i D-188 oraz zastępuje w D-098 zasadę
+  zatrzymywania całego tunelu przy zakończeniu pojedynczej sesji.
+
 ## Szablon nowej decyzji
 
 ```text

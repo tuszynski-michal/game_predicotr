@@ -856,6 +856,62 @@ ręcznych override'ów. Klucz override'u to checksum obrazu źródłowego oraz
 obserwacji, ale nadal wykonuje source-aware fixed padding, kontrolę wszystkich
 narożników, support fraction `1.0` i pełny page-level gate.
 
+TASK-0249 rozdziela teraz geometrię strony i geometrię komórek formalnym
+`BoardCellGeometryManifestV1`. Manifest v1 zapisuje source-order, checksumę i
+wymiary JPEG-a, pozycję oraz numer planszy, `latticeBoundsQuad`, dokładnie 15
+pochodnych `cellQuads` i wersjonowane evidence. Płaszczyzna kanoniczna ma 5 × 3
+prostokątne sloty, lecz jej obraz w źródle może być dowolnym poprawnym wypukłym
+quadem perspektywicznym. Walidator celowo nie ma guardu prostopadłości w
+źródle.
+
+Kontrakt rozróżnia evidence automatyczne od `human_reviewed/manual_override`.
+Automat nie przechodzi bez co najmniej 10 wiarygodnych centrów, 9 unikalnych
+inlierów oraz pokrycia wszystkich wierszy i kolumn; człowiek nie otrzymuje
+fikcyjnych metryk RANSAC i zapisuje checksumę decyzji. Manifest produkcyjny
+wymaga checksumy `PageGeometryManifestV1`, natomiast manifest regresyjny wymaga
+checksumy zaakceptowanych adnotacji. Bajty są kanoniczne, a zapis odbywa się
+atomowo pod nazwą SHA-256.
+
+Pierwszy realny corpus adaptera wykorzystuje istniejący
+`cell-grid-golden-v1`: 27 niezależnie zaakceptowanych geometrii, trzy dla każdej
+pozycji strony, pochodzące z dwóch grup źródłowych. Adapter ponownie weryfikuje
+źródłowy manifest, checksumy i wymiary JPEG-ów oraz checksumę całego
+wyprowadzonego manifestu.
+
+Automatyczny estymator v19 pozostaje czystym, niepodłączonym adapterem pomiędzy
+zweryfikowanym quadem planszy a `BoardCellGeometryManifestV1`. Historyczne
+wykrywanie jasnych komponentów dostarcza globalny zbiór kandydatów, natomiast
+nowy bounded-hypothesis locator wyprowadza wspólne osie 5 × 3 bez kosztownego
+skanu wszystkich półpikselowych początków i odstępów. Każdy komponent może
+zająć najwyżej jeden slot. Dopiero pełne przypisanie zasila istniejący guarded
+RANSAC; jego macierz jest składana z transformem analizy do oryginalnego JPEG-a.
+Wynikiem są source-space `latticeBoundsQuad`, 15 pochodnych quadów i kompletne
+evidence, nigdy raster ani confidence symboli.
+
+Rzeczywista bramka 27 plansz przepuszcza 25 geometrii z błędem narożników do
+`6,25 px`; dwa okludowane przypadki są jawnie odrzucone przez niezmienione
+progi 10 wiarygodnych centrów/9 inlierów.
+
+Read-only checkpoint `board-cell-geometry-v19-real-page-audit-v1` wiąże
+checksumę manifestu stron, wersję estymatora, progi i deterministyczną próbkę.
+Raport przechowuje wyniki wszystkich dziewięciu plansz strony, a osobny renderer
+tworzy source-space overlays i arkusze do ręcznej kontroli. Nie zapisuje bazy ani
+nie ingeruje w joby. Audyt 100 stron zaakceptował 888 geometrii; 12 plansz
+pozostało fail-closed bez komórek. Pipeline, aktywny cropper v18, baza, API, UI i
+pending-only recrop pozostają niezmienione.
+
+Kolejny nieaktywny adapter,
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`, oddziela
+zwalidowaną geometrię od rasteryzacji. Najpierw sprawdza atomowo wszystkie 15
+komórek, ich kolejność, wyprowadzenie z `latticeBoundsQuad`, evidence, wymiary
+źródła i pełne położenie padded quadów. Dopiero kompletny wynik wykonuje po
+jednym source-to-output `warpPerspective` na komórkę. Kanoniczny slot ma
+`100 × 100` i inset `10 px`, ale ani slot, ani plansza `500 × 300` nie są
+materializowane. Cropper nie wykonuje dodatkowego `resize` i nie syntetyzuje
+brakujących pikseli. Wersje geometrii, paddingu, interpolacji, polityki brzegu i
+rozmiar wejścia modelu tworzą immutable fingerprint. Ten etap nie zmienia
+aktywnego adaptera v18 ani kontraktu produkcyjnego pipeline'u.
+
 Implementacja v16 zachowuje 373 zaakceptowane artefakty v14 bajtowo: każdy
 plik jest ponownie odczytywany i sprawdzany względem zapisanej checksumy przed
 materializacją nowego namespace'u. Tylko 14 ręcznych quadów przechodzi ponowną

@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 ---
 
 # Current State
@@ -1733,3 +1733,101 @@ Rzeczywiste osiem czytelnych stron pozostawionych przez preflight 1000
 przechodzi w tej polityce: siedem przy 1500, a `11710–11718` przy 3000, przy
 niezmienionych progach RANSAC i czerwonych ramek. Następny preflight będzie
 świeży, a pełny import nadal jest zablokowany aż do zera stron review.
+
+W `v0.6.60` kontroler workerów porównuje czas startu procesu po normalizacji
+UTC, niezależnie od tego, czy PowerShell odczytał go jako tekst czy `DateTime`.
+Równoważne duplikaty `PATH`/`Path` w środowisku hosta nie blokują już samego
+odczytu stanu; rozbieżne wartości nadal zatrzymują bezpiecznie operację. Dzięki
+temu kontroler nie oznacza zdrowego workera jako `stale` i nie tworzy drugiej
+kopii lane'u.
+
+Preflight geometrii `9950ec44-146b-4219-9e23-0de6e83b4b89` dla stagingu
+`31259729-de6a-4962-b8df-7aa0c0b7c49b` zakończył się `2194` zarejestrowanymi
+stronami, `7` źródłami pominiętymi przez kanoniczne numery `1–63` i `0` stronami
+do korekty. Używa manifestu geometrii
+`61e8c5b2ec489aa8c18f4d7ec57008d90b9305a50092feb78c5a9a23932e6cf4` i trwał
+`10 min 37 s`, więc spełnia bramkę `≤15 min`.
+
+Stary job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` został anulowany jako
+zastąpiony. Świeży job `b2d9b299-a851-4e17-9ba3-dacaa7966978` zachowuje ten
+manifest, aktualne snapshoty modelu i staging. Jego pierwsza próba przerwała
+się przed pierwszą stroną, ponieważ konstruktor fallbackowego rejestratora
+szukał anchorów w `artifacts/data/data/originals/...`; staging i wszystkie 2201
+JPEG-ów są poprawne. Bieżąca poprawka ładuje anchor względem zarządzanego rootu
+`data/` i nie inicjalizuje fallbackowych anchorów, gdy job ma już przypięty
+manifest geometrii. Test regresyjny obejmuje oba warianty. Retry tego samego,
+poprawnie przypiętego joba jest aktywne; nie utworzono nowego uploadu ani joba.
+
+## TASK-0249 — baseline geometrii komórek i Reviewera
+
+Na podstawie problemów z cropami symboli, dużą kolejką review i równoległym
+udostępnianiem zaakceptowano D-204–D-206. Następny pion geometrii zachowuje
+lokalizację dziewięciu plansz, ale tworzy osobny
+`BoardCellGeometryManifestV1`: finalne komórki wynikają z wielopunktowej siatki
+5 × 3, bez wymuszania prostopadłości w obrazie źródłowym. Cztery punkty ręcznej
+korekty oznaczają zewnętrzne narożniki tej siatki.
+
+Operacyjna kolejka ma docelowo używać niezmiennego klucza
+`(source_order_index, position_index, review_item_id)` i transakcyjnego
+first-save-wins. Wiele różnych importów ma dzielić jeden produkcyjny Reviewer i
+jeden Quick Tunnel; zatrzymanie pojedynczej sesji nie może kończyć pozostałych.
+
+TASK 1 obejmuje wyłącznie baseline, decyzje i aktualizację testu migracji:
+`0048_image_page_geometry_overrides` jest jedyną oczekiwaną głową po `0047`.
+Był to stan po TASK 1; obecnie istnieje już nieaktywny estymator TASK 3, ale
+integracja pipeline'u geometrii v19, kolejki, assignments, API i UI nie została
+rozpoczęta.
+Punktem bazowym pozostaje `3595a32` (`v0.6.59`). Wcześniejsze niezacommitowane
+zmiany fallbacku importu, kontrolera workerów oraz `apps/admin/next-env.d.ts`
+są zachowane i jawnie wykluczone z przyszłych commitów TASK-0249; następny numer
+`v0.6.*` nie został jeszcze przydzielony.
+
+TASK 2 dodał nieaktywny `BoardCellGeometryManifestV1` oraz rzeczywisty corpus
+v19. Kontrakt oddziela quady plansz z `PageGeometryManifestV1` od granic siatki
+symboli 5 × 3, wyprowadza 15 komórek row-major w pikselach źródła i waliduje
+automatyczne albo ręczne evidence bez wymuszania prostopadłości na zdjęciu.
+Manifest jest kanoniczny, content-addressed i ma fingerprint
+`45a82dbb0f86ca62646e1d680f2a0d9ea78a62f38b1d24b72be2ce50764aeb25`.
+
+Corpus wykorzystuje 27 istniejących decyzji właściciela z
+`cell-grid-golden-v1`: trzy geometrie dla każdej z dziewięciu pozycji oraz dwie
+grupy źródłowe. Loader ponownie sprawdza checksumy źródłowego manifestu,
+adnotacji i każdego JPEG-a. TASK 2 nie implementuje estymatora, nie podłącza
+manifestu do pipeline'u i nie zmienia aktywnego croppera v18, API, bazy ani UI.
+JPEG-i są lokalnym, ignorowanym przez Git corpusem: test kontraktu działa z
+przypiętymi manifestami w czystym checkoutcie, a pełna bramka bajtów i wymiarów
+wykonuje się jawnie tam, gdzie `examples/imgs` jest dostępne.
+
+TASK 3 dodał nieaktywny estymator
+`board-cell-geometry-v19-multi-point-source-direct-v1`. Wykorzystuje globalne
+komponenty, ograniczone hipotezy wspólnych osi 5 × 3 i istniejący guarded
+RANSAC, ale projektuje granice oraz 15 komórek z płaszczyzny analizy z powrotem
+do oryginalnego JPEG-a. Nie materializuje cropów i nie jest podłączony do
+pipeline'u.
+
+Na lokalnym rzeczywistym corpusie automatycznie przeszło `25/27` plansz, a
+maksymalny średni błąd czterech narożników wyniósł `6,25 px`. Sekwencja `37`
+pozostała fail-closed przy 8 inlierach, a `112` przy 9 globalnych przypisaniach;
+bramki 10 wiarygodnych centrów, 9 inlierów oraz pełnego 3 × 5 nie zostały
+obniżone.
+
+TASK 4 zamknął osobny checkpoint 100 rzeczywistych stron. Deterministyczna
+próbka z 2194 dostępnych stron objęła 900 plansz. Estymator wyemitował 888
+geometrii, a 12 plansz skierował fail-closed do przyszłej korekty. Ręczna kontrola
+25 arkuszy nie znalazła przesunięcia o wiersz/kolumnę, symbolu poza komórką ani
+fałszywego sukcesu. Content-addressed raport ma checksumę
+`320c9b1089b1481e8e4eea71c955eaf796c61554391783d2ac34020aa2421691`; pełny
+protokół jest w `ai_docs/quality/board-cell-geometry-v19-100-page-audit.md`.
+Cropper v18, pipeline, API, baza i UI pozostają bez zmian.
+
+TASK 5 dodał nieaktywny
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`. Adapter
+sprawdza cały `BoardCellGeometryEntry` przed pierwszym resamplingiem, stosuje
+kanoniczny inset `10/100` i tworzy 15 komórek bezpośrednio z oryginalnego RGB,
+po jednym `warpPerspective` na finalny crop. Nie powstaje pośrednia plansza
+`500 × 300`, dodatkowy resize ani częściowy wynik po błędzie późnej komórki.
+Fingerprint dla aktualnego wejścia modelu `64 × 64` wynosi
+`49146bca0f232a8d8e5e744811577b9f9d01a3cf791d31894775dfb5a677195d`.
+Rzeczywisty corpus daje `27/27` plansz i `405/405` cropów. Cropper pozostaje
+niepodłączony; aktywny v18, pipeline, modele, baza, API i UI nie zostały
+zmienione.

@@ -163,6 +163,15 @@ def _bright_components(
     )
 
 
+def detect_global_symbol_candidates(
+    board_rgb: NDArray[np.uint8],
+) -> tuple[GlobalSymbolCandidate, ...]:
+    """Return the versioned global component set without assigning lattice slots."""
+
+    _validate_board(board_rgb)
+    return _bright_components(board_rgb)
+
+
 def _axis_lattice(
     candidates: tuple[GlobalSymbolCandidate, ...],
     *,
@@ -323,6 +332,32 @@ def _refine_center(
     )
 
 
+def refine_global_symbol_center(
+    board_rgb: NDArray[np.uint8],
+    *,
+    row_index: int,
+    column_index: int,
+    expected_x: float,
+    expected_y: float,
+    half_width: float,
+    half_height: float,
+    has_component_support: bool,
+) -> SymbolCenter:
+    """Refine one globally assigned slot using the historical saliency calculation."""
+
+    _validate_board(board_rgb)
+    return _refine_center(
+        board_rgb,
+        row_index=row_index,
+        column_index=column_index,
+        expected_x=expected_x,
+        expected_y=expected_y,
+        half_width=half_width,
+        half_height=half_height,
+        has_component_support=has_component_support,
+    )
+
+
 def _assign_candidates(
     candidates: tuple[GlobalSymbolCandidate, ...],
     column_bases: tuple[float, ...],
@@ -382,8 +417,7 @@ def locate_global_symbol_lattice(
 ) -> GlobalSymbolLattice:
     """Detect candidates globally and assign at most one candidate to every slot."""
 
-    _validate_board(board_rgb)
-    candidates = _bright_components(board_rgb)
+    candidates = detect_global_symbol_candidates(board_rgb)
     if len(candidates) < MIN_AXIS_COMPONENT_MATCHES:
         return _fallback(candidates, "GLOBAL_SYMBOL_LATTICE_INSUFFICIENT_COMPONENTS")
     column_lattice = _axis_lattice(
@@ -460,5 +494,7 @@ __all__ = [
     "LOCATOR_VERSION",
     "GlobalSymbolCandidate",
     "GlobalSymbolLattice",
+    "detect_global_symbol_candidates",
     "locate_global_symbol_lattice",
+    "refine_global_symbol_center",
 ]

@@ -218,7 +218,11 @@ export function ImageFolderImportPanel({
     let cancelled = false;
     const refreshGeometry = async () => {
       const result = await api.getJob(geometryPreflightJobId);
-      if (!cancelled && result.error === undefined && result.data !== undefined) {
+      if (
+        !cancelled &&
+        result.error === undefined &&
+        result.data !== undefined
+      ) {
         setGeometryPreflightJob(result.data);
       }
     };
@@ -356,7 +360,7 @@ export function ImageFolderImportPanel({
         'Raport preflight jest gotowy. Import nie został jeszcze uruchomiony.',
       );
     } catch {
-      setError('Nie udało się przygotować raportu przed importem layoutów.');
+      setError('Nie udało się przygotować raportu przed importem plansz.');
     } finally {
       setActiveAction(null);
     }
@@ -410,7 +414,7 @@ export function ImageFolderImportPanel({
       setGeometryPreflightJob(null);
       await refreshJobs();
     } catch {
-      setError('Nie udało się utworzyć importu layoutów.');
+      setError('Nie udało się utworzyć importu plansz.');
     } finally {
       setActiveAction(null);
     }
@@ -659,9 +663,9 @@ export function ImageFolderImportPanel({
       <div className="editorHeader">
         <div>
           <p className="eyebrow">Źródło zdjęć</p>
-          <h2 id="image-import-title">Import layoutów z folderu</h2>
+          <h2 id="image-import-title">Import plansz z folderu</h2>
           <p>
-            Wybierz folder, rozpocznij import i kontroluj kompletność layoutów
+            Wybierz folder, rozpocznij import i kontroluj kompletność plansz
             aktywnej gry.
           </p>
         </div>
@@ -802,9 +806,7 @@ export function ImageFolderImportPanel({
           <header className="importCompletenessHeader">
             <div>
               <p className="eyebrow">Gotowy staging do wznowienia</p>
-              <h3 id="ready-layout-staging-title">
-                Import layoutów z manifestu
-              </h3>
+              <h3 id="ready-layout-staging-title">Import plansz z manifestu</h3>
               <p>
                 Staging pozostaje dostępny po restarcie API i nie wymaga
                 ponownego uploadu.
@@ -904,9 +906,9 @@ export function ImageFolderImportPanel({
                         <span className="curatedImportStatus">
                           Geometria: {geometryPreflightJob.status} ·{' '}
                           {geometryPreflightJob.progress.current}/
-                          {geometryPreflightJob.progress.total ?? '—'} · poprawne{' '}
-                          {geometryPreflightJob.progress.succeeded} · do korekty{' '}
-                          {geometryPreflightJob.progress.review}
+                          {geometryPreflightJob.progress.total ?? '—'} ·
+                          poprawne {geometryPreflightJob.progress.succeeded} ·
+                          do korekty {geometryPreflightJob.progress.review}
                         </span>
                       ) : null}
                       {geometryPreflightJob?.status === 'completed' &&
@@ -945,7 +947,8 @@ export function ImageFolderImportPanel({
             disabled={
               busy ||
               (preflight === null &&
-                (readyUploadId !== null || selection?.selectionToken == null)) ||
+                (readyUploadId !== null ||
+                  selection?.selectionToken == null)) ||
               (preflight !== null &&
                 (geometryPreflightJob?.status !== 'completed' ||
                   geometryPreflightJob.progress.review > 0 ||

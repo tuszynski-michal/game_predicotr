@@ -61,7 +61,7 @@ test('selects published rules and keeps datasets newest first', () => {
 test('presents validation codes, statuses and deterministic samples', () => {
   assert.equal(
     datasetValidationCheckLabel('DUPLICATE_SIGNATURE'),
-    'Duplikaty sygnatur layoutu',
+    'Duplikaty sygnatur planszy',
   );
   assert.equal(datasetValidationStatusLabel('blocking'), 'Blokada');
   assert.equal(datasetValidationStatusLabel('warning'), 'Ostrzeżenie');

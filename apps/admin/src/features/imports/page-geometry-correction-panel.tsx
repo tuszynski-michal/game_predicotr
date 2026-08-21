@@ -18,8 +18,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
-  | 'createBrowserPageGeometryOverride'
-  | 'listBrowserPageGeometryReviewSources'
+  'createBrowserPageGeometryOverride' | 'listBrowserPageGeometryReviewSources'
 >;
 
 type Point = { readonly x: number; readonly y: number };
@@ -111,12 +110,21 @@ export function PageGeometryCorrectionPanel({
     readonly BrowserPageGeometryReviewSourceResponse[]
   >([]);
   const [sourceIndex, setSourceIndex] = useState(0);
-  const [imageSize, setImageSize] = useState<{ height: number; width: number } | null>(null);
+  const [imageSize, setImageSize] = useState<{
+    height: number;
+    width: number;
+  } | null>(null);
   const [pageCorners, setPageCorners] = useState<PageCorners | null>(null);
-  const [boardOverrides, setBoardOverrides] = useState<ReadonlyMap<number, Quad>>(new Map());
+  const [boardOverrides, setBoardOverrides] = useState<
+    ReadonlyMap<number, Quad>
+  >(new Map());
   const [selectedBoard, setSelectedBoard] = useState<number | null>(null);
   const [dragging, setDragging] = useState<
-    | { readonly kind: 'board'; readonly pointIndex: number; readonly boardIndex: number }
+    | {
+        readonly kind: 'board';
+        readonly pointIndex: number;
+        readonly boardIndex: number;
+      }
     | { readonly kind: 'page'; readonly pointIndex: number }
     | null
   >(null);
@@ -172,7 +180,12 @@ export function PageGeometryCorrectionPanel({
   const imageUrl =
     source === null
       ? null
-      : sourceAssetUrl(apiBaseUrl, uploadId, source.sourceChecksumSha256, gameId);
+      : sourceAssetUrl(
+          apiBaseUrl,
+          uploadId,
+          source.sourceChecksumSha256,
+          gameId,
+        );
 
   function resetGeometry(width: number, height: number) {
     setImageSize({ height, width });
@@ -203,7 +216,8 @@ export function PageGeometryCorrectionPanel({
       return;
     }
     setBoardOverrides((current) => {
-      const currentQuad = current.get(dragging.boardIndex) ?? quads[dragging.boardIndex];
+      const currentQuad =
+        current.get(dragging.boardIndex) ?? quads[dragging.boardIndex];
       if (currentQuad === undefined) return current;
       const nextOverrides = new Map(current);
       const nextQuad: Quad = [
@@ -212,10 +226,7 @@ export function PageGeometryCorrectionPanel({
         dragging.pointIndex === 2 ? point : currentQuad[2],
         dragging.pointIndex === 3 ? point : currentQuad[3],
       ];
-      nextOverrides.set(
-        dragging.boardIndex,
-        nextQuad,
-      );
+      nextOverrides.set(dragging.boardIndex, nextQuad);
       return nextOverrides;
     });
   }
@@ -240,7 +251,8 @@ export function PageGeometryCorrectionPanel({
   }
 
   async function save() {
-    if (source === null || imageSize === null || quads.length !== 9 || saving) return;
+    if (source === null || imageSize === null || quads.length !== 9 || saving)
+      return;
     setSaving(true);
     setError('');
     setFeedback('Zapisuję korektę całej strony…');
@@ -261,7 +273,10 @@ export function PageGeometryCorrectionPanel({
       });
       if (result.error !== undefined || result.data === undefined) {
         setError(
-          apiErrorMessage(result.error, 'Nie udało się zapisać korekty geometrii.'),
+          apiErrorMessage(
+            result.error,
+            'Nie udało się zapisać korekty geometrii.',
+          ),
         );
         return;
       }
@@ -277,32 +292,54 @@ export function PageGeometryCorrectionPanel({
   }
 
   return (
-    <section className="pageGeometryCorrection" aria-label="Korekta geometrii strony">
+    <section
+      className="pageGeometryCorrection"
+      aria-label="Korekta geometrii strony"
+    >
       <div className="pageGeometryCorrectionHeader">
         <div>
           <h3>Korekta geometrii strony</h3>
           <p>
-            Żadna z tych stron nie zostanie pocięta ani przekazana do symboli, dopóki
-            kompletna siatka 3×3 nie zostanie potwierdzona.
+            Żadna z tych stron nie zostanie pocięta ani przekazana do symboli,
+            dopóki kompletna siatka 3×3 nie zostanie potwierdzona.
           </p>
         </div>
-        <button className="secondaryButton" disabled={loading || saving} onClick={() => void refresh()} type="button">
+        <button
+          className="secondaryButton"
+          disabled={loading || saving}
+          onClick={() => void refresh()}
+          type="button"
+        >
           Odśwież listę
         </button>
       </div>
-      {error ? <p className="feedbackBanner feedbackBannerError" role="alert">{error}</p> : null}
-      {feedback ? <p className="feedbackBanner" role="status">{feedback}</p> : null}
-      {loading ? <p className="curatedImportStatus">Ładowanie stron do korekty…</p> : null}
+      {error ? (
+        <p className="feedbackBanner feedbackBannerError" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {feedback ? (
+        <p className="feedbackBanner" role="status">
+          {feedback}
+        </p>
+      ) : null}
+      {loading ? (
+        <p className="curatedImportStatus">Ładowanie stron do korekty…</p>
+      ) : null}
       {!loading && sources.length === 0 ? (
-        <p className="curatedImportStatus">Nie ma już stron oczekujących na korektę geometrii.</p>
+        <p className="curatedImportStatus">
+          Nie ma już stron oczekujących na korektę geometrii.
+        </p>
       ) : null}
       {source !== null ? (
         <div className="pageGeometryCorrectionGrid">
           <div className="pageGeometryControls">
             <p className="curatedImportStatus">
-              Strona {sourceIndex + 1}/{sources.length} · {source.sourceRelativePath}
-              {source.sequenceRangeStart !== null && source.sequenceRangeEnd !== null
-                ? ` · layouty ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
+              Strona {sourceIndex + 1}/{sources.length} ·{' '}
+              {source.sourceRelativePath}
+              {source.sequenceRangeStart !== null &&
+              source.sequenceRangeEnd !== null
+                ? ` · plansze ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
                 : ''}
             </p>
             <label>
@@ -311,7 +348,9 @@ export function PageGeometryCorrectionPanel({
                 disabled={saving}
                 onChange={(event) =>
                   setSelectedBoard(
-                    event.target.value === 'page' ? null : Number(event.target.value),
+                    event.target.value === 'page'
+                      ? null
+                      : Number(event.target.value),
                   )
                 }
                 value={selectedBoard === null ? 'page' : String(selectedBoard)}
@@ -333,7 +372,9 @@ export function PageGeometryCorrectionPanel({
               <button
                 className="secondaryButton"
                 disabled={saving || sourceIndex === 0}
-                onClick={() => setSourceIndex((current) => Math.max(0, current - 1))}
+                onClick={() =>
+                  setSourceIndex((current) => Math.max(0, current - 1))
+                }
                 type="button"
               >
                 Poprzednia
@@ -341,12 +382,21 @@ export function PageGeometryCorrectionPanel({
               <button
                 className="secondaryButton"
                 disabled={saving || sourceIndex >= sources.length - 1}
-                onClick={() => setSourceIndex((current) => Math.min(sources.length - 1, current + 1))}
+                onClick={() =>
+                  setSourceIndex((current) =>
+                    Math.min(sources.length - 1, current + 1),
+                  )
+                }
                 type="button"
               >
                 Następna
               </button>
-              <button className="primaryButton" disabled={saving || imageSize === null} onClick={() => void save()} type="button">
+              <button
+                className="primaryButton"
+                disabled={saving || imageSize === null}
+                onClick={() => void save()}
+                type="button"
+              >
                 {saving ? 'Zapisywanie…' : 'Zapisz geometrię strony'}
               </button>
             </div>
@@ -355,7 +405,12 @@ export function PageGeometryCorrectionPanel({
             {imageUrl !== null ? (
               <img
                 alt={`Źródło do korekty: ${source.sourceRelativePath}`}
-                onLoad={(event) => resetGeometry(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)}
+                onLoad={(event) =>
+                  resetGeometry(
+                    event.currentTarget.naturalWidth,
+                    event.currentTarget.naturalHeight,
+                  )
+                }
                 src={imageUrl}
               />
             ) : null}
@@ -371,7 +426,11 @@ export function PageGeometryCorrectionPanel({
               >
                 {quads.map((quad, index) => (
                   <polygon
-                    className={selectedBoard === index ? 'pageGeometryBoard pageGeometryBoardSelected' : 'pageGeometryBoard'}
+                    className={
+                      selectedBoard === index
+                        ? 'pageGeometryBoard pageGeometryBoardSelected'
+                        : 'pageGeometryBoard'
+                    }
                     key={index}
                     points={quad.map(pointText).join(' ')}
                   />
@@ -383,7 +442,9 @@ export function PageGeometryCorrectionPanel({
                         cx={point.x}
                         cy={point.y}
                         key={index}
-                        onPointerDown={(event) => beginDrag(event, { kind: 'page', pointIndex: index })}
+                        onPointerDown={(event) =>
+                          beginDrag(event, { kind: 'page', pointIndex: index })
+                        }
                         r={HANDLE_RADIUS}
                       />
                     ))

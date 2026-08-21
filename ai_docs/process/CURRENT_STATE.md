@@ -38,6 +38,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   bez wpływu na wynik payoutu. Walidacja: 219 testów Admina, typecheck,
   celowany ESLint oraz Prettier przeszły.
 
+### Staging importu plansz w Reviewerze — TASK-0253
+
+- Gotowy browser staging nie jest jobem importu i nie zawiera kolejki
+  zatwierdzania; Reviewer pokazuje go jako informację pomocniczą wyłącznie,
+  gdy bieżąca gra nie ma joba `waiting_for_review` albo `completed`.
+- Dropdown Reviewera nadal zawiera tylko uruchomione joby z kolejką plansz.
+  Karta stagingu kieruje do `Importu plansz`, gdzie właściciel jawnie wykonuje
+  raport, preflight geometrii i start importu.
+- Widoczne określenie produktu zostało ujednolicone do „plansza”; techniczne
+  `layout` w API, modelu i danych historycznych pozostaje niezmienione dla
+  zgodności.
+- Walidacja: 220 testów Admina, typecheck, celowany ESLint bez błędów,
+  Prettier oraz `git diff --check` przeszły.
+
 ### Przejście z wersji 0.6 do 0.7 — 2026-08-21
 
 - Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w

@@ -8,7 +8,13 @@ last_updated: 2026-07-24
 
 ## Game
 
-Konfiguracja jednej gry. Określa wymiary planszy, dostępne symbole, koszt spinu, paylines, tabelę wypłat i uporządkowaną sekwencję layoutów.
+Konfiguracja jednej gry. Określa wymiary planszy, dostępne symbole, koszt spinu, paylines, tabelę wypłat i uporządkowaną sekwencję plansz.
+
+## Board (plansza)
+
+Jedna pozycja sekwencji gry z układem symboli. Panel Admin i Reviewer używają
+polskiego określenia „plansza”. Techniczne nazwy istniejącego modelu,
+kontraktów i pól API mogą zachowywać angielskie `layout` dla zgodności.
 
 ## Symbol
 
@@ -28,11 +34,11 @@ Kompletna, uporządkowana tablica symboli o wymiarach określonych przez grę. K
 
 ## Layout signature
 
-Deterministyczna, stałoszeroka reprezentacja kodów symboli layoutu w kolejności `row-major`. Służy do dokładnego wyszukiwania, wyszukiwania prefiksowego i wykrywania duplikatów. Nie jest identyfikatorem rekordu.
+Deterministyczna, stałoszeroka reprezentacja kodów symboli planszy w kolejności `row-major`. Służy do dokładnego wyszukiwania, wyszukiwania prefiksowego i wykrywania duplikatów. Nie jest identyfikatorem rekordu.
 
 ## Sequence number
 
-Numer pozycji layoutu w cyklicznej kolejności gry i konkretnej wersji zbioru. Jest ciągłą wartością domenową bez luk i nie może być zastąpiony technicznym `id` bazy danych.
+Numer pozycji planszy w cyklicznej kolejności gry i konkretnej wersji zbioru. Jest ciągłą wartością domenową bez luk i nie może być zastąpiony technicznym `id` bazy danych.
 
 ## Dataset version
 

@@ -47,6 +47,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
+  assert.match(panelSource, /Import plansz z folderu/);
 });
 
 test('provides styled actions and accessible import help', () => {

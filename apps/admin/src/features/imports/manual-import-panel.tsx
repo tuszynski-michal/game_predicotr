@@ -434,7 +434,7 @@ export function ManualImportPanel({
     setPublicationOpen(false);
     setPublicationConfirmed(false);
     setFeedback(
-      `Opublikowano niezmienny dataset v${result.dataset.version} z ${result.dataset.layoutCount.toLocaleString('pl-PL')} layoutami. Source job: ${result.dataset.sourceJobId}.`,
+      `Opublikowano niezmienny dataset v${result.dataset.version} z ${result.dataset.layoutCount.toLocaleString('pl-PL')} planszami. Source job: ${result.dataset.sourceJobId}.`,
     );
   }
 
@@ -443,7 +443,7 @@ export function ManualImportPanel({
       <header className="pageHeader importPageHeader">
         <div>
           <p className="eyebrow">M4.3 · ręczny import danych</p>
-          <h1>Import layoutów</h1>
+          <h1>Import plansz</h1>
           <p className="lead">
             Lokalny CSV lub JSONL przechodzi przez worker, znormalizowany
             staging i dokładny raport integralności przed publikacją datasetu.
@@ -614,7 +614,7 @@ export function ManualImportPanel({
                 <p className="eyebrow">Krok 3</p>
                 <h2 id="import-report">Raport integralności</h2>
                 <p>
-                  Dostępne są wyłącznie ukończone walidacje typu layout import.
+                  Dostępne są wyłącznie ukończone walidacje typu import plansz.
                 </p>
               </div>
               <div className="importReportControls">
@@ -978,7 +978,7 @@ function ImportReport({
                 />
               ) : (
                 <div className="importBoardPlaceholder">
-                  <strong>Brak poprawnego layoutu na stronie</strong>
+                  <strong>Brak poprawnej planszy na stronie</strong>
                   <p>
                     Błędny wiersz zachowuje bezpieczny opis, ale nie jest
                     traktowany jako poprawna plansza.
@@ -1085,7 +1085,7 @@ function ImportLayoutBoard({
 }) {
   return (
     <section
-      aria-label={`Layout z linii ${row.lineNumber}`}
+      aria-label={`Plansza z linii ${row.lineNumber}`}
       className="importLayoutBoard"
     >
       <header>
@@ -1232,7 +1232,7 @@ function PublicationDialog({
         </header>
         <p>
           API ponownie sprawdzi pełny raport pod blokadą transakcyjną. Dataset
-          oraz wszystkie layouty powstaną atomowo i będą dostępne dla pipeline’u
+          oraz wszystkie plansze powstaną atomowo i będą dostępne dla pipeline’u
           payoutów oraz wydań.
         </p>
         <dl className="rejectionTargetDetails">
@@ -1243,7 +1243,7 @@ function PublicationDialog({
             </dd>
           </div>
           <div>
-            <dt>Liczba layoutów</dt>
+            <dt>Liczba plansz</dt>
             <dd>{report.validRowCount.toLocaleString('pl-PL')}</dd>
           </div>
         </dl>

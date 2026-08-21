@@ -473,7 +473,9 @@ function JobCard({
         <div className="jobCardHeader">
           <p className="jobStage">
             Etap:{' '}
-            <strong>{jobStageLabel(job.progress.stage, job.inputPayload)}</strong>
+            <strong>
+              {jobStageLabel(job.progress.stage, job.inputPayload)}
+            </strong>
           </p>
           <div className="jobActions">
             {deleteConfirmation ? (
@@ -826,7 +828,7 @@ function ImageJobOperationsPanel({
     <section className="imageJobOperations">
       <div className="imageJobOperationsHeader">
         <div>
-          <h3>Import zdjęć</h3>
+          <h3>Import plansz</h3>
           <p>
             Pipeline <code>{pipelineFingerprint}</code>
           </p>

@@ -397,7 +397,7 @@ export function ImageSelectionWorkspace({
       !Number.isInteger(parsedFirstSequenceNumber) ||
       parsedFirstSequenceNumber < 1
     ) {
-      setError('Podaj numer pierwszego layoutu przed rozpoczęciem uploadu.');
+      setError('Podaj numer pierwszej planszy przed rozpoczęciem uploadu.');
       return;
     }
     setBusy(true);
@@ -556,7 +556,7 @@ export function ImageSelectionWorkspace({
       !Number.isInteger(parsedFirstSequenceNumber) ||
       parsedFirstSequenceNumber < 1
     ) {
-      setError('Podaj numer pierwszego layoutu przed ponownym uruchomieniem.');
+      setError('Podaj numer pierwszej planszy przed ponownym uruchomieniem.');
       return;
     }
     setBusy(true);
@@ -960,7 +960,7 @@ export function ImageSelectionWorkspace({
           <h1 id="image-selection-title">Selekcja zdjęć</h1>
           <p>
             Wybierz duży folder. Moduł zapisze bezpieczny staging bez
-            uruchamiania pełnego pipeline&apos;u layoutów.
+            uruchamiania pełnego pipeline&apos;u plansz.
           </p>
         </div>
         <input
@@ -994,7 +994,7 @@ export function ImageSelectionWorkspace({
             </select>
           </label>
           <label>
-            Pierwszy numer layoutu
+            Pierwszy numer planszy
             <input
               disabled={busy}
               min={1}
@@ -1303,7 +1303,7 @@ export function ImageSelectionWorkspace({
                 onClick={() => void handoffToImport()}
                 type="button"
               >
-                {busy ? 'Weryfikowanie…' : 'Przekaż do Importu layoutów'}
+                {busy ? 'Weryfikowanie…' : 'Przekaż do Importu plansz'}
               </button>
               <button
                 aria-busy={exporting}
@@ -1328,7 +1328,7 @@ export function ImageSelectionWorkspace({
               <div className="imageSelectionMissingRanges" role="status">
                 <strong>Zestawy pominięte bez zdjęcia:</strong>{' '}
                 {missingImageGroups.length}. To liczba zestawów zdjęć, nie
-                pojedynczych zdjęć ani layoutów.
+                pojedynczych zdjęć ani plansz.
               </div>
             ) : null}
           </div>

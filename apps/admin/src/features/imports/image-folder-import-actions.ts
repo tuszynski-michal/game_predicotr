@@ -141,7 +141,7 @@ export async function listReadyBrowserImageSelections(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się pobrać gotowych stagingów importu layoutów.',
+          'Nie udało się pobrać gotowych stagingów importu plansz.',
         ),
         ok: false,
       };
@@ -171,7 +171,7 @@ export async function previewReadyBrowserImageImport(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się przygotować raportu przed importem layoutów.',
+          'Nie udało się przygotować raportu przed importem plansz.',
         ),
         ok: false,
       };
@@ -217,7 +217,7 @@ export async function startReadyBrowserImageImport(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się utworzyć importu layoutów.',
+          'Nie udało się utworzyć importu plansz.',
         ),
         ok: false,
       };

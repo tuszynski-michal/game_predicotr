@@ -1,4 +1,5 @@
 import type {
+  BrowserReadySelectionResponse,
   GameResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
@@ -56,6 +57,23 @@ export function hasImageImport(
   gameId: string,
 ): boolean {
   return jobs.some((job) => job.gameId === gameId && isImageImport(job));
+}
+
+export function readyBoardImportStaging(
+  selections: readonly BrowserReadySelectionResponse[],
+  gameId: string,
+): readonly BrowserReadySelectionResponse[] {
+  return selections
+    .filter(
+      (selection) =>
+        selection.purpose === 'layout_import' &&
+        (selection.gameId === null || selection.gameId === gameId),
+    )
+    .sort(
+      (left, right) =>
+        Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
+        left.uploadId.localeCompare(right.uploadId),
+    );
 }
 
 export function reviewJobLabel(job: JobResponse): string {

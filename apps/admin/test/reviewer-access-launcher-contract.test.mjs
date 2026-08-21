@@ -23,7 +23,10 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /maximumOnlineCount/);
   assert.match(source, /assignmentId/);
   assert.match(source, /listOperationalImageReviewItems/);
-  assert.match(source, /Przejdź do Import layoutów/);
+  assert.match(source, /listReadyBrowserImageSelections/);
+  assert.match(source, /readyBoardImportStaging/);
+  assert.match(source, /Gotowy staging plansz czeka na uruchomienie importu/);
+  assert.match(source, /Przejdź do Importu plansz/);
   assert.match(source, /reviewCounts\?\.total === 0/);
   assert.match(source, /reviewReadyImports/);
   assert.match(source, /reviewableGames/);

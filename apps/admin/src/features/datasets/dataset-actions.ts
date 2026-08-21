@@ -102,7 +102,7 @@ export async function listDatasetLayouts(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się pobrać podglądu layoutów.',
+          'Nie udało się pobrać podglądu plansz.',
         ),
         ok: false,
       };

@@ -10,14 +10,14 @@ export const DEFAULT_DATASET_SEED = '71401';
 const VALIDATION_CHECK_LABELS: Readonly<
   Record<DatasetValidationCheckCode, string>
 > = {
-  LAYOUT_COUNT_MISMATCH: 'Deklarowana i rzeczywista liczba layoutów',
+  LAYOUT_COUNT_MISMATCH: 'Deklarowana i rzeczywista liczba plansz',
   MISSING_SEQUENCE_NUMBER: 'Brakujące numery sekwencji',
   OUT_OF_RANGE_SEQUENCE_NUMBER: 'Numery poza zakresem',
   DUPLICATE_SEQUENCE_NUMBER: 'Zduplikowane numery sekwencji',
-  INVALID_CELL_COUNT: 'Liczba komórek layoutu',
+  INVALID_CELL_COUNT: 'Liczba komórek planszy',
   FOREIGN_SYMBOL: 'Przynależność symboli do gry',
   SIGNATURE_MISMATCH: 'Zgodność sygnatur z komórkami',
-  DUPLICATE_SIGNATURE: 'Duplikaty sygnatur layoutu',
+  DUPLICATE_SIGNATURE: 'Duplikaty sygnatur planszy',
 };
 
 const VALIDATION_STATUS_LABELS: Readonly<

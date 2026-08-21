@@ -58,7 +58,7 @@ export function assessPayoutReadiness(
   if (dataset.layoutCount !== dataset.expectedLayoutCount) {
     return {
       ready: false,
-      reason: `Dataset jest niekompletny: ${dataset.layoutCount.toLocaleString('pl-PL')} z ${dataset.expectedLayoutCount.toLocaleString('pl-PL')} layoutów.`,
+      reason: `Dataset jest niekompletny: ${dataset.layoutCount.toLocaleString('pl-PL')} z ${dataset.expectedLayoutCount.toLocaleString('pl-PL')} plansz.`,
     };
   }
   return { dataset, ready: true };

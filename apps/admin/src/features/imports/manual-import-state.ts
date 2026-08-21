@@ -11,11 +11,11 @@ import type {
 
 const CHECK_LABELS: Readonly<Record<LayoutImportIntegrityCheckCode, string>> = {
   NORMALIZED_ROW_COUNT_MISMATCH: 'Zgodność liczby wierszy stagingu',
-  NO_VALID_IMPORT_ROWS: 'Obecność poprawnych layoutów',
+  NO_VALID_IMPORT_ROWS: 'Obecność poprawnych plansz',
   INVALID_IMPORT_ROW: 'Błędne wiersze importu',
   MISSING_SEQUENCE_NUMBER: 'Luki sequence_number',
   DUPLICATE_SEQUENCE_NUMBER: 'Duplikaty sequence_number',
-  DUPLICATE_SIGNATURE: 'Duplikaty treści layoutu',
+  DUPLICATE_SIGNATURE: 'Duplikaty treści planszy',
 };
 
 const CHECK_STATUS_LABELS: Readonly<

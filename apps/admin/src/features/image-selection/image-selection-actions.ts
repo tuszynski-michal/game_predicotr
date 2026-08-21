@@ -125,7 +125,7 @@ export async function uploadPhotoSelectionFolder(
     options.firstSequenceNumber < 1
   ) {
     return {
-      error: 'Podaj numer pierwszego layoutu przed rozpoczęciem uploadu.',
+      error: 'Podaj numer pierwszej planszy przed rozpoczęciem uploadu.',
       ok: false,
       resume: null,
     };

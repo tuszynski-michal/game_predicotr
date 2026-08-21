@@ -361,7 +361,7 @@ export function ManualImageSelectionWorkspace({
   async function startSession(): Promise<void> {
     const parsed = Number.parseInt(firstLayout, 10);
     if (!Number.isSafeInteger(parsed) || parsed < 1) {
-      setError('Pierwszy numer layoutu musi być dodatnią liczbą całkowitą.');
+      setError('Pierwszy numer planszy musi być dodatnią liczbą całkowitą.');
       return;
     }
     if (
@@ -747,14 +747,14 @@ export function ManualImageSelectionWorkspace({
             <p className="eyebrow">{gameName} · lokalnie</p>
             <h1 id="manual-image-selection-title">Ręczna selekcja zdjęć</h1>
             <p>
-              Wybierz pierwszy layout i dwa foldery. Zdjęcia pozostają na dysku;
-              aplikacja nie wykonuje uploadu ani OCR.
+              Wybierz pierwszą planszę i dwa foldery. Zdjęcia pozostają na
+              dysku; aplikacja nie wykonuje uploadu ani OCR.
             </p>
           </div>
         </header>
         <div className="manualImageSelectionSetup">
           <label>
-            Pierwszy layout
+            Pierwsza plansza
             <input
               min="1"
               onChange={(event) => setFirstLayout(event.target.value)}

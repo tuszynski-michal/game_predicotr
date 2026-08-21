@@ -374,7 +374,7 @@ export function ManualImageSelectionModal({
       setError(
         draftForApproval.candidateId === null
           ? 'Podaj oba numery zakresu albo pozostaw oba pola puste.'
-          : 'Aby zachować zdjęcie, podaj dodatni, rosnący zakres layoutów.',
+          : 'Aby zachować zdjęcie, podaj dodatni, rosnący zakres plansz.',
       );
       return;
     }
@@ -652,10 +652,10 @@ export function ManualImageSelectionModal({
     displayedRangeStart >= 1 &&
     displayedRangeEnd >= displayedRangeStart;
   const rangeLabel = !hasDisplayedRange
-    ? 'Zakres layoutów nierozpoznany'
+    ? 'Zakres plansz nierozpoznany'
     : currentDraft.candidateId === null
-      ? `Brak zdjęcia dla layoutów ${displayedRangeStart}–${displayedRangeEnd}`
-      : `Layouty ${displayedRangeStart}–${displayedRangeEnd}`;
+      ? `Brak zdjęcia dla plansz ${displayedRangeStart}–${displayedRangeEnd}`
+      : `Plansze ${displayedRangeStart}–${displayedRangeEnd}`;
   const sourceIdentity = groupSourceIdentity(
     current.groupOrder,
     currentSourceSummary,
@@ -1006,8 +1006,8 @@ export function ManualImageSelectionModal({
                   />
                 </label>
                 <p>
-                  Puste pole końca oznacza dziewięć layoutów, czyli początek +
-                  8. Wpisz koniec tylko dla krótszej grupy.
+                  Puste pole końca oznacza dziewięć plansz, czyli początek + 8.
+                  Wpisz koniec tylko dla krótszej grupy.
                 </p>
                 {current.status === 'range_required' ? (
                   <button
@@ -1101,9 +1101,9 @@ export function ManualImageSelectionModal({
                   </>
                 ) : (
                   <p>
-                    System nie potrafi wiarygodnie podać numerów layoutów dla
-                    tego zestawu. Odszukaj go po nazwach plików pokazanych w
-                    nagłówku albo pomiń — pewne zdjęcia nadal przejdą dalej.
+                    System nie potrafi wiarygodnie podać numerów plansz dla tego
+                    zestawu. Odszukaj go po nazwach plików pokazanych w nagłówku
+                    albo pomiń — pewne zdjęcia nadal przejdą dalej.
                   </p>
                 )}
                 <p>

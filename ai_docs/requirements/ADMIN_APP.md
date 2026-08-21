@@ -303,6 +303,9 @@ pełnych plansz i ma:
 
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
+- pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
+  staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
+  importu nie utworzy kolejki plansz,
 - mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
   dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
   `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,

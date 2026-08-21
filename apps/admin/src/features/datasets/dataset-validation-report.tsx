@@ -32,7 +32,7 @@ export function DatasetValidationReport({
           </h3>
         </div>
         <strong>
-          {report.actualLayoutCount}/{report.declaredLayoutCount} layoutów
+          {report.actualLayoutCount}/{report.declaredLayoutCount} plansz
         </strong>
       </header>
 
@@ -48,7 +48,7 @@ export function DatasetValidationReport({
           <dd>{report.duplicateSignatureGroupCount}</dd>
         </div>
         <div>
-          <dt>Layouty w grupach</dt>
+          <dt>Plansze w grupach</dt>
           <dd>{report.duplicateSignatureAffectedLayoutCount}</dd>
         </div>
         <div>

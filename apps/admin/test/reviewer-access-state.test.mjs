@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   hasImageImport,
+  readyBoardImportStaging,
   reviewJobLabel,
   reviewableGames,
   reviewReadyImports,
@@ -93,4 +94,33 @@ test('distinguishes an unfinished image import from no image import', () => {
   assert.equal(hasImageImport([processing], gameId), true);
   assert.equal(hasImageImport([fileImport], gameId), false);
   assert.equal(reviewReadyImports([processing], gameId).length, 0);
+});
+
+test('keeps ready staging outside the review dropdown but scopes it to the game', () => {
+  const staging = {
+    createdAt: '2026-08-01T10:00:00Z',
+    displayName: '19810 - 45162',
+    expectedFileCount: 2817,
+    expectedTotalBytes: 744_900_000,
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    purpose: 'layout_import',
+    uploadId: 'staging-newest',
+    uploadedBytes: 744_900_000,
+    uploadedFileCount: 2817,
+  };
+
+  assert.deepEqual(
+    readyBoardImportStaging(
+      [
+        { ...staging, gameId: 'game-2', uploadId: 'other-game' },
+        { ...staging, createdAt: '2026-08-01T09:00:00Z', uploadId: 'older' },
+        { ...staging, purpose: 'image_selection', uploadId: 'wrong-purpose' },
+        staging,
+      ],
+      gameId,
+    ).map((item) => item.uploadId),
+    ['staging-newest', 'older'],
+  );
+  assert.equal(reviewReadyImports([], gameId).length, 0);
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  BrowserReadySelectionResponse,
   GameResponse,
   JobResponse,
   OperationalImageReviewCountsResponse,
@@ -23,6 +24,7 @@ import {
 import {
   hasImageImport,
   isImageImport,
+  readyBoardImportStaging,
   reviewableGames,
   reviewJobLabel,
   reviewReadyImports,
@@ -46,6 +48,9 @@ export function ReviewerAccessLauncher({
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
+  const [readyStaging, setReadyStaging] = useState<
+    readonly BrowserReadySelectionResponse[]
+  >([]);
   const [uncontrolledGameId, setGameId] = useState('');
   const gameId = controlledGameId ?? uncontrolledGameId;
   const [jobId, setJobId] = useState('');
@@ -73,7 +78,7 @@ export function ReviewerAccessLauncher({
       setLoading(true);
       setError('');
       try {
-        const [gamesResult, jobsResult] = await Promise.all([
+        const [gamesResult, jobsResult, stagingResult] = await Promise.all([
           api.listGames(),
           api.listJobs({
             jobType: 'import',
@@ -82,6 +87,7 @@ export function ReviewerAccessLauncher({
               ? {}
               : { gameId: controlledGameId }),
           }),
+          api.listReadyBrowserImageSelections(),
         ]);
         if (!active) return;
         if (
@@ -108,6 +114,11 @@ export function ReviewerAccessLauncher({
           '';
         setGames(availableGames);
         setJobs(imageJobs);
+        setReadyStaging(
+          stagingResult.error === undefined && stagingResult.data !== undefined
+            ? stagingResult.data
+            : [],
+        );
         const selectedGameId = controlledGameId ?? firstGameId;
         if (controlledGameId === undefined) setGameId(firstGameId);
         setJobId(selectReviewImportId(imageJobs, selectedGameId, ''));
@@ -126,6 +137,7 @@ export function ReviewerAccessLauncher({
   }, [api, controlledGameId]);
 
   const availableJobs = reviewReadyImports(jobs, gameId);
+  const availableStaging = readyBoardImportStaging(readyStaging, gameId);
   const gameHasImageImport = hasImageImport(jobs, gameId);
   const selectedAssignment =
     overview?.assignments.find((item) => item.importJobId === jobId) ?? null;
@@ -376,7 +388,7 @@ export function ReviewerAccessLauncher({
           ) : null}
           {availableJobs.length > 0 ? (
             <label>
-              Gotowy import zdjęć
+              Gotowy import plansz
               <select
                 disabled={loading || opening !== null || reviewContextLoading}
                 onChange={(event) => {
@@ -459,14 +471,18 @@ export function ReviewerAccessLauncher({
           <div className="reviewerPrerequisite" role="status">
             <div>
               <strong>
-                {gameHasImageImport
-                  ? 'Import nie jest jeszcze gotowy do zatwierdzania'
-                  : 'Brak importu zdjęć dla tej gry'}
+                {availableStaging.length > 0
+                  ? 'Gotowy staging plansz czeka na uruchomienie importu'
+                  : gameHasImageImport
+                    ? 'Import nie jest jeszcze gotowy do zatwierdzania'
+                    : 'Brak uruchomionego importu plansz dla tej gry'}
               </strong>
               <p>
-                {gameHasImageImport
-                  ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
-                  : 'Wczytaj zdjęcia i zakończ ich przetwarzanie, aby otworzyć Reviewer.'}
+                {availableStaging.length > 0
+                  ? `Staging „${availableStaging[0].displayName}” zawiera ${availableStaging[0].uploadedFileCount.toLocaleString('pl-PL')} plików, ale nie jest jeszcze jobem importu plansz. Wróć do Importu plansz, pokaż raport, przygotuj geometrię stron i jawnie rozpocznij import. Dopiero utworzony job z kolejką plansz pojawi się tutaj.`
+                  : gameHasImageImport
+                    ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
+                    : 'Wczytaj zdjęcia, przygotuj import plansz i zakończ jego przetwarzanie, aby otworzyć Reviewer.'}
               </p>
             </div>
             {onOpenImports ? (
@@ -475,7 +491,7 @@ export function ReviewerAccessLauncher({
                 onClick={onOpenImports}
                 type="button"
               >
-                Przejdź do Import layoutów
+                Przejdź do Importu plansz
               </button>
             ) : null}
           </div>

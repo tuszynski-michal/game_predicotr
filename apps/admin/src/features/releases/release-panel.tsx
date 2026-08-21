@@ -444,7 +444,7 @@ export function ReleasePanel({
                       <dd>
                         v{selectedDataset.version} ·{' '}
                         {selectedDataset.layoutCount.toLocaleString('pl-PL')}{' '}
-                        layoutów
+                        plansz
                       </dd>
                     </div>
                     <div>
@@ -662,7 +662,7 @@ function ReleaseDetail({
               <th>Gra</th>
               <th>Dataset</th>
               <th>Reguły</th>
-              <th>Layouty</th>
+              <th>Plansze</th>
               <th>Plansza</th>
             </tr>
           </thead>

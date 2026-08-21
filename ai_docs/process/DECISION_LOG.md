@@ -4998,6 +4998,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   migracji. Historyczne wartości nazwy i kolejności są zachowane podczas edycji;
   nowe rekordy otrzymują wartości automatyczne.
 
+## D-208 — Panel używa „planszy”, a staging nie jest jobem Reviewera
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** widoczny UI Admina i Reviewera nazywa sekwencyjny układ symboli
+  „planszą”. Wewnętrzne nazwy oraz stabilne pola API `layout` pozostają bez
+  zmiany. Finalized staging jest tylko poświadczonym źródłem JPEG-ów; nie jest
+  import jobem ani elementem dropdownu Reviewera. Dropdown może wskazać
+  wyłącznie job tej samej gry w stanie `waiting_for_review` lub `completed`,
+  dla którego istnieje kolejka plansz.
+- **Context:** gotowy staging `19810 - 45162` był widoczny w Importach, ale nie
+  w Zatwierdzaniu plansz. Brak wyjaśnienia sugerował błąd, mimo że uruchomienie
+  joba po preflightach było jeszcze świadomie pominięte.
+- **Safety:** UI pokazuje gotowy staging i prowadzi do jawnego kroku importu,
+  lecz nie uruchamia mutacji ani nie tworzy sesji Reviewera. Zakres gry,
+  istniejące uprawnienia, staging manifest i fail-closed geometria pozostają
+  niezmienione.
+- **Consequences:** brak migracji, zmian OpenAPI lub ponownego uploadu. Termin
+  `layout` nadal obowiązuje w kodzie technicznym i danych historycznych.
+
 ## Szablon nowej decyzji
 
 ```text

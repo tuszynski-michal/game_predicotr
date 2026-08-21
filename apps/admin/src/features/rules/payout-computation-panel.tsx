@@ -183,12 +183,12 @@ export function PayoutComputationPanel({
   return (
     <section
       className="payoutComputationPanel"
-      aria-label="Przeliczanie layoutów"
+      aria-label="Przeliczanie plansz"
     >
       <header>
         <div>
           <p className="eyebrow">Precomputed payout</p>
-          <h3>Przelicz layouty</h3>
+          <h3>Przelicz plansze</h3>
         </div>
         <span className="algorithmBadge">{PAYOUT_ALGORITHM_VERSION}</span>
       </header>
@@ -215,7 +215,7 @@ export function PayoutComputationPanel({
                 <dd>Wersja {readiness.dataset.version}</dd>
               </div>
               <div>
-                <dt>Layouty</dt>
+                <dt>Plansze</dt>
                 <dd>
                   {readiness.dataset.layoutCount.toLocaleString('pl-PL')} /{' '}
                   {readiness.dataset.expectedLayoutCount.toLocaleString(
@@ -278,7 +278,7 @@ export function PayoutComputationPanel({
               onClick={() => void start()}
               type="button"
             >
-              {isSubmitting ? 'Dodawanie do kolejki…' : 'Przelicz layouty'}
+              {isSubmitting ? 'Dodawanie do kolejki…' : 'Przelicz plansze'}
             </button>
           ) : null}
         </>

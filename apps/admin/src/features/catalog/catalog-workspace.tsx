@@ -77,8 +77,8 @@ const GAME_SECTION_OPTIONS: readonly {
 }[] = [
   {
     id: 'imports',
-    title: 'Import layoutów',
-    description: 'Wybór folderu, postęp importu i kompletność layoutów.',
+    title: 'Import plansz',
+    description: 'Wybór folderu, postęp importu i kompletność plansz.',
   },
   {
     id: 'symbols',

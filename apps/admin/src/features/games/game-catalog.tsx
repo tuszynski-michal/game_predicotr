@@ -491,7 +491,7 @@ function GameEditor({
         </label>
 
         <label>
-          <span>Oczekiwana liczba layoutów</span>
+          <span>Oczekiwana liczba plansz</span>
           <input
             disabled={isSubmitting}
             inputMode="numeric"
@@ -641,7 +641,7 @@ function GameRow({
           </div>
           <code className="gameStableCode">{game.code}</code>
           <small className="gameLayoutGoal">
-            Cel: {game.expectedLayoutCount.toLocaleString('pl-PL')} layoutów
+            Cel: {game.expectedLayoutCount.toLocaleString('pl-PL')} plansz
           </small>
         </div>
       </button>

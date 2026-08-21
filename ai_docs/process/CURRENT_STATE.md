@@ -65,6 +65,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Walidacja: 221 testów Admina, typecheck, celowany ESLint, Prettier,
   `git diff --check` i produkcyjny build Admina przeszły.
 
+### Odzyskiwanie otwarcia i zapisu Reviewera — TASK-0255
+
+- Lokalny launcher przekazuje zwrócony URL do przygotowanego okna przed
+  pomocniczym odświeżeniem overview. Błąd nawigacji zamyka pustą kartę i
+  pozostawia w Adminie ręczny link, zamiast zatrzymywać użytkownika na
+  `about:blank`.
+- Zapis decyzji Reviewera ma limit 12 sekund na próbę. Po pierwszym timeoutcie
+  klient wykonuje dokładnie jedno ponowienie niezmienionej, idempotentnej
+  komendy. Drugi timeout odblokowuje przycisk i jawnie komunikuje, że zapis mógł
+  zostać przyjęty.
+- Rzeczywista decyzja zgłoszona 21 sierpnia 2026 została potwierdzona w bazie
+  jako `accepted`; poprawka nie usuwa ani nie powiela istniejącego zdarzenia.
+- Walidacja: 222 testy Admina, 35 testów Reviewera, typecheck obu aplikacji,
+  ESLint (dwa istniejące ostrzeżenia Admina bez błędów) oraz Prettier przeszły.
+  Produkcyjnych procesów i aktywnego udostępnienia nie zatrzymano.
+
 ### Przejście z wersji 0.6 do 0.7 — 2026-08-21
 
 - Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w
@@ -2130,3 +2146,18 @@ fallbackom `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS; połączenie po
 adresie nadal weryfikuje hostname, SNI i certyfikat TLS. Po teście nie pozostał
 aktywny assignment, cloudflared ani testowy plik cookie. TASK-0249 jest
 ukończony.
+
+## TASK-0256 — automatyczna geometria z korektą odroczoną
+
+Preflight `page-geometry-preflight-v2-auto-anchor` zachowuje dotychczasowe
+twarde bramki rejestracji, a następnie wykonuje najwyżej dwa ponowienia dla
+nierozpoznanych stron. Każdy przebieg używa maksymalnie 21 pełnych wyników 3 × 3
+spełniających ostrzejszą bramkę jako dodatkowych perspektyw. Manifest schema v2
+zapisuje promocje i liczbę rozwiązanych stron; manifesty v1 pozostają czytelne.
+
+Import z częściowym manifestem kopiuje i przetwarza wyłącznie `registered`.
+`review_required` pozostają w trwałym stagingu i nie docierają do croppera ani
+symbol inference. Admin automatycznie tworzy lub odzyskuje preflight po
+pokazaniu raportu, pokazuje nierozpoznane strony jako odroczone i ukrywa ich
+ręczną korektę pod sekcją „zostaw na koniec”. Wygasający 15-minutowy token
+legacy nie usuwa już sfinalizowanego browser stagingu.

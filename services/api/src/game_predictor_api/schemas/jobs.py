@@ -168,6 +168,7 @@ class LayoutImportValidateJobPayload(ApiModel):
 class PageGeometryPreflightJobPayload(ApiModel):
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
+    preflight_policy_version: Literal["page-geometry-preflight-v2-auto-anchor"] | None = None
     source_selection_id: UUID
     source_directory: str = Field(min_length=1, max_length=2048)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

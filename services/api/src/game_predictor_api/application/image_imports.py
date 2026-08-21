@@ -410,7 +410,11 @@ class ImageFolderSelectionService:
         ]
         for token, selection in expired:
             self._selections.pop(token, None)
-            if selection.managed:
+            # The 15-minute token is only a legacy authorization handle.  A
+            # finalized browser staging has its own durable lifecycle and may
+            # already be pinned by a geometry preflight or import.  Expiring
+            # the token must therefore never delete a finalized staging.
+            if selection.managed and not (selection.path / UPLOAD_MANIFEST_FILE_NAME).is_file():
                 shutil.rmtree(selection.path, ignore_errors=True)
 
 

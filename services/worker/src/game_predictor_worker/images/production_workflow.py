@@ -86,7 +86,32 @@ class ProductionImageImportWorkflow:
             job,
             source_directory=_source_directory(job),
         )
-        source_count = len(manifest.originals)
+        geometry_manifest = _page_geometry_manifest(job, self._artifact_root)
+        unresolved_originals = _filter_canonical_originals(manifest.originals, job)
+        canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
+        pipeline_originals = unresolved_originals
+        pipeline_originals = _filter_registered_geometry_originals(
+            pipeline_originals,
+            geometry_manifest,
+        )
+        deferred_geometry_count = len(unresolved_originals) - len(pipeline_originals)
+        source_count = len(pipeline_originals)
+        if not pipeline_originals:
+            context.checkpoint(
+                checkpoint_payload={
+                    "canonical_skipped_source_count": canonical_skipped_count,
+                    "checkpoint_kind": "image-source-filtered-v1",
+                    "deferred_geometry_source_count": deferred_geometry_count,
+                    "schema_version": 1,
+                },
+                stage="image_deferred_geometry_skip",
+                current=0,
+                total=0,
+                success_count=0,
+                failure_count=0,
+                review_count=0,
+            )
+            return
         source_context = _ProgressWindowContext(
             context,
             current_offset=0,
@@ -96,23 +121,8 @@ class ProductionImageImportWorkflow:
         manifest = self._source_handler.ingest(
             cast(JobExecutionContext, source_context),
             job,
+            originals=pipeline_originals,
         )
-        pipeline_originals = _filter_canonical_originals(manifest.originals, job)
-        if not pipeline_originals:
-            context.checkpoint(
-                checkpoint_payload={
-                    "checkpoint_kind": "image-canonical-skip-v1",
-                    "skipped_source_count": len(manifest.originals),
-                    "schema_version": 1,
-                },
-                stage="image_canonical_skip",
-                current=source_count * 2,
-                total=source_count * 2,
-                success_count=source_count,
-                failure_count=0,
-                review_count=0,
-            )
-            return
         registrations = tuple(
             ImageFileRegistration(
                 source_checksum_sha256=original.checksum_sha256,
@@ -141,7 +151,7 @@ class ProductionImageImportWorkflow:
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
             page_registration_profile=_page_registration_profile_snapshot(job),
-            page_geometry_manifest=_page_geometry_manifest(job, self._artifact_root),
+            page_geometry_manifest=geometry_manifest,
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
         ).adapters()
@@ -191,6 +201,28 @@ def _filter_canonical_originals(
         if any(number not in canonical for number in range(start, end + 1)):
             retained.append(original)
     return tuple(retained)
+
+
+def _filter_registered_geometry_originals(
+    originals: Sequence[ManagedOriginal],
+    geometry_entries: Mapping[str, object],
+) -> tuple[ManagedOriginal, ...]:
+    """Keep only sources proven safe by a pinned page-geometry manifest.
+
+    A non-empty manifest is authoritative.  Review-required pages remain in
+    that immutable manifest for a later retry/manual pass and must not enter
+    crop or symbol inference prematurely.
+    """
+
+    if not geometry_entries:
+        return tuple(originals)
+    return tuple(
+        original
+        for original in originals
+        if isinstance(geometry_entries.get(original.checksum_sha256), Mapping)
+        and cast(Mapping[str, object], geometry_entries[original.checksum_sha256]).get("status")
+        == "registered"
+    )
 
 
 class _ProgressWindowContext:

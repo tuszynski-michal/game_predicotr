@@ -45,6 +45,10 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startReadyBrowserImageImport/);
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
+  assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /Importuj rozpoznane strony/);
+  assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
+  assert.doesNotMatch(panelSource, /Import jest zablokowany/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
   assert.match(panelSource, /Import plansz z folderu/);

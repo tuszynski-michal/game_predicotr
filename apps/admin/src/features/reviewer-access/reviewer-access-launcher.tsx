@@ -270,7 +270,6 @@ export function ReviewerAccessLauncher({
         return;
       }
       const reviewUrl = result.opened.assignment.reviewUrl;
-      await refreshOverview(false);
       if (reviewUrl === null) {
         reviewerWindow?.close();
         setError('Lokalna aplikacja Reviewer nie zwróciła adresu.');
@@ -283,7 +282,17 @@ export function ReviewerAccessLauncher({
         );
         return;
       }
-      reviewerWindow.location.replace(reviewUrl);
+      try {
+        reviewerWindow.location.replace(reviewUrl);
+      } catch {
+        reviewerWindow.close();
+        setLocalReviewUrl(reviewUrl);
+        setError(
+          'Nie udało się przekierować przygotowanego okna. Otwórz lokalny Reviewer z linku poniżej.',
+        );
+        return;
+      }
+      void refreshOverview(false);
     } finally {
       setOpening(null);
     }

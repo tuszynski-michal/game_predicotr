@@ -314,7 +314,10 @@ pełnych plansz i ma:
 - mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
   wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
   tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
-  strony otwartej przez loopback,
+  strony otwartej przez loopback; przygotowane synchronicznie okno ma otrzymać
+  zwrócony URL przed pomocniczym odświeżeniem overview, a błąd nawigacji ma
+  pozostawić właścicielowi widoczny link ręczny zamiast pustej karty
+  `about:blank`,
 - pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
   `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
   wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
@@ -385,7 +388,11 @@ w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
 blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
 Klucz idempotencji jednej niezmienionej komendy jest zachowywany także po
-niejednoznacznym błędzie transportu. Ponowienie może więc odzyskać poprawnie
+niejednoznacznym błędzie transportu. Pojedyncza próba ma ograniczony czas
+oczekiwania; pierwszy timeout powoduje dokładnie jedno automatyczne ponowienie
+tej samej pełnej komendy z tym samym kluczem. Drugi timeout odblokowuje UI i
+informuje, że decyzja mogła zostać utrwalona, zamiast pozostawiać przycisk
+`Zatwierdź` bezterminowo wyłączony. Ponowienie może więc odzyskać poprawnie
 utrwaloną decyzję zamiast wysłać nową komendę na starej rewizji. Pomyślny zapis
 zwraca trwały `queueVersion` i dokładne liczniki po całej transakcji, w tym po
 ewentualnym zastąpieniu innych źródeł. Reviewer nie wyprowadza tych liczników z

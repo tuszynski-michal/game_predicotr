@@ -941,6 +941,7 @@ class JobService:
             input_payload={
                 "schema_version": 2,
                 "validation_kind": "page_geometry_preflight",
+                "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
                 "source_selection_id": str(selection_id),
                 "source_directory": str(resolved),
                 "source_manifest_sha256": source_manifest_sha256,

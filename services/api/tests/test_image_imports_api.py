@@ -362,9 +362,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         )
         assert finalized.status_code == 200
 
-        ready = client.get(
-            "/api/v1/admin/image-imports/browser-selections?purpose=layout_import"
-        )
+        ready = client.get("/api/v1/admin/image-imports/browser-selections?purpose=layout_import")
         assert ready.status_code == 200
         assert ready.json()[0]["uploadId"] == upload_id
 
@@ -424,7 +422,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             total=2,
             success_count=1,
             failure_count=0,
-            review_count=0,
+            review_count=1,
             updated_at=NOW + timedelta(seconds=1),
         )
         repository.add_job(
@@ -456,9 +454,10 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]
-    assert replay.json()["job"]["inputPayload"]["sourceManifestSha256"] == report[
-        "manifestChecksumSha256"
-    ]
+    assert (
+        replay.json()["job"]["inputPayload"]["sourceManifestSha256"]
+        == report["manifestChecksumSha256"]
+    )
 
 
 def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:
@@ -874,6 +873,52 @@ def test_finalized_photo_selection_can_be_reapproved_after_service_recreation(
     assert resumed.uploaded_bytes == len(content)
     assert first_selected.selection_id == repeated_selected.selection_id == upload.upload_id
     assert first_selected.input_manifest_sha256 == repeated_selected.input_manifest_sha256
+
+
+def test_expired_legacy_token_does_not_delete_finalized_browser_staging(
+    tmp_path: Path,
+) -> None:
+    current = NOW
+    selection_service = ImageFolderSelectionService(
+        lambda: None,
+        clock=lambda: current,
+    )
+    upload_root = tmp_path / "imports"
+    service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024 * 1024,
+        clock=lambda: current,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    first = service.begin(
+        display_name="Pierwszy staging",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    service.upload_file(
+        first.upload_id,
+        0,
+        relative_path="Pierwszy staging/seq_1-9.jpg",
+        content=content,
+    )
+    service.finalize(first.upload_id)
+    first_path = first.path
+
+    current = NOW + timedelta(minutes=20)
+    second = service.begin(
+        display_name="Drugi staging",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+
+    assert second.path.is_dir()
+    assert first_path.is_dir()
+    assert (
+        service.get_ready(first.upload_id).manifest.files[0].relative_path.endswith("seq_1-9.jpg")
+    )
 
 
 def test_photo_selection_staging_enforces_separate_file_and_byte_limits(

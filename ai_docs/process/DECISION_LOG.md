@@ -5018,6 +5018,29 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** brak migracji, zmian OpenAPI lub ponownego uploadu. Termin
   `layout` nadal obowiązuje w kodzie technicznym i danych historycznych.
 
+## D-209 — Nierozpoznana geometria strony jest odroczona, a nie blokująca
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** preflight geometrii wykonuje najwyżej dwa automatyczne
+  ponowienia z maksymalnie 21 zaostrzonymi auto-kotwicami na przebieg. Ukończony
+  manifest może zawierać wpisy `review_required`; import przetwarza wyłącznie
+  `registered`, a ręczna korekta wyjątków jest dostępna na końcu.
+- **Context:** stagingi `19810–45162` i `70363–93861` miały odpowiednio 54 i
+  152 nierozpoznane strony, mimo kompletnej geometrii większości źródeł.
+  Wymaganie ręcznej korekty wszystkich wyjątków przed rozpoczęciem importu
+  zatrzymywało tysiące poprawnych plansz.
+- **Safety:** końcowe progi ORB/RANSAC, dowód czerwonej ramki, kompletność 3 × 3,
+  zakaz syntetycznych quadów i ochrona kanonicznych numerów pozostają bez zmian.
+  Auto-kotwice mają ostrzejsze progi niż wynik produkcyjny, limit liczby i
+  audyt w manifeście. `review_required` nie jest kopiowane, cięte ani
+  klasyfikowane.
+- **Consequences:** Admin automatycznie odzyskuje lub tworzy preflight po
+  pokazaniu raportu i pozwala uruchomić import częściowy. Staging pozostaje
+  trwały, więc odroczone strony można ponowić albo poprawić ręcznie później.
+- **Supersedes:** zmienia część D-195 wymagającą zera stron review przed startem,
+  zachowując jej fail-closed zasady geometrii.
+
 ## Szablon nowej decyzji
 
 ```text

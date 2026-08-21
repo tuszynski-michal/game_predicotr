@@ -322,6 +322,16 @@ export function ImageFolderImportPanel({
         return;
       }
       setPreflight(preflightResult.data);
+      const geometryResult = await startBrowserPageGeometryPreflight(
+        api,
+        result.uploadId,
+        gameId,
+      );
+      if (!geometryResult.ok) {
+        setError(geometryResult.error);
+        return;
+      }
+      setGeometryPreflightJob(geometryResult.data.job);
       const readyResult = await listReadyBrowserImageSelections(api);
       if (readyResult.ok) {
         setReadySelections(
@@ -355,9 +365,20 @@ export function ImageFolderImportPanel({
       }
       setReadyUploadId(uploadId);
       setPreflight(result.data);
-      setGeometryPreflightJob(null);
+      const geometryResult = await startBrowserPageGeometryPreflight(
+        api,
+        uploadId,
+        gameId,
+      );
+      if (!geometryResult.ok) {
+        setError(geometryResult.error);
+        return;
+      }
+      setGeometryPreflightJob(geometryResult.data.job);
       setFeedback(
-        'Raport preflight jest gotowy. Import nie został jeszcze uruchomiony.',
+        geometryResult.data.created
+          ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
+          : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.',
       );
     } catch {
       setError('Nie udało się przygotować raportu przed importem plansz.');
@@ -372,7 +393,6 @@ export function ImageFolderImportPanel({
       readyUploadId === null ||
       preflight === null ||
       geometryPreflightJob?.status !== 'completed' ||
-      geometryPreflightJob.progress.review > 0 ||
       geometryManifestChecksum === null
     ) {
       return;
@@ -908,15 +928,20 @@ export function ImageFolderImportPanel({
                           {geometryPreflightJob.progress.current}/
                           {geometryPreflightJob.progress.total ?? '—'} ·
                           poprawne {geometryPreflightJob.progress.succeeded} ·
-                          do korekty {geometryPreflightJob.progress.review}
+                          odroczone {geometryPreflightJob.progress.review}
                         </span>
                       ) : null}
                       {geometryPreflightJob?.status === 'completed' &&
                       geometryPreflightJob.progress.review > 0 ? (
-                        <>
-                          <p className="curatedImportStatus" role="alert">
-                            Import jest zablokowany: strony wymagające korekty
-                            geometrii nie mogą otrzymać syntetycznych cropów.
+                        <details>
+                          <summary>
+                            Ręczna korekta geometrii — zostaw na koniec (
+                            {geometryPreflightJob.progress.review})
+                          </summary>
+                          <p className="curatedImportStatus">
+                            Rozpoznane strony można już importować. Te pozycje
+                            pozostają bezpiecznie odroczone i nie trafią do
+                            cięcia ani rozpoznawania symboli.
                           </p>
                           <PageGeometryCorrectionPanel
                             api={api}
@@ -926,7 +951,7 @@ export function ImageFolderImportPanel({
                             preflightJobId={geometryPreflightJob.id}
                             uploadId={ready.uploadId}
                           />
-                        </>
+                        </details>
                       ) : null}
                     </div>
                   ) : null}
@@ -951,7 +976,6 @@ export function ImageFolderImportPanel({
                   selection?.selectionToken == null)) ||
               (preflight !== null &&
                 (geometryPreflightJob?.status !== 'completed' ||
-                  geometryPreflightJob.progress.review > 0 ||
                   geometryManifestChecksum === null))
             }
             onClick={() =>
@@ -963,7 +987,10 @@ export function ImageFolderImportPanel({
               ? 'Uruchamianie…'
               : preflight === null
                 ? 'Rozpocznij import'
-                : 'Rozpocznij import z raportu'}
+                : geometryPreflightJob !== null &&
+                    geometryPreflightJob.progress.review > 0
+                  ? 'Importuj rozpoznane strony'
+                  : 'Rozpocznij import z raportu'}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"

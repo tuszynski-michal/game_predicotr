@@ -7764,6 +7764,18 @@
             "title": "Pageregistrationprofile",
             "type": "object"
           },
+          "preflightPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "page-geometry-preflight-v2-auto-anchor",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preflightpolicyversion"
+          },
           "schemaVersion": {
             "const": 2,
             "title": "Schemaversion",

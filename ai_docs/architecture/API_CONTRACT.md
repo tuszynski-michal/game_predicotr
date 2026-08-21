@@ -2178,9 +2178,15 @@ niezmienny manifest geometrii:
 - `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
 
+Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
+raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
+zamiast wymagać ręcznego przycisku startu.
+
 Start importu zawiera `geometryPreflightJobId` oraz
 `geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
 dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
-drift albo nierozwiązana strona blokują start stabilnym błędem zamiast powrotu
-do klasycznego detektora. Override ma tylko checksumę źródła, rozmiar obrazu,
+drift albo nieukończony preflight blokują start. Nierozwiązane wpisy manifestu
+nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
+kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
+ma tylko checksumę źródła, rozmiar obrazu,
 dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.

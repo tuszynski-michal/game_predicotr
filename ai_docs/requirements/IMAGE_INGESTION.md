@@ -318,6 +318,22 @@ jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
 joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
 symboli ani technicznego `board_detection failed`.
 
+Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
+dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym
+przebiegu może dodać najwyżej 21 perspektyw rozłożonych po naturalnej kolejności
+stagingu. Auto-kotwicą może zostać tylko kompletna geometria 3 × 3, która
+przeszła zaostrzoną bramkę: co najmniej 60 inlierów, udział 0,35, p95 do
+1,75 px, średnie pokrycie czerwonej krawędzi 0,82 i co najmniej 0,65 dla każdej
+planszy. Wynik ponowienia nadal musi przejść wszystkie pierwotne twarde progi;
+polityka nie syntetyzuje quadów ani nie obniża bramki końcowej.
+
+Ukończony manifest może zawierać zarówno `registered`, jak i
+`review_required`. Import kopiuje i przekazuje do croppera wyłącznie źródła
+`registered`. Pozostałe źródła są bezpiecznie odroczone i mogą zostać ponowione
+po rozszerzeniu profilu lub poprawione ręcznie na końcu pracy. Niepełna
+geometria nigdy nie trafia do OCR, cropów ani inferencji symboli. Kanoniczne
+numery pozostają pominięte niezależnie od statusu geometrii.
+
 Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
 rewizję. Operator najpierw przesuwa cztery uchwyty strony, zachowując strukturę
 3 × 3, i może wyjątkowo poprawić pojedynczy quad. Ponowny preflight używa

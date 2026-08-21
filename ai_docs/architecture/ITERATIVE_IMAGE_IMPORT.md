@@ -90,6 +90,21 @@ wynikiem bazowego detektora. Właściwe 15 cropów pozostaje deterministycznym
 wynikiem croppera i podlega manualnemu review. Rejestr aktywacji jest
 append-only i umożliwia rollback.
 
+### Przyrostowe kotwice preflightu strony
+
+Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego
+niezmiennego stagingu. Kohorta nie jest modelem aktywnym gry i nie zmienia
+profilu bazowego. Obejmuje wyłącznie wyniki kompletne, które przeszły
+zaostrzoną bramkę, ma ograniczenie dwóch przebiegów i 21 nowych kotwic na
+przebieg. Dzięki temu kolejne kąty kamery mogą zostać rozwiązane automatycznie,
+ale błąd nie propaguje się przez obniżanie bramek ani syntetyczną geometrię.
+
+Manifest końcowy jest również planem częściowego wykonania: `registered`
+wchodzi do pipeline'u, `review_required` pozostaje w stagingu do późniejszego
+ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
+wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
+przetwarzane drugi raz.
+
 ## Podgląd Reviewera
 
 Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound

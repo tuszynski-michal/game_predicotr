@@ -27,9 +27,11 @@ from game_predictor_worker.images.production_workflow import (
     ProductionImageStageAdapterSuite,
     _attested_sequence_payload,
     _calibrated_quad,
+    _filter_registered_geometry_originals,
     _resolve_page_sequence_numbers,
     _symbol_model_snapshot,
 )
+from game_predictor_worker.images.source_ingestion import ManagedOriginal
 from game_predictor_worker.images.symbol_onnx import OnnxInference
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
@@ -148,6 +150,27 @@ def test_attested_sequence_range_keeps_partial_geometry_in_review() -> None:
         "SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED" in board["reviewReasons"]
         for board in boards
     )
+
+
+def test_geometry_manifest_defers_unregistered_sources_before_pipeline() -> None:
+    registered = ManagedOriginal("a" * 64, "seq_1-9.jpg", "data/a.jpg", 10)
+    review_required = ManagedOriginal("b" * 64, "seq_10-18.jpg", "data/b.jpg", 10)
+
+    retained = _filter_registered_geometry_originals(
+        (registered, review_required),
+        {
+            registered.checksum_sha256: {"status": "registered"},
+            review_required.checksum_sha256: {"status": "review_required"},
+        },
+    )
+
+    assert retained == (registered,)
+
+
+def test_geometry_filter_keeps_legacy_import_without_pinned_manifest() -> None:
+    original = ManagedOriginal("a" * 64, "photo.jpg", "data/a.jpg", 10)
+
+    assert _filter_registered_geometry_originals((original,), {}) == (original,)
 
 
 def _grid_image() -> np.ndarray:

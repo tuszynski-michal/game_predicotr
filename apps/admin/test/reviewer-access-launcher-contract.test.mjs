@@ -35,3 +35,24 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.doesNotMatch(source, /leaseToken/);
   assert.doesNotMatch(source, /game\.status === 'active'/);
 });
+
+test('local launch navigates the prepared window before refreshing assignment state', async () => {
+  const source = await readFile(launcherPath, 'utf8');
+  const launchStart = source.indexOf('async function launchLocalReviewer()');
+  const launchEnd = source.indexOf(
+    'async function createOnlineWork()',
+    launchStart,
+  );
+  const launchSource = source.slice(launchStart, launchEnd);
+  const navigateAt = launchSource.indexOf(
+    'reviewerWindow.location.replace(reviewUrl)',
+  );
+  const refreshAt = launchSource.indexOf('void refreshOverview(false)');
+
+  assert.notEqual(navigateAt, -1);
+  assert.ok(refreshAt > navigateAt);
+  assert.doesNotMatch(launchSource, /await refreshOverview\(false\)/);
+  assert.match(launchSource, /reviewerWindow\.close\(\)/);
+  assert.match(launchSource, /setLocalReviewUrl\(reviewUrl\)/);
+  assert.match(launchSource, /Nie udało się przekierować przygotowanego okna/);
+});

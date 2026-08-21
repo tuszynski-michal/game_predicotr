@@ -4455,6 +4455,10 @@ export type PageGeometryPreflightJobPayload = {
     [key: string]: unknown;
   };
   /**
+   * Preflightpolicyversion
+   */
+  preflightPolicyVersion?: 'page-geometry-preflight-v2-auto-anchor' | null;
+  /**
    * Schemaversion
    */
   schemaVersion: 2;

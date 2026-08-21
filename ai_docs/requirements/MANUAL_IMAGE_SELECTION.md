@@ -29,7 +29,9 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   folderze i przechodzi do następnego zdjęcia oraz zakresu.
 - `Tab` pomija bieżące zdjęcie dla zakresu i przechodzi do następnego zakresu,
   pozostawiając ten sam obraz do ponownego wykorzystania.
-- Strzałki zmieniają wyświetlane zdjęcie bez zmiany zakresu ani decyzji.
+- Strzałki lewo/prawo zmieniają wyświetlane zdjęcie bez zmiany zakresu ani
+  decyzji. Strzałka w dół wybiera następną wartość skoku, a strzałka w górę
+  poprzednią; na krańcach lista pozostaje odpowiednio przy `1` albo `20`.
   Operator wybiera trwały skok `1, 2, 3, 4, 5, 6, 7, 10, 15` albo `20` zdjęć;
   Enter po zapisie nadal przechodzi dokładnie o jedno zdjęcie. Select zachowuje
   czytelne ciemne tło również po rozwinięciu natywnej listy opcji.
@@ -45,7 +47,8 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   aplikacja wcześniej zapisała oraz którego checksum nadal odpowiada źródłu.
 - `Enter` albo pojedyncze `F` zatwierdza bieżące zdjęcie; skróty nie działają,
   gdy fokus znajduje się w polu formularza, selectu, przycisku lub innym
-  elemencie edytowalnym.
+  elemencie edytowalnym. Ta sama ochrona dotyczy pionowych strzałek zmiany
+  skoku, dzięki czemu select zachowuje własną natywną obsługę klawiatury.
 
 ## Trwałość i bezpieczeństwo
 

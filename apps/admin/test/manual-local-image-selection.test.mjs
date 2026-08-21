@@ -3,7 +3,9 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 import {
+  adjacentManualNavigationStep,
   createManualSelectionState,
+  MANUAL_IMAGE_NAVIGATION_STEPS,
   naturalCompare,
   nextManualSelectionState,
   previousManualSelectionState,
@@ -48,12 +50,26 @@ test('derives each inclusive nine-layout range from its first number', () => {
 test('offers the requested persisted arrow navigation steps', () => {
   const initial = createManualSelectionState(1, 'ascending');
   assert.equal(initial.navigationStep, 1);
-  assert.match(
-    workspaceSource,
-    /NAVIGATION_STEPS = \[1, 2, 3, 4, 5, 6, 7, 10, 15, 20\]/,
+  assert.match(workspaceSource, /MANUAL_IMAGE_NAVIGATION_STEPS\.map/);
+  assert.deepEqual(
+    MANUAL_IMAGE_NAVIGATION_STEPS,
+    [1, 2, 3, 4, 5, 6, 7, 10, 15, 20],
   );
   assert.match(workspaceSource, /delta \* navigationStep/);
   assert.match(workspaceSource, /navigationStep,/);
+});
+
+test('up and down arrows move by one configured navigation step', () => {
+  assert.equal(adjacentManualNavigationStep(2, 1), 3);
+  assert.equal(adjacentManualNavigationStep(5, 1), 6);
+  assert.equal(adjacentManualNavigationStep(7, 1), 10);
+  assert.equal(adjacentManualNavigationStep(3, -1), 2);
+  assert.equal(adjacentManualNavigationStep(1, -1), 1);
+  assert.equal(adjacentManualNavigationStep(20, 1), 20);
+  assert.match(workspaceSource, /event\.key === 'ArrowDown'/);
+  assert.match(workspaceSource, /changeNavigationStepByDirection\(1\)/);
+  assert.match(workspaceSource, /event\.key === 'ArrowUp'/);
+  assert.match(workspaceSource, /changeNavigationStepByDirection\(-1\)/);
 });
 
 test('enter advances the range and tab can keep the same photo', () => {

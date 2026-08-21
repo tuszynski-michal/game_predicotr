@@ -74,6 +74,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Select skoku zawiera `1, 2, 3, 4, 5, 6, 7, 10, 15, 20` i ma jawne ciemne tło
   oraz tekst również dla natywnych opcji rozwijanej listy.
 
+### Klawiaturowa zmiana skoku ręcznej selekcji — TASK-0259
+
+- Poza kontrolkami formularza `ArrowDown` wybiera następną skonfigurowaną
+  wartość skoku, a `ArrowUp` poprzednią. Przykładowo `2 → 3`, natomiast `7 →
+  10`; wartości krańcowe pozostają przy `1` i `20`.
+- Ustawienie nadal trafia do istniejącego stanu sesji i serializowanej kolejki
+  IndexedDB. Nie zmienia zdjęcia, zakresu ani śladu uczenia.
+- Walidacja: `225/225` testów Admina, typecheck, produkcyjny build i celowany
+  ESLint bez błędów; pozostało jedno istniejące ostrzeżenie o celowym `<img>`
+  dla lokalnego Blob URL.
+
 ### Automatyczne odzyskiwanie konfliktu Reviewera — TASK-0258
 
 - Plansza `253` importu `b2d9b299…` została faktycznie zaakceptowana i ma jedną

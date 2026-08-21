@@ -30,9 +30,11 @@ poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKe
 nie nadpisać artefaktu innej sesji.
 
 W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
-zatwierdzenie oraz `Ctrl+Z`/`A` jako cofnięcie. Handler ignoruje pola edycyjne,
-selecty, przyciski i elementy `contenteditable`, aby skróty nie przejmowały
-interakcji formularza.
+zatwierdzenie, `Ctrl+Z`/`A` jako cofnięcie, lewo/prawo jako nawigację po
+zdjęciach oraz góra/dół jako przejście po sąsiednich pozycjach wersjonowanej
+listy skoku. Zmiana skoku przechodzi przez tę samą serializowaną kolejkę zapisu
+sesji w IndexedDB. Handler ignoruje pola edycyjne, selecty, przyciski i elementy
+`contenteditable`, aby skróty nie przejmowały interakcji formularza.
 
 Zapis pliku jest atomizowany na poziomie uchwytu: źródłowy Blob jest kopiowany
 bez transformacji, checksum SHA-256 jest porównywany z istniejącym plikiem,

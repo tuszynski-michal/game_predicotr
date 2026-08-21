@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  adjacentManualNavigationStep,
   createManualSelectionState,
   listManualImages,
+  MANUAL_IMAGE_NAVIGATION_STEPS,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
@@ -42,7 +44,6 @@ interface LoadedImageSize {
 }
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
-const NAVIGATION_STEPS = [1, 2, 3, 4, 5, 6, 7, 10, 15, 20] as const;
 
 function fitImageToViewport(
   naturalSize: ImageSize | null,
@@ -752,6 +753,21 @@ export function ManualImageSelectionWorkspace({
     });
   }
 
+  function changeNavigationStepByDirection(direction: -1 | 1): void {
+    const currentState = stateRef.current;
+    if (currentState === null || record === null || busyRef.current) return;
+    const navigationStep = adjacentManualNavigationStep(
+      currentState.navigationStep,
+      direction,
+    );
+    if (navigationStep === currentState.navigationStep) return;
+    void persist({
+      ...currentState,
+      navigationStep,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   async function toggleFullscreen(): Promise<void> {
     const viewer = viewerRef.current;
     if (viewer === null) return;
@@ -793,6 +809,12 @@ export function ManualImageSelectionWorkspace({
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
         moveImage(-1);
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        changeNavigationStepByDirection(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        changeNavigationStepByDirection(-1);
       } else if (event.key === 'Enter') {
         event.preventDefault();
         void acceptCurrent();
@@ -989,7 +1011,7 @@ export function ManualImageSelectionWorkspace({
             onChange={(event) => changeNavigationStep(event.target.value)}
             value={navigationStep}
           >
-            {NAVIGATION_STEPS.map((step) => (
+            {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
               <option key={step} value={step}>
                 co {step}{' '}
                 {step === 1
@@ -1191,7 +1213,9 @@ function isStaleImageLoad(cause: unknown): boolean {
 }
 
 function normalizeNavigationStep(value: number | undefined): number {
-  return NAVIGATION_STEPS.includes(value as (typeof NAVIGATION_STEPS)[number])
+  return MANUAL_IMAGE_NAVIGATION_STEPS.includes(
+    value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
+  )
     ? (value as number)
     : 1;
 }

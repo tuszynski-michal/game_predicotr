@@ -88,6 +88,31 @@ export interface ManualSelectionSessionRecord {
 const JPEG_EXTENSIONS = new Set(['.jpg', '.jpeg']);
 const NATURAL_PARTS = /(\d+)/g;
 
+export const MANUAL_IMAGE_NAVIGATION_STEPS = [
+  1, 2, 3, 4, 5, 6, 7, 10, 15, 20,
+] as const;
+
+export function adjacentManualNavigationStep(
+  value: number | undefined,
+  direction: -1 | 1,
+): number {
+  const currentIndex = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
+    value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
+  )
+    ? MANUAL_IMAGE_NAVIGATION_STEPS.indexOf(
+        value as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
+      )
+    : 0;
+  const nextIndex = Math.max(
+    0,
+    Math.min(
+      MANUAL_IMAGE_NAVIGATION_STEPS.length - 1,
+      currentIndex + direction,
+    ),
+  );
+  return MANUAL_IMAGE_NAVIGATION_STEPS[nextIndex] ?? 1;
+}
+
 export function isSupportedManualImage(name: string): boolean {
   const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
   return JPEG_EXTENSIONS.has(extension);

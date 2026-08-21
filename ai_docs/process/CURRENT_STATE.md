@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-20
+last_updated: 2026-08-21
 ---
 
 # Current State
@@ -14,6 +14,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.6 implementation: source-native Layout Import quality and completeness`
+
+### Domykanie statusu importu po review — v0.6.79
+
+- Migracja `0053_image_review_job_completion` wiąże status gotowego importu z
+  trwałym `image_review_queue_states`: ostatnia rozwiązana plansza przełącza
+  `waiting_for_review -> completed` i ustawia `finished_at`.
+- Ponowne otwarcie planszy przez korektę geometrii wykonuje przejście odwrotne i
+  czyści `finished_at`; ukończony import nadal pozostaje dostępny do audytu.
+- Backfill obejmuje historyczne importy z `total_count > 0` i
+  `pending_count = 0`. Po lokalnej migracji rzeczywisty import `50cfdcad…` ma
+  status `completed`, `63 corrected` i zero pending. Duży import `b2d9b299…`
+  zachował `waiting_for_review`; przy kontroli miał `19 707 pending`.
 
 ### Przyrostowy import layoutów — implementacja v0.6.34–v0.6.37
 

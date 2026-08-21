@@ -1675,6 +1675,13 @@ online uruchamia ogrodzony stop wspólnego tunelu; inne prace online oraz lokaln
 nie są zamykane. Wszystkie mutacje pozostają loopback-only i wymagają lokalnego
 intent header, a open/close dodatkowo dokładnego high-impact targetu.
 
+Gotowy import pozostaje dostępny w tym kontrakcie zarówno jako
+`waiting_for_review`, jak i `completed`. Status jest synchronizowany z trwałą
+projekcją kolejki: rozwiązanie ostatniej pozycji ustawia `completed`, a zapis
+nowej geometrii ponownie otwierający pozycję przywraca `waiting_for_review`.
+Zmiana statusu nie zamyka automatycznie assignmentu i nie usuwa możliwości
+audytowego przeglądania pełnej kolejki.
+
 ### Lokalny start Reviewera bez sesji
 
 ```text

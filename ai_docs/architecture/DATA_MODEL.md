@@ -753,6 +753,13 @@ Konkurencyjność komendy planszy jest niezależna od wersji tej projekcji.
 Odpowiedź poprawnego zapisu czyta liczniki projekcji już po wykonaniu triggerów;
 nie rekonstruuje ich z poprzedniego snapshotu klienta.
 
+Ta sama transakcja synchronizuje status właścicielskiego joba importu. Dodatni
+`pending_count` oznacza `waiting_for_review`; `pending_count = 0` przy
+`total_count > 0` oznacza `completed` i ustawia `finished_at`. Ponowne otwarcie
+planszy zeruje `finished_at` i przywraca `waiting_for_review`. Migracja
+backfilluje istniejące importy, których projekcja była już całkowicie
+rozwiązana, ale historyczny job pozostał w stanie oczekiwania.
+
 Job-local read model używa tej projekcji bez ponownego wyprowadzania kolejności
 z numeru sekwencji albo bieżącego statusu. Keyset cursor przechowuje zamrożony
 klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu

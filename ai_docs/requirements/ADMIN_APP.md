@@ -350,6 +350,13 @@ accepted/corrected z nawigacji sesji. Strzałki lewo/prawo przechodzą po tej
 pełnej kolejności; strzałka w lewo musi wrócić również do planszy zatwierdzonej
 chwilę wcześniej.
 
+Status gotowego importu jest domykany razem z trwałą kolejką review. Import z
+co najmniej jedną planszą pozostaje `waiting_for_review`, dopóki licznik
+`pending` jest dodatni, i przechodzi do `completed` po rozwiązaniu ostatniej
+pozycji. Jawna korekta geometrii, która ponownie otwiera choć jedną planszę,
+przywraca `waiting_for_review`. Oba statusy pozostają dostępne w selectcie, aby
+ukończony import można było przeglądać audytowo.
+
 Przy pierwszym wejściu albo pełnym odświeżeniu aplikacja ustawia bieżącą
 pozycję na pierwszej planszy `pending`. Jeżeli nie istnieje żadna plansza
 `pending`, zaczyna od pierwszej planszy importu. Nie oznacza to pobrania pełnej

@@ -72,7 +72,7 @@ from game_predictor_worker.images.pipeline_store import (
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, null, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -438,6 +438,195 @@ def test_image_review_queue_projection_backfills_and_tracks_durable_state(
                     limit=1,
                 )
             assert stale.value.code == "IMAGE_REVIEW_CURSOR_STALE"
+    finally:
+        engine.dispose()
+
+
+def test_review_queue_completes_and_reopens_image_import_job(
+    isolated_image_batch_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_batch_database)
+    command.upgrade(config, "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 21, 10, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="review-job-lifecycle",
+                name="Review job lifecycle",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            record = session.get(JobModel, job.id)
+            assert record is not None
+            record.status = JobStatus.WAITING_FOR_REVIEW
+            record.stage = "image_pipeline:manual_review"
+            session.commit()
+
+        first_registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="9" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="review-lifecycle-1.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        second_registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="7" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="review-lifecycle-2.jpg",
+            order_index=1,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            first_id, _first_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=first_registered.file_execution_key,
+                source_checksum="9" * 64,
+                source_name="review-lifecycle-1.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            second_id, _second_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=second_registered.file_execution_key,
+                source_checksum="7" * 64,
+                source_name="review-lifecycle-2.jpg",
+                position_index=0,
+                sequence_number=2,
+                status="pending",
+                created_at=now,
+            )
+            session.commit()
+
+        with Session(engine) as session:
+            first = session.get(ImageReviewItemModel, first_id)
+            assert first is not None
+            first.status = "accepted"
+            first.resolved_value = {"action": "accepted", "sequenceNumber": 1}
+            first.resolved_by = "lifecycle-test"
+            first.resolved_at = now
+            first.resolution_revision = 1
+            session.commit()
+
+        with Session(engine) as session:
+            still_waiting = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert still_waiting is not None
+            assert state is not None
+            assert still_waiting.status is JobStatus.WAITING_FOR_REVIEW
+            assert still_waiting.finished_at is None
+            assert state.pending_count == 1
+
+            second = session.get(ImageReviewItemModel, second_id)
+            assert second is not None
+            second.status = "corrected"
+            second.resolved_value = {"action": "corrected", "sequenceNumber": 2}
+            second.resolved_by = "lifecycle-test"
+            second.resolved_at = now + timedelta(seconds=1)
+            second.resolution_revision = 1
+            session.commit()
+
+        with Session(engine) as session:
+            completed = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert completed is not None
+            assert state is not None
+            assert completed.status is JobStatus.COMPLETED
+            assert completed.finished_at is not None
+            assert state.pending_count == 0
+
+            first = session.get(ImageReviewItemModel, first_id)
+            assert first is not None
+            first.status = "pending"
+            first.resolved_value = null()
+            first.resolved_by = None
+            first.resolved_at = None
+            first.resolution_revision = 2
+            session.commit()
+
+        with Session(engine) as session:
+            reopened = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert reopened is not None
+            assert state is not None
+            assert reopened.status is JobStatus.WAITING_FOR_REVIEW
+            assert reopened.finished_at is None
+            assert state.pending_count == 1
+    finally:
+        engine.dispose()
+
+
+def test_review_job_completion_migration_backfills_resolved_import(
+    isolated_image_batch_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_batch_database)
+    command.upgrade(config, "0052_reviewer_assignment_sessions")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 21, 11, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="review-job-backfill",
+                name="Review job backfill",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            record = session.get(JobModel, job.id)
+            assert record is not None
+            record.status = JobStatus.WAITING_FOR_REVIEW
+            record.stage = "image_pipeline:manual_review"
+            session.commit()
+
+        registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="8" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="resolved-before-upgrade.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine) as session:
+            _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=registered.file_execution_key,
+                source_checksum="8" * 64,
+                source_name="resolved-before-upgrade.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="corrected",
+                created_at=now,
+            )
+            session.commit()
+            before_upgrade = session.get(JobModel, job.id)
+            assert before_upgrade is not None
+            assert before_upgrade.status is JobStatus.WAITING_FOR_REVIEW
+
+        engine.dispose()
+        command.upgrade(config, "head")
+        engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+
+        with Session(engine) as session:
+            completed = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert completed is not None
+            assert state is not None
+            assert completed.status is JobStatus.COMPLETED
+            assert completed.finished_at is not None
+            assert state.total_count == 1
+            assert state.pending_count == 0
     finally:
         engine.dispose()
 

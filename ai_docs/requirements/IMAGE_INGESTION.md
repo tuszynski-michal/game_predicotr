@@ -639,6 +639,12 @@ stage: discovery | normalization | board_detection | board_crops | sequence_ocr
 Status należy do wspólnego automatu jobs. Etap opisuje wyłącznie aktualną część
 pipeline'u importu i może zostać rozszerzony bez zmiany cyklu życia.
 
+Dla importu posiadającego operacyjną kolejkę review `waiting_for_review`
+oznacza co najmniej jedną pozycję `pending`. Rozwiązanie ostatniej pozycji
+ustawia `completed`; jawne ponowne otwarcie planszy przywraca
+`waiting_for_review`. Pusta kolejka nie jest automatycznie uznawana za
+ukończony import.
+
 ## Wznawianie
 
 - postęp jest zapisywany co plik lub małą partię,

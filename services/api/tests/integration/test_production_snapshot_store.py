@@ -297,8 +297,6 @@ def test_postgres_source_generates_exact_version_production_snapshot(
         assert validated_artifact.manifest.games[0].game_id == game_id
         assert validated_artifact.manifest.games[0].dataset_version_id == dataset_id
         assert validated_artifact.manifest.games[0].rules_version_id == rules_id
-        assert validated_artifact.manifest.snapshot_file_sha256 == (
-            result.snapshot_file_sha256
-        )
+        assert validated_artifact.manifest.snapshot_file_sha256 == (result.snapshot_file_sha256)
     finally:
         engine.dispose()

@@ -24,9 +24,7 @@ from PIL import Image
 def _sample(root: Path, name: str, *, class_index: int) -> ClassifierSample:
     path = root / "samples" / f"{name}.png"
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (20, 20), (240, 40, 40) if class_index == 0 else (40, 40, 240)).save(
-        path
-    )
+    Image.new("RGB", (20, 20), (240, 40, 40) if class_index == 0 else (40, 40, 240)).save(path)
     checksum = hashlib.sha256(path.read_bytes()).hexdigest()
     return ClassifierSample(
         sample_id=name,

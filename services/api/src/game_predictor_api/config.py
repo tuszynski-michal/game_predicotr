@@ -13,9 +13,7 @@ _DEFAULT_DATABASE_URL = (
 )
 _DEFAULT_IMPORT_MAX_BYTES = 1024 * 1024 * 1024
 _DEFAULT_IMAGE_SELECTION_MAX_BYTES = 128 * 1024 * 1024 * 1024
-_DEFAULT_REVIEW_CROP_ROOT = Path(
-    "artifacts/m5-reviewed-manual-merge-v16-full-preflight"
-)
+_DEFAULT_REVIEW_CROP_ROOT = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 _DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
 
 
@@ -36,12 +34,8 @@ class ApiSettings:
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
-    review_crop_root: Path = field(
-        default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve()
-    )
-    review_source_root: Path = field(
-        default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve()
-    )
+    review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
+    review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 

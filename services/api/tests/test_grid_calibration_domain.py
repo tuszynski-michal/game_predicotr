@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -61,3 +62,19 @@ def test_profile_is_rejected_without_an_independent_validation_source() -> None:
     assert metrics["passed"] is False
     assert "INSUFFICIENT_SOURCE_IMAGE_COVERAGE" in reasons
     assert "VALIDATION_SET_EMPTY" in reasons
+
+
+def test_direct_import_without_selection_run_uses_position_fallback() -> None:
+    training = replace(_sample("0" * 64, offset=4.0), image_selection_run_id=None)
+    validation = replace(_sample("f" * 64, offset=4.0), image_selection_run_id=None)
+
+    manifest, _checksum = build_geometry_manifest(uuid4(), (training, validation))
+    profile, metrics, reasons = train_grid_profile(manifest)
+
+    rows = manifest["samples"]
+    assert isinstance(rows, list)
+    assert all(row["imageSelectionRunId"] is None for row in rows)
+    assert profile["scopes"] == []
+    assert len(profile["positionFallbacks"]) == 1
+    assert metrics["passed"] is True
+    assert reasons == ()

@@ -133,6 +133,33 @@ def test_cli_runs_image_selection_in_its_dedicated_lane(
     assert set(worker.handlers) == {JobType.IMAGE_SELECTION}
     assert worker.options["execution_slot"] is JobExecutionSlot.IMAGE_SELECTION
     selection_handler = worker.handlers[JobType.IMAGE_SELECTION]
+    assert selection_handler._scan_workers == 4  # noqa: SLF001
+    assert selection_handler._verification_workers == 1  # noqa: SLF001
+    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 5
+    assert engine.disposed is True
+
+
+def test_cli_respects_explicit_image_selection_thread_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine)
+
+    assert (
+        cli.main(
+            [
+                "--lane",
+                "image-selection",
+                "--cpu-thread-budget",
+                "4",
+                "--worker-id",
+                "selection-worker",
+            ]
+        )
+        == 0
+    )
+
+    selection_handler = FakeWorker.instances[0].handlers[JobType.IMAGE_SELECTION]
     assert selection_handler._scan_workers == 3  # noqa: SLF001
     assert selection_handler._verification_workers == 1  # noqa: SLF001
     assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 4

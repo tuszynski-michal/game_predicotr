@@ -71,20 +71,18 @@ export function selectPayoutJob(
 ): JobResponse | null {
   return (
     jobs
-      .filter(
-        (job) => {
-          const payload = job.inputPayload;
-          return (
-            job.jobType === 'payout' &&
-            'datasetVersionId' in payload &&
-            'rulesVersionId' in payload &&
-            'algorithmVersion' in payload &&
-            payload.datasetVersionId === datasetVersionId &&
-            payload.rulesVersionId === rulesVersionId &&
-            payload.algorithmVersion === PAYOUT_ALGORITHM_VERSION
-          );
-        },
-      )
+      .filter((job) => {
+        const payload = job.inputPayload;
+        return (
+          job.jobType === 'payout' &&
+          'datasetVersionId' in payload &&
+          'rulesVersionId' in payload &&
+          'algorithmVersion' in payload &&
+          payload.datasetVersionId === datasetVersionId &&
+          payload.rulesVersionId === rulesVersionId &&
+          payload.algorithmVersion === PAYOUT_ALGORITHM_VERSION
+        );
+      })
       .sort(
         (left, right) =>
           Date.parse(right.createdAt) - Date.parse(left.createdAt) ||

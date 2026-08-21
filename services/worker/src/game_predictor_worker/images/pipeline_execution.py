@@ -49,6 +49,7 @@ class ImageStageContext:
     source_relative_path: str
     pipeline_fingerprint: str
     previous_results: Mapping[str, Mapping[str, object]]
+    attested_sequence_range: tuple[int, int] | None = None
 
 
 class VersionedImageStageAdapter(Protocol):
@@ -230,9 +231,12 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
         self,
         store: ImagePipelineProjectionStore,
         adapters: Sequence[VersionedImageStageAdapter],
+        *,
+        attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
     ) -> None:
         self._store = store
         self._adapters = _adapter_registry(adapters)
+        self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
 
     def rehydrate(self, candidate: ImageBatchCandidate) -> None:
         """Rebuild only job-local projections from immutable shared stage results."""
@@ -302,6 +306,9 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                     for key, value in existing.items()
                     if key in AUTOMATED_IMAGE_STAGES
                 },
+                attested_sequence_range=self._attested_sequence_ranges.get(
+                    candidate.execution.source_checksum_sha256
+                ),
             )
             payload = validate_stage_payload(stage, adapter.execute(context), context)
             stored = self._store.save_stage_result(
@@ -329,6 +336,9 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                     previous_results={
                         key: value.payload for key, value in existing.items() if key != stage
                     },
+                    attested_sequence_range=self._attested_sequence_ranges.get(
+                        candidate.execution.source_checksum_sha256
+                    ),
                 ),
             )
         if stage == "discovery":

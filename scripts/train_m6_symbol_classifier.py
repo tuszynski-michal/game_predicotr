@@ -32,10 +32,7 @@ DEFAULT_DATASET = QUALITY_ROOT / "m6-symbol-dataset-export-report.json"
 DEFAULT_SPLIT = QUALITY_ROOT / "m6-symbol-dataset-split-report.json"
 DEFAULT_ASSET_ROOT = REPOSITORY_ROOT / "artifacts" / "m6-symbol-dataset-v1"
 DEFAULT_ARTIFACT = (
-    REPOSITORY_ROOT
-    / "artifacts"
-    / "m6-symbol-classifier-baseline"
-    / "bootstrap-symbol-cnn-v1.pt"
+    REPOSITORY_ROOT / "artifacts" / "m6-symbol-classifier-baseline" / "bootstrap-symbol-cnn-v1.pt"
 )
 DEFAULT_REPORT = QUALITY_ROOT / "m6-symbol-classifier-baseline-report.json"
 
@@ -112,9 +109,7 @@ def _load_artifact_state(path: Path) -> dict[str, torch.Tensor]:
             "SYMBOL_CLASSIFIER_ARTIFACT_INVALID",
             "The existing model state is invalid.",
         )
-    state: dict[str, torch.Tensor] = {
-        str(name): value for name, value in raw_state.items()
-    }
+    state: dict[str, torch.Tensor] = {str(name): value for name, value in raw_state.items()}
     return state
 
 

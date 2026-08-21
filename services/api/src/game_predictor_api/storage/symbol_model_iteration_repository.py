@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from game_predictor_worker.symbols.training_dataset import (
+    TrainingDatasetConfig,
+    build_balanced_source_assignments,
+)
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -27,6 +33,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     JobModel,
     SymbolModelIterationModel,
+    VerifiedTrainingCohortItemModel,
     VerifiedTrainingCohortModel,
 )
 
@@ -60,16 +67,60 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             raise JobConflictError(
                 "TRAINING_COHORT_GAME_MISMATCH", "Cohort belongs to another game."
             )
-        payload = configuration.to_payload()
+        model_payload = configuration.to_payload()
+        source_checksums = tuple(
+            self._session.scalars(
+                select(VerifiedTrainingCohortItemModel.source_checksum_sha256)
+                .where(VerifiedTrainingCohortItemModel.cohort_id == cohort_id)
+                .order_by(VerifiedTrainingCohortItemModel.source_checksum_sha256)
+            ).all()
+        )
+        prior_assignments: dict[str, str] = {}
+        prior_rows = self._session.scalars(
+            select(SymbolModelIterationModel)
+            .where(SymbolModelIterationModel.game_id == game_id)
+            .order_by(SymbolModelIterationModel.iteration_number.desc())
+        ).all()
+        for prior in prior_rows:
+            raw_dataset = prior.configuration_payload.get("dataset")
+            if isinstance(raw_dataset, dict):
+                raw = raw_dataset.get("sourceAssignments")
+                if isinstance(raw, dict):
+                    prior_assignments = {str(source): str(split) for source, split in raw.items()}
+                    break
+        assignments = build_balanced_source_assignments(
+            source_checksums,
+            existing=prior_assignments,
+        )
+        dataset_payload = TrainingDatasetConfig(
+            source_assignments=assignments,  # type: ignore[arg-type]
+        ).to_dict()
+        payload = {**model_payload, "dataset": dataset_payload}
+        configuration_fingerprint = _payload_checksum(payload)
+        prior_with_configuration = self._session.scalar(
+            select(SymbolModelIterationModel).where(
+                SymbolModelIterationModel.game_id == game_id,
+                SymbolModelIterationModel.cohort_id == cohort_id,
+                SymbolModelIterationModel.configuration_fingerprint == configuration_fingerprint,
+            )
+        )
+        if prior_with_configuration is not None and prior_with_configuration.status in {
+            SymbolModelIterationStatus.FAILED.value,
+            SymbolModelIterationStatus.CANCELLED.value,
+        }:
+            # A failed terminal attempt must remain auditable, but must not make
+            # the owner re-use its broken job when explicitly starting again.
+            payload = {**payload, "retryNonce": str(idempotency_key)}
+            configuration_fingerprint = _payload_checksum(payload)
         job = create_job(
             JobType.SYMBOL_TRAINING,
             game_id=game_id,
             input_payload={
-                "schema_version": 1,
+                "schema_version": 2,
                 "cohort_id": str(cohort_id),
                 "cohort_checksum_sha256": cohort.manifest_checksum_sha256,
                 "configuration": payload,
-                "configuration_fingerprint": configuration.fingerprint,
+                "configuration_fingerprint": configuration_fingerprint,
                 "idempotency_key": str(idempotency_key),
             },
         )
@@ -119,7 +170,7 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             job_id=job.id,
             iteration_number=number,
             status=SymbolModelIterationStatus.CREATED.value,
-            configuration_fingerprint=configuration.fingerprint,
+            configuration_fingerprint=configuration_fingerprint,
             configuration_payload=payload,
             last_completed_epoch=0,
             partial_metrics={},
@@ -192,3 +243,9 @@ def _to_domain(record: SymbolModelIterationModel) -> SymbolModelIteration:
 
 
 __all__ = ["SqlAlchemySymbolModelIterationRepository"]
+
+
+def _payload_checksum(payload: dict[str, object]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()

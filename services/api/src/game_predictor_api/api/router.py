@@ -1,6 +1,7 @@
 """Composition root for versioned HTTP routes."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import APIRouter
 
@@ -48,6 +49,7 @@ def create_api_router(
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
     iterative_image_import_service_dependency: Callable[..., object],
+    image_sequence_canonical_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
@@ -56,12 +58,15 @@ def create_api_router(
     review_service_dependency: Callable[..., object],
     reviewer_access_service_dependency: Callable[..., object],
     reviewer_ingress_service_dependency: Callable[..., object],
+    reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_bootstrap_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
+    page_geometry_override_service_dependency: Callable[..., object],
+    artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -71,6 +76,7 @@ def create_api_router(
             catalog_service_dependency,
             job_service_dependency,
             reviewer_ingress_service_dependency,
+            reviewer_work_lifecycle_service_dependency,
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
@@ -97,6 +103,9 @@ def create_api_router(
             browser_image_selection_service_dependency,
             job_service_dependency,
             iterative_image_import_service_dependency,
+            image_sequence_canonical_service_dependency,
+            page_geometry_override_service_dependency,
+            artifact_root,
         )
     )
     router.include_router(
@@ -111,6 +120,7 @@ def create_api_router(
             image_review_service_dependency,
             settings.artifact_root,
             reviewer_access_service_dependency,
+            job_service_dependency,
         )
     )
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))

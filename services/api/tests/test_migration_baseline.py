@@ -51,6 +51,18 @@ IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION = (
     "0040_image_selection_duplicate_range_decisions"
 )
 IMAGE_SELECTION_REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
+IMAGE_SELECTION_DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
+IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION = "0043_image_selection_sequence_bounds"
+REPRESENTATIVE_RANKING_REVISION = "0044_representative_ranking"
+CANONICAL_IMAGE_SEQUENCES_REVISION = "0045_canonical_image_sequences"
+IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION = "0046_image_symbol_prediction_revisions"
+PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
+IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION = "0048_image_page_geometry_overrides"
+IMAGE_REVIEW_QUEUE_PROJECTION_REVISION = "0049_image_review_queue_projection"
+IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
+REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
+REVIEWER_ASSIGNMENT_SESSIONS_REVISION = "0052_reviewer_assignment_sessions"
+IMAGE_REVIEW_JOB_COMPLETION_REVISION = "0053_image_review_job_completion"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -108,8 +120,24 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
     )
     image_selection_review_queues = script.get_revision(IMAGE_SELECTION_REVIEW_QUEUES_REVISION)
+    image_selection_derived_recovery = script.get_revision(
+        IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
+    )
+    image_selection_sequence_bounds = script.get_revision(IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION)
+    representative_ranking = script.get_revision(REPRESENTATIVE_RANKING_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_REVIEW_QUEUES_REVISION]
+    canonical_image_sequences = script.get_revision(CANONICAL_IMAGE_SEQUENCES_REVISION)
+    image_symbol_prediction_revisions = script.get_revision(
+        IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+    )
+    pending_symbol_reinference_job = script.get_revision(PENDING_SYMBOL_REINFERENCE_JOB_REVISION)
+    image_page_geometry_overrides = script.get_revision(IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION)
+    image_review_queue_projection = script.get_revision(IMAGE_REVIEW_QUEUE_PROJECTION_REVISION)
+    image_review_first_save_wins = script.get_revision(IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION)
+    reviewer_work_assignments = script.get_revision(REVIEWER_WORK_ASSIGNMENTS_REVISION)
+    reviewer_assignment_sessions = script.get_revision(REVIEWER_ASSIGNMENT_SESSIONS_REVISION)
+    image_review_job_completion = script.get_revision(IMAGE_REVIEW_JOB_COMPLETION_REVISION)
+    assert script.get_heads() == [IMAGE_REVIEW_JOB_COMPLETION_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -200,6 +228,166 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         image_selection_review_queues.down_revision
         == IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
     )
+    assert image_selection_derived_recovery is not None
+    assert image_selection_derived_recovery.down_revision == IMAGE_SELECTION_REVIEW_QUEUES_REVISION
+    assert image_selection_sequence_bounds is not None
+    assert (
+        image_selection_sequence_bounds.down_revision == IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
+    )
+    assert canonical_image_sequences is not None
+    assert representative_ranking is not None
+    assert representative_ranking.down_revision == IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION
+    assert canonical_image_sequences.down_revision == REPRESENTATIVE_RANKING_REVISION
+    assert image_symbol_prediction_revisions.down_revision == CANONICAL_IMAGE_SEQUENCES_REVISION
+    assert (
+        pending_symbol_reinference_job.down_revision == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+    )
+    assert image_page_geometry_overrides is not None
+    assert image_page_geometry_overrides.down_revision == PENDING_SYMBOL_REINFERENCE_JOB_REVISION
+    assert image_review_queue_projection is not None
+    assert image_review_queue_projection.down_revision == IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION
+    assert image_review_first_save_wins is not None
+    assert image_review_first_save_wins.down_revision == IMAGE_REVIEW_QUEUE_PROJECTION_REVISION
+    assert reviewer_work_assignments is not None
+    assert reviewer_work_assignments.down_revision == IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION
+    assert reviewer_assignment_sessions is not None
+    assert reviewer_assignment_sessions.down_revision == REVIEWER_WORK_ASSIGNMENTS_REVISION
+    assert image_review_job_completion is not None
+    assert image_review_job_completion.down_revision == REVIEWER_ASSIGNMENT_SESSIONS_REVISION
+
+
+def test_reviewer_assignment_sessions_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{REVIEWER_WORK_ASSIGNMENTS_REVISION}:{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}:{REVIEWER_WORK_ASSIGNMENTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column reviewer_access_session_id uuid" in upgrade_sql
+    assert "ck_reviewer_work_assignments_session_mode" in upgrade_sql
+    assert "fk_reviewer_work_assignments_session_scope" in upgrade_sql
+    assert "uq_reviewer_work_assignments_access_session" in upgrade_sql
+    assert "reviewer_access_session_id is not null" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop column reviewer_access_session_id" in downgrade_sql
+    assert "drop constraint uq_reviewer_access_sessions_scope_identity" in downgrade_sql
+
+
+def test_reviewer_work_assignments_migration_is_scoped_fenced_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}:{REVIEWER_WORK_ASSIGNMENTS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEWER_WORK_ASSIGNMENTS_REVISION}:{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table reviewer_work_assignments" in upgrade_sql
+    assert "assignment_type in ('local', 'online')" in upgrade_sql
+    assert "uq_reviewer_work_assignments_active_import" in upgrade_sql
+    assert "where closed_at is null" in upgrade_sql
+    assert "lease_expires_at > heartbeat_at" in upgrade_sql
+    assert "ck_reviewer_work_assignments_closure" in upgrade_sql
+    assert "drop table reviewer_work_assignments" in downgrade_output.getvalue().lower()
+
+
+def test_image_review_first_save_wins_migration_is_durable_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}:{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION}:{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column superseded_count bigint" in upgrade_sql
+    assert "'superseded'" in upgrade_sql
+    assert "create or replace function project_image_review_queue_status" in upgrade_sql
+    assert "superseded_count = superseded_count" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "cannot downgrade first-save-wins while superseded audit rows exist" in downgrade_sql
+    assert "drop column superseded_count" in downgrade_sql
+
+
+def test_image_review_job_completion_migration_is_durable_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}:{IMAGE_REVIEW_JOB_COMPLETION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_REVIEW_JOB_COMPLETION_REVISION}:{REVIEWER_ASSIGNMENT_SESSIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create function synchronize_image_review_job_status" in upgrade_sql
+    assert "create trigger trg_image_review_job_status" in upgrade_sql
+    assert "new.pending_count = 0" in upgrade_sql
+    assert "status = 'completed'" in upgrade_sql
+    assert "status = 'waiting_for_review'" in upgrade_sql
+    assert "from image_review_queue_states as state" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop trigger trg_image_review_job_status" in downgrade_sql
+    assert "drop function synchronize_image_review_job_status" in downgrade_sql
+
+
+def test_image_review_queue_projection_migration_is_durable_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION}:{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_REVIEW_QUEUE_PROJECTION_REVISION}:{IMAGE_PAGE_GEOMETRY_OVERRIDES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_review_queue_states" in upgrade_sql
+    assert "create table image_review_queue_items" in upgrade_sql
+    assert "uq_image_review_queue_items_order_key" in upgrade_sql
+    assert "create function project_image_review_queue_insert" in upgrade_sql
+    assert "create function project_image_review_queue_status" in upgrade_sql
+    assert "create function guard_image_review_queue_topology" in upgrade_sql
+    assert "create trigger trg_image_review_queue_insert" in upgrade_sql
+    assert "create trigger trg_image_review_queue_status" in upgrade_sql
+    assert "source_order_index" in upgrade_sql
+    assert "queue_version" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop trigger trg_image_review_queue_insert" in downgrade_sql
+    assert "drop function project_image_review_queue_insert" in downgrade_sql
+    assert "drop table image_review_queue_items" in downgrade_sql
+    assert "drop table image_review_queue_states" in downgrade_sql
 
 
 def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:
@@ -366,6 +554,31 @@ def test_image_selection_optional_exceptions_allow_missing_ranges() -> None:
     assert "alter column range_start drop not null" in upgrade_sql
     assert "alter column range_end drop not null" in upgrade_sql
     assert "range_start is null and range_end is null" in upgrade_sql
+
+
+def test_image_selection_sequence_bounds_add_complete_range_cardinality_contract() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_DERIVED_RECOVERY_REVISION}:{IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION}:{IMAGE_SELECTION_DERIVED_RECOVERY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column last_sequence_number" in upgrade_sql
+    assert "ck_image_selection_runs_sequence_bounds" in upgrade_sql
+    assert "create unique index uq_image_selection_runs_full_identity" in upgrade_sql
+    assert "create unique index uq_image_selection_runs_recovery_identity" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop column last_sequence_number" in downgrade_sql
+    assert "create unique index uq_image_selection_runs_full_identity" in downgrade_sql
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:

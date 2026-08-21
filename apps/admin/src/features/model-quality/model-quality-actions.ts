@@ -3,11 +3,15 @@ import type {
   CreateGridCalibrationCandidateResponse,
   CreateSymbolTrainingResponse,
   GridCalibrationProfileResponse,
+  GeometryCohortDiagnosticsResponse,
   GridProfileActivationAction,
   GridProfileActivationCommandResponse,
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
   ModelQualityResponse,
+  JobResponse,
+  PendingSymbolReinferencePreviewResponse,
+  PendingGridReinferencePreviewResponse,
   SymbolModelActivationAction,
   SymbolModelActivationCommandResponse,
   SymbolModelActivationPreviewResponse,
@@ -30,7 +34,43 @@ export type ModelQualityClient = Pick<
   | 'previewSymbolModelActivation'
   | 'previewVerifiedTrainingCohort'
   | 'rollbackSymbolModel'
+  | 'previewPendingSymbolReinference'
+  | 'startPendingSymbolReinference'
 >;
+
+export type PendingSymbolReinferenceResult =
+  | { readonly ok: true; readonly preview: PendingSymbolReinferencePreviewResponse }
+  | { readonly error: string; readonly ok: false };
+
+export async function previewPendingSymbolReinference(
+  api: ModelQualityClient,
+  gameId: string,
+): Promise<PendingSymbolReinferenceResult> {
+  try {
+    const result = await api.previewPendingSymbolReinference(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return { error: apiErrorMessage(result.error, 'Nie udało się pobrać oczekujących predykcji.'), ok: false };
+    }
+    return { ok: true, preview: result.data };
+  } catch {
+    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+  }
+}
+
+export async function startPendingSymbolReinference(
+  api: ModelQualityClient,
+  gameId: string,
+): Promise<{ readonly error: string; readonly ok: false } | { readonly job: JobResponse; readonly ok: true }> {
+  try {
+    const result = await api.startPendingSymbolReinference(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return { error: apiErrorMessage(result.error, 'Nie udało się uruchomić przeliczenia.'), ok: false };
+    }
+    return { job: result.data, ok: true };
+  } catch {
+    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+  }
+}
 
 export type GridQualityClient = Pick<
   AdminApiClient,
@@ -40,6 +80,9 @@ export type GridQualityClient = Pick<
   | 'listGridProfileActivations'
   | 'previewGridProfileActivation'
   | 'rollbackGridProfile'
+  | 'getGridCalibrationCohortDiagnostics'
+  | 'previewPendingGridReinference'
+  | 'startPendingGridReinference'
 >;
 
 export type GridQualityLoadResult =
@@ -47,6 +90,7 @@ export type GridQualityLoadResult =
       readonly ok: true;
       readonly profiles: readonly GridCalibrationProfileResponse[];
       readonly activations: readonly GridProfileActivationResponse[];
+      readonly diagnostics: GeometryCohortDiagnosticsResponse;
     }
   | { readonly error: string; readonly ok: false };
 
@@ -77,19 +121,22 @@ export async function loadGridQuality(
   signal?: AbortSignal,
 ): Promise<GridQualityLoadResult> {
   try {
-    const [profileResult, activationResult] = await Promise.all([
+    const [profileResult, activationResult, diagnosticsResult] = await Promise.all([
       api.listGridCalibrationProfiles(gameId, { limit: 20, signal }),
       api.listGridProfileActivations(gameId, { limit: 50, signal }),
+      api.getGridCalibrationCohortDiagnostics(gameId, { signal }),
     ]);
     if (
       profileResult.error !== undefined ||
       profileResult.data === undefined ||
       activationResult.error !== undefined ||
-      activationResult.data === undefined
+      activationResult.data === undefined ||
+      diagnosticsResult.error !== undefined ||
+      diagnosticsResult.data === undefined
     ) {
       return {
         error: apiErrorMessage(
-          profileResult.error ?? activationResult.error,
+          profileResult.error ?? activationResult.error ?? diagnosticsResult.error,
           'Nie udało się pobrać stanu kalibracji siatki.',
         ),
         ok: false,
@@ -99,6 +146,7 @@ export async function loadGridQuality(
       ok: true,
       profiles: profileResult.data,
       activations: activationResult.data,
+      diagnostics: diagnosticsResult.data,
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -108,6 +156,40 @@ export async function loadGridQuality(
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       ok: false,
     };
+  }
+}
+
+export type PendingGridReinferenceResult =
+  | { readonly ok: true; readonly preview: PendingGridReinferencePreviewResponse }
+  | { readonly error: string; readonly ok: false };
+
+export async function previewPendingGridReinference(
+  api: GridQualityClient,
+  gameId: string,
+): Promise<PendingGridReinferenceResult> {
+  try {
+    const result = await api.previewPendingGridReinference(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return { error: apiErrorMessage(result.error, 'Nie udało się pobrać oczekującej siatki.'), ok: false };
+    }
+    return { ok: true, preview: result.data };
+  } catch {
+    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+  }
+}
+
+export async function startPendingGridReinference(
+  api: GridQualityClient,
+  gameId: string,
+): Promise<{ readonly error: string; readonly ok: false } | { readonly job: JobResponse; readonly ok: true }> {
+  try {
+    const result = await api.startPendingGridReinference(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return { error: apiErrorMessage(result.error, 'Nie udało się uruchomić odświeżenia siatki.'), ok: false };
+    }
+    return { job: result.data, ok: true };
+  } catch {
+    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
   }
 }
 

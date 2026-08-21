@@ -24,12 +24,8 @@ DEFAULT_DATASET_REPORT = (
 DEFAULT_REPOSITORY_REPORT = (
     REPOSITORY_ROOT / "ai_docs" / "quality" / "m35-repository-benchmark.json"
 )
-DEFAULT_WORKER_REPORT = (
-    REPOSITORY_ROOT / "ai_docs" / "quality" / "m35-worker-benchmark.json"
-)
-DEFAULT_DEVICE_DIRECTORY = (
-    REPOSITORY_ROOT / "ai_docs" / "quality" / "device-benchmarks"
-)
+DEFAULT_WORKER_REPORT = REPOSITORY_ROOT / "ai_docs" / "quality" / "m35-worker-benchmark.json"
+DEFAULT_DEVICE_DIRECTORY = REPOSITORY_ROOT / "ai_docs" / "quality" / "device-benchmarks"
 DEFAULT_RELEASE_EVIDENCE = (
     REPOSITORY_ROOT / "ai_docs" / "quality" / "m35-release-workflow-acceptance.json"
 )
@@ -89,9 +85,7 @@ def _architecture_evidence() -> dict[str, object]:
             if isinstance(section, dict):
                 dependencies.update(str(name).lower() for name in section)
 
-    pyproject = tomllib.loads(
-        (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )
+    pyproject = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = pyproject.get("project")
     if isinstance(project, dict):
         requirements = project.get("dependencies")

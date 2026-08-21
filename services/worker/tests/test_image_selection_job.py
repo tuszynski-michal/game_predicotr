@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from game_predictor_api.domain.image_selections import ImageSelectionExecutionMode
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -21,7 +22,10 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_worker.images.selection.adapters import (
     DeterministicParallelCandidateVerifier,
-    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
+    ProofFirstVisibleSequenceLabelRangeRecognizer,
+    SequenceValidatedVisibleSequenceLabelRangeRecognizer,
+    TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
@@ -31,11 +35,13 @@ from game_predictor_worker.images.selection.contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionGroupResult,
     SelectionGroupStatus,
     SequenceRange,
 )
+from game_predictor_worker.images.selection.io import load_browser_selection_manifest
 from game_predictor_worker.images.selection.job import (
     ImageSelectionJobHandler,
     ImageSelectionJobRun,
@@ -45,15 +51,34 @@ from game_predictor_worker.images.selection.job import (
 from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
+    FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
+    PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
+    SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
+    STAGED_OCR_SELECTOR_MANIFEST_V1016,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
 )
 from game_predictor_worker.images.selection.output import PublishedImageSelection
+from game_predictor_worker.images.selection.recovery import (
+    RecoveryProjection,
+    RecoverySourceGroup,
+)
 from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
 
 NOW = datetime(2026, 8, 3, 10, tzinfo=UTC)
+
+
+def _range_proof(start: int) -> tuple[RangeLabelObservation, ...]:
+    return tuple(
+        RangeLabelObservation(position, start + position, 0.96, "layout_anchored")
+        for position in (0, 1, 4)
+    )
 
 
 def _persistence_candidate(order_index: int = 7) -> CandidateResult:
@@ -171,15 +196,55 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
     assert verifier is not None
 
 
-def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
+@pytest.mark.parametrize(
+    ("selector_manifest", "recognizer_type"),
+    (
+        (
+            FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+            FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            STAGED_OCR_SELECTOR_MANIFEST_V1016,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+            ProofFirstVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+            SequenceValidatedVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
+            SequenceValidatedVisibleSequenceLabelRangeRecognizer,
+        ),
+    ),
+)
+def test_production_factory_preserves_historical_and_builds_staged_ocr(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    selector_manifest: SelectorManifest,
+    recognizer_type: type[object],
 ) -> None:
     source_root = tmp_path / "source"
     source_root.mkdir()
     predictors: list[object] = []
     built_verifiers: list[object] = []
     fallback_recognizers: list[object] = []
+    fast_recognizers: list[object | None] = []
 
     def build_predictor(*_args: object, **_kwargs: object) -> object:
         predictor = object()
@@ -203,6 +268,7 @@ def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
         verifier = _FactoryVerifier()
         built_verifiers.append(verifier)
         fallback_recognizers.append(kwargs["fallback_range_recognizer"])
+        fast_recognizers.append(kwargs.get("fast_range_recognizer"))
         return object(), verifier
 
     monkeypatch.setattr(
@@ -218,23 +284,27 @@ def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
         browser_upload_root=tmp_path,
         artifact_root=tmp_path,
         repository_root=tmp_path,
-        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        selector_manifest=selector_manifest,
         verification_workers=2,
     )
 
     _, verifier = handler._default_adapter_factory(  # noqa: SLF001
         source_root,
-        DEFAULT_SELECTOR_MANIFEST,
+        selector_manifest,
         StageTimingCollector(),
     )
 
     assert len(predictors) == 2
     assert len({id(predictor) for predictor in predictors}) == 2
     assert len({id(item) for item in built_verifiers}) == 2
-    assert all(
-        isinstance(item, PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer)
-        for item in fallback_recognizers
-    )
+    assert all(isinstance(item, recognizer_type) for item in fallback_recognizers)
+    if selector_manifest is STAGED_OCR_SELECTOR_MANIFEST_V1016:
+        assert all(
+            isinstance(item, TwoLabelConsensusVisibleSequenceLabelRangeRecognizer)
+            for item in fast_recognizers
+        )
+    else:
+        assert fast_recognizers == [None, None]
     assert isinstance(verifier, DeterministicParallelCandidateVerifier)
     assert verifier.worker_count == 2
 
@@ -245,6 +315,11 @@ class _Store:
     groups: tuple[SelectionGroupResult, ...] = ()
     published: PublishedImageSelection | None = None
     gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(default_factory=dict)
+    recovery_source_run_id: UUID | None = None
+    recovery_snapshot: str | None = None
+    recovery_source_groups: tuple[RecoverySourceGroup, ...] = ()
+    recovery_origins: dict[int, UUID] = field(default_factory=dict)
+    reconciled_persist_count: int = 0
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -253,6 +328,14 @@ class _Store:
     def load_groups(self, run_id: UUID) -> tuple[SelectionGroupResult, ...]:
         assert run_id == self.run.id
         return self.groups
+
+    def load_recovery_source(
+        self,
+        run_id: UUID,
+    ) -> tuple[str, tuple[RecoverySourceGroup, ...]]:
+        assert run_id == self.recovery_source_run_id
+        assert self.recovery_snapshot is not None
+        return self.recovery_snapshot, self.recovery_source_groups
 
     def persist_groups(
         self,
@@ -291,6 +374,39 @@ class _Store:
             output_manifest_relative_path=published.manifest_relative_path,
         )
 
+    def persist_reconciled_groups(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        groups: Sequence[SelectionGroupResult],
+        persisted_at: datetime,
+    ) -> None:
+        del lease_token, persisted_at
+        assert (job_id, run_id) == (self.run.job_id, self.run.id)
+        self.groups = tuple(groups)
+        self.reconciled_persist_count += 1
+
+    def persist_recovery_projection(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_run_id: UUID,
+        expected_source_snapshot_sha256: str,
+        lease_token: UUID,
+        projection: RecoveryProjection,
+        persisted_at: datetime,
+    ) -> None:
+        del lease_token, persisted_at
+        assert (job_id, run_id) == (self.run.job_id, self.run.id)
+        assert source_run_id == self.recovery_source_run_id
+        assert expected_source_snapshot_sha256 == self.recovery_snapshot
+        self.groups = projection.groups
+        self.gallery_sources = dict(projection.group_sources)
+        self.recovery_origins = dict(projection.origin_group_ids)
+
 
 class _Context:
     def __init__(
@@ -314,6 +430,10 @@ class _Context:
         self.checkpoints.append(dict(values))
         checkpoint_payload = values["checkpoint_payload"]
         assert isinstance(checkpoint_payload, dict)
+        assert int(values["current"]) >= self.job.progress_current
+        assert int(values["success_count"]) >= self.job.success_count
+        assert int(values["failure_count"]) >= self.job.failure_count
+        assert int(values["review_count"]) >= self.job.review_count
         self.job = replace(
             self.job,
             checkpoint_payload=checkpoint_payload,
@@ -354,10 +474,14 @@ class _Analyzer:
             geometry_confidence=0.0 if corrupted else 0.95,
             quality=ImageQualityMetrics(*(score for _ in range(8))),
             reason_codes=(("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()),
+            appearance_signature=(() if corrupted else (0.2, 0.4, 0.6)),
         )
 
 
 class _Verifier:
+    def __init__(self, *, strong_proof: bool = True) -> None:
+        self._strong_proof = strong_proof
+
     def verify(
         self,
         observation: CheapImageObservation,
@@ -371,7 +495,37 @@ class _Verifier:
                 True,
                 True,
             ),
-            range_evidence=RangeEvidence(SequenceRange(1, 9, 0.98)),
+            range_evidence=RangeEvidence(
+                SequenceRange(1, 9, 0.98),
+                (("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",) if self._strong_proof else ()),
+                (_range_proof(1) if self._strong_proof else ()),
+            ),
+        )
+
+
+class _PartitionVerifier:
+    def __init__(self, *, sources_per_group: int) -> None:
+        self._sources_per_group = sources_per_group
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        group_index = observation.source.order_index // self._sources_per_group
+        start = 1 + group_index * 9
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                expected_board_count,
+                True,
+                True,
+            ),
+            range_evidence=RangeEvidence(
+                SequenceRange(start, start + 8, 0.98),
+                ("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                _range_proof(start),
+            ),
         )
 
 
@@ -480,6 +634,88 @@ def _fixture(
     return import_root, artifact_root, claimed, _Store(run)
 
 
+def test_range_recovery_rebuilds_only_preserved_candidates_into_derived_run(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    source_run_id = uuid4()
+    snapshot = "f" * 64
+    source_root = import_root / "browser-selections" / str(store.run.source_selection_id)
+    sources, _ = load_browser_selection_manifest(source_root / "_browser_manifest.json")
+    selected = CandidateResult(
+        source=sources[1],
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        quality=ImageQualityMetrics(*(0.95 for _ in range(8))),
+        recognized_range=None,
+        reason_codes=("REPRESENTATIVE_RANGE_UNKNOWN",),
+        width=64,
+        height=48,
+    )
+    source_group = RecoverySourceGroup(
+        origin_group_id=uuid4(),
+        result=SelectionGroupResult(
+            group_order=0,
+            source_count=3,
+            range=None,
+            fingerprint_sha256="0" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.RANGE_REQUIRED,
+            selected_candidate=selected,
+            top_candidates=(selected,),
+        ),
+        sources=sources,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        execution_mode=ImageSelectionExecutionMode.RANGE_RECOVERY,
+        source_run_id=source_run_id,
+        source_snapshot_sha256=snapshot,
+    )
+    store.recovery_source_run_id = source_run_id
+    store.recovery_snapshot = snapshot
+    store.recovery_source_groups = (source_group,)
+    calls: list[int] = []
+    context = _Context(job)
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _Verifier(),
+        ),
+    )
+
+    handler(context, job)  # type: ignore[arg-type]
+
+    assert calls == [0, 1, 2]
+    assert store.recovery_source_groups == (source_group,)
+    assert set(store.recovery_origins.values()) == {source_group.origin_group_id}
+    selected_groups = [
+        group for group in store.groups if group.status is SelectionGroupStatus.AUTO_SELECTED
+    ]
+    assert len(selected_groups) == 1
+    assert selected_groups[0].range == SequenceRange(1, 9, 0.98)
+    selected_orders = [
+        group.selected_candidate.source.order_index
+        for group in store.groups
+        if group.selected_candidate is not None
+    ]
+    assert len(selected_orders) == len(set(selected_orders))
+    assert store.published is not None
+    assert any(
+        checkpoint["checkpoint_payload"]["recovery_projection_complete"] is True
+        for checkpoint in context.checkpoints
+    )
+
+
 def test_v10_4_job_fails_closed_without_first_sequence_number(tmp_path: Path) -> None:
     import_root, artifact_root, job, store = _fixture(
         tmp_path,
@@ -565,6 +801,169 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert b"photo2.jpg" not in diagnostic_content
 
 
+def test_job_enforces_declared_sequence_group_count_before_publication(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    calls: list[int] = []
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _Verifier(),
+        ),
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    logical_groups = tuple(
+        group
+        for group in store.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    assert calls == [0, 1, 2]
+    assert len(logical_groups) == 1
+    assert logical_groups[0].range == SequenceRange(1, 9, 0.98)
+    assert store.reconciled_persist_count == 1
+    assert store.published is not None
+
+
+def test_job_splits_false_merge_from_sampled_range_proof_without_cardinality_partition(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=9,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+    calls: list[int] = []
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _PartitionVerifier(sources_per_group=3),
+        ),
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    logical_groups = tuple(
+        group
+        for group in store.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    assert calls == list(range(9))
+    assert len(logical_groups) == 3
+    assert all(group.source_count >= 1 for group in logical_groups)
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in logical_groups
+    ] == [(1, 9), (10, 18), (19, 27)]
+    assert store.reconciled_persist_count == 1
+    assert store.published is not None
+
+
+def test_job_uses_declared_range_for_completeness_without_forcing_source_partition(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=2,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+    calls: list[int] = []
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (_Analyzer(calls=calls), _Verifier()),
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert calls == [0, 1]
+    assert store.reconciled_persist_count == 1
+    assert len(store.groups) == 2
+    assert [group.status for group in store.groups] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+    ]
+    assert store.published is not None
+
+
+def test_reconciled_projection_keeps_generic_job_counters_monotonic(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    resumed_job = replace(
+        job,
+        progress_current=3,
+        progress_total=3,
+        success_count=2,
+        review_count=1,
+    )
+    context = _Context(resumed_job)
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=[]),
+            _Verifier(),
+        ),
+    )
+
+    handler(context, resumed_job)  # type: ignore[arg-type]
+
+    final = context.checkpoints[-1]
+    payload = final["checkpoint_payload"]
+    assert isinstance(payload, dict)
+    assert payload["selected_count"] == 1
+    assert payload["manual_count"] == 0
+    assert final["success_count"] == 2
+    assert final["review_count"] == 1
+
+
 def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
     tmp_path: Path,
 ) -> None:
@@ -581,7 +980,7 @@ def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
         manifest: SelectorManifest,
     ) -> tuple[_Analyzer, _Verifier]:
         selected_manifests.append(manifest)
-        return _Analyzer(calls=calls), _Verifier()
+        return _Analyzer(calls=calls), _Verifier(strong_proof=False)
 
     handler = ImageSelectionJobHandler(
         store,

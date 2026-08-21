@@ -13,9 +13,15 @@ import {
   archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
+  closeReviewerWorkAssignment as closeGeneratedReviewerWorkAssignment,
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
+  listReadyBrowserImageSelections as listGeneratedReadyBrowserImageSelections,
+  previewReadyBrowserImageImport as previewGeneratedReadyBrowserImageImport,
+  startReadyBrowserImageImport as startGeneratedReadyBrowserImageImport,
+  startBrowserPageGeometryPreflight as startGeneratedBrowserPageGeometryPreflight,
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
@@ -47,6 +53,7 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
+  getBrowserPageGeometrySourceAsset as getGeneratedBrowserPageGeometrySourceAsset,
   getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
   getImageSelection as getGeneratedImageSelection,
   getImageSelectionCandidateFile as getGeneratedImageSelectionCandidateFile,
@@ -74,11 +81,14 @@ import {
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
+  heartbeatReviewerWorkAssignment as heartbeatGeneratedReviewerWorkAssignment,
   getSymbol as getGeneratedSymbol,
   getSymbolModelIteration as getGeneratedSymbolModelIteration,
   listGames as listGeneratedGames,
+  listBrowserPageGeometryReviewSources as listGeneratedBrowserPageGeometryReviewSources,
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
   listGridProfileActivations as listGeneratedGridProfileActivations,
+  getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
@@ -101,20 +111,28 @@ import {
   listReviewFeedbackExports as listGeneratedReviewFeedbackExports,
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
+  listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
   registerCuratedImageImportSource as registerGeneratedCuratedImageImportSource,
+  reprocessManagedImageImport as reprocessGeneratedManagedImageImport,
   previewVerifiedTrainingCohort as previewGeneratedVerifiedTrainingCohort,
   previewGridProfileActivation as previewGeneratedGridProfileActivation,
   previewSymbolModelActivation as previewGeneratedSymbolModelActivation,
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
+  previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
+  previewPendingGridReinference as previewGeneratedPendingGridReinference,
+  startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
+  startPendingGridReinference as startGeneratedPendingGridReinference,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
+  openLocalReviewerWork as openGeneratedLocalReviewerWork,
+  openOnlineReviewerWork as openGeneratedOnlineReviewerWork,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
   rollbackSymbolModel as rollbackGeneratedSymbolModel,
@@ -132,6 +150,7 @@ import {
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
   resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
   startSymbolBootstrap as startGeneratedSymbolBootstrap,
+  startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -146,6 +165,9 @@ import {
 } from './generated/sdk.gen';
 import type {
   BrowserImageSelectionCreate,
+  BrowserImageImportPreflightCreate,
+  BrowserImageImportStart,
+  BrowserPageGeometryOverrideCreate,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -188,9 +210,12 @@ import type {
   ReviewFeedbackExportCreate,
   ReviewResolutionCommand,
   ReviewerIngressCommand,
+  ReviewerLocalCommand,
   ReviewerSessionCreate,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
+  ReviewerWorkActionCommand,
+  ReviewerWorkOpenCommand,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -204,8 +229,16 @@ import type {
 export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  BrowserImageImportPreflightResponse,
+  BrowserImageImportStartResponse,
+  BrowserPageGeometryOverrideCreate,
+  BrowserPageGeometryOverrideResponse,
+  BrowserPageGeometryPreflightResponse,
+  BrowserPageGeometryReviewSourceResponse,
+  BrowserPageGeometryReviewSourcesResponse,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
+  BrowserReadySelectionResponse,
   CleanupCommandRequest,
   CleanupCountResponse,
   CleanupPreviewResponse,
@@ -214,6 +247,7 @@ export type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceCreate,
   CuratedImageImportSourceResponse,
+  ManagedImageReprocessJobPayload,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -228,6 +262,7 @@ export type {
   GameStatus,
   GameUpdate,
   CreateGridCalibrationCandidateResponse,
+  GeometryCohortDiagnosticsResponse,
   GeometryCohortResponse,
   GridCalibrationProfileResponse,
   GridProfileActivationAction,
@@ -308,6 +343,8 @@ export type {
   MobileReleaseStatus,
   ModelQualityAdvisoryThresholdResponse,
   ModelQualityResponse,
+  PendingSymbolReinferencePreviewResponse,
+  PendingGridReinferencePreviewResponse,
   OperationalImageReviewAlternativeResponse,
   OperationalImageReviewCellResponse,
   OperationalImageReviewCountsResponse,
@@ -371,11 +408,19 @@ export type {
   ReviewResolutionResponse,
   ReviewerIngressCommand,
   ReviewerIngressStatusResponse,
+  ReviewerLocalCommand,
   ReviewerSessionCreate,
   ReviewerSessionCreatedResponse,
   ReviewerSessionScopeResponse,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
+  ReviewerWorkActionCommand,
+  ReviewerWorkAssignmentResponse,
+  ReviewerWorkClosedResponse,
+  ReviewerWorkHeartbeatResponse,
+  ReviewerWorkOpenCommand,
+  ReviewerWorkOpenedResponse,
+  ReviewerWorkOverviewResponse,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -463,6 +508,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getHealth: () => getGeneratedHealth({ client }),
     getReviewerIngressStatus: () =>
       getGeneratedReviewerIngressStatus({ client }),
+    startLocalReviewer: (body: ReviewerLocalCommand) =>
+      startGeneratedLocalReviewer({
+        body,
+        client,
+        headers: confirmedTargetHeaders('local-reviewer'),
+      }),
     startReviewerIngress: (body: ReviewerIngressCommand) =>
       startGeneratedReviewerIngress({
         body,
@@ -486,6 +537,52 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
         path: { session_id: sessionId },
+      }),
+    listReviewerWorkAssignments: (gameId: string) =>
+      listGeneratedReviewerWorkAssignments({
+        client,
+        path: { game_id: gameId },
+      }),
+    openLocalReviewerWork: (
+      gameId: string,
+      importJobId: string,
+      body: ReviewerWorkOpenCommand,
+    ) =>
+      openGeneratedLocalReviewerWork({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${importJobId}:local`),
+        path: { game_id: gameId, import_job_id: importJobId },
+      }),
+    openOnlineReviewerWork: (
+      gameId: string,
+      importJobId: string,
+      body: ReviewerWorkOpenCommand,
+    ) =>
+      openGeneratedOnlineReviewerWork({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${importJobId}:online`),
+        path: { game_id: gameId, import_job_id: importJobId },
+      }),
+    heartbeatReviewerWorkAssignment: (
+      assignmentId: string,
+      body: ReviewerWorkActionCommand,
+    ) =>
+      heartbeatGeneratedReviewerWorkAssignment({
+        body,
+        client,
+        path: { assignment_id: assignmentId },
+      }),
+    closeReviewerWorkAssignment: (
+      assignmentId: string,
+      body: ReviewerWorkActionCommand,
+    ) =>
+      closeGeneratedReviewerWorkAssignment({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`reviewer-work:${assignmentId}`),
+        path: { assignment_id: assignmentId },
       }),
     unlockReviewerSession: (sessionId: string, body: ReviewerSessionUnlock) =>
       unlockGeneratedReviewerSession({
@@ -526,6 +623,77 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     finalizeBrowserImageSelection: (uploadId: string) =>
       finalizeGeneratedBrowserImageSelection({
         client,
+        path: { upload_id: uploadId },
+      }),
+    listReadyBrowserImageSelections: () =>
+      listGeneratedReadyBrowserImageSelections({
+        client,
+        query: { purpose: 'layout_import' },
+      }),
+    previewReadyBrowserImageImport: (
+      uploadId: string,
+      body: BrowserImageImportPreflightCreate,
+    ) =>
+      previewGeneratedReadyBrowserImageImport({
+        body,
+        client,
+        path: { upload_id: uploadId },
+      }),
+    startReadyBrowserImageImport: (
+      uploadId: string,
+      body: BrowserImageImportStart,
+    ) =>
+      startGeneratedReadyBrowserImageImport({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
+        path: { upload_id: uploadId },
+      }),
+    startBrowserPageGeometryPreflight: (
+      uploadId: string,
+      body: BrowserImageImportPreflightCreate,
+    ) =>
+      startGeneratedBrowserPageGeometryPreflight({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:page-geometry-preflight`,
+        ),
+        path: { upload_id: uploadId },
+      }),
+    listBrowserPageGeometryReviewSources: (
+      uploadId: string,
+      preflightJobId: string,
+      gameId: string,
+    ) =>
+      listGeneratedBrowserPageGeometryReviewSources({
+        client,
+        path: { preflight_job_id: preflightJobId, upload_id: uploadId },
+        query: { game_id: gameId },
+      }),
+    getBrowserPageGeometrySourceAsset: (
+      uploadId: string,
+      sourceChecksumSha256: string,
+      gameId: string,
+    ) =>
+      getGeneratedBrowserPageGeometrySourceAsset({
+        client,
+        path: {
+          source_checksum_sha256: sourceChecksumSha256,
+          upload_id: uploadId,
+        },
+        query: { game_id: gameId },
+      }),
+    createBrowserPageGeometryOverride: (
+      uploadId: string,
+      body: BrowserPageGeometryOverrideCreate,
+    ) =>
+      createGeneratedBrowserPageGeometryOverride({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${body.gameId}:page-geometry-override`,
+        ),
         path: { upload_id: uploadId },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
@@ -742,6 +910,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
+      }),
+    reprocessManagedImageImport: (sourceJobId: string) =>
+      reprocessGeneratedManagedImageImport({
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${sourceJobId}:reprocess`,
+        ),
+        path: { source_job_id: sourceJobId },
       }),
     registerCuratedImageImportSource: (body: CuratedImageImportSourceCreate) =>
       registerGeneratedCuratedImageImportSource({
@@ -1079,6 +1255,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: { limit: options.limit ?? 50 },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    getGridCalibrationCohortDiagnostics: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedGridCalibrationCohortDiagnostics({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
     previewGridProfileActivation: (
       gameId: string,
       profileId: string,
@@ -1112,6 +1297,36 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`grid-profile-rollback:${gameId}`),
         path: { game_id: gameId, profile_id: profileId },
+      }),
+    previewPendingSymbolReinference: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedPendingSymbolReinference({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    startPendingSymbolReinference: (gameId: string) =>
+      startGeneratedPendingSymbolReinference({
+        client,
+        headers: confirmedTargetHeaders(`pending-symbol-reinference:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    previewPendingGridReinference: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedPendingGridReinference({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    startPendingGridReinference: (gameId: string) =>
+      startGeneratedPendingGridReinference({
+        client,
+        headers: confirmedTargetHeaders(`pending-grid-reinference:${gameId}`),
+        path: { game_id: gameId },
       }),
     getOperationalImageReviewItem: (
       reviewItemId: string,

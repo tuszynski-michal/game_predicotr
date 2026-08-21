@@ -88,9 +88,7 @@ def test_service_resolves_persisted_cohort_and_active_catalog(
     ).build(cohort_id=cohort.id)
 
     assert result.sample_count == 15
-    assert captured["cohort_path"] == (
-        tmp_path / "data" / "training" / "game" / "cohort.json"
-    )
+    assert captured["cohort_path"] == (tmp_path / "data" / "training" / "game" / "cohort.json")
     assert captured["expected_cohort_checksum_sha256"] == "a" * 64
     assert captured["game_code"] == "fixture-game"
     assert captured["symbols"] == catalog.symbols

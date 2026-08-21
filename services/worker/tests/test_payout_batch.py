@@ -39,10 +39,7 @@ DATASET_ID = UUID("22222222-2222-4222-8222-222222222222")
 RULES_ID = UUID("33333333-3333-4333-8333-333333333333")
 NOW = datetime(2026, 7, 27, 20, tzinfo=UTC)
 GOLDEN_PATH = (
-    Path(__file__).parents[3]
-    / "packages"
-    / "domain-fixtures"
-    / "payout-golden-cases.json"
+    Path(__file__).parents[3] / "packages" / "domain-fixtures" / "payout-golden-cases.json"
 )
 
 
@@ -336,12 +333,8 @@ def test_handler_persists_every_m1_golden_total() -> None:
 
         handler(FakeContext(), _job())  # type: ignore[arg-type]
 
-        persisted = store.records[
-            (DATASET_ID, RULES_ID, 1, "payout-v2")
-        ]
-        assert persisted.total_payout == case["expected"]["totalPayout"], case[
-            "id"
-        ]
+        persisted = store.records[(DATASET_ID, RULES_ID, 1, "payout-v2")]
+        assert persisted.total_payout == case["expected"]["totalPayout"], case["id"]
 
 
 @pytest.mark.parametrize(
@@ -388,11 +381,7 @@ def test_handler_persists_every_m1_golden_total() -> None:
         ),
         (
             _job(),
-            _source(
-                rules_game_id=UUID(
-                    "44444444-4444-4444-8444-444444444444"
-                )
-            ),
+            _source(rules_game_id=UUID("44444444-4444-4444-8444-444444444444")),
             "PAYOUT_GAME_MISMATCH",
         ),
     ],
@@ -517,16 +506,10 @@ def test_audit_verifier_rejects_wrong_version_total_and_interpretation(
     assert wrong_version.value.code == "PAYOUT_AUDIT_HEADER_MISMATCH"
 
     path = tmp_path / audit_path
-    lines = [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-    ]
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     lines[1]["audit"]["totalPayout"] = 31
     path.write_text(
-        "".join(
-            json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n"
-            for line in lines
-        ),
+        "".join(json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n" for line in lines),
         encoding="utf-8",
     )
     with pytest.raises(PayoutAuditError) as wrong_total:
@@ -542,10 +525,7 @@ def test_audit_verifier_rejects_wrong_version_total_and_interpretation(
     lines[1]["audit"]["totalPayout"] = 30
     lines[1]["audit"]["matches"][0]["interpretation"] = []
     path.write_text(
-        "".join(
-            json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n"
-            for line in lines
-        ),
+        "".join(json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n" for line in lines),
         encoding="utf-8",
     )
     with pytest.raises(PayoutAuditError) as interpretation:

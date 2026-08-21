@@ -33,6 +33,9 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionOutputFileResponse,
     ImageSelectionOutputResponse,
     ImageSelectionRangeConfirmationCommand,
+    ImageSelectionRecoveryCommand,
+    ImageSelectionRecoveryCreateResponse,
+    ImageSelectionRecoveryPreviewResponse,
     ImageSelectionRerunCommand,
     ImageSelectionRunPageResponse,
     ImageSelectionRunResponse,
@@ -40,6 +43,7 @@ from game_predictor_api.schemas.image_selections import (
     to_image_selection_group_candidates_response,
     to_image_selection_group_page_response,
     to_image_selection_group_response,
+    to_image_selection_recovery_preview_response,
     to_image_selection_run_response,
     to_manual_decision_response,
 )
@@ -86,7 +90,10 @@ def create_image_selections_router(
             first_sequence_number=payload.first_sequence_number,
         )
         return ImageSelectionCreateResponse(
-            run=to_image_selection_run_response(run),
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
             created=created,
         )
 
@@ -109,7 +116,13 @@ def create_image_selections_router(
             limit=limit,
         )
         return ImageSelectionRunPageResponse(
-            items=[to_image_selection_run_response(run) for run in runs],
+            items=[
+                to_image_selection_run_response(
+                    run,
+                    service.get_run_sequence_range(run.id),
+                )
+                for run in runs
+            ],
             next_offset=next_offset,
         )
 
@@ -124,7 +137,10 @@ def create_image_selections_router(
         run_id: UUID,
         service: Annotated[ImageSelectionService, service_parameter],
     ) -> ImageSelectionRunResponse:
-        return to_image_selection_run_response(service.get_run(run_id))
+        return to_image_selection_run_response(
+            service.get_run(run_id),
+            service.get_run_sequence_range(run_id),
+        )
 
     @router.post(
         "/{run_id}/rerun",
@@ -142,10 +158,53 @@ def create_image_selections_router(
             run_id=run_id,
             selector_fingerprint=IMAGE_SELECTION_SELECTOR_FINGERPRINT,
             first_sequence_number=(None if payload is None else payload.first_sequence_number),
+            last_sequence_number=(None if payload is None else payload.last_sequence_number),
         )
         return ImageSelectionCreateResponse(
-            run=to_image_selection_run_response(run),
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
             created=created,
+        )
+
+    @router.get(
+        "/{run_id}/range-recovery-preview",
+        response_model=ImageSelectionRecoveryPreviewResponse,
+        operation_id="previewImageSelectionRangeRecovery",
+        summary="Preview an immutable recovery of unresolved range groups",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_image_selection_range_recovery(
+        run_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionRecoveryPreviewResponse:
+        return to_image_selection_recovery_preview_response(service.preview_range_recovery(run_id))
+
+    @router.post(
+        "/{run_id}/recover-ranges",
+        response_model=ImageSelectionRecoveryCreateResponse,
+        operation_id="recoverImageSelectionRanges",
+        summary="Create or return an immutable unresolved-range recovery run",
+        responses=ERROR_RESPONSES,
+    )
+    def recover_image_selection_ranges(
+        run_id: UUID,
+        payload: ImageSelectionRecoveryCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionRecoveryCreateResponse:
+        run, created, preview = service.recover_ranges(
+            run_id=run_id,
+            expected_source_snapshot_sha256=payload.expected_source_snapshot_sha256,
+            last_sequence_number=payload.last_sequence_number,
+        )
+        return ImageSelectionRecoveryCreateResponse(
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
+            created=created,
+            preview=to_image_selection_recovery_preview_response(preview),
         )
 
     @router.get(
@@ -361,6 +420,7 @@ def create_image_selections_router(
         confirmed = service.confirm_automatic_range(
             run_id=run_id,
             group_id=group_id,
+            candidate_id=payload.candidate_id,
             idempotency_key=payload.idempotency_key,
             range_start=payload.range_start,
             range_end=payload.range_end,

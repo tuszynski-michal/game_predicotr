@@ -1,0 +1,20 @@
+{
+  "annotationManifest": {
+    "relativePath": "ai_docs/quality/m5-cell-grid-golden.json",
+    "sha256": "a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533"
+  },
+  "coordinateSpace": "source-image-pixels",
+  "cornerSemantics": "symbol-lattice-outer-bounds-5x3",
+  "expectedBoardCount": 27,
+  "expectedBoardsPerPosition": 3,
+  "expectedManifestChecksumSha256": "45a82dbb0f86ca62646e1d680f2a0d9ea78a62f38b1d24b72be2ce50764aeb25",
+  "expectedSourceGroupCount": 2,
+  "geometryVersion": "board-cell-geometry-v19-multi-point-source-direct-v1",
+  "schemaVersion": 1,
+  "scopeId": "board-cell-geometry-v19-real-corpus",
+  "sourceManifest": {
+    "relativePath": "ai_docs/quality/m5-corpus-manifest.json",
+    "sha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6"
+  },
+  "version": "board-cell-geometry-real-corpus-v1"
+}

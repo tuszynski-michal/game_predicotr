@@ -6,6 +6,7 @@ from .training_dataset import (
     TrainingDatasetBuildError,
     TrainingDatasetConfig,
     TrainingSymbol,
+    build_balanced_source_assignments,
     build_cumulative_training_dataset,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "TrainingDatasetBuildError",
     "TrainingDatasetConfig",
     "TrainingSymbol",
+    "build_balanced_source_assignments",
     "build_cumulative_training_dataset",
 ]

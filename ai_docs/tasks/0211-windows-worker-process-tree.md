@@ -29,3 +29,10 @@ operatorskiego.
 Nowy proces PowerShell odczytał stan 2026-08-09 i potwierdził pojedyncze drzewo
 lane selekcji: launcher `19540`, interpreter `14656`. Test po fizycznym
 restarcie komputera nadal wymaga obecności właściciela i pozostaje otwarty.
+
+W v0.6.60 odczyt stanu jest odporny na automatyczną konwersję ISO timestampu
+JSON do `DateTime` przez PowerShell: porównanie tożsamości normalizuje obie
+strony do UTC round-trip. Ten sam shell z równoważnymi wpisami `PATH` i `Path`
+potwierdził następnie jedną aktywną parę general: launcher `11548`, interpreter
+`21688`; nie uruchomiono drugiej kopii. Różne wartości PATH nadal blokują
+operację.

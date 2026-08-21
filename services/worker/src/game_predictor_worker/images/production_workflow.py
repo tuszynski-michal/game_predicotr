@@ -7,6 +7,7 @@ import io
 import json
 import os
 import tempfile
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -29,6 +30,11 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 from .geometry import ClassicalPageBoardDetector, Point, Quad
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
+from .page_geometry_registration import (
+    PAGE_REGISTRATION_VERSION,
+    VerifiedPageRegistrar,
+    is_complete_ordered_grid,
+)
 from .pipeline_execution import (
     FunctionImageStageAdapter,
     ImagePipelineExecutionError,
@@ -37,21 +43,25 @@ from .pipeline_execution import (
     VersionedImageStageAdapter,
 )
 from .pipeline_store import SqlAlchemyImagePipelineStore
-from .rectification import BoardGeometry, PageGeometry, PerspectiveBoardCellCropperV2
+from .rectification import BoardGeometry, PageGeometry
 from .sequence_ocr import (
-    OCR_VERSION,
     PaddleSequenceNumberRecognizer,
     SequenceOcrError,
     extract_sequence_number_crop,
 )
-from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginalStore
+from .source_direct_crops import (
+    SOURCE_DIRECT_CROPPER_VERSION,
+    SourceDirectBoardCellCropper,
+)
+from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginal, ManagedOriginalStore
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
 NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
-DETECTION_ADAPTER_VERSION = "page-board-detector-v2"
-CROP_ADAPTER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
+DETECTION_ADAPTER_VERSION = "page-board-detector-v4-verified-registration-v1"
+CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
+SEQUENCE_ADAPTER_VERSION = "sequence-number-ocr-v2-page-continuity-v1"
 
 
 class ProductionImageImportWorkflow:
@@ -87,14 +97,38 @@ class ProductionImageImportWorkflow:
             cast(JobExecutionContext, source_context),
             job,
         )
+        pipeline_originals = _filter_canonical_originals(manifest.originals, job)
+        if not pipeline_originals:
+            context.checkpoint(
+                checkpoint_payload={
+                    "checkpoint_kind": "image-canonical-skip-v1",
+                    "skipped_source_count": len(manifest.originals),
+                    "schema_version": 1,
+                },
+                stage="image_canonical_skip",
+                current=source_count * 2,
+                total=source_count * 2,
+                success_count=source_count,
+                failure_count=0,
+                review_count=0,
+            )
+            return
         registrations = tuple(
             ImageFileRegistration(
                 source_checksum_sha256=original.checksum_sha256,
                 source_relative_path=_data_relative_path(original.managed_relative_path),
                 order_index=index,
             )
-            for index, original in enumerate(manifest.originals)
+            for index, original in enumerate(pipeline_originals)
         )
+        attested_sequence_ranges = {
+            original.checksum_sha256: (
+                original.sequence_range_start,
+                original.sequence_range_end,
+            )
+            for original in pipeline_originals
+            if original.sequence_range_start is not None and original.sequence_range_end is not None
+        }
         self._batch_store.register_files(
             job.id,
             registrations=registrations,
@@ -106,11 +140,18 @@ class ProductionImageImportWorkflow:
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
+            page_registration_profile=_page_registration_profile_snapshot(job),
+            page_geometry_manifest=_page_geometry_manifest(job, self._artifact_root),
             image_selection_run_id=_image_selection_run_id(job),
+            attested_sequence_ranges=attested_sequence_ranges,
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
-            ImagePipelineStageExecutor(self._projection_store, adapters),
+            ImagePipelineStageExecutor(
+                self._projection_store,
+                adapters,
+                attested_sequence_ranges=attested_sequence_ranges,
+            ),
         )
         pipeline_context = _ProgressWindowContext(
             context,
@@ -120,6 +161,36 @@ class ProductionImageImportWorkflow:
             success_offset=source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+
+def _filter_canonical_originals(
+    originals: Sequence[ManagedOriginal],
+    job: Job,
+) -> tuple[ManagedOriginal, ...]:
+    """Skip whole attested seq_* sources already resolved for this game.
+
+    The API stores a canonical sequence snapshot in the job payload.  Partial
+    sources remain in the pipeline so projection can preserve only their
+    unresolved boards; only a source whose complete attested range is covered
+    is removed before registration and expensive stages.
+    """
+
+    raw_numbers = job.input_payload.get("canonical_sequence_numbers")
+    if not isinstance(raw_numbers, list):
+        return tuple(originals)
+    canonical = {int(number) for number in raw_numbers if isinstance(number, int) and number > 0}
+    if not canonical:
+        return tuple(originals)
+    retained: list[ManagedOriginal] = []
+    for original in originals:
+        start = getattr(original, "sequence_range_start", None)
+        end = getattr(original, "sequence_range_end", None)
+        if not isinstance(start, int) or not isinstance(end, int):
+            retained.append(original)
+            continue
+        if any(number not in canonical for number in range(start, end + 1)):
+            retained.append(original)
+    return tuple(retained)
 
 
 class _ProgressWindowContext:
@@ -195,38 +266,72 @@ class ProductionImageStageAdapterSuite:
         repository_root: Path,
         symbol_model: SymbolModelJobSnapshot | None = None,
         grid_profile: Mapping[str, object] | None = None,
+        page_registration_profile: Mapping[str, object] | None = None,
+        page_geometry_manifest: Mapping[str, object] | None = None,
         image_selection_run_id: str | None = None,
+        attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
         self._repository_root = repository_root
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._grid_profile = dict(grid_profile or {})
+        self._page_registration_profile = dict(page_registration_profile or {})
+        self._page_geometry_manifest = dict(page_geometry_manifest or {})
         self._image_selection_run_id = image_selection_run_id
+        self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._detector = ClassicalPageBoardDetector()
-        self._cropper = PerspectiveBoardCellCropperV2()
+        # A pinned preflight manifest is the complete geometry authority for a
+        # ``seq_*`` import.  Loading the fallback registration anchors in that
+        # case is both unnecessary work and, more importantly, makes a fully
+        # verified import depend on artifacts it will never consume.
+        registration_profile = (
+            {} if self._page_geometry_manifest else self._page_registration_profile
+        )
+        self._page_registrar = VerifiedPageRegistrar(
+            registration_profile,
+            load_anchor_rgb=self._load_anchor_rgb,
+        )
+        self._cropper = SourceDirectBoardCellCropper(
+            cell_output_size=self._symbol_model_snapshot.input_size,
+        )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
 
     def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
-        return (
-            FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
-            FunctionImageStageAdapter(
-                "normalization",
-                NORMALIZATION_ADAPTER_VERSION,
-                self.normalization,
-            ),
-            FunctionImageStageAdapter(
-                "board_detection",
-                DETECTION_ADAPTER_VERSION,
-                self.board_detection,
-            ),
-            FunctionImageStageAdapter("board_crops", CROP_ADAPTER_VERSION, self.board_crops),
-            FunctionImageStageAdapter("sequence_ocr", OCR_VERSION, self.sequence_ocr),
-            FunctionImageStageAdapter(
-                "symbol_inference",
-                SYMBOL_ADAPTER_VERSION,
-                self.symbol_inference,
+        return cast(
+            tuple[VersionedImageStageAdapter, ...],
+            (
+                FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
+                FunctionImageStageAdapter(
+                    "normalization",
+                    NORMALIZATION_ADAPTER_VERSION,
+                    self.normalization,
+                ),
+                FunctionImageStageAdapter(
+                    "board_detection",
+                    DETECTION_ADAPTER_VERSION,
+                    self.board_detection,
+                ),
+                FunctionImageStageAdapter(
+                    "board_crops",
+                    CROP_ADAPTER_VERSION,
+                    self.board_crops,
+                ),
+                FunctionImageStageAdapter(
+                    "sequence_ocr",
+                    (
+                        "sequence-number-from-attested-range-v1"
+                        if self._attested_sequence_ranges
+                        else SEQUENCE_ADAPTER_VERSION
+                    ),
+                    self.sequence_ocr,
+                ),
+                FunctionImageStageAdapter(
+                    "symbol_inference",
+                    SYMBOL_ADAPTER_VERSION,
+                    self.symbol_inference,
+                ),
             ),
         )
 
@@ -274,15 +379,68 @@ class ProductionImageStageAdapterSuite:
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        pinned = _registered_page_geometry(
+            self._page_geometry_manifest,
+            context.source_checksum_sha256,
+            image_width=int(rgb.shape[1]),
+            image_height=int(rgb.shape[0]),
+        )
+        if self._page_geometry_manifest:
+            if pinned is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The pinned geometry preflight has no verified page for this source.",
+                )
+            return _registered_geometry_payload(pinned)
+        # A reviewed page profile is the normal path for ``seq_*`` imports.
+        # Every resulting target quad is specific to this source photo; no
+        # coordinates are reused directly from another angle.
+        if self._page_registrar.available:
+            registered = self._page_registrar.register(rgb)
+            if registered is None:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                    "The page did not pass verified 3x3 geometry registration.",
+                )
+            return {
+                "boards": [
+                    {
+                        "confidence": registered.board_red_edge_coverages[position],
+                        "cropValidity": "verified_page_geometry",
+                        "geometry": {
+                            "quad": [point.to_dict() for point in quad],
+                            "registration": registered.to_payload(),
+                        },
+                        "geometryValidity": "verified",
+                        "positionIndex": position,
+                    }
+                    for position, quad in enumerate(registered.quads)
+                ],
+                "geometryValidity": "verified",
+                "recoveryMode": "verified_page_registration",
+                "registration": registered.to_payload(),
+            }
+
+        # Non-seq legacy imports retain a detector fallback, but it is now
+        # fail-closed: all nine boards must be physically detected and none may
+        # be synthesized/refined from a grid hypothesis.
         result = self._detector.detect(
             rgb,
-            allow_grid_recovery=True,
-            allow_occluded_grid_recovery=True,
+            allow_grid_recovery=False,
+            allow_occluded_grid_recovery=False,
+            allow_partial_grid_recovery=False,
         )
-        if result.status != "detected":
+        if (
+            result.status != "detected"
+            or len(result.boards) != 9
+            or result.layout_hypotheses
+            or any(
+                board.refined_from_grid or board.red_border_score <= 0.0 for board in result.boards
+            )
+        ):
             raise ImagePipelineExecutionError(
-                "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW",
-                "The page grid could not be recovered automatically.",
+                "IMAGE_PAGE_GEOMETRY_REQUIRES_REVIEW",
+                "The page has no complete, independently evidenced 3x3 geometry.",
             )
         projected_boards: list[dict[str, object]] = []
         for board in result.boards:
@@ -297,18 +455,34 @@ class ProductionImageStageAdapterSuite:
             projected_boards.append(
                 {
                     "confidence": max(0.0, min(1.0, board.red_border_score)),
+                    "cropValidity": "verified_detector_geometry",
                     "geometry": {
-                        "quad": [point.to_dict() for point in calibrated],
                         "detectorQuad": [point.to_dict() for point in board.quad],
+                        "quad": [point.to_dict() for point in calibrated],
                     },
+                    "geometryValidity": "verified",
                     "positionIndex": board.position_index,
                 }
             )
-        return {"boards": [board for board in projected_boards]}
+        return {
+            "boards": projected_boards,
+            "geometryValidity": "verified",
+            "recoveryMode": "complete_verified_detector",
+        }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
-        detections = _boards(_previous(context, "board_detection"))
+        detection_payload = _previous(context, "board_detection")
+        detections = _boards(detection_payload)
+        if (
+            detection_payload.get("geometryValidity") != "verified"
+            or len(detections) != 9
+            or any(board.get("geometryValidity") != "verified" for board in detections)
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CROP_GEOMETRY_UNVERIFIED",
+                "Cell crops require a complete verified 3x3 page geometry.",
+            )
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         geometry = PageGeometry(
             status="detected",
@@ -332,13 +506,16 @@ class ProductionImageStageAdapterSuite:
         for board in result.boards:
             root = PurePosixPath(
                 "crops",
-                "runtime-v1",
-                context.source_checksum_sha256[:2],
-                context.source_checksum_sha256,
+                "source-direct-v1",
+                context.file_execution_key[:2],
+                context.file_execution_key,
                 f"board-{board.position_index:02d}",
             )
-            board_relative = (root / "board.png").as_posix()
-            board_checksum = self._artifacts.write_rgb(board_relative, board.board_rgb)
+            board_relative = (root / "source-context.png").as_posix()
+            board_checksum = self._artifacts.write_rgb(
+                board_relative,
+                board.context_rgb,
+            )
             cells: list[dict[str, object]] = []
             for cell in board.cells:
                 relative = (
@@ -356,9 +533,13 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
+                    "cellOutputSize": self._symbol_model_snapshot.input_size,
                     "cells": cells,
                     "cropperVersion": CROP_ADAPTER_VERSION,
+                    "cropValidity": "source_direct_verified_geometry",
+                    "displayAssetKind": "source_context",
                     "positionIndex": board.position_index,
+                    "sourceContextBounds": board.context_bounds.to_dict(),
                 }
             )
         return {"boards": projected}
@@ -366,6 +547,11 @@ class ProductionImageStageAdapterSuite:
     def sequence_ocr(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         detections = _boards(_previous(context, "board_detection"))
+        if context.attested_sequence_range is not None:
+            return _attested_sequence_payload(
+                detections,
+                context.attested_sequence_range,
+            )
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
@@ -393,6 +579,22 @@ class ProductionImageStageAdapterSuite:
         recognized = iter(
             recognizer.recognize_many(tuple(item for item in prepared if item is not None))
         )
+        raw_results: list[tuple[str, float]] = []
+        for prepared_crop in prepared:
+            if prepared_crop is None:
+                raw_results.append(("", 0.0))
+            else:
+                recognition = next(recognized)
+                raw_results.append((recognition.raw_text, recognition.confidence))
+        observed_numbers = tuple(
+            int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
+            for raw_text, _confidence in raw_results
+        )
+        positions = tuple(_integer(board, "positionIndex") for board in detections)
+        resolved_numbers, continuity_base = _resolve_page_sequence_numbers(
+            observed_numbers,
+            positions,
+        )
         boards: list[dict[str, object]] = []
         for board, prepared_crop, sequence_quad_payload, reasons in zip(
             detections,
@@ -401,21 +603,24 @@ class ProductionImageStageAdapterSuite:
             reason_sets,
             strict=True,
         ):
-            if prepared_crop is None:
-                raw_text = ""
-                confidence = 0.0
-            else:
-                recognition = next(recognized)
-                raw_text = recognition.raw_text
-                confidence = recognition.confidence
-            normalized_number = int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
+            del prepared_crop
+            position = _integer(board, "positionIndex")
+            raw_text, confidence = raw_results[position]
+            observed_number = observed_numbers[position]
+            normalized_number = resolved_numbers[position]
+            projected_reasons = list(reasons)
+            if continuity_base is not None:
+                projected_reasons.append("SEQUENCE_OCR_PAGE_CONTINUITY_INFERRED")
             projected: dict[str, object] = {
                 "confidence": confidence,
                 "normalizedNumber": normalized_number,
-                "positionIndex": _integer(board, "positionIndex"),
+                "ocrNormalizedNumber": observed_number,
+                "positionIndex": position,
                 "rawText": raw_text,
-                "reviewReasons": reasons,
+                "reviewReasons": projected_reasons,
             }
+            if continuity_base is not None:
+                projected["continuityBase"] = continuity_base
             if sequence_quad_payload is not None:
                 projected["sequenceLabelQuad"] = sequence_quad_payload
             boards.append(projected)
@@ -431,15 +636,17 @@ class ProductionImageStageAdapterSuite:
             for value in cells:
                 cell = _mapping(value, "cell")
                 rgb = self._artifacts.load_rgb(_text(cell, "cropRelativePath"))
-                resized = cv2.resize(
-                    rgb,
-                    (
-                        self._symbol_model_snapshot.input_size,
-                        self._symbol_model_snapshot.input_size,
-                    ),
-                    interpolation=cv2.INTER_AREA,
+                input_size = self._symbol_model_snapshot.input_size
+                model_rgb = (
+                    rgb
+                    if rgb.shape[:2] == (input_size, input_size)
+                    else cv2.resize(
+                        rgb,
+                        (input_size, input_size),
+                        interpolation=cv2.INTER_AREA,
+                    )
                 )
-                normalized = resized.astype(np.float32).transpose(2, 0, 1) / 255.0
+                normalized = model_rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
                 tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
                 cell_metadata.append((position, cell))
         if not tensors:
@@ -453,7 +660,11 @@ class ProductionImageStageAdapterSuite:
             raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         predictions = build_symbol_predictions(
             inference.logits,
-            temperature=self._symbol_model_snapshot.temperature,
+            # Historical model snapshots may contain the former 0.05 floor.
+            # Never let a legacy calibration turn out-of-distribution crops
+            # into synthetic certainty; this is intentionally independent of
+            # the geometry validity decision above.
+            temperature=max(0.50, self._symbol_model_snapshot.temperature),
             class_codes=self._symbol_model_snapshot.class_codes,
             alternative_limit=3,
         )
@@ -481,6 +692,7 @@ class ProductionImageStageAdapterSuite:
             ),
             "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
             "modelVersion": self._symbol_model_snapshot.model_version,
+            "temperatureApplied": max(0.50, self._symbol_model_snapshot.temperature),
         }
 
     def _ocr_recognizer(self) -> PaddleSequenceNumberRecognizer:
@@ -489,6 +701,9 @@ class ProductionImageStageAdapterSuite:
                 self._repository_root / "artifacts/m5-models/sequence-number-ocr-v1"
             )
         return self._ocr
+
+    def _load_anchor_rgb(self, checksum_sha256: str) -> NDArray[np.uint8]:
+        return self._artifacts.load_rgb(f"originals/{checksum_sha256[:2]}/{checksum_sha256}.jpg")
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
         if self._symbol_model is None:
@@ -594,6 +809,29 @@ class _ManagedImageArtifacts:
         finally:
             temporary.unlink(missing_ok=True)
         return checksum
+
+
+def _resolve_page_sequence_numbers(
+    observed_numbers: Sequence[int | None],
+    positions: Sequence[int],
+) -> tuple[tuple[int | None, ...], int | None]:
+    """Resolve a consecutive page from one dominant OCR base without guessing."""
+
+    if len(observed_numbers) != len(positions) or tuple(positions) != tuple(range(len(positions))):
+        return tuple(observed_numbers), None
+    bases = Counter(
+        number - position
+        for number, position in zip(observed_numbers, positions, strict=True)
+        if number is not None and number - position > 0
+    )
+    ranked = sorted(bases.items(), key=lambda item: (-item[1], item[0]))
+    if not ranked:
+        return tuple(observed_numbers), None
+    winning_base, support = ranked[0]
+    runner_up_support = ranked[1][1] if len(ranked) > 1 else 0
+    if support < 3 or support - runner_up_support < 2:
+        return tuple(observed_numbers), None
+    return tuple(winning_base + position for position in positions), winning_base
 
 
 def _source_directory(job: Job) -> Path:
@@ -719,6 +957,194 @@ def _grid_profile_snapshot(job: Job) -> Mapping[str, object]:
     return cast(Mapping[str, object], profile_payload)
 
 
+def _page_registration_profile_snapshot(job: Job) -> Mapping[str, object]:
+    """Read the separately pinned reviewed-page registration profile.
+
+    It lives beside the active grid calibration profile because its provenance
+    is the same immutable reviewed cohort, while the geometry it produces is a
+    per-target homography rather than a normalized corner offset.
+    """
+
+    grid_snapshot = job.input_payload.get("grid_profile")
+    if not isinstance(grid_snapshot, Mapping):
+        return {}
+    profile = grid_snapshot.get("pageRegistrationProfile")
+    if profile is None:
+        return {}
+    if not isinstance(profile, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile is invalid.",
+        )
+    if profile.get("policy") != PAGE_REGISTRATION_VERSION:
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile has an unsupported policy.",
+        )
+    anchors = profile.get("anchors")
+    if not isinstance(anchors, Sequence) or isinstance(anchors, str | bytes):
+        raise JobHandlerError(
+            "IMAGE_PAGE_REGISTRATION_PROFILE_INVALID",
+            "The pinned page registration profile has no anchor list.",
+        )
+    return cast(Mapping[str, object], profile)
+
+
+def _page_geometry_manifest(job: Job, artifact_root: Path) -> Mapping[str, object]:
+    descriptor = job.input_payload.get("page_geometry_manifest")
+    if descriptor is None:
+        return {}
+    if not isinstance(descriptor, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest descriptor is invalid.",
+        )
+    checksum = descriptor.get("checksumSha256")
+    relative_path = descriptor.get("relativePath")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or not isinstance(relative_path, str)
+        or not relative_path.startswith("data/")
+    ):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest descriptor is incomplete.",
+        )
+    path = (artifact_root / Path(*PurePosixPath(relative_path).parts)).resolve()
+    data_root = (artifact_root / "data").resolve()
+    if not path.is_relative_to(data_root):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest path is unsafe.",
+        )
+    try:
+        content = path.read_bytes()
+        value = json.loads(content)
+    except (OSError, json.JSONDecodeError) as error:
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE",
+            "The pinned page geometry manifest cannot be read.",
+        ) from error
+    if hashlib.sha256(content).hexdigest() != checksum or not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT",
+            "The pinned page geometry manifest changed after preflight.",
+        )
+    entries = value.get("entries")
+    if not isinstance(entries, Mapping):
+        raise JobHandlerError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest has no source entries.",
+        )
+    return cast(Mapping[str, object], entries)
+
+
+def _registered_page_geometry(
+    entries: Mapping[str, object],
+    source_checksum_sha256: str,
+    *,
+    image_width: int,
+    image_height: int,
+) -> Mapping[str, object] | None:
+    raw = entries.get(source_checksum_sha256)
+    if not isinstance(raw, Mapping) or raw.get("status") != "registered":
+        return None
+    quads = raw.get("quads")
+    coverages = raw.get("boardRedEdgeCoverages")
+    if (
+        not isinstance(quads, Sequence)
+        or isinstance(quads, str | bytes)
+        or len(quads) != 9
+        or not isinstance(coverages, Sequence)
+        or isinstance(coverages, str | bytes)
+        or len(coverages) != 9
+    ):
+        return None
+    parsed: list[Quad] = []
+    parsed_coverages: list[float] = []
+    for quad_payload, coverage in zip(quads, coverages, strict=True):
+        quad = _quad_from_payload(quad_payload)
+        if (
+            quad is None
+            or not isinstance(coverage, int | float)
+            or isinstance(coverage, bool)
+            or not 0.0 <= float(coverage) <= 1.0
+        ):
+            return None
+        if any(
+            point.x < 0 or point.x >= image_width or point.y < 0 or point.y >= image_height
+            for point in quad
+        ):
+            return None
+        parsed.append(quad)
+        parsed_coverages.append(float(coverage))
+    if not is_complete_ordered_grid(tuple(parsed), image_width, image_height):
+        return None
+    return {
+        "anchorSourceChecksumSha256": raw.get("anchorSourceChecksumSha256"),
+        "boardRedEdgeCoverages": parsed_coverages,
+        "featureCount": raw.get("featureCount"),
+        "featuresVersion": raw.get("featuresVersion"),
+        "inlierCount": raw.get("inlierCount"),
+        "inlierRatio": raw.get("inlierRatio"),
+        "meanRedEdgeCoverage": raw.get("meanRedEdgeCoverage"),
+        "p95ReprojectionError": raw.get("p95ReprojectionError"),
+        "quads": parsed,
+        "registrationVersion": raw.get("registrationVersion"),
+        "thresholdsVersion": raw.get("thresholdsVersion"),
+    }
+
+
+def _registered_geometry_payload(geometry: Mapping[str, object]) -> dict[str, object]:
+    quads = cast(Sequence[Quad], geometry["quads"])
+    coverages = cast(Sequence[float], geometry["boardRedEdgeCoverages"])
+    registration = {
+        key: value
+        for key, value in geometry.items()
+        if key not in {"quads", "boardRedEdgeCoverages"}
+    }
+    registration["quads"] = [[point.to_dict() for point in quad] for quad in quads]
+    registration["boardRedEdgeCoverages"] = list(coverages)
+    return {
+        "boards": [
+            {
+                "confidence": coverages[position],
+                "cropValidity": "verified_page_geometry",
+                "geometry": {
+                    "quad": [point.to_dict() for point in quad],
+                    "registration": registration,
+                },
+                "geometryValidity": "verified",
+                "positionIndex": position,
+            }
+            for position, quad in enumerate(quads)
+        ],
+        "geometryValidity": "verified",
+        "recoveryMode": "pinned_verified_page_registration",
+        "registration": registration,
+    }
+
+
+def _quad_from_payload(value: object) -> Quad | None:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
+        return None
+    points: list[Point] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            return None
+        x, y = raw.get("x"), raw.get("y")
+        if (
+            not isinstance(x, int | float)
+            or isinstance(x, bool)
+            or not isinstance(y, int | float)
+            or isinstance(y, bool)
+        ):
+            return None
+        points.append(Point(int(round(x)), int(round(y))))
+    return cast(Quad, tuple(points))
+
+
 def _image_selection_run_id(job: Job) -> str | None:
     value = job.input_payload.get("image_selection_run_id")
     return value if isinstance(value, str) and value else None
@@ -768,7 +1194,7 @@ def _grid_offsets(
     image_selection_run_id: str | None,
     position_index: int,
 ) -> tuple[tuple[float, float], ...] | None:
-    for key, require_run in (("scopes", True),):
+    for key, require_run in (("scopes", True), ("positionFallbacks", False)):
         values = profile.get(key)
         if not isinstance(values, Sequence) or isinstance(values, str | bytes):
             continue
@@ -818,6 +1244,49 @@ def _data_relative_path(value: str) -> str:
             "Managed originals must remain below the data namespace.",
         )
     return value[len(prefix) :]
+
+
+def _attested_sequence_payload(
+    detections: Sequence[Mapping[str, object]],
+    sequence_range: tuple[int, int],
+) -> dict[str, object]:
+    """Assign row-major numbers from a validated ``seq_start-end`` filename.
+
+    The filename is authoritative only when the detector returned exactly the
+    declared number of boards. A partial grid remains reviewable, but no
+    remaining board is shifted to fill the missing position.
+    """
+
+    start, end = sequence_range
+    expected_count = end - start + 1
+    complete = len(detections) == expected_count and all(
+        _integer(board, "positionIndex") == index for index, board in enumerate(detections)
+    )
+    boards: list[dict[str, object]] = []
+    for board in detections:
+        position = _integer(board, "positionIndex")
+        number = start + position if complete else None
+        boards.append(
+            {
+                "confidence": 1.0 if complete else 0.0,
+                "normalizedNumber": number,
+                "ocrNormalizedNumber": None,
+                "positionIndex": position,
+                "rawText": "" if number is None else str(number),
+                "reviewReasons": (
+                    [] if complete else ["SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED"]
+                ),
+                "attestedRangeEnd": end,
+                "attestedRangeStart": start,
+                "sequenceSource": "filename",
+            }
+        )
+    return {
+        "attestedRangeEnd": end,
+        "attestedRangeStart": start,
+        "boards": boards,
+        "rangeSource": "filename",
+    }
 
 
 def _previous(context: ImageStageContext, stage: str) -> Mapping[str, object]:

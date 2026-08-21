@@ -110,8 +110,32 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ("POST", "/api/v1/admin/reviewer-ingress/start"): HighImpactOperation(
         "start-reviewer-ingress", "remote-reviewer"
     ),
+    ("POST", "/api/v1/admin/reviewer-local/start"): HighImpactOperation(
+        "start-local-reviewer", "local-reviewer"
+    ),
     ("POST", "/api/v1/admin/reviewer-ingress/stop"): HighImpactOperation(
         "stop-reviewer-ingress", "remote-reviewer"
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local",
+    ): HighImpactOperation(
+        "open-local-reviewer-work",
+        "reviewer-work:{import_job_id}:local",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online",
+    ): HighImpactOperation(
+        "open-online-reviewer-work",
+        "reviewer-work:{import_job_id}:online",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close",
+    ): HighImpactOperation(
+        "close-reviewer-work",
+        "reviewer-work:{assignment_id}",
     ),
     ("POST", "/api/v1/admin/reviewer-sessions"): HighImpactOperation(
         "create-reviewer-session", "reviewer-session:new"
@@ -210,9 +234,17 @@ def redact_security_metadata(value: object, *, key: str = "") -> object:
 class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
     """Protect unsafe local Admin requests before they reach domain services."""
 
-    def __init__(self, app: Any, *, admin_origin: str, audit_log: AppendOnlyAdminAuditLog) -> None:
+    def __init__(
+        self,
+        app: Any,
+        *,
+        admin_origin: str,
+        reviewer_origin: str,
+        audit_log: AppendOnlyAdminAuditLog,
+    ) -> None:
         super().__init__(app)
         self._admin_origin = admin_origin.rstrip("/")
+        self._reviewer_origin = reviewer_origin.rstrip("/")
         self._audit_log = audit_log
 
     async def dispatch(
@@ -246,7 +278,15 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
             )
 
         origin = request.headers.get("origin")
-        if origin is not None and origin.rstrip("/") != self._admin_origin:
+        normalized_origin = origin.rstrip("/") if origin is not None else None
+        reviewer_origin_allowed = (
+            normalized_origin == self._reviewer_origin and _matches_reviewer_mutation_path(path)
+        )
+        if (
+            normalized_origin is not None
+            and normalized_origin != self._admin_origin
+            and not reviewer_origin_allowed
+        ):
             return self._reject(
                 action=action,
                 target=target,
@@ -411,9 +451,11 @@ def _header_parameter(name: str, constant: str | None, required: bool) -> dict[s
 
 def _is_reviewer_mutation(request: Request, path: str) -> bool:
     authorization = request.headers.get("authorization", "")
-    return authorization.startswith("Bearer ") and any(
-        pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS
-    )
+    return authorization.startswith("Bearer ") and _matches_reviewer_mutation_path(path)
+
+
+def _matches_reviewer_mutation_path(path: str) -> bool:
+    return any(pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS)
 
 
 def _default_action(method: str, path: str) -> str:

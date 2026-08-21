@@ -8,10 +8,12 @@ import {
   loadOperationalReviewJobs,
   loadOperationalReviewPage,
   loadOperationalReviewSymbols,
+  prefetchOperationalReviewPageBuffer,
   previewOperationalReviewGeometry,
   resolveOperationalReview,
   saveOperationalReviewGeometry,
 } from '../src/features/operational-reviews/operational-review-actions.ts';
+import { createOperationalReviewPageBuffer } from '../src/features/operational-reviews/operational-review-state.ts';
 
 const activeGame = {
   code: 'blazing-hot',
@@ -135,6 +137,7 @@ test('loads exactly one scope-bound board from the stable all-status queue', asy
       corrected: 0,
       pending: 2999,
       rejected: 0,
+      superseded: 0,
       total: 3000,
     },
     gameId: activeGame.id,
@@ -194,6 +197,122 @@ test('marks stale cursor as a recoverable queue conflict', async () => {
     isCursorConflict: true,
     ok: false,
   });
+});
+
+test('prefetches one previous and two next pages with bounded one-item requests', async () => {
+  const counts = {
+    accepted: 0,
+    completed: 0,
+    corrected: 0,
+    pending: 5,
+    rejected: 0,
+    superseded: 0,
+    total: 5,
+  };
+  const page = (id, previousCursor, nextCursor) => ({
+    counts,
+    gameId: activeGame.id,
+    importJobId: 'job-1',
+    items: [{ id }],
+    nextCursor,
+    previousCursor,
+    queueVersion: 1,
+    view: 'all',
+  });
+  const current = page('review-2', 'cursor-previous', 'cursor-next-1');
+  const responses = new Map([
+    ['before:cursor-previous', page('review-1', null, 'cursor-current')],
+    [
+      'after:cursor-next-1',
+      page('review-3', 'cursor-current', 'cursor-next-2'),
+    ],
+    ['after:cursor-next-2', page('review-4', 'cursor-next-1', null)],
+  ]);
+  const received = [];
+
+  const result = await prefetchOperationalReviewPageBuffer(
+    {
+      listOperationalImageReviewItems: async (options) => {
+        received.push(options);
+        const key = options.beforeCursor
+          ? `before:${options.beforeCursor}`
+          : `after:${options.afterCursor}`;
+        return { data: responses.get(key) };
+      },
+    },
+    { gameId: activeGame.id, importJobId: 'job-1', view: 'all' },
+    createOperationalReviewPageBuffer(current),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.buffer.previous?.items[0].id, 'review-1');
+  assert.equal(result.buffer.current?.items[0].id, 'review-2');
+  assert.deepEqual(
+    result.buffer.next.map((candidate) => candidate.items[0].id),
+    ['review-3', 'review-4'],
+  );
+  assert.equal(received.length, 3);
+  assert.equal(
+    received.every((options) => options.limit === 1),
+    true,
+  );
+});
+
+test('prefetch fails closed only for cursor conflicts and keeps transport fallback', async () => {
+  const current = {
+    counts: {
+      accepted: 0,
+      completed: 0,
+      corrected: 0,
+      pending: 2,
+      rejected: 0,
+      superseded: 0,
+      total: 2,
+    },
+    gameId: activeGame.id,
+    importJobId: 'job-1',
+    items: [{ id: 'review-1' }],
+    nextCursor: 'cursor-next',
+    previousCursor: null,
+    queueVersion: 1,
+    view: 'all',
+  };
+  const buffer = createOperationalReviewPageBuffer(current);
+  const options = {
+    gameId: activeGame.id,
+    importJobId: 'job-1',
+    view: 'all',
+  };
+
+  const conflict = await prefetchOperationalReviewPageBuffer(
+    {
+      listOperationalImageReviewItems: async () => ({
+        error: {
+          code: 'IMAGE_REVIEW_CURSOR_STALE',
+          details: {},
+          message: 'Cursor is stale.',
+        },
+      }),
+    },
+    options,
+    buffer,
+  );
+  assert.deepEqual(conflict, {
+    error: 'Cursor is stale. (IMAGE_REVIEW_CURSOR_STALE)',
+    isCursorConflict: true,
+    ok: false,
+  });
+
+  const transportFailure = await prefetchOperationalReviewPageBuffer(
+    {
+      listOperationalImageReviewItems: async () => {
+        throw new Error('offline');
+      },
+    },
+    options,
+    buffer,
+  );
+  assert.deepEqual(transportFailure, { buffer, ok: true });
 });
 
 test('loads only active symbols in stable display order', async () => {
@@ -257,7 +376,21 @@ test('submits a scope-bound whole-board command and classifies revision conflict
     sequenceNumber: 29,
   };
   let received;
-  const resolution = { created: true, event: {}, item: {} };
+  const resolution = {
+    counts: {
+      accepted: 1,
+      completed: 1,
+      corrected: 0,
+      pending: 2,
+      rejected: 0,
+      superseded: 0,
+      total: 3,
+    },
+    created: true,
+    event: {},
+    item: {},
+    queueVersion: 1,
+  };
   const success = await resolveOperationalReview(
     {
       resolveOperationalImageReviewItem: async (...args) => {

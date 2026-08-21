@@ -183,9 +183,7 @@ class SqlAlchemyReviewRepository(ReviewRepository):
             return _to_review_item(current), _to_review_resolution(existing), False
 
         record = self._session.scalar(
-            select(ReviewItemModel)
-            .where(ReviewItemModel.id == review_item_id)
-            .with_for_update()
+            select(ReviewItemModel).where(ReviewItemModel.id == review_item_id).with_for_update()
         )
         if record is None:
             raise ReviewConflictError(
@@ -248,9 +246,7 @@ class SqlAlchemyReviewRepository(ReviewRepository):
         created_by: str,
     ) -> tuple[ReviewFeedbackExport, bool]:
         batch = self._session.scalar(
-            select(ReviewBatchModel)
-            .where(ReviewBatchModel.id == review_batch_id)
-            .with_for_update()
+            select(ReviewBatchModel).where(ReviewBatchModel.id == review_batch_id).with_for_update()
         )
         if batch is None:
             raise ReviewConflictError(
@@ -287,9 +283,7 @@ class SqlAlchemyReviewRepository(ReviewRepository):
                 for item in items
             ],
         }
-        source_state_sha256 = hashlib.sha256(
-            canonical_review_bytes(source_state)
-        ).hexdigest()
+        source_state_sha256 = hashlib.sha256(canonical_review_bytes(source_state)).hexdigest()
         existing = self._session.scalar(
             select(ReviewFeedbackExportModel).where(
                 ReviewFeedbackExportModel.review_batch_id == review_batch_id,

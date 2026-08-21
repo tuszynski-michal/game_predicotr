@@ -37,9 +37,7 @@ def _dataset(
             identity = f"{source_index}:{sample_index}:{code}"
             samples.append(
                 {
-                    "cropChecksumSha256": hashlib.sha256(
-                        f"crop:{identity}".encode()
-                    ).hexdigest(),
+                    "cropChecksumSha256": hashlib.sha256(f"crop:{identity}".encode()).hexdigest(),
                     "sampleId": hashlib.sha256(f"sample:{identity}".encode()).hexdigest(),
                     "sourceGroup": f"group-{source_index % 2}",
                     "sourceImageChecksumSha256": source_checksum,
@@ -89,10 +87,7 @@ def test_split_is_deterministic_source_disjoint_and_complete(tmp_path: Path) -> 
         assert isinstance(split, dict)
         assert split["sourceImageCount"] >= 2
         split_sources.append(
-            {
-                str(source["sourceImageChecksumSha256"])
-                for source in split["sources"]
-            }
+            {str(source["sourceImageChecksumSha256"]) for source in split["sources"]}
         )
         split_samples.append(set(split["sampleIds"]))
     assert not split_sources[0] & split_sources[1]
@@ -131,9 +126,7 @@ def test_split_rejects_symbol_without_three_source_images(tmp_path: Path) -> Non
 def test_split_rejects_identical_asset_from_different_sources(tmp_path: Path) -> None:
     dataset = _dataset(tmp_path)
     payload = json.loads(dataset.read_text(encoding="utf-8"))
-    payload["samples"][3]["cropChecksumSha256"] = payload["samples"][0][
-        "cropChecksumSha256"
-    ]
+    payload["samples"][3]["cropChecksumSha256"] = payload["samples"][0]["cropChecksumSha256"]
     dataset.write_bytes(_json_bytes(payload))
 
     with pytest.raises(SymbolDatasetSplitError) as error:

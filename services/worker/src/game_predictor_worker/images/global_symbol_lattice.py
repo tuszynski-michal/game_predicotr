@@ -131,10 +131,7 @@ def _bright_components(
         if not 0.18 <= fill_fraction <= 0.96:
             continue
         touches_border = (
-            x <= 1
-            or y <= 1
-            or x + width >= BOARD_WIDTH - 1
-            or y + height >= BOARD_HEIGHT - 1
+            x <= 1 or y <= 1 or x + width >= BOARD_WIDTH - 1 or y + height >= BOARD_HEIGHT - 1
         )
         weight = min(1.0, area / 1800.0)
         if touches_border:
@@ -164,6 +161,15 @@ def _bright_components(
         )
         for index, value in enumerate(raw)
     )
+
+
+def detect_global_symbol_candidates(
+    board_rgb: NDArray[np.uint8],
+) -> tuple[GlobalSymbolCandidate, ...]:
+    """Return the versioned global component set without assigning lattice slots."""
+
+    _validate_board(board_rgb)
+    return _bright_components(board_rgb)
 
 
 def _axis_lattice(
@@ -278,11 +284,7 @@ def _refine_center(
     sigma_x = width * 0.36
     sigma_y = height * 0.36
     prior = np.exp(
-        -0.5
-        * (
-            ((xx - local_expected_x) / sigma_x) ** 2
-            + ((yy - local_expected_y) / sigma_y) ** 2
-        )
+        -0.5 * (((xx - local_expected_x) / sigma_x) ** 2 + ((yy - local_expected_y) / sigma_y) ** 2)
     ).astype(np.float32)
     threshold = float(np.percentile(saliency, 62.0))
     foreground = saliency >= max(0.28, threshold)
@@ -330,6 +332,32 @@ def _refine_center(
     )
 
 
+def refine_global_symbol_center(
+    board_rgb: NDArray[np.uint8],
+    *,
+    row_index: int,
+    column_index: int,
+    expected_x: float,
+    expected_y: float,
+    half_width: float,
+    half_height: float,
+    has_component_support: bool,
+) -> SymbolCenter:
+    """Refine one globally assigned slot using the historical saliency calculation."""
+
+    _validate_board(board_rgb)
+    return _refine_center(
+        board_rgb,
+        row_index=row_index,
+        column_index=column_index,
+        expected_x=expected_x,
+        expected_y=expected_y,
+        half_width=half_width,
+        half_height=half_height,
+        has_component_support=has_component_support,
+    )
+
+
 def _assign_candidates(
     candidates: tuple[GlobalSymbolCandidate, ...],
     column_bases: tuple[float, ...],
@@ -355,11 +383,7 @@ def _assign_candidates(
         if existing is None or (score, candidate.candidate_index) < existing:
             selected[slot] = (score, candidate.candidate_index)
     return tuple(
-        (
-            selected[(row, column)][1]
-            if (row, column) in selected
-            else None
-        )
+        (selected[(row, column)][1] if (row, column) in selected else None)
         for row in range(BOARD_ROWS)
         for column in range(BOARD_COLUMNS)
     )
@@ -393,8 +417,7 @@ def locate_global_symbol_lattice(
 ) -> GlobalSymbolLattice:
     """Detect candidates globally and assign at most one candidate to every slot."""
 
-    _validate_board(board_rgb)
-    candidates = _bright_components(board_rgb)
+    candidates = detect_global_symbol_candidates(board_rgb)
     if len(candidates) < MIN_AXIS_COMPONENT_MATCHES:
         return _fallback(candidates, "GLOBAL_SYMBOL_LATTICE_INSUFFICIENT_COMPONENTS")
     column_lattice = _axis_lattice(
@@ -429,8 +452,7 @@ def locate_global_symbol_lattice(
         for index in range(BOARD_COLUMNS - 1)
     )
     row_spacing = statistics.median(
-        row_lattice.bases[index + 1] - row_lattice.bases[index]
-        for index in range(BOARD_ROWS - 1)
+        row_lattice.bases[index + 1] - row_lattice.bases[index] for index in range(BOARD_ROWS - 1)
     )
     centers = tuple(
         _refine_center(
@@ -472,5 +494,7 @@ __all__ = [
     "LOCATOR_VERSION",
     "GlobalSymbolCandidate",
     "GlobalSymbolLattice",
+    "detect_global_symbol_candidates",
     "locate_global_symbol_lattice",
+    "refine_global_symbol_center",
 ]

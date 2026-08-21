@@ -19,6 +19,8 @@ from game_predictor_api.storage.models import (
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceAlternativeModel,
+    ImageSequenceCanonicalModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -204,11 +206,112 @@ class SqlAlchemyImagePipelineStore:
                 checked_at=executed_at,
             )
             source = _locked_source(session, job_id, candidate.execution.file_execution_key)
+            job = session.get(JobModel, job_id)
+            if job is None or job.game_id is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_PIPELINE_GAME_MISSING",
+                    "The image import job has no game projection.",
+                )
+            projected_positions = 0
             for position in sorted(detection):
                 detected = detection[position]
                 cropped = crops[position]
                 sequence = sequences[position]
                 symbol = symbols[position]
+                sequence_number = sequence.get("normalizedNumber")
+                canonical = None
+                if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
+                    normalized_sequence_number = sequence_number
+                    canonical = session.scalar(
+                        select(ImageSequenceCanonicalModel).where(
+                            ImageSequenceCanonicalModel.game_id == job.game_id,
+                            ImageSequenceCanonicalModel.sequence_number == sequence_number,
+                        )
+                    )
+                if canonical is not None:
+                    pending_duplicate_row = session.execute(
+                        select(ImageReviewItemModel, RecognizedBoardModel)
+                        .join(
+                            RecognizedBoardModel,
+                            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                        )
+                        .where(
+                            RecognizedBoardModel.source_image_id == source.id,
+                            RecognizedBoardModel.position_index == position,
+                            ImageReviewItemModel.status == "pending",
+                        )
+                        .with_for_update()
+                    ).one_or_none()
+                    if pending_duplicate_row is not None:
+                        pending_duplicate, pending_board = pending_duplicate_row
+                        resolved_value: dict[str, object] = {
+                            "action": "superseded",
+                            "canonicalImportJobId": str(canonical.import_job_id),
+                            "canonicalReviewItemId": str(canonical.review_item_id),
+                            "reason": "canonical_sequence_already_resolved",
+                            "sequenceNumber": normalized_sequence_number,
+                        }
+                        actor = "system:canonical-import"
+                        revision = pending_duplicate.resolution_revision + 1
+                        idempotency_key = uuid5(
+                            NAMESPACE_URL,
+                            "image-review-superseded:"
+                            f"{job.game_id}:{normalized_sequence_number}:"
+                            f"{canonical.review_item_id}:{pending_duplicate.id}",
+                        )
+                        session.add(
+                            ImageReviewResolutionEventModel(
+                                review_item_id=pending_duplicate.id,
+                                revision=revision,
+                                idempotency_key=idempotency_key,
+                                action="superseded",
+                                command_sha256=_review_command_sha256(
+                                    action="superseded",
+                                    resolved_value=resolved_value,
+                                    resolved_by=actor,
+                                ),
+                                resolved_value=resolved_value,
+                                resolved_by=actor,
+                                created_at=executed_at,
+                            )
+                        )
+                        pending_duplicate.status = "superseded"
+                        pending_duplicate.resolved_value = resolved_value
+                        pending_duplicate.resolved_by = actor
+                        pending_duplicate.resolved_at = executed_at
+                        pending_duplicate.resolution_revision = revision
+                        pending_board.status = "rejected"
+                        session.execute(
+                            delete(ImageLayoutStagingRowModel).where(
+                                ImageLayoutStagingRowModel.review_item_id == pending_duplicate.id
+                            )
+                        )
+                    if (
+                        canonical.source_checksum_sha256 != source.checksum_sha256
+                        or canonical.import_job_id != job_id
+                    ):
+                        alternative_exists = session.scalar(
+                            select(ImageSequenceAlternativeModel.id).where(
+                                ImageSequenceAlternativeModel.game_id == job.game_id,
+                                ImageSequenceAlternativeModel.sequence_number
+                                == normalized_sequence_number,
+                                ImageSequenceAlternativeModel.import_job_id == job_id,
+                                ImageSequenceAlternativeModel.source_checksum_sha256
+                                == source.checksum_sha256,
+                            )
+                        )
+                        if alternative_exists is None:
+                            session.add(
+                                ImageSequenceAlternativeModel(
+                                    game_id=job.game_id,
+                                    sequence_number=normalized_sequence_number,
+                                    import_job_id=job_id,
+                                    source_checksum_sha256=source.checksum_sha256,
+                                    source_relative_path=source.relative_path,
+                                    reason="superseded_first_save_wins",
+                                )
+                            )
+                    continue
                 board = session.scalar(
                     select(RecognizedBoardModel)
                     .where(
@@ -221,10 +324,11 @@ class SqlAlchemyImagePipelineStore:
                     "cells": list(cast(Sequence[object], symbol["cells"])),
                     "modelVersion": model_version,
                 }
-                board_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
-                sequence_label_quad = sequence.get("sequenceLabelQuad")
-                if sequence_label_quad is not None:
-                    board_geometry["sequenceLabelQuad"] = sequence_label_quad
+                board_geometry = _recognized_board_geometry(
+                    detected=detected,
+                    cropped=cropped,
+                    sequence=sequence,
+                )
                 if board is None:
                     board = RecognizedBoardModel(
                         source_image_id=source.id,
@@ -283,7 +387,8 @@ class SqlAlchemyImagePipelineStore:
                     prediction,
                     created_at=executed_at,
                 )
-            source.status = "waiting_for_review"
+                projected_positions += 1
+            source.status = "waiting_for_review" if projected_positions else "completed"
             source.processed_at = executed_at
             session.flush()
 
@@ -480,7 +585,7 @@ class SqlAlchemyImagePipelineStore:
             materialized = 0
             accepted = 0
             for item, board in rows:
-                if item.status == "rejected":
+                if item.status in {"rejected", "superseded"}:
                     continue
                 accepted += 1
                 resolution = cast(Mapping[str, object], item.resolved_value)
@@ -517,6 +622,8 @@ class SqlAlchemyImagePipelineStore:
                         "An image staging row already has different accepted values.",
                     )
             source.status = "accepted" if accepted else "rejected"
+            if not rows:
+                source.status = "completed"
             source.processed_at = executed_at
             session.flush()
             return materialized
@@ -806,9 +913,11 @@ def _require_same_board(
     sequence: Mapping[str, object],
     prediction: Mapping[str, object],
 ) -> None:
-    expected_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
-    if sequence.get("sequenceLabelQuad") is not None:
-        expected_geometry["sequenceLabelQuad"] = sequence["sequenceLabelQuad"]
+    expected_geometry = _recognized_board_geometry(
+        detected=detected,
+        cropped=cropped,
+        sequence=sequence,
+    )
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
@@ -824,6 +933,32 @@ def _require_same_board(
             "IMAGE_RECOGNIZED_BOARD_CONFLICT",
             "The recognized board projection already has different content.",
         )
+
+
+def _recognized_board_geometry(
+    *,
+    detected: Mapping[str, object],
+    cropped: Mapping[str, object],
+    sequence: Mapping[str, object],
+) -> dict[str, object]:
+    geometry = dict(cast(Mapping[str, object], detected["geometry"]))
+    sequence_label_quad = sequence.get("sequenceLabelQuad")
+    if sequence_label_quad is not None:
+        geometry["sequenceLabelQuad"] = sequence_label_quad
+    for key in ("attestedRangeStart", "attestedRangeEnd", "sequenceSource"):
+        value = sequence.get(key)
+        if value is not None:
+            geometry[key] = value
+    source_context_bounds = cropped.get("sourceContextBounds")
+    if source_context_bounds is not None:
+        geometry["sourceContextBounds"] = source_context_bounds
+    display_asset_kind = cropped.get("displayAssetKind")
+    if display_asset_kind is not None:
+        geometry["displayAssetKind"] = display_asset_kind
+    cell_output_size = cropped.get("cellOutputSize")
+    if cell_output_size is not None:
+        geometry["cellOutputSize"] = cell_output_size
+    return geometry
 
 
 def _upsert_cell(

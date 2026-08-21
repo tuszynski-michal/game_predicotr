@@ -215,10 +215,7 @@ def _bright_lattice_column_bases(
     if best is None:
         return None
     selected = best[3]
-    bases = [
-        statistics.median(x for x, _ in column)
-        for column in selected
-    ]
+    bases = [statistics.median(x for x, _ in column) for column in selected]
     spacings = [bases[index + 1] - bases[index] for index in range(BOARD_COLUMNS - 1)]
     if any(
         spacing < MIN_LATTICE_COLUMN_SPACING or spacing > MAX_LATTICE_COLUMN_SPACING
@@ -246,16 +243,10 @@ def _mesh_centers(
         statistics.median(x_values[row][column] for row in range(BOARD_ROWS))
         for column in range(BOARD_COLUMNS)
     ]
-    bright_column_bases = (
-        _bright_lattice_column_bases(board_rgb) if use_bright_lattice else None
-    )
-    column_bases = (
-        bright_column_bases if bright_column_bases is not None else raw_column_bases
-    )
+    bright_column_bases = _bright_lattice_column_bases(board_rgb) if use_bright_lattice else None
+    column_bases = bright_column_bases if bright_column_bases is not None else raw_column_bases
     column_center_source = (
-        "bright-component-lattice"
-        if bright_column_bases is not None
-        else "raw-slot-medians"
+        "bright-component-lattice" if bright_column_bases is not None else "raw-slot-medians"
     )
     raw_row_bases = [
         statistics.median(y_values[row][column] for column in range(BOARD_COLUMNS))

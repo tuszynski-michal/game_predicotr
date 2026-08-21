@@ -105,6 +105,24 @@ class SqlAlchemyJobRepository(JobRepository):
         record = self._session.scalar(select(JobModel).where(JobModel.input_key == input_key))
         return None if record is None else job_from_record(record)
 
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None:
+        record = self._session.scalar(
+            select(JobModel)
+            .where(
+                JobModel.game_id == game_id,
+                JobModel.job_type == JobType.IMPORT,
+                JobModel.input_payload["source_selection_id"].as_string()
+                == str(source_selection_id),
+            )
+            .order_by(JobModel.created_at.desc(), JobModel.id)
+        )
+        return None if record is None else job_from_record(record)
+
     def list_jobs(
         self,
         *,
@@ -149,16 +167,13 @@ class SqlAlchemyJobRepository(JobRepository):
         job_id: UUID,
     ) -> ImageSelectionJobDeletionReference | None:
         run = self._session.scalar(
-            select(ImageSelectionRunModel).where(
-                ImageSelectionRunModel.job_id == job_id
-            )
+            select(ImageSelectionRunModel).where(ImageSelectionRunModel.job_id == job_id)
         )
         if run is None:
             return None
         source_reference_count = self._session.scalar(
             select(func.count(ImageSelectionRunModel.id)).where(
-                ImageSelectionRunModel.source_selection_id
-                == run.source_selection_id
+                ImageSelectionRunModel.source_selection_id == run.source_selection_id
             )
         )
         curated_source_id = self._session.scalar(
@@ -194,9 +209,7 @@ class SqlAlchemyJobRepository(JobRepository):
             )
         )
         self._session.execute(
-            delete(ImageSelectionGroupModel).where(
-                ImageSelectionGroupModel.run_id == run_id
-            )
+            delete(ImageSelectionGroupModel).where(ImageSelectionGroupModel.run_id == run_id)
         )
         deleted_run = self._session.execute(
             delete(ImageSelectionRunModel)

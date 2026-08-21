@@ -82,11 +82,7 @@ def validate_variant(variant: str) -> None:
 
 def augmentation_version(variant: str) -> str:
     validate_variant(variant)
-    return (
-        AUGMENTATION_VERSION
-        if variant == SPATIAL_AUGMENTED_VARIANT
-        else NO_AUGMENTATION_VERSION
-    )
+    return AUGMENTATION_VERSION if variant == SPATIAL_AUGMENTED_VARIANT else NO_AUGMENTATION_VERSION
 
 
 def build_benchmark_model(variant: str, class_count: int) -> SpatialSymbolCnn:

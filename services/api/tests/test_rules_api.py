@@ -81,8 +81,7 @@ class MemoryRulesRepository(RulesRepository):
         drafts = [
             item
             for item in self.items.values()
-            if item.game_id == source.game_id
-            and item.status is RulesVersionStatus.DRAFT
+            if item.game_id == source.game_id and item.status is RulesVersionStatus.DRAFT
         ]
         if drafts:
             return max(drafts, key=lambda item: (item.version, item.id))
@@ -200,8 +199,7 @@ class MemoryRulesRepository(RulesRepository):
         columns: int,
     ) -> bool:
         return all(
-            item.minimum_match_length is None
-            or item.minimum_match_length <= columns
+            item.minimum_match_length is None or item.minimum_match_length <= columns
             for item in self.rules_symbols.values()
             if item.rules_version_id == rules_version_id
         ) and all(
@@ -278,11 +276,7 @@ class MemoryRulesRepository(RulesRepository):
         payout_rule_id: UUID,
     ) -> PayoutRule | None:
         item = self.payout_rules.get(payout_rule_id)
-        return (
-            item
-            if item is not None and item.rules_version_id == rules_version_id
-            else None
-        )
+        return item if item is not None and item.rules_version_id == rules_version_id else None
 
     def find_payout_rule(
         self,
@@ -639,15 +633,9 @@ def test_symbol_configuration_and_payout_crud_contract() -> None:
         assert updated.status_code == 200
         assert updated.json()["payoutCredits"] == 25
 
-        configured_list = client.get(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/symbols"
-        )
-        assert [item["symbolId"] for item in configured_list.json()] == [
-            str(symbol_id)
-        ]
-        payout_list = client.get(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules"
-        )
+        configured_list = client.get(f"/api/v1/admin/rules-versions/{rules_version_id}/symbols")
+        assert [item["symbolId"] for item in configured_list.json()] == [str(symbol_id)]
+        payout_list = client.get(f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules")
         assert [item["id"] for item in payout_list.json()] == [payout_rule_id]
         assert (
             client.get(
@@ -780,9 +768,7 @@ def test_publication_readiness_publish_and_archive_contract() -> None:
             "NO_ACTIVE_RULE_SYMBOLS",
             "NO_ACTIVE_ORDINARY_SYMBOLS",
         ]
-        failed_publish = client.post(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
-        )
+        failed_publish = client.post(f"/api/v1/admin/rules-versions/{rules_version_id}/publish")
         assert failed_publish.status_code == 409
         assert failed_publish.json()["code"] == "RULES_VERSION_NOT_READY"
 
@@ -818,42 +804,27 @@ def test_publication_readiness_publish_and_archive_contract() -> None:
                 == 201
             )
 
-        ready = client.get(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness"
-        )
+        ready = client.get(f"/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness")
         assert ready.json() == {
             "rulesVersionId": rules_version_id,
             "ready": True,
             "issues": [],
         }
-        published = client.post(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
-        )
+        published = client.post(f"/api/v1/admin/rules-versions/{rules_version_id}/publish")
         assert published.status_code == 200
         assert published.json()["status"] == "published"
         published_at = published.json()["publishedAt"]
         assert published_at is not None
 
-        second_publish = client.post(
-            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
-        )
+        second_publish = client.post(f"/api/v1/admin/rules-versions/{rules_version_id}/publish")
         assert second_publish.status_code == 409
         assert second_publish.json()["code"] == "RULES_VERSION_IMMUTABLE"
 
-        archived = client.delete(
-            f"/api/v1/admin/rules-versions/{rules_version_id}"
-        )
+        archived = client.delete(f"/api/v1/admin/rules-versions/{rules_version_id}")
         assert archived.status_code == 204
         stored = repository.items[UUID(rules_version_id)]
         assert stored.status is RulesVersionStatus.ARCHIVED
         assert stored.published_at is not None
-        archived_response = client.get(
-            f"/api/v1/admin/rules-versions/{rules_version_id}"
-        )
+        archived_response = client.get(f"/api/v1/admin/rules-versions/{rules_version_id}")
         assert archived_response.json()["publishedAt"] == published_at
-        assert (
-            client.delete(
-                f"/api/v1/admin/rules-versions/{rules_version_id}"
-            ).status_code
-            == 204
-        )
+        assert client.delete(f"/api/v1/admin/rules-versions/{rules_version_id}").status_code == 204

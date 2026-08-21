@@ -715,18 +715,64 @@ geometrii wymaga nowej decyzji albo jawnej migracji w późniejszym zadaniu.
 Każda recognized board ma dokładnie jeden operacyjny element review M7.
 `snapshot` zamraża źródło, planszę, geometrię, OCR, 15 predykcji i pełny
 fingerprint. `resolved_value` dla accepted/corrected zawiera jawnie
-zaakceptowany numer i 15 kodów symboli; rejected zawiera powód. Rewizja rośnie
-po atomowej decyzji całej planszy.
+zaakceptowany numer i 15 kodów symboli; rejected zawiera powód. Systemowy
+`superseded` wskazuje kanonicznego właściciela numeru, przyczynę i zachowane
+źródło przegranej decyzji. Rewizja rośnie po atomowej decyzji całej planszy.
 
 Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
 niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
 katalogu i może być znacznie większy.
 
+### image_review_queue_items i image_review_queue_states
+
+TASK-0249 utrwala osobną projekcję topologii operacyjnej kolejki per import.
+`image_review_queue_items` zamraża przy utworzeniu elementu review klucz
+`(source_order_index, position_index, review_item_id)` oraz `import_job_id`.
+Wartości topologii pochodzą z `image_import_job_files`, `source_images` i
+`recognized_boards`; późniejsza zmiana statusu albo `sequence_number` nie może
+ich przesunąć. Constraint i guard bazy blokują aktualizację pól klucza.
+
+`status` w projekcji jest transakcyjnym lustrem bieżącego statusu
+`image_review_items`. `image_review_queue_states` przechowuje per import
+`total_count` oraz liczniki
+`pending/accepted/corrected/rejected/superseded` i dodatni `queue_version`.
+Suma liczników musi być równa `total_count`.
+
+`queue_version` jest wersją topologii: rośnie przy dodaniu lub usunięciu
+elementu, ale nie przy zwykłej zmianie statusu, decyzji ani numeru sekwencji.
+Dzięki temu zapis poprawnej decyzji nie unieważnia pozycji tylko dlatego, że
+zmieniły się liczniki. Projekcja i liczniki są utrzymywane przez transakcyjne
+triggery PostgreSQL, obejmujące zarówno zapis API, jak i workera. Brak
+jednoznacznego powiązania source-order kończy się fail-closed. Migracja
+backfilluje wszystkie istniejące elementy i odmawia ukończenia, jeżeli choć
+jeden z nich nie ma tego powiązania.
+
+Konkurencyjność komendy planszy jest niezależna od wersji tej projekcji.
+`expectedRevision` porównuje wyłącznie rewizję wskazanego
+`image_review_items`, natomiast `queue_version` chroni wyłącznie topologię.
+Odpowiedź poprawnego zapisu czyta liczniki projekcji już po wykonaniu triggerów;
+nie rekonstruuje ich z poprzedniego snapshotu klienta.
+
+Ta sama transakcja synchronizuje status właścicielskiego joba importu. Dodatni
+`pending_count` oznacza `waiting_for_review`; `pending_count = 0` przy
+`total_count > 0` oznacza `completed` i ustawia `finished_at`. Ponowne otwarcie
+planszy zeruje `finished_at` i przywraca `waiting_for_review`. Migracja
+backfilluje istniejące importy, których projekcja była już całkowicie
+rozwiązana, ale historyczny job pozostał w stanie oczekiwania.
+
+Job-local read model używa tej projekcji bez ponownego wyprowadzania kolejności
+z numeru sekwencji albo bieżącego statusu. Keyset cursor przechowuje zamrożony
+klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu
+`image_review_queue_states`. Zmiana statusu może usunąć element z filtrowanego
+widoku, ale nie usuwa jego granicy z niezmiennej topologii.
+
 ### image_review_resolution_events
 
-Każda accepted/corrected/rejected decyzja i systemowe ponowne otwarcie konfliktu
-numeracji tworzą append-only event z rewizją, UUID idempotencji, kanonicznym
-SHA-256 komendy, aktorem, wartością i czasem. Unikalne
+Każda accepted/corrected/rejected decyzja, systemowe `superseded` oraz ponowne
+otwarcie konfliktu numeracji tworzą append-only event z rewizją, UUID
+idempotencji, kanonicznym SHA-256 komendy, aktorem, wartością i czasem. Event
+`superseded` zachowuje numer, identyfikatory kanonicznego właściciela, przyczynę
+i opcjonalną akcję przegranej komendy. Unikalne
 `(review_item_id, revision)` zachowuje historię, a
 `(review_item_id, idempotency_key)` sprawia, że exact retry nie dodaje drugiego
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
@@ -761,16 +807,28 @@ scalanych albo jedna grupa jest źródłem ręcznego splitu.
 
 ### image_board_geometry_revisions
 
-M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.
-Rekord zawiera:
+M6.5 dodaje append-only historię korekt geometrii operacyjnej planszy. Rewizja
+może pochodzić z ręcznego edytora albo jawnego pending-only recropu; oba źródła
+zachowują poprzednie rekordy i pliki. Rekord zawiera:
 
 - `review_item_id` oraz `recognized_board_id`,
 - rosnącą `revision`,
 - UUID idempotencji i SHA-256 kanonicznej komendy,
 - cztery narożniki w przestrzeni oryginalnego obrazu,
 - wersję croppera, profilu i pipeline fingerprint,
-- względne ścieżki oraz checksumy wyprostowanej planszy i dokładnie 15 cropów,
+- względną ścieżkę i checksumę obrazu referencyjnego oraz dokładnie 15 cropów,
 - aktora i czas utworzenia.
+
+Rewizja v19 zapisuje w `geometry` także `latticeBoundsQuad`, source/padded quady
+15 komórek, checksumę źródła, source-order, pozycję, numer, wersje geometrii i
+croppera, fingerprint, oczekiwane rewizje, aktora oraz
+`decisionChecksumSha256`. Checksum decyzji kanonicznie wiąże te pola; nie jest
+zamiennikiem `command_sha256`, który nadal chroni idempotentny transport.
+Historyczna rewizja v1 może nie mieć checksumy decyzji i pozostaje czytelna.
+Automatyczna rewizja TASK 8 ma `corrected_by = pending-board-cell-recrop-v19`,
+pełne evidence automatycznego estymatora, checksumę przypiętej konfiguracji i
+15 immutable cropów. Nie udaje decyzji człowieka i nie zmienia
+`image_review_items.status` ani `resolution_revision`.
 
 `corners`, wynikowa `geometry` i `crop_artifacts` są JSONB; constraint wymaga
 czterech narożników oraz dokładnie 15 artefaktów cropów. Unikalne
@@ -784,6 +842,12 @@ Accepted/corrected `resolved_value` wskazuje dokładną rewizję geometrii i
 `cropSampleId` każdej z 15 komórek. Dzięki temu późniejsze ulepszenie profilu
 cięcia ani retraining nie zmienia danych, które rzeczywiście zatwierdził
 człowiek.
+
+Pending-only zapis jest dozwolony wyłącznie, gdy zablokowany item nadal ma
+status `pending`, a jego resolution revision oraz pełna projekcja planszy są
+identyczne ze snapshotem workera. Rozwiązana lub równolegle zmieniona pozycja
+nie tworzy rekordu. Istniejąca rewizja geometrii/croppera v19 jest uznawana za
+aktualną i nie jest nadpisywana.
 
 ### reviewer_access_sessions i reviewer_access_audit_events
 
@@ -801,6 +865,57 @@ zdenormalizowany licznik w tabeli.
 Append-only `reviewer_access_audit_events` zapisuje `created`,
 `unlock_failed`, `unlocked`, `locked` i `revoked`. Decyzje plansz pozostają w
 istniejącym audycie review, a ich aktor ma postać `reviewer-session:<UUID>`.
+
+### reviewer_work_assignments
+
+Trwałe przypisanie pracy jest oddzielone od procesu Reviewera i Quick Tunnel.
+Wiąże dokładnie `game_id + import_job_id`, ma typ `local` albo `online` i
+przechowuje ogrodzony lease (`lease_owner`, `lease_token`, `heartbeat_at`,
+`lease_expires_at`). Import musi należeć do wskazanej gry, być gotowym importem
+obrazów i zawierać pozycje review; repozytorium blokuje rekord importu przed
+utworzeniem przypisania.
+
+Assignment `online` wskazuje dokładnie jedną `reviewer_access_session`, a
+assignment `local` nie może wskazywać sesji. Złożony FK obejmuje identyfikator
+sesji, grę i import, dlatego nie można przypiąć sesji innego scope'u. Jedna
+sesja może należeć najwyżej do jednego assignmentu. Zamknięcie assignmentu
+online unieważnia tylko tę sesję; nie jest operacją zatrzymania współdzielonego
+procesu ani ingressu.
+
+Częściowy unikalny indeks po `import_job_id`, ograniczony do
+`closed_at IS NULL`, gwarantuje najwyżej jedno aktywne przypisanie na import.
+Różne importy nie współdzielą tego ograniczenia. Online capacity jest jednak
+globalnie ograniczona do trzech różnych aktywnych importów. Każde otwarcie,
+zamknięcie i odzyskanie wygasłych prac online przechodzi przez jeden
+transakcyjny advisory lock PostgreSQL, dlatego równoległe transakcje nie mogą
+osobno zobaczyć wolnego czwartego miejsca. Local assignment nie zajmuje online
+capacity. Heartbeat wymaga aktualnego tokenu i niewygasłego lease; zapis stosuje
+ten sam token jako fencing condition.
+
+Zamknięcie nie usuwa rekordu ani tokenu lease. Uzupełnia atomowo `closed_at`,
+`close_reason` i `closed_by`, dlatego ponowne otwarcie tego samego importu tworzy
+nowy rekord, a wcześniejszy pozostaje historią. Wygasły aktywny wpis jest
+zamykany z powodem `lease_expired` przed utworzeniem następcy i powoduje
+unieważnienie własnej scoped sesji. Gdy nie pozostaje żaden aktywny online
+assignment, warstwa lifecycle wykonuje ogrodzony `stop-if-current` wspólnego
+tunelu. Tabela nie przechowuje kodu wejścia, bearer tokenu, URL tunelu ani
+danych procesu.
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| game_id | UUID | FK `games`, część scope'u |
+| import_job_id | UUID | FK `jobs`, najwyżej jeden aktywny |
+| assignment_type | varchar(16) | `local` albo `online` |
+| reviewer_access_session_id | UUID nullable | wymagane tylko dla `online`; złożony FK zachowuje scope |
+| lease_owner | varchar(200) | niepusty identyfikator właściciela lease |
+| lease_token | UUID | fencing token, pozostaje w historii |
+| heartbeat_at | timestamptz | monotoniczny heartbeat |
+| lease_expires_at | timestamptz | późniejszy niż heartbeat |
+| closed_at | timestamptz nullable | `NULL` oznacza aktywne przypisanie |
+| close_reason | varchar(100) nullable | ustawiane razem z zamknięciem |
+| closed_by | varchar(200) nullable | aktor zamknięcia |
+| created_at / updated_at | timestamptz | trwałe czasy lifecycle'u |
 
 ### image_verified_cohort_exports
 
@@ -1072,7 +1187,7 @@ UNIQUE (cohort_id, review_item_id)
 rewizję review i geometrii, 15 `cropSampleId`, checksumy i ścieżki cropów, kod
 symbolu człowieka, zdjęcie źródłowe, import oraz pipeline. Nie zawiera binariów.
 Kohorta jest append-only. `accepted` i `corrected` mogą wejść do treningu;
-`rejected`, `pending` i niekompletne decyzje pozostają policzone w manifeście
+`rejected`, `superseded`, `pending` i niekompletne decyzje pozostają policzone w manifeście
 stanu, ale nie tworzą pozycji treningowych.
 
 ### symbol_model_iterations

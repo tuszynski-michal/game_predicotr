@@ -166,7 +166,179 @@ Przed zaakceptowaniem v2 obowiązuje niezależny golden granic komórek. Golden
 obejmuje reprezentatywne plansze z obu grup źródłowych i wszystkich dziewięciu
 pozycji ekranu. Nie może być wygenerowany wyłącznie przez testowany cropper.
 
+Produkcyjna ścieżka v0.6 zastępuje pośredni raster planszy kontraktem
+`board-cell-crops-v17-source-direct-model-input-v1`:
+
+- `500 × 300` jest wyłącznie logiczną płaszczyzną geometrii i nie jest
+  materializowanym wejściem modelu ani podglądem Reviewera,
+- podgląd planszy jest osiowym wycinkiem z obrazu po korekcie EXIF, zachowanym
+  w natywnej skali pikseli bez obrotu, prostowania i zmiany rozmiaru,
+- każdy z 15 quadów komórek jest projektowany bezpośrednio z obrazu źródłowego
+  do przypiętego rozmiaru wejścia modelu w dokładnie jednym resamplingu,
+- inferencja nie skaluje ponownie cropu o już prawidłowym rozmiarze; skalowanie
+  pozostaje wyłącznie fallbackiem zgodności dla historycznych artefaktów,
+- geometria przechowuje `sourceContextBounds`, `displayAssetKind` oraz
+  `cellOutputSize`, aby Reviewer i audyt nie zgadywały pochodzenia obrazu.
+
+Aktywny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
+niezmieniony do czasu odbioru następcy. TASK-0249 wprowadza najpierw nieaktywny
+kontrakt `BoardCellGeometryManifestV1` dla
+`board-cell-geometry-v19-multi-point-source-direct-v1`:
+
+- geometria komórek jest osobnym artefaktem od `PageGeometryManifestV1`;
+  poprawne położenie dziewięciu plansz nie jest automatycznie dowodem poprawnych
+  granic 15 komórek,
+- cztery punkty `latticeBoundsQuad` oznaczają TL/TR/BR/BL zewnętrznych granic
+  siatki symboli 5 × 3 w pikselach źródła,
+- perspektywiczny quad musi być wypukły i uporządkowany, ale boki nie muszą być
+  prostopadłe ani równoległe na zdjęciu,
+- 15 `cellQuads` ma dokładną kolejność row-major i jest deterministycznie
+  wyprowadzane z tego samego transformu projektowego; rozbieżność blokuje
+  manifest,
+- geometria automatyczna musi zachować wersje locatora, homografii i progów,
+  co najmniej 10 wiarygodnych centrów, 9 inlierów oraz pokrycie 3 wierszy i
+  5 kolumn; geometria ręczna zamiast syntetycznych metryk przechowuje checksumę
+  decyzji,
+- manifest jest kanoniczny i content-addressed. Zmiana źródła, etykiety,
+  kolejności, granic albo proweniencji zmienia checksumę.
+
+Rzeczywisty descriptor `board-cell-geometry-v19-real-corpus.json` przypina 27
+zaakceptowanych przez właściciela geometrii: trzy dla każdej z dziewięciu
+pozycji, z dwóch rodzin źródeł. Weryfikuje checksumy źródłowego manifestu,
+goldena i JPEG-ów.
+
+Estymator `board-cell-geometry-v19-multi-point-source-direct-v1`
+wykrywa komponenty na całej płaszczyźnie planszy, buduje ograniczony zbiór
+hipotez wspólnych osi 5 × 3 i dopiero po jednoznacznym przypisaniu dopasowuje
+homografię guarded RANSAC. Przejście wymaga co najmniej 10 przypisań, 10
+wiarygodnych centrów, 9 inlierów, wszystkich wierszy i kolumn oraz P95
+residualu nie większego niż 10 px. Zewnętrzne granice siatki i wszystkie 15
+komórek są następnie projektowane do pikseli źródła; estymator nie tworzy cropu
+ani pośredniego obrazu planszy.
+
+Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
+maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
+częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
+globalnych przypisań. Estymator nie zmienia pełnego pipeline'u importu v18;
+po zaliczeniu bramki 100 stron może działać wyłącznie w jawnej operacji
+pending-only opisanej poniżej.
+
+Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
+deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
+estymator dla wszystkich 900 plansz. Raport jest content-addressed i nie zapisuje
+bezwzględnej ścieżki źródła. Audyt próbki z 20 sierpnia 2026 zaakceptował
+wszystkie 888 wyemitowanych geometrii bez przesunięcia o wiersz/kolumnę i bez
+symbolu poza komórką. Pozostałe 12 plansz było kontrolowanymi fallbackami bez
+quadów komórek. Ten checkpoint jest bramką osobno aktywowanego pending-only
+recropu; nie przełącza pełnego pipeline'u importu.
+
+Cropper
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1` konsumuje
+wyłącznie kompletny, zwalidowany `BoardCellGeometryEntry`. W kanonicznym slocie
+`100 × 100` stosuje stały inset `10 px`, projektuje padded quad do źródła i
+wykonuje jeden `warpPerspective` bezpośrednio z oryginalnego RGB do rozmiaru
+wejścia przypiętego modelu. Nie materializuje planszy `500 × 300`, nie wykonuje
+drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
+evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
+resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
+paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
+fingerprintem. Adapter pozostaje poza pełnym pipeline'em importu; po osobnym
+odbiorze integracji jest aktywny tylko dla ręcznej korekty i jawnego
+pending-only recropu.
+
+Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
+cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
+i uruchamia dokładnie ten cropper v19 dla rozmiaru modelu `64 × 64`. Odpowiedź
+HTTP jest contact sheetem `5 × 3` z finalnych cropów; nie jest kanoniczną
+planszą `500 × 300`, nie zapisuje artefaktów i nie aktywuje v19 w produkcyjnym
+pipeline. Cztery uchwyty krawędziowe UI są wyłącznie pochodne i nie stanowią
+wejścia geometrii.
+
+Ręczny zapis `manual-board-cell-geometry-v19-append-only-v1` ponownie wykonuje
+ten sam walidowany preview i utrwala wyłącznie jego 15 finalnych cropów
+source-direct. Każdy zapis tworzy nowy namespace rewizji; pliki i rekordy
+wcześniejszej rewizji nie są nadpisywane. Checksum decyzji obejmuje checksumę i
+tożsamość źródła, source-order, pozycję planszy, numer sekwencji,
+`latticeBoundsQuad`, wersje geometrii i croppera, oczekiwane rewizje, checksumę
+komendy oraz aktora. Historyczny `manual-review-geometry-v1` pozostaje
+odtwarzalny, lecz nie obsługuje aktywnego edytora v19.
+
+Zapis zachowuje istniejący source-native obraz referencyjny bez tworzenia
+pośredniej planszy `500 × 300`, tworzy nowe `cropSampleId` dla 15 nowych
+checksum i ponownie otwiera tylko bieżącą planszę do weryfikacji symboli.
+Nie aktywuje estymatora v19 dla pipeline'u ani pending-only recropu innych
+plansz.
+
+Jawny pending-only adapter `pending-board-cell-recrop-v19-v1` jest odrębną
+operacją od zapisu ręcznego i pełnego importu. Job przypina checksumę
+zaakceptowanego audytu 100 stron oraz wersje i fingerprinty locatora,
+homografii, progów, estymatora, geometrii i croppera. Historyczny job schema v1
+pozostaje odtwarzalny; nowe uruchomienie używa schema v2.
+
+Adapter bierze istniejący zweryfikowany quad planszy i nie uruchamia ponownie
+discovery, detektora strony ani OCR numerów. Tylko kompletne evidence 3 × 5
+może utworzyć 15 source-direct cropów i append-only rewizję geometrii. Brak
+pełnej geometrii pozostawia planszę w review bez częściowych plików.
+
+Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
+ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
+sprawdza status itemu, rewizję resolution, rewizję i całą geometrię planszy,
+źródło, pozycję, numer oraz checksumy. Równoległa decyzja człowieka albo
+korekta wygrywa; `accepted`, `corrected`, `rejected` i istniejąca ręczna lub
+automatyczna geometria v19 nie są zmieniane. Operacja nie zmienia modelu,
+katalogu symboli, stagingu ani statusu review.
+
+Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
+pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza
+dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i
+wymaga review; pipeline nie wybiera arbitralnie geometrii.
+
+### Zweryfikowana geometria pełnej strony dla importu `seq_*`
+
+Od v0.6.49 browserowy import z poświadczonym zakresem nie może przekazać do
+croppera wyniku częściowego, syntetycznego ani z zerowym dowodem czerwonej
+ramki. Przed importem powstaje osobny, wznawialny preflight
+`page-board-detector-v4-verified-registration-v1`. Rejestruje on stronę do
+jednej z maksymalnie siedmiu ręcznie zweryfikowanych stron-wzorców przez
+ORB/RANSAC na obrazie 50%, a następnie przenosi dziewięć niezależnych quadów na
+oryginał i lokalnie dosuwa je wyłącznie do czerwonych ramek.
+
+Polityka deskryptora `orb-1000-1500-3000-fallback-v1` najpierw używa 1000
+cech. Dopiero gdy ta próba nie przejdzie pełnej bramki, ta sama strona jest
+ponawiana z 1500, a następnie z 3000 cechami; wyższy budżet jest więc kosztem
+wyłącznie dla wyjątkowych, czytelnych stron o małej liczbie punktów ORB.
+Każda próba zachowuje identyczne progi RANSAC i dowodu czerwonej ramki, a wynik
+zapisuje użyty budżet oraz wersję polityki w manifeście geometrii.
+
+Wynik jest używalny tylko wtedy, gdy ma wszystkie dziewięć wypukłych,
+niepokrywających się quadów w kolejności row-major, co najmniej 35 inlierów,
+udział 0,23, p95 reprojekcji nie większe niż 2,5 px oraz pokrycie czerwonej
+krawędzi co najmniej 0,70 średnio i 0,45 dla każdej planszy. Wynik preflightu
+jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
+joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
+symboli ani technicznego `board_detection failed`.
+
+Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
+rewizję. Operator najpierw przesuwa cztery uchwyty strony, zachowując strukturę
+3 × 3, i może wyjątkowo poprawić pojedynczy quad. Ponowny preflight używa
+snapshotu tych override'ów; zatwierdzone numery i ich cropy nie są tym zmieniane.
+
 ### 5. Odczyt sequence number
+
+#### Import poświadczonych zakresów `seq_*`
+
+Folder przygotowany przez lokalną selekcję może zawierać nazwy
+`seq_<start>-<end>.jpg` albo `.jpeg`. Po wykryciu takiego trybu worker waliduje
+każdą nazwę, zakres `1–9` plansz oraz brak duplikatów i nakładania. Zakresy są
+sortowane numerycznie po `start`; luki są raportowane, ale nie blokują importu.
+Źródłem prawdy jest nazwa pliku, a managed manifest zachowuje
+`sequenceRangeStart`, `sequenceRangeEnd` i `sequenceRangeSource=filename`.
+
+Adapter `sequence-number-from-attested-range-v1` nie uruchamia OCR numerów.
+Przypisuje numery row-major (`start+0 … start+8`) wyłącznie przy dokładnej,
+uporządkowanej liczbie wykrytych plansz. Częściowa geometria trafia do korekty
+bez przesuwania pozostałych numerów. Oryginał oraz source-native cropy pozostają
+niezmienione.
 
 - kontrakt `sequence-number-ocr-v1` wyprowadza deterministyczny quad z dolnej
   krawędzi każdego layoutu i tworzy crop RGB 192 × 64,
@@ -195,6 +367,13 @@ pozostaje lepszym baseline'em. Nie jest to jednak finalny wybór modelu.
 Detekcja oczekiwanego zestawu plansz wynosi 100% na 43 zdjęciach. Pełny wynik,
 timing i katalog błędów znajdują się w
 `ai_docs/quality/m5-image-benchmark-report.json`.
+
+W produkcyjnej ścieżce v0.6 surowy wynik OCR pozostaje niezmienny w polach
+`rawText` i `ocrNormalizedNumber`. Dla kompletnej strony dziewięciu pozycji
+adapter `sequence-number-ocr-v2-page-continuity-v1` może osobno wyprowadzić
+numer domenowy z bazy strony, jeżeli co najmniej trzy odczyty zgodnie wskazują
+tę samą bazę i przewaga nad konkurencyjną bazą wynosi co najmniej dwa głosy.
+Brak takiego jednoznacznego konsensusu nie uruchamia inferencji ciągłości.
 
 ### Status prototypu po D-062
 
@@ -460,6 +639,12 @@ stage: discovery | normalization | board_detection | board_crops | sequence_ocr
 Status należy do wspólnego automatu jobs. Etap opisuje wyłącznie aktualną część
 pipeline'u importu i może zostać rozszerzony bez zmiany cyklu życia.
 
+Dla importu posiadającego operacyjną kolejkę review `waiting_for_review`
+oznacza co najmniej jedną pozycję `pending`. Rozwiązanie ostatniej pozycji
+ustawia `completed`; jawne ponowne otwarcie planszy przywraca
+`waiting_for_review`. Pusta kolejka nie jest automatycznie uznawana za
+ukończony import.
+
 ## Wznawianie
 
 - postęp jest zapisywany co plik lub małą partię,
@@ -537,8 +722,14 @@ nadpisywany, a pobranie ponownie sprawdza SHA-256.
 4. Zachować zaakceptowane progi przed kolejną optymalizacją; confidence nie może być
    progiem auto-accept bez kalibracji na held-out source images.
 5. Porównać wyspecjalizowane alternatywy OCR cyfr na rozłącznym podziale
-   źródeł; bieżący OCR pozostaje `manual_review_only`.
+źródeł; bieżący OCR pozostaje `manual_review_only`.
 6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.
+
+Terminalny image import można ponowić bez ponownego uploadu, klonując jego
+immutable manifest managed originals do nowego joba. Ponowienie przypina
+aktualne wersje pipeline'u, profilu siatki i modelu, ale nie usuwa poprzednich
+projekcji ani źródeł; usuwanie nadal wymaga osobnej, jawnie potwierdzonej
+operacji resetu.
 
 Model symboli został zatwierdzony w D-088 jako
 `production-spatial-symbol-cnn-v1`. Jego automatyczna akceptacja obowiązuje
@@ -546,3 +737,37 @@ wyłącznie od checksum-bound progu `0.88850097`; poniżej progu wynik pozostaje
 sugestią do manual review. Panel może pokazać najwyżej cztery alternatywy.
 Finalny wybór OCR pozostaje otwarty, dlatego automatyczny import całych
 layoutów nadal jest zablokowany.
+
+### Przyrostowe importy `seq_*`
+
+Po decyzji `accepted` albo `corrected` numer sekwencji jest kanoniczny w
+obrębie gry. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
+projekcji: kompletne zakresy są pomijane, częściowe generują wyłącznie brakujące
+plansze, a inne źródło tego samego numeru pozostaje alternatywą audytową.
+Kolejka review jest niezależna od pojedynczego joba i porządkuje oczekujące
+numery rosnąco.
+
+Uczenie symboli może działać na istniejących, kompletnych cropach. Jawne
+`Przelicz oczekujące` zapisuje nowe rewizje sugestii tylko dla pozycji nadal
+`pending`; decyzje człowieka, geometria i staging są chronione transakcją.
+
+### Browser staging i start importu `seq_*`
+
+Browser-native upload layoutów jest dwuetapowy. Finalizacja tworzy trwały
+staging z `_browser_manifest.json`; gotowy staging nie wygasa po restarcie API
+i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
+`00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
+`relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
+
+Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
+manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte
+źródła, częściowe zakresy, alternatywne checksumy oraz pierwszy i ostatni
+nierozwiązany numer. Dopiero jawna akcja startu przekazuje obie checksumy;
+backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
+tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
+i nie tworzy duplikatu.
+
+Staging z `purpose=layout_import` może zostać usunięty wyłącznie jawną akcją
+Admina. Staging przypisany do innej gry jest ukryty przed bieżącą grą i blokuje
+próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
+logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.

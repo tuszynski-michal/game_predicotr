@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ImageSelectionCandidateResponse,
   ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupResponse,
   ImageSelectionManualApprovalResponse,
@@ -154,7 +155,10 @@ export function ManualImageSelectionModal({
           if (
             existing.candidateId === candidate.id &&
             existing.fileName === candidate.displayName &&
-            existing.previewUrl === previewUrl
+            existing.previewUrl === previewUrl &&
+            (!rangeMode ||
+              existing.rangeStart !== '' ||
+              candidate.suggestedRangeStart == null)
           ) {
             return value;
           }
@@ -166,6 +170,14 @@ export function ManualImageSelectionModal({
               fileName: candidate.displayName,
               idempotencyKey: null,
               previewUrl,
+              rangeEnd:
+                rangeMode && existing.rangeStart === ''
+                  ? String(candidate.suggestedRangeEnd ?? '')
+                  : existing.rangeEnd,
+              rangeStart:
+                rangeMode && existing.rangeStart === ''
+                  ? String(candidate.suggestedRangeStart ?? '')
+                  : existing.rangeStart,
             },
           };
         });
@@ -176,7 +188,7 @@ export function ManualImageSelectionModal({
           [groupId]: { data: null, error: true, loading: false },
         }));
       });
-  }, [apiBaseUrl, client, current, runId]);
+  }, [apiBaseUrl, client, current, rangeMode, runId]);
 
   function navigate(offset: number) {
     if (groups.length < 2 || uploading || approving) return;
@@ -209,25 +221,24 @@ export function ManualImageSelectionModal({
     updateDraft(groupId, { [field]: value });
   }
 
-  function chooseCandidate(candidateId: string, fileName: string) {
-    if (
-      current === undefined ||
-      uploading ||
-      approving ||
-      rangeMode ||
-      rejectedMode
-    )
-      return;
+  function chooseCandidate(candidate: ImageSelectionCandidateResponse) {
+    if (current === undefined || uploading || approving || rejectedMode) return;
     const previousUrl = drafts[current.id]?.previewUrl ?? '';
     if (previousUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previousUrl);
       objectUrlsRef.current.delete(previousUrl);
     }
     updateDraft(current.id, {
-      candidateId,
-      fileName,
+      candidateId: candidate.id,
+      fileName: candidate.displayName,
       idempotencyKey: null,
-      previewUrl: candidateFileUrl(apiBaseUrl, runId, current.id, candidateId),
+      previewUrl: candidateFileUrl(apiBaseUrl, runId, current.id, candidate.id),
+      ...(rangeMode
+        ? {
+            rangeEnd: String(candidate.suggestedRangeEnd ?? ''),
+            rangeStart: String(candidate.suggestedRangeStart ?? ''),
+          }
+        : {}),
     });
   }
 
@@ -344,14 +355,21 @@ export function ManualImageSelectionModal({
       return;
     }
     const rangeStart = parseOptionalSequence(draftForApproval.rangeStart);
-    const rangeEnd = parseOptionalSequence(draftForApproval.rangeEnd);
+    const enteredRangeEnd = parseOptionalSequence(draftForApproval.rangeEnd);
+    const rangeEnd =
+      rangeMode && rangeStart !== null && enteredRangeEnd === null
+        ? rangeStart + 8
+        : enteredRangeEnd;
     const hasCompleteRange = rangeStart !== null && rangeEnd !== null;
     const rangeInvalid =
       (rangeStart === null) !== (rangeEnd === null) ||
-      (hasCompleteRange && rangeEnd < rangeStart);
+      (hasCompleteRange &&
+        (rangeEnd < rangeStart ||
+          (rangeMode && rangeEnd - rangeStart + 1 > 9)));
     if (
       rangeInvalid ||
-      (draftForApproval.candidateId !== null && !hasCompleteRange)
+      (draftForApproval.candidateId !== null && !hasCompleteRange) ||
+      (rangeMode && draftForApproval.candidateId === null)
     ) {
       setError(
         draftForApproval.candidateId === null
@@ -377,8 +395,9 @@ export function ManualImageSelectionModal({
     try {
       const result = rangeMode
         ? await client.confirmImageSelectionGroupRange(runId, current.id, {
+            candidateId: draftForApproval.candidateId as string,
             idempotencyKey,
-            rangeEnd: rangeEnd as number,
+            ...(enteredRangeEnd === null ? {} : { rangeEnd: enteredRangeEnd }),
             rangeStart: rangeStart as number,
           })
         : draftForApproval.candidateId === null
@@ -439,7 +458,11 @@ export function ManualImageSelectionModal({
       return;
     }
     const rangeStart = parseOptionalSequence(currentDraft.rangeStart);
-    const rangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const enteredRangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const rangeEnd =
+      rangeMode && rangeStart !== null && enteredRangeEnd === null
+        ? rangeStart + 8
+        : enteredRangeEnd;
     if (rangeStart === null || rangeEnd === null || rangeEnd < rangeStart) {
       setError('Podaj dodatni, rosnący zakres przed odrzuceniem duplikatu.');
       return;
@@ -643,6 +666,9 @@ export function ManualImageSelectionModal({
     (currentSourceSummary === undefined || currentSourceSummary.loading);
   const algorithmCandidate = currentSourceSummary?.data?.items.find(
     (candidate) => candidate.id === current.selectedCandidateId,
+  );
+  const displayedCandidate = currentSourceSummary?.data?.items.find(
+    (candidate) => candidate.id === currentDraft.candidateId,
   );
 
   return (
@@ -875,15 +901,13 @@ export function ManualImageSelectionModal({
                     .filter(Boolean)
                     .join(' ')}
                   key={candidate.id}
-                  disabled={rangeMode || rejectedMode}
-                  onClick={() =>
-                    chooseCandidate(candidate.id, candidate.displayName)
-                  }
+                  disabled={rejectedMode}
+                  onClick={() => chooseCandidate(candidate)}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' || event.repeat) return;
                     event.preventDefault();
                     event.stopPropagation();
-                    chooseCandidate(candidate.id, candidate.displayName);
+                    chooseCandidate(candidate);
                     if (!verificationMode && !rangeMode && !rejectedMode) {
                       void approveCurrent({
                         candidateId: candidate.id,
@@ -918,6 +942,7 @@ export function ManualImageSelectionModal({
                 <span className="manualSelectionFileName">
                   {algorithmCandidate?.displayName ?? currentDraft.fileName}
                 </span>
+                <RangeProofSummary candidate={algorithmCandidate} />
                 <p>
                   Zdjęcie z oznaczeniem „Wybór algorytmu” jest zapisanym
                   reprezentantem. Klikaj pozostałe miniatury, aby porównać całą
@@ -936,10 +961,11 @@ export function ManualImageSelectionModal({
               </>
             ) : rangeMode ? (
               <>
-                <strong>Automatyczne zdjęcie pozostaje wybrane</strong>
+                <strong>Wybierz najlepsze zdjęcie i podaj początek</strong>
                 <span className="manualSelectionFileName">
-                  {algorithmCandidate?.displayName ?? currentDraft.fileName}
+                  {currentDraft.fileName || algorithmCandidate?.displayName}
                 </span>
+                <RangeProofSummary candidate={displayedCandidate} />
                 <label>
                   Początek zakresu
                   <input
@@ -957,9 +983,16 @@ export function ManualImageSelectionModal({
                   />
                 </label>
                 <label>
-                  Koniec zakresu
+                  Koniec zakresu (opcjonalnie)
                   <input
                     inputMode="numeric"
+                    max={
+                      parseOptionalSequence(currentDraft.rangeStart) === null
+                        ? undefined
+                        : (parseOptionalSequence(
+                            currentDraft.rangeStart,
+                          ) as number) + 8
+                    }
                     min={1}
                     onChange={(event) =>
                       updateRangeDraft(
@@ -972,6 +1005,10 @@ export function ManualImageSelectionModal({
                     value={currentDraft.rangeEnd}
                   />
                 </label>
+                <p>
+                  Puste pole końca oznacza dziewięć layoutów, czyli początek +
+                  8. Wpisz koniec tylko dla krótszej grupy.
+                </p>
                 {current.status === 'range_required' ? (
                   <button
                     className="dangerButton"
@@ -1153,6 +1190,58 @@ function groupSourceIdentity(
       ? 'brak zapisanych kandydatów'
       : `pliki kandydatów: ${names.join(', ')}`;
   return `${prefix} · ${summary.data.sourceCount} zdjęć w zestawie · ${files}`;
+}
+
+function RangeProofSummary({
+  candidate,
+}: {
+  readonly candidate: ImageSelectionCandidateResponse | undefined;
+}) {
+  if (candidate === undefined) return null;
+  const observations = candidate.rangeLabelObservations ?? [];
+  const reasons = new Set(candidate.reasonCodes ?? []);
+  const strongProof = [
+    'RANGE_OCR_LABEL_LATTICE_WINDOW',
+    'RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT',
+    'RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL',
+    'RANGE_OCR_LAYOUT_ANCHORED_FOUR_LABEL',
+  ].some((reason) => reasons.has(reason));
+  const hasSuggestion =
+    candidate.suggestedRangeStart != null &&
+    candidate.suggestedRangeEnd != null;
+
+  return (
+    <div className="manualSelectionRangeProof" role="status">
+      <strong>
+        {strongProof ? 'Mocny dowód OCR' : 'Sugestia OCR do kontroli'}
+      </strong>
+      {hasSuggestion ? (
+        <span>
+          Zakres {candidate.suggestedRangeStart}–{candidate.suggestedRangeEnd}
+          {candidate.rangeConfidence == null
+            ? ''
+            : ` · ${(candidate.rangeConfidence * 100).toFixed(0)}%`}
+        </span>
+      ) : (
+        <span>Brak wyliczonego zakresu.</span>
+      )}
+      {observations.length > 0 ? (
+        <span>
+          Odczyty:{' '}
+          {observations
+            .map(
+              (item) =>
+                `poz. ${item.positionIndex + 1} → ${item.sequenceNumber} (${(
+                  item.confidence * 100
+                ).toFixed(0)}%)`,
+            )
+            .join(' · ')}
+        </span>
+      ) : (
+        <span>Brak zapisanych odczytów pozycyjnych.</span>
+      )}
+    </div>
+  );
 }
 
 function parseOptionalSequence(value: string): number | null {

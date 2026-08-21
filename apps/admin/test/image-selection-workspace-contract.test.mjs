@@ -133,6 +133,17 @@ test('history hides cancelled, failed and incomplete terminal runs', () => {
   );
 });
 
+test('history labels identify a process by short date, engine and sequence range', () => {
+  assert.match(workspaceSource, /year: '2-digit'/);
+  assert.match(workspaceSource, /run\.sequenceRangeStart/);
+  assert.match(workspaceSource, /run\.sequenceRangeEnd/);
+  assert.match(workspaceSource, /`seq \$\{run\.sequenceRangeStart/);
+  assert.doesNotMatch(
+    workspaceSource,
+    /return `\$\{created\} · \$\{formatSelectorVersion\(run\.selectorVersion\)\} · \$\{jobStatusLabel/,
+  );
+});
+
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
   assert.match(catalogSource, /key=\{activeGame\.id\}/);
   assert.match(catalogSource, /gameId=\{activeGame\.id\}/);
@@ -202,9 +213,15 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
     workspaceSource,
     /groups\.filter\(\(group\) => group\.id !== updated\.id\)/,
   );
-  assert.match(workspaceSource, /ensureOutputDirectoryForReview\(run\.id\)/);
+  assert.match(workspaceSource, /bindOutputDirectoryForReview\(run\.id\)/);
   assert.match(workspaceSource, /restoreOutputDirectory/);
-  assert.match(workspaceSource, /Uzgadnianie zapisanych decyzji/);
+  const bindingSource = workspaceSource.slice(
+    workspaceSource.indexOf('async function bindOutputDirectoryForReview('),
+    workspaceSource.indexOf('async function openAutomaticVerification()'),
+  );
+  assert.doesNotMatch(bindingSource, /saveFinalizedImageSelectionGroups/);
+  assert.doesNotMatch(bindingSource, /loadImageSelectionGroupsAfter/);
+  assert.match(workspaceSource, /progressiveSaveEnabledRef\.current = false/);
   assert.match(manualModalSource, /const outputError = await onGroupUpdated/);
   assert.match(manualModalSource, /plik nie trafił do folderu/);
   assert.match(
@@ -219,6 +236,13 @@ test('separates image choice from range choice and supports reversible rejection
   assert.match(workspaceSource, /mode="range"/);
   assert.match(workspaceSource, /mode="rejected"/);
   assert.match(manualModalSource, /confirmImageSelectionGroupRange/);
+  assert.match(manualModalSource, /candidateId: draftForApproval\.candidateId/);
+  assert.match(manualModalSource, /rangeStart \+ 8/);
+  assert.match(manualModalSource, /Koniec zakresu \(opcjonalnie\)/);
+  assert.doesNotMatch(
+    manualModalSource,
+    /disabled=\{rangeMode \|\| rejectedMode\}/,
+  );
   assert.match(manualModalSource, /rejectImageSelectionReviewGroup/);
   assert.match(manualModalSource, /restoreRejectedImageSelectionGroup/);
   assert.match(manualModalSource, /Odrzuć grupę/);
@@ -272,6 +296,16 @@ test('automatically selected groups can be inspected without mutating the run', 
   assert.match(styleSource, /\.manualSelectionAlgorithmBadge/);
 });
 
+test('range audit distinguishes OCR suggestions from strong positional proof', () => {
+  assert.match(manualModalSource, /RangeProofSummary/);
+  assert.match(manualModalSource, /Mocny dowód OCR/);
+  assert.match(manualModalSource, /Sugestia OCR do kontroli/);
+  assert.match(manualModalSource, /rangeLabelObservations/);
+  assert.match(manualModalSource, /suggestedRangeStart/);
+  assert.match(manualModalSource, /poz\. \$\{item\.positionIndex \+ 1\}/);
+  assert.match(styleSource, /\.manualSelectionRangeProof/);
+});
+
 test('job monitor exposes bounded image-selection counters and separate timings', () => {
   assert.match(jobMonitorSource, /job\.progress\.imageSelection/);
   assert.match(jobMonitorSource, /imageSelectionProgress\?\.groups/);
@@ -297,9 +331,10 @@ test('image selection workspace shows live progress and final aggregates', () =>
   assert.match(workspaceSource, /selectionProgress\?\.groups/);
   assert.match(workspaceSource, /selectionProgress\?\.selected/);
   assert.match(workspaceSource, /selectionProgress\?\.manual/);
-  assert.match(workspaceSource, /Roboczo bez numerów/);
-  assert.match(workspaceSource, /To licznik tymczasowy/);
-  assert.match(workspaceSource, /Nierozpoznane zestawy/);
+  assert.match(workspaceSource, /Wybrane grupy/);
+  assert.match(workspaceSource, /Do wyboru zdjęcia/);
+  assert.match(workspaceSource, /Do ustalenia zakresu/);
+  assert.match(workspaceSource, /osobna kolejka nierozpoznanych zakresów/);
   assert.match(workspaceSource, /selectionProgress\?\.skipped/);
   assert.match(workspaceSource, /selectionProgress\?\.errors/);
   assert.match(workspaceSource, /selectionProgress\?\.verifications/);

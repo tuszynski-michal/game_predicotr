@@ -232,9 +232,7 @@ def _parse_manifest(value: dict[str, Any]) -> SnapshotArtifactManifest:
     mobile_ids = tuple(game.mobile_game_id for game in games)
     if mobile_ids != tuple(range(1, len(games) + 1)):
         _invalid_manifest("mobileGameId must be continuous from 1.")
-    if tuple(game.game_code for game in games) != tuple(
-        sorted(game.game_code for game in games)
-    ):
+    if tuple(game.game_code for game in games) != tuple(sorted(game.game_code for game in games)):
         _invalid_manifest("games must be ordered by gameCode.")
     if len({game.game_id for game in games}) != len(games) or len(
         {game.game_code for game in games}

@@ -155,9 +155,7 @@ def build_report(
             f"detection.detections[{detection_index}].result",
         )
         selected_geometry = (
-            profiles.calibrate(source, geometry)
-            if geometry_source == "calibrated"
-            else geometry
+            profiles.calibrate(source, geometry) if geometry_source == "calibrated" else geometry
         )
         if selected_geometry.status != "detected":
             raise FullBenchmarkError("Complete profiles did not calibrate a source.")

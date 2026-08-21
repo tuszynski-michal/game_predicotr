@@ -6,6 +6,9 @@ import hashlib
 import json
 from uuid import UUID
 
+from game_predictor_worker.images.page_geometry_registration import (
+    build_verified_page_registration_profile,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,6 +21,7 @@ from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
     GridCalibrationProfileModel,
+    GridGeometryCohortModel,
 )
 
 
@@ -55,12 +59,24 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
                 "GRID_PROFILE_ACTIVE_PROFILE_DRIFT",
                 "The active grid profile checksum changed.",
             )
+        cohort = self._session.get(GridGeometryCohortModel, profile.cohort_id)
+        if cohort is None or cohort.game_id != game_id:
+            raise JobConflictError(
+                "GRID_PROFILE_ACTIVE_COHORT_INVALID",
+                "The active grid profile has no valid immutable geometry cohort.",
+            )
         value: dict[str, object] = {
             "profileId": str(profile.id),
             "profileVersion": f"grid-calibration-v{profile.profile_number}",
             "profileChecksumSha256": profile.profile_checksum_sha256,
             "activationId": str(activation.id),
             "profilePayload": dict(profile.profile_payload),
+            # The offset calibration remains immutable and replayable.  Page
+            # registration is a separately versioned projection of its
+            # reviewed cohort, pinned beside it in each import job.
+            "pageRegistrationProfile": build_verified_page_registration_profile(
+                cohort.manifest_payload
+            ),
         }
         canonical = json.dumps(
             value,

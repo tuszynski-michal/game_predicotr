@@ -253,9 +253,7 @@ class SymbolBootstrapService:
             name=validate_name(name),
         )
 
-    def selected_image_candidate(
-        self, game_id: UUID, symbol_id: UUID
-    ) -> SymbolImageCandidate:
+    def selected_image_candidate(self, game_id: UUID, symbol_id: UUID) -> SymbolImageCandidate:
         self._require_game(game_id)
         candidate = self._repository.get_selected_image_candidate(
             game_id=game_id,

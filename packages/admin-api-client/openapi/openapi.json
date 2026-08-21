@@ -73,6 +73,439 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BoardCellRecropJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "activationVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Activationversion",
+            "type": "string"
+          },
+          "auditReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Auditreportchecksumsha256",
+            "type": "string"
+          },
+          "configurationFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configurationfingerprintsha256",
+            "type": "string"
+          },
+          "cropperFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cropperfingerprintsha256",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "estimatorVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Estimatorversion",
+            "type": "string"
+          },
+          "geometryVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Geometryversion",
+            "type": "string"
+          },
+          "homographyVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Homographyversion",
+            "type": "string"
+          },
+          "locatorVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Locatorversion",
+            "type": "string"
+          },
+          "thresholdsFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Thresholdsfingerprintsha256",
+            "type": "string"
+          },
+          "thresholdsVersion": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Thresholdsversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activationVersion",
+          "auditReportChecksumSha256",
+          "configurationFingerprintSha256",
+          "cropperFingerprintSha256",
+          "cropperVersion",
+          "estimatorVersion",
+          "geometryVersion",
+          "homographyVersion",
+          "locatorVersion",
+          "thresholdsFingerprintSha256",
+          "thresholdsVersion"
+        ],
+        "title": "BoardCellRecropJobSnapshotPayload",
+        "type": "object"
+      },
+      "BrowserImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pageGeometryManifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryManifestJobPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "previousJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousjobid"
+          },
+          "schemaVersion": {
+            "const": 5,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "startMode": {
+            "enum": [
+              "reuse_exact",
+              "rerun_current_models"
+            ],
+            "title": "Startmode",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "sourceManifestSha256",
+          "startMode",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "BrowserImageImportJobPayload",
+        "type": "object"
+      },
+      "BrowserImageImportPreflightCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId"
+        ],
+        "title": "BrowserImageImportPreflightCreate",
+        "type": "object"
+      },
+      "BrowserImageImportPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeSourceCount": {
+            "minimum": 0.0,
+            "title": "Alternativesourcecount",
+            "type": "integer"
+          },
+          "attestedFileCount": {
+            "minimum": 0.0,
+            "title": "Attestedfilecount",
+            "type": "integer"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "firstUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstunresolvedsequence"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gridProfileInferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Gridprofileinferencefingerprint",
+            "type": "string"
+          },
+          "lastUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastunresolvedsequence"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "newSequenceCount": {
+            "minimum": 0.0,
+            "title": "Newsequencecount",
+            "type": "integer"
+          },
+          "partialSourceCount": {
+            "minimum": 0.0,
+            "title": "Partialsourcecount",
+            "type": "integer"
+          },
+          "preflightChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Preflightchecksumsha256",
+            "type": "string"
+          },
+          "reusedSequenceCount": {
+            "minimum": 0.0,
+            "title": "Reusedsequencecount",
+            "type": "integer"
+          },
+          "skippedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedsourcecount",
+            "type": "integer"
+          },
+          "sourceFileCount": {
+            "minimum": 0.0,
+            "title": "Sourcefilecount",
+            "type": "integer"
+          },
+          "symbolModelInferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Symbolmodelinferencefingerprint",
+            "type": "string"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceFileCount",
+          "attestedFileCount",
+          "newSequenceCount",
+          "reusedSequenceCount",
+          "skippedSourceCount",
+          "partialSourceCount",
+          "alternativeSourceCount",
+          "warnings",
+          "uploadId",
+          "displayName",
+          "manifestChecksumSha256",
+          "preflightChecksumSha256",
+          "symbolModelInferenceFingerprint",
+          "gridProfileInferenceFingerprint"
+        ],
+        "title": "BrowserImageImportPreflightResponse",
+        "type": "object"
+      },
+      "BrowserImageImportStart": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Geometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "geometryPreflightJobId": {
+            "format": "uuid",
+            "title": "Geometrypreflightjobid",
+            "type": "string"
+          },
+          "gridProfileInferenceFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gridprofileinferencefingerprint"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "preflightChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Preflightchecksumsha256",
+            "type": "string"
+          },
+          "startMode": {
+            "default": "reuse_exact",
+            "enum": [
+              "reuse_exact",
+              "rerun_current_models"
+            ],
+            "title": "Startmode",
+            "type": "string"
+          },
+          "symbolModelInferenceFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolmodelinferencefingerprint"
+          }
+        },
+        "required": [
+          "gameId",
+          "manifestChecksumSha256",
+          "preflightChecksumSha256",
+          "geometryPreflightJobId",
+          "geometryManifestChecksumSha256"
+        ],
+        "title": "BrowserImageImportStart",
+        "type": "object"
+      },
+      "BrowserImageImportStartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "preflight": {
+            "$ref": "#/components/schemas/BrowserImageImportPreflightResponse"
+          }
+        },
+        "required": [
+          "created",
+          "job",
+          "preflight"
+        ],
+        "title": "BrowserImageImportStartResponse",
+        "type": "object"
+      },
       "BrowserImageSelectionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -211,6 +644,504 @@
           "gameId"
         ],
         "title": "BrowserImageSelectionUploadResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryOverrideCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "finalQuads": {
+            "maxItems": 9,
+            "minItems": 9,
+            "prefixItems": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  }
+                ],
+                "type": "array"
+              }
+            ],
+            "title": "Finalquads",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "imageHeight": {
+            "minimum": 1.0,
+            "title": "Imageheight",
+            "type": "integer"
+          },
+          "imageWidth": {
+            "minimum": 1.0,
+            "title": "Imagewidth",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceChecksumSha256",
+          "imageWidth",
+          "imageHeight",
+          "finalQuads",
+          "actor"
+        ],
+        "title": "BrowserPageGeometryOverrideCreate",
+        "type": "object"
+      },
+      "BrowserPageGeometryOverrideResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "decisionChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Decisionchecksumsha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "id",
+          "revision",
+          "decisionChecksumSha256"
+        ],
+        "title": "BrowserPageGeometryOverrideResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          }
+        },
+        "required": [
+          "created",
+          "job"
+        ],
+        "title": "BrowserPageGeometryPreflightResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryReviewSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceChecksumSha256",
+          "sourceRelativePath"
+        ],
+        "title": "BrowserPageGeometryReviewSourceResponse",
+        "type": "object"
+      },
+      "BrowserPageGeometryReviewSourcesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "geometryManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Geometrymanifestchecksumsha256",
+            "type": "string"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "registeredSourceCount": {
+            "minimum": 0.0,
+            "title": "Registeredsourcecount",
+            "type": "integer"
+          },
+          "reviewRequiredSourceCount": {
+            "minimum": 0.0,
+            "title": "Reviewrequiredsourcecount",
+            "type": "integer"
+          },
+          "skippedHumanResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedhumanresolvedsourcecount",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BrowserPageGeometryReviewSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job",
+          "geometryManifestChecksumSha256",
+          "registeredSourceCount",
+          "reviewRequiredSourceCount",
+          "skippedHumanResolvedSourceCount",
+          "sources"
+        ],
+        "title": "BrowserPageGeometryReviewSourcesResponse",
+        "type": "object"
+      },
+      "BrowserReadySelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "expectedFileCount": {
+            "minimum": 1.0,
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "minimum": 1.0,
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/ImageSelectionPurpose"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "uploadedBytes": {
+            "minimum": 0.0,
+            "title": "Uploadedbytes",
+            "type": "integer"
+          },
+          "uploadedFileCount": {
+            "minimum": 0.0,
+            "title": "Uploadedfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploadId",
+          "displayName",
+          "expectedFileCount",
+          "expectedTotalBytes",
+          "uploadedFileCount",
+          "uploadedBytes",
+          "purpose",
+          "gameId",
+          "createdAt",
+          "completedAt",
+          "manifestChecksumSha256"
+        ],
+        "title": "BrowserReadySelectionResponse",
+        "type": "object"
+      },
+      "CanonicalImageReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OperationalImageReviewCountsResponse"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "previousCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouscursor"
+          }
+        },
+        "required": [
+          "gameId",
+          "items",
+          "counts",
+          "previousCursor",
+          "nextCursor"
+        ],
+        "title": "CanonicalImageReviewPageResponse",
         "type": "object"
       },
       "CleanupCommandRequest": {
@@ -1270,6 +2201,94 @@
         "title": "GameUpdate",
         "type": "object"
       },
+      "GeometryCohortDiagnosticsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedGeometryCount": {
+            "minimum": 0.0,
+            "title": "Acceptedgeometrycount",
+            "type": "integer"
+          },
+          "correctedGeometryCount": {
+            "minimum": 0.0,
+            "title": "Correctedgeometrycount",
+            "type": "integer"
+          },
+          "eligibleGeometryCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Eligiblegeometrycount",
+            "type": "integer"
+          },
+          "excludedGeometryCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Excludedgeometrycount",
+            "type": "integer"
+          },
+          "exclusionReasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusionreasoncounts",
+            "type": "object"
+          },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteGeometryCount": {
+            "minimum": 0.0,
+            "title": "Incompletegeometrycount",
+            "type": "integer"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
+          },
+          "missingDetectionCount": {
+            "minimum": 0.0,
+            "title": "Missingdetectioncount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "acceptedGeometryCount",
+          "correctedGeometryCount",
+          "missingDetectionCount",
+          "incompleteGeometryCount",
+          "sourceImageCount"
+        ],
+        "title": "GeometryCohortDiagnosticsResponse",
+        "type": "object"
+      },
       "GeometryCohortResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1615,6 +2634,18 @@
             "title": "Inferencefingerprint",
             "type": "string"
           },
+          "pageRegistrationProfile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pageregistrationprofile"
+          },
           "profileChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Profilechecksumsha256",
@@ -1950,6 +2981,14 @@
       "ImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
           "imageSelectionRunId": {
             "anyOf": [
               {
@@ -2002,6 +3041,18 @@
               }
             ],
             "title": "Sourcedisplayname"
+          },
+          "sourceManifestSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcemanifestsha256"
           },
           "sourcePipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -2325,10 +3376,61 @@
             "title": "Orderindex",
             "type": "integer"
           },
+          "rangeConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeconfidence"
+          },
+          "rangeLabelObservations": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionRangeLabelObservationResponse"
+            },
+            "title": "Rangelabelobservations",
+            "type": "array"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
           "runId": {
             "format": "uuid",
             "title": "Runid",
             "type": "string"
+          },
+          "suggestedRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedrangeend"
+          },
+          "suggestedRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedrangestart"
           },
           "width": {
             "minimum": 1.0,
@@ -2431,6 +3533,14 @@
         ],
         "title": "ImageSelectionDuplicateRangeCommand",
         "type": "object"
+      },
+      "ImageSelectionExecutionMode": {
+        "enum": [
+          "full",
+          "range_recovery"
+        ],
+        "title": "ImageSelectionExecutionMode",
+        "type": "string"
       },
       "ImageSelectionGroupCandidatesResponse": {
         "additionalProperties": false,
@@ -2548,6 +3658,18 @@
             "title": "Id",
             "type": "string"
           },
+          "originGroupId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origingroupid"
+          },
           "rangeEnd": {
             "anyOf": [
               {
@@ -2616,6 +3738,7 @@
           "status",
           "selectedCandidateId",
           "rejectionOriginStatus",
+          "originGroupId",
           "createdAt",
           "updatedAt"
         ],
@@ -2734,6 +3857,15 @@
             "title": "Contractversion",
             "type": "integer"
           },
+          "executionMode": {
+            "default": "full",
+            "enum": [
+              "full",
+              "range_recovery"
+            ],
+            "title": "Executionmode",
+            "type": "string"
+          },
           "firstSequenceNumber": {
             "anyOf": [
               {
@@ -2750,6 +3882,18 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Inputmanifestsha256",
             "type": "string"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           },
           "schemaVersion": {
             "const": 1,
@@ -2771,10 +3915,34 @@
             "title": "Sequencedirection",
             "type": "string"
           },
+          "sourceRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerunid"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
             "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcesnapshotsha256"
           }
         },
         "required": [
@@ -2822,6 +3990,10 @@
               }
             ],
             "title": "Processingdurationseconds"
+          },
+          "rangeRequired": {
+            "title": "Rangerequired",
+            "type": "integer"
           },
           "recentWindow": {
             "anyOf": [
@@ -2889,6 +4061,7 @@
           "groups",
           "selected",
           "manual",
+          "rangeRequired",
           "skipped",
           "errors",
           "verifications"
@@ -3216,15 +4389,34 @@
       "ImageSelectionRangeConfirmationCommand": {
         "additionalProperties": false,
         "properties": {
+          "candidateId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateid"
+          },
           "idempotencyKey": {
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
           },
           "rangeEnd": {
-            "minimum": 1.0,
-            "title": "Rangeend",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
           },
           "rangeStart": {
             "minimum": 1.0,
@@ -3234,10 +4426,51 @@
         },
         "required": [
           "idempotencyKey",
-          "rangeStart",
-          "rangeEnd"
+          "rangeStart"
         ],
         "title": "ImageSelectionRangeConfirmationCommand",
+        "type": "object"
+      },
+      "ImageSelectionRangeLabelObservationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          },
+          "route": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Route",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "sequenceNumber",
+          "confidence",
+          "route",
+          "rangeStart"
+        ],
+        "title": "ImageSelectionRangeLabelObservationResponse",
         "type": "object"
       },
       "ImageSelectionRecentWindowResponse": {
@@ -3259,6 +4492,10 @@
             "title": "Manual",
             "type": "integer"
           },
+          "rangeRequired": {
+            "title": "Rangerequired",
+            "type": "integer"
+          },
           "toProcessed": {
             "title": "Toprocessed",
             "type": "integer"
@@ -3274,9 +4511,111 @@
           "elapsedSeconds",
           "groupsFinalized",
           "verifications",
-          "manual"
+          "manual",
+          "rangeRequired"
         ],
         "title": "ImageSelectionRecentWindowResponse",
+        "type": "object"
+      },
+      "ImageSelectionRecoveryCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedSourceSnapshotSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcesnapshotsha256",
+            "type": "string"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
+          }
+        },
+        "required": [
+          "expectedSourceSnapshotSha256"
+        ],
+        "title": "ImageSelectionRecoveryCommand",
+        "type": "object"
+      },
+      "ImageSelectionRecoveryCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/ImageSelectionRecoveryPreviewResponse"
+          },
+          "run": {
+            "$ref": "#/components/schemas/ImageSelectionRunResponse"
+          }
+        },
+        "required": [
+          "run",
+          "created",
+          "preview"
+        ],
+        "title": "ImageSelectionRecoveryCreateResponse",
+        "type": "object"
+      },
+      "ImageSelectionRecoveryPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blockCount": {
+            "minimum": 1.0,
+            "title": "Blockcount",
+            "type": "integer"
+          },
+          "candidateCount": {
+            "minimum": 1.0,
+            "title": "Candidatecount",
+            "type": "integer"
+          },
+          "problemGroupCount": {
+            "minimum": 1.0,
+            "title": "Problemgroupcount",
+            "type": "integer"
+          },
+          "selectorFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Selectorfingerprint",
+            "type": "string"
+          },
+          "selectorVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Selectorversion",
+            "type": "string"
+          },
+          "sourceRunId": {
+            "format": "uuid",
+            "title": "Sourcerunid",
+            "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcesnapshotsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRunId",
+          "sourceSnapshotSha256",
+          "problemGroupCount",
+          "candidateCount",
+          "blockCount",
+          "selectorFingerprint",
+          "selectorVersion"
+        ],
+        "title": "ImageSelectionRecoveryPreviewResponse",
         "type": "object"
       },
       "ImageSelectionRerunCommand": {
@@ -3293,6 +4632,18 @@
               }
             ],
             "title": "Firstsequencenumber"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           }
         },
         "title": "ImageSelectionRerunCommand",
@@ -3341,6 +4692,21 @@
             "title": "Createdat",
             "type": "string"
           },
+          "executionMode": {
+            "$ref": "#/components/schemas/ImageSelectionExecutionMode"
+          },
+          "expectedGroupCount": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedgroupcount"
+          },
           "firstSequenceNumber": {
             "anyOf": [
               {
@@ -3370,6 +4736,18 @@
           },
           "job": {
             "$ref": "#/components/schemas/JobResponse"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           },
           "orderingPolicy": {
             "pattern": "^natural_relative_path_v1$",
@@ -3413,10 +4791,58 @@
           "sequenceDirection": {
             "$ref": "#/components/schemas/ImageSelectionSequenceDirection"
           },
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
+          "sourceRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerunid"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
             "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcesnapshotsha256"
           },
           "updatedAt": {
             "format": "date-time",
@@ -3438,7 +4864,10 @@
           "outputManifestRelativePath",
           "createdAt",
           "updatedAt",
-          "sequenceDirection"
+          "sequenceDirection",
+          "executionMode",
+          "sourceRunId",
+          "sourceSnapshotSha256"
         ],
         "title": "ImageSelectionRunResponse",
         "type": "object"
@@ -3450,6 +4879,95 @@
         ],
         "title": "ImageSelectionSequenceDirection",
         "type": "string"
+      },
+      "ImageSequenceImportPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeSourceCount": {
+            "minimum": 0.0,
+            "title": "Alternativesourcecount",
+            "type": "integer"
+          },
+          "attestedFileCount": {
+            "minimum": 0.0,
+            "title": "Attestedfilecount",
+            "type": "integer"
+          },
+          "firstUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstunresolvedsequence"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "lastUnresolvedSequence": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastunresolvedsequence"
+          },
+          "newSequenceCount": {
+            "minimum": 0.0,
+            "title": "Newsequencecount",
+            "type": "integer"
+          },
+          "partialSourceCount": {
+            "minimum": 0.0,
+            "title": "Partialsourcecount",
+            "type": "integer"
+          },
+          "reusedSequenceCount": {
+            "minimum": 0.0,
+            "title": "Reusedsequencecount",
+            "type": "integer"
+          },
+          "skippedSourceCount": {
+            "minimum": 0.0,
+            "title": "Skippedsourcecount",
+            "type": "integer"
+          },
+          "sourceFileCount": {
+            "minimum": 0.0,
+            "title": "Sourcefilecount",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceFileCount",
+          "attestedFileCount",
+          "newSequenceCount",
+          "reusedSequenceCount",
+          "skippedSourceCount",
+          "partialSourceCount",
+          "alternativeSourceCount",
+          "warnings"
+        ],
+        "title": "ImageSequenceImportPreflightResponse",
+        "type": "object"
       },
       "ImageSequenceSourceCandidateResponse": {
         "additionalProperties": false,
@@ -3857,6 +5375,16 @@
               }
             ]
           },
+          "pageGeometryPreflight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "review": {
             "title": "Review",
             "type": "integer"
@@ -3986,7 +5514,13 @@
                 "$ref": "#/components/schemas/ImageImportJobPayload"
               },
               {
+                "$ref": "#/components/schemas/BrowserImageImportJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/CuratedImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedImageReprocessJobPayload"
               },
               {
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
@@ -3996,6 +5530,9 @@
               },
               {
                 "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
               },
               {
                 "$ref": "#/components/schemas/PayoutJobPayload"
@@ -4008,6 +5545,12 @@
               },
               {
                 "$ref": "#/components/schemas/SymbolTrainingJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PendingGridReinferenceJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -4103,7 +5646,9 @@
           "payout",
           "snapshot",
           "android_build",
-          "symbol_training"
+          "symbol_training",
+          "image_symbol_reinference",
+          "image_grid_reinference"
         ],
         "title": "JobType",
         "type": "string"
@@ -4745,6 +6290,91 @@
         "title": "LegacyImageImportJobPayload",
         "type": "object"
       },
+      "ManagedImageReprocessJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "managedSourceJobId": {
+            "format": "uuid",
+            "title": "Managedsourcejobid",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 4,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceselectionid"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "managedSourceJobId",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "ManagedImageReprocessJobPayload",
+        "type": "object"
+      },
       "MobileReleaseApkResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5321,6 +6951,11 @@
             "title": "Rejected",
             "type": "integer"
           },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
           "total": {
             "minimum": 0.0,
             "title": "Total",
@@ -5332,6 +6967,7 @@
           "accepted",
           "corrected",
           "rejected",
+          "superseded",
           "completed",
           "total"
         ],
@@ -5384,6 +7020,7 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -5460,6 +7097,7 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -5574,6 +7212,19 @@
           "cropperVersion": {
             "title": "Cropperversion",
             "type": "string"
+          },
+          "decisionChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions",
+            "title": "Decisionchecksumsha256"
           },
           "id": {
             "format": "uuid",
@@ -5828,6 +7479,11 @@
             ],
             "title": "Previouscursor"
           },
+          "queueVersion": {
+            "minimum": 0.0,
+            "title": "Queueversion",
+            "type": "integer"
+          },
           "view": {
             "$ref": "#/components/schemas/ImageReviewView"
           }
@@ -5838,6 +7494,7 @@
           "view",
           "items",
           "counts",
+          "queueVersion",
           "previousCursor",
           "nextCursor"
         ],
@@ -6008,6 +7665,9 @@
       "OperationalImageReviewResolutionResponse": {
         "additionalProperties": false,
         "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OperationalImageReviewCountsResponse"
+          },
           "created": {
             "title": "Created",
             "type": "boolean"
@@ -6017,14 +7677,155 @@
           },
           "item": {
             "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+          },
+          "queueVersion": {
+            "minimum": 1.0,
+            "title": "Queueversion",
+            "type": "integer"
           }
         },
         "required": [
           "item",
           "event",
-          "created"
+          "created",
+          "counts",
+          "queueVersion"
         ],
         "title": "OperationalImageReviewResolutionResponse",
+        "type": "object"
+      },
+      "PageGeometryManifestJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "preflightJobId": {
+            "format": "uuid",
+            "title": "Preflightjobid",
+            "type": "string"
+          },
+          "relativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checksumSha256",
+          "relativePath",
+          "preflightJobId"
+        ],
+        "title": "PageGeometryManifestJobPayload",
+        "type": "object"
+      },
+      "PageGeometryPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "PageGeometryPoint",
+        "type": "object"
+      },
+      "PageGeometryPreflightJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSequenceNumbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Canonicalsequencenumbers",
+            "type": "array"
+          },
+          "pageGeometryOverrides": {
+            "additionalProperties": true,
+            "title": "Pagegeometryoverrides",
+            "type": "object"
+          },
+          "pageRegistrationProfile": {
+            "additionalProperties": true,
+            "title": "Pageregistrationprofile",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": 2,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "validationKind": {
+            "const": "page_geometry_preflight",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "validationKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceManifestSha256",
+          "pageRegistrationProfile"
+        ],
+        "title": "PageGeometryPreflightJobPayload",
+        "type": "object"
+      },
+      "PageGeometryPreflightJobProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "geometryManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrymanifestchecksumsha256"
+          }
+        },
+        "required": [
+          "complete"
+        ],
+        "title": "PageGeometryPreflightJobProgressResponse",
         "type": "object"
       },
       "PaylineCreate": {
@@ -6345,6 +8146,191 @@
           }
         },
         "title": "PayoutRuleUpdate",
+        "type": "object"
+      },
+      "PendingGridReinferenceJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "boardCellRecrop": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellRecropJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cellOutputSize": {
+            "default": 64,
+            "minimum": 16.0,
+            "title": "Celloutputsize",
+            "type": "integer"
+          },
+          "gridProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inferenceKind": {
+            "const": "pending_grid_only",
+            "title": "Inferencekind",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "inferenceKind"
+        ],
+        "title": "PendingGridReinferenceJobPayload",
+        "type": "object"
+      },
+      "PendingGridReinferencePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auditReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Auditreportchecksumsha256",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "currentV19BoardCount": {
+            "minimum": 0.0,
+            "title": "Currentv19Boardcount",
+            "type": "integer"
+          },
+          "fullyResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Fullyresolvedsourcecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometryVersion": {
+            "title": "Geometryversion",
+            "type": "string"
+          },
+          "partiallyResolvedSourceCount": {
+            "minimum": 0.0,
+            "title": "Partiallyresolvedsourcecount",
+            "type": "integer"
+          },
+          "pendingBoardCount": {
+            "minimum": 0.0,
+            "title": "Pendingboardcount",
+            "type": "integer"
+          },
+          "pendingSourceCount": {
+            "minimum": 0.0,
+            "title": "Pendingsourcecount",
+            "type": "integer"
+          },
+          "protectedBoardCount": {
+            "minimum": 0.0,
+            "title": "Protectedboardcount",
+            "type": "integer"
+          },
+          "recalculableBoardCount": {
+            "minimum": 0.0,
+            "title": "Recalculableboardcount",
+            "type": "integer"
+          },
+          "requiresExplicitActivation": {
+            "default": true,
+            "title": "Requiresexplicitactivation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "pendingBoardCount",
+          "recalculableBoardCount",
+          "currentV19BoardCount",
+          "protectedBoardCount",
+          "pendingSourceCount",
+          "partiallyResolvedSourceCount",
+          "fullyResolvedSourceCount",
+          "geometryVersion",
+          "cropperVersion",
+          "auditReportChecksumSha256"
+        ],
+        "title": "PendingGridReinferencePreviewResponse",
+        "type": "object"
+      },
+      "PendingSymbolReinferenceJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "inferenceKind": {
+            "const": "pending_symbols_only",
+            "title": "Inferencekind",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "inferenceKind",
+          "symbolModel"
+        ],
+        "title": "PendingSymbolReinferenceJobPayload",
+        "type": "object"
+      },
+      "PendingSymbolReinferencePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "pendingCount": {
+            "minimum": 0.0,
+            "title": "Pendingcount",
+            "type": "integer"
+          },
+          "protectedResolvedCount": {
+            "minimum": 0.0,
+            "title": "Protectedresolvedcount",
+            "type": "integer"
+          },
+          "requiresExplicitActivation": {
+            "default": true,
+            "title": "Requiresexplicitactivation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "pendingCount",
+          "protectedResolvedCount"
+        ],
+        "title": "PendingSymbolReinferencePreviewResponse",
         "type": "object"
       },
       "ReviewAlternative": {
@@ -7380,6 +9366,27 @@
         "title": "ReviewerIngressStatusResponse",
         "type": "object"
       },
+      "ReviewerLocalCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "target": {
+            "const": "local-reviewer",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "target"
+        ],
+        "title": "ReviewerLocalCommand",
+        "type": "object"
+      },
       "ReviewerSessionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -7536,6 +9543,234 @@
           "accessToken"
         ],
         "title": "ReviewerSessionUnlockResponse",
+        "type": "object"
+      },
+      "ReviewerWorkActionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmed"
+        ],
+        "title": "ReviewerWorkActionCommand",
+        "type": "object"
+      },
+      "ReviewerWorkAssignmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "assignmentType": {
+            "enum": [
+              "local",
+              "online"
+            ],
+            "title": "Assignmenttype",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "heartbeatAt": {
+            "format": "date-time",
+            "title": "Heartbeatat",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "leaseExpiresAt": {
+            "format": "date-time",
+            "title": "Leaseexpiresat",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reviewUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewurl"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "gameId",
+          "importJobId",
+          "assignmentType",
+          "reviewUrl",
+          "ready",
+          "heartbeatAt",
+          "leaseExpiresAt",
+          "createdAt"
+        ],
+        "title": "ReviewerWorkAssignmentResponse",
+        "type": "object"
+      },
+      "ReviewerWorkClosedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "closeReason": {
+            "title": "Closereason",
+            "type": "string"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "title": "Closedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "closedAt",
+          "closeReason"
+        ],
+        "title": "ReviewerWorkClosedResponse",
+        "type": "object"
+      },
+      "ReviewerWorkHeartbeatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentId": {
+            "format": "uuid",
+            "title": "Assignmentid",
+            "type": "string"
+          },
+          "heartbeatAt": {
+            "format": "date-time",
+            "title": "Heartbeatat",
+            "type": "string"
+          },
+          "leaseExpiresAt": {
+            "format": "date-time",
+            "title": "Leaseexpiresat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "heartbeatAt",
+          "leaseExpiresAt"
+        ],
+        "title": "ReviewerWorkHeartbeatResponse",
+        "type": "object"
+      },
+      "ReviewerWorkOpenCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "lifetimeMinutes": {
+            "default": 480,
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Lifetimeminutes",
+            "type": "integer"
+          }
+        },
+        "title": "ReviewerWorkOpenCommand",
+        "type": "object"
+      },
+      "ReviewerWorkOpenedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accesscode"
+          },
+          "accessExpiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accessexpiresat"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/ReviewerWorkAssignmentResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "assignment",
+          "created",
+          "accessCode",
+          "accessExpiresAt"
+        ],
+        "title": "ReviewerWorkOpenedResponse",
+        "type": "object"
+      },
+      "ReviewerWorkOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeOnlineCount": {
+            "title": "Activeonlinecount",
+            "type": "integer"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewerWorkAssignmentResponse"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "ingress": {
+            "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+          },
+          "maximumOnlineCount": {
+            "const": 3,
+            "default": 3,
+            "title": "Maximumonlinecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignments",
+          "activeOnlineCount",
+          "ingress"
+        ],
+        "title": "ReviewerWorkOverviewResponse",
         "type": "object"
       },
       "RulesPublicationIssueResponse": {
@@ -8989,13 +11224,16 @@
             "type": "string"
           },
           "schemaVersion": {
-            "const": 1,
-            "default": 1,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schemaversion",
             "type": "integer"
           }
         },
         "required": [
+          "schemaVersion",
           "cohortId",
           "cohortChecksumSha256",
           "configuration",
@@ -9111,6 +11349,9 @@
               },
               {
                 "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -10665,6 +12906,69 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/cohort-diagnostics": {
+      "get": {
+        "operationId": "getGridCalibrationCohortDiagnostics",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryCohortDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Cohort Diagnostics",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations": {
       "get": {
         "operationId": "listGridProfileActivations",
@@ -11022,6 +13326,216 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local": {
+      "post": {
+        "operationId": "openLocalReviewerWork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkOpenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOpenedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open or reuse one loopback-only Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online": {
+      "post": {
+        "operationId": "openOnlineReviewerWork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkOpenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOpenedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open or reuse one scoped online Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/layout-data": {
       "delete": {
         "operationId": "resetGameLayoutData",
@@ -11250,6 +13764,49 @@
         "summary": "Read model and verified-data readiness for one game",
         "tags": [
           "verified-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/reviewer-work-assignments": {
+      "get": {
+        "operationId": "listReviewerWorkAssignments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List active scoped Reviewer work for one game",
+        "tags": [
+          "reviewer-access"
         ]
       }
     },
@@ -13288,6 +15845,77 @@
       }
     },
     "/api/v1/admin/image-imports/browser-selections": {
+      "get": {
+        "operationId": "listReadyBrowserImageSelections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ImageSelectionPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BrowserReadySelectionResponse"
+                  },
+                  "title": "Response Listreadybrowserimageselections",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List finalized browser staging folders ready for layout import",
+        "tags": [
+          "image-imports"
+        ]
+      },
       "post": {
         "operationId": "createBrowserImageSelection",
         "parameters": [],
@@ -13684,6 +16312,521 @@
         ]
       }
     },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight": {
+      "post": {
+        "operationId": "startBrowserPageGeometryPreflight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportPreflightCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Build a verified complete-page geometry manifest before layout import",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources": {
+      "get": {
+        "operationId": "listBrowserPageGeometryReviewSources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "preflight_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preflight Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryReviewSourcesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List pages requiring full-page geometry correction",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides": {
+      "post": {
+        "operationId": "createBrowserPageGeometryOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserPageGeometryOverrideCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserPageGeometryOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Persist one complete-page geometry correction for a staged source",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset": {
+      "get": {
+        "operationId": "getBrowserPageGeometrySourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_checksum_sha256",
+            "required": true,
+            "schema": {
+              "title": "Source Checksum Sha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "Read one staged source image for local page-geometry correction",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight": {
+      "post": {
+        "operationId": "previewReadyBrowserImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportPreflightCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageImportPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview a finalized browser staging folder before creating a job",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/start": {
+      "post": {
+        "operationId": "startReadyBrowserImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageImportStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageImportStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create an idempotent image import from finalized browser staging",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
     "/api/v1/admin/image-imports/curated-sources": {
       "get": {
         "operationId": "listCuratedImageImportSources",
@@ -14039,6 +17182,161 @@
           }
         ],
         "summary": "Open the controlled native Windows folder picker",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/preflight": {
+      "post": {
+        "operationId": "previewImageSequenceImport",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageFolderImportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSequenceImportPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview reuse of already resolved seq_* ranges",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/{source_job_id}/reprocess": {
+      "post": {
+        "operationId": "reprocessManagedImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageFolderImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reprocess an image import from its preserved managed originals",
         "tags": [
           "image-imports"
         ]
@@ -14781,6 +18079,98 @@
         ]
       }
     },
+    "/api/v1/admin/image-review-items/canonical/{game_id}": {
+      "get": {
+        "operationId": "listCanonicalImageReviewItems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterSequence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftersequence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalImageReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List the game-wide pending review queue in sequence order",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
     "/api/v1/admin/image-review-items/dataset-completeness/{game_id}": {
       "get": {
         "operationId": "getImageDatasetCompleteness",
@@ -14839,6 +18229,288 @@
           }
         },
         "summary": "Get accepted image sequence completeness for one game",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}": {
+      "get": {
+        "operationId": "previewPendingGridReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingGridReinferencePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview pending-only grid and crop recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}": {
+      "post": {
+        "operationId": "startPendingGridReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start pending-only grid and crop recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}": {
+      "get": {
+        "operationId": "previewPendingSymbolReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingSymbolReinferencePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview the explicit pending-only symbol recalculation",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}": {
+      "post": {
+        "operationId": "startPendingSymbolReinference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start an explicit pending-only symbol recalculation",
         "tags": [
           "image-reviews"
         ]
@@ -15403,7 +19075,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Rectified 500 by 300 board preview"
+            "description": "Five by three contact sheet of final source-direct crops"
           },
           "403": {
             "content": {
@@ -15451,7 +19123,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview a corrected board without persisting files or revisions",
+        "summary": "Preview 15 corrected v19 board-cell crops without persistence",
         "tags": [
           "image-reviews"
         ]
@@ -15559,7 +19231,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Persist immutable corrected geometry and reopen review",
+        "summary": "Persist immutable v19 symbol-lattice geometry and reopen review",
         "tags": [
           "image-reviews"
         ]
@@ -17294,6 +20966,157 @@
           }
         },
         "summary": "Download one checksum-verified curated JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/range-recovery-preview": {
+      "get": {
+        "operationId": "previewImageSelectionRangeRecovery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRecoveryPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview an immutable recovery of unresolved range groups",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/recover-ranges": {
+      "post": {
+        "operationId": "recoverImageSelectionRanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionRecoveryCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRecoveryCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create or return an immutable unresolved-range recovery run",
         "tags": [
           "image-selections"
         ]
@@ -19991,6 +23814,91 @@
         ]
       }
     },
+    "/api/v1/admin/reviewer-local/start": {
+      "post": {
+        "operationId": "startLocalReviewer",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerLocalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start the standalone Reviewer on loopback without a public tunnel",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
     "/api/v1/admin/reviewer-sessions": {
       "post": {
         "operationId": "createReviewerSession",
@@ -20146,6 +24054,199 @@
           }
         ],
         "summary": "Immediately revoke one Reviewer session",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close": {
+      "post": {
+        "operationId": "closeReviewerWorkAssignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkActionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkClosedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Close only the selected Reviewer work assignment",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat": {
+      "post": {
+        "operationId": "heartbeatReviewerWorkAssignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerWorkActionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerWorkHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Heartbeat one active Reviewer work assignment",
         "tags": [
           "reviewer-access"
         ]

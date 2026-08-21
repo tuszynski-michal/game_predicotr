@@ -20,6 +20,7 @@ import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
+import { ManualImageSelectionWorkspace } from '@/features/manual-image-selection/manual-image-selection-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
@@ -60,6 +61,12 @@ const WORKSPACE_OPTIONS: readonly {
     label: 'Selekcja zdjęć',
     description: 'Szybki wybór reprezentatywnych zdjęć przed importem.',
     index: '04',
+  },
+  {
+    id: 'manual-image-selection',
+    label: 'Ręczna selekcja',
+    description: 'Sekwencyjne przypisywanie zdjęć do zakresów bez algorytmu.',
+    index: '05',
   },
 ];
 
@@ -408,6 +415,28 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                   workspace: 'games',
                 });
               }}
+            />
+          )
+        ) : null}
+        {navigation.workspace === 'manual-image-selection' ? (
+          activeGame === null ? (
+            <section className="catalogEmptyState">
+              <p className="eyebrow">Brak aktywnego kontekstu</p>
+              <h2>Najpierw wybierz grę</h2>
+              <p>Ręczna selekcja zapisuje sesję w kontekście wybranej gry.</p>
+              <button
+                className="primaryButton"
+                onClick={() => selectWorkspace('games')}
+                type="button"
+              >
+                Przejdź do gier
+              </button>
+            </section>
+          ) : (
+            <ManualImageSelectionWorkspace
+              gameId={activeGame.id}
+              gameName={activeGame.name}
+              key={activeGame.id}
             />
           )
         ) : null}

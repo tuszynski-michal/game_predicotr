@@ -76,6 +76,8 @@ DEFAULT_CALIBRATION = QUALITY / "m6-symbol-confidence-calibration-report.json"
 DEFAULT_SELECTION = QUALITY / "m6-symbol-active-learning-selection.json"
 DEFAULT_OUTPUT = QUALITY / "m6-classifier-review-vertical-slice-report.json"
 INFERENCE_BATCH_SIZE = 64
+
+
 def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)

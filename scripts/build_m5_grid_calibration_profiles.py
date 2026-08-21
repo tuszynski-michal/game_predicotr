@@ -27,9 +27,7 @@ DEFAULT_ANNOTATIONS = ROOT / "ai_docs" / "quality" / "m5-golden-annotations.json
 DEFAULT_V1_CROP_REPORT = ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-report.json"
 DEFAULT_CROP_ROOT = ROOT / "artifacts" / "m5-board-crops"
 DEFAULT_GOLDEN = ROOT / "ai_docs" / "quality" / "m5-cell-grid-golden.json"
-DEFAULT_DETECTION_REPORT = (
-    ROOT / "ai_docs" / "quality" / "m5-page-board-detection-report.json"
-)
+DEFAULT_DETECTION_REPORT = ROOT / "ai_docs" / "quality" / "m5-page-board-detection-report.json"
 DEFAULT_OUTPUT = ROOT / "ai_docs" / "quality" / "m5-grid-calibration-profiles.json"
 
 

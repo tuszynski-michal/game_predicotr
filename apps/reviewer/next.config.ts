@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; ${scriptPolicy}; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`,
+            value: `default-src 'self'; img-src 'self' http://127.0.0.1:8000 data: blob:; style-src 'self' 'unsafe-inline'; ${scriptPolicy}; connect-src 'self' http://127.0.0.1:8000; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`,
           },
           { key: 'Referrer-Policy', value: 'no-referrer' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },

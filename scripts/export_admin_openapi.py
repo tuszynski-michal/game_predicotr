@@ -11,9 +11,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 
 REPOSITORY_ROOT: Final = Path(__file__).resolve().parents[1]
-OPENAPI_PATH: Final = (
-    REPOSITORY_ROOT / "packages" / "admin-api-client" / "openapi" / "openapi.json"
-)
+OPENAPI_PATH: Final = REPOSITORY_ROOT / "packages" / "admin-api-client" / "openapi" / "openapi.json"
 
 
 def render_openapi() -> str:

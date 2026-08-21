@@ -3,12 +3,15 @@
 import type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceResponse,
+  BrowserImageImportPreflightResponse,
+  JobResponse,
+  BrowserReadySelectionResponse,
   ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageSelectionHandoffResponse,
   ImageImportJobPayload,
   ImageSequenceSourceSelectionResponse,
-  JobResponse,
+  ManagedImageReprocessJobPayload,
 } from '@game-predictor/admin-api-client';
 import {
   type ChangeEvent,
@@ -25,8 +28,14 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type ImageFolderImportClient,
   createImageFolderImport,
+  listReadyBrowserImageSelections,
+  previewReadyBrowserImageImport,
+  reprocessImageFolderImport,
+  startBrowserPageGeometryPreflight,
+  startReadyBrowserImageImport,
   uploadImageFolder,
 } from './image-folder-import-actions';
+import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 
 interface ImageFolderImportPanelProps {
   readonly apiBaseUrl: string;
@@ -37,11 +46,20 @@ interface ImageFolderImportPanelProps {
 }
 
 type ImageImportJob = JobResponse & {
-  readonly inputPayload: ImageImportJobPayload | CuratedImageImportJobPayload;
+  readonly inputPayload:
+    | ImageImportJobPayload
+    | CuratedImageImportJobPayload
+    | ManagedImageReprocessJobPayload;
 };
 
 type ImportAction =
   | 'choose-folder'
+  | 'list-ready'
+  | 'preflight'
+  | 'geometry-preflight'
+  | 'start-ready'
+  | 'delete-ready'
+  | 'reprocess-import'
   | 'start-import'
   | 'refresh-status'
   | 'inspect-sequence'
@@ -72,6 +90,22 @@ function curatedBatchTiming(job: JobResponse, imageCount: number) {
   };
 }
 
+function imageImportOutcome(job: ImageImportJob) {
+  const totalWork = job.progress.total;
+  if (totalWork === null || totalWork < 2 || totalWork % 2 !== 0) return null;
+  const sourceCount = totalWork / 2;
+  return {
+    failedImages: job.progress.failed,
+    pipelineImages: Math.max(
+      0,
+      Math.min(sourceCount, job.progress.current - sourceCount),
+    ),
+    reviewBoards: job.progress.review,
+    sourceCount,
+    succeededImages: Math.max(0, job.progress.succeeded - sourceCount),
+  };
+}
+
 export function ImageFolderImportPanel({
   apiBaseUrl,
   client,
@@ -86,6 +120,14 @@ export function ImageFolderImportPanel({
   const [selection, setSelection] =
     useState<ImageFolderSelectionResponse | null>(null);
   const [selectionDisplayName, setSelectionDisplayName] = useState('');
+  const [readySelections, setReadySelections] = useState<
+    readonly BrowserReadySelectionResponse[]
+  >([]);
+  const [readyUploadId, setReadyUploadId] = useState<string | null>(null);
+  const [preflight, setPreflight] =
+    useState<BrowserImageImportPreflightResponse | null>(null);
+  const [geometryPreflightJob, setGeometryPreflightJob] =
+    useState<JobResponse | null>(null);
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -106,17 +148,22 @@ export function ImageFolderImportPanel({
   } | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const busy = activeAction !== null;
+  const geometryManifestChecksum =
+    geometryPreflightJob?.progress.pageGeometryPreflight
+      ?.geometryManifestChecksumSha256 ?? null;
 
   const refreshJobs = useCallback(async () => {
-    const [jobsResult, completenessResult, curatedResult] = await Promise.all([
-      api.listJobs({
-        gameId,
-        jobType: 'import',
-        limit: 20,
-      }),
-      api.getImageDatasetCompleteness(gameId),
-      api.listCuratedImageImportSources(gameId),
-    ]);
+    const [jobsResult, completenessResult, curatedResult, readyResult] =
+      await Promise.all([
+        api.listJobs({
+          gameId,
+          jobType: 'import',
+          limit: 20,
+        }),
+        api.getImageDatasetCompleteness(gameId),
+        api.listCuratedImageImportSources(gameId),
+        listReadyBrowserImageSelections(api),
+      ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
     }
@@ -128,6 +175,23 @@ export function ImageFolderImportPanel({
     }
     if (curatedResult.error === undefined && curatedResult.data !== undefined) {
       setCuratedSources(curatedResult.data);
+    }
+    if (readyResult.ok) {
+      const gameReady = readyResult.data.filter(
+        (item) => item.gameId === null || item.gameId === gameId,
+      );
+      setReadySelections(gameReady);
+      setReadyUploadId((current) => {
+        if (
+          current !== null &&
+          !gameReady.some((item) => item.uploadId === current)
+        ) {
+          setPreflight(null);
+          setGeometryPreflightJob(null);
+          return null;
+        }
+        return current;
+      });
     }
   }, [api, gameId]);
 
@@ -146,6 +210,25 @@ export function ImageFolderImportPanel({
       cancelled = true;
     };
   }, [refreshJobs]);
+
+  const geometryPreflightJobId = geometryPreflightJob?.id;
+
+  useEffect(() => {
+    if (geometryPreflightJobId === undefined) return;
+    let cancelled = false;
+    const refreshGeometry = async () => {
+      const result = await api.getJob(geometryPreflightJobId);
+      if (!cancelled && result.error === undefined && result.data !== undefined) {
+        setGeometryPreflightJob(result.data);
+      }
+    };
+    void refreshGeometry();
+    const timer = window.setInterval(() => void refreshGeometry(), 3_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [api, geometryPreflightJobId]);
 
   useEffect(() => {
     if (
@@ -210,6 +293,7 @@ export function ImageFolderImportPanel({
       const result = await uploadImageFolder(
         api,
         selectedFiles,
+        gameId,
         (uploaded, total) => setUploadProgress({ total, uploaded }),
       );
       if (!result.ok) {
@@ -218,13 +302,182 @@ export function ImageFolderImportPanel({
       }
       setSelection(result.selection);
       setSelectionDisplayName(result.displayName);
+      setReadyUploadId(result.uploadId);
+      setPreflight(null);
+      setGeometryPreflightJob(null);
       setFeedback(
-        `Folder zweryfikowany: ${result.selection.supportedFileCount} plików JPEG.`,
+        `Folder przesłany: ${result.selection.supportedFileCount} plików JPEG. Przygotowuję raport przed importem.`,
       );
+      const preflightResult = await previewReadyBrowserImageImport(
+        api,
+        result.uploadId,
+        gameId,
+      );
+      if (!preflightResult.ok) {
+        setError(preflightResult.error);
+        return;
+      }
+      setPreflight(preflightResult.data);
+      const readyResult = await listReadyBrowserImageSelections(api);
+      if (readyResult.ok) {
+        setReadySelections(
+          readyResult.data.filter(
+            (item) => item.gameId === null || item.gameId === gameId,
+          ),
+        );
+      }
     } catch {
       setError('Nie udało się otworzyć wyboru folderu. Spróbuj ponownie.');
     } finally {
       setUploadProgress(null);
+      setActiveAction(null);
+    }
+  }
+
+  async function prepareReadyImport(uploadId: string) {
+    if (busy) return;
+    setActiveAction('preflight');
+    setError('');
+    setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
+    try {
+      const result = await previewReadyBrowserImageImport(
+        api,
+        uploadId,
+        gameId,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setReadyUploadId(uploadId);
+      setPreflight(result.data);
+      setGeometryPreflightJob(null);
+      setFeedback(
+        'Raport preflight jest gotowy. Import nie został jeszcze uruchomiony.',
+      );
+    } catch {
+      setError('Nie udało się przygotować raportu przed importem layoutów.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function startReadyImport() {
+    if (
+      busy ||
+      readyUploadId === null ||
+      preflight === null ||
+      geometryPreflightJob?.status !== 'completed' ||
+      geometryPreflightJob.progress.review > 0 ||
+      geometryManifestChecksum === null
+    ) {
+      return;
+    }
+    setActiveAction('start-ready');
+    setError('');
+    setFeedback('Ponowna weryfikacja raportu i tworzenie joba…');
+    try {
+      const result = await startReadyBrowserImageImport(
+        api,
+        readyUploadId,
+        gameId,
+        preflight.manifestChecksumSha256,
+        preflight.preflightChecksumSha256,
+        geometryPreflightJob.id,
+        geometryManifestChecksum,
+        preflight.symbolModelInferenceFingerprint,
+        preflight.gridProfileInferenceFingerprint,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const imageJob = result.data.job;
+      if (isImageImportJob(imageJob)) {
+        setJobs((current) => [
+          imageJob,
+          ...current.filter((item) => item.id !== imageJob.id),
+        ]);
+      }
+      setFeedback(
+        result.data.created
+          ? `Import ${imageJob.id} utworzony — oczekuje na worker.`
+          : `Import ${imageJob.id} już istnieje. Nie utworzono drugiego joba.`,
+      );
+      setSelection(null);
+      setSelectionDisplayName('');
+      setPreflight(null);
+      setGeometryPreflightJob(null);
+      await refreshJobs();
+    } catch {
+      setError('Nie udało się utworzyć importu layoutów.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function startGeometryPreflight() {
+    if (busy || readyUploadId === null || preflight === null) return;
+    setActiveAction('geometry-preflight');
+    setError('');
+    setFeedback('Tworzę job preflightu pełnej geometrii 3×3…');
+    try {
+      const result = await startBrowserPageGeometryPreflight(
+        api,
+        readyUploadId,
+        gameId,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setGeometryPreflightJob(result.data.job);
+      setFeedback(
+        result.data.created
+          ? `Preflight geometrii ${result.data.job.id} utworzony — oczekuje na worker.`
+          : `Preflight geometrii ${result.data.job.id} już istnieje.`,
+      );
+    } catch {
+      setError('Nie udało się utworzyć preflightu geometrii stron.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function rerunGeometryPreflightAfterCorrection() {
+    setGeometryPreflightJob(null);
+    await startGeometryPreflight();
+  }
+
+  async function deleteReadyStaging(uploadId: string) {
+    if (
+      busy ||
+      !window.confirm('Usunąć nieużywany staging i zwolnić miejsce?')
+    ) {
+      return;
+    }
+    setActiveAction('delete-ready');
+    setError('');
+    try {
+      const result = await api.cancelBrowserImageSelection(uploadId);
+      if (result.error !== undefined) {
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się usunąć stagingu.'),
+        );
+        return;
+      }
+      setReadySelections((current) =>
+        current.filter((item) => item.uploadId !== uploadId),
+      );
+      if (readyUploadId === uploadId) {
+        setReadyUploadId(null);
+        setPreflight(null);
+        setGeometryPreflightJob(null);
+      }
+      setFeedback('Nieużywany staging został usunięty.');
+    } catch {
+      setError('Nie udało się usunąć stagingu.');
+    } finally {
       setActiveAction(null);
     }
   }
@@ -317,6 +570,34 @@ export function ImageFolderImportPanel({
       setFeedback('Status importu został odświeżony.');
     } catch {
       setError('Nie udało się odświeżyć statusu importu.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function reprocessImport(sourceJob: ImageImportJob) {
+    if (busy) return;
+    setActiveAction('reprocess-import');
+    setError('');
+    setFeedback('');
+    try {
+      const result = await reprocessImageFolderImport(api, sourceJob.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (isImageImportJob(result.job)) {
+        const imageJob = result.job;
+        setJobs((current) => [
+          imageJob,
+          ...current.filter((item) => item.id !== imageJob.id),
+        ]);
+      }
+      setFeedback(
+        'Utworzono nowy job z zachowanych oryginałów. Poprzedni wynik nie został usunięty.',
+      );
+    } catch {
+      setError('Nie udało się ponownie przetworzyć zachowanych oryginałów.');
     } finally {
       setActiveAction(null);
     }
@@ -513,18 +794,173 @@ export function ImageFolderImportPanel({
         );
       })}
 
+      {readySelections.length > 0 ? (
+        <section
+          className="importCompletenessCard"
+          aria-labelledby="ready-layout-staging-title"
+        >
+          <header className="importCompletenessHeader">
+            <div>
+              <p className="eyebrow">Gotowy staging do wznowienia</p>
+              <h3 id="ready-layout-staging-title">
+                Import layoutów z manifestu
+              </h3>
+              <p>
+                Staging pozostaje dostępny po restarcie API i nie wymaga
+                ponownego uploadu.
+              </p>
+            </div>
+          </header>
+          <ul className="importCompactList">
+            {readySelections.map((ready) => {
+              const active = ready.uploadId === readyUploadId;
+              return (
+                <li key={ready.uploadId}>
+                  <strong>{ready.displayName}</strong>
+                  <span>
+                    {ready.uploadedFileCount.toLocaleString('pl-PL')} plików ·{' '}
+                    {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
+                    staging {ready.uploadId.slice(0, 8)}
+                  </span>
+                  <div className="importActionButtons">
+                    <button
+                      aria-busy={activeAction === 'preflight' && active}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void prepareReadyImport(ready.uploadId)}
+                      type="button"
+                    >
+                      {activeAction === 'preflight' && active
+                        ? 'Sprawdzanie…'
+                        : active
+                          ? 'Odśwież raport'
+                          : 'Pokaż raport'}
+                    </button>
+                    <button
+                      aria-busy={activeAction === 'delete-ready' && active}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void deleteReadyStaging(ready.uploadId)}
+                      type="button"
+                    >
+                      Usuń nieużywany staging
+                    </button>
+                  </div>
+                  {active && preflight !== null ? (
+                    <dl className="importMetrics">
+                      <div className="importMetric">
+                        <dt>Źródła</dt>
+                        <dd>
+                          {preflight.sourceFileCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Nowe plansze</dt>
+                        <dd>
+                          {preflight.newSequenceCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Już zatwierdzone</dt>
+                        <dd>
+                          {preflight.reusedSequenceCount.toLocaleString(
+                            'pl-PL',
+                          )}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Pominięte źródła</dt>
+                        <dd>
+                          {preflight.skippedSourceCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Pierwszy nierozwiązany</dt>
+                        <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
+                      </div>
+                    </dl>
+                  ) : null}
+                  {active && preflight?.warnings.length ? (
+                    <p className="curatedImportStatus">
+                      Ostrzeżenia: {preflight.warnings.join(' · ')}
+                    </p>
+                  ) : null}
+                  {active && preflight !== null ? (
+                    <div className="importActionButtons">
+                      <button
+                        aria-busy={activeAction === 'geometry-preflight'}
+                        className="secondaryButton"
+                        disabled={busy}
+                        onClick={() => void startGeometryPreflight()}
+                        type="button"
+                      >
+                        {activeAction === 'geometry-preflight'
+                          ? 'Tworzenie preflightu…'
+                          : geometryPreflightJob === null
+                            ? 'Przygotuj geometrię stron'
+                            : 'Odśwież preflight geometrii'}
+                      </button>
+                      {geometryPreflightJob !== null ? (
+                        <span className="curatedImportStatus">
+                          Geometria: {geometryPreflightJob.status} ·{' '}
+                          {geometryPreflightJob.progress.current}/
+                          {geometryPreflightJob.progress.total ?? '—'} · poprawne{' '}
+                          {geometryPreflightJob.progress.succeeded} · do korekty{' '}
+                          {geometryPreflightJob.progress.review}
+                        </span>
+                      ) : null}
+                      {geometryPreflightJob?.status === 'completed' &&
+                      geometryPreflightJob.progress.review > 0 ? (
+                        <>
+                          <p className="curatedImportStatus" role="alert">
+                            Import jest zablokowany: strony wymagające korekty
+                            geometrii nie mogą otrzymać syntetycznych cropów.
+                          </p>
+                          <PageGeometryCorrectionPanel
+                            api={api}
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={gameId}
+                            onSaved={rerunGeometryPreflightAfterCorrection}
+                            preflightJobId={geometryPreflightJob.id}
+                            uploadId={ready.uploadId}
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       <div className="importActionToolbar">
         <div className="importActionButtons">
           <button
-            aria-busy={activeAction === 'start-import'}
+            aria-busy={
+              activeAction === 'start-import' || activeAction === 'start-ready'
+            }
             className="primaryButton"
-            disabled={busy || selection?.selectionToken == null}
-            onClick={() => void startImport()}
+            disabled={
+              busy ||
+              (preflight === null &&
+                (readyUploadId !== null || selection?.selectionToken == null)) ||
+              (preflight !== null &&
+                (geometryPreflightJob?.status !== 'completed' ||
+                  geometryPreflightJob.progress.review > 0 ||
+                  geometryManifestChecksum === null))
+            }
+            onClick={() =>
+              void (preflight === null ? startImport() : startReadyImport())
+            }
             type="button"
           >
-            {activeAction === 'start-import'
+            {activeAction === 'start-import' || activeAction === 'start-ready'
               ? 'Uruchamianie…'
-              : 'Rozpocznij import'}
+              : preflight === null
+                ? 'Rozpocznij import'
+                : 'Rozpocznij import z raportu'}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"
@@ -581,13 +1017,20 @@ export function ImageFolderImportPanel({
             <dl>
               <div>
                 <dt>Rozpocznij import</dt>
-                <dd>Tworzy job po poprawnym wyborze folderu.</dd>
+                <dd>Tworzy job dopiero po aktualnym raporcie preflight.</dd>
               </div>
               <div>
                 <dt>Wybierz folder</dt>
                 <dd>
                   Otwiera natywne okno przeglądarki i przesyła JPEG-i do
-                  lokalnego API.
+                  trwałego stagingu lokalnego API.
+                </dd>
+              </div>
+              <div>
+                <dt>Gotowy staging</dt>
+                <dd>
+                  Pozwala wznowić raport lub usunąć staging po restarcie API bez
+                  ponownego uploadu.
                 </dd>
               </div>
               <div>
@@ -744,17 +1187,44 @@ export function ImageFolderImportPanel({
           </p>
         ) : (
           <ul className="importCompactList">
-            {jobs.slice(0, 5).map((job) => (
-              <li key={job.id}>
-                <strong>
-                  {job.inputPayload.sourceDisplayName ?? 'Import obrazów'}
-                </strong>
-                <span>
-                  {job.status} · {job.progress.current}/
-                  {job.progress.total ?? '—'}
-                </span>
-              </li>
-            ))}
+            {jobs.slice(0, 5).map((job) => {
+              const outcome = imageImportOutcome(job);
+              return (
+                <li key={job.id}>
+                  <strong>
+                    {job.inputPayload.sourceDisplayName ?? 'Import obrazów'}
+                  </strong>
+                  <span>
+                    {job.status} · {job.progress.current}/
+                    {job.progress.total ?? '—'}
+                  </span>
+                  {outcome === null ? null : (
+                    <span>
+                      Pipeline zdjęć: {outcome.pipelineImages}/
+                      {outcome.sourceCount} · poprawne {outcome.succeededImages}{' '}
+                      · błędy {outcome.failedImages} · plansze do review{' '}
+                      {outcome.reviewBoards}
+                    </span>
+                  )}
+                  {outcome !== null && outcome.failedImages > 0 ? (
+                    <small role="alert">
+                      Wynik jest niekompletny: część zdjęć nie utworzyła plansz.
+                    </small>
+                  ) : null}
+                  {!['created', 'processing'].includes(job.status) ? (
+                    <button
+                      aria-busy={activeAction === 'reprocess-import'}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void reprocessImport(job)}
+                      type="button"
+                    >
+                      Przetwórz ponownie z oryginałów
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

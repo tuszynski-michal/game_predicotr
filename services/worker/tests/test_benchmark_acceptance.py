@@ -35,9 +35,7 @@ def repository_report() -> dict[str, object]:
             "logicalContentSha256": EXPECTED_LOGICAL_CONTENT_SHA256,
             "snapshotFileSha256": EXPECTED_SNAPSHOT_FILE_SHA256,
         },
-        "measurements": {
-            "cyclicNMinusOne": {"rowCount": EXPECTED_LAYOUT_COUNT - 1}
-        },
+        "measurements": {"cyclicNMinusOne": {"rowCount": EXPECTED_LAYOUT_COUNT - 1}},
     }
 
 
@@ -159,9 +157,7 @@ def test_missing_physical_evidence_blocks_without_inventing_a_decision() -> None
 
     assert result.status == "blocked"
     assert result.architecture_decision == "pending_device_evidence"
-    assert {
-        check.check_id for check in result.checks if check.status == "missing"
-    } >= {
+    assert {check.check_id for check in result.checks if check.status == "missing"} >= {
         "android_pixel_10_pro_xl",
         "release_panel_to_ready_apk",
     }
@@ -174,10 +170,7 @@ def test_complete_evidence_retains_existing_adapter_and_passes() -> None:
     )
 
     assert result.status == "passed"
-    assert (
-        result.architecture_decision
-        == "retain_text_signature_and_typescript_adapter"
-    )
+    assert result.architecture_decision == "retain_text_signature_and_typescript_adapter"
     assert all(check.status == "passed" for check in result.checks)
 
 
@@ -194,9 +187,7 @@ def test_device_budget_failure_requires_adapter_change() -> None:
 
     assert result.status == "failed"
     assert result.architecture_decision == "adapter_change_required"
-    pixel = next(
-        check for check in result.checks if check.check_id == "android_pixel_10_pro_xl"
-    )
+    pixel = next(check for check in result.checks if check.check_id == "android_pixel_10_pro_xl")
     assert pixel.status == "failed"
     assert "Target E2E" in pixel.summary
 

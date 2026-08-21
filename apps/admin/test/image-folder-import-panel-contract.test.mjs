@@ -23,12 +23,30 @@ test('distinguishes the active import operation from a disabled prerequisite', (
   assert.match(panelSource, /activeAction === 'choose-folder'/);
   assert.match(panelSource, /activeAction === 'start-import'/);
   assert.match(panelSource, /activeAction === 'refresh-status'/);
+  assert.match(panelSource, /activeAction === 'reprocess-import'/);
   assert.match(panelSource, /finally \{\s*setActiveAction\(null\)/);
   assert.match(globalStyles, /button:disabled \{\s*cursor: not-allowed;/);
   assert.match(
     globalStyles,
     /button\[aria-busy='true'\] \{\s*cursor: progress;/,
   );
+});
+
+test('reports incomplete board creation and offers managed-original reprocessing', () => {
+  assert.match(panelSource, /Pipeline zdjęć:/);
+  assert.match(panelSource, /Wynik jest niekompletny/);
+  assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
+  assert.match(panelSource, /reprocessImageFolderImport/);
+});
+
+test('recovers finalized staging and requires a checksum-bound preflight start', () => {
+  assert.match(panelSource, /listReadyBrowserImageSelections/);
+  assert.match(panelSource, /previewReadyBrowserImageImport/);
+  assert.match(panelSource, /startReadyBrowserImageImport/);
+  assert.match(panelSource, /Gotowy staging do wznowienia/);
+  assert.match(panelSource, /Rozpocznij import z raportu/);
+  assert.match(panelSource, /utworzony — oczekuje na worker/);
+  assert.match(panelSource, /Usuń nieużywany staging/);
 });
 
 test('provides styled actions and accessible import help', () => {

@@ -223,16 +223,12 @@ def _handler_factory(
                 if parsed.path == "/api/boards":
                     self._send_json(
                         HTTPStatus.OK,
-                        application.board_state(
-                            parse_qs(parsed.query, keep_blank_values=True)
-                        ),
+                        application.board_state(parse_qs(parsed.query, keep_blank_values=True)),
                     )
                     return
                 board_prefix = "/api/boards/"
                 if parsed.path.startswith(board_prefix):
-                    content, checksum = application.board(
-                        parsed.path[len(board_prefix) :]
-                    )
+                    content, checksum = application.board(parsed.path[len(board_prefix) :])
                     self._send_bytes(
                         HTTPStatus.OK,
                         content,
@@ -265,6 +261,11 @@ def _handler_factory(
         def do_POST(self) -> None:  # noqa: N802
             try:
                 self._authorize(application)
+            except Exception as error:  # drain a bounded body before a Windows socket close
+                self._discard_request_body()
+                self._send_error(error)
+                return
+            try:
                 parsed = urlsplit(self.path)
                 result = application.post(parsed.path, self._json_body())
                 self._send_json(HTTPStatus.OK, result)
@@ -314,6 +315,14 @@ def _handler_factory(
             if not isinstance(value, dict):
                 raise _invalid_request("JSON body must be an object.")
             return value
+
+        def _discard_request_body(self) -> None:
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                return
+            if 0 < content_length <= _MAX_REQUEST_BYTES:
+                self.rfile.read(content_length)
 
         def _send_error(self, error: Exception) -> None:
             if isinstance(error, SymbolReviewHttpError):

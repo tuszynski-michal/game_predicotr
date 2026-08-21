@@ -6,7 +6,9 @@ import type {
   OperationalImageReviewGeometryCommand,
   OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryPreviewCommand,
+  OperationalImageReviewPageResponse,
   OperationalImageReviewResolutionCommand,
+  OperationalImageReviewResolutionResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -79,6 +81,7 @@ export function operationalReviewStatusLabel(status: string): string {
     corrected: 'Poprawiona',
     pending: 'Do weryfikacji',
     rejected: 'Odrzucona',
+    superseded: 'Zastąpiona wcześniejszą decyzją',
   };
   return labels[status] ?? `Nieznany status: ${status}`;
 }
@@ -95,16 +98,19 @@ export function updateOperationalReviewCounts(
   let accepted = counts.accepted;
   let corrected = counts.corrected;
   let rejected = counts.rejected;
+  let superseded = counts.superseded;
 
   if (previousStatus === 'pending') pending = Math.max(0, pending - 1);
   if (previousStatus === 'accepted') accepted = Math.max(0, accepted - 1);
   if (previousStatus === 'corrected') corrected = Math.max(0, corrected - 1);
   if (previousStatus === 'rejected') rejected = Math.max(0, rejected - 1);
+  if (previousStatus === 'superseded') superseded = Math.max(0, superseded - 1);
 
   if (nextStatus === 'pending') pending += 1;
   if (nextStatus === 'accepted') accepted += 1;
   if (nextStatus === 'corrected') corrected += 1;
   if (nextStatus === 'rejected') rejected += 1;
+  if (nextStatus === 'superseded') superseded += 1;
 
   return {
     accepted,
@@ -112,6 +118,7 @@ export function updateOperationalReviewCounts(
     corrected,
     pending,
     rejected,
+    superseded,
     total: counts.total,
   };
 }
@@ -184,6 +191,173 @@ export function operationalReviewKeyboardAction(
   return symbol === null
     ? { type: 'none' }
     : { symbolCode: symbol.code, type: 'set-symbol' };
+}
+
+export function operationalReviewResolutionIdempotencyKey(
+  currentKey: string | null,
+  createKey: () => string,
+): string {
+  return currentKey ?? createKey();
+}
+
+export function operationalReviewPageAfterResolution(
+  page: OperationalImageReviewPageResponse,
+  resolution: OperationalImageReviewResolutionResponse,
+): OperationalImageReviewPageResponse {
+  return {
+    ...page,
+    counts: resolution.counts,
+    items: [resolution.item],
+    queueVersion: resolution.queueVersion,
+  };
+}
+
+export const OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT = 2;
+
+export interface OperationalReviewPageBuffer {
+  readonly current: OperationalImageReviewPageResponse | null;
+  readonly next: readonly OperationalImageReviewPageResponse[];
+  readonly previous: OperationalImageReviewPageResponse | null;
+}
+
+export function createOperationalReviewPageBuffer(
+  current: OperationalImageReviewPageResponse | null,
+): OperationalReviewPageBuffer {
+  return { current, next: [], previous: null };
+}
+
+export function operationalReviewPageBufferSetPrevious(
+  buffer: OperationalReviewPageBuffer,
+  previous: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null || buffer.previous !== null) return buffer;
+  const reviewItemId = previous.items[0]?.id;
+  if (
+    reviewItemId === undefined ||
+    reviewItemId === buffer.current.items[0]?.id ||
+    buffer.next.some((page) => page.items[0]?.id === reviewItemId)
+  ) {
+    return buffer;
+  }
+  return {
+    ...buffer,
+    previous: operationalReviewPageWithQueueSnapshot(previous, buffer.current),
+  };
+}
+
+export function operationalReviewPageBufferAppendNext(
+  buffer: OperationalReviewPageBuffer,
+  next: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (
+    buffer.current === null ||
+    buffer.next.length >= OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT
+  ) {
+    return buffer;
+  }
+  const reviewItemId = next.items[0]?.id;
+  if (
+    reviewItemId === undefined ||
+    reviewItemId === buffer.current.items[0]?.id ||
+    reviewItemId === buffer.previous?.items[0]?.id ||
+    buffer.next.some((page) => page.items[0]?.id === reviewItemId)
+  ) {
+    return buffer;
+  }
+  return {
+    ...buffer,
+    next: [
+      ...buffer.next,
+      operationalReviewPageWithQueueSnapshot(next, buffer.current),
+    ],
+  };
+}
+
+export function operationalReviewPageBufferAdvance(
+  buffer: OperationalReviewPageBuffer,
+): OperationalReviewPageBuffer {
+  const current = buffer.current;
+  const next = buffer.next[0];
+  if (current === null || next === undefined) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    {
+      current: next,
+      next: buffer.next.slice(1),
+      previous: current,
+    },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferRetreat(
+  buffer: OperationalReviewPageBuffer,
+): OperationalReviewPageBuffer {
+  const current = buffer.current;
+  const previous = buffer.previous;
+  if (current === null || previous === null) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    {
+      current: previous,
+      next: [current, ...buffer.next].slice(
+        0,
+        OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT,
+      ),
+      previous: null,
+    },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferReplaceCurrent(
+  buffer: OperationalReviewPageBuffer,
+  current: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null) return buffer;
+  return operationalReviewPageBufferWithQueueSnapshot(
+    { ...buffer, current },
+    current,
+  );
+}
+
+export function operationalReviewPageBufferAfterResolution(
+  buffer: OperationalReviewPageBuffer,
+  resolution: OperationalImageReviewResolutionResponse,
+): OperationalReviewPageBuffer {
+  if (buffer.current === null) return buffer;
+  return operationalReviewPageBufferReplaceCurrent(
+    buffer,
+    operationalReviewPageAfterResolution(buffer.current, resolution),
+  );
+}
+
+function operationalReviewPageBufferWithQueueSnapshot(
+  buffer: OperationalReviewPageBuffer,
+  snapshot: OperationalImageReviewPageResponse,
+): OperationalReviewPageBuffer {
+  return {
+    current:
+      buffer.current === null
+        ? null
+        : operationalReviewPageWithQueueSnapshot(buffer.current, snapshot),
+    next: buffer.next
+      .slice(0, OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT)
+      .map((page) => operationalReviewPageWithQueueSnapshot(page, snapshot)),
+    previous:
+      buffer.previous === null
+        ? null
+        : operationalReviewPageWithQueueSnapshot(buffer.previous, snapshot),
+  };
+}
+
+function operationalReviewPageWithQueueSnapshot(
+  page: OperationalImageReviewPageResponse,
+  snapshot: OperationalImageReviewPageResponse,
+): OperationalImageReviewPageResponse {
+  return {
+    ...page,
+    counts: snapshot.counts,
+    queueVersion: snapshot.queueVersion,
+  };
 }
 
 export function operationalReviewDraftSymbols(
@@ -259,7 +433,11 @@ export function operationalReviewGeometryCorners(
 ): OperationalReviewGeometryCorners {
   const geometry = item.geometry;
   const raw =
-    geometry.sourceQuad ?? geometry.quad ?? geometry.corners ?? undefined;
+    geometry.latticeBoundsQuad ??
+    geometry.sourceQuad ??
+    geometry.quad ??
+    geometry.corners ??
+    undefined;
   if (Array.isArray(raw) && raw.length === 4) {
     const parsed = raw.map(parseGeometryPoint);
     if (parsed.every((point) => point !== null)) {
@@ -273,6 +451,63 @@ export function operationalReviewGeometryCorners(
     { x: imageWidth - insetX - 1, y: insetY },
     { x: imageWidth - insetX - 1, y: imageHeight - insetY - 1 },
     { x: insetX, y: imageHeight - insetY - 1 },
+  ];
+}
+
+export function operationalReviewPointInLattice(
+  corners: OperationalReviewGeometryCorners,
+  columnRatio: number,
+  rowRatio: number,
+): OperationalImageReviewGeometryPoint {
+  const [topLeft, topRight, bottomRight, bottomLeft] = corners;
+  if (columnRatio === 0 && rowRatio === 0) return topLeft;
+  if (columnRatio === 1 && rowRatio === 0) return topRight;
+  if (columnRatio === 1 && rowRatio === 1) return bottomRight;
+  if (columnRatio === 0 && rowRatio === 1) return bottomLeft;
+  const dx1 = topRight.x - bottomRight.x;
+  const dx2 = bottomLeft.x - bottomRight.x;
+  const dx3 = topLeft.x - topRight.x + bottomRight.x - bottomLeft.x;
+  const dy1 = topRight.y - bottomRight.y;
+  const dy2 = bottomLeft.y - bottomRight.y;
+  const dy3 = topLeft.y - topRight.y + bottomRight.y - bottomLeft.y;
+  const determinant = dx1 * dy2 - dx2 * dy1;
+  let projectiveX = 0;
+  let projectiveY = 0;
+  if (Math.abs(determinant) > Number.EPSILON) {
+    projectiveX = (dx3 * dy2 - dx2 * dy3) / determinant;
+    projectiveY = (dx1 * dy3 - dx3 * dy1) / determinant;
+  }
+  const scale = projectiveX * columnRatio + projectiveY * rowRatio + 1;
+  if (!Number.isFinite(scale) || Math.abs(scale) <= Number.EPSILON) {
+    return {
+      x:
+        topLeft.x +
+        (topRight.x - topLeft.x) * columnRatio +
+        (bottomLeft.x - topLeft.x) * rowRatio,
+      y:
+        topLeft.y +
+        (topRight.y - topLeft.y) * columnRatio +
+        (bottomLeft.y - topLeft.y) * rowRatio,
+    };
+  }
+  const a = topRight.x - topLeft.x + projectiveX * topRight.x;
+  const b = bottomLeft.x - topLeft.x + projectiveY * bottomLeft.x;
+  const d = topRight.y - topLeft.y + projectiveX * topRight.y;
+  const e = bottomLeft.y - topLeft.y + projectiveY * bottomLeft.y;
+  return {
+    x: (a * columnRatio + b * rowRatio + topLeft.x) / scale,
+    y: (d * columnRatio + e * rowRatio + topLeft.y) / scale,
+  };
+}
+
+export function operationalReviewGeometryEdgeHandles(
+  corners: OperationalReviewGeometryCorners,
+): OperationalReviewGeometryCorners {
+  return [
+    operationalReviewPointInLattice(corners, 0.5, 0),
+    operationalReviewPointInLattice(corners, 1, 0.5),
+    operationalReviewPointInLattice(corners, 0.5, 1),
+    operationalReviewPointInLattice(corners, 0, 0.5),
   ];
 }
 
@@ -317,6 +552,12 @@ export function operationalReviewNativeContextViewport(
 ): OperationalReviewGeometryViewport {
   const boundedWidth = Math.max(1, Math.round(imageWidth));
   const boundedHeight = Math.max(1, Math.round(imageHeight));
+  const retainedViewport = parseGeometryViewport(
+    item.geometry.sourceContextBounds,
+    boundedWidth,
+    boundedHeight,
+  );
+  if (retainedViewport !== null) return retainedViewport;
   const board = operationalReviewGeometryCorners(
     item,
     boundedWidth,
@@ -520,6 +761,7 @@ export function operationalReviewAssetUrl(
   asset: OperationalReviewAssetKind,
   options: {
     readonly cellIndex?: number;
+    readonly usage?: string;
     readonly version?: string;
   } = {},
 ): string {
@@ -534,6 +776,7 @@ export function operationalReviewAssetUrl(
       importJobId: context.importJobId,
     });
     if (options.version !== undefined) query.set('v', options.version);
+    if (options.usage !== undefined) query.set('usage', options.usage);
     return `${base}${assetPath}?${query.toString()}`;
   }
   const url = new URL(assetPath, base);
@@ -542,7 +785,80 @@ export function operationalReviewAssetUrl(
   if (options.version !== undefined) {
     url.searchParams.set('v', options.version);
   }
+  if (options.usage !== undefined) {
+    url.searchParams.set('usage', options.usage);
+  }
   return url.toString();
+}
+
+export function operationalReviewBufferedAssetUrls(
+  apiBaseUrl: string,
+  importJobId: string,
+  buffer: OperationalReviewPageBuffer,
+): readonly string[] {
+  const pages = [
+    ...(buffer.previous === null ? [] : [buffer.previous]),
+    ...buffer.next.slice(0, OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT),
+  ];
+  const urls = new Set<string>();
+  for (const page of pages) {
+    const item = page.items[0];
+    if (item === undefined) continue;
+    const context = { gameId: item.gameId, importJobId };
+    for (const cell of item.cells) {
+      urls.add(
+        operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'cell', {
+          cellIndex: cell.cellIndex,
+          version: cell.cropChecksumSha256,
+        }),
+      );
+    }
+    urls.add(
+      item.geometry.displayAssetKind === 'source_context'
+        ? operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'board', {
+            version: item.boardChecksumSha256,
+          })
+        : operationalReviewAssetUrl(apiBaseUrl, context, item.id, 'source', {
+            usage: 'native-context-v2',
+            version: item.sourceChecksumSha256,
+          }),
+    );
+  }
+  return [...urls];
+}
+
+function parseGeometryViewport(
+  value: unknown,
+  imageWidth: number,
+  imageHeight: number,
+): OperationalReviewGeometryViewport | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as {
+    readonly height?: unknown;
+    readonly width?: unknown;
+    readonly x?: unknown;
+    readonly y?: unknown;
+  };
+  if (
+    !isNonNegativeFiniteNumber(candidate.x) ||
+    !isNonNegativeFiniteNumber(candidate.y) ||
+    !isNonNegativeFiniteNumber(candidate.width) ||
+    !isNonNegativeFiniteNumber(candidate.height) ||
+    candidate.width <= 0 ||
+    candidate.height <= 0
+  ) {
+    return null;
+  }
+  const x = Math.min(imageWidth - 1, Math.round(candidate.x));
+  const y = Math.min(imageHeight - 1, Math.round(candidate.y));
+  const right = Math.min(imageWidth, x + Math.round(candidate.width));
+  const bottom = Math.min(imageHeight, y + Math.round(candidate.height));
+  return {
+    height: Math.max(1, bottom - y),
+    width: Math.max(1, right - x),
+    x,
+    y,
+  };
 }
 
 export function operationalReviewJobLabel(job: JobResponse): string {

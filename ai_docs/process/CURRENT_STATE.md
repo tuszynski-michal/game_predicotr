@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-12
+last_updated: 2026-08-21
 ---
 
 # Current State
@@ -13,7 +13,49 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.5 closed by owner; Version 0.6 planning starts with Games and Layout Import workspaces`
+`Version 0.6 implementation: source-native Layout Import quality and completeness`
+
+### Domykanie statusu importu po review — v0.6.79
+
+- Migracja `0053_image_review_job_completion` wiąże status gotowego importu z
+  trwałym `image_review_queue_states`: ostatnia rozwiązana plansza przełącza
+  `waiting_for_review -> completed` i ustawia `finished_at`.
+- Ponowne otwarcie planszy przez korektę geometrii wykonuje przejście odwrotne i
+  czyści `finished_at`; ukończony import nadal pozostaje dostępny do audytu.
+- Backfill obejmuje historyczne importy z `total_count > 0` i
+  `pending_count = 0`. Po lokalnej migracji rzeczywisty import `50cfdcad…` ma
+  status `completed`, `63 corrected` i zero pending. Duży import `b2d9b299…`
+  zachował `waiting_for_review`; przy kontroli miał `19 707 pending`.
+
+### Przyrostowy import layoutów — implementacja v0.6.34–v0.6.37
+
+- Dodano kanoniczną projekcję `game_id + sequence_number` oraz migracje
+  `0045_canonical_image_sequences`, `0046_image_symbol_prediction_revisions`
+  i `0047_pending_symbol_reinference_job`. Zatwierdzony lub poprawiony numer
+  nie może zostać ponownie otwarty przez kolejny import; alternatywne źródło
+  jest zapisywane wyłącznie jako metadana.
+- Import tworzy snapshot znanych numerów, udostępnia preflight `seq_*` i przed
+  rejestracją pomija kompletne, już rozwiązane źródła. Źródła częściowe są
+  przetwarzane tylko dla brakujących pozycji. Job zapisuje ten snapshot w
+  `canonical_sequence_numbers`, więc restart nie zmienia decyzji.
+- Review ma dodatkową kanoniczną kolejkę gry sortowaną po numerze sekwencji
+  (`/admin/image-review-items/canonical/{game_id}`); kolejka ukrywa numery już
+  zajęte przez kanoniczny rejestr. Job-local review pozostaje dostępny do audytu.
+- Uzgodnienia zaakceptowane podczas retry wygrywają z automatem. Starsze
+  oczekujące duplikaty są oznaczane jako `reused_accepted`, a zapis stagingu
+  jest usuwany.
+- Dodano jawny job `image_symbol_reinference`. Worker czyta istniejące cropy,
+  zapisuje append-only rewizje predykcji i przed każdym zapisem blokuje pozycję;
+  akceptacja/correction/reject wykonana równolegle jest pomijana. Oryginalne
+  obserwacje, decyzje i checksumy nie są nadpisywane.
+- Panel jakości otrzymuje diagnostykę kohorty siatki z rozbiciem na geometrię
+  automatyczną, ręcznie poprawioną, brak detekcji i niekompletne dane.
+- Dodano jawny job `image_grid_reinference` oraz podgląd i przycisk
+  `Przelicz oczekujące`. Worker ponownie wykrywa siatkę i tworzy source-native
+  cropy tylko dla pozycji `pending`, zapisując rewizję geometrii; decyzje
+  `accepted/corrected/rejected` są chronione blokadą i nie są modyfikowane.
+- Przeliczenie symboli korzysta z najnowszej rewizji cropów geometrii, więc po
+  odświeżeniu siatki nie wymaga ponownego importu ani OCR.
 
 ## Zamknięcie wersji 0.5
 
@@ -29,6 +71,305 @@ layoutów, kolejne gry i końcowy hardening pozostają jawnie odroczone.
 się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 
 ## Aktywne tory wydań
+
+### Wersja 0.6
+
+- TASK-0241 wprowadza domyślny `fast-image-selector-v10.10` o fingerprintcie
+  `282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f`;
+  v10.9 zachowuje fingerprint `6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720`,
+- v10.10 czyta etykiety ze wszystkich trzech rzędów, odrzuca częściową kotwicę
+  bez obserwowanej planszy w górnym rzędzie, kontroluje zgodność modulo 9 z
+  początkiem zbioru i rozdziela tylko udowodnione kolejne zakresy ukryte w jednej
+  grupie wyglądu,
+- anulowany run v10.9 źródła `200557 - 222912` zatrzymał się na
+  `24 896 / 42 422`; staging `31ea25c9-c1a8-425d-9756-15bd597ee9c4` został
+  zachowany, a dalsza kolejka operatorska jest wstrzymana do startu świeżego
+  runu v10.10,
+- regresja pięciu realnych JPEG-ów przeszła `5/5`, w tym poprawne
+  `208090–208098` i `208108–208116` zamiast wcześniejszych przesunięć o trzy;
+  profil pierwszych 1440 zdjęć trwał `159,84 s` i zakończył 101 grup jako 88
+  automatycznych, 12 duplikatów oraz 1 przypadek ręczny, bez zakresu spoza
+  siatki i bez podwójnego automatycznego zakresu,
+- profil nie syntetyzuje trzech zakresów bez rozpoznanego JPEG-a:
+  `200710–200718`, `200800–200808` i `201367–201375`; jest to jawny brak
+  dowodu w próbce, nie błąd automatycznie przypisanego numeru,
+- TASK-0231 rozpoczął implementację od jakości i kompletności `Importu
+layoutów`; nie zmienia ani nie zatrzymuje trwających runów selekcji zdjęć,
+- detektor v3 dopuszcza częściową rekonstrukcję siatki 3 × 3 wyłącznie przy
+  jednej jednoznacznej hipotezie; przypadek wieloznaczny nadal jest fail-closed,
+- cropper v17 nie materializuje rozciągniętej planszy `500 × 300`: zapisuje
+  natywny osiowy kontekst ze źródła, a każdą komórkę projektuje bezpośrednio do
+  rozmiaru wejścia modelu w jednym resamplingu,
+- Reviewer pokazuje nowy source-native context bez transformacji, zachowując
+  kompatybilny viewport dla historycznych importów,
+- Admin rozdziela liczbę przetworzonych zdjęć od liczby plansz do review,
+  ostrzega o niekompletnym wyniku i pozwala utworzyć nowy job z zachowanych
+  managed originals bez ponownego uploadu,
+- ciągłość strony może naprawić pojedynczy brak albo błąd OCR tylko przy co
+  najmniej trzech zgodnych kotwicach i jednoznacznej przewadze; raw OCR pozostaje
+  zachowany osobno,
+- rzeczywista regresja importu `04909a56-edc6-42b5-860e-70c662189d1d` została
+  odtworzona na siedmiu managed originals: wynik v0.6 to 63 plansze, 945 komórek
+  i ciąg `1–63`, zamiast wcześniejszych 9 plansz,
+- lista procesów selekcji pokazuje krótką datę, wersję silnika i zagregowany
+  zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
+- TASK-0242 zachowuje `fast-image-selector-v10.11` o fingerprintcie
+  `a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`
+  oraz `fast-image-selector-v10.12` o fingerprintcie
+  `d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`
+  i wprowadza domyślny `fast-image-selector-v10.13` o fingerprintcie
+  `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`
+  oraz idempotentny run pochodny dla 748 historycznych grup
+  `range_required`; naprawa nie ufa starym
+  granicom ani reprezentantowi, lecz przebudowuje lokalne bloki z pełnej
+  kolejności kandydatów i zachowuje źródłowy run bez zmian,
+- worker i narzędzie dry-run używają tej samej czystej funkcji recovery;
+  lokalny blok zachowuje globalną kontrolę modulo 9, ale nie jest błędnie
+  kotwiczony jako początek całego zbioru. Automatyczny wynik jest dodatkowo
+  cofany do `range_required`, jeżeli reprezentant nie potwierdza zakresu własnym
+  OCR albo zakres pochodzi wyłącznie z kotwicy/kontynuacji,
+- manualne ustalanie zakresu pozwala zmienić JPEG, podać tylko początek
+  (domyślny koniec `+8`), opcjonalnie skrócić ostatnią grupę albo ją odrzucić;
+  modal nie wykonuje już pełnego reconcile folderu przed otwarciem,
+- dry-run ma trwały kontrakt raportu, sprawdza 748 grup, snapshot źródła,
+  unikalność JPEG-ów i zakresów, pochodzenie oraz własny dowód reprezentanta.
+  Losowanie 100-elementowej próby jest deterministyczne i wymaga osobnego
+  audytu właściciela z zerem błędnych zakresów,
+- run v10.10 `200557 - 222912` zakończył 42 422 / 42 422 w 14 823,171 s:
+  3813 grup, 1967 wyników automatycznych, 512 manualnych, 1294 pominięte i zero
+  błędów. Kontroler zatrzymał się naturalnie, stare API zostało zamknięte, a
+  baza jest na migracji `0043_image_selection_sequence_bounds`,
+- pełny dry-run v10.11 przeanalizował 748 grup, 32 079 JPEG-ów i 39 bloków w
+  5350,894 s bez zmiany snapshotu źródła. Wynik 1880 automatycznych, 5
+  `range_confirmed`, 283 `range_required` i 127 `skipped_existing_range` nie
+  zaliczył limitu 14 oraz wykrył jeden `DUPLICATE_OUTPUT_RANGE`, dlatego run
+  pochodny nie został utworzony,
+- analiza niezaliczonego dry-runu wykazała, że 282 przypadki kończyły jako
+  `RANGE_LABEL_LATTICE_INCOMPLETE`, a 252 nie miały żadnej alternatywnej
+  hipotezy. V10.12 dopuszcza dwie etykiety od `0.90` tylko jako słaby dowód
+  wymagający zgodności dwóch różnych checksum i globalnie uzgadnia duplikaty
+  zakresów pomiędzy lokalnymi blokami. Konflikty i pojedynczy JPEG pozostają
+  fail-closed,
+- walidacja v10.12 przeszła 696 testów w pełnym przebiegu workera;
+  jedyny niezależny test HTTP przerwany chwilowym `WinError 10053` przeszedł
+  `1/1` przy natychmiastowej powtórce. Przeszły też 332 wykonane testy API (24
+  świadomie pominięte), 198 testów Admina, skupiony Ruff/mypy, kontrola OpenAPI,
+  ESLint i typecheck Admina,
+- analiza liczności ujawniła, że źródło `1–19809` ma 2295 fizycznych fragmentów,
+  lecz v10.12 zachowywał tylko 2167 logicznych właścicieli zamiast wymaganych 2201. V10.13 zapisuje inkluzywny koniec sekwencji, wylicza grupy jako
+  `ceil((abs(last-first)+1)/9)` i uzgadnia pełną projekcję z ciągłą siatką;
+  decyzje użytkownika są twardymi ograniczeniami, a duże false merge wracają do
+  segmentacji,
+- ostateczny dry-run v10.13 na 32 079 zachowanych JPEG-ach zakończył 50 bloków
+  oraz 24 684 kandydatów bez błędów skanu i problemów strukturalnych. Projekcja
+  ma 2298 fizycznych fragmentów: 2181 automatycznych, 15 manualnych, 5 wcześniej
+  potwierdzonych i 97 duplikatów, czyli dokładnie 2201 logicznych właścicieli.
+  Nie pozostał żaden `range_required`; automatyczne bramki przeszły. Powtórka z
+  7840/7840 trafieniami cache trwała 105,395 s,
+- twarda bramka pokrycia potwierdziła, że wszystkie `2201/2201` logiczne grupy
+  mają co najmniej jeden rzeczywisty JPEG z manifestu 32 079 plików; liczba grup
+  pustych oraz referencji spoza manifestu wynosi zero,
+- `readyForRecoveryCreation=false` wynika już tylko z oczekującego audytu
+  właściciela na deterministycznej próbie 100 wyników. Kolejka i utworzenie runu
+  pochodnego pozostają wstrzymane do audytu z zerem błędnych zakresów.
+- Etap `v0.6.11` normalizuje całe repozytorium aktualnymi konfiguracjami
+  Prettier i Ruff Formatter. Pełne kontrole formatowania, lint wszystkich
+  workspace'ów, Ruff, składnia 32 skryptów PowerShell oraz mypy dla 327 modułów
+  przechodzą. Usunięto też flakiness lokalnego serwera symbol review na Windows:
+  wczesne 403 opróżnia ograniczone body POST przed odpowiedzią, dzięki czemu
+  socket nie jest zamykany przez RST; scenariusz przeszedł 10/10 powtórzeń.
+- Po formatowaniu przeszły testy Admina 198/198, Mobile 82/82, Reviewera 23/23,
+  klienta API 37/37 i shared-ts 24/24. Pełny przebieg Python doszedł do 98% z
+  jedynym `WinError 10053`; po trwałej naprawie sam plik przeszedł 5/5, test
+  krytyczny 10/10, a cały końcowy segment workera 40/40. OpenAPI, snapshot oraz
+  fixture validation również przechodzą.
+- Etap `v0.6.12` rozszerza rerun istniejącego managed stagingu o jawny
+  `lastSequenceNumber`. Historyczny staging 32 079 JPEG-ów może dzięki temu
+  utworzyć pełny run v10.13 z zakresem `1–19809`, oczekiwaną liczbą 2201 grup i
+  odrębnym kontrolowanym PID/reportem, bez ponownego uploadu ani dziedziczenia
+  pustego końca ze starego runu.
+- Walidacja v0.6.12: 334 testy API przeszły, 24 integracje środowiskowe zostały
+  jawnie pominięte; pełny Ruff potwierdził format 518 plików i brak lint errors,
+  parser zaakceptował 33 skrypty PowerShell, mypy przeszedł 327 modułów, a
+  OpenAPI i wygenerowany klient Admina pozostają aktualne.
+- Etap `v0.6.13` atomizuje końcowy zapis uzgodnionej projekcji v10.13. Worker
+  zwalnia modyfikowalne automatyczne zakresy przed ich ponownym przypisaniem,
+  zachowuje decyzje użytkownika i przed commitem sprawdza dokładną liczność oraz
+  siatkę. Konflikt ma stabilny kod
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`, a checkpoint używa już
+  projekcji po reconciliacji. Manifest i fingerprint v10.13 pozostają bez zmian.
+- Raport operatorski schema v3 zawiera oczekiwane/rzeczywiste grupy logiczne,
+  duplikaty, dokładne statusy, brakujące/powtórzone/pozasiatkowe zakresy i osobną
+  bramkę plików. Terminalny eksport wraca do pierwszej grupy, obejmuje
+  `range_confirmed` i usuwa wyłącznie stare `seq_*.jpg`; job nieudany jest
+  audytowany bez mutowania wyników.
+- Walidacja v0.6.13: 709 testów workera i 334 wykonywalne testy API przeszły;
+  25 testów API pominięto zgodnie z warunkami środowiskowymi, a nowa regresja na
+  izolowanym PostgreSQL przeszła 1/1. Ruff potwierdził format 518 plików i brak
+  lint errors, mypy przeszedł 327 modułów, OpenAPI i generowany klient są
+  aktualne.
+- Próba wznowienia pełnego runu na v0.6.13 ujawniła drugi wariant tego samego
+  problemu: grupa automatyczna zmieniała reprezentanta, ale stary element
+  `top_candidates` nadal miał historyczne `selected_automatic` lub
+  `selected_manual`, co kolidowało z
+  `uq_image_selection_candidates_selected_group`. Transakcja poprawnie wykonała
+  rollback i raport v3 nie uznał częściowego eksportu za wynik.
+- Etap `v0.6.14` zwalnia przed końcowym zapisem także sloty kandydatów wszystkich
+  niechronionych grup, traktuje `selected_candidate` jako jedyne źródło wyboru i
+  po zapisie kontroluje dokładnie jednego reprezentanta każdej gotowej grupy.
+  Diagnostyczna transakcja na rzeczywistych 2298 grupach przeszła w 81,5 s i
+  została celowo wycofana bez zmiany bazy. Regresja PostgreSQL przeszła 1/1,
+  testy skupione 24/24; pełny worker zakończył 709 testów poprawnie, a jedyny
+  niezależny `WinError 10053` przeszedł 1/1 przy natychmiastowej powtórce.
+- Wznowienie v0.6.14 trwale zapisało dokładnie 2298 grup fizycznych, 2201
+  logicznych właścicieli i 97 duplikatów bez luk, duplikatów zakresu ani pozycji
+  poza siatką. Job zatrzymał dopiero kolejny checkpoint kodem
+  `JOB_PROGRESS_REGRESSION`: aktualna projekcja miała 1406 gotowych i 795
+  manualnych grup, podczas gdy historyczny ogólny licznik sukcesów wynosił 1888. Etap `v0.6.15` zachowuje dokładne liczniki projekcji w checkpoint
+  payload, a ogólne liczniki joba zapisuje jako monotoniczną kopertę również w
+  retry, recovery i publikacji. Fingerprint v10.13 i wynik rozpoznawania nie
+  zmieniają się.
+- Po commicie v0.6.15 ten sam run `7ef1bffe-5dd8-4443-b8cc-77b50a5fefcd` i job
+  `ccc8db3a-0ebb-4691-a7e4-c68c9c59ddd7` zostały wznowione z checkpointu
+  `32079/32079`, bez OCR. Job zakończył jako `waiting_for_review`: 2298 grup
+  fizycznych, 2201 logicznych właścicieli, 97 duplikatów, 1406 wyborów
+  automatycznych i 795 manualnych. Brak luk, powtórzonych zakresów i pozycji poza
+  siatką; `logicalCoverageValid` oraz `outputCoverageValid` są prawdziwe, a
+  katalog `C:\Users\user\Documents\1-19809 v10.13` zawiera dokładnie 1406
+  plików dla 1406 gotowych grup. Raport:
+  `artifacts/image-selection-v1013-resume-v0615-1-19809.json`.
+- Walidacja v0.6.15: 711 testów workera, 30 testów domeny/API jobów, Ruff i mypy
+  dla 327 modułów przeszły. Jedna próba długiej transakcji została odzyskana
+  przez ten sam worker po lease i zakończyła idempotentnie na `attemptCount=6`;
+  dla kolejnych dużych projekcji czas transakcji względem lease pozostaje
+  obserwowaną metryką operatorską.
+- Następny pełny run v10.13 został uruchomiony z kompletnego historycznego
+  stagingu 42 403 JPEG-ów dla zakresu `19810–45152`, bez ponownego uploadu. Run
+  `13db48f3-7551-498c-aec2-a62016f23f3c` i job
+  `09d131ab-f1e0-4172-b372-749db511166e` zapisują do nowego katalogu
+  `C:\Users\user\Documents\19810-45152 v10.13`; oczekiwana liczba logicznych
+  grup wynosi 2816. Raport i PID state to odpowiednio
+  `artifacts/image-selection-v1013-live-19810-45152.json` oraz
+  `.runtime/live-image-selection-v1013-19810-45152.pid.json`. Nie uruchamiać
+  drugiego runu ani workera; przed ingerencją sprawdzić oba pliki i heartbeat.
+- Etap `124129–149634` na v10.13 zakończył skan wszystkich 21 211 JPEG-ów, ale
+  nie przeszedł bramki `IMAGE_SELECTION_GROUP_CARDINALITY_UNDERFLOW`: powstało
+  2678 fragmentów wobec 2834 wymaganych grup. Audyt wykazał false merge 110
+  kolejnych JPEG-ów obejmujących wiele różnych zakresów, bez błędów odczytu
+  plików. Kolejka pozostaje zatrzymana na tym etapie.
+- Domyślny selektor v10.14 nakłada dla pełnego runu limit fizycznego fragmentu
+  wyliczony z liczby źródeł i oczekiwanych grup. Dla `124129–149634` limit wynosi
+  7, co gwarantuje co najmniej 3031 fragmentów przed uzgodnieniem dokładnych
+  2834 właścicieli. Fingerprint v10.14 to
+  `f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8`;
+  v10.13 pozostaje niezmienne.
+- Izolowany rerun v10.14 `124129–149634` zakończył 21 211 / 21 211 JPEG-ów jako
+  `waiting_for_review`: 3904 fragmenty fizyczne, dokładnie 2834 grupy logiczne,
+  2743 automatyczne, 91 manualnych i 1070 duplikatów. Brak luk, powtórzeń oraz
+  pozycji poza siatką; obie bramki raportu przeszły, a błąd liczności nie
+  powrócił.
+- Run v10.14 `149626–177288` zakończył 21 211 / 21 211 JPEG-ów jako
+  `waiting_for_review`: 4273 fragmenty fizyczne, dokładnie 3074 grupy logiczne,
+  2971 automatycznych, 103 manualne i 1199 duplikatów. Selekcja trwała
+  24 377,456 s. Kolejka ma stan `paused_after_current` i nie uruchamia następnego
+  etapu podczas prac nad wydajnością.
+- Domyślny v10.15 zastępuje stały limit v10.14 adaptacyjnym
+  `ceil(remaining_sources / remaining_groups)`. Zachowuje naprawę false merge,
+  ale nie wymusza nadmiarowych fragmentów wyłącznie przez zaokrąglenie w dół.
+  Fingerprint v10.15 to
+  `70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d`;
+  v10.14 i starsze manifesty pozostają rozwiązywalne i niezmienne.
+- Domyślny v10.16 zachowuje partycjonowanie v10.15 i dodaje szybki etap OCR:
+  center-first `1 → 2 → 4`, szeroki poziom 12 oraz wymóg dwóch mocnych zgodnych
+  odczytów z różnych JPEG-ów. Słaby dowód, konflikt lub brak konsensusu wraca do
+  pełnej ścieżki z poziomem 18. Fingerprint v10.16 to
+  `15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad`.
+  Kolejka pozostaje zatrzymana do walidacji i benchmarku na tym samym stagingu.
+- Walidacja kodu v10.16 przeszła 724 testy workera, 188 testów skupionych,
+  Ruff/format dla 208 plików i mypy dla 255 modułów. Benchmark realnego stagingu
+  pozostaje jedyną bramką wydajności przed decyzją o wznowieniu kolejki.
+- Benchmark prefiksu 100 rzeczywistych JPEG-ów wykazał regresję v10.16:
+  177,692 s i 144 weryfikacje wobec 137,677 s i 101 weryfikacji v10.15.
+- Domyślny v10.17 ogranicza reprezentantów do pięciu wewnętrznych kwantyli
+  `50%, 35%, 65%, 15%, 85%`, etapami `1 → 3 → 5`. Pierwszy i ostatni JPEG nie
+  są próbkowane. Każdy JPEG przechodzi najwyżej raz przez progresywny verifier
+  `12 → 18`; nie ma drugiej ścieżki ani ponownego OCR reprezentanta.
+  Fingerprint v10.17 to
+  `1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726`.
+  Siedem próbek pozostaje wyłączone do czasu pomiaru skuteczności pięciu.
+- Kolejka nadal ma stan `paused_after_current`; wdrożenie v10.17 nie uruchomiło
+  żadnego joba ani następnego etapu.
+- Benchmark na identycznym prefiksie 100 JPEG-ów i 15 grupach zakończył v10.17
+  w `79,855540 s` oraz dokładnie 75 weryfikacjach, wobec `131,386839 s` i 101
+  weryfikacji v10.15. Zysk wall time wynosi `39,221051%`. Raport znajduje się w
+  `artifacts/image-selection-v1017-v1015-real-149626-prefix100.json`.
+- Walidacja v10.17 objęła 207 testów selektora/joba/adapterów/benchmarku, pełny
+  zestaw 733 testów workera, Ruff i Ruff Formatter dla 519 plików oraz mypy dla 328
+  modułów. W ostatnim powtórzeniu pełnego zestawu 732 testy przeszły, a
+  niezależny test niezmienności APK zaliczył natychmiastowy izolowany retry;
+  zmieniony smoke benchmark selekcji także przechodzi osobno.
+- TASK-0243 rozdziela lokalne i zdalne uruchomienie Reviewera. Przycisk
+  `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
+  tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z
+  Cloudflare, linkiem, kodem i revoke pozostaje bez zmian.
+- Lokalny Reviewer może wykonywać z originu `127.0.0.1:3001` wyłącznie trzy
+  mutacje należące do workbencha: podgląd geometrii, zapis rewizji geometrii i
+  zapis decyzji. Pozostałe mutacje Admin API nadal wymagają originu Admina.
+- Kontroler Quick Tunnel uznaje publiczny URL za uruchomiony dopiero po
+  poprawnym rozwiązaniu DNS i odpowiedzi HTTP. Martwy przydział jest zamykany,
+  a kontroler wykonuje drugi ograniczony start zamiast publikować niedziałający
+  link.
+- Ręczna korekta siatki zachowuje stały natywny kadr referencyjny z numerem;
+  zapis aktualizuje cropy 15 pól, ale nie perspektywę ani skalę prawego
+  podglądu. Osobne CORS-safe klucze cache pozwalają ponownie otworzyć edytor po
+  dowolnej zapisanej rewizji.
+- Kohorta kalibracji siatki obejmuje także zatwierdzone plansze z bezpośredniego
+  importu bez `imageSelectionRunId`; takie próbki uczą i wykorzystują fallback
+  pozycji. Bieżące 63 plansze nie są już błędnie raportowane jako pusta kohorta.
+- Trening symboli można rozpocząć od dowolnej dodatniej liczby kompletnych
+  plansz. Progi 100/1000 są tylko ostrzeżeniami, a aktywna Selekcja Zdjęć nie
+  udaje blokującego joba treningowego.
+- Właściciel odrzucił jakość v10.18 po wykryciu częstych przesunięć zakresu.
+  Run `229913–248184` został anulowany przy `8160/42420`; kolejka nie ma być
+  wznawiana. Audyt wykazał, że wszystkie 3904 automatyczne wybory dwóch
+  ukończonych runów v10.18 dostały `RANGE_CARDINALITY_INFERRED`, a reconciler
+  mógł promować JPEG bez własnego zakresu. TASK-0244 wdraża proof-first v10.19:
+  minimum trzy zgodne etykiety, zero automatu z liczności i zimny limit 7 h.
+- Kandydat v10.19 ma fingerprint
+  `18886fe8f54aaa161f4ab59fd793a6c8c498d9046ec565b45e23d4cb857da351`.
+  Automat wymaga trzech pozycji z jedną parą sąsiadującą i wspólną bazą,
+  zapisuje surowe obserwacje OCR, używa progresywnych poziomów `6 -> 12`,
+  wyłącza poziom 18 oraz nie korzysta z historycznej promocji cache. Zakotwiczona
+  trasa najpierw wykonuje jeden batch wariantu przetworzonego i uruchamia surowe
+  cropy tylko przy braku jednoznacznego dowodu. Reconciler nie wypełnia luk ani
+  nie promuje `RANGE_CARDINALITY_INFERRED`; nieudowodnione grupy pozostają bez
+  zakresu w `range_required`.
+- Admin pokazuje dla kandydata sugestię albo mocny dowód wraz z pozycjami i
+  confidence. Raport v10.19 oddziela automaty, potwierdzenia ręczne, oczekujące,
+  duplikaty i brakujące zakresy; częściowy `waiting_for_review` nie jest błędem,
+  ale `logicalCoverageValid` pozostaje fałszywe do rzeczywistego domknięcia.
+- Pełne testy workera przechodzą `750/750`, API `339` z `25` jawnymi skipami,
+  Admin `201/201`; Ruff, OpenAPI, typecheck Admina i mypy `329` plików są zielone.
+  Pierwszy zimny benchmark v10.19 na 5000 zdjęć zajął `3552,458 s`; dominował OCR
+  (`3214,957 s`, 13 134 cropy). Po optymalizacji przetworzonego batcha i poziomów
+  `6 -> 12` powtórka zajęła `666,585 s` (poprawa `81,2%`) i prognozuje około
+  `1,57 h` dla 42 500 zdjęć. OCR spadł do `438,076 s` i 10 560 cropów; nadal jest
+  zero naruszeń dowodu i zero automatu z liczności.
+- Kontrolowany run v10.19 `7bd76e70-8c9a-4204-bab7-1dbfae32ac27` przeskanował
+  `32079/32079` i początkowo wycofał końcową transakcję kodem
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`: sugerowany kandydat grupy
+  `range_required` był błędnie materializowany jako `selected_automatic`.
+  Warstwa SQL ogranicza teraz flagę wyboru do gotowych statusów i zwalnia oba
+  historyczne warianty wyboru. Ten sam job wznowiono bez OCR; zakończył jako
+  `waiting_for_review` z 1776 automatami, 491 grupami do ustalenia zakresu,
+  316 udowodnionymi duplikatami oraz 1776 plikami w
+  `C:\Users\user\Documents\1-19809 v10.19`.
+- Po tej walidacji uruchomiono pojedynczy kolejny run v10.19
+  `7dbd3a54-8f6f-435d-bdbd-bf9e8373657a` z kompletnego stagingu 42420 JPEG-ów
+  anulowanego v10.18 `229913–248184`. Job
+  `c9524e66-552a-426b-ae54-b36ddd16bad5` zapisuje do
+  `C:\Users\user\Documents\229913-248184 v10.19`; nie uruchamiać równoległego
+  runu selekcji.
 
 ### Wersja 0.1
 
@@ -522,7 +863,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   pełne i nowe plansze liczone po checksumach względem ostatniej kohorty,
   źródła, pokrycie każdego aktywnego symbolu, progi doradcze 100/1000,
   ostrzeżenia oraz wszystkie chronione decyzje człowieka. `Ulepsz
-  rozpoznawanie` wymaga jawnego potwierdzenia dokładnej checksumy preview;
+rozpoznawanie` wymaga jawnego potwierdzenia dokładnej checksumy preview;
   zmiana manifestu albo aktywny ciężki job tej gry blokują freeze. Operacja
   tworzy wyłącznie niezmienną kohortę i nie uruchamia jeszcze treningu,
 - TASK-0145 dodał deterministyczny builder
@@ -561,7 +902,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   kalibracja siatki z osobną aktywacją i rollbackiem,
 - profil siatki jest przypinany do nowego joba wraz z payloadem, checksumą i
   fingerprintem; działa tylko dla dokładnego `imageSelectionRunId +
-  positionIndex`, a brak dopasowania bezpiecznie pozostawia wynik detektora,
+positionIndex`, a brak dopasowania bezpiecznie pozostawia wynik detektora,
 - TASK-0208 ma gotową obserwowalność i bounded skrypt pomiarowy; rzeczywiste
   pomiary 10/100/1000 oraz warunkowe 5000 pozostają odbiorem właściciela,
 - Selekcja Zdjęć pozostaje oddzielnym, niezmienianym modułem v0.4.
@@ -599,7 +940,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   dodaje append-only audyt ręcznych decyzji selektora,
 - ręczne wyjątki selekcji nie wymagają już pliku: użytkownik może podać sam
   zakres, np. `1–9`, a Admin zapisuje i pokazuje `Brak zdjęcia dla layoutów
-  1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
+1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
 - 4 sierpnia 2026 lokalny PostgreSQL został wyczyszczony przed rozpoczęciem
   rzeczywistego, etapowego zasilania docelowego zbioru 500 000 layoutów;
   wszystkie 38 tabel domenowych ma zero rekordów, a schemat jest na migracji
@@ -1171,6 +1512,78 @@ jobów w PowerShell `StrictMode`: endpoint może zwrócić obiekt z `items` albo
 bezpośrednią tablicę. Etap `93853 -117828` rozpoczął świeże przygotowanie źródła,
 a sześć dalszych kontrolerów czeka sekwencyjnie; nie działa drugi job selekcji.
 
+Benchmark przepustowości v10.13 z 2026-08-15 porównał w układzie ABBA ten sam
+wycinek 1000 JPEG-ów. `3 scan + 1 verification` uzyskało średni wall time
+`210,338 s`, a `4 scan + 1 verification` — `194,425 s`, czyli poprawę
+`7,566%`. Kanoniczne wyniki wszystkich grup były identyczne. Etap `v0.6.18`
+podnosi dlatego domyślny budżet lane selekcji z czterech do pięciu; manifest i
+fingerprint v10.13 pozostają bez zmian. Po walidacji i commicie lane selekcji
+ma zostać kontrolowanie przeładowany przed kontynuacją istniejącej kolejki.
+
+Run v10.17 `177220–179082` zakończył się po `2771,868 s` selekcji.
+Przeanalizował 1570 JPEG-ów, wykonał 964 weryfikacje i utworzył 229 grup
+fizycznych: 174 automatyczne, 33 manualne oraz 22 pominięte duplikaty. Bramka
+potwierdziła dokładnie `207/207` logicznych właścicieli, ciągłość zakresu i 174
+pliki wynikowe. Kontroler kolejki został wcześniej zatrzymany, więc żaden
+następny etap nie rozpoczął się na v10.17.
+
+V10.18 wprowadza mocny single-frame early exit przy zachowaniu kwantyli
+`50%, 35%, 65%, 15%, 85%`. Czytelny środek z dokładnym, niefuzzy zakresem,
+zgodnym board countem i pełną bramką jakości kończy grupę bez OCR pozostałych
+czterech klatek. W przeciwnym razie wykonywane są kolejno pary wewnętrzna i
+zewnętrzna; konflikt pozostaje fail-closed. Fingerprint v10.18 to
+`122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6`.
+
+Dwa zimne benchmarki po 100 rzeczywistych JPEG-ów potwierdziły poprawę bez
+zwiększenia kolejki manualnej. Dla `149626` v10.18 wykonał 67 zamiast 75
+weryfikacji, trwał `89,938996 s` zamiast `102,199397 s` i dał 4 automaty wobec
+zera. Dla `177220` wykonał 57 zamiast 68 weryfikacji, trwał `83,049762 s`
+zamiast `93,853847 s` i dał 7 automatów wobec 2. Raporty to
+`artifacts/image-selection-v1018-v1017-real-149626-prefix100.json` oraz
+`artifacts/image-selection-v1018-v1017-real-177220-prefix100.json`.
+
+Walidacja v10.18: pełny worker `738/738`, Ruff i Ruff Formatter dla 519 plików
+oraz mypy dla 328 modułów przechodzą. Następna kolejka ma ruszyć dopiero po
+commicie i kontrolowanym przeładowaniu API oraz lane selekcji na v10.18.
+
+## Bieżąca korekta selekcji v10.20 — 2026-08-18
+
+- Właściciel odrzucił wynik v10.19 po wykryciu błędnych zakresów. Run
+  `70363–93861` (`e6ec9f6f-b424-437d-b2d0-0b94c609e61b`) anulowano przy
+  `19200/42422`; kontroler kolejki PID 19016 został zatrzymany. Nie ma aktywnego
+  joba ani zgody na start następnego etapu.
+- Dla runu `1–19809` zapisano 2583 fizyczne fragmenty: 1776 automatów, 491
+  `range_required` i 316 duplikatów. Wcześniejszy raport błędnie zsumował
+  `1776 + 491 = 2267`; kolejka ustalenia zakresu nie jest liczbą wyborów zdjęcia
+  ani liczbą logicznych właścicieli. Oczekiwana siatka nadal ma 2201 zakresów.
+- V10.20 używa oczekiwanej kolejności jako hipotezy sprawdzanej lokalnym OCR.
+  Akceptuje dwa dokładne odczyty z pełnej geometrii albo trzy pozycje z
+  częściowego viewportu (co najmniej jedna dokładna, dwa wiersze i kolumny).
+  Mocny odczyt innego zakresu oraz twardy problem jakości pozostają fail-closed.
+- Domyślny manifest to `fast-image-selector-v10.20`, adapter v18, fingerprint
+  `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
+  V10.19 zachował fingerprint `18886fe8...` i dawne zachowanie.
+- Liczniki `manual` oraz `rangeRequired` są rozdzielone w checkpointach, API,
+  OpenAPI, Adminie i runnerze. Syntetyczne uzgodnienie 2583/2201 trwa 1,922 s.
+- Następny test produkcyjny zaczyna się od `1–19809` po E2E na małym korpusie.
+  Kolejny prawidłowy folder źródłowy to
+  `E:\777 zd\19810 - 45162`, czyli 2817 zakresów; historyczny staging kończący
+  się na 45152 nie może być użyty.
+- Powtarzający się błąd dostępu pytest usunięto trwale: skasowano niedostępny
+  katalog `%TEMP%\pytest-of-user`, zweryfikowano nowy proces i rozszerzono
+  `run_python_tests.ps1` o izolowany basetemp z PID-em również dla `api:test`.
+- Dodano checksumowany korpus regresyjny 283 zdjęć w kolejności malejącej:
+  17 czytelnych właścicieli zakresów i 3 negatywne przypadki jakościowe. Zimny
+  benchmark trwa `68,298789 s`, wykonuje 48 weryfikacji, osiąga 17/17 logicznych
+  właścicieli, 9 pominiętych fragmentów, bramkę 20/20 i 0 naruszeń dowodu.
+  Raport: `artifacts/image-selection-v1020-low-quality-descending-v18-final.json`.
+- Końcowa walidacja przed `v0.6.26`: pełny Python `1109 passed, 26 skipped`,
+  skupiona regresja selektora `222/222`, Admin `201/201`, Mobile `82/82`,
+  Reviewer `25/25`, Admin API Client `38/38`, Shared TS `24/24`. Ruff, mypy dla
+  329 plików, Prettier, lint, typecheck, OpenAPI oraz składnia 34 skryptów
+  PowerShell przechodzą. TASK-0245 jest zamknięty; kontrolowany run `1–19809`
+  nie został automatycznie uruchomiony.
+
 ## Do not start yet
 
 - automatycznej publikacji pełnych 500 000 layoutów przed kontrolą pierwszych
@@ -1179,3 +1592,475 @@ a sześć dalszych kontrolerów czeka sekwencyjnie; nie działa drugi job selekc
 - wielogrowego wydania mobilnego,
 - pełnej macierzy urządzeń i odroczonego hardeningu bez nowego jawnego planu,
 - Celery/Redis, mikroserwisów, chmury, Google Play lub publicznego Admin API.
+
+## Lokalna ręczna selekcja — TASK-0246
+
+Admin ma niezależną zakładkę `Ręczna selekcja` dla awaryjnego przypisywania
+oryginalnych JPEG-ów do kolejnych zakresów `start–start+8`. Działa lokalnie przez
+File System Access API, zapisuje sesję per gra w IndexedDB i nie uruchamia API,
+workera, stagingu ani OCR. Enter zapisuje `seq_*.jpg` i przechodzi do następnego
+zdjęcia, F jest jednoklawiszową alternatywą, Tab pomija zakres przy tym samym
+zdjęciu, a A jest jednoklawiszową alternatywą dla Ctrl+Z i usuwa wyłącznie
+zweryfikowany plik zapisany przez tę sesję. Skróty ignorują fokus formularzy.
+Podgląd można powiększyć do 3000%. Implementacja jest gotowa do testu
+manualnego w przeglądarce; zadanie `0246` pozostaje `in_progress` do akceptacji.
+
+W ramach `v0.6.28` sesja otrzymała IndexedDB v2 z append-only magazynem
+`traceEvents`. Widok zapisuje zdarzenie dopiero po `decode()` i 300 ms
+widoczności, a Enter/Tab/Ctrl+Z zapisują odpowiednio decyzje i ich cofnięcia.
+Folder wynikowy jest synchronizowany przez
+`manual-image-selection-output-v1.json`; pełny ślad można jawnie wyeksportować
+jako `manual-image-selection-trace-v1.json`. Artefakty są chronione przez
+`sessionKey` i checksumy, a stare sesje pozostają `anchor_only`.
+
+W `v0.6.29` import layoutów rozpoznaje foldery `seq_<start>-<end>.jpg|jpeg`.
+Managed manifest przechowuje poświadczony zakres, worker sortuje go numerycznie,
+a `sequence-number-from-attested-range-v1` pomija OCR numerów i przypisuje
+plansze row-major. Niepełna geometria pozostaje w korekcie bez przesunięcia
+pozostałych numerów; zwykłe nazwy nadal korzystają z historycznego OCR.
+
+W `v0.6.30` worker ma kohortę `representative-quality-ranking-cohort-v1`,
+deterministyczny trening `representative-quality-mlp-v1`, eksport ONNX i
+snapshot `shadow`. Job może przypiąć snapshot przez
+`representative_ranker_snapshot`; diagnostyka zapisuje ranking rekomendowany
+przez model bez zmiany wyniku v10.21. Migracja `0044_representative_ranking`
+tworzy osobne tabele kohort, iteracji i historii aktywacji. Promocja do v10.22
+nie została wykonana.
+
+W `v0.6.31` eksport ONNX jest sprawdzany na tych samych wektorach cech co
+PyTorch, a maksymalny błąd zgodności trafia do raportu treningowego. Snapshot
+shadow jest weryfikowany checksumą przed utworzeniem rekomendacji; ranking jest
+wyłącznie diagnostyczny i nie zmienia wyniku selekcji.
+
+Po `v0.6.31` poświadczony zakres jest również przenoszony do geometrii planszy.
+Reviewer pokazuje komunikat „Numer z nazwy pliku seq_*” i blokuje pole numeru
+do czasu jawnego odblokowania korekty. Korekta geometrii zachowuje tę informację,
+aby późniejszy zapis nie zamienił deklaracji operatora w niejawny OCR.
+
+## Naprawa startu importu layoutów z browser stagingu — v0.6.39/v0.6.40
+
+Wdrożono manifest-aware przepływ dla gotowego stagingu
+`31259729-de6a-4962-b8df-7aa0c0b7c49b`. Odczyt `_browser_manifest.json` zachowuje
+logiczne nazwy `seq_*` mimo fizycznych plików `00000001.jpg`, a worker zapisuje
+również fizyczną ścieżkę potrzebną do bezpiecznego kopiowania. Staging layoutów
+nie wygasa po restarcie API; Admin może go wylistować, przygotować preflight,
+usunąć jawnie albo wznowić bez ponownego uploadu.
+
+Start importu wymaga teraz aktualnej checksumy manifestu i preflightu. Jest
+idempotentny i po ponownym kliknięciu zwraca istniejący job zamiast tworzyć
+duplikat. Panel pokazuje raport przed przyciskiem startu oraz komunikat
+`Job utworzony — oczekuje na worker`. Dla bieżącego stagingu read-only preflight
+potwierdzono: `2201` źródeł, `19746` nowych numerów, `63` użyte ponownie,
+`7` pominiętych źródeł, `0` częściowych, `7` alternatywnych oraz pierwszy
+nierozwiązany numer `64`. Iteracja symboli v2 `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`
+przeszła bramkę (`candidate_ready`) i została aktywowana. Następnie utworzono
+świeży job importu `b0575f5f-8ec1-46d6-8262-8ef0309055c7` w trybie
+`rerun_current_models`; stary anulowany job `be0a204d-e515-4a64-8716-2ac708454862`
+pozostaje tylko audytowy. Ostatni odczyt: `2232/4402`, etap
+`image_pipeline:sequence_ocr`, `1` błąd źródła i `30` pozycji review; proces
+pozostaje aktywny.
+
+Weryfikacja: skupione testy API/workera dotyczące manifestu, preflightu i
+idempotentnego startu przechodzą; Admin typecheck, Ruff i wygenerowany OpenAPI
+są aktualne. Pełne mypy repozytorium nadal zgłasza istniejące błędy w
+`images/selection/ranker.py`, niezwiązane z tą zmianą.
+
+## Diagnostyka siatki i stabilny split symboli — v0.6.41/v0.6.42
+
+Diagnostyka kohorty siatki korzysta z tej samej kwalifikacji co budowa profilu i
+raportuje `eligibleGeometryCount`, `excludedGeometryCount` oraz konkretne
+powody wykluczenia. Dla bieżącej gry oczekiwane jest 63/63 kwalifikujących
+próbek; ponowne utworzenie niezmienionej kohorty jest jawnie idempotentne.
+
+Dataset symboli używa polityki `source-family-balanced-split-v2`. Przy co
+najmniej czterech źródłach manifest zapisuje deterministyczny, niezależny split
+train/validation/test/regression; dla siedmiu źródeł kohorty 63 plansz jest to
+4/1/1/1, czyli 540/135/135/135 cropów. Przypisania źródeł są częścią
+konfiguracji, więc późniejsze rozszerzenie kohorty nie zmienia starszych splitów.
+Kohorta z mniej niż czterema źródłami kończy się kontrolowanym `rejected`, a nie
+technicznym `failed`.
+
+Browserowy import layoutów otrzymał schema v5. Nowy job przypina aktywny model
+symboli i profil siatki oraz ich fingerprinty. Anulowany job z wcześniejszymi
+snapshotami nie jest wznawiany; ponowne kliknięcie tworzy nowy job na tym samym
+stagingu, bez ponownego uploadu, zachowując stary rekord do audytu.
+
+W `v0.6.48` preflight browserowego importu zwraca również fingerprint aktywnego
+modelu symboli i profilu siatki, a start odrzuca nieaktualny snapshot stabilnym
+błędem `IMAGE_SEQUENCE_MODEL_SNAPSHOT_STALE`. Panel Admina przekazuje te wartości
+przy starcie. Naprawiono też brak zależności `JobService` w endpointcie preflight,
+który ujawniałby się dopiero po restarcie API. Aktywny świeży job
+`b0575f5f-8ec1-46d6-8262-8ef0309055c7` pozostaje przypięty do modelu symboli
+`47b6aa0d-2cea-4765-97f0-ee1f86cfc056` i profilu siatki
+`d1046ab9-95db-4467-aae9-ee91fe18dfac`.
+
+## Fail-closed geometria stron `seq_*` — v0.6.49–v0.6.53
+
+- Bieżący job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` nie jest źródłem geometrii
+  ani treningu. Zostanie oznaczony jako zastąpiony dopiero po zaliczeniu nowego
+  preflightu; nie wznawiać go zwykłym retry.
+- Nowy preflight `page-geometry-preflight-v1` przypina profil maksymalnie siedmiu
+  ręcznie poprawionych stron, snapshot override'ów i content-addressed manifest
+  dziewięciu quadów per checksum. Import `seq_*` bez ukończonego manifestu
+  geometrii jest blokowany; nie wraca do detektora v3.
+- Wynik bez kompletnej, niezależnie zweryfikowanej siatki trafia do lokalnej
+  korekty całej strony. Cropy i symbole otrzymują tylko geometrię verified;
+  `geometryValidity`, `cropValidity` i confidence klasyfikatora są rozdzielone.
+- Kontrola rzeczywistych stron `64–72`, `91–99`, `577–585`, `694–702`,
+  `991–999`, `1603–1611`, `1648–1656`, `1702–1710` i `1918–1926` zaliczyła
+  rejestrację `9/9`. Czterowątkowy pomiar trwał 2,225 s dla dziewięciu stron;
+  szacunek dla 2194 nierozwiązanych źródeł wynosi około 9–12 min plus I/O.
+- Migracja `0048_image_page_geometry_overrides` musi zostać zastosowana przed
+  użyciem edytora korekty. Następny krok operacyjny to preflight stagingu
+  `31259729-de6a-4962-b8df-7aa0c0b7c49b`, a następnie ewentualna korekta stron
+  wskazanych przez manifest. Pełny import zostanie uruchomiony wyłącznie przy
+  `reviewRequiredSourceCount = 0`.
+
+W `v0.6.54` preflight weryfikuje checksumę poświadczonego
+`_browser_manifest.json` przed utworzeniem job-specific manifestu managed
+originals. Te dwa manifesty mają różne, prawidłowe checksumy; porównywanie ich
+ze sobą błędnie odrzucało każdy rzeczywisty staging po restarcie workera.
+
+Preflight `66a4ad95-da52-4939-ac88-c9fc82c8b480` z wersją ORB 500 zakończył
+się bez błędów technicznych, lecz bezpiecznie skierował `575` czytelnych stron
+do korekty. Kontrola trzech takich stron oraz równomiernej próbki `60/575`
+pokazała, że przyczyną jest zbyt mały limit ORB, nie jakość zdjęć ani próg
+geometrii: `1000` cech daje `60/60` poprawnych rejestracji. `v0.6.56` podnosi
+ten limit, a `featuresVersion` jest częścią przypiętego profilu, więc wymagany
+jest świeży preflight; manifest `e27e03c4…` pozostaje wyłącznie audytowy.
+
+W `v0.6.57` executor preflightu przetwarza ograniczone partie po 25 stron i
+zapisuje checkpoint po każdej z nich. Nie wysyła już całego stagingu do jednego
+`executor.map`, dzięki czemu restart workera nie może ukrywać postępu ani
+opóźniać anulowania do końca pełnego zbioru.
+
+W `v0.6.58` retry preflightu geometrii resetuje wyłącznie jego pochodne
+liczniki postępu i checkpoint. Job przelicza cały staging deterministycznie,
+więc zachowanie częściowego kursora z przerwanej próby byłoby błędne; retry
+pozostałych rodzajów jobów nadal zachowuje swój trwały postęp.
+
+W `v0.6.59` profil rejestracji używa wersjonowanego fallbacku ORB
+`1000 → 1500 → 3000` wyłącznie dla strony, która nie przeszła niższego budżetu.
+Rzeczywiste osiem czytelnych stron pozostawionych przez preflight 1000
+przechodzi w tej polityce: siedem przy 1500, a `11710–11718` przy 3000, przy
+niezmienionych progach RANSAC i czerwonych ramek. Następny preflight będzie
+świeży, a pełny import nadal jest zablokowany aż do zera stron review.
+
+W `v0.6.60` kontroler workerów porównuje czas startu procesu po normalizacji
+UTC, niezależnie od tego, czy PowerShell odczytał go jako tekst czy `DateTime`.
+Równoważne duplikaty `PATH`/`Path` w środowisku hosta nie blokują już samego
+odczytu stanu; rozbieżne wartości nadal zatrzymują bezpiecznie operację. Dzięki
+temu kontroler nie oznacza zdrowego workera jako `stale` i nie tworzy drugiej
+kopii lane'u.
+
+Preflight geometrii `9950ec44-146b-4219-9e23-0de6e83b4b89` dla stagingu
+`31259729-de6a-4962-b8df-7aa0c0b7c49b` zakończył się `2194` zarejestrowanymi
+stronami, `7` źródłami pominiętymi przez kanoniczne numery `1–63` i `0` stronami
+do korekty. Używa manifestu geometrii
+`61e8c5b2ec489aa8c18f4d7ec57008d90b9305a50092feb78c5a9a23932e6cf4` i trwał
+`10 min 37 s`, więc spełnia bramkę `≤15 min`.
+
+Stary job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` został anulowany jako
+zastąpiony. Świeży job `b2d9b299-a851-4e17-9ba3-dacaa7966978` zachowuje ten
+manifest, aktualne snapshoty modelu i staging. Jego pierwsza próba przerwała
+się przed pierwszą stroną, ponieważ konstruktor fallbackowego rejestratora
+szukał anchorów w `artifacts/data/data/originals/...`; staging i wszystkie 2201
+JPEG-ów są poprawne. Bieżąca poprawka ładuje anchor względem zarządzanego rootu
+`data/` i nie inicjalizuje fallbackowych anchorów, gdy job ma już przypięty
+manifest geometrii. Test regresyjny obejmuje oba warianty. Retry tego samego,
+poprawnie przypiętego joba jest aktywne; nie utworzono nowego uploadu ani joba.
+
+Pierwszy jawny recrop v19 `9363e55b-3493-4dc5-b296-3e6a21efdb24` został
+odebrany przez proces workera uruchomiony przed wprowadzeniem payloadu schema
+v2. Stary kod skierował go do historycznej ścieżki v1 i zakończył przed
+pierwszą planszą błędem `IMAGE_GRID_PROFILE_SNAPSHOT_INVALID`; staging i dane
+importu nie zostały zmienione. Nowy recrop wymaga restartu kontrolowanego lane'u
+po wdrożeniu kodu v2, a nie dodawania historycznego `gridProfile` do payloadu.
+Preview i oba workery reinferencji ograniczają teraz pracę do oczekujących
+plansz importów `waiting_for_review`, dzięki czemu anulowany `b057…` nie jest
+wliczany do bieżącego `b2d9…`. Każdy zapis nadal ponownie sprawdza status
+planszy; decyzje `accepted/corrected/rejected` są chronione.
+Świeży worker potwierdził wejście do ścieżki v2, po czym pierwsza próba
+checkpointu wykryła brak wspólnego `schema_version=1`. Poprawka obejmuje
+checkpointy grid v1/v2 i symbolowej reinferencji; job nie doszedł przed nią do
+zapisu żadnej planszy.
+
+Po poprawkach i restarcie kontrolowanego lane'u recrop
+`9363e55b-3493-4dc5-b296-3e6a21efdb24` zakończył `19 745/19 745`: utworzył
+`19 364` rewizje v19, pozostawił `381` plansz do ręcznej geometrii i nie miał
+błędów technicznych. Kolejny job symboli
+`23f37219-2964-412a-a7f6-0284d334ad9a` zakończył `19 745/19 745` bez błędu.
+Fingerprint wszystkich `64` chronionych decyzji i ich projekcji geometrii był
+identyczny przed i po jobach (`e6395e30…`). Anulowany duplikat `b057…` oraz
+testowy import `0490…` usunięto transakcyjnie; aktywny `b2d9…`, jego staging i
+`19 745` oczekujących pozycji pozostały zachowane.
+
+## TASK-0249 — baseline geometrii komórek i Reviewera
+
+Na podstawie problemów z cropami symboli, dużą kolejką review i równoległym
+udostępnianiem zaakceptowano D-204–D-206. Następny pion geometrii zachowuje
+lokalizację dziewięciu plansz, ale tworzy osobny
+`BoardCellGeometryManifestV1`: finalne komórki wynikają z wielopunktowej siatki
+5 × 3, bez wymuszania prostopadłości w obrazie źródłowym. Cztery punkty ręcznej
+korekty oznaczają zewnętrzne narożniki tej siatki.
+
+Operacyjna kolejka ma docelowo używać niezmiennego klucza
+`(source_order_index, position_index, review_item_id)` i transakcyjnego
+first-save-wins. Wiele różnych importów ma dzielić jeden produkcyjny Reviewer i
+jeden Quick Tunnel; zatrzymanie pojedynczej sesji nie może kończyć pozostałych.
+
+TASK 1 obejmuje wyłącznie baseline, decyzje i aktualizację testu migracji:
+`0048_image_page_geometry_overrides` jest jedyną oczekiwaną głową po `0047`.
+Był to stan po TASK 1; obecnie istnieje już nieaktywny estymator TASK 3, ale
+pełna integracja produkcyjnego pipeline'u geometrii v19, kolejki i assignments
+nie została rozpoczęta. Ręczny preview, append-only zapis i jawny pending-only
+recrop mają już osobny API i UI.
+Punktem bazowym pozostaje `3595a32` (`v0.6.59`). Wcześniejsze niezacommitowane
+zmiany fallbacku importu, kontrolera workerów oraz `apps/admin/next-env.d.ts`
+są zachowane i jawnie wykluczone z przyszłych commitów TASK-0249; następny numer
+`v0.6.*` jest przydzielany dopiero przy zamknięciu każdego osobnego TASK.
+
+TASK 2 dodał nieaktywny `BoardCellGeometryManifestV1` oraz rzeczywisty corpus
+v19. Kontrakt oddziela quady plansz z `PageGeometryManifestV1` od granic siatki
+symboli 5 × 3, wyprowadza 15 komórek row-major w pikselach źródła i waliduje
+automatyczne albo ręczne evidence bez wymuszania prostopadłości na zdjęciu.
+Manifest jest kanoniczny, content-addressed i ma fingerprint
+`45a82dbb0f86ca62646e1d680f2a0d9ea78a62f38b1d24b72be2ce50764aeb25`.
+
+Corpus wykorzystuje 27 istniejących decyzji właściciela z
+`cell-grid-golden-v1`: trzy geometrie dla każdej z dziewięciu pozycji oraz dwie
+grupy źródłowe. Loader ponownie sprawdza checksumy źródłowego manifestu,
+adnotacji i każdego JPEG-a. TASK 2 nie implementuje estymatora, nie podłącza
+manifestu do pipeline'u i nie zmienia aktywnego croppera v18, API, bazy ani UI.
+JPEG-i są lokalnym, ignorowanym przez Git corpusem: test kontraktu działa z
+przypiętymi manifestami w czystym checkoutcie, a pełna bramka bajtów i wymiarów
+wykonuje się jawnie tam, gdzie `examples/imgs` jest dostępne.
+
+TASK 3 dodał nieaktywny estymator
+`board-cell-geometry-v19-multi-point-source-direct-v1`. Wykorzystuje globalne
+komponenty, ograniczone hipotezy wspólnych osi 5 × 3 i istniejący guarded
+RANSAC, ale projektuje granice oraz 15 komórek z płaszczyzny analizy z powrotem
+do oryginalnego JPEG-a. Nie materializuje cropów i nie jest podłączony do
+pipeline'u.
+
+Na lokalnym rzeczywistym corpusie automatycznie przeszło `25/27` plansz, a
+maksymalny średni błąd czterech narożników wyniósł `6,25 px`. Sekwencja `37`
+pozostała fail-closed przy 8 inlierach, a `112` przy 9 globalnych przypisaniach;
+bramki 10 wiarygodnych centrów, 9 inlierów oraz pełnego 3 × 5 nie zostały
+obniżone.
+
+TASK 4 zamknął osobny checkpoint 100 rzeczywistych stron. Deterministyczna
+próbka z 2194 dostępnych stron objęła 900 plansz. Estymator wyemitował 888
+geometrii, a 12 plansz skierował fail-closed do przyszłej korekty. Ręczna kontrola
+25 arkuszy nie znalazła przesunięcia o wiersz/kolumnę, symbolu poza komórką ani
+fałszywego sukcesu. Content-addressed raport ma checksumę
+`320c9b1089b1481e8e4eea71c955eaf796c61554391783d2ac34020aa2421691`; pełny
+protokół jest w `ai_docs/quality/board-cell-geometry-v19-100-page-audit.md`.
+Cropper v18, pipeline, API, baza i UI pozostają bez zmian.
+
+TASK 5 dodał nieaktywny
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`. Adapter
+sprawdza cały `BoardCellGeometryEntry` przed pierwszym resamplingiem, stosuje
+kanoniczny inset `10/100` i tworzy 15 komórek bezpośrednio z oryginalnego RGB,
+po jednym `warpPerspective` na finalny crop. Nie powstaje pośrednia plansza
+`500 × 300`, dodatkowy resize ani częściowy wynik po błędzie późnej komórki.
+Fingerprint dla aktualnego wejścia modelu `64 × 64` wynosi
+`49146bca0f232a8d8e5e744811577b9f9d01a3cf791d31894775dfb5a677195d`.
+Rzeczywisty corpus daje `27/27` plansz i `405/405` cropów. Cropper pozostaje
+niepodłączony; aktywny v18, pipeline, modele, baza, API i UI nie zostały
+zmienione.
+
+TASK 6 podłączył cropper v19 wyłącznie do read-only podglądu ręcznego edytora.
+Cztery numerowane uchwyty oznaczają teraz zewnętrzne granice siatki symboli
+5 × 3, overlay korzysta z projekcji perspektywicznej, a cztery szare uchwyty
+krawędziowe są wyłącznie pochodne i nie wchodzą do payloadu. Endpoint preview
+zwraca jeden PNG będący contact sheetem `5 × 3` z dokładnie 15 finalnych cropów
+`64 × 64`; nie materializuje planszy `500 × 300`, nie zapisuje plików ani
+rewizji. W samym TASK 6 historyczny zapis geometrii został odłączony od edytora,
+aby nie pomylić semantyki narożników. Produkcyjny pipeline, aktywny cropper v18,
+baza, modele symboli i istniejące decyzje pozostały wtedy bez zmian.
+
+TASK 7 zastąpił aktywną ścieżkę zapisu v1 kontraktem
+`manual-board-cell-geometry-v19-append-only-v1`. Preview i zapis używają teraz
+tego samego `BoardCellGeometryEntry`, walidatora i source-direct croppera v19.
+Zapis tworzy dokładnie 15 nowych, niezmiennych cropów w rewizjonowanym
+namespace, a istniejący source-native obraz referencyjny pozostaje bez
+dodatkowego przeskalowania.
+
+Checksum decyzji wiąże źródło, pozycję, numer planszy, quad, wersje, oczekiwane
+rewizje, checksumę komendy i aktora. Pełna proweniencja oraz 15 source/padded
+quadów trafiają do append-only `image_board_geometry_revisions`; historyczne
+rewizje v1 pozostają czytelne z `decisionChecksumSha256 = null`. Reviewer
+zapisuje tylko aktualnie wygenerowany podgląd, blokuje podwójny submit i
+natychmiast pokazuje zwróconą rewizję tej samej planszy ponownie otwartej do
+weryfikacji symboli.
+
+TASK 8 aktywował automatyczny v19 wyłącznie jako jawną operację
+`Przelicz oczekujące`. Nowy job schema v2 przypina snapshot
+`pending-board-cell-recrop-v19-v1`, wszystkie wersje i fingerprinty geometrii
+oraz croppera, a także checksumę zaliczonego audytu 100 stron. Historyczne joby
+schema v1 nadal wykonują historyczny detektor i cropper v17; pełny pipeline
+importu nadal korzysta z v18.
+
+Worker schema v2 bierze istniejący zweryfikowany quad planszy, szacuje pełną
+geometrię 3 × 5 i wykonuje dokładnie 15 source-direct cropów v19. Brak pełnego
+dowodu pozostawia element w `needsManualGeometry` bez częściowego zapisu.
+Źródło jest sprawdzane checksumą i wymiarami oraz dekodowane raz na stronę.
+Przed zapisem worker blokuje item i planszę oraz ponownie sprawdza status,
+rewizje, źródło, numer, pozycję, geometrię i checksumy. Decyzja człowieka lub
+równoległa korekta zawsze wygrywa; `accepted/corrected/rejected`, istniejące
+v19, OCR, discovery, staging, modele i katalog symboli pozostają nietknięte.
+
+Preview Admina rozróżnia wszystkie oczekujące, `recalculableBoardCount`, już
+aktualne v19 i chronione. Start jest blokowany, gdy nie ma faktycznej pracy.
+TASK 8 nie uruchomił żadnego rzeczywistego joba użytkownika i nie rozpoczął
+pionów kolejki ani wspólnego Reviewera.
+
+TASK 9 rozpoczął pion stabilnej kolejki wyłącznie od warstwy danych. Migracja
+`0049_image_review_queue_projection` tworzy trwałe pozycje per import pod
+kluczem `(source_order_index, position_index, review_item_id)` oraz stan z
+licznikami `pending/accepted/corrected/rejected` i `queueVersion`. Triggery
+PostgreSQL obejmują wszystkie ścieżki zapisu API i workera; status aktualizuje
+liczniki bez zmiany topologii, a dodanie lub usunięcie pozycji zmienia wersję.
+Istniejące elementy są backfillowane fail-closed i zachowują source-order po
+restarcie. Endpointy, kursory, resume, Admin i Reviewer nadal nie korzystają z
+nowej projekcji — jest to zakres następnego, osobno zlecanego TASK 10.
+
+TASK 10 przepiął job-local listowanie Reviewera na projekcję 0049. Wszystkie
+widoki, keyset cursor v2, poprzedni/następny i wznowienie używają teraz tego
+samego klucza `(source_order_index, position_index, review_item_id)`;
+`sequence_number` nie wpływa na położenie. Odpowiedź zwraca trwały
+`queueVersion`, a kursor jest unieważniany wyłącznie po zmianie topologii, nie
+po decyzji zmieniającej status lub liczniki. Liczniki są czytane z
+`image_review_queue_states`. OpenAPI i klient zostały wygenerowane ponownie.
+First-save-wins, `superseded`, rozróżnienie konfliktów komendy oraz mały bufor
+Reviewera pozostają zakresem kolejnych osobno zlecanych zadań.
+Read-only smoke największego rzeczywistego importu (`19 746` pozycji,
+`19 745 pending`) zwrócił pierwszą pending i oba kierunki nawigacji w około
+`72 ms`.
+
+TASK 11 wdrożył first-save-wins dla równoległych decyzji tego samego
+`game_id + sequence_number`. Migracja `0050_image_review_first_save_wins`
+dodaje status/event oraz trwały licznik `superseded`. Zapis jest serializowany
+wyłącznie per numer; atomowa projekcja kanoniczna ma jednego właściciela, a
+pozostałe pending zachowują źródło i append-only audyt jako `superseded` bez
+zmiany `queueVersion` i bez staging row. Równoległa przegrana komenda zwraca
+kontrolowany wynik, a jej exact retry pozostaje idempotentny. Worker używa tej
+samej semantyki dla ponownie napotkanego kanonicznego zakresu. Reviewer pokazuje
+osobny status i licznik.
+
+TASK 12 rozdzielił konkurencyjność komendy bieżącej planszy od zmian stanu
+całej kolejki. Resolution zwraca teraz autorytatywny `queueVersion` i liczniki
+odczytane z trwałej projekcji po zapisie. Zmiana sąsiedniego itemu nie blokuje
+komendy; rzeczywisty konflikt bieżącego itemu ma stabilny
+`IMAGE_REVIEW_REVISION_CONFLICT` z oczekiwaną i aktualną rewizją. Reviewer ufa
+snapshotowi serwera i zachowuje UUID idempotencji przy ponowieniu niezmienionej
+komendy po niejednoznacznym błędzie transportu.
+
+TASK 13 dodał bounded bufor Reviewera `previous/current/next two`. Każda z
+maksymalnie czterech stron nadal pochodzi z osobnego żądania `limit = 1`;
+poprzednik i pierwszy następnik są pobierani równolegle, a drugi następnik
+sekwencyjnie po własnym kursorze. Przejście po gotowym sąsiedzie nie pokazuje
+pełnoekranowego loadingu, a brakujący brzeg jest uzupełniany w tle.
+
+Reviewer prefetchuje również widoczne zasoby trzech sąsiadów, ale nie utrzymuje
+pełnej kolejki w React. Autorytatywne liczniki i `queueVersion` z resolution są
+propagowane do wcześniej pobranych stron, więc przejście dalej nie przywraca
+starego snapshotu. Konflikt topologii podczas prefetchu pozostaje fail-closed;
+zwykły błąd transportu zachowuje bieżącą planszę i foreground fallback. API,
+OpenAPI, baza, pipeline oraz pion wspólnego Reviewera pozostały bez zmian.
+
+TASK 14 rozpoczął pion wspólnego Reviewera od trwałej warstwy danych i
+lifecycle'u `reviewer_work_assignments`. Migracja `0051` zapisuje scope
+`game_id + import_job_id`, typ `local/online`, właściciela, fencing token,
+heartbeat i wygaśnięcie lease oraz pełne dane zamknięcia. Częściowy unikalny
+indeks gwarantuje najwyżej jedno aktywne przypisanie na import; po zamknięciu
+można utworzyć następcę bez utraty historii.
+
+Odnowienie wymaga aktualnego, niewygasłego tokenu, a zapis SQL powtarza fencing
+condition. Wygasły wpis jest jawnie zamykany jako `lease_expired`. Scope jest
+walidowany pod blokadą gotowego image import joba i wymaga istniejącej pozycji
+review. Lokalna baza działa na `0051_reviewer_work_assignments (head)`. TASK 14
+nie zmienił API/OpenAPI, Admina, Reviewera, sesji dostępowych, procesu Windows,
+Quick Tunnel ani limitu trzech przypisań online; są to następne etapy pionu C.
+
+TASK 15 połączył lifecycle assignmentu online z właściwą scoped sesją, nadal
+oddzielając oba od procesu Reviewera i Quick Tunnel. Migracja `0052` dodaje
+opcjonalny `reviewer_access_session_id`, wymagany dokładnie dla trybu online;
+złożony FK obejmujący sesję, grę i import nie pozwala powiązać obcego scope'u.
+Jedna sesja należy najwyżej do jednego assignmentu.
+
+Nowy `ReviewerWorkLifecycleService` używa zdrowego loopback Reviewera ponownie
+dla pracy lokalnej i online, a kolejne sesje online otrzymują ten sam aktywny
+publiczny origin. Każdy import ma osobną sesję i assignment. Zamknięcie pracy
+unieważnia wyłącznie jej sesję i nie ma dostępu do globalnego `stop`; nieudane
+otwarcie kompensuje utworzenie sesji przez revoke. Lokalna baza działa na
+`0052_reviewer_assignment_sessions (head)`. Synchronizacja start/status/stop
+między procesami Windows, limit trzech online, `stop-if-unused`, endpointy i UI
+pozostają poza TASK 15.
+
+TASK 16 zabezpieczył współdzielony proces Reviewera i Quick Tunnel przed
+równoległymi kontrolerami Windows. Zdalny start/status/stop i lokalny start
+używają jednego nazwanego mutexu per repozytorium z ograniczonym oczekiwaniem.
+Stan schema v2 jest publikowany atomowo dopiero po health checku i wiąże PID z
+czasem startu, pełną ścieżką executable, nazwą procesu oraz losowym
+`instanceId`; stary stan ani PID użyty ponownie nie pozwala zatrzymać obcego
+procesu.
+
+Każda próba startu ma unikalne logi w
+`.runtime/reviewer-lifecycle-logs`, a każde wywołanie z API osobny plik wyniku w
+`.runtime/reviewer-ingress-controller-results`. Wewnętrzny compare-and-stop po
+`instanceId` stanowi fencing dla następnego etapu. Publiczne API, baza, Admin i
+Reviewer nie zmieniły się. Limit trzech prac online oraz decyzja
+`stop-if-unused` na podstawie ostatniego aktywnego assignmentu pozostają w
+TASK 17.
+
+TASK 17 domknął domenowy lifecycle współdzielonego ingressu. Online capacity
+jest ograniczona do trzech różnych aktywnych importów i serializowana
+transakcyjnym advisory lockiem PostgreSQL; local assignment nie zajmuje limitu.
+Sprawdzenie istniejącego scope'u i limitu odbywa się przed ensure-running oraz
+utworzeniem scoped sesji, więc odrzucona czwarta praca nie pozostawia sesji ani
+nie uruchamia dodatkowego procesu.
+
+Zamknięcie jednego assignmentu odwołuje wyłącznie jego sesję. Ostatni online
+close oraz jawne lazy recovery wygasłych lease'ów używają compare-and-stop po
+`instanceId` z TASK 16. Blokada capacity obejmuje także ensure-running i zapis,
+dlatego równoległy open nie otrzyma linku do tunelu zatrzymywanego przez close.
+Rzeczywisty test czterech transakcji PostgreSQL dał dokładnie trzy sukcesy i
+jeden `REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED`. Publiczne endpointy, OpenAPI,
+Admin i Reviewer pozostały bez zmian w TASK 17.
+
+TASK 18 wystawił typowany, assignment-scoped kontrakt list/open/heartbeat/close
+i przepiął na niego sekcję `Zatwierdzanie plansz`. Select nadal pokazuje gotowe
+importy i ich liczniki, a pod nim widoczny jest stan wybranego scope'u oraz lista
+wszystkich aktywnych prac gry. Import bez assignmentu oferuje `Otwórz lokalnie`
+oraz `Utwórz link online`; aktywne udostępnienie ma własny stop, który nie
+wywołuje globalnego endpointu tunelu.
+
+Pierwszy open online zwraca kod jednorazowo. Lista, reload i idempotentne
+ponowienie nie zwracają kodu, bearer tokenu, fencing tokenu ani identyfikatora
+sesji. Wygenerowany klient OpenAPI dodaje dokładne high-impact targety per import
+i assignment. Celowane testy HTTP potwierdzają idempotencję, listę bez sekretów,
+heartbeat oraz niezależny close. Pełny zestaw API daje `393 passed, 30 skipped`,
+klient `39 passed`, Admin `211 passed`; produkcyjny build Admina, OpenAPI,
+typecheck TypeScript, Ruff oraz ograniczony mypy zmienionej warstwy domenowej
+przechodzą. Końcowy rzeczywisty scenariusz wielu scope'ów oraz pomiar cold/warm
+stanowiły osobny checkpoint po TASK 18 i zostały ukończone w TASK 19.
+
+TASK 19 zamknął checkpoint współdzielonego Reviewera. Izolowany E2E potwierdza
+`3 online + 1 local`, idempotentny równoległy open, reload bez sekretów oraz
+stop dopiero po ostatnim online assignmentcie. Rzeczywisty odbiór wykorzystał
+wszystkie trzy dostępne gotowe importy jako `2 online + 1 local`: cold start
+wyniósł `13,396 s`, warm reuse `1,243 s`, oba linki użyły jednego originu i
+jednego procesu. Obcy import oraz publiczne endpointy stagingu, assignments i
+storage zwróciły `403`; Admin nie był wystawiony.
+
+Odbiór wykrył i naprawił dwa błędy środowiskowe. Local assignment po restarcie
+API jest gotowy także przy prawidłowym stanie tunelu `stopped`. Tożsamość
+procesu Windows zachowuje pełny fencing, ale ścieżkę executable odczytuje z
+ograniczonym retry przez `Process.Path`, `MainModule` i WMI. Health check nowego
+Quick Tunnel jest odporny na lokalny negatywny cache DNS dzięki ograniczonym
+fallbackom `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS; połączenie po
+adresie nadal weryfikuje hostname, SNI i certyfikat TLS. Po teście nie pozostał
+aktywny assignment, cloudflared ani testowy plik cookie. TASK-0249 jest
+ukończony.

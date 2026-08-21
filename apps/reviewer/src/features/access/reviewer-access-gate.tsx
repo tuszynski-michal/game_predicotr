@@ -9,9 +9,14 @@ import { OperationalReviewWorkspace } from '@/features/operational-reviews/opera
 
 export function ReviewerAccessGate({
   apiBaseUrl,
+  localScope = null,
   sessionId,
 }: {
   readonly apiBaseUrl: string;
+  readonly localScope?: {
+    readonly gameId: string;
+    readonly importJobId: string;
+  } | null;
   readonly sessionId: string;
 }) {
   const api = useMemo(
@@ -22,6 +27,18 @@ export function ReviewerAccessGate({
   const [scope, setScope] = useState<ReviewerSessionScopeResponse | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  if (localScope !== null) {
+    return (
+      <main className="reviewerShell">
+        <OperationalReviewWorkspace
+          apiBaseUrl={apiBaseUrl}
+          gameId={localScope.gameId}
+          importJobId={localScope.importJobId}
+        />
+      </main>
+    );
+  }
 
   async function unlock() {
     if (sessionId === '' || accessCode.trim() === '' || busy) return;

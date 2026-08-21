@@ -9,8 +9,12 @@ from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
+
+from game_predictor_worker.images.board_cell_geometry_activation import (
+    board_cell_recrop_snapshot,
+)
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -24,6 +28,7 @@ from game_predictor_api.domain.jobs import (
     create_job,
     request_job_cancellation,
     requeue_job,
+    requeue_job_with_fresh_progress,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
@@ -109,13 +114,9 @@ class ManagedImageSelectionDeletionArtifactStore:
         self._artifact_root = artifact_root.resolve()
         self._import_root = import_root.resolve()
         self._manual_root = self._artifact_root / "data" / "working" / "is-manual"
-        self._manual_trash = (
-            self._artifact_root / "data" / "trash" / "image-selection-deletions"
-        )
+        self._manual_trash = self._artifact_root / "data" / "trash" / "image-selection-deletions"
         self._source_root = self._import_root / "browser-selections"
-        self._source_trash = (
-            self._import_root / ".trash" / "image-selection-deletions"
-        )
+        self._source_trash = self._import_root / ".trash" / "image-selection-deletions"
 
     def quarantine(
         self,
@@ -229,6 +230,13 @@ class JobRepository(Protocol):
 
     def get_job_by_input_key(self, input_key: str) -> Job | None: ...
 
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None: ...
+
     def list_jobs(
         self,
         *,
@@ -261,6 +269,10 @@ class GridProfileSnapshotResolver(Protocol):
     def resolve(self, *, game_id: UUID) -> dict[str, object]: ...
 
 
+class PageGeometryOverrideSnapshotResolver(Protocol):
+    def snapshot(self, *, game_id: UUID) -> dict[str, object]: ...
+
+
 class JobService:
     def __init__(
         self,
@@ -269,16 +281,18 @@ class JobService:
         symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
         grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
         *,
+        page_geometry_override_snapshot_resolver: (
+            PageGeometryOverrideSnapshotResolver | None
+        ) = None,
         deletion_artifact_store: ImageSelectionDeletionArtifactStore | None = None,
     ) -> None:
         self._repository = repository
         self._import_source_inspector = import_source_inspector
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
+        self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
-        self._pending_deletion_quarantines: list[
-            ImageSelectionDeletionQuarantine
-        ] = []
+        self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
 
     def create_job(
         self,
@@ -349,6 +363,11 @@ class JobService:
         source_display_name: str,
         pipeline_fingerprint: str,
         image_selection_run_id: UUID | None = None,
+        canonical_sequence_numbers: Sequence[int] | None = None,
+        source_manifest_sha256: str | None = None,
+        start_mode: str | None = None,
+        previous_job_id: UUID | None = None,
+        page_geometry_manifest: dict[str, object] | None = None,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -377,7 +396,7 @@ class JobService:
             f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
         ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 2,
+            "schema_version": 2 if start_mode is None else 5,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
@@ -386,12 +405,96 @@ class JobService:
             "source_pipeline_fingerprint": pipeline_fingerprint,
             "symbol_model": symbol_model.to_payload(),
         }
+        if start_mode is not None:
+            grid_profile = (
+                _baseline_grid_profile_snapshot()
+                if self._grid_profile_snapshot_resolver is None
+                else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+            )
+            grid_fingerprint = grid_profile.get("inferenceFingerprint")
+            if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+                raise JobError(
+                    "GRID_PROFILE_SNAPSHOT_INVALID",
+                    "The active grid profile snapshot is invalid.",
+                )
+            effective_pipeline_fingerprint = hashlib.sha256(
+                (
+                    f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:{grid_fingerprint}:"
+                    f"{_page_geometry_manifest_fingerprint(page_geometry_manifest)}"
+                ).encode("ascii")
+            ).hexdigest()
+            input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
+            input_payload["start_mode"] = start_mode
+            input_payload["previous_job_id"] = (
+                None if previous_job_id is None else str(previous_job_id)
+            )
+            input_payload["grid_profile"] = grid_profile
+            if page_geometry_manifest is not None:
+                input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
+        if canonical_sequence_numbers is not None:
+            input_payload["canonical_sequence_numbers"] = sorted(
+                {int(number) for number in canonical_sequence_numbers if int(number) > 0}
+            )
+        if source_manifest_sha256 is not None:
+            input_payload["source_manifest_sha256"] = source_manifest_sha256
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
             input_payload=input_payload,
+            game_already_validated=True,
+        )
+
+    def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
+        """Create an explicit job that may update pending symbol predictions only."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        snapshot = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        return self._persist_job(
+            JobType.IMAGE_SYMBOL_REINFERENCE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "inference_kind": "pending_symbols_only",
+                "symbol_model": snapshot.to_payload(),
+            },
+            game_already_validated=True,
+        )
+
+    def create_pending_grid_reinference_job(self, *, game_id: UUID) -> Job:
+        """Create a pinned v19 recrop job for unresolved boards only."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        recrop_snapshot = board_cell_recrop_snapshot(cell_output_size=symbol_model.input_size)
+        return self._persist_job(
+            JobType.IMAGE_GRID_REINFERENCE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 2,
+                "inference_kind": "pending_grid_only",
+                "cell_output_size": symbol_model.input_size,
+                "board_cell_recrop": recrop_snapshot,
+            },
             game_already_validated=True,
         )
 
@@ -480,6 +583,84 @@ class JobService:
                 "symbol_model": symbol_model.to_payload(),
                 "grid_profile": pinned_grid_profile,
             },
+            game_already_validated=True,
+        )
+
+    def create_managed_image_reprocess_job(
+        self,
+        source_job_id: UUID,
+        *,
+        pipeline_fingerprint: str,
+    ) -> Job:
+        """Create a new import pinned to an earlier job's managed originals."""
+
+        source = self.get_job(source_job_id)
+        if (
+            source.job_type is not JobType.IMPORT
+            or source.input_payload.get("import_kind") != "image_directory"
+            or source.game_id is None
+        ):
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_TYPE_INVALID",
+                "Only an image-directory import can be reprocessed.",
+            )
+        if source.status in {JobStatus.CREATED, JobStatus.PROCESSING}:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_ACTIVE",
+                "An active image import cannot be reprocessed.",
+            )
+        source_directory = source.input_payload.get("source_directory")
+        if not isinstance(source_directory, str) or not source_directory:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_INVALID",
+                "The source image import has no managed source provenance.",
+            )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=source.game_id)
+        )
+        grid_profile = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=source.game_id)
+        )
+        grid_fingerprint = grid_profile.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The pinned grid profile snapshot is invalid.",
+            )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            (
+                f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
+                f"{grid_fingerprint}:{source.id}"
+            ).encode("ascii")
+        ).hexdigest()
+        payload: dict[str, object] = {
+            "schema_version": 4,
+            "import_kind": "image_directory",
+            "source_directory": source_directory,
+            "source_display_name": (
+                f"{source.input_payload.get('source_display_name') or 'Import obrazów'} "
+                "(ponowne przetworzenie)"
+            ),
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "managed_source_job_id": str(source.id),
+            "symbol_model": symbol_model.to_payload(),
+            "grid_profile": grid_profile,
+        }
+        source_selection_id = source.input_payload.get("source_selection_id")
+        if source_selection_id is not None:
+            payload["source_selection_id"] = source_selection_id
+        image_selection_run_id = source.input_payload.get("image_selection_run_id")
+        if image_selection_run_id is not None:
+            payload["image_selection_run_id"] = image_selection_run_id
+        return self._persist_job(
+            JobType.IMPORT,
+            game_id=source.game_id,
+            input_payload=payload,
             game_already_validated=True,
         )
 
@@ -672,6 +853,106 @@ class JobService:
             )
         return job
 
+    def get_job_by_input_key(self, input_key: str) -> Job | None:
+        return self._repository.get_job_by_input_key(input_key)
+
+    def current_image_import_model_fingerprints(self, *, game_id: UUID) -> tuple[str, str]:
+        symbol = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        fingerprint = grid.get("inferenceFingerprint")
+        if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The active grid profile snapshot is invalid.",
+            )
+        return symbol.inference_fingerprint, fingerprint
+
+    def create_page_geometry_preflight_job(
+        self,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_directory: Path,
+        source_manifest_sha256: str,
+        canonical_sequence_numbers: Sequence[int] = (),
+    ) -> Job:
+        """Create an idempotent verified-page geometry preflight.
+
+        The job pins the reviewed anchors together with the browser manifest;
+        the later import can therefore reject stale geometry instead of silently
+        returning to the heuristic detector.
+        """
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        if not isinstance(source_manifest_sha256, str) or len(source_manifest_sha256) != 64:
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_MANIFEST_INVALID",
+                "The browser source manifest checksum is invalid.",
+            )
+        try:
+            resolved = source_directory.resolve(strict=True)
+        except OSError as error:
+            raise JobError(
+                "IMAGE_FOLDER_NOT_FOUND",
+                "The staged image folder does not exist or is unavailable.",
+            ) from error
+        if not resolved.is_dir():
+            raise JobError(
+                "IMAGE_FOLDER_NOT_DIRECTORY",
+                "The staged image source must be a directory.",
+            )
+        grid = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        registration = grid.get("pageRegistrationProfile")
+        if not isinstance(registration, dict) or not registration.get("anchors"):
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY",
+                "Create or activate a grid profile from reviewed pages before geometry preflight.",
+            )
+        overrides = (
+            {}
+            if self._page_geometry_override_snapshot_resolver is None
+            else self._page_geometry_override_snapshot_resolver.snapshot(game_id=game_id)
+        )
+        if not isinstance(overrides, dict):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
+                "The page geometry override snapshot is invalid.",
+            )
+        return self._persist_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 2,
+                "validation_kind": "page_geometry_preflight",
+                "source_selection_id": str(selection_id),
+                "source_directory": str(resolved),
+                "source_manifest_sha256": source_manifest_sha256,
+                "page_registration_profile": registration,
+                "page_geometry_overrides": overrides,
+                "canonical_sequence_numbers": sorted(
+                    {int(number) for number in canonical_sequence_numbers if int(number) > 0}
+                ),
+            },
+            game_already_validated=True,
+        )
+
     def list_jobs(
         self,
         *,
@@ -686,6 +967,30 @@ class JobService:
             game_id=game_id,
             limit=limit,
         )
+
+    def get_image_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None:
+        method = getattr(self._repository, "get_image_import_by_source_selection", None)
+        if callable(method):
+            found = cast(
+                Job | None,
+                method(game_id=game_id, source_selection_id=source_selection_id),
+            )
+            if found is not None:
+                return found
+        for job in self._repository.list_jobs(
+            status=None,
+            job_type=JobType.IMPORT,
+            game_id=game_id,
+            limit=10_000,
+        ):
+            if job.input_payload.get("source_selection_id") == str(source_selection_id):
+                return job
+        return None
 
     def cancel_job(self, job_id: UUID) -> Job:
         job = self._repository.get_job_for_update(job_id)
@@ -708,6 +1013,11 @@ class JobService:
                 "Job does not exist.",
                 details={"jobId": str(job_id)},
             )
+        if (
+            job.job_type is JobType.VALIDATE
+            and job.input_payload.get("validation_kind") == "page_geometry_preflight"
+        ):
+            return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
 
     def delete_cancelled_image_selection_job(
@@ -790,6 +1100,24 @@ class JobService:
         for quarantine in pending:
             if self._deletion_artifact_store is not None:
                 self._deletion_artifact_store.restore(quarantine)
+
+
+def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:
+    if value is None:
+        return "page-geometry-manifest-none-v1"
+    checksum = value.get("checksumSha256")
+    path = value.get("relativePath")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or not isinstance(path, str)
+        or not path
+    ):
+        raise JobError(
+            "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
+            "The pinned page geometry manifest descriptor is invalid.",
+        )
+    return checksum
 
 
 def _baseline_grid_profile_snapshot() -> dict[str, object]:

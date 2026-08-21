@@ -19,6 +19,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionConflictError,
     ImageSelectionError,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
@@ -54,6 +55,7 @@ class MemoryImageSelectionRepository:
         self.groups: list[ImageSelectionGroup] = []
         self.candidates: list[ImageSelectionCandidate] = []
         self.manual_decisions: list[ImageSelectionManualDecision] = []
+        self.handoff_run_ids: set[UUID] = set()
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -66,27 +68,90 @@ class MemoryImageSelectionRepository:
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         return next(
             (
                 run
                 for run in self.runs.values()
                 if run.game_id == game_id
+                and run.execution_mode is ImageSelectionExecutionMode.FULL
                 and run.input_manifest_sha256 == input_manifest_sha256
                 and run.selector_fingerprint == selector_fingerprint
                 and run.sequence_direction is sequence_direction
                 and run.first_sequence_number == first_sequence_number
+                and run.last_sequence_number == last_sequence_number
             ),
             None,
         )
 
+    def find_recovery_run(
+        self,
+        *,
+        source_run_id: UUID,
+        selector_fingerprint: str,
+        source_snapshot_sha256: str,
+        last_sequence_number: int | None,
+    ) -> ImageSelectionRun | None:
+        return next(
+            (
+                run
+                for run in self.runs.values()
+                if run.execution_mode is ImageSelectionExecutionMode.RANGE_RECOVERY
+                and run.source_run_id == source_run_id
+                and run.selector_fingerprint == selector_fingerprint
+                and run.source_snapshot_sha256 == source_snapshot_sha256
+                and run.last_sequence_number == last_sequence_number
+            ),
+            None,
+        )
+
+    def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]:
+        groups = sorted(
+            (group for group in self.groups if group.run_id == run_id),
+            key=lambda group: group.group_order,
+        )
+        problem = [
+            group for group in groups if group.status is ImageSelectionGroupStatus.RANGE_REQUIRED
+        ]
+        payload = [
+            (group.group_order, group.status.value, group.range_start, group.range_end)
+            for group in groups
+        ]
+        checksum = hashlib.sha256(
+            json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        problem_ids = {group.id for group in problem}
+        candidate_count = sum(
+            candidate.run_id == run_id and candidate.group_id in problem_ids
+            for candidate in self.candidates
+        )
+        block_count = sum(
+            index == 0 or problem[index - 1].group_order + 1 != group.group_order
+            for index, group in enumerate(problem)
+        )
+        return checksum, len(problem), candidate_count, block_count
+
+    def has_handoff(self, run_id: UUID) -> bool:
+        return run_id in self.handoff_run_ids
+
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]:
-        existing = self.find_run_by_identity(
-            game_id=run.game_id,
-            input_manifest_sha256=run.input_manifest_sha256,
-            selector_fingerprint=run.selector_fingerprint,
-            sequence_direction=run.sequence_direction,
-            first_sequence_number=run.first_sequence_number,
+        existing = (
+            self.find_run_by_identity(
+                game_id=run.game_id,
+                input_manifest_sha256=run.input_manifest_sha256,
+                selector_fingerprint=run.selector_fingerprint,
+                sequence_direction=run.sequence_direction,
+                first_sequence_number=run.first_sequence_number,
+                last_sequence_number=run.last_sequence_number,
+            )
+            if run.execution_mode is ImageSelectionExecutionMode.FULL
+            else self.find_recovery_run(
+                source_run_id=run.source_run_id or UUID(int=0),
+                selector_fingerprint=run.selector_fingerprint,
+                source_snapshot_sha256=run.source_snapshot_sha256 or "",
+                last_sequence_number=run.last_sequence_number,
+            )
         )
         if existing is not None:
             return existing, False
@@ -109,6 +174,18 @@ class MemoryImageSelectionRepository:
             reverse=True,
         )
         return tuple(values[offset : offset + limit])
+
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        ranges = [
+            (group.range_start, group.range_end)
+            for group in self.groups
+            if group.run_id == run_id
+            and group.range_start is not None
+            and group.range_end is not None
+        ]
+        if not ranges:
+            return None
+        return min(value[0] for value in ranges), max(value[1] for value in ranges)
 
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         self.runs[run.id] = run
@@ -255,6 +332,25 @@ class MemoryImageSelectionRepository:
                         else candidate.decision
                     )
                 )
+            elif decision.resolution is ImageSelectionManualResolution.RANGE_CONFIRMED:
+                expected = (
+                    ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+                    if candidate.id == decision.candidate_id
+                    else (
+                        ImageSelectionCandidateDecision.ELIGIBLE
+                        if candidate.decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+                        else candidate.decision
+                    )
+                )
+            elif (
+                decision.resolution is ImageSelectionManualResolution.DUPLICATE_RANGE
+                and candidate.decision
+                in {
+                    ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                    ImageSelectionCandidateDecision.SELECTED_MANUAL,
+                }
+            ):
+                expected = ImageSelectionCandidateDecision.ELIGIBLE
             self.candidates[index] = ImageSelectionCandidate(
                 id=candidate.id,
                 run_id=candidate.run_id,
@@ -371,6 +467,10 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "contract_version": 1,
         "sequence_direction": "ascending",
         "first_sequence_number": None,
+        "last_sequence_number": None,
+        "execution_mode": "full",
+        "source_run_id": None,
+        "source_snapshot_sha256": None,
     }
 
 
@@ -396,7 +496,11 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         input_manifest_sha256="a" * 64,
         selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
     )
-    group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    group = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED),
+        range_start=1,
+        range_end=9,
+    )
     candidate = ImageSelectionCandidate(
         id=uuid4(),
         run_id=run.id,
@@ -406,9 +510,23 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         checksum_sha256=hashlib.sha256(content).hexdigest(),
         width=120,
         height=80,
-        quality_metrics={"displayName": "camera-0001.jpg", "groupSourceCount": 1},
-        range_confidence=None,
-        reason_codes=("REPRESENTATIVE_RANGE_UNKNOWN",),
+        quality_metrics={
+            "displayName": "camera-0001.jpg",
+            "groupSourceCount": 1,
+            "recognizedRangeStart": 1,
+            "recognizedRangeEnd": 9,
+            "rangeLabelObservations": [
+                {
+                    "confidence": 0.96,
+                    "positionIndex": 4,
+                    "rangeStart": 1,
+                    "route": "label_lattice",
+                    "sequenceNumber": 5,
+                }
+            ],
+        },
+        range_confidence=0.94,
+        reason_codes=("RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT",),
         decision=ImageSelectionCandidateDecision.ELIGIBLE,
         created_at=datetime(2026, 8, 9, tzinfo=UTC),
     )
@@ -429,10 +547,32 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         preview = client.get(
             f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates/{candidate.id}/file"
         )
+        candidates = client.get(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates"
+        )
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.9"
+    assert (
+        history.json()["items"][0]["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    )
+    assert candidates.status_code == 200, candidates.text
+    candidate_payload = candidates.json()["items"][0]
+    assert candidate_payload["suggestedRangeStart"] == 1
+    assert candidate_payload["suggestedRangeEnd"] == 9
+    assert candidate_payload["rangeConfidence"] == 0.94
+    assert candidate_payload["reasonCodes"] == ["RANGE_OCR_LABEL_LATTICE_THREE_ADJACENT"]
+    assert candidate_payload["rangeLabelObservations"] == [
+        {
+            "confidence": 0.96,
+            "positionIndex": 4,
+            "rangeStart": 1,
+            "route": "label_lattice",
+            "sequenceNumber": 5,
+        }
+    ]
+    assert history.json()["items"][0]["sequenceRangeStart"] == 1
+    assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
     assert preview.status_code == 200, preview.text
     assert preview.content == content
@@ -481,6 +621,107 @@ def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
     assert original.selector_fingerprint == "1" * 64
 
 
+def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    source, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="1" * 64,
+        first_sequence_number=1,
+    )
+    source = replace(
+        source,
+        job=replace(source.job, status=JobStatus.WAITING_FOR_REVIEW),
+    )
+    repository.runs[source.id] = source
+    group = _group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    candidate = _manual_candidate(source.id, group.id, 0)
+    repository.groups.append(group)
+    repository.candidates.append(candidate)
+
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    with client:
+        preview_response = client.get(
+            f"/api/v1/admin/image-selections/{source.id}/range-recovery-preview"
+        )
+        assert preview_response.status_code == 200, preview_response.text
+        preview = preview_response.json()
+        first = client.post(
+            f"/api/v1/admin/image-selections/{source.id}/recover-ranges",
+            json={"expectedSourceSnapshotSha256": preview["sourceSnapshotSha256"]},
+        )
+        repeated = client.post(
+            f"/api/v1/admin/image-selections/{source.id}/recover-ranges",
+            json={"expectedSourceSnapshotSha256": preview["sourceSnapshotSha256"]},
+        )
+
+    assert preview["problemGroupCount"] == 1
+    assert preview["candidateCount"] == 1
+    assert preview["blockCount"] == 1
+    assert preview["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert first.status_code == 200, first.text
+    assert repeated.status_code == 200, repeated.text
+    assert first.json()["created"] is True
+    assert repeated.json()["created"] is False
+    assert repeated.json()["run"]["id"] == first.json()["run"]["id"]
+    assert first.json()["run"]["executionMode"] == "range_recovery"
+    assert first.json()["run"]["sourceRunId"] == str(source.id)
+    assert repository.runs[source.id] == source
+
+
+def test_range_recovery_rejects_a_stale_preview(tmp_path: Path) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository, browser_upload_root=browser_upload_root)
+    source, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="1" * 64,
+        first_sequence_number=1,
+    )
+    repository.runs[source.id] = replace(
+        source,
+        job=replace(source.job, status=JobStatus.WAITING_FOR_REVIEW),
+    )
+    repository.groups.append(_group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED))
+    stale = service.preview_range_recovery(source.id)
+    repository.groups[0] = replace(repository.groups[0], range_start=1, range_end=9)
+
+    with pytest.raises(ImageSelectionConflictError) as raised:
+        service.recover_ranges(
+            run_id=source.id,
+            expected_source_snapshot_sha256=stale.source_snapshot_sha256,
+        )
+
+    assert raised.value.code == "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED"
+
+
 def test_rerun_can_add_required_first_sequence_to_historical_run(tmp_path: Path) -> None:
     game_id = uuid4()
     source_selection_id = uuid4()
@@ -502,11 +743,15 @@ def test_rerun_can_add_required_first_sequence_to_historical_run(tmp_path: Path)
         run_id=historical.id,
         selector_fingerprint="2" * 64,
         first_sequence_number=7300,
+        last_sequence_number=19809,
     )
 
     assert created is True
     assert rerun.first_sequence_number == 7300
+    assert rerun.last_sequence_number == 19809
+    assert rerun.job.input_payload["last_sequence_number"] == 19809
     assert historical.first_sequence_number is None
+    assert historical.last_sequence_number is None
 
 
 @pytest.mark.parametrize("terminal_status", [JobStatus.CANCELLED, JobStatus.FAILED])
@@ -938,6 +1183,111 @@ def test_range_queue_confirms_automatic_representative_without_reselecting_image
     assert repository.get_run(run.id).job.status is JobStatus.CREATED
 
 
+def test_range_queue_accepts_start_only_and_changes_representative() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="a" * 64,
+        selector_fingerprint="c" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW, review_count=1),
+    )
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    automatic = replace(
+        _manual_candidate(run.id, group.id, 0),
+        decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+    )
+    replacement = _manual_candidate(run.id, group.id, 1)
+    repository.groups.append(replace(group, selected_candidate_id=automatic.id))
+    repository.candidates.extend((automatic, replacement))
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        confirmed = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/confirm-range",
+            json={
+                "candidateId": str(replacement.id),
+                "idempotencyKey": str(uuid4()),
+                "rangeStart": 7300,
+            },
+        )
+
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["group"]["rangeStart"] == 7300
+    assert confirmed.json()["group"]["rangeEnd"] == 7308
+    assert confirmed.json()["group"]["selectedCandidateId"] == str(replacement.id)
+    assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
+    assert repository.candidates[1].decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+
+
+def test_range_queue_joins_an_existing_range_without_conflict() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="7" * 64,
+        selector_fingerprint="6" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW, review_count=1),
+    )
+    owner = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.AUTO_SELECTED),
+        range_start=1,
+        range_end=9,
+    )
+    unresolved = _group(run.id, 1, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    candidate = replace(
+        _manual_candidate(run.id, unresolved.id, 1),
+        decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+    )
+    unresolved = replace(unresolved, selected_candidate_id=candidate.id)
+    repository.groups.extend((owner, unresolved))
+    repository.candidates.append(candidate)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    key = uuid4()
+    command = {
+        "idempotencyKey": str(key),
+        "rangeStart": 1,
+    }
+
+    with client:
+        joined = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{unresolved.id}/confirm-range",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{unresolved.id}/confirm-range",
+            json=command,
+        )
+
+    assert joined.status_code == 200, joined.text
+    assert replay.json() == joined.json()
+    assert joined.json()["group"]["status"] == "skipped_existing_range"
+    assert joined.json()["group"]["selectedCandidateId"] is None
+    assert joined.json()["decision"]["resolution"] == "duplicate_range"
+    assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
+    assert len(repository.manual_decisions) == 1
+
+
 @pytest.mark.parametrize(
     "origin",
     [
@@ -1105,13 +1455,23 @@ def test_image_selection_api_reruns_existing_managed_staging(tmp_path: Path) -> 
     )
 
     with client:
-        rerun = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
-        repeated = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
+        rerun_payload = {"firstSequenceNumber": 1, "lastSequenceNumber": 19809}
+        rerun = client.post(
+            f"/api/v1/admin/image-selections/{original.id}/rerun",
+            json=rerun_payload,
+        )
+        repeated = client.post(
+            f"/api/v1/admin/image-selections/{original.id}/rerun",
+            json=rerun_payload,
+        )
 
     assert rerun.status_code == 200, rerun.text
     assert rerun.json()["created"] is True
     assert rerun.json()["run"]["sourceSelectionId"] == str(source_selection_id)
     assert rerun.json()["run"]["id"] != str(original.id)
+    assert rerun.json()["run"]["firstSequenceNumber"] == 1
+    assert rerun.json()["run"]["lastSequenceNumber"] == 19809
+    assert rerun.json()["run"]["expectedGroupCount"] == 2201
     assert repeated.status_code == 200, repeated.text
     assert repeated.json()["created"] is False
     assert repeated.json()["run"]["id"] == rerun.json()["run"]["id"]

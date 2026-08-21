@@ -41,17 +41,18 @@ def main(arguments: list[str] | None = None) -> int:
     finally:
         engine.dispose()
     report_path = (
-        options.report
-        if options.report.is_absolute()
-        else REPOSITORY_ROOT / options.report
+        options.report if options.report.is_absolute() else REPOSITORY_ROOT / options.report
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(
-        result.to_dict(),
-        ensure_ascii=False,
-        indent=2,
-        sort_keys=True,
-    ) + "\n"
+    payload = (
+        json.dumps(
+            result.to_dict(),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
     report_path.write_text(payload, encoding="utf-8", newline="\n")
     print(payload, end="")
     return 0

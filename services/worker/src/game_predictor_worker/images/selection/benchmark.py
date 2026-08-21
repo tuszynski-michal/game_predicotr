@@ -27,6 +27,7 @@ from .contracts import (
     ImageSelectionResult,
     ImageSelectionSource,
     RangeEvidence,
+    RangeLabelObservation,
     RepresentativeAssessment,
     SelectionGroupStatus,
     SequenceRange,
@@ -464,12 +465,23 @@ class InstrumentedRangeVerifier:
         group = self._groups[observation.source.order_index // self._profile.group_size]
         label = self._analyzer.label_for(observation.source.order_index)
         safe = label in self._annotations.expected_automatic_labels and not group.manual_required
+        reason_codes = (
+            ()
+            if safe
+            else (
+                "QUALITY_LAYOUT_BLUR"
+                if label == "blurred"
+                else "IMAGE_OCCLUDED"
+                if label in {"occluded", "clipped"}
+                else f"BENCHMARK_{label.upper()}",
+            )
+        )
         return CandidateVerification(
             representative=RepresentativeAssessment(
                 board_count=expected_board_count,
                 geometry_complete=safe,
                 full_frame_visible=safe,
-                reason_codes=() if safe else (f"BENCHMARK_{label.upper()}",),
+                reason_codes=reason_codes,
             ),
             range_evidence=RangeEvidence(
                 recognized_range=SequenceRange(
@@ -477,11 +489,21 @@ class InstrumentedRangeVerifier:
                     end=group.range_end,
                     confidence=0.98,
                 ),
+                reason_codes=("RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",),
+                label_observations=tuple(
+                    RangeLabelObservation(
+                        position_index=position,
+                        sequence_number=group.range_start + position,
+                        confidence=0.98,
+                        route="benchmark_annotation",
+                    )
+                    for position in (0, 1, 4)
+                ),
             ),
         )
 
 
-def _write_template(path: Path, seed: int) -> str:
+def _write_template(path: Path, seed: int, *, byte_variant: int) -> str:
     background = (
         12 + (seed * 29) % 48,
         16 + (seed * 43) % 48,
@@ -511,6 +533,10 @@ def _write_template(path: Path, seed: int) -> str:
         )
         draw.rectangle((x, y, min(x + 42, 950), min(y + 30, 710)), outline=color, width=3)
     image.save(path, format="JPEG", quality=86)
+    # Real camera frames have distinct checksums even when their visible pixels
+    # are effectively identical. A bounded trailing marker preserves decoded
+    # pixels while keeping the fixture honest for multi-JPEG consensus gates.
+    path.write_bytes(path.read_bytes() + f"benchmark-variant:{byte_variant}".encode("ascii"))
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -522,7 +548,7 @@ def stage_fixture(
 ) -> tuple[Path, tuple[ImageSelectionSource, ...], dict[str, object]]:
     source_root = work_root / "source"
     source_root.mkdir(parents=True, exist_ok=False)
-    templates: dict[int, tuple[Path, str, int]] = {}
+    templates: dict[tuple[int, int], tuple[Path, str, int]] = {}
     sources: list[ImageSelectionSource] = []
     link_mode = "hardlink"
     started_at = perf_counter()
@@ -532,12 +558,18 @@ def stage_fixture(
         file_name = f"{index + 1:08d}.jpg"
         target = source_root / file_name
         group_order = index // profile.group_size
-        template_entry = templates.get(group_order)
+        byte_variant = index % 2
+        template_key = (group_order, byte_variant)
+        template_entry = templates.get(template_key)
         if template_entry is None:
-            template = work_root / f"template-{group_order:04d}.jpg"
-            checksum = _write_template(template, annotations.seed + group_order * 997)
+            template = work_root / f"template-{group_order:04d}-{byte_variant}.jpg"
+            checksum = _write_template(
+                template,
+                annotations.seed + group_order * 997,
+                byte_variant=byte_variant,
+            )
             template_entry = (template, checksum, template.stat().st_size)
-            templates[group_order] = template_entry
+            templates[template_key] = template_entry
         template, checksum, size_bytes = template_entry
         try:
             os.link(template, target)

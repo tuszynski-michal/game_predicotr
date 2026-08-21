@@ -161,8 +161,7 @@ def upgrade() -> None:
             name="ck_image_selection_groups_range",
         ),
         sa.CheckConstraint(
-            "fingerprint_sha256 IS NULL OR "
-            "fingerprint_sha256 ~ '^[0-9a-f]{64}$'",
+            "fingerprint_sha256 IS NULL OR fingerprint_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_selection_groups_fingerprint_sha256",
         ),
         sa.CheckConstraint(
@@ -198,8 +197,7 @@ def upgrade() -> None:
         ["run_id", "range_start", "range_end"],
         unique=True,
         postgresql_where=sa.text(
-            "status IN ('auto_selected', 'manually_selected') "
-            "AND range_start IS NOT NULL"
+            "status IN ('auto_selected', 'manually_selected') AND range_start IS NOT NULL"
         ),
     )
 
@@ -263,13 +261,11 @@ def upgrade() -> None:
             name="ck_image_selection_candidates_reason_codes",
         ),
         sa.CheckConstraint(
-            "decision IN ('eligible', 'rejected', 'selected_automatic', "
-            "'selected_manual')",
+            "decision IN ('eligible', 'rejected', 'selected_automatic', 'selected_manual')",
             name="ck_image_selection_candidates_decision",
         ),
         sa.CheckConstraint(
-            "decision NOT IN ('selected_automatic', 'selected_manual') OR "
-            "group_id IS NOT NULL",
+            "decision NOT IN ('selected_automatic', 'selected_manual') OR group_id IS NOT NULL",
             name="ck_image_selection_candidates_selected_group",
         ),
         sa.ForeignKeyConstraint(
@@ -307,9 +303,7 @@ def upgrade() -> None:
         "image_selection_candidates",
         ["run_id", "group_id"],
         unique=True,
-        postgresql_where=sa.text(
-            "decision IN ('selected_automatic', 'selected_manual')"
-        ),
+        postgresql_where=sa.text("decision IN ('selected_automatic', 'selected_manual')"),
     )
 
 
@@ -341,7 +335,6 @@ def downgrade() -> None:
         name="job_type",
     ).create(op.get_bind(), checkfirst=False)
     op.execute(
-        "ALTER TABLE jobs ALTER COLUMN job_type TYPE job_type "
-        "USING job_type::text::job_type"
+        "ALTER TABLE jobs ALTER COLUMN job_type TYPE job_type USING job_type::text::job_type"
     )
     op.execute("DROP TYPE job_type_with_image_selection")

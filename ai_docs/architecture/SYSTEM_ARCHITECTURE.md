@@ -27,6 +27,16 @@ developerski i dopiero potem tworzy Quick Tunnel. Stop zamyka wyłącznie
 publiczną ekspozycję; PostgreSQL, API i Admin przez cały czas pozostają na
 loopback.
 
+Lifecycle jednego procesu Reviewera i Quick Tunnel jest serializowany między
+procesami Windows nazwanym mutexem zależnym od repozytorium. Stan schema v2 jest
+publikowany atomowo dopiero po health checku i wiąże PID z czasem uruchomienia,
+pełną ścieżką executable oraz losowym `instanceId`, dlatego ponowne użycie PID
+nie pozwala zatrzymać obcego procesu. Każda próba startu ma osobne logi, a
+kontroler API ma osobny plik wyniku dla każdego wywołania. Operacja
+compare-and-stop po `instanceId` stanowi fencing dla późniejszego
+`stop-if-unused`; decyzja, kiedy wspólny tunel jest nieużywany, należy do
+lifecycle'u assignments, nie do skryptów procesu.
+
 ## Kontekst
 
 ```mermaid
@@ -856,6 +866,102 @@ ręcznych override'ów. Klucz override'u to checksum obrazu źródłowego oraz
 obserwacji, ale nadal wykonuje source-aware fixed padding, kontrolę wszystkich
 narożników, support fraction `1.0` i pełny page-level gate.
 
+TASK-0249 rozdziela teraz geometrię strony i geometrię komórek formalnym
+`BoardCellGeometryManifestV1`. Manifest v1 zapisuje source-order, checksumę i
+wymiary JPEG-a, pozycję oraz numer planszy, `latticeBoundsQuad`, dokładnie 15
+pochodnych `cellQuads` i wersjonowane evidence. Płaszczyzna kanoniczna ma 5 × 3
+prostokątne sloty, lecz jej obraz w źródle może być dowolnym poprawnym wypukłym
+quadem perspektywicznym. Walidator celowo nie ma guardu prostopadłości w
+źródle.
+
+Read-only adapter `manual-board-cell-geometry-v19-preview-v1` pozwala
+Reviewerowi sprawdzić tę geometrię przed jej utrwaleniem. UI przesyła tylko
+cztery narożniki `latticeBoundsQuad`; cztery punkty krawędziowe są projekcyjną
+pochodną prezentacyjną. Worker wyprowadza 15 cell quadów tym samym kontraktem,
+wykonuje source-direct cropper v19 i składa finalne cropy w contact sheet `5 ×
+3`. Podgląd nie zapisuje artefaktów ani nie zmienia aktywnego pipeline'u v18.
+
+Adapter `manual-board-cell-geometry-v19-append-only-v1` jest jedyną aktywną
+ścieżką zapisu z tego edytora. Najpierw wykonuje dokładnie tę samą budowę
+`BoardCellGeometryEntry` i walidację croppera co preview, a następnie zapisuje
+15 finalnych PNG w content-addressed nazwach pod rewizjonowanym namespace.
+Warstwa aplikacyjna zapisuje ich ścieżki, source/padded quady i pełną
+proweniencję w istniejącym `image_board_geometry_revisions`; nowa tabela ani
+BLOB nie są potrzebne.
+
+Osobna checksum decyzji wiąże źródło, stałą pozycję planszy, numer, quad,
+wersję geometrii, fingerprint croppera, rewizje komendy i aktora. Bieżąca
+projekcja przechodzi na nową rewizję dopiero po ponownej kontroli revision w
+repozytorium. Exact retry zwraca poprzedni rekord, a konkurencyjny zapis ze
+starymi rewizjami nie zmienia projekcji. Historyczny adapter
+`manual-review-geometry-v1` pozostaje dostępny wyłącznie do odtwarzania dawnych
+artefaktów.
+
+Kontrakt rozróżnia evidence automatyczne od `human_reviewed/manual_override`.
+Automat nie przechodzi bez co najmniej 10 wiarygodnych centrów, 9 unikalnych
+inlierów oraz pokrycia wszystkich wierszy i kolumn; człowiek nie otrzymuje
+fikcyjnych metryk RANSAC i zapisuje checksumę decyzji. Manifest produkcyjny
+wymaga checksumy `PageGeometryManifestV1`, natomiast manifest regresyjny wymaga
+checksumy zaakceptowanych adnotacji. Bajty są kanoniczne, a zapis odbywa się
+atomowo pod nazwą SHA-256.
+
+Pierwszy realny corpus adaptera wykorzystuje istniejący
+`cell-grid-golden-v1`: 27 niezależnie zaakceptowanych geometrii, trzy dla każdej
+pozycji strony, pochodzące z dwóch grup źródłowych. Adapter ponownie weryfikuje
+źródłowy manifest, checksumy i wymiary JPEG-ów oraz checksumę całego
+wyprowadzonego manifestu.
+
+Automatyczny estymator v19 pozostaje czystym adapterem pomiędzy zweryfikowanym
+quadem planszy a `BoardCellGeometryManifestV1`. Historyczne
+wykrywanie jasnych komponentów dostarcza globalny zbiór kandydatów, natomiast
+nowy bounded-hypothesis locator wyprowadza wspólne osie 5 × 3 bez kosztownego
+skanu wszystkich półpikselowych początków i odstępów. Każdy komponent może
+zająć najwyżej jeden slot. Dopiero pełne przypisanie zasila istniejący guarded
+RANSAC; jego macierz jest składana z transformem analizy do oryginalnego JPEG-a.
+Wynikiem są source-space `latticeBoundsQuad`, 15 pochodnych quadów i kompletne
+evidence, nigdy raster ani confidence symboli.
+
+Rzeczywista bramka 27 plansz przepuszcza 25 geometrii z błędem narożników do
+`6,25 px`; dwa okludowane przypadki są jawnie odrzucone przez niezmienione
+progi 10 wiarygodnych centrów/9 inlierów.
+
+Read-only checkpoint `board-cell-geometry-v19-real-page-audit-v1` wiąże
+checksumę manifestu stron, wersję estymatora, progi i deterministyczną próbkę.
+Raport przechowuje wyniki wszystkich dziewięciu plansz strony, a osobny renderer
+tworzy source-space overlays i arkusze do ręcznej kontroli. Nie zapisuje bazy ani
+nie ingeruje w joby. Audyt 100 stron zaakceptował 888 geometrii; 12 plansz
+pozostało fail-closed bez komórek. Checkpoint nie zmienia pełnego pipeline'u ani
+aktywnego croppera v18, ale jego checksum jest obowiązkową częścią snapshotu
+jawnego pending-only recropu.
+
+Adapter
+`board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`, oddziela
+zwalidowaną geometrię od rasteryzacji. Najpierw sprawdza atomowo wszystkie 15
+komórek, ich kolejność, wyprowadzenie z `latticeBoundsQuad`, evidence, wymiary
+źródła i pełne położenie padded quadów. Dopiero kompletny wynik wykonuje po
+jednym source-to-output `warpPerspective` na komórkę. Kanoniczny slot ma
+`100 × 100` i inset `10 px`, ale ani slot, ani plansza `500 × 300` nie są
+materializowane. Cropper nie wykonuje dodatkowego `resize` i nie syntetyzuje
+brakujących pikseli. Wersje geometrii, paddingu, interpolacji, polityki brzegu i
+rozmiar wejścia modelu tworzą immutable fingerprint. Jest używany przez ręczny
+edytor i osobno uruchamiany pending-only recrop, ale nie zmienia aktywnego
+adaptera v18 ani kontraktu pełnego pipeline'u importu.
+
+Integracja `pending-board-cell-recrop-v19-v1` jest wersjonowaną ścieżką joba
+`image_grid_reinference` schema v2. API przypina checksumę zaakceptowanego
+audytu oraz wszystkie wersje i fingerprinty konfiguracji. Worker odrzuca drift
+snapshotu, korzysta wyłącznie z istniejącego quadu zweryfikowanej planszy i nie
+uruchamia discovery, detektora strony ani OCR. Historyczna schema v1 nadal
+odtwarza dawny detektor i cropper.
+
+Worker grupuje plansze po źródle, weryfikuje checksumę i wymiary JPEG-a oraz
+dekoduje go raz. Niepełne evidence 3 × 5 daje `needsManualGeometry` bez
+częściowych plików. Pełny wynik tworzy immutable 15 PNG i append-only rewizję
+geometrii. Bezpośrednio przed zmianą projekcji blokowane są item i plansza;
+status, rewizje, źródło, numer, pozycja, geometria i checksumy muszą nadal
+odpowiadać snapshotowi. Tym samym równoległa decyzja człowieka zawsze wygrywa,
+a istniejąca ręczna lub automatyczna rewizja v19 nie jest ponownie zapisywana.
+
 Implementacja v16 zachowuje 373 zaakceptowane artefakty v14 bajtowo: każdy
 plik jest ponownie odczytywany i sprawdzany względem zapisanej checksumy przed
 materializacją nowego namespace'u. Tylko 14 ręcznych quadów przechodzi ponowną
@@ -1030,19 +1136,39 @@ zapisie. Widoki `Do weryfikacji` i `Plansze kompletne` pozostają projekcjami
 statusów i liczników, lecz nie wyznaczają osobnych kolejek nawigacyjnych ani
 drugiego magazynu decyzji.
 
+Topologia tej kolejki jest utrwalona osobno w
+`image_review_queue_items` pod niezmiennym kluczem
+`(source_order_index, position_index, review_item_id)`. Stan per import w
+`image_review_queue_states` zawiera trwałe liczniki oraz `queueVersion`, który
+opisuje wyłącznie zmianę topologii, nie zmianę statusu czy numeru planszy.
+Transakcyjne triggery bazy utrzymują projekcję jednakowo dla zapisów API i
+workera oraz nie dopuszczają elementu bez jednoznacznego source-order. Bieżący
+kontrakt listowania nie konsumuje jeszcze tej projekcji; przepięcie keyset,
+resume i sąsiadów jest osobnym krokiem TASK-0249.
+
 Po wejściu lub reloadzie backend wskazuje pierwszą planszę pending, a gdy jej
 nie ma — pierwszą planszę importu. Pomyślny zapis przesuwa kursor do następnego
 elementu pełnej kolejności, natomiast poprzedni kursor nadal może wskazać
 planszę właśnie zatwierdzoną. Klient pobiera każdą pozycję bounded z
 `limit = 1`; pełna nawigacja nie oznacza materializacji wszystkich itemów w
-React ani odpowiedzi API. Sąsiednie elementy mogą być prefetchowane wyłącznie
-w bounded oknie.
+React ani odpowiedzi API. Reviewer utrzymuje dokładnie ograniczone okno
+`previous/current/next two`: poprzednik i pierwszy następnik mogą być pobierane
+równolegle, drugi następnik dopiero po kursorze pierwszego. Zasoby obrazu
+sąsiadów są ładowane z wyprzedzeniem, lecz po przesunięciu okna ich strony nie
+pozostają w stanie React. Buforowany następnik dziedziczy autorytatywne liczniki
+i `queueVersion` zwrócone przez późniejszą komendę bieżącego itemu.
 
 Akceptacja pozostaje atomową komendą całej planszy z expected revision i UUID
 idempotencji. Pojedyncze `Enter` albo kliknięcie wysyła jedną komendę bez
 dodatkowego modala. Backend nie ufa klawiaturze ani stanowi klienta i nadal
 egzekwuje komplet 15 komórek, aktywny katalog symboli, geometrię, rewizję oraz
 idempotencję.
+
+Klient zachowuje UUID dla ponowienia tej samej, niezmienionej komendy po błędzie
+transportu. Backend odróżnia konflikt rewizji bieżącego itemu od zmiany
+liczników lub sąsiada. Po poprawnym zapisie zwraca snapshot trwałych liczników i
+`queueVersion` z tej samej transakcji; Reviewer nie wykonuje lokalnej projekcji
+statusów dla resolution.
 
 Korekta siatki działa przed decyzją symbolu. Zapisuje nową immutable rewizję
 geometrii, wyprostowanej planszy i 15 cropów z checksumami, a następnie
@@ -1159,11 +1285,37 @@ każdym spinie.
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 
-Admin web tworzy trwałą, wygasającą sesję Reviewera oraz pokazuje link i kod
-osobno. Kod jest zwracany tylko podczas tworzenia, a PostgreSQL przechowuje
-wyłącznie jego hash. Przycisk publikacji uruchamia produkcyjny Reviewer i
-Quick Tunnel przez typowane lokalne API; osobny przycisk unieważnia bieżącą
-sesję i zatrzymuje tunel.
+Admin web otwiera typowane przypisanie dla wybranego gotowego importu. Pierwsze
+otwarcie online tworzy trwałą, wygasającą sesję i pokazuje link oraz kod osobno;
+kod jest zwracany tylko w tej odpowiedzi, a PostgreSQL przechowuje wyłącznie
+jego hash. Lista po restarcie odtwarza aktywne assignments bez kodów i tokenów.
+Zamknięcie jest operacją per assignment, a nie globalnym stopem składanym przez
+frontend z osobnych wywołań sesji i tunelu.
+
+TASK-0249 wprowadza osobną, trwałą warstwę `reviewer_work_assignments`.
+Assignment określa scope gry/importu, tryb local/online oraz ogrodzony lease z
+heartbeat i historią zamknięcia. Częściowy unikalny indeks gwarantuje najwyżej
+jedno aktywne przypisanie dla importu, ale nie ogranicza równoległej pracy nad
+różnymi importami.
+
+Lifecycle pracy korzysta z jednego współdzielonego procesu Reviewera. Zdrowy
+lokalny proces jest ponownie używany przez kolejne scope'y, a zdrowy online
+ingress dostarcza jeden publiczny origin dla oddzielnych sesji. Assignment
+online wskazuje własną scoped `reviewer_access_session`; assignment local nie
+tworzy sesji i nie zajmuje online capacity. Transakcyjny advisory lock
+serializuje otwarcie, zamknięcie i lazy recovery wygasłych prac online między
+procesami API. Najwyżej trzy różne importy mogą mieć aktywny tryb online.
+Zamknięcie pracy unieważnia tylko powiązaną sesję; Quick Tunnel pozostaje przy
+innych pracach i jest zatrzymywany ogrodzonym `instanceId` dopiero po ostatnim
+online assignment. Produkcyjny proces Reviewera na loopback pozostaje wspólny
+także dla pracy lokalnej.
+
+Kontrakt HTTP TASK 18 wystawia list/open/heartbeat/close jako lokalne Admin API.
+Warstwa composition root tworzy `ReviewerWorkLifecycleService` z repozytoriami
+assignmentu i sesji współdzielącymi jedną transakcję SQL. Idempotentne ponowienie
+open zwraca istniejący scope bez ponownego ujawnienia kodu. Wygenerowany klient
+i Admin nie wywołują już globalnego `start/stop` w normalnym przepływie sekcji
+zatwierdzania.
 
 Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
 workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko

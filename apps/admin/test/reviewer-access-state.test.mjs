@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   hasImageImport,
+  reviewJobLabel,
   reviewableGames,
   reviewReadyImports,
   selectReviewImportId,
@@ -71,6 +72,8 @@ test('selects the newest ready image import and preserves an explicit choice', (
     selectReviewImportId([older, newest], gameId, older.id),
     older.id,
   );
+  assert.match(reviewJobLabel(older), /ukończony/);
+  assert.match(reviewJobLabel(newest), /oczekuje na zatwierdzenie/);
 });
 
 test('distinguishes an unfinished image import from no image import', () => {

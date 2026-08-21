@@ -45,6 +45,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  CloseReviewerWorkAssignmentData,
+  CloseReviewerWorkAssignmentErrors,
+  CloseReviewerWorkAssignmentResponses,
   ConfirmImageSelectionGroupRangeData,
   ConfirmImageSelectionGroupRangeErrors,
   ConfirmImageSelectionGroupRangeResponses,
@@ -54,6 +57,9 @@ import type {
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
+  CreateBrowserPageGeometryOverrideData,
+  CreateBrowserPageGeometryOverrideErrors,
+  CreateBrowserPageGeometryOverrideResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
@@ -135,6 +141,9 @@ import type {
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
+  GetBrowserPageGeometrySourceAssetData,
+  GetBrowserPageGeometrySourceAssetErrors,
+  GetBrowserPageGeometrySourceAssetResponses,
   GetCuratedImageImportSourceData,
   GetCuratedImageImportSourceErrors,
   GetCuratedImageImportSourceResponses,
@@ -147,6 +156,9 @@ import type {
   GetGameData,
   GetGameErrors,
   GetGameResponses,
+  GetGridCalibrationCohortDiagnosticsData,
+  GetGridCalibrationCohortDiagnosticsErrors,
+  GetGridCalibrationCohortDiagnosticsResponses,
   GetHealthData,
   GetHealthResponses,
   GetImageDatasetCompletenessData,
@@ -253,9 +265,18 @@ import type {
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
+  HeartbeatReviewerWorkAssignmentData,
+  HeartbeatReviewerWorkAssignmentErrors,
+  HeartbeatReviewerWorkAssignmentResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListBrowserPageGeometryReviewSourcesData,
+  ListBrowserPageGeometryReviewSourcesErrors,
+  ListBrowserPageGeometryReviewSourcesResponses,
+  ListCanonicalImageReviewItemsData,
+  ListCanonicalImageReviewItemsErrors,
+  ListCanonicalImageReviewItemsResponses,
   ListCuratedImageImportSourcesData,
   ListCuratedImageImportSourcesErrors,
   ListCuratedImageImportSourcesResponses,
@@ -306,6 +327,9 @@ import type {
   ListPayoutRulesData,
   ListPayoutRulesErrors,
   ListPayoutRulesResponses,
+  ListReadyBrowserImageSelectionsData,
+  ListReadyBrowserImageSelectionsErrors,
+  ListReadyBrowserImageSelectionsResponses,
   ListReviewBatchesData,
   ListReviewBatchesErrors,
   ListReviewBatchesResponses,
@@ -316,6 +340,9 @@ import type {
   ListReviewerSymbolsData,
   ListReviewerSymbolsErrors,
   ListReviewerSymbolsResponses,
+  ListReviewerWorkAssignmentsData,
+  ListReviewerWorkAssignmentsErrors,
+  ListReviewerWorkAssignmentsResponses,
   ListReviewFeedbackExportsData,
   ListReviewFeedbackExportsErrors,
   ListReviewFeedbackExportsResponses,
@@ -348,18 +375,39 @@ import type {
   ListVerifiedImageReviewCohortsResponses,
   ListWorkerLanesData,
   ListWorkerLanesResponses,
+  OpenLocalReviewerWorkData,
+  OpenLocalReviewerWorkErrors,
+  OpenLocalReviewerWorkResponses,
+  OpenOnlineReviewerWorkData,
+  OpenOnlineReviewerWorkErrors,
+  OpenOnlineReviewerWorkResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageSelectionRangeRecoveryData,
+  PreviewImageSelectionRangeRecoveryErrors,
+  PreviewImageSelectionRangeRecoveryResponses,
+  PreviewImageSequenceImportData,
+  PreviewImageSequenceImportErrors,
+  PreviewImageSequenceImportResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewPendingGridReinferenceData,
+  PreviewPendingGridReinferenceErrors,
+  PreviewPendingGridReinferenceResponses,
+  PreviewPendingSymbolReinferenceData,
+  PreviewPendingSymbolReinferenceErrors,
+  PreviewPendingSymbolReinferenceResponses,
+  PreviewReadyBrowserImageImportData,
+  PreviewReadyBrowserImageImportErrors,
+  PreviewReadyBrowserImageImportResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -375,6 +423,9 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RecoverImageSelectionRangesData,
+  RecoverImageSelectionRangesErrors,
+  RecoverImageSelectionRangesResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -384,6 +435,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ReprocessManagedImageImportData,
+  ReprocessManagedImageImportErrors,
+  ReprocessManagedImageImportResponses,
   RerunImageSelectionData,
   RerunImageSelectionErrors,
   RerunImageSelectionResponses,
@@ -426,6 +480,21 @@ import type {
   SelectSymbolImageCandidateData,
   SelectSymbolImageCandidateErrors,
   SelectSymbolImageCandidateResponses,
+  StartBrowserPageGeometryPreflightData,
+  StartBrowserPageGeometryPreflightErrors,
+  StartBrowserPageGeometryPreflightResponses,
+  StartLocalReviewerData,
+  StartLocalReviewerErrors,
+  StartLocalReviewerResponses,
+  StartPendingGridReinferenceData,
+  StartPendingGridReinferenceErrors,
+  StartPendingGridReinferenceResponses,
+  StartPendingSymbolReinferenceData,
+  StartPendingSymbolReinferenceErrors,
+  StartPendingSymbolReinferenceResponses,
+  StartReadyBrowserImageImportData,
+  StartReadyBrowserImageImportErrors,
+  StartReadyBrowserImageImportResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
@@ -739,6 +808,27 @@ export const createGridCalibrationCandidate = <
   });
 
 /**
+ * Cohort Diagnostics
+ */
+export const getGridCalibrationCohortDiagnostics = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridCalibrationCohortDiagnosticsData, ThrowOnError>,
+): RequestResult<
+  GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridCalibrationCohortDiagnosticsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCalibrationCohortDiagnosticsResponses,
+    GetGridCalibrationCohortDiagnosticsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/cohort-diagnostics',
+    ...options,
+  });
+
+/**
  * List Activations
  */
 export const listGridProfileActivations = <
@@ -829,6 +919,54 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Open or reuse one loopback-only Reviewer work assignment
+ */
+export const openLocalReviewerWork = <ThrowOnError extends boolean = false>(
+  options: Options<OpenLocalReviewerWorkData, ThrowOnError>,
+): RequestResult<
+  OpenLocalReviewerWorkResponses,
+  OpenLocalReviewerWorkErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenLocalReviewerWorkResponses,
+    OpenLocalReviewerWorkErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Open or reuse one scoped online Reviewer work assignment
+ */
+export const openOnlineReviewerWork = <ThrowOnError extends boolean = false>(
+  options: Options<OpenOnlineReviewerWorkData, ThrowOnError>,
+): RequestResult<
+  OpenOnlineReviewerWorkResponses,
+  OpenOnlineReviewerWorkErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenOnlineReviewerWorkResponses,
+    OpenOnlineReviewerWorkErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Reset all layout workflow data for one game
  */
 export const resetGameLayoutData = <ThrowOnError extends boolean = false>(
@@ -888,6 +1026,27 @@ export const getModelQuality = <ThrowOnError extends boolean = false>(
     GetModelQualityErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/model-quality', ...options });
+
+/**
+ * List active scoped Reviewer work for one game
+ */
+export const listReviewerWorkAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListReviewerWorkAssignmentsData, ThrowOnError>,
+): RequestResult<
+  ListReviewerWorkAssignmentsResponses,
+  ListReviewerWorkAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewerWorkAssignmentsResponses,
+    ListReviewerWorkAssignmentsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/reviewer-work-assignments',
+    ...options,
+  });
 
 /**
  * List game rules versions
@@ -1382,6 +1541,24 @@ export const createImageFolderImport = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List finalized browser staging folders ready for layout import
+ */
+export const listReadyBrowserImageSelections = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListReadyBrowserImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListReadyBrowserImageSelectionsResponses,
+  ListReadyBrowserImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListReadyBrowserImageSelectionsResponses,
+    ListReadyBrowserImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-imports/browser-selections', ...options });
+
+/**
  * Start a browser-native image folder upload
  */
 export const createBrowserImageSelection = <
@@ -1498,6 +1675,152 @@ export const finalizeBrowserImageSelection = <
   });
 
 /**
+ * Build a verified complete-page geometry manifest before layout import
+ */
+export const startBrowserPageGeometryPreflight = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartBrowserPageGeometryPreflightData, ThrowOnError>,
+): RequestResult<
+  StartBrowserPageGeometryPreflightResponses,
+  StartBrowserPageGeometryPreflightErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartBrowserPageGeometryPreflightResponses,
+    StartBrowserPageGeometryPreflightErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List pages requiring full-page geometry correction
+ */
+export const listBrowserPageGeometryReviewSources = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBrowserPageGeometryReviewSourcesData, ThrowOnError>,
+): RequestResult<
+  ListBrowserPageGeometryReviewSourcesResponses,
+  ListBrowserPageGeometryReviewSourcesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBrowserPageGeometryReviewSourcesResponses,
+    ListBrowserPageGeometryReviewSourcesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflights/{preflight_job_id}/review-sources',
+    ...options,
+  });
+
+/**
+ * Persist one complete-page geometry correction for a staged source
+ */
+export const createBrowserPageGeometryOverride = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBrowserPageGeometryOverrideData, ThrowOnError>,
+): RequestResult<
+  CreateBrowserPageGeometryOverrideResponses,
+  CreateBrowserPageGeometryOverrideErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBrowserPageGeometryOverrideResponses,
+    CreateBrowserPageGeometryOverrideErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-overrides',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one staged source image for local page-geometry correction
+ */
+export const getBrowserPageGeometrySourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBrowserPageGeometrySourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetBrowserPageGeometrySourceAssetResponses,
+  GetBrowserPageGeometrySourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBrowserPageGeometrySourceAssetResponses,
+    GetBrowserPageGeometrySourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/page-geometry-sources/{source_checksum_sha256}/asset',
+    ...options,
+  });
+
+/**
+ * Preview a finalized browser staging folder before creating a job
+ */
+export const previewReadyBrowserImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewReadyBrowserImageImportData, ThrowOnError>,
+): RequestResult<
+  PreviewReadyBrowserImageImportResponses,
+  PreviewReadyBrowserImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewReadyBrowserImageImportResponses,
+    PreviewReadyBrowserImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create an idempotent image import from finalized browser staging
+ */
+export const startReadyBrowserImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartReadyBrowserImageImportData, ThrowOnError>,
+): RequestResult<
+  StartReadyBrowserImageImportResponses,
+  StartReadyBrowserImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartReadyBrowserImageImportResponses,
+    StartReadyBrowserImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List incremental curated sources for one game
  */
 export const listCuratedImageImportSources = <
@@ -1605,6 +1928,54 @@ export const selectLocalImageFolder = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/folder-selection',
+    ...options,
+  });
+
+/**
+ * Preview reuse of already resolved seq_* ranges
+ */
+export const previewImageSequenceImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageSequenceImportData, ThrowOnError>,
+): RequestResult<
+  PreviewImageSequenceImportResponses,
+  PreviewImageSequenceImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageSequenceImportResponses,
+    PreviewImageSequenceImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/preflight',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reprocess an image import from its preserved managed originals
+ */
+export const reprocessManagedImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReprocessManagedImageImportData, ThrowOnError>,
+): RequestResult<
+  ReprocessManagedImageImportResponses,
+  ReprocessManagedImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReprocessManagedImageImportResponses,
+    ReprocessManagedImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/{source_job_id}/reprocess',
     ...options,
   });
 
@@ -1779,6 +2150,27 @@ export const listOperationalImageReviewItems = <
   });
 
 /**
+ * List the game-wide pending review queue in sequence order
+ */
+export const listCanonicalImageReviewItems = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListCanonicalImageReviewItemsData, ThrowOnError>,
+): RequestResult<
+  ListCanonicalImageReviewItemsResponses,
+  ListCanonicalImageReviewItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListCanonicalImageReviewItemsResponses,
+    ListCanonicalImageReviewItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/canonical/{game_id}',
+    ...options,
+  });
+
+/**
  * Get accepted image sequence completeness for one game
  */
 export const getImageDatasetCompleteness = <
@@ -1796,6 +2188,92 @@ export const getImageDatasetCompleteness = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Preview pending-only grid and crop recalculation
+ */
+export const previewPendingGridReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingGridReinferenceResponses,
+  PreviewPendingGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewPendingGridReinferenceResponses,
+    PreviewPendingGridReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}',
+    ...options,
+  });
+
+/**
+ * Start pending-only grid and crop recalculation
+ */
+export const startPendingGridReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartPendingGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartPendingGridReinferenceResponses,
+  StartPendingGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartPendingGridReinferenceResponses,
+    StartPendingGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}',
+    ...options,
+  });
+
+/**
+ * Preview the explicit pending-only symbol recalculation
+ */
+export const previewPendingSymbolReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingSymbolReinferenceData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingSymbolReinferenceResponses,
+  PreviewPendingSymbolReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewPendingSymbolReinferenceResponses,
+    PreviewPendingSymbolReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}',
+    ...options,
+  });
+
+/**
+ * Start an explicit pending-only symbol recalculation
+ */
+export const startPendingSymbolReinference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartPendingSymbolReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartPendingSymbolReinferenceResponses,
+  StartPendingSymbolReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartPendingSymbolReinferenceResponses,
+    StartPendingSymbolReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}',
     ...options,
   });
 
@@ -1933,7 +2411,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview a corrected board without persisting files or revisions
+ * Preview 15 corrected v19 board-cell crops without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,
@@ -1959,7 +2437,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable corrected geometry and reopen review
+ * Persist immutable v19 symbol-lattice geometry and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -2432,6 +2910,53 @@ export const getImageSelectionOutputFile = <
   >({
     url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}',
     ...options,
+  });
+
+/**
+ * Preview an immutable recovery of unresolved range groups
+ */
+export const previewImageSelectionRangeRecovery = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageSelectionRangeRecoveryData, ThrowOnError>,
+): RequestResult<
+  PreviewImageSelectionRangeRecoveryResponses,
+  PreviewImageSelectionRangeRecoveryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewImageSelectionRangeRecoveryResponses,
+    PreviewImageSelectionRangeRecoveryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/range-recovery-preview',
+    ...options,
+  });
+
+/**
+ * Create or return an immutable unresolved-range recovery run
+ */
+export const recoverImageSelectionRanges = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecoverImageSelectionRangesData, ThrowOnError>,
+): RequestResult<
+  RecoverImageSelectionRangesResponses,
+  RecoverImageSelectionRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RecoverImageSelectionRangesResponses,
+    RecoverImageSelectionRangesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/recover-ranges',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -3103,6 +3628,30 @@ export const stopReviewerIngress = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Start the standalone Reviewer on loopback without a public tunnel
+ */
+export const startLocalReviewer = <ThrowOnError extends boolean = false>(
+  options: Options<StartLocalReviewerData, ThrowOnError>,
+): RequestResult<
+  StartLocalReviewerResponses,
+  StartLocalReviewerErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartLocalReviewerResponses,
+    StartLocalReviewerErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-local/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Create one durable game and import scoped reviewer session
  */
 export const createReviewerSession = <ThrowOnError extends boolean = false>(
@@ -3144,6 +3693,58 @@ export const revokeReviewerSession = <ThrowOnError extends boolean = false>(
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke',
     ...options,
+  });
+
+/**
+ * Close only the selected Reviewer work assignment
+ */
+export const closeReviewerWorkAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CloseReviewerWorkAssignmentData, ThrowOnError>,
+): RequestResult<
+  CloseReviewerWorkAssignmentResponses,
+  CloseReviewerWorkAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CloseReviewerWorkAssignmentResponses,
+    CloseReviewerWorkAssignmentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/close',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Heartbeat one active Reviewer work assignment
+ */
+export const heartbeatReviewerWorkAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<HeartbeatReviewerWorkAssignmentData, ThrowOnError>,
+): RequestResult<
+  HeartbeatReviewerWorkAssignmentResponses,
+  HeartbeatReviewerWorkAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    HeartbeatReviewerWorkAssignmentResponses,
+    HeartbeatReviewerWorkAssignmentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

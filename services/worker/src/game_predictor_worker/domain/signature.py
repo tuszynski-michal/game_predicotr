@@ -11,11 +11,7 @@ MAX_SYMBOL_MOBILE_CODE = 32_767
 
 
 def _validate_cell_width(cell_width: int) -> None:
-    if (
-        isinstance(cell_width, bool)
-        or cell_width < 1
-        or cell_width > MAX_SIGNATURE_CELL_WIDTH
-    ):
+    if isinstance(cell_width, bool) or cell_width < 1 or cell_width > MAX_SIGNATURE_CELL_WIDTH:
         raise DomainValidationError(
             DomainErrorCode.INVALID_CELL_WIDTH,
             f"Signature cell width must be between 1 and {MAX_SIGNATURE_CELL_WIDTH}.",
@@ -23,11 +19,7 @@ def _validate_cell_width(cell_width: int) -> None:
 
 
 def _encode_cell(symbol_code: int, cell_width: int) -> str:
-    if (
-        isinstance(symbol_code, bool)
-        or symbol_code < 1
-        or symbol_code > MAX_SYMBOL_MOBILE_CODE
-    ):
+    if isinstance(symbol_code, bool) or symbol_code < 1 or symbol_code > MAX_SYMBOL_MOBILE_CODE:
         raise DomainValidationError(
             DomainErrorCode.INVALID_SYMBOL_CODE,
             f"Symbol code must be between 1 and {MAX_SYMBOL_MOBILE_CODE}.",

@@ -157,11 +157,7 @@ def _validate_source(
     *,
     algorithm_version: str,
 ) -> None:
-    if (
-        job.game_id is None
-        or source.game_id != job.game_id
-        or source.rules_game_id != job.game_id
-    ):
+    if job.game_id is None or source.game_id != job.game_id or source.rules_game_id != job.game_id:
         raise JobHandlerError(
             "PAYOUT_GAME_MISMATCH",
             "The payout dataset, rules and job must belong to the same game.",

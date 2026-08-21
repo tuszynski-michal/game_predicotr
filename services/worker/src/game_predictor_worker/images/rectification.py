@@ -24,9 +24,7 @@ SYMBOL_AWARE_AFFINE_CROPPER_VERSION = "board-cell-crops-v5-symbol-aware-affine-v
 DETECTOR_SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v6-detector-symbol-aware-affine-v1"
 REVIEWED_SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v7-reviewed-symbol-aware-affine-v1"
 SAFE_CONTEXT_CROPPER_VERSION = "board-cell-crops-v10-wide-frame-preflight-v1"
-PROJECTIVE_SAFE_CONTEXT_CROPPER_VERSION = (
-    "board-cell-crops-v11-projective-frame-preflight-v1"
-)
+PROJECTIVE_SAFE_CONTEXT_CROPPER_VERSION = "board-cell-crops-v11-projective-frame-preflight-v1"
 BOARD_WIDTH = 500
 BOARD_HEIGHT = 300
 BOARD_ROWS = 3

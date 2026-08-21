@@ -42,11 +42,7 @@ class MemoryDatasetRepository(DatasetRepository):
 
     def list_dataset_versions(self, game_id: UUID) -> list[DatasetVersion]:
         return sorted(
-            (
-                item
-                for item in self.items.values()
-                if item.game_id == game_id
-            ),
+            (item for item in self.items.values() if item.game_id == game_id),
             key=lambda item: item.version,
             reverse=True,
         )
@@ -182,9 +178,7 @@ def test_generator_is_deterministic_continuous_and_has_controlled_duplicates() -
 
     assert first == second
     assert len(first) == MOCK_LAYOUT_COUNT
-    assert [item.sequence_number for item in first] == list(
-        range(1, MOCK_LAYOUT_COUNT + 1)
-    )
+    assert [item.sequence_number for item in first] == list(range(1, MOCK_LAYOUT_COUNT + 1))
     assert all(len(item.cells) == 15 for item in first)
     assert all(len(item.signature) == 30 for item in first)
     assert all(set(item.cells) <= {1, 2, 7, 12} for item in first)
@@ -245,9 +239,7 @@ def test_generated_mock_report_is_ready_with_six_duplicate_warnings() -> None:
     assert report.duplicate_signature_group_count == MOCK_DUPLICATE_COUNT
     assert report.duplicate_signature_affected_layout_count == 12
     assert report.duplicate_signature_excess_layout_count == 6
-    assert {
-        group.sequence_numbers for group in report.duplicate_signatures
-    } == {
+    assert {group.sequence_numbers for group in report.duplicate_signatures} == {
         (101, 995),
         (102, 996),
         (103, 997),
@@ -258,10 +250,7 @@ def test_generated_mock_report_is_ready_with_six_duplicate_warnings() -> None:
     duplicate_check = report.checks[-1]
     assert duplicate_check.code is DatasetValidationCheckCode.DUPLICATE_SIGNATURE
     assert duplicate_check.status is DatasetValidationCheckStatus.WARNING
-    assert all(
-        check.status is DatasetValidationCheckStatus.PASSED
-        for check in report.checks[:-1]
-    )
+    assert all(check.status is DatasetValidationCheckStatus.PASSED for check in report.checks[:-1])
 
 
 def test_layout_preview_uses_sequence_keyset_without_overlap() -> None:
@@ -390,27 +379,18 @@ def test_validator_reports_every_blocker_and_keeps_duplicate_as_warning() -> Non
     checks = {check.code: check for check in report.checks}
 
     assert not report.ready_for_publication
-    assert checks[
-        DatasetValidationCheckCode.LAYOUT_COUNT_MISMATCH
-    ].issue_count == 1
-    assert checks[
-        DatasetValidationCheckCode.MISSING_SEQUENCE_NUMBER
-    ].sequence_numbers == (2, 3)
-    assert checks[
-        DatasetValidationCheckCode.OUT_OF_RANGE_SEQUENCE_NUMBER
-    ].sequence_numbers == (4, 5)
-    assert checks[
-        DatasetValidationCheckCode.DUPLICATE_SEQUENCE_NUMBER
-    ].sequence_numbers == (1,)
-    assert checks[
-        DatasetValidationCheckCode.INVALID_CELL_COUNT
-    ].sequence_numbers == (4,)
+    assert checks[DatasetValidationCheckCode.LAYOUT_COUNT_MISMATCH].issue_count == 1
+    assert checks[DatasetValidationCheckCode.MISSING_SEQUENCE_NUMBER].sequence_numbers == (2, 3)
+    assert checks[DatasetValidationCheckCode.OUT_OF_RANGE_SEQUENCE_NUMBER].sequence_numbers == (
+        4,
+        5,
+    )
+    assert checks[DatasetValidationCheckCode.DUPLICATE_SEQUENCE_NUMBER].sequence_numbers == (1,)
+    assert checks[DatasetValidationCheckCode.INVALID_CELL_COUNT].sequence_numbers == (4,)
     foreign = checks[DatasetValidationCheckCode.FOREIGN_SYMBOL]
     assert foreign.sequence_numbers == (4,)
     assert foreign.mobile_codes == (3,)
-    assert checks[
-        DatasetValidationCheckCode.SIGNATURE_MISMATCH
-    ].sequence_numbers == (4,)
+    assert checks[DatasetValidationCheckCode.SIGNATURE_MISMATCH].sequence_numbers == (4,)
     assert (
         checks[DatasetValidationCheckCode.DUPLICATE_SIGNATURE].status
         is DatasetValidationCheckStatus.WARNING
@@ -435,9 +415,7 @@ def test_validation_samples_are_bounded_but_counts_are_exact() -> None:
         published_at=None,
     )
 
-    report = validate_dataset(
-        DatasetValidationSource(dataset, (1,), ())
-    )
+    report = validate_dataset(DatasetValidationSource(dataset, (1,), ()))
     missing = next(
         check
         for check in report.checks

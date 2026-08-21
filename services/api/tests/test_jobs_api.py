@@ -25,6 +25,13 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 )
 from game_predictor_api.main import create_app
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_worker.images.board_cell_geometry_activation import (
+    PENDING_BOARD_CELL_RECROP_VERSION,
+)
+from game_predictor_worker.images.board_cell_geometry_contract import (
+    BOARD_CELL_GEOMETRY_VERSION,
+)
+from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -103,6 +110,51 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
     }
 
 
+def test_pending_grid_reinference_pins_the_accepted_v19_recrop_snapshot(
+    tmp_path: Path,
+) -> None:
+    _client_instance, game_id, service, _repository = _client(tmp_path)
+
+    job = service.create_pending_grid_reinference_job(game_id=game_id)
+    payload = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)["inputPayload"]
+
+    assert payload["schemaVersion"] == 2
+    assert payload["inferenceKind"] == "pending_grid_only"
+    assert payload["cellOutputSize"] == 64
+    assert payload["gridProfile"] is None
+    assert payload["boardCellRecrop"]["activationVersion"] == (PENDING_BOARD_CELL_RECROP_VERSION)
+    assert payload["boardCellRecrop"]["geometryVersion"] == BOARD_CELL_GEOMETRY_VERSION
+    assert payload["boardCellRecrop"]["cropperVersion"] == CROPPER_VERSION
+
+
+def test_historical_pending_grid_reinference_v1_payload_remains_serializable() -> None:
+    job = create_job(
+        JobType.IMAGE_GRID_REINFERENCE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "inference_kind": "pending_grid_only",
+            "cell_output_size": 64,
+            "grid_profile": {
+                "profileId": None,
+                "profileVersion": "detector-baseline-v1",
+                "profileChecksumSha256": "a" * 64,
+                "activationId": None,
+                "profilePayload": {},
+                "pageRegistrationProfile": None,
+                "inferenceFingerprint": "b" * 64,
+            },
+        },
+        created_at=datetime(2026, 8, 20, tzinfo=UTC),
+    )
+
+    payload = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)["inputPayload"]
+
+    assert payload["schemaVersion"] == 1
+    assert payload["boardCellRecrop"] is None
+    assert payload["gridProfile"]["profileVersion"] == "detector-baseline-v1"
+
+
 def test_image_selection_job_exposes_bounded_operational_progress() -> None:
     job = create_job(
         JobType.IMAGE_SELECTION,
@@ -124,6 +176,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "group_count": 12,
             "selected_count": 9,
             "manual_count": 2,
+            "range_required_count": 4,
             "skipped_count": 1,
             "error_count": 3,
             "verification_count": 30,
@@ -137,6 +190,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
                 "groupsFinalized": 3,
                 "verifications": 18,
                 "manual": 2,
+                "rangeRequired": 1,
             },
             "stage_timing": {
                 "counters": {"anchoredOcrAttempts": 8, "fallbackOcrAttempts": 3},
@@ -154,6 +208,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
         "groups": 12,
         "selected": 9,
         "manual": 2,
+        "rangeRequired": 4,
         "skipped": 1,
         "errors": 3,
         "verifications": 30,
@@ -167,6 +222,7 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "groupsFinalized": 3,
             "verifications": 18,
             "manual": 2,
+            "rangeRequired": 1,
         },
         "stageSeconds": {"geometry": 4.5, "ocr": 7.25},
         "telemetryCounters": {
@@ -311,18 +367,14 @@ def test_delete_cancelled_image_selection_job_contract(tmp_path: Path) -> None:
             input_payload={"schema_version": 1},
         )
     )
-    repository.image_selection_deletions[job.id] = (
-        ImageSelectionJobDeletionReference(
-            run_id=run_id,
-            source_selection_id=source_selection_id,
-            source_reference_count=1,
-            has_curated_import_source=False,
-            has_published_output=False,
-        )
+    repository.image_selection_deletions[job.id] = ImageSelectionJobDeletionReference(
+        run_id=run_id,
+        source_selection_id=source_selection_id,
+        source_reference_count=1,
+        has_curated_import_source=False,
+        has_published_output=False,
     )
-    manual_directory = (
-        tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
-    )
+    manual_directory = tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
     manual_directory.mkdir(parents=True)
     service.cancel_job(job.id)
 
@@ -452,7 +504,9 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
     assert {job.job_type for job in jobs} == set(JobType) - {
         JobType.IMAGE_SELECTION,
         JobType.SYMBOL_TRAINING,
-    }
+            JobType.IMAGE_SYMBOL_REINFERENCE,
+            JobType.IMAGE_GRID_REINFERENCE,
+        }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 
 

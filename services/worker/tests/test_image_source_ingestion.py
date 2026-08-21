@@ -1,9 +1,14 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from game_predictor_api.application.image_imports import (
+    BrowserImageSelectionService,
+    ImageFolderSelectionService,
+)
 from game_predictor_api.domain.jobs import (
     JobType,
     checkpoint_job,
@@ -127,6 +132,132 @@ def test_ingestion_rejects_source_changed_after_manifest(tmp_path: Path) -> None
         ImageSourceIngestionHandler(store)(RecordingContext(), job)  # type: ignore[arg-type]
 
     assert caught.value.code == "IMAGE_SOURCE_CHANGED"
+
+
+def test_seq_filenames_are_attested_and_sorted_by_numeric_range(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_10-18.jpg", "JPEG")
+    Image.new("RGB", (32, 24), (0, 255, 0)).save(source / "seq_1-9.jpg", "JPEG")
+
+    manifest = ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+        _job(source),
+        source_directory=source,
+    )
+
+    assert [
+        (item.sequence_range_start, item.sequence_range_end)
+        for item in manifest.originals
+    ] == [(1, 9), (10, 18)]
+    assert all(item.sequence_range_source == "filename" for item in manifest.originals)
+
+
+def test_seq_filenames_reject_invalid_or_overlapping_ranges(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_1-9.jpg", "JPEG")
+    Image.new("RGB", (32, 24), (0, 255, 0)).save(source / "seq_9-17.jpg", "JPEG")
+
+    with pytest.raises(JobHandlerError) as caught:
+        ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+            _job(source),
+            source_directory=source,
+        )
+
+    assert caught.value.code == "IMAGE_SEQUENCE_FILENAME_CONFLICT"
+
+
+def test_browser_manifest_preserves_seq_name_while_copying_physical_file(
+    tmp_path: Path,
+) -> None:
+    upload_root = tmp_path / "imports"
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
+    content = stream.getvalue()
+    upload = browser_service.begin(
+        display_name="1-9",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    browser_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="1-9/seq_1-9.jpg",
+        content=content,
+    )
+    browser_service.finalize(upload.upload_id)
+    source = upload.path
+    game_id = uuid4()
+    job = create_job(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "import_kind": "image_directory",
+            "source_selection_id": str(upload.upload_id),
+            "source_directory": str(source.resolve()),
+            "source_display_name": "1-9",
+            "pipeline_fingerprint": FINGERPRINT,
+        },
+        created_at=NOW,
+    )
+
+    store = ManagedOriginalStore(tmp_path / "artifacts")
+    manifest = store.load_or_create_manifest(job, source_directory=source)
+
+    assert manifest.originals[0].source_relative_path == "1-9/seq_1-9.jpg"
+    assert manifest.originals[0].source_storage_relative_path == "00000001.jpg"
+    assert manifest.originals[0].sequence_range_start == 1
+    assert manifest.originals[0].sequence_range_end == 9
+    assert store.ensure_original(manifest, manifest.originals[0]) is True
+    managed_path = tmp_path / "artifacts" / manifest.originals[0].managed_relative_path
+    assert managed_path.read_bytes() == content
+
+
+def test_managed_reprocess_clones_manifest_after_original_folder_was_removed(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "layout.jpg", "JPEG")
+    artifact_root = tmp_path / "artifacts"
+    source_job = _job(source)
+    store = ManagedOriginalStore(artifact_root)
+    ImageSourceIngestionHandler(store)(RecordingContext(), source_job)  # type: ignore[arg-type]
+    (source / "layout.jpg").unlink()
+    source.rmdir()
+    reprocess_job = create_job(
+        JobType.IMPORT,
+        game_id=source_job.game_id,
+        input_payload={
+            "schema_version": 4,
+            "import_kind": "image_directory",
+            "source_directory": str(source),
+            "source_display_name": "reprocess",
+            "pipeline_fingerprint": "b" * 64,
+            "source_pipeline_fingerprint": "c" * 64,
+            "managed_source_job_id": str(source_job.id),
+            "symbol_model": {},
+            "grid_profile": {},
+        },
+        created_at=NOW,
+    )
+
+    manifest = ImageSourceIngestionHandler(store).ingest(  # type: ignore[arg-type]
+        RecordingContext(),
+        reprocess_job,
+    )
+
+    assert len(manifest.originals) == 1
+    assert manifest.originals[0].managed_relative_path.startswith("data/originals/")
+    assert len(list((artifact_root / "data" / "originals").glob("??/*.jpg"))) == 1
 
 
 def test_ingestion_rejects_unsupported_image_issue(tmp_path: Path) -> None:

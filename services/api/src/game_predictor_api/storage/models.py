@@ -643,6 +643,30 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_first_sequence_positive",
         ),
         CheckConstraint(
+            "last_sequence_number >= 0",
+            name="ck_image_selection_runs_last_sequence_positive",
+        ),
+        CheckConstraint(
+            "last_sequence_number = 0 OR "
+            "(first_sequence_number > 0 AND "
+            "((sequence_direction = 'ascending' AND "
+            "last_sequence_number >= first_sequence_number) OR "
+            "(sequence_direction = 'descending' AND "
+            "last_sequence_number <= first_sequence_number)))",
+            name="ck_image_selection_runs_sequence_bounds",
+        ),
+        CheckConstraint(
+            "execution_mode IN ('full', 'range_recovery')",
+            name="ck_image_selection_runs_execution_mode",
+        ),
+        CheckConstraint(
+            "(execution_mode = 'full' AND source_run_id IS NULL AND "
+            "source_snapshot_sha256 IS NULL) OR "
+            "(execution_mode = 'range_recovery' AND source_run_id IS NOT NULL AND "
+            "source_run_id <> id AND source_snapshot_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_image_selection_runs_recovery_source",
+        ),
+        CheckConstraint(
             "(output_manifest_sha256 IS NULL AND "
             "output_manifest_relative_path IS NULL) OR "
             "(output_manifest_sha256 ~ '^[0-9a-f]{64}$' AND "
@@ -658,13 +682,25 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_output_path_safe",
         ),
         UniqueConstraint("job_id", name="uq_image_selection_runs_job_id"),
-        UniqueConstraint(
+        Index(
+            "uq_image_selection_runs_full_identity",
             "game_id",
             "input_manifest_sha256",
             "selector_fingerprint",
             "sequence_direction",
             "first_sequence_number",
-            name="uq_image_selection_runs_identity",
+            "last_sequence_number",
+            unique=True,
+            postgresql_where=text("execution_mode = 'full'"),
+        ),
+        Index(
+            "uq_image_selection_runs_recovery_identity",
+            "source_run_id",
+            "selector_fingerprint",
+            "source_snapshot_sha256",
+            "last_sequence_number",
+            unique=True,
+            postgresql_where=text("execution_mode = 'range_recovery'"),
         ),
         Index(
             "ix_image_selection_runs_game_created",
@@ -675,6 +711,7 @@ class ImageSelectionRunModel(Base):
             "ix_image_selection_runs_source_selection_id",
             "source_selection_id",
         ),
+        Index("ix_image_selection_runs_source_run_id", "source_run_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -704,6 +741,21 @@ class ImageSelectionRunModel(Base):
         nullable=False,
         default=0,
     )
+    last_sequence_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    execution_mode: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="full",
+    )
+    source_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    source_snapshot_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     contract_version: Mapped[int] = mapped_column(
         SmallInteger,
         nullable=False,
@@ -884,6 +936,7 @@ class ImageSelectionGroupModel(Base):
                 "AND range_start IS NOT NULL"
             ),
         ),
+        Index("ix_image_selection_groups_origin_group_id", "origin_group_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -906,6 +959,10 @@ class ImageSelectionGroupModel(Base):
     )
     rejection_origin_status: Mapped[ImageSelectionGroupStatus | None] = mapped_column(
         String(40),
+        nullable=True,
+    )
+    origin_group_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_selection_groups.id", ondelete="RESTRICT"),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -1480,7 +1537,7 @@ class ImageReviewItemModel(Base):
     __tablename__ = "image_review_items"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected', 'rejected')",
+            "status IN ('pending', 'accepted', 'corrected', 'rejected', 'superseded')",
             name="ck_image_review_items_status",
         ),
         CheckConstraint(
@@ -1524,6 +1581,92 @@ class ImageReviewItemModel(Base):
     )
 
 
+class ImageReviewQueueStateModel(Base):
+    __tablename__ = "image_review_queue_states"
+    __table_args__ = (
+        CheckConstraint(
+            "queue_version > 0 AND total_count >= 0 "
+            "AND pending_count >= 0 AND accepted_count >= 0 "
+            "AND corrected_count >= 0 AND rejected_count >= 0 "
+            "AND superseded_count >= 0",
+            name="ck_image_review_queue_states_nonnegative",
+        ),
+        CheckConstraint(
+            "total_count = pending_count + accepted_count + corrected_count "
+            "+ rejected_count + superseded_count",
+            name="ck_image_review_queue_states_total",
+        ),
+    )
+
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    queue_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    total_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    pending_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    accepted_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    corrected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    rejected_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    superseded_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageReviewQueueItemModel(Base):
+    __tablename__ = "image_review_queue_items"
+    __table_args__ = (
+        CheckConstraint(
+            "source_order_index >= 0 AND position_index BETWEEN 0 AND 8",
+            name="ck_image_review_queue_items_position",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected', 'rejected', 'superseded')",
+            name="ck_image_review_queue_items_status",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "source_order_index",
+            "position_index",
+            "review_item_id",
+            name="uq_image_review_queue_items_order_key",
+        ),
+        Index(
+            "ix_image_review_queue_items_job_status_order",
+            "import_job_id",
+            "status",
+            "source_order_index",
+            "position_index",
+            "review_item_id",
+        ),
+    )
+
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_order_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageReviewResolutionEventModel(Base):
     __tablename__ = "image_review_resolution_events"
     __table_args__ = (
@@ -1532,7 +1675,7 @@ class ImageReviewResolutionEventModel(Base):
             name="ck_image_review_resolution_events_revision",
         ),
         CheckConstraint(
-            "action IN ('accepted', 'corrected', 'rejected', 'reopened')",
+            "action IN ('accepted', 'corrected', 'rejected', 'reopened', 'superseded')",
             name="ck_image_review_resolution_events_action",
         ),
         CheckConstraint(
@@ -1678,6 +1821,56 @@ class ImageBoardGeometryRevisionModel(Base):
     )
 
 
+class ImagePageGeometryOverrideModel(Base):
+    """Revisioned human correction for all nine quads on one source photo."""
+
+    __tablename__ = "image_page_geometry_overrides"
+    __table_args__ = (
+        CheckConstraint(
+            "image_width > 0 AND image_height > 0 AND revision > 0",
+            name="ck_image_page_geometry_overrides_values",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND decision_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_page_geometry_overrides_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(final_quads) = 'array' AND jsonb_array_length(final_quads) = 9",
+            name="ck_image_page_geometry_overrides_quads",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "source_checksum_sha256",
+            "revision",
+            name="uq_image_page_geometry_overrides_revision",
+        ),
+        Index(
+            "ix_image_page_geometry_overrides_current",
+            "game_id",
+            "source_checksum_sha256",
+            "revision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_width: Mapped[int] = mapped_column(Integer, nullable=False)
+    image_height: Mapped[int] = mapped_column(Integer, nullable=False)
+    final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ReviewerAccessSessionModel(Base):
     __tablename__ = "reviewer_access_sessions"
     __table_args__ = (
@@ -1688,6 +1881,12 @@ class ReviewerAccessSessionModel(Base):
         CheckConstraint(
             "failed_attempts BETWEEN 0 AND 5",
             name="ck_reviewer_access_sessions_failed_attempts",
+        ),
+        UniqueConstraint(
+            "id",
+            "game_id",
+            "import_job_id",
+            name="uq_reviewer_access_sessions_scope_identity",
         ),
         Index("ix_reviewer_access_sessions_token_hash", "token_hash", unique=True),
     )
@@ -1759,6 +1958,102 @@ class ReviewerAccessAuditEventModel(Base):
     )
     event_type: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ReviewerWorkAssignmentModel(Base):
+    __tablename__ = "reviewer_work_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "assignment_type IN ('local', 'online')",
+            name="ck_reviewer_work_assignments_type",
+        ),
+        CheckConstraint(
+            "(assignment_type = 'local' AND reviewer_access_session_id IS NULL) "
+            "OR (assignment_type = 'online' AND reviewer_access_session_id IS NOT NULL)",
+            name="ck_reviewer_work_assignments_session_mode",
+        ),
+        CheckConstraint(
+            "length(btrim(lease_owner)) BETWEEN 1 AND 200",
+            name="ck_reviewer_work_assignments_lease_owner",
+        ),
+        CheckConstraint(
+            "heartbeat_at >= created_at AND lease_expires_at > heartbeat_at "
+            "AND updated_at >= heartbeat_at",
+            name="ck_reviewer_work_assignments_lease_timestamps",
+        ),
+        CheckConstraint(
+            "(closed_at IS NULL AND close_reason IS NULL AND closed_by IS NULL) "
+            "OR (closed_at IS NOT NULL AND closed_at >= heartbeat_at "
+            "AND close_reason IS NOT NULL AND closed_by IS NOT NULL "
+            "AND length(btrim(close_reason)) BETWEEN 1 AND 100 "
+            "AND length(btrim(closed_by)) BETWEEN 1 AND 200)",
+            name="ck_reviewer_work_assignments_closure",
+        ),
+        Index(
+            "uq_reviewer_work_assignments_active_import",
+            "import_job_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        Index(
+            "ix_reviewer_work_assignments_active_lease",
+            "lease_expires_at",
+            "import_job_id",
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        Index(
+            "ix_reviewer_work_assignments_scope_history",
+            "game_id",
+            "import_job_id",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "uq_reviewer_work_assignments_access_session",
+            "reviewer_access_session_id",
+            unique=True,
+            postgresql_where=text("reviewer_access_session_id IS NOT NULL"),
+        ),
+        ForeignKeyConstraint(
+            ["reviewer_access_session_id", "game_id", "import_job_id"],
+            [
+                "reviewer_access_sessions.id",
+                "reviewer_access_sessions.game_id",
+                "reviewer_access_sessions.import_job_id",
+            ],
+            name="fk_reviewer_work_assignments_session_scope",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    assignment_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    reviewer_access_session_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    lease_owner: Mapped[str] = mapped_column(String(200), nullable=False)
+    lease_token: Mapped[UUID] = mapped_column(nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    closed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
@@ -2933,4 +3228,283 @@ class ReviewFeedbackExportModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class ImageSymbolPredictionRevisionModel(Base):
+    """Append-only predictions produced by explicit pending-only inference."""
+
+    __tablename__ = "image_symbol_prediction_revisions"
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(model_version)) > 0 AND model_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_model",
+        ),
+        CheckConstraint(
+            "crop_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_crop_manifest",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "model_checksum_sha256",
+            "crop_manifest_checksum_sha256",
+            name="uq_image_symbol_prediction_revision_snapshot",
+        ),
+        Index(
+            "ix_image_symbol_prediction_revisions_item_created",
+            "review_item_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
+    )
+    model_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    predictions: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageSequenceCanonicalModel(Base):
+    """The immutable owner of one resolved sequence number for a game."""
+
+    __tablename__ = "image_sequence_canonical"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_image_sequence_canonical_values",
+        ),
+        CheckConstraint(
+            "status IN ('accepted', 'corrected')",
+            name="ck_image_sequence_canonical_status",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_sequence_canonical_checksums",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "sequence_number",
+            name="uq_image_sequence_canonical_game_sequence",
+        ),
+        Index(
+            "ix_image_sequence_canonical_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSequenceAlternativeModel(Base):
+    """A skipped source for an already canonical sequence."""
+
+    __tablename__ = "image_sequence_alternatives"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND source_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_sequence_alternatives_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "sequence_number",
+            "source_checksum_sha256",
+            "import_job_id",
+            name="uq_image_sequence_alternatives_source",
+        ),
+        Index(
+            "ix_image_sequence_alternatives_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RepresentativeRankingCohortModel(Base):
+    __tablename__ = "representative_ranking_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND manifest_schema_version > 0",
+            name="ck_representative_ranking_cohorts_versions",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_representative_ranking_cohorts_checksum",
+        ),
+        CheckConstraint(
+            "positive_count >= 0 AND pair_count >= 0 AND excluded_ambiguous_count >= 0 "
+            "AND folder_count >= 0 AND group_count >= 0",
+            name="ck_representative_ranking_cohorts_counts",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "iteration_number",
+            name="uq_representative_ranking_cohorts_iteration",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_representative_ranking_cohorts_manifest",
+        ),
+        Index("ix_representative_ranking_cohorts_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    positive_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    pair_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    excluded_ambiguous_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    folder_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    group_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RepresentativeRankingIterationModel(Base):
+    __tablename__ = "representative_ranking_iterations"
+    __table_args__ = (
+        CheckConstraint(
+            "model_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_representative_ranking_iterations_checksum",
+        ),
+        CheckConstraint(
+            "feature_version <> '' AND model_version <> '' AND btrim(status) <> ''",
+            name="ck_representative_ranking_iterations_values",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "model_checksum_sha256",
+            name="uq_representative_ranking_iterations_model",
+        ),
+        Index("ix_representative_ranking_iterations_cohort_created", "cohort_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("representative_ranking_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    feature_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    report: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RepresentativeRankingActivationModel(Base):
+    __tablename__ = "representative_ranking_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback') AND activation_number > 0",
+            name="ck_representative_ranking_activations_values",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$' AND btrim(actor) <> ''",
+            name="ck_representative_ranking_activations_checksum",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_representative_ranking_activations_number",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_representative_ranking_activations_idempotency",
+        ),
+        Index("ix_representative_ranking_activations_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    iteration_id: Mapped[UUID] = mapped_column(
+        ForeignKey("representative_ranking_iterations.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("representative_ranking_iterations.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

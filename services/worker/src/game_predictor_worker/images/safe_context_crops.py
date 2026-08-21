@@ -275,12 +275,8 @@ class ProjectiveExpandedFrameCalibrator:
                     source_quad_source=PROJECTIVE_SOURCE_QUAD_SOURCE,
                     calibration_profile_id=board.calibration_profile_id,
                     calibration_profile_version=board.calibration_profile_version,
-                    calibration_anchor_sequence_numbers=(
-                        board.calibration_anchor_sequence_numbers
-                    ),
-                    calibration_interpolation_weight=(
-                        board.calibration_interpolation_weight
-                    ),
+                    calibration_anchor_sequence_numbers=(board.calibration_anchor_sequence_numbers),
+                    calibration_interpolation_weight=(board.calibration_interpolation_weight),
                     symbol_refinement=board.symbol_refinement,
                 )
             )

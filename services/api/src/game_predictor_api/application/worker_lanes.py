@@ -34,10 +34,7 @@ class WorkerLaneStatusService:
     def list_statuses(self) -> tuple[WorkerLaneStatus, ...]:
         now = self._clock()
         records = {record.lane: record for record in self._repository.list()}
-        return tuple(
-            self._status(lane, records.get(lane), now)
-            for lane in WorkerLaneName
-        )
+        return tuple(self._status(lane, records.get(lane), now) for lane in WorkerLaneName)
 
     @staticmethod
     def _status(

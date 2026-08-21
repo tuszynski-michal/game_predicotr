@@ -1,0 +1,176 @@
+{
+  "$id": "https://local.game-predictor.invalid/schemas/board-cell-geometry-manifest-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "annotationManifestChecksumSha256": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "boardCount": { "minimum": 1, "type": "integer" },
+    "coordinateSpace": { "const": "source-image-pixels" },
+    "cornerSemantics": { "const": "symbol-lattice-outer-bounds-5x3" },
+    "entries": {
+      "items": { "$ref": "#/$defs/entry" },
+      "minItems": 1,
+      "type": "array"
+    },
+    "geometryVersion": {
+      "const": "board-cell-geometry-v19-multi-point-source-direct-v1"
+    },
+    "manifestPurpose": {
+      "enum": ["regression_corpus", "production"]
+    },
+    "pageGeometryManifestChecksumSha256": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "schemaVersion": { "const": 1 },
+    "scopeId": { "minLength": 1, "type": "string" },
+    "sourceCount": { "minimum": 1, "type": "integer" },
+    "sourceManifestChecksumSha256": { "$ref": "#/$defs/sha256" },
+    "version": { "const": "board-cell-geometry-manifest-v1" }
+  },
+  "required": [
+    "annotationManifestChecksumSha256",
+    "boardCount",
+    "coordinateSpace",
+    "cornerSemantics",
+    "entries",
+    "geometryVersion",
+    "manifestPurpose",
+    "pageGeometryManifestChecksumSha256",
+    "schemaVersion",
+    "scopeId",
+    "sourceCount",
+    "sourceManifestChecksumSha256",
+    "version"
+  ],
+  "title": "BoardCellGeometryManifestV1",
+  "type": "object",
+  "$defs": {
+    "cell": {
+      "additionalProperties": false,
+      "properties": {
+        "columnIndex": { "maximum": 4, "minimum": 0, "type": "integer" },
+        "quad": { "$ref": "#/$defs/quad" },
+        "rowIndex": { "maximum": 2, "minimum": 0, "type": "integer" }
+      },
+      "required": ["columnIndex", "quad", "rowIndex"],
+      "type": "object"
+    },
+    "entry": {
+      "additionalProperties": false,
+      "properties": {
+        "cells": {
+          "items": { "$ref": "#/$defs/cell" },
+          "maxItems": 15,
+          "minItems": 15,
+          "type": "array"
+        },
+        "conditionTags": {
+          "items": { "minLength": 1, "type": "string" },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "imageId": { "minLength": 1, "type": "string" },
+        "latticeBoundsQuad": { "$ref": "#/$defs/quad" },
+        "positionIndex": { "maximum": 8, "minimum": 0, "type": "integer" },
+        "sequenceNumber": { "minimum": 1, "type": "integer" },
+        "sourceGroup": { "minLength": 1, "type": "string" },
+        "sourceImageChecksumSha256": { "$ref": "#/$defs/sha256" },
+        "sourceImageHeight": { "minimum": 1, "type": "integer" },
+        "sourceImageRelativePath": { "minLength": 1, "type": "string" },
+        "sourceImageWidth": { "minimum": 1, "type": "integer" },
+        "sourceOrderIndex": { "minimum": 0, "type": "integer" }
+      },
+      "required": [
+        "cells",
+        "conditionTags",
+        "evidence",
+        "imageId",
+        "latticeBoundsQuad",
+        "positionIndex",
+        "sequenceNumber",
+        "sourceGroup",
+        "sourceImageChecksumSha256",
+        "sourceImageHeight",
+        "sourceImageRelativePath",
+        "sourceImageWidth",
+        "sourceOrderIndex"
+      ],
+      "type": "object"
+    },
+    "evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateCenterCount": { "minimum": 0, "type": "integer" },
+        "decisionChecksumSha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "estimatorVersion": { "minLength": 1, "type": "string" },
+        "homographyVersion": {
+          "anyOf": [{ "minLength": 1, "type": "string" }, { "type": "null" }]
+        },
+        "inlierCount": { "minimum": 0, "type": "integer" },
+        "inlierP95ResidualPx": {
+          "anyOf": [{ "minimum": 0, "type": "number" }, { "type": "null" }]
+        },
+        "inlierSlots": {
+          "items": { "$ref": "#/$defs/slot" },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "kind": {
+          "enum": ["automatic", "human_reviewed", "manual_override"]
+        },
+        "locatorVersion": {
+          "anyOf": [{ "minLength": 1, "type": "string" }, { "type": "null" }]
+        },
+        "reliableCenterCount": { "minimum": 0, "type": "integer" },
+        "thresholdsVersion": { "minLength": 1, "type": "string" }
+      },
+      "required": [
+        "candidateCenterCount",
+        "decisionChecksumSha256",
+        "estimatorVersion",
+        "homographyVersion",
+        "inlierCount",
+        "inlierP95ResidualPx",
+        "inlierSlots",
+        "kind",
+        "locatorVersion",
+        "reliableCenterCount",
+        "thresholdsVersion"
+      ],
+      "type": "object"
+    },
+    "point": {
+      "additionalProperties": false,
+      "properties": {
+        "x": { "minimum": 0, "type": "number" },
+        "y": { "minimum": 0, "type": "number" }
+      },
+      "required": ["x", "y"],
+      "type": "object"
+    },
+    "quad": {
+      "items": { "$ref": "#/$defs/point" },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "slot": {
+      "additionalProperties": false,
+      "properties": {
+        "columnIndex": { "maximum": 4, "minimum": 0, "type": "integer" },
+        "rowIndex": { "maximum": 2, "minimum": 0, "type": "integer" }
+      },
+      "required": ["columnIndex", "rowIndex"],
+      "type": "object"
+    }
+  }
+}

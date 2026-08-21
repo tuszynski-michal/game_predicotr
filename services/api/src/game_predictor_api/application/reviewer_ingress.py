@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Final, Literal, cast
+from uuid import UUID, uuid4
 
 ReviewerIngressState = Literal["running", "stopped", "stale", "degraded"]
 CommandRunner = Callable[
@@ -20,6 +21,7 @@ CommandRunner = Callable[
 
 _SCRIPT_BY_ACTION: Final = {
     "start": "start_remote_reviewer_tunnel.ps1",
+    "start-local": "start_local_reviewer.ps1",
     "status": "get_remote_reviewer_tunnel_status.ps1",
     "stop": "stop_remote_reviewer_tunnel.ps1",
 }
@@ -79,6 +81,7 @@ class ReviewerIngressStatus:
     target: str
     started_at: datetime | None
     reviewer_ready: bool | None
+    instance_id: UUID | None = None
 
 
 class ReviewerIngressError(RuntimeError):
@@ -116,26 +119,39 @@ class ReviewerIngressService:
         *,
         powershell_executable: str = "powershell.exe",
         runner: CommandRunner = _run_command,
+        request_id_factory: Callable[[], UUID] = uuid4,
     ) -> None:
         self._project_root = project_root.resolve()
         self._powershell_executable = powershell_executable
         self._runner = runner
+        self._request_id_factory = request_id_factory
         self._lock = threading.Lock()
 
     def status(self) -> ReviewerIngressStatus:
-        return self._execute("status", timeout_seconds=8)
+        return self._execute("status", timeout_seconds=12)
 
     def start(self) -> ReviewerIngressStatus:
         return self._execute("start", timeout_seconds=60)
 
+    def start_local(self) -> ReviewerIngressStatus:
+        return self._execute("start-local", timeout_seconds=30)
+
     def stop(self) -> ReviewerIngressStatus:
-        return self._execute("stop", timeout_seconds=8)
+        return self._execute("stop", timeout_seconds=12)
+
+    def stop_if_current(self, instance_id: UUID) -> ReviewerIngressStatus:
+        return self._execute(
+            "stop",
+            timeout_seconds=12,
+            extra_arguments=("-ExpectedInstanceId", str(instance_id)),
+        )
 
     def _execute(
         self,
-        action: Literal["start", "status", "stop"],
+        action: Literal["start", "start-local", "status", "stop"],
         *,
         timeout_seconds: float,
+        extra_arguments: Sequence[str] = (),
     ) -> ReviewerIngressStatus:
         script_path = self._project_root / "scripts" / _SCRIPT_BY_ACTION[action]
         if not script_path.is_file():
@@ -146,8 +162,9 @@ class ReviewerIngressService:
 
         runtime_directory = self._project_root / ".runtime"
         runtime_directory.mkdir(parents=True, exist_ok=True)
-        result_path = runtime_directory / "reviewer-ingress-controller-result.json"
-        result_path.unlink(missing_ok=True)
+        result_directory = runtime_directory / "reviewer-ingress-controller-results"
+        result_directory.mkdir(parents=True, exist_ok=True)
+        result_path = result_directory / f"{self._request_id_factory()}.json"
         command = [
             self._powershell_executable,
             "-NoProfile",
@@ -158,6 +175,7 @@ class ReviewerIngressService:
             "-Json",
             "-ResultPath",
             str(result_path),
+            *extra_arguments,
         ]
         try:
             with self._lock:
@@ -167,6 +185,7 @@ class ReviewerIngressService:
                     timeout_seconds,
                 )
         except (OSError, subprocess.TimeoutExpired) as error:
+            result_path.unlink(missing_ok=True)
             raise ReviewerIngressError(
                 "REVIEWER_INGRESS_COMMAND_FAILED",
                 "Reviewer ingress controller did not finish within its bounded time.",
@@ -195,7 +214,10 @@ class ReviewerIngressService:
                 "REVIEWER_INGRESS_COMMAND_FAILED",
                 message,
             )
-        return self._status_from_payload(payload)
+        return self._status_from_payload(
+            payload,
+            allow_local_only=action == "start-local",
+        )
 
     @staticmethod
     def _parse_payload(output: str) -> dict[str, object]:
@@ -220,7 +242,11 @@ class ReviewerIngressService:
         return parsed
 
     @staticmethod
-    def _status_from_payload(payload: dict[str, object]) -> ReviewerIngressStatus:
+    def _status_from_payload(
+        payload: dict[str, object],
+        *,
+        allow_local_only: bool = False,
+    ) -> ReviewerIngressStatus:
         state = payload.get("state")
         if state not in {"running", "stopped", "stale", "degraded"}:
             raise ReviewerIngressError(
@@ -232,6 +258,7 @@ class ReviewerIngressService:
         target = payload.get("target")
         started_at = payload.get("startedAt")
         reviewer_ready = payload.get("reviewerReady")
+        instance_id = payload.get("instanceId")
         if public_origin is not None and not isinstance(public_origin, str):
             raise ReviewerIngressError(
                 "REVIEWER_INGRESS_INVALID_RESPONSE",
@@ -247,6 +274,20 @@ class ReviewerIngressService:
                 "REVIEWER_INGRESS_INVALID_RESPONSE",
                 "Reviewer readiness status is invalid.",
             )
+        parsed_instance_id: UUID | None = None
+        if instance_id is not None:
+            if not isinstance(instance_id, str):
+                raise ReviewerIngressError(
+                    "REVIEWER_INGRESS_INVALID_RESPONSE",
+                    "Reviewer ingress instance id is invalid.",
+                )
+            try:
+                parsed_instance_id = UUID(instance_id)
+            except ValueError as error:
+                raise ReviewerIngressError(
+                    "REVIEWER_INGRESS_INVALID_RESPONSE",
+                    "Reviewer ingress instance id is invalid.",
+                ) from error
         parsed_started_at: datetime | None = None
         if started_at is not None:
             if not isinstance(started_at, str):
@@ -261,10 +302,21 @@ class ReviewerIngressService:
                     "REVIEWER_INGRESS_INVALID_RESPONSE",
                     "Reviewer ingress start time is invalid.",
                 ) from error
-        if parsed_state == "running" and public_origin is None:
+        local_only_ready = (
+            allow_local_only
+            and target == "http://127.0.0.1:3001"
+            and reviewer_ready is True
+            and public_origin is None
+        )
+        if parsed_state == "running" and public_origin is None and not local_only_ready:
             raise ReviewerIngressError(
                 "REVIEWER_INGRESS_INVALID_RESPONSE",
                 "Running Reviewer ingress has no public origin.",
+            )
+        if allow_local_only and parsed_state == "running" and not local_only_ready:
+            raise ReviewerIngressError(
+                "REVIEWER_INGRESS_INVALID_RESPONSE",
+                "Local Reviewer controller returned a non-local target.",
             )
         return ReviewerIngressStatus(
             state=parsed_state,
@@ -272,6 +324,7 @@ class ReviewerIngressService:
             target=target,
             started_at=parsed_started_at,
             reviewer_ready=reviewer_ready,
+            instance_id=parsed_instance_id,
         )
 
 

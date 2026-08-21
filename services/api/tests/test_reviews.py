@@ -212,11 +212,7 @@ class MemoryReviewRepository(ReviewRepository):
     ) -> tuple[ReviewFeedbackExport, bool]:
         batch = self.batches[review_batch_id]
         items = sorted(
-            (
-                item
-                for item in self.items.values()
-                if item.review_batch_id == review_batch_id
-            ),
+            (item for item in self.items.values() if item.review_batch_id == review_batch_id),
             key=lambda item: item.selection_rank,
         )
         if any(item.status is ReviewItemStatus.PENDING for item in items):
@@ -249,12 +245,8 @@ class MemoryReviewRepository(ReviewRepository):
             ),
             default=0,
         )
-        sample_count = sum(
-            15 for item in items if item.status is not ReviewItemStatus.REJECTED
-        )
-        rejected_count = sum(
-            item.status is ReviewItemStatus.REJECTED for item in items
-        )
+        sample_count = sum(15 for item in items if item.status is not ReviewItemStatus.REJECTED)
+        rejected_count = sum(item.status is ReviewItemStatus.REJECTED for item in items)
         payload: dict[str, object] = {
             "schemaVersion": 1,
             "version": version,
@@ -497,9 +489,7 @@ def test_resolution_is_idempotent_revisioned_and_audited() -> None:
             f"/api/v1/admin/review-items/{item['id']}/resolution",
             json={**payload, "resolvedBy": "another-admin"},
         )
-        history = client.get(
-            f"/api/v1/admin/review-items/{item['id']}/resolutions"
-        )
+        history = client.get(f"/api/v1/admin/review-items/{item['id']}/resolutions")
 
     assert first.status_code == retry.status_code == 200
     assert first.json()["created"] is True
@@ -634,9 +624,7 @@ def test_feedback_export_requires_complete_resolution_and_is_versioned() -> None
             f"/api/v1/admin/review-batches/{batch_id}/feedback-exports",
             json={"createdBy": "local-admin"},
         )
-        exports = client.get(
-            f"/api/v1/admin/review-batches/{batch_id}/feedback-exports"
-        )
+        exports = client.get(f"/api/v1/admin/review-batches/{batch_id}/feedback-exports")
 
     assert pending_export.status_code == 409
     assert pending_export.json()["code"] == "REVIEW_FEEDBACK_PENDING_ITEMS"

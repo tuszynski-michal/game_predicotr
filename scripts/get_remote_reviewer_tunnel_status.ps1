@@ -4,7 +4,16 @@ param(
     [string]$ResultPath = ""
 )
 
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$lifecycleScript = Join-Path $PSScriptRoot "reviewer_process_lifecycle.ps1"
+if (-not (Test-Path -LiteralPath $lifecycleScript -PathType Leaf)) {
+    throw "Reviewer lifecycle helper is unavailable: $lifecycleScript"
+}
+. $lifecycleScript
+
 $statePath = Join-Path $projectRoot ".runtime\remote-reviewer.json"
 $reviewerUrl = "http://127.0.0.1:3001"
 
@@ -40,52 +49,110 @@ function Write-Status {
                 [Text.UTF8Encoding]::new($false)
             )
         }
+        return
     }
-    else {
-        Write-Host "Status: $($Value.state)"
-        if ($null -ne $Value.publicOrigin) {
-            Write-Host "Public URL: $($Value.publicOrigin)"
-            Write-Host "Local target: $($Value.target)"
-            Write-Host "PID: $($Value.pid)"
+    Write-Host "Status: $($Value.state)"
+    if ($null -ne $Value.publicOrigin) {
+        Write-Host "Public URL: $($Value.publicOrigin)"
+        Write-Host "Local target: $($Value.target)"
+        Write-Host "Instance: $($Value.instanceId)"
+    }
+}
+
+function Get-RemoteReviewerStatus {
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+        return @{
+            state = "stopped"
+            publicOrigin = $null
+            target = $reviewerUrl
+            startedAt = $null
+            reviewerReady = (Test-ReviewerReady)
+            instanceId = $null
         }
     }
-}
 
-if (-not (Test-Path -LiteralPath $statePath)) {
-    Write-Status @{
-        state = "stopped"
-        publicOrigin = $null
-        target = $reviewerUrl
-        startedAt = $null
-        reviewerReady = (Test-ReviewerReady)
-        pid = $null
+    $state = Read-ReviewerJsonState -LiteralPath $statePath
+    if ($null -eq $state) {
+        return @{
+            state = "stale"
+            publicOrigin = $null
+            target = $reviewerUrl
+            startedAt = $null
+            reviewerReady = (Test-ReviewerReady)
+            instanceId = $null
+            message = "Reviewer tunnel state is invalid and no process identity was trusted."
+        }
     }
-    exit 0
-}
 
-$state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-$process = Get-Process -Id $state.pid -ErrorAction SilentlyContinue
-if ($null -eq $process -or $process.ProcessName -notlike "cloudflared*") {
-    Write-Status @{
-        state = "stale"
+    $stateInstanceId = if ($null -ne $state.PSObject.Properties["instanceId"]) {
+        $state.instanceId
+    }
+    else {
+        $null
+    }
+    foreach ($requiredProperty in @("publicOrigin", "target", "startedAt")) {
+        if ($null -eq $state.PSObject.Properties[$requiredProperty]) {
+            return @{
+                state = "stale"
+                publicOrigin = $null
+                target = $reviewerUrl
+                startedAt = $null
+                reviewerReady = (Test-ReviewerReady)
+                instanceId = $stateInstanceId
+                message = "Reviewer tunnel state is incomplete and no process identity was trusted."
+            }
+        }
+    }
+
+    $identity = Test-ReviewerProcessIdentity `
+        -State $state `
+        -ExpectedProcessName "cloudflared*"
+    if (-not $identity.isMatch) {
+        return @{
+            state = "stale"
+            publicOrigin = $state.publicOrigin
+            target = $state.target
+            startedAt = $state.startedAt
+            reviewerReady = (Test-ReviewerReady)
+            instanceId = $stateInstanceId
+            message = "Reviewer tunnel state does not match the current Windows process identity."
+        }
+    }
+
+    $reviewerReady = Test-ReviewerReady
+    return @{
+        state = $(if ($reviewerReady) { "running" } else { "degraded" })
         publicOrigin = $state.publicOrigin
         target = $state.target
         startedAt = $state.startedAt
-        reviewerReady = (Test-ReviewerReady)
-        pid = $state.pid
+        reviewerReady = $reviewerReady
+        instanceId = $stateInstanceId
     }
-    if (-not $Json) {
-        Write-Host "Remove stale state with: npm run reviewer:remote:stop"
-    }
-    exit 0
 }
 
-$reviewerReady = Test-ReviewerReady
-Write-Status @{
-    state = $(if ($reviewerReady) { "running" } else { "degraded" })
-    publicOrigin = $state.publicOrigin
-    target = $state.target
-    startedAt = $state.startedAt
-    reviewerReady = $reviewerReady
-    pid = $state.pid
+$lifecycleMutex = $null
+$exitCode = 0
+try {
+    $lifecycleMutex = Enter-ReviewerLifecycleLock `
+        -ProjectRoot $projectRoot `
+        -TimeoutMilliseconds 7000
+    Write-Status (Get-RemoteReviewerStatus)
 }
+catch {
+    $exitCode = 1
+    Write-Status @{
+        state = "error"
+        publicOrigin = $null
+        target = $reviewerUrl
+        startedAt = $null
+        reviewerReady = $false
+        instanceId = $null
+        message = $_.Exception.Message
+    }
+}
+finally {
+    if ($null -ne $lifecycleMutex) {
+        Exit-ReviewerLifecycleLock -Mutex $lifecycleMutex
+    }
+}
+exit $exitCode

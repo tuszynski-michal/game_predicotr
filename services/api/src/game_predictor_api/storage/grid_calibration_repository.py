@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import cast
 from uuid import UUID
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.application.grid_calibration import GridCalibrationRepository
 from game_predictor_api.domain.grid_calibration import (
     GeometryCohort,
+    GeometryCohortDiagnostics,
     GridCalibrationProfile,
     GridProfileActivation,
     GridProfileActivationAction,
@@ -107,6 +109,79 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
         self._session.refresh(cohort_record)
         self._session.refresh(profile_record)
         return _cohort(cohort_record), _profile(profile_record), True
+
+    def cohort_diagnostics(self, *, game_id: UUID) -> GeometryCohortDiagnostics:
+        if self._session.get(GameModel, game_id) is None:
+            raise JobNotFoundError("GAME_NOT_FOUND", "Game does not exist.")
+        rows = self._session.execute(
+            select(
+                ImageReviewItemModel,
+                RecognizedBoardModel,
+                SourceImageModel,
+                ImagePipelineStageResultModel,
+            )
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .outerjoin(
+                ImagePipelineStageResultModel,
+                (
+                    ImagePipelineStageResultModel.file_execution_key
+                    == SourceImageModel.file_execution_key
+                )
+                & (ImagePipelineStageResultModel.stage == "board_detection"),
+            )
+            .where(
+                JobModel.game_id == game_id,
+                ImageReviewItemModel.status.in_(("accepted", "corrected")),
+            )
+        ).all()
+        accepted = corrected = missing_detection = incomplete = eligible = 0
+        reasons: Counter[str] = Counter()
+        sources: set[UUID] = set()
+        sequences: list[int] = []
+        for review, board, source, stage in rows:
+            sources.add(source.id)
+            resolved = review.resolved_value if isinstance(review.resolved_value, dict) else {}
+            value = resolved.get("sequenceNumber")
+            if isinstance(value, int) and value > 0:
+                sequences.append(value)
+            if board.geometry_revision > 0:
+                corrected += 1
+            else:
+                accepted += 1
+            detected = (
+                None
+                if stage is None
+                else _detected_quad(stage.result_payload, board.position_index)
+            )
+            final = _quad(
+                board.board_geometry.get("sourceQuad") or board.board_geometry.get("quad")
+            )
+            if detected is None:
+                missing_detection += 1
+                reasons["missing_detection"] += 1
+            if final is None:
+                incomplete += 1
+                reasons["incomplete_geometry"] += 1
+            if detected is not None and final is not None:
+                eligible += 1
+        return GeometryCohortDiagnostics(
+            game_id=game_id,
+            accepted_geometry_count=accepted,
+            corrected_geometry_count=corrected,
+            missing_detection_count=missing_detection,
+            incomplete_geometry_count=incomplete,
+            source_image_count=len(sources),
+            first_sequence_number=min(sequences) if sequences else None,
+            last_sequence_number=max(sequences) if sequences else None,
+            eligible_geometry_count=eligible,
+            excluded_geometry_count=len(rows) - eligible,
+            exclusion_reason_counts=dict(sorted(reasons.items())),
+        )
 
     def list_profiles(self, *, game_id: UUID, limit: int) -> tuple[GridCalibrationProfile, ...]:
         rows = self._session.scalars(
@@ -248,7 +323,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             final = _quad(
                 board.board_geometry.get("sourceQuad") or board.board_geometry.get("quad")
             )
-            if run_id is None or detected is None or final is None:
+            if detected is None or final is None:
                 continue
             output.append(
                 VerifiedGeometrySample(

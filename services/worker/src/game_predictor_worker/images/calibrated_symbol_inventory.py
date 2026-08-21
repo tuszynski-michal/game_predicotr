@@ -83,10 +83,9 @@ def _reviewed_sequences(
     corpus_by_id: Mapping[str, Mapping[str, object]],
 ) -> dict[tuple[str, int], int]:
     provenance = _mapping(annotations.get("annotationProvenance"), "annotationProvenance")
-    if (
-        provenance.get("method") != "algorithm-assisted-visual-review"
-        or provenance.get("reviewedImageCount") != len(corpus_by_id)
-    ):
+    if provenance.get("method") != "algorithm-assisted-visual-review" or provenance.get(
+        "reviewedImageCount"
+    ) != len(corpus_by_id):
         raise SymbolDatasetError(
             "SYMBOL_DATASET_GOLDEN_NOT_REVIEWED",
             "Reviewed sequence annotations must cover the complete corpus.",
@@ -235,10 +234,7 @@ def build_calibrated_symbol_crop_inventory(
             profile = _mapping(board.get("calibrationProfile"), "calibrationProfile")
             profile_id = _sha256(profile.get("profileId"), "profileId")
             profile_version = _integer(profile.get("profileVersion"), "profileVersion")
-            if (
-                board.get("sourceQuadSource") != "calibration-profile"
-                or profile_version <= 0
-            ):
+            if board.get("sourceQuadSource") != "calibration-profile" or profile_version <= 0:
                 raise SymbolDatasetError(
                     "SYMBOL_DATASET_GEOMETRY_NOT_ACCEPTED",
                     "Every board must carry accepted calibration provenance.",

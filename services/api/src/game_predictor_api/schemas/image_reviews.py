@@ -8,12 +8,17 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from game_predictor_api.application.image_reviews import OperationalImageReviewPage
+from game_predictor_api.application.image_reviews import (
+    CanonicalImageReviewPage,
+    OperationalImageReviewPage,
+    PendingGridReinferencePreview,
+)
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
     ImageDatasetCompleteness,
     ImageReviewAction,
+    ImageReviewCounts,
     ImageReviewGeometryRevision,
     ImageReviewItem,
     ImageReviewResolutionEvent,
@@ -79,6 +84,7 @@ class OperationalImageReviewCountsResponse(ApiModel):
     accepted: int = Field(ge=0)
     corrected: int = Field(ge=0)
     rejected: int = Field(ge=0)
+    superseded: int = Field(ge=0)
     completed: int = Field(ge=0)
     total: int = Field(ge=0)
 
@@ -89,8 +95,39 @@ class OperationalImageReviewPageResponse(ApiModel):
     view: ImageReviewView
     items: tuple[OperationalImageReviewItemResponse, ...]
     counts: OperationalImageReviewCountsResponse
+    queue_version: int = Field(ge=0)
     previous_cursor: str | None
     next_cursor: str | None
+
+
+class CanonicalImageReviewPageResponse(ApiModel):
+    game_id: UUID
+    items: tuple[OperationalImageReviewItemResponse, ...]
+    counts: OperationalImageReviewCountsResponse
+    previous_cursor: str | None
+    next_cursor: str | None
+
+
+class PendingSymbolReinferencePreviewResponse(ApiModel):
+    game_id: UUID
+    pending_count: int = Field(ge=0)
+    protected_resolved_count: int = Field(ge=0)
+    requires_explicit_activation: bool = True
+
+
+class PendingGridReinferencePreviewResponse(ApiModel):
+    game_id: UUID
+    pending_board_count: int = Field(ge=0)
+    recalculable_board_count: int = Field(ge=0)
+    current_v19_board_count: int = Field(ge=0)
+    protected_board_count: int = Field(ge=0)
+    pending_source_count: int = Field(ge=0)
+    partially_resolved_source_count: int = Field(ge=0)
+    fully_resolved_source_count: int = Field(ge=0)
+    geometry_version: str
+    cropper_version: str
+    audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    requires_explicit_activation: bool = True
 
 
 class ImageDatasetCompletenessResponse(ApiModel):
@@ -187,6 +224,8 @@ class OperationalImageReviewResolutionResponse(ApiModel):
     item: OperationalImageReviewItemResponse
     event: OperationalImageReviewResolutionEventResponse
     created: bool
+    counts: OperationalImageReviewCountsResponse
+    queue_version: int = Field(ge=1)
 
 
 class OperationalImageReviewGeometryPoint(ApiModel):
@@ -202,7 +241,9 @@ class OperationalImageReviewGeometryPreviewCommand(ApiModel):
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
-    ]
+    ] = Field(
+        description="Source-image outer corners of the 5 by 3 symbol lattice in row-major winding"
+    )
 
 
 class OperationalImageReviewGeometryCommand(OperationalImageReviewGeometryPreviewCommand):
@@ -225,6 +266,13 @@ class OperationalImageReviewGeometryRevisionResponse(ApiModel):
     revision: int = Field(ge=1)
     idempotency_key: UUID
     command_sha256: Sha256
+    decision_checksum_sha256: Sha256 | None = Field(
+        default=None,
+        description=(
+            "Manual v19 decision checksum binding source, board position, versions and actor; "
+            "null only for historical geometry revisions"
+        ),
+    )
     corners: tuple[
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
@@ -302,16 +350,54 @@ def to_operational_page_response(
         import_job_id=page.import_job_id,
         view=page.view,
         items=tuple(to_operational_item_response(item) for item in page.items),
-        counts=OperationalImageReviewCountsResponse(
-            pending=page.counts.pending,
-            accepted=page.counts.accepted,
-            corrected=page.counts.corrected,
-            rejected=page.counts.rejected,
-            completed=page.counts.completed,
-            total=page.counts.total,
-        ),
+        counts=to_operational_counts_response(page.counts),
+        queue_version=page.queue_version,
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,
+    )
+
+
+def to_canonical_page_response(
+    page: CanonicalImageReviewPage,
+) -> CanonicalImageReviewPageResponse:
+    return CanonicalImageReviewPageResponse(
+        game_id=page.game_id,
+        items=tuple(to_operational_item_response(item) for item in page.items),
+        counts=to_operational_counts_response(page.counts),
+        previous_cursor=page.previous_cursor,
+        next_cursor=page.next_cursor,
+    )
+
+
+def to_operational_counts_response(
+    counts: ImageReviewCounts,
+) -> OperationalImageReviewCountsResponse:
+    return OperationalImageReviewCountsResponse(
+        pending=counts.pending,
+        accepted=counts.accepted,
+        corrected=counts.corrected,
+        rejected=counts.rejected,
+        superseded=counts.superseded,
+        completed=counts.completed,
+        total=counts.total,
+    )
+
+
+def to_pending_grid_reinference_preview_response(
+    preview: PendingGridReinferencePreview,
+) -> PendingGridReinferencePreviewResponse:
+    return PendingGridReinferencePreviewResponse(
+        game_id=preview.game_id,
+        pending_board_count=preview.pending_board_count,
+        recalculable_board_count=preview.recalculable_board_count,
+        current_v19_board_count=preview.current_v19_board_count,
+        protected_board_count=preview.protected_board_count,
+        pending_source_count=preview.pending_source_count,
+        partially_resolved_source_count=preview.partially_resolved_source_count,
+        fully_resolved_source_count=preview.fully_resolved_source_count,
+        geometry_version=preview.geometry_version,
+        cropper_version=preview.cropper_version,
+        audit_report_checksum_sha256=preview.audit_report_checksum_sha256,
     )
 
 
@@ -390,6 +476,7 @@ def to_operational_geometry_revision_response(
         revision=revision.revision,
         idempotency_key=revision.idempotency_key,
         command_sha256=revision.command_sha256,
+        decision_checksum_sha256=revision.decision_checksum_sha256,
         corners=(
             OperationalImageReviewGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
             OperationalImageReviewGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
@@ -422,6 +509,9 @@ def to_operational_geometry_revision_response(
 
 __all__ = [
     "OperationalImageReviewPageResponse",
+    "CanonicalImageReviewPageResponse",
+    "PendingSymbolReinferencePreviewResponse",
+    "PendingGridReinferencePreviewResponse",
     "ImageDatasetCompletenessResponse",
     "ImageSequenceSourceOverrideCommand",
     "ImageSequenceSourceSelectionResponse",
@@ -432,9 +522,12 @@ __all__ = [
     "OperationalImageReviewResolutionEventResponse",
     "OperationalImageReviewResolutionResponse",
     "to_operational_event_response",
+    "to_operational_counts_response",
     "to_operational_geometry_revision_response",
     "to_operational_item_response",
     "to_operational_page_response",
+    "to_canonical_page_response",
+    "to_pending_grid_reinference_preview_response",
     "to_image_dataset_completeness_response",
     "to_image_sequence_source_selection_response",
 ]

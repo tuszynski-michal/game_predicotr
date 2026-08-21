@@ -16,7 +16,7 @@ from typing import Any, Literal, cast
 
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
-TRAINING_SPLIT_POLICY_VERSION = "source-family-hash-split-v1"
+TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
 DEFAULT_SPLIT_SEED = "game-predictor-m6.6-symbol-split-v1"
 MIN_RECOMMENDED_SAMPLES_PER_SYMBOL = 10
 
@@ -49,6 +49,9 @@ class TrainingDatasetConfig:
     regression_basis_points: int = 1000
     transformation_version: str = "immutable-reviewed-crop-v1"
     split_policy_version: str = TRAINING_SPLIT_POLICY_VERSION
+    # Persisted assignments make the split stable when a later cohort adds sources.
+    # The tuple is used instead of a dict so the configuration remains canonical JSON.
+    source_assignments: tuple[tuple[str, SplitName], ...] = ()
 
     def split_ratios(self) -> tuple[tuple[SplitName, int], ...]:
         values: tuple[tuple[SplitName, int], ...] = (
@@ -76,6 +79,7 @@ class TrainingDatasetConfig:
             "splitPolicyVersion": self.split_policy_version,
             "splitRatiosBasisPoints": dict(self.split_ratios()),
             "transformationVersion": self.transformation_version,
+            "sourceAssignments": {source: split for source, split in self.source_assignments},
         }
 
 
@@ -258,14 +262,12 @@ def _validate_declared_counts(cohort: Mapping[str, object]) -> None:
     boards = _sequence(cohort.get("boards"), "boards")
     counts = _mapping(cohort.get("counts"), "counts")
     source_ids = {
-        _text(_mapping(board, "board").get("sourceImageId"), "sourceImageId")
-        for board in boards
+        _text(_mapping(board, "board").get("sourceImageId"), "sourceImageId") for board in boards
     }
     expected = {
         "resolvedLayouts": len(boards),
         "cellSamples": sum(
-            len(_sequence(_mapping(board, "board").get("cells"), "cells"))
-            for board in boards
+            len(_sequence(_mapping(board, "board").get("cells"), "cells")) for board in boards
         ),
         "sourceImages": len(source_ids),
     }
@@ -313,16 +315,72 @@ def _managed_crop(data_root: Path, relative_path: str, checksum: str) -> Path:
     return resolved
 
 
+def build_balanced_source_assignments(
+    sources: Sequence[str],
+    *,
+    seed: str = DEFAULT_SPLIT_SEED,
+    existing: Mapping[str, SplitName] | None = None,
+) -> tuple[tuple[str, SplitName], ...]:
+    """Build a deterministic, source-disjoint split with independent evaluation sets.
+
+    Existing assignments are never changed. New sources are assigned by a seeded
+    hash order to the currently smallest split, which keeps additions stable while
+    yielding 4/1/1/1 for the seven-source cohort used by the first training run.
+    """
+    unique = sorted(set(sources))
+    assignments: dict[str, SplitName] = dict(existing or {})
+    assignments = {
+        source: split
+        for source, split in assignments.items()
+        if source in unique and split in SPLIT_ORDER
+    }
+    pending = [source for source in unique if source not in assignments]
+    # For a fresh cohort reserve one source for each independent split, then put
+    # the remaining sources in train. This is intentionally explicit rather than
+    # ratio-based so small cohorts never silently get an empty validation set.
+    target_order: tuple[SplitName, ...] = ("validation", "test", "regression")
+    fresh_balanced = not assignments and len(pending) >= 4
+    if fresh_balanced:
+        ranked = sorted(
+            pending,
+            key=lambda source: hashlib.sha256(f"{seed}\0{source}".encode()).hexdigest(),
+        )
+        for source, split in zip(ranked[:3], target_order, strict=True):
+            assignments[source] = split
+        pending = [source for source in pending if source not in assignments]
+    counts = Counter(assignments.values())
+    for source in sorted(
+        pending,
+        key=lambda value: hashlib.sha256(f"{seed}\0{value}".encode()).hexdigest(),
+    ):
+        if fresh_balanced:
+            split = "train"
+        else:
+            split = min(
+                SPLIT_ORDER,
+                key=lambda candidate: (counts[candidate], SPLIT_ORDER.index(candidate)),
+            )
+        assignments[source] = split
+        counts[split] += 1
+    return tuple((source, assignments[source]) for source in unique)
+
+
 def _source_split(
     source_family: str,
     config: TrainingDatasetConfig,
 ) -> SplitName:
-    bucket = int.from_bytes(
-        hashlib.sha256(
-            f"{config.split_policy_version}\0{config.seed}\0{source_family}".encode()
-        ).digest(),
-        "big",
-    ) % 10_000
+    for source, split in config.source_assignments:
+        if source == source_family:
+            return split
+    bucket = (
+        int.from_bytes(
+            hashlib.sha256(
+                f"{config.split_policy_version}\0{config.seed}\0{source_family}".encode()
+            ).digest(),
+            "big",
+        )
+        % 10_000
+    )
     boundary = 0
     for split, ratio in config.split_ratios():
         boundary += ratio
@@ -454,9 +512,7 @@ def _manifest(
         source: _source_split(source, config)
         for source in sorted({sample.source_family for sample in samples})
     }
-    split_samples: dict[SplitName, list[_Sample]] = {
-        split: [] for split in SPLIT_ORDER
-    }
+    split_samples: dict[SplitName, list[_Sample]] = {split: [] for split in SPLIT_ORDER}
     for sample in samples:
         split_samples[split_by_source[sample.source_family]].append(sample)
 
@@ -519,21 +575,25 @@ def _manifest(
             exclusions[str(reason) if reason is not None else "unknown"] += 1
 
     game_id = _text(cohort.get("gameId"), "gameId")
+    asset_paths = {
+        sample.sample_id: _asset_relative_path(sample, config) for sample in samples
+    }
+    sample_rows = []
+    for sample in samples:
+        row = sample.to_dict(split_by_source[sample.source_family])
+        row["assetRelativePath"] = asset_paths[sample.sample_id]
+        sample_rows.append(row)
     return {
         "advisories": advisories,
         "artifactBaseRelativePath": PurePosixPath(
             "training", game_code, cohort_checksum
         ).as_posix(),
-        "catalog": [
-            {"symbolCode": code, "symbolId": catalog[code]}
-            for code in sorted(catalog)
-        ],
+        "catalog": [{"symbolCode": code, "symbolId": catalog[code]} for code in sorted(catalog)],
         "cohortChecksumSha256": cohort_checksum,
         "configuration": config.to_dict(),
         "datasetVersion": TRAINING_DATASET_VERSION,
         "exclusions": [
-            {"count": count, "reason": reason}
-            for reason, count in sorted(exclusions.items())
+            {"count": count, "reason": reason} for reason, count in sorted(exclusions.items())
         ],
         "gameCode": game_code,
         "gameId": game_id,
@@ -543,15 +603,24 @@ def _manifest(
             "status": "passed",
         },
         "sampleCount": len(samples),
-        "samples": [
-            sample.to_dict(split_by_source[sample.source_family]) for sample in samples
-        ],
+        "samples": sample_rows,
         "schemaVersion": TRAINING_DATASET_SCHEMA_VERSION,
         "sourceFamilyCount": len(split_by_source),
         "splits": split_reports,
         "status": "ready",
         "symbols": symbol_stats,
-    }
+}
+
+
+def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
+    """Keep assets from incompatible dataset policies physically separate."""
+    if config.split_policy_version == "source-family-balanced-split-v2":
+        fingerprint = hashlib.sha256(_canonical_bytes(config.to_dict())).hexdigest()[:16]
+        return PurePosixPath(
+            "assets", f"{config.split_policy_version}-{fingerprint}", sample.crop_checksum[:2],
+            f"{sample.crop_checksum}.png",
+        ).as_posix()
+    return sample.asset_relative_path
 
 
 def _copy_asset(source: Path, destination: Path) -> None:
@@ -590,6 +659,7 @@ def _verify_existing(
     manifest_path: Path,
     manifest_bytes: bytes,
     samples: Sequence[_Sample],
+    config: TrainingDatasetConfig,
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     try:
@@ -606,7 +676,9 @@ def _verify_existing(
     unique_samples = {sample.crop_checksum: sample for sample in samples}
     total = len(unique_samples)
     for current, sample in enumerate(unique_samples.values(), start=1):
-        asset = artifact_directory.joinpath(*PurePosixPath(sample.asset_relative_path).parts)
+        asset = artifact_directory.joinpath(
+            *PurePosixPath(_asset_relative_path(sample, config)).parts
+        )
         try:
             observed = hashlib.sha256(asset.read_bytes()).hexdigest()
         except OSError as error:
@@ -680,6 +752,7 @@ def build_cumulative_training_dataset(
             manifest_path,
             manifest_bytes,
             samples,
+            config,
             progress_callback,
         )
     else:
@@ -695,7 +768,7 @@ def build_cumulative_training_dataset(
                 _copy_asset(
                     sample.crop_source_path,
                     artifact_directory.joinpath(
-                        *PurePosixPath(sample.asset_relative_path).parts
+                        *PurePosixPath(_asset_relative_path(sample, config)).parts
                     ),
                 )
                 if progress_callback is not None:
@@ -717,6 +790,7 @@ def build_cumulative_training_dataset(
                 manifest_path,
                 manifest_bytes,
                 samples,
+                config,
                 progress_callback,
             )
         except TrainingDatasetBuildError:
@@ -747,6 +821,7 @@ __all__ = [
     "TRAINING_DATASET_SCHEMA_VERSION",
     "TRAINING_DATASET_VERSION",
     "TRAINING_SPLIT_POLICY_VERSION",
+    "build_balanced_source_assignments",
     "TrainingDatasetArtifact",
     "TrainingDatasetBuildError",
     "TrainingDatasetConfig",

@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-15
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1427,9 +1427,10 @@ Lista wymaga `gameId` i `importJobId`, używa bounded cursor i przyjmuje widok
 elementy pozostają edytowalne. Osobna aplikacja Reviewer używa `all` jako
 aktywnej kolejki nawigacyjnej; `pending/completed` pozostają projekcjami
 statusów i liczników, a nie filtrem usuwającym element z bieżącej sesji po
-zapisie. Kolejność jest deterministyczna po zaakceptowanym `sequenceNumber`, a
-przed jego akceptacją po stabilnej pozycji źródła i planszy. Odpowiedź zawiera
-cursor poprzedni/następny oraz liczniki, ale nie całą kolejkę.
+zapisie. Kolejność jest zawsze deterministyczna po trwałym kluczu
+`(source_order_index, position_index, review_item_id)` i nie zmienia się po
+zaakceptowaniu `sequenceNumber`. Odpowiedź zawiera cursor poprzedni/następny,
+`queueVersion` oraz liczniki, ale nie całą kolejkę.
 
 Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
 aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
@@ -1442,11 +1443,38 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
-Kursor jest opaque i związany z `gameId`, `importJobId` oraz wybraną projekcją.
-W aktywnej projekcji `all` zapis accepted/corrected nie usuwa elementu, więc
-wcześniejszy kursor nadal może do niego wrócić. Rozmiar strony jest ograniczony
-do 50, a Reviewer zawsze żąda `limit = 1`. Pełny import nigdy nie jest
-zwracany jako jedna odpowiedź.
+Odpowiedź resolution zawiera zapisany item i event, `created`, a także
+autorytatywne `counts` oraz `queueVersion` odczytane z trwałej projekcji po
+zapisie. Zmiana statusu sąsiedniej pozycji nie unieważnia komendy bieżącego
+itemu. Tylko różnica `expectedRevision` i aktualnej rewizji tego itemu zwraca
+`IMAGE_REVIEW_REVISION_CONFLICT`; szczegóły wskazują `conflictScope = item`,
+identyfikator oraz rewizje oczekiwaną i aktualną. Konflikt geometrii pozostaje
+osobnym kodem. Exact retry tego samego UUID zwraca `created = false` wraz z
+bieżącym snapshotem liczników, nawet jeżeli od pierwszego zapisu zmieniły się
+inne elementy kolejki.
+
+Zapis accepted/corrected jest serializowany dla `gameId + sequenceNumber`.
+Pierwsza poprawnie utrwalona kanoniczna decyzja wygrywa. Pozostałe oczekujące
+wystąpienia tego numeru przechodzą terminalnie do `superseded`, zachowują
+źródło i append-only event, nie tworzą staging row i nie zastępują właściciela.
+Równoległa komenda przegranej pozycji otrzymuje kontrolowaną odpowiedź z itemem
+i eventem `superseded`, a exact retry zachowuje idempotencję. Liczniki odpowiedzi
+obejmują osobne pole `superseded`; `completed` nadal oznacza wyłącznie
+`accepted + corrected`.
+
+Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem oraz trwałym
+`queueVersion`. Schema cursora v2 zawiera dokładnie klucz
+`(source_order_index, position_index, review_item_id)`; sortowanie, keyset,
+poprzedni/następny i resume używają tego samego klucza we wszystkich widokach.
+Status i `sequence_number` nie są częścią klucza. Zapis accepted/corrected nie
+zmienia topologii ani `queueVersion`, więc wcześniejszy kursor nadal może wrócić
+do tego elementu także wtedy, gdy przestał należeć do widoku `pending`. Zmiana
+topologii unieważnia cursor kodem `IMAGE_REVIEW_CURSOR_STALE`. Liczniki pochodzą
+z trwałej projekcji. Rozmiar strony jest ograniczony do 50, a Reviewer zawsze
+żąda `limit = 1`. Klient może równolegle pobrać jednego poprzednika i
+sekwencyjnie dwóch następców, ale utrzymuje najwyżej okno
+`previous/current/next two`; każdy jego element pozostaje osobną odpowiedzią
+jednopozycyjną. Pełny import nigdy nie jest zwracany jako jedna odpowiedź.
 
 Bez kursora wejściowego lub po reloadzie lista `all` wskazuje pierwszą planszę
 `pending`; jeśli nie ma żadnej pending, wskazuje pierwszą planszę importu.
@@ -1459,12 +1487,54 @@ wersji croppera, ścieżki i checksumy cropu. Endpointy assetów rozwiązują
 wyłącznie względne ścieżki pod `<artifact-root>/data`, blokują traversal i
 sprawdzają checksumę przed wysłaniem pliku.
 
-Geometry revision przyjmuje cztery narożniki w przestrzeni oryginalnego obrazu
-oraz expected geometry i resolution revision. Preview zwraca PNG kanonicznej
-planszy 500 × 300 i nie zapisuje pliku ani rewizji. Zapis wymaga dodatkowo UUID
-idempotencji i aktora; backend/worker generuje nową planszę i dokładnie 15
-cropów, zapisuje ścieżki oraz checksumy i ponownie otwiera review item. Klient
-nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+Preview geometrii przyjmuje cztery narożniki zewnętrznych granic siatki symboli
+5 × 3 w przestrzeni oryginalnego obrazu oraz expected geometry i resolution
+revision. Zwraca PNG `5 × 3` złożony z dokładnie 15 finalnych cropów
+source-direct v19 i nie zapisuje pliku ani rewizji. Cztery pochodne uchwyty
+krawędziowe nie należą do payloadu.
+
+Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora. Cztery
+punkty mają tę samą semantykę `latticeBoundsQuad` co preview; backend ponownie
+wykonuje wspólną walidację v19, zapisuje dokładnie 15 finalnych cropów
+source-direct, ich ścieżki, checksumy i quady oraz ponownie otwiera review item.
+Klient nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+
+Odpowiedź rewizji zawiera `decisionChecksumSha256`, które wiąże źródło,
+source-order, pozycję, numer, quad, wersje, oczekiwane rewizje, checksumę komendy
+i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
+Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
+UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
+
+Jawny pending-only recrop v19 wykorzystuje:
+
+```text
+GET  /api/v1/admin/image-review-items/pending-grid-reinference/preview/{gameId}
+POST /api/v1/admin/image-review-items/pending-grid-reinference/{gameId}
+```
+
+Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
+`currentV19BoardCount`, `protectedBoardCount`, liczniki źródeł oraz przypięte
+`geometryVersion`, `cropperVersion` i checksumę zaakceptowanego audytu 100
+stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
+jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
+pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+Preview i worker obejmują wyłącznie importy w stanie `waiting_for_review`.
+Oczekujące projekcje importów `cancelled` albo `failed` pozostają audytowalne,
+ale nie mogą zwiększać zakresu nowego przeliczenia.
+
+Nowy job `image_grid_reinference` używa payloadu schema v2 i snapshotu
+`boardCellRecrop`. Snapshot zawiera wersje i fingerprinty locatora, homografii,
+progów, estymatora, geometrii i croppera oraz checksumę audytu; worker odrzuca
+jakąkolwiek zmianę payloadu stabilnym
+`IMAGE_BOARD_CELL_RECROP_SNAPSHOT_INVALID`. Historyczny payload schema v1 z
+`gridProfile` pozostaje serializowalny i odtwarzalny.
+
+Operacja nie przyjmuje zakresu, ścieżki ani gotowych quadów od klienta. Nie
+uruchamia OCR/discovery i nie zmienia statusu review. Worker zapisuje rewizję
+wyłącznie po ponownej warunkowej kontroli itemu i planszy pod blokadą;
+równoległa decyzja człowieka jest raportowana jako pominięta, a nie jako błąd.
+Niepełna geometria trafia do licznika `needsManualGeometry` bez częściowych
+cropów.
 
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
@@ -1556,14 +1626,80 @@ z ograniczonym timeoutem do 60 sekund. Start zapewnia produkcyjny Reviewer na lo
 blokuje wykryty serwer developerski, uruchamia outbound-only Quick Tunnel i
 zwraca stan, publiczny origin, lokalny target, czas startu i gotowość Reviewera.
 
+Skrypty używają wspólnego, nazwanego mutexu Windows dla danego repozytorium,
+więc `start`, `status`, lokalny `start` i `stop` nie modyfikują lifecycle'u
+równolegle nawet wtedy, gdy wywołują je różne procesy API. Stan procesu schema
+v2 jest zapisywany atomowo dopiero po health checku i zawiera `instanceId`, PID,
+czas startu procesu, pełną ścieżkę executable i nazwę procesu. Status oraz stop
+ufają PID wyłącznie po zgodności całej tożsamości. Wewnętrzny kontroler ma także
+compare-and-stop po oczekiwanym `instanceId`; niezgodność pozostawia nowszą
+instancję bez zmian. Publiczny kontrakt HTTP i enum stanów pozostają bez zmian.
+Każde wywołanie API zapisuje wynik kontrolera do osobnego pliku, a każda próba
+startu Reviewera i tunelu ma osobne logi.
+
 `state` przyjmuje `running`, `stopped`, `stale` albo `degraded`. Stop jest
 idempotentny i usuwa publiczny origin. Endpointy są częścią Admin API na
 loopback i nie znajdują się na allowliście publicznego proxy Reviewera.
 
-Panel wykonuje start przed `POST /admin/reviewer-sessions`, dzięki czemu nowa
-sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
-próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
-zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
+Endpointy globalnego ingressu i ręcznego tworzenia sesji pozostają kontraktem
+operatorskim/legacy. Panel Admin nie składa już z nich własnego lifecycle'u;
+korzysta z atomowego kontraktu przypisań opisanego niżej.
+
+### Przypisania pracy Reviewera per import
+
+```text
+GET  /api/v1/admin/games/{gameId}/reviewer-work-assignments
+POST /api/v1/admin/games/{gameId}/imports/{importJobId}/reviewer-work-assignments/local
+POST /api/v1/admin/games/{gameId}/imports/{importJobId}/reviewer-work-assignments/online
+POST /api/v1/admin/reviewer-work-assignments/{assignmentId}/heartbeat
+POST /api/v1/admin/reviewer-work-assignments/{assignmentId}/close
+```
+
+Open przyjmuje wyłącznie ograniczony `lifetimeMinutes` od 5 do 1440. Scope
+wynika z path i jest ponownie walidowany w transakcji. Ponowienie otwarcia tego
+samego importu i trybu jest idempotentne: zwraca to samo aktywne przypisanie,
+nie tworzy drugiej sesji ani procesu. Próba zmiany trybu zajętego importu kończy
+się `REVIEWER_ASSIGNMENT_ALREADY_ACTIVE`; czwarta różna praca online zwraca
+`REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED`.
+
+Odpowiedź pierwszego open online zawiera `created = true`, scoped URL, osobno
+jednorazowy `accessCode` i jego czas wygaśnięcia. Idempotentna odpowiedź ma
+`created = false` oraz `accessCode = null`. Lista aktywnych prac zwraca tryb,
+scope, gotowość, URL i niesekretne timestampy, lecz nigdy nie zwraca kodu,
+bearer tokenu, fencing tokenu ani osobnego pola identyfikatora sesji. Publiczny
+URL może zawierać opaque identyfikator sesji. Heartbeat i close są
+scope'owane identyfikatorem assignmentu; klient nie otrzymuje lease tokenu.
+
+Close unieważnia tylko sesję online wskazanego assignmentu. Ostatnia praca
+online uruchamia ogrodzony stop wspólnego tunelu; inne prace online oraz lokalne
+nie są zamykane. Wszystkie mutacje pozostają loopback-only i wymagają lokalnego
+intent header, a open/close dodatkowo dokładnego high-impact targetu.
+
+Gotowy import pozostaje dostępny w tym kontrakcie zarówno jako
+`waiting_for_review`, jak i `completed`. Status jest synchronizowany z trwałą
+projekcją kolejki: rozwiązanie ostatniej pozycji ustawia `completed`, a zapis
+nowej geometrii ponownie otwierający pozycję przywraca `waiting_for_review`.
+Zmiana statusu nie zamyka automatycznie assignmentu i nie usuwa możliwości
+audytowego przeglądania pełnej kolejki.
+
+### Lokalny start Reviewera bez sesji
+
+```text
+POST /api/v1/admin/reviewer-local/start
+```
+
+Żądanie przyjmuje wyłącznie `confirmed = true` i
+`target = local-reviewer`. Backend może uruchomić tylko przypięty skrypt
+`start_local_reviewer.ps1`; payload nie przyjmuje komendy, argumentów, portu ani
+URL. Odpowiedź używa kontraktu statusu ingressu, ale dla stanu `running` ma
+`publicOrigin = null`, dokładny target `http://127.0.0.1:3001` i
+`reviewerReady = true`. Publiczny albo inny target jest błędem kontrolera.
+
+Admin otwiera lokalny URL z `mode=local`, `gameId` oraz `importJobId`. Reviewer
+pomija bramkę kodu wyłącznie wtedy, gdy nagłówek `Host` wskazuje loopback na
+porcie 3001, oba identyfikatory są UUID, a API pozostaje na loopback. Ten URL
+nie tworzy trwałej sesji ani tokenu. Wejście przez publiczny host ignoruje tryb
+lokalny i nadal wymaga standardowej sesji z kodem.
 
 ## Admin API M6.6 — jakość modelu symboli
 
@@ -1667,7 +1803,9 @@ wykluczonych z powodu cropu lub geometrii.
 Tworzy wznawialny job przypięty do konkretnej aktywnej wersji. Backend i worker
 ponownie sprawdzają status oraz rewizję przy zapisie. `accepted`, `corrected` i
 `rejected` są pomijane nawet wtedy, gdy zostały rozwiązane już po starcie joba.
-Wyniki są append-only rewizjami predykcji.
+Wyniki są append-only rewizjami predykcji. Zarówno preview, jak i worker biorą
+pod uwagę wyłącznie oczekujące elementy importów w stanie
+`waiting_for_review`; anulowany lub nieudany import nie jest źródłem pracy.
 
 ## Mobile release
 
@@ -2011,3 +2149,38 @@ wartość z zapisanego `selectorFingerprint` przez rejestr niezmiennych manifest
 dla nieznanego historycznego fingerprintu zwraca `unknown`. Panel używa pola do
 opisania pozycji w historii runów, ale fingerprint pozostaje techniczną
 tożsamością zachowania selektora.
+
+### Browser layout import z poświadczonym manifestem
+
+Dla `purpose=layout_import` backend udostępnia trzy operacje związane z
+trwałym stagingiem:
+
+- `GET /api/v1/admin/image-imports/browser-selections?purpose=layout_import`
+  zwraca gotowe stagingi i checksumę manifestu,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
+  przyjmuje `gameId` i zwraca raport zakresów oraz `preflightChecksumSha256`,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
+  przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
+
+Start jest idempotentny po `gameId + uploadId + manifestChecksumSha256`.
+Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
+a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
+operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
+kontraktów.
+
+### Preflight geometrii strony browserowego stagingu
+
+Przed `start` importu `seq_*` Admin tworzy osobny job `validate` i czeka na
+niezmienny manifest geometrii:
+
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflight`,
+- `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/geometry-preflights/{jobId}/review-sources`,
+- `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
+
+Start importu zawiera `geometryPreflightJobId` oraz
+`geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
+dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
+drift albo nierozwiązana strona blokują start stabilnym błędem zamiast powrotu
+do klasycznego detektora. Override ma tylko checksumę źródła, rozmiar obrazu,
+dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.

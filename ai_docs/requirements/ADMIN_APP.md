@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-08-03
+last_updated: 2026-08-15
 ---
 
 # Wymagania modułu administracyjnego
@@ -252,8 +252,11 @@ Dla niepewnego elementu administrator otrzymuje:
 Bootstrap etykiet symboli działa na poziomie całego layoutu. Panel pokazuje
 piętnaście komórek, pozwala przypisywać symbole skrótami, zatwierdzić layout i
 wyróżnia komórki niepewne. Jeżeli granice są błędne, administrator przechodzi
-do osobnego trybu geometrii, przesuwa cztery narożniki rzeczywistej ramy planszy
-na zdjęciu oraz widzi wynikową ukośną siatkę 5 × 3, kanoniczną planszę i cropy.
+do osobnego trybu geometrii i przesuwa cztery narożniki zewnętrznych granic
+siatki symboli 5 × 3 na zdjęciu, a nie narożniki czerwonej ramki. Cztery
+dodatkowe uchwyty krawędziowe są wyprowadzane z głównego quadu i nie zmieniają
+zapisywanej semantyki. Podgląd pokazuje ukośną siatkę oraz wszystkie 15
+finalnych cropów source-direct.
 Edytor pokazuje zakres profilu `(source_group, board_position)`, jego anchory,
 wersję oraz zachowanie exact/interpolation/clamp przed zapisaniem nowej,
 niezmiennej wersji profilu kalibracji.
@@ -294,19 +297,36 @@ pełnych plansz i ma:
 
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
-- mieć własny proces i adres; panel Admin wybiera grę oraz import, a przycisk
-  `Utwórz link i wystaw online` uruchamia brakujący produkcyjny Reviewer,
+- mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
+  dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
+  `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
   kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
   oraz unikalny kod wejścia,
+- mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
+  wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
+  tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
+  strony otwartej przez loopback,
 - pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
-  `Zatrzymaj udostępnianie`, który unieważnia bieżącą sesję i zamyka publiczny
-  tunel; decyzje zapisane wcześniej w audycie pozostają w bazie,
+  `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
+  wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
+  aktywnych prac online i kończy się dopiero po ostatniej, a decyzje zapisane
+  wcześniej w audycie pozostają w bazie,
+- dopuszczać najwyżej trzy różne aktywne importy online; tryb lokalny nie zajmuje
+  tego limitu, a próba czwartego linku kończy się kontrolowanym komunikatem bez
+  utworzenia sesji,
+- pokazywać listę aktywnych prac wszystkich gotowych importów wybranej gry i
+  pozwalać zakończyć dokładnie wskazane przypisanie; lista po odświeżeniu nie
+  ujawnia kodu wejścia, bearer tokenu, fencing tokenu ani osobnego pola
+  identyfikatora sesji; publiczny URL może zawierać jego opaque identyfikator,
+- ujawniać kod wejścia wyłącznie bezpośrednio po utworzeniu nowej pracy online;
+  idempotentne ponowienie zwraca istniejące przypisanie bez ponownego pokazania
+  kodu,
 - nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
   wykrycie procesu developerskiego na porcie Reviewera blokuje start z
   czytelnym komunikatem,
-- przed pokazaniem danych wymagać poprawnego kodu. Lokalna wersja pozostaje
-  dostępna wyłącznie przez loopback; kod lokalny nie jest deklarowany jako
-  zabezpieczenie dostępu internetowego,
+- przed pokazaniem danych przez publiczny origin wymagać poprawnego kodu.
+  Lokalna wersja pozostaje dostępna wyłącznie przez loopback i korzysta z
+  uprawnień lokalnego właściciela bez dodatkowego kodu,
 
 - kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
   przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym
@@ -330,11 +350,22 @@ accepted/corrected z nawigacji sesji. Strzałki lewo/prawo przechodzą po tej
 pełnej kolejności; strzałka w lewo musi wrócić również do planszy zatwierdzonej
 chwilę wcześniej.
 
+Status gotowego importu jest domykany razem z trwałą kolejką review. Import z
+co najmniej jedną planszą pozostaje `waiting_for_review`, dopóki licznik
+`pending` jest dodatni, i przechodzi do `completed` po rozwiązaniu ostatniej
+pozycji. Jawna korekta geometrii, która ponownie otwiera choć jedną planszę,
+przywraca `waiting_for_review`. Oba statusy pozostają dostępne w selectcie, aby
+ukończony import można było przeglądać audytowo.
+
 Przy pierwszym wejściu albo pełnym odświeżeniu aplikacja ustawia bieżącą
 pozycję na pierwszej planszy `pending`. Jeżeli nie istnieje żadna plansza
 `pending`, zaczyna od pierwszej planszy importu. Nie oznacza to pobrania pełnej
 kolejki do klienta: każda bieżąca plansza i sąsiad są nadal pobierane bounded,
-z limitem jednej planszy.
+z limitem jednej planszy. Reviewer utrzymuje najwyżej cztery takie odpowiedzi:
+jedną poprzednią, bieżącą i dwie następne. Metadane oraz zasoby obrazu
+poprzednika i dwóch następców są prefetchowane, a przejście po gotowym sąsiedzie
+nie pokazuje pełnoekranowego stanu ładowania. Przesunięcie okna usuwa dalsze
+pozycje ze stanu React; nie wolno materializować całego importu.
 
 Symbole są mapowane według stabilnej kolejności katalogu gry: klawisze
 `1`–`9`, `0` dla dziesiątego, a następne pozycje kolejno do klawiszy w
@@ -344,6 +375,21 @@ do następnej planszy w pełnej kolejności. Skróty nie działają podczas pisa
 w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
 blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
+Klucz idempotencji jednej niezmienionej komendy jest zachowywany także po
+niejednoznacznym błędzie transportu. Ponowienie może więc odzyskać poprawnie
+utrwaloną decyzję zamiast wysłać nową komendę na starej rewizji. Pomyślny zapis
+zwraca trwały `queueVersion` i dokładne liczniki po całej transakcji, w tym po
+ewentualnym zastąpieniu innych źródeł. Reviewer nie wyprowadza tych liczników z
+lokalnej tablicy. Przeładowanie bieżącej planszy jest wymagane tylko przy
+konflikcie jej rewizji lub geometrii; zmiana sąsiedniej pozycji albo samych
+liczników nie jest konfliktem komendy.
+
+Jeżeli inny reviewer wcześniej zapisze kanoniczną decyzję dla tej samej gry i
+numeru, bieżąca oczekująca pozycja otrzymuje kontrolowany status `superseded`.
+Reviewer pokazuje ten status i osobny licznik, nie traktuje go jako technicznego
+błędu zapisu i nie pozwala korektą geometrii ponownie otworzyć przegranego
+źródła. Kanoniczny właściciel oraz oba źródła pozostają audytowalne.
+
 Plansza accepted/corrected pozostaje dostępna w widoku `Plansze kompletne` i
 może zostać ponownie edytowana. Zmiana tworzy kolejną rewizję append-only;
 wcześniejsza decyzja nie jest usuwana. Późniejsza inferencja albo trening nigdy
@@ -352,12 +398,28 @@ nierozwiązanych plansz.
 
 Pełne zdjęcie źródłowe pozostaje dostępne wyłącznie w kontekście korekty
 geometrii. Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb
-czterech narożników na oryginalnym obrazie. Podgląd pokazuje ukośną siatkę 5 × 3,
-wyprostowaną planszę oraz nowe cropy. Zapis geometrii tworzy nowe wersje plików
+czterech narożników granic siatki symboli na oryginalnym obrazie. Podgląd
+pokazuje projektową siatkę 5 × 3 oraz wszystkie 15 finalnych cropów bez
+pośredniego rastra planszy. Zapis geometrii tworzy nowe wersje plików
 i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
 zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć do
 zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie
 propagowane na inne plansze.
+
+Po zaakceptowaniu bramki geometrii panel jakości udostępnia osobną, jawną
+akcję `Przelicz oczekujące`. Przed startem pokazuje wszystkie plansze
+`pending`, liczbę faktycznie wymagającą v19, liczbę już zapisaną w v19,
+chronione decyzje i przypięte wersje geometrii/croppera. Przycisk jest
+nieaktywny, gdy `recalculableBoardCount = 0`, oraz blokuje drugi submit podczas
+tworzenia joba. Operacja nie obiecuje automatycznego rozwiązania: plansze bez
+pełnej geometrii 3 × 5 pozostają do ręcznej korekty.
+
+Przycisk zapisu jest dostępny dopiero po wygenerowaniu podglądu odpowiadającego
+bieżącym czterem punktom. Każde przesunięcie uchwytu unieważnia poprzedni
+podgląd. W trakcie zapisu drugi submit i zamknięcie dialogu są zablokowane, a
+konflikt rewizji wymaga przeładowania bieżącej planszy. Udany zapis nie
+przechodzi do następnej pozycji: zastępuje bieżący item odpowiedzią backendu i
+pokazuje go jako ponownie oczekujący na weryfikację symboli.
 
 Obsługa narożników musi pozostać zgodna z widoczną treścią obrazu również po
 skalowaniu i dodaniu pustych pasów przez `object-fit: contain`; próg trafienia

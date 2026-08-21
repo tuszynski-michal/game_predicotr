@@ -29,9 +29,7 @@ class FakeCompletenessRepository:
         rules_version_id: UUID,
         algorithm_version: str,
     ) -> PayoutCompletenessFacts | None:
-        self.calls.append(
-            (dataset_version_id, rules_version_id, algorithm_version)
-        )
+        self.calls.append((dataset_version_id, rules_version_id, algorithm_version))
         return self.facts
 
 

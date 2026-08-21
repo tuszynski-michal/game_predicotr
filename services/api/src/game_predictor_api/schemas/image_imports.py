@@ -7,12 +7,14 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.application.image_imports import (
+    BrowserReadySelection,
     ImageSelectionPurpose,
     SelectedImageFolder,
 )
 from game_predictor_api.application.iterative_image_imports import (
     CuratedImageImportProgress,
 )
+from game_predictor_api.domain.image_sequence_canonical import ImageSequenceImportPreflight
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -53,6 +55,152 @@ class ImageFolderImportCreate(ApiModel):
 
 class ImageFolderImportResponse(ApiModel):
     job: JobResponse
+
+
+class ImageSequenceImportPreflightResponse(ApiModel):
+    game_id: UUID
+    source_file_count: int = Field(ge=0)
+    attested_file_count: int = Field(ge=0)
+    new_sequence_count: int = Field(ge=0)
+    reused_sequence_count: int = Field(ge=0)
+    skipped_source_count: int = Field(ge=0)
+    partial_source_count: int = Field(ge=0)
+    alternative_source_count: int = Field(ge=0)
+    first_unresolved_sequence: int | None = Field(default=None, ge=1)
+    last_unresolved_sequence: int | None = Field(default=None, ge=1)
+    warnings: list[str]
+
+    @classmethod
+    def from_domain(
+        cls,
+        value: ImageSequenceImportPreflight,
+    ) -> "ImageSequenceImportPreflightResponse":
+        return cls(
+            game_id=value.game_id,
+            source_file_count=value.source_file_count,
+            attested_file_count=value.attested_file_count,
+            new_sequence_count=value.new_sequence_count,
+            reused_sequence_count=value.reused_sequence_count,
+            skipped_source_count=value.skipped_source_count,
+            partial_source_count=value.partial_source_count,
+            alternative_source_count=value.alternative_source_count,
+            first_unresolved_sequence=value.first_unresolved_sequence,
+            last_unresolved_sequence=value.last_unresolved_sequence,
+            warnings=list(value.warnings),
+        )
+
+
+class BrowserReadySelectionResponse(ApiModel):
+    upload_id: UUID
+    display_name: str
+    expected_file_count: int = Field(ge=1)
+    expected_total_bytes: int = Field(ge=1)
+    uploaded_file_count: int = Field(ge=0)
+    uploaded_bytes: int = Field(ge=0)
+    purpose: ImageSelectionPurpose
+    game_id: UUID | None
+    created_at: datetime
+    completed_at: datetime | None
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @classmethod
+    def from_domain(cls, value: BrowserReadySelection) -> "BrowserReadySelectionResponse":
+        upload = value.upload
+        return cls(
+            upload_id=upload.upload_id,
+            display_name=upload.display_name,
+            expected_file_count=upload.expected_file_count,
+            expected_total_bytes=upload.expected_total_bytes,
+            uploaded_file_count=len(upload.uploaded_indexes),
+            uploaded_bytes=upload.uploaded_bytes,
+            purpose=upload.purpose,
+            game_id=upload.game_id,
+            created_at=upload.created_at,
+            completed_at=value.completed_at,
+            manifest_checksum_sha256=value.manifest.checksum_sha256,
+        )
+
+
+class BrowserImageImportPreflightCreate(ApiModel):
+    game_id: UUID
+
+
+class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
+    upload_id: UUID
+    display_name: str
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    symbol_model_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BrowserPageGeometryPreflightResponse(ApiModel):
+    created: bool
+    job: JobResponse
+
+
+class BrowserPageGeometryReviewSourceResponse(ApiModel):
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_relative_path: str = Field(min_length=1, max_length=2048)
+    sequence_range_start: int | None = Field(default=None, ge=1)
+    sequence_range_end: int | None = Field(default=None, ge=1)
+
+
+class BrowserPageGeometryReviewSourcesResponse(ApiModel):
+    job: JobResponse
+    geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    registered_source_count: int = Field(ge=0)
+    review_required_source_count: int = Field(ge=0)
+    skipped_human_resolved_source_count: int = Field(ge=0)
+    sources: list[BrowserPageGeometryReviewSourceResponse]
+
+
+class PageGeometryPoint(ApiModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+
+
+class BrowserPageGeometryOverrideCreate(ApiModel):
+    game_id: UUID
+    source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_width: int = Field(ge=1)
+    image_height: int = Field(ge=1)
+    final_quads: tuple[
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
+    ]
+    actor: str = Field(min_length=1, max_length=200)
+
+
+class BrowserPageGeometryOverrideResponse(ApiModel):
+    created: bool
+    id: UUID
+    revision: int = Field(ge=1)
+    decision_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BrowserImageImportStart(ApiModel):
+    game_id: UUID
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    start_mode: Literal["reuse_exact", "rerun_current_models"] = "reuse_exact"
+    symbol_model_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    geometry_preflight_job_id: UUID
+    geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BrowserImageImportStartResponse(ApiModel):
+    created: bool
+    job: JobResponse
+    preflight: BrowserImageImportPreflightResponse
 
 
 class BrowserImageSelectionCreate(ApiModel):

@@ -94,12 +94,8 @@ class StageTimingCollector:
                     "meanMs": _milliseconds(
                         aggregate.total_ns // aggregate.count if aggregate.count else 0
                     ),
-                    "p50Ms": _milliseconds(
-                        aggregate.percentile_upper_bound_ns(0.50)
-                    ),
-                    "p95Ms": _milliseconds(
-                        aggregate.percentile_upper_bound_ns(0.95)
-                    ),
+                    "p50Ms": _milliseconds(aggregate.percentile_upper_bound_ns(0.50)),
+                    "p95Ms": _milliseconds(aggregate.percentile_upper_bound_ns(0.95)),
                     "totalSeconds": round(aggregate.total_ns / 1_000_000_000, 6),
                 }
                 for name, aggregate in self._stages.items()

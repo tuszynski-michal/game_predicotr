@@ -25,7 +25,21 @@ import httpx
 ADMIN_HEADERS = {"X-Admin-Intent": "local-owner"}
 SUPPORTED_SUFFIXES = frozenset({".jpg", ".jpeg"})
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "waiting_for_review"})
+READY_GROUP_STATUSES = frozenset({"auto_selected", "manually_selected", "range_confirmed"})
+GROUP_STATUSES = (
+    "collecting",
+    "auto_selected",
+    "manual_required",
+    "manually_selected",
+    "missing_image",
+    "skipped_existing_range",
+    "range_required",
+    "range_confirmed",
+    "skipped_unreadable",
+    "rejected_by_user",
+)
 _NATURAL_PART = re.compile(r"(\d+)")
+_SEQUENCE_OUTPUT = re.compile(r"^seq_([1-9][0-9]*)-([1-9][0-9]*)\.jpg$")
 
 
 def _utc_now() -> str:
@@ -57,10 +71,18 @@ def _job_progress(job: dict[str, Any]) -> dict[str, object]:
         "groups": selection_progress.get("groups", 0),
         "selected": selection_progress.get("selected", 0),
         "manual": selection_progress.get("manual", 0),
+        "rangeRequired": selection_progress.get("rangeRequired", 0),
         "skipped": selection_progress.get("skipped", 0),
         "errors": selection_progress.get("errors", 0),
         "verifications": selection_progress.get("verifications", 0),
     }
+
+
+def _job_error(job: dict[str, Any]) -> tuple[object | None, object | None]:
+    error = job.get("error")
+    if not isinstance(error, dict):
+        return None, None
+    return error.get("code"), error.get("message")
 
 
 def _write_report(path: Path, report: dict[str, object]) -> None:
@@ -176,7 +198,7 @@ def _save_ready_groups(
         group_order = int(group["groupOrder"])
         if group_order in saved_orders:
             continue
-        if group.get("status") not in {"auto_selected", "manually_selected"}:
+        if group.get("status") not in READY_GROUP_STATUSES:
             continue
         range_start = group.get("rangeStart")
         range_end = group.get("rangeEnd")
@@ -235,6 +257,252 @@ def _drain_ready_groups(
         export_cursor = next_cursor
 
 
+def _all_groups(
+    client: httpx.Client,
+    run_id: str,
+) -> tuple[list[dict[str, Any]], int]:
+    groups: list[dict[str, Any]] = []
+    cursor = -1
+    while True:
+        page, next_cursor = _groups_after(
+            client,
+            run_id,
+            after_group_order=cursor,
+        )
+        groups.extend(page)
+        if next_cursor == cursor:
+            return groups, cursor
+        cursor = next_cursor
+
+
+def _expected_ranges(run: dict[str, Any]) -> list[tuple[int, int]] | None:
+    first = run.get("firstSequenceNumber")
+    last = run.get("lastSequenceNumber")
+    direction = run.get("sequenceDirection")
+    if not isinstance(first, int) or not isinstance(last, int):
+        return None
+    if direction == "ascending" and last >= first:
+        return [(start, min(last, start + 8)) for start in range(first, last + 1, 9)]
+    if direction == "descending" and first >= last:
+        return [(max(last, end - 8), end) for end in range(first, last - 1, -9)]
+    return None
+
+
+def _selection_coverage(
+    run: dict[str, Any],
+    groups: list[dict[str, Any]],
+) -> dict[str, object]:
+    status_counts = {status: 0 for status in GROUP_STATUSES}
+    for group in groups:
+        status = group.get("status")
+        if isinstance(status, str):
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+    owners = [group for group in groups if group.get("status") != "skipped_existing_range"]
+    duplicates = len(groups) - len(owners)
+    proof_first = run.get("selectorVersion") in {
+        "fast-image-selector-v10.19",
+        "fast-image-selector-v10.20",
+    }
+    expected_ranges = _expected_ranges(run)
+    expected_count = run.get("expectedGroupCount")
+    if not isinstance(expected_count, int) and expected_ranges is not None:
+        expected_count = len(expected_ranges)
+
+    owner_ranges = [
+        (int(group["rangeStart"]), int(group["rangeEnd"]))
+        for group in owners
+        if isinstance(group.get("rangeStart"), int) and isinstance(group.get("rangeEnd"), int)
+    ]
+    range_counts: dict[tuple[int, int], int] = {}
+    for item in owner_ranges:
+        range_counts[item] = range_counts.get(item, 0) + 1
+    expected_set = set(expected_ranges or ())
+    missing = [item for item in expected_ranges or () if range_counts.get(item, 0) == 0]
+    duplicate_ranges = sorted(item for item, count in range_counts.items() if count > 1)
+    off_grid = sorted(item for item in range_counts if item not in expected_set)
+    ordered_ranges_match = expected_ranges is not None and owner_ranges == expected_ranges
+    automatic_groups = [group for group in owners if group.get("status") == "auto_selected"]
+    automatic_ranges_present = all(
+        isinstance(group.get("rangeStart"), int) and isinstance(group.get("rangeEnd"), int)
+        for group in automatic_groups
+    )
+    range_projection_conflict_free = bool(
+        expected_ranges is not None
+        and automatic_ranges_present
+        and not duplicate_ranges
+        and not off_grid
+    )
+    logical_coverage_valid = bool(
+        isinstance(expected_count, int)
+        and len(owners) == expected_count
+        and duplicates == len(groups) - expected_count
+        and len(owner_ranges) == len(owners)
+        and not missing
+        and not duplicate_ranges
+        and not off_grid
+        and ordered_ranges_match
+    )
+    return {
+        "physicalGroups": len(groups),
+        "expectedLogicalGroups": expected_count,
+        "logicalGroups": len(owners),
+        "resolvedRangeGroups": len(owner_ranges),
+        "duplicateGroups": duplicates,
+        "provenAutomaticGroups": len(automatic_groups),
+        "manuallyConfirmedGroups": sum(
+            status_counts.get(status, 0) for status in ("manually_selected", "range_confirmed")
+        ),
+        "unresolvedRangeGroups": sum(
+            1
+            for group in owners
+            if not isinstance(group.get("rangeStart"), int)
+            or not isinstance(group.get("rangeEnd"), int)
+        ),
+        "unreadableOrRejectedGroups": sum(
+            status_counts.get(status, 0)
+            for status in ("missing_image", "skipped_unreadable", "rejected_by_user")
+        ),
+        "groupStatusCounts": status_counts,
+        "missingRanges": [{"rangeStart": start, "rangeEnd": end} for start, end in missing],
+        "duplicateRanges": [
+            {"rangeStart": start, "rangeEnd": end} for start, end in duplicate_ranges
+        ],
+        "offGridRanges": [{"rangeStart": start, "rangeEnd": end} for start, end in off_grid],
+        "logicalCoverageValid": logical_coverage_valid,
+        "rangeProjectionConflictFree": range_projection_conflict_free,
+        "proofFirstRun": proof_first,
+    }
+
+
+def _ready_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        group
+        for group in groups
+        if group.get("status") in READY_GROUP_STATUSES
+        and isinstance(group.get("id"), str)
+        and isinstance(group.get("rangeStart"), int)
+        and isinstance(group.get("rangeEnd"), int)
+    ]
+
+
+def _owned_output_files(output_root: Path) -> set[Path]:
+    return {
+        path
+        for path in output_root.iterdir()
+        if path.is_file() and _SEQUENCE_OUTPUT.fullmatch(path.name)
+    }
+
+
+def _output_coverage(
+    output_root: Path,
+    groups: list[dict[str, Any]],
+) -> dict[str, object]:
+    ready = _ready_groups(groups)
+    desired_names = [
+        f"seq_{int(group['rangeStart'])}-{int(group['rangeEnd'])}.jpg" for group in ready
+    ]
+    actual_names = {path.name for path in _owned_output_files(output_root)}
+    desired_set = set(desired_names)
+    return {
+        "readyOutputGroups": len(ready),
+        "savedOutputFiles": len(actual_names),
+        "outputCoverageValid": (
+            len(desired_names) == len(desired_set) and actual_names == desired_set
+        ),
+    }
+
+
+def _reconcile_terminal_output(
+    client: httpx.Client,
+    run_id: str,
+    output_root: Path,
+    groups: list[dict[str, Any]],
+    saved_orders: set[int],
+) -> int:
+    ready = _ready_groups(groups)
+    desired_names = {
+        f"seq_{int(group['rangeStart'])}-{int(group['rangeEnd'])}.jpg" for group in ready
+    }
+    if len(desired_names) != len(ready):
+        raise RuntimeError("Ready groups contain duplicate output ranges.")
+
+    saved_now = 0
+    for group in sorted(ready, key=lambda item: int(item["groupOrder"])):
+        group_order = int(group["groupOrder"])
+        file_name = f"seq_{int(group['rangeStart'])}-{int(group['rangeEnd'])}.jpg"
+        response = client.get(
+            f"/api/v1/admin/image-selections/{run_id}/groups/{group['id']}/selected-file"
+        )
+        response.raise_for_status()
+        content = response.content
+        destination = output_root / file_name
+        if (
+            destination.exists()
+            and hashlib.sha256(destination.read_bytes()).digest()
+            == hashlib.sha256(content).digest()
+        ):
+            saved_orders.add(group_order)
+            continue
+        with tempfile.NamedTemporaryFile(dir=output_root, prefix=".tmp-", delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+        saved_orders.add(group_order)
+        saved_now += 1
+
+    for stale in _owned_output_files(output_root):
+        if stale.name not in desired_names:
+            stale.unlink()
+    saved_orders.intersection_update(int(group["groupOrder"]) for group in ready)
+    return saved_now
+
+
+def _finalize_terminal_run(
+    client: httpx.Client,
+    run_id: str,
+    run: dict[str, Any],
+    output_root: Path,
+    saved_orders: set[int],
+) -> tuple[dict[str, object], int, int]:
+    groups, cursor = _all_groups(client, run_id)
+    coverage = _selection_coverage(run, groups)
+    saved_now = 0
+    job = run.get("job")
+    job_status = job.get("status") if isinstance(job, dict) else None
+    may_reconcile_ready_output = bool(
+        coverage["logicalCoverageValid"]
+        or (coverage["proofFirstRun"] and coverage["rangeProjectionConflictFree"])
+    )
+    if job_status in {"completed", "waiting_for_review"} and may_reconcile_ready_output:
+        saved_now = _reconcile_terminal_output(
+            client,
+            run_id,
+            output_root,
+            groups,
+            saved_orders,
+        )
+    output_coverage = _output_coverage(output_root, groups)
+    if job_status in {"failed", "cancelled"}:
+        output_coverage["outputCoverageValid"] = False
+    coverage.update(output_coverage)
+    return coverage, saved_now, cursor
+
+
+def _terminal_report_is_success(job_status: object, report: dict[str, object]) -> bool:
+    if job_status == "completed":
+        return bool(report["logicalCoverageValid"] and report["outputCoverageValid"])
+    if job_status != "waiting_for_review":
+        return False
+    if report.get("proofFirstRun") is True:
+        return bool(
+            report.get("rangeProjectionConflictFree") is True and report["outputCoverageValid"]
+        )
+    return bool(report["logicalCoverageValid"] and report["outputCoverageValid"])
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group()
@@ -262,6 +530,11 @@ def _parse_args() -> argparse.Namespace:
         "--first-sequence-number",
         type=int,
         help="First layout number visible in the first source-image group.",
+    )
+    parser.add_argument(
+        "--last-sequence-number",
+        type=int,
+        help="Last layout number in an existing staging rerun.",
     )
     parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report", type=Path, required=True)
@@ -291,16 +564,20 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
         timeout=httpx.Timeout(60.0, connect=10.0),
     ) as client:
         first_sequence_number = getattr(options, "first_sequence_number", None)
-        rerun_body = (
-            None
-            if first_sequence_number is None
-            else {"firstSequenceNumber": first_sequence_number}
-        )
+        last_sequence_number = getattr(options, "last_sequence_number", None)
+        rerun_body = {
+            key: value
+            for key, value in {
+                "firstSequenceNumber": first_sequence_number,
+                "lastSequenceNumber": last_sequence_number,
+            }.items()
+            if value is not None
+        }
         created = _request_json(
             client,
             "POST",
             f"/api/v1/admin/image-selections/{options.rerun_id}/rerun",
-            json_body=rerun_body,
+            json_body=rerun_body or None,
         )
     run = created.get("run")
     if not isinstance(run, dict):
@@ -313,7 +590,7 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
     if not isinstance(run_id, str) or not isinstance(job_id, str):
         raise RuntimeError("Image-selection rerun response contains invalid identifiers.")
     report: dict[str, object] = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "status": "selecting",
         "sourceRunId": options.rerun_id,
         "outputDirectory": str(output_root),
@@ -324,6 +601,8 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
         "savedOutputFiles": 0,
         "exportCursor": -1,
         "rerunCreated": bool(created.get("created")),
+        "firstSequenceNumber": run.get("firstSequenceNumber"),
+        "lastSequenceNumber": run.get("lastSequenceNumber"),
     }
     _write_report(options.report, report)
     return _resume_existing(options)
@@ -331,6 +610,7 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
 
 def _resume_existing(options: argparse.Namespace) -> int:
     report = json.loads(options.report.read_text(encoding="utf-8"))
+    report["schemaVersion"] = 3
     run_id = str(report["runId"])
     selection_started_at = datetime.fromisoformat(str(report["selectionStartedAt"]))
     output_root = options.output.resolve(strict=True)
@@ -348,13 +628,6 @@ def _resume_existing(options: argparse.Namespace) -> int:
             current_run = _request_json(client, "GET", f"/api/v1/admin/image-selections/{run_id}")
             job = current_run["job"]
             progress = _job_progress(job)
-            saved_now, export_cursor = _save_ready_groups(
-                client,
-                run_id,
-                output_root,
-                saved_orders,
-                after_group_order=export_cursor,
-            )
             elapsed = round((datetime.now(UTC) - selection_started_at).total_seconds(), 3)
             report.update(
                 {
@@ -368,15 +641,56 @@ def _resume_existing(options: argparse.Namespace) -> int:
                             "groups",
                             "selected",
                             "manual",
+                            "rangeRequired",
                             "skipped",
                             "errors",
                             "verifications",
                         )
                     },
                     "groupCount": progress["groups"],
+                    "selectionElapsedSeconds": elapsed,
+                }
+            )
+            if job["status"] in TERMINAL_STATUSES:
+                error_code, error_message = _job_error(job)
+                coverage, saved_terminal, export_cursor = _finalize_terminal_run(
+                    client,
+                    run_id,
+                    current_run,
+                    output_root,
+                    saved_orders,
+                )
+                report.update(coverage)
+                report.update(
+                    {
+                        "exportCursor": export_cursor,
+                        "status": ("finished" if job["status"] == "completed" else job["status"]),
+                        "selectionFinishedAt": _utc_now(),
+                        "selectionElapsedSeconds": elapsed,
+                        "finishedAt": _utc_now(),
+                        "errorCode": error_code,
+                        "errorMessage": error_message,
+                    }
+                )
+                if saved_terminal:
+                    print(
+                        "terminal reconciliation "
+                        f"saved={saved_terminal} total={report['savedOutputFiles']}",
+                        flush=True,
+                    )
+                _write_report(options.report, report)
+                return 0 if _terminal_report_is_success(job["status"], report) else 1
+            saved_now, export_cursor = _save_ready_groups(
+                client,
+                run_id,
+                output_root,
+                saved_orders,
+                after_group_order=export_cursor,
+            )
+            report.update(
+                {
                     "savedOutputFiles": len(saved_orders),
                     "exportCursor": export_cursor,
-                    "selectionElapsedSeconds": elapsed,
                 }
             )
             if saved_now or time.monotonic() - last_log >= 10:
@@ -388,38 +702,6 @@ def _resume_existing(options: argparse.Namespace) -> int:
                     flush=True,
                 )
                 last_log = time.monotonic()
-            if job["status"] in TERMINAL_STATUSES:
-                saved_terminal, export_cursor = _drain_ready_groups(
-                    client,
-                    run_id,
-                    output_root,
-                    saved_orders,
-                    after_group_order=export_cursor,
-                )
-                report.update(
-                    {
-                        "savedOutputFiles": len(saved_orders),
-                        "exportCursor": export_cursor,
-                    }
-                )
-                report.update(
-                    {
-                        "status": "finished" if job["status"] == "completed" else job["status"],
-                        "selectionFinishedAt": _utc_now(),
-                        "selectionElapsedSeconds": elapsed,
-                        "finishedAt": _utc_now(),
-                        "errorCode": job.get("errorCode"),
-                        "errorMessage": job.get("errorMessage"),
-                    }
-                )
-                if saved_terminal:
-                    print(
-                        f"terminal reconciliation saved={saved_terminal} "
-                        f"total={len(saved_orders)}",
-                        flush=True,
-                    )
-                _write_report(options.report, report)
-                return 0 if job["status"] in {"completed", "waiting_for_review"} else 1
             time.sleep(options.poll_seconds)
 
 
@@ -431,6 +713,10 @@ def main() -> int:
         return _resume_existing(options)
     if options.first_sequence_number is not None and options.first_sequence_number < 1:
         raise RuntimeError("--first-sequence-number must be positive.")
+    if options.last_sequence_number is not None and options.last_sequence_number < 1:
+        raise RuntimeError("--last-sequence-number must be positive.")
+    if options.last_sequence_number is not None and options.rerun_id is None:
+        raise RuntimeError("--last-sequence-number is supported only with --rerun-id.")
     if options.rerun_id is not None:
         return _start_existing_rerun(options)
     if not options.resume_existing and options.first_sequence_number is None:
@@ -459,7 +745,7 @@ def main() -> int:
     if total_bytes < 1:
         raise RuntimeError("--expected-total-bytes must be positive.")
     report: dict[str, object] = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "status": "starting",
         "sourceDirectory": str(source_root),
         "outputDirectory": str(output_root),
@@ -512,18 +798,13 @@ def main() -> int:
                 "purpose": "photo_selection",
             }
             mismatches = [
-                key
-                for key, expected in expected_contract.items()
-                if upload.get(key) != expected
+                key for key, expected in expected_contract.items() if upload.get(key) != expected
             ]
             if mismatches:
-                raise RuntimeError(
-                    "Resume upload contract mismatch: " + ", ".join(mismatches)
-                )
+                raise RuntimeError("Resume upload contract mismatch: " + ", ".join(mismatches))
             raw_indexes = upload.get("uploadedFileIndexes")
             if not isinstance(raw_indexes, list) or not all(
-                isinstance(index, int) and 0 <= index < len(files)
-                for index in raw_indexes
+                isinstance(index, int) and 0 <= index < len(files) for index in raw_indexes
             ):
                 raise RuntimeError("Resume upload contains invalid file indexes.")
             uploaded_indexes = set(raw_indexes)
@@ -608,13 +889,6 @@ def main() -> int:
             current_run = _request_json(client, "GET", f"/api/v1/admin/image-selections/{run_id}")
             job = current_run["job"]
             progress = _job_progress(job)
-            saved_now, export_cursor = _save_ready_groups(
-                client,
-                run_id,
-                output_root,
-                saved_orders,
-                after_group_order=export_cursor,
-            )
             report.update(
                 {
                     "jobStatus": job["status"],
@@ -627,15 +901,56 @@ def main() -> int:
                             "groups",
                             "selected",
                             "manual",
+                            "rangeRequired",
                             "skipped",
                             "errors",
                             "verifications",
                         )
                     },
                     "groupCount": progress["groups"],
+                    "selectionElapsedSeconds": _duration(selection_started),
+                }
+            )
+            if job["status"] in TERMINAL_STATUSES:
+                error_code, error_message = _job_error(job)
+                coverage, saved_terminal, export_cursor = _finalize_terminal_run(
+                    client,
+                    run_id,
+                    current_run,
+                    output_root,
+                    saved_orders,
+                )
+                report.update(coverage)
+                report.update(
+                    {
+                        "exportCursor": export_cursor,
+                        "status": ("finished" if job["status"] == "completed" else job["status"]),
+                        "selectionFinishedAt": _utc_now(),
+                        "selectionElapsedSeconds": _duration(selection_started),
+                        "finishedAt": _utc_now(),
+                        "errorCode": error_code,
+                        "errorMessage": error_message,
+                    }
+                )
+                if saved_terminal:
+                    print(
+                        "terminal reconciliation "
+                        f"saved={saved_terminal} total={report['savedOutputFiles']}",
+                        flush=True,
+                    )
+                _write_report(options.report, report)
+                return 0 if _terminal_report_is_success(job["status"], report) else 1
+            saved_now, export_cursor = _save_ready_groups(
+                client,
+                run_id,
+                output_root,
+                saved_orders,
+                after_group_order=export_cursor,
+            )
+            report.update(
+                {
                     "savedOutputFiles": len(saved_orders),
                     "exportCursor": export_cursor,
-                    "selectionElapsedSeconds": _duration(selection_started),
                 }
             )
             if saved_now or time.monotonic() - last_log >= 10:
@@ -648,38 +963,6 @@ def main() -> int:
                     flush=True,
                 )
                 last_log = time.monotonic()
-            if job["status"] in TERMINAL_STATUSES:
-                saved_terminal, export_cursor = _drain_ready_groups(
-                    client,
-                    run_id,
-                    output_root,
-                    saved_orders,
-                    after_group_order=export_cursor,
-                )
-                report.update(
-                    {
-                        "savedOutputFiles": len(saved_orders),
-                        "exportCursor": export_cursor,
-                    }
-                )
-                report.update(
-                    {
-                        "status": "finished" if job["status"] == "completed" else job["status"],
-                        "selectionFinishedAt": _utc_now(),
-                        "selectionElapsedSeconds": _duration(selection_started),
-                        "finishedAt": _utc_now(),
-                        "errorCode": job.get("errorCode"),
-                        "errorMessage": job.get("errorMessage"),
-                    }
-                )
-                if saved_terminal:
-                    print(
-                        f"terminal reconciliation saved={saved_terminal} "
-                        f"total={len(saved_orders)}",
-                        flush=True,
-                    )
-                _write_report(options.report, report)
-                return 0 if job["status"] in {"completed", "waiting_for_review"} else 1
             time.sleep(options.poll_seconds)
 
 

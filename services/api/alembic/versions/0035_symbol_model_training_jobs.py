@@ -39,8 +39,12 @@ def upgrade() -> None:
         sa.Column("partial_metrics", postgresql.JSONB(), nullable=False, server_default="{}"),
         sa.Column("error_code", sa.String(length=100), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint(
             "iteration_number > 0 AND last_completed_epoch >= 0",
             name="ck_symbol_model_iterations_numbers",
@@ -51,18 +55,26 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "configuration_fingerprint ~ '^[0-9a-f]{64}$' "
-            "AND (dataset_manifest_checksum_sha256 IS NULL OR dataset_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$') "
-            "AND (checkpoint_checksum_sha256 IS NULL OR checkpoint_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            "AND (dataset_manifest_checksum_sha256 IS NULL "
+            "OR dataset_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$') "
+            "AND (checkpoint_checksum_sha256 IS NULL "
+            "OR checkpoint_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_symbol_model_iterations_sha256",
         ),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["cohort_id"], ["verified_training_cohorts.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["cohort_id"], ["verified_training_cohorts.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(["job_id"], ["jobs.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("game_id", "iteration_number", name="uq_symbol_model_iterations_number"),
+        sa.UniqueConstraint(
+            "game_id", "iteration_number", name="uq_symbol_model_iterations_number"
+        ),
         sa.UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
         sa.UniqueConstraint(
-            "game_id", "cohort_id", "configuration_fingerprint",
+            "game_id",
+            "cohort_id",
+            "configuration_fingerprint",
             name="uq_symbol_model_iterations_input",
         ),
     )

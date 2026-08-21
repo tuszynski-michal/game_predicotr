@@ -12,7 +12,7 @@ param(
     [int]$GeneralThreadBudget = 2,
 
     [ValidateRange(1, 64)]
-    [int]$ImageSelectionThreadBudget = 4,
+    [int]$ImageSelectionThreadBudget = 5,
 
     [ValidateRange(1, 30)]
     [int]$TimeoutSeconds = 10
@@ -196,9 +196,24 @@ function Test-ProcessIdentity {
     catch {
         return $null
     }
+    # ConvertFrom-Json materializes ISO 8601 values as DateTime on some
+    # PowerShell versions. Casting that value back to string produces a
+    # locale-specific timestamp (for example `08/19/2026 11:04:37`) and made a
+    # healthy worker appear stale immediately after every script invocation.
+    # Normalize either representation before comparing a process identity.
+    $expectedStartValue = $Identity.startTimeUtc
+    $expectedStart = if ($expectedStartValue -is [DateTime]) {
+        $expectedStartValue.ToUniversalTime().ToString('o')
+    }
+    elseif ($expectedStartValue -is [DateTimeOffset]) {
+        $expectedStartValue.UtcDateTime.ToString('o')
+    }
+    else {
+        [string]$expectedStartValue
+    }
     if (
         $process.ProcessName -ine [string]$Identity.processName -or
-        $actualStart -ne [string]$Identity.startTimeUtc
+        $actualStart -ne $expectedStart
     ) {
         return $null
     }
@@ -258,7 +273,7 @@ function Get-VerifiedRecordProcesses {
             }
         }
     }
-    return @($result)
+    return $result.ToArray()
 }
 
 function Get-ActiveRecords {
@@ -405,8 +420,8 @@ function New-WorkerProcess {
         }
         Start-Sleep -Milliseconds 250
     }
-    foreach ($processId in $knownDescendants) {
-        $child = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    foreach ($descendantProcessId in $knownDescendants) {
+        $child = Get-Process -Id $descendantProcessId -ErrorAction SilentlyContinue
         if ($null -ne $child) {
             $processTree.Add([ordered]@{
                 pid = $child.Id
@@ -450,13 +465,29 @@ function Stop-WorkerProcess {
             }
         }
     }
-    foreach ($process in @($processes | Sort-Object Id -Descending)) {
-        Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+    $processIds = @(
+        $processes |
+            Where-Object { $null -ne $_ -and $null -ne $_.Id } |
+            ForEach-Object { @($_.Id) } |
+            Where-Object { $null -ne $_ } |
+            Sort-Object -Descending -Unique
+    )
+    foreach ($targetProcessId in $processIds) {
+        try {
+            $targetProcess = [System.Diagnostics.Process]::GetProcessById([int]$targetProcessId)
+            $targetProcess.Kill()
+        }
+        catch [System.ArgumentException] {
+            # The process exited after its identity was verified.
+        }
+        catch [System.InvalidOperationException] {
+            # The process exited before Kill() reached it.
+        }
     }
     $attempts = [Math]::Max(1, $TimeoutSeconds * 4)
     for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
-        $remaining = @($processes | Where-Object {
-            $null -ne (Get-Process -Id $_.Id -ErrorAction SilentlyContinue)
+        $remaining = @($processIds | Where-Object {
+            $null -ne (Get-Process -Id ([int]$_) -ErrorAction SilentlyContinue)
         })
         if ($remaining.Count -eq 0) {
             $instanceTokenProperty = $Record.PSObject.Properties['instanceToken']

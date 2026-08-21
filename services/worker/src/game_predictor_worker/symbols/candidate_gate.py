@@ -226,15 +226,11 @@ def _quality_metrics(
     probabilities = calibrated_probabilities(logits, temperature)
     values: dict[str, object] = dict(calibration_metrics(probabilities, labels, class_codes))
     predictions = np.argmax(probabilities, axis=1)
-    confusion: NDArray[np.int64] = np.zeros(
-        (len(class_codes), len(class_codes)), dtype=np.int64
-    )
+    confusion: NDArray[np.int64] = np.zeros((len(class_codes), len(class_codes)), dtype=np.int64)
     for target, prediction in zip(labels, predictions, strict=True):
         confusion[int(target), int(prediction)] += 1
     recalls = [
-        float(confusion[index, index] / confusion[index].sum())
-        if confusion[index].sum()
-        else 0.0
+        float(confusion[index, index] / confusion[index].sum()) if confusion[index].sum() else 0.0
         for index in range(len(class_codes))
     ]
     values.update(
@@ -396,7 +392,7 @@ def build_symbol_candidate(
         started = time.perf_counter()
         adapter.infer(parity_images)
         timings.append((time.perf_counter() - started) * 1000 / len(parity_samples))
-    report = {
+    report: dict[str, object] = {
         "baseline": baseline_metrics or {"status": "baseline_unavailable"},
         "calibration": calibration,
         "candidate": candidate_metrics,

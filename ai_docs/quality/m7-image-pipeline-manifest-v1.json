@@ -3,18 +3,12 @@
   "manifest": {
     "components": {
       "board_crops": {
-        "adapterVersion": "board-cell-crops-v16-reviewed-v14-merge-v1",
-        "artifacts": [
-          {
-            "relativePath": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
-            "role": "accepted-crop-inventory",
-            "sha256": "55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1"
-          }
-        ],
+        "adapterVersion": "board-cell-crops-v18-source-direct-validated-v1",
+        "artifacts": [],
         "maturity": "deterministic"
       },
       "board_detection": {
-        "adapterVersion": "page-board-detector-v2",
+        "adapterVersion": "page-board-detector-v4-verified-registration-v1",
         "artifacts": [
           {
             "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
@@ -40,7 +34,7 @@
         "maturity": "deterministic"
       },
       "sequence_ocr": {
-        "adapterVersion": "sequence-number-ocr-v1",
+        "adapterVersion": "sequence-number-ocr-v2-page-continuity-v1",
         "artifacts": [
           {
             "relativePath": "artifacts/m5-models/sequence-number-ocr-v1/inference.json",
@@ -87,7 +81,7 @@
             "sha256": "a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7"
           }
         ],
-        "calibrationVersion": "symbol-temperature-calibration-v1",
+        "calibrationVersion": "symbol-temperature-calibration-v2-safe-floor-v1",
         "confidencePolicyVersion": "symbol-confidence-policy-v1",
         "maturity": "bootstrap_manual_review_only",
         "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
@@ -126,6 +120,6 @@
       "validation"
     ]
   },
-  "pipelineFingerprint": "16f601f7fae76ccc79e23a47869a0e695a5592dbf2e0639af1b3f37a3a925d96",
+  "pipelineFingerprint": "c1fc1534b0963f2204a021d6b995b68ce88126c84ba3ae352c4f467542b4ce84",
   "schemaVersion": 1
 }

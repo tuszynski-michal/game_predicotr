@@ -522,9 +522,7 @@ def estimate_global_symbol_lattice_homography(
         geometry_guard=SOURCE_AWARE_GEOMETRY_GUARD,
     )
     fallback_reason = (
-        assignment.fallback_reason
-        if assignment.status == "fallback"
-        else result.fallback_reason
+        assignment.fallback_reason if assignment.status == "fallback" else result.fallback_reason
     )
     return replace(
         result,

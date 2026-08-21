@@ -1,6 +1,9 @@
 'use client';
 
-import type { OperationalImageReviewItemResponse } from '@game-predictor/admin-api-client';
+import type {
+  OperationalImageReviewGeometryResponse,
+  OperationalImageReviewItemResponse,
+} from '@game-predictor/admin-api-client';
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -20,9 +23,11 @@ import {
   buildOperationalReviewGeometryPreviewCommand,
   operationalReviewAssetUrl,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
   operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
+  operationalReviewPointInLattice,
   operationalReviewPointInSourceImage,
   type OperationalReviewGeometryCorners,
   type OperationalReviewGeometryViewport,
@@ -33,7 +38,7 @@ interface OperationalReviewGeometryEditorProps {
   readonly apiBaseUrl: string;
   readonly importJobId: string;
   readonly item: OperationalImageReviewItemResponse;
-  readonly onSaved: (item: OperationalImageReviewItemResponse) => void;
+  readonly onSaved: (geometry: OperationalImageReviewGeometryResponse) => void;
 }
 
 export function OperationalReviewGeometryEditor({
@@ -69,7 +74,10 @@ export function OperationalReviewGeometryEditor({
     context,
     item.id,
     'source',
-    { version: item.sourceChecksumSha256 },
+    {
+      usage: 'board-cell-geometry-editor-v19-v1',
+      version: item.sourceChecksumSha256,
+    },
   );
   const cornersKey = corners === null ? '' : JSON.stringify(corners);
   const previewIsCurrent = previewUrl !== null && previewKey === cornersKey;
@@ -107,16 +115,44 @@ export function OperationalReviewGeometryEditor({
     context2d.strokeStyle = '#f4d35e';
     for (let column = 0; column <= 5; column += 1) {
       const ratio = column / 5;
-      const top = interpolate(visibleCorners[0], visibleCorners[1], ratio);
-      const bottom = interpolate(visibleCorners[3], visibleCorners[2], ratio);
+      const top = operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, ratio, 0),
+        viewport,
+      );
+      const bottom = operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, ratio, 1),
+        viewport,
+      );
       drawLine(context2d, top, bottom);
     }
     for (let row = 0; row <= 3; row += 1) {
       const ratio = row / 3;
-      const left = interpolate(visibleCorners[0], visibleCorners[3], ratio);
-      const right = interpolate(visibleCorners[1], visibleCorners[2], ratio);
+      const left = operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, 0, ratio),
+        viewport,
+      );
+      const right = operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, 1, ratio),
+        viewport,
+      );
       drawLine(context2d, left, right);
     }
+    operationalReviewGeometryEdgeHandles(corners)
+      .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
+      .forEach((point) => {
+        const radius = Math.max(5, canvas.width / 180);
+        context2d.beginPath();
+        context2d.fillStyle = '#8ea0b8';
+        context2d.strokeStyle = '#253b56';
+        context2d.rect(
+          point.x - radius,
+          point.y - radius,
+          radius * 2,
+          radius * 2,
+        );
+        context2d.fill();
+        context2d.stroke();
+      });
     visibleCorners.forEach((point, index) => {
       context2d.beginPath();
       context2d.fillStyle = '#fffaf0';
@@ -218,8 +254,9 @@ export function OperationalReviewGeometryEditor({
     setPreviewKey(requestedKey);
   }, [api, corners, importJobId, item, loadingPreview, saving]);
 
-  async function saveGeometry() {
-    if (corners === null || !previewIsCurrent || saving) return;
+  const saveGeometry = useCallback(async () => {
+    if (corners === null || !previewIsCurrent || saving || loadingPreview)
+      return;
     setSaving(true);
     setError('');
     const result = await saveOperationalReviewGeometry(api, {
@@ -236,14 +273,27 @@ export function OperationalReviewGeometryEditor({
     if (!result.ok) {
       setError(
         result.isRevisionConflict
-          ? `${result.error} Przeładuj planszę przed kolejną korektą.`
+          ? `${result.error} Zamknij edytor i przeładuj planszę.`
           : result.error,
       );
       return;
     }
+    dragIndexRef.current = null;
     setOpen(false);
-    onSaved(result.geometry.item);
-  }
+    setCorners(null);
+    setViewport(null);
+    setError('');
+    onSaved(result.geometry);
+  }, [
+    api,
+    corners,
+    importJobId,
+    item,
+    loadingPreview,
+    onSaved,
+    previewIsCurrent,
+    saving,
+  ]);
 
   function updateDraggedCorner(event: ReactPointerEvent<HTMLCanvasElement>) {
     const index = dragIndexRef.current;
@@ -336,6 +386,7 @@ export function OperationalReviewGeometryEditor({
     setError('');
     setPreviewUrl(null);
     setPreviewKey('');
+    setSaving(false);
     setViewport(null);
     setOpen(true);
   }
@@ -362,16 +413,16 @@ export function OperationalReviewGeometryEditor({
           <div>
             <span className="eyebrow">Rewizja geometrii</span>
             <h2 id="operational-review-geometry-title">
-              Ustaw cztery narożniki planszy
+              Ustaw granice siatki symboli 5 × 3
             </h2>
             <p>
-              Przesuwaj narożniki pojedynczego layoutu: lewy górny, prawy górny,
-              prawy dolny, lewy dolny.
+              Cztery numerowane punkty oznaczają zewnętrzne narożniki siatki
+              symboli, nie czerwonej ramki. Szare punkty krawędziowe są
+              wyliczane automatycznie i nie są zapisywane.
             </p>
           </div>
           <button
             aria-label="Zamknij edytor siatki"
-            disabled={saving}
             onClick={closeEditor}
             type="button"
           >
@@ -407,7 +458,7 @@ export function OperationalReviewGeometryEditor({
 
           <section className="operationalReviewGeometryPreview">
             <div>
-              <h3>Wyprostowana plansza</h3>
+              <h3>15 finalnych cropów source-direct</h3>
               <button
                 className="secondaryButton"
                 disabled={corners === null || loadingPreview || saving}
@@ -419,13 +470,16 @@ export function OperationalReviewGeometryEditor({
             </div>
             {previewUrl === null ? (
               <p className="operationalReviewGeometryPlaceholder">
-                Wygeneruj podgląd przed zapisem.
+                Wygeneruj podgląd, aby sprawdzić wszystkie 15 finalnych cropów.
               </p>
             ) : (
               <>
                 {/* This is a checksum-bound local Blob URL, not a public image asset. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="Wyprostowana plansza po korekcie" src={previewUrl} />
+                <img
+                  alt="Kontaktowy podgląd 15 finalnych cropów"
+                  src={previewUrl}
+                />
                 <div
                   aria-label="Podgląd 15 nowych cropów"
                   className="operationalReviewGeometryCrops"
@@ -440,8 +494,8 @@ export function OperationalReviewGeometryEditor({
                         role="img"
                         style={{
                           backgroundImage: `url("${previewUrl}")`,
-                          backgroundPosition: `${((column * 100 + 5) / 410) * 100}% ${((row * 100 + 5) / 210) * 100}%`,
-                          backgroundSize: '555.556% 333.333%',
+                          backgroundPosition: `${column * 25}% ${row * 50}%`,
+                          backgroundSize: '500% 300%',
                         }}
                       />
                     );
@@ -459,7 +513,8 @@ export function OperationalReviewGeometryEditor({
         ) : null}
         <footer>
           <span>
-            Zapis utworzy nową rewizję i ponownie otworzy wybór symboli.
+            Zapis utworzy nową rewizję append-only, zachowa poprzednią geometrię
+            i ponownie otworzy symbole zależne od nowych cropów.
           </span>
           <div>
             <button
@@ -472,7 +527,7 @@ export function OperationalReviewGeometryEditor({
             </button>
             <button
               className="primaryButton"
-              disabled={!previewIsCurrent || saving}
+              disabled={!previewIsCurrent || saving || loadingPreview}
               onClick={() => void saveGeometry()}
               type="button"
             >
@@ -483,17 +538,6 @@ export function OperationalReviewGeometryEditor({
       </dialog>
     </>
   );
-}
-
-function interpolate(
-  start: { readonly x: number; readonly y: number },
-  end: { readonly x: number; readonly y: number },
-  ratio: number,
-) {
-  return {
-    x: start.x + (end.x - start.x) * ratio,
-    y: start.y + (end.y - start.y) * ratio,
-  };
 }
 
 function drawLine(

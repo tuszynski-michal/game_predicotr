@@ -20,8 +20,7 @@ def work_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def _canonical(value: object) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        + "\n"
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
     ).encode()
 
 
@@ -43,8 +42,10 @@ def _cohort(
             destination = data_root / Path(*relative.split("/"))
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(content)
-            code = "UNKNOWN" if unknown_symbol and source_index == 0 and cell_index == 0 else (
-                "A" if cell_index % 2 == 0 else "B"
+            code = (
+                "UNKNOWN"
+                if unknown_symbol and source_index == 0 and cell_index == 0
+                else ("A" if cell_index % 2 == 0 else "B")
             )
             cells.append(
                 {
@@ -63,9 +64,7 @@ def _cohort(
         boards.append(
             {
                 "board": {
-                    "checksumSha256": hashlib.sha256(
-                        f"board-{source_index}".encode()
-                    ).hexdigest(),
+                    "checksumSha256": hashlib.sha256(f"board-{source_index}".encode()).hexdigest(),
                     "relativePath": f"working/boards/{source_index}.png",
                 },
                 "cells": cells,
@@ -158,8 +157,7 @@ def test_build_is_deterministic_content_addressed_and_source_disjoint(
     assert first.sample_count == 180
     assert first.source_family_count == 12
     assert first.manifest_relative_path == (
-        f"training/fixture-game/{cohort_checksum}/manifests/"
-        f"{first.manifest_checksum_sha256}.json"
+        f"training/fixture-game/{cohort_checksum}/manifests/{first.manifest_checksum_sha256}.json"
     )
 
     split_sources: list[set[str]] = []
@@ -170,9 +168,7 @@ def test_build_is_deterministic_content_addressed_and_source_disjoint(
         assert isinstance(split, dict)
         split_sources.append(set(split["sourceFamilies"]))
         split_samples[str(split["name"])] = {
-            str(sample["cropSampleId"])
-            for sample in samples
-            if sample["split"] == split["name"]
+            str(sample["cropSampleId"]) for sample in samples if sample["split"] == split["name"]
         }
     for index, current in enumerate(split_sources):
         assert not any(current & other for other in split_sources[index + 1 :])

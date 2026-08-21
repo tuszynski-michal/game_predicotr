@@ -153,9 +153,7 @@ def create_reviews_router(
             expected_revision=payload.expected_revision,
             action=payload.action,
             geometry_accepted=payload.geometry_accepted,
-            labels=tuple(
-                label.model_dump(mode="json", by_alias=True) for label in payload.labels
-            ),
+            labels=tuple(label.model_dump(mode="json", by_alias=True) for label in payload.labels),
             rejection_reason=payload.rejection_reason,
             resolved_by=payload.resolved_by,
         )
@@ -229,9 +227,7 @@ def create_reviews_router(
         feedback_export_id: UUID,
         service: Annotated[ReviewService, service_parameter],
     ) -> ReviewFeedbackExportResponse:
-        return to_review_feedback_export_response(
-            service.get_feedback_export(feedback_export_id)
-        )
+        return to_review_feedback_export_response(service.get_feedback_export(feedback_export_id))
 
     def image_response(asset_path: Path, media_type: str) -> FileResponse:
         return FileResponse(

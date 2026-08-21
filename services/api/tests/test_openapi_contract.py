@@ -421,6 +421,9 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "completed",
         "all",
     }
+    page_schema = schema["components"]["schemas"]["OperationalImageReviewPageResponse"]
+    assert "queueVersion" in page_schema["required"]
+    assert page_schema["properties"]["queueVersion"]["minimum"] == 0
 
     item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
     assert item_schema["properties"]["cells"]["minItems"] == 15
@@ -435,6 +438,9 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "geometryRevision",
         "resolvedBy",
     } == set(command_schema["required"])
+    resolution_schema = schema["components"]["schemas"]["OperationalImageReviewResolutionResponse"]
+    assert {"counts", "queueVersion"}.issubset(resolution_schema["required"])
+    assert resolution_schema["properties"]["queueVersion"]["minimum"] == 1
     geometry_command = schema["components"]["schemas"]["OperationalImageReviewGeometryCommand"]
     assert {
         "corners",
@@ -446,6 +452,19 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
     assert (
         geometry_command["properties"]["corners"]["prefixItems"]
         == [{"$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"}] * 4
+    )
+    geometry_revision = schema["components"]["schemas"][
+        "OperationalImageReviewGeometryRevisionResponse"
+    ]
+    assert geometry_revision["properties"]["decisionChecksumSha256"]["anyOf"] == [
+        {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        {"type": "null"},
+    ]
+    assert (
+        schema["paths"]["/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions"][
+            "post"
+        ]["summary"]
+        == "Persist immutable v19 symbol-lattice geometry and reopen review"
     )
 
 
@@ -495,14 +514,54 @@ def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> No
     status_path = schema["paths"]["/api/v1/admin/reviewer-ingress"]
     start_path = schema["paths"]["/api/v1/admin/reviewer-ingress/start"]
     stop_path = schema["paths"]["/api/v1/admin/reviewer-ingress/stop"]
+    local_start_path = schema["paths"]["/api/v1/admin/reviewer-local/start"]
 
     assert status_path["get"]["operationId"] == "getReviewerIngressStatus"
     assert start_path["post"]["operationId"] == "startReviewerIngress"
     assert stop_path["post"]["operationId"] == "stopReviewerIngress"
+    assert local_start_path["post"]["operationId"] == "startLocalReviewer"
     command = schema["components"]["schemas"]["ReviewerIngressCommand"]
     assert set(command["required"]) == {"confirmed", "target"}
     assert command["properties"]["confirmed"]["const"] is True
     assert command["properties"]["target"]["const"] == "remote-reviewer"
+    local_command = schema["components"]["schemas"]["ReviewerLocalCommand"]
+    assert set(local_command["required"]) == {"confirmed", "target"}
+    assert local_command["properties"]["confirmed"]["const"] is True
+    assert local_command["properties"]["target"]["const"] == "local-reviewer"
+
+
+def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    list_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/reviewer-work-assignments"
+    ]
+    local_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local"
+    ]
+    online_path = schema["paths"][
+        "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online"
+    ]
+    heartbeat_path = schema["paths"][
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat"
+    ]
+    close_path = schema["paths"][
+        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"
+    ]
+
+    assert list_path["get"]["operationId"] == "listReviewerWorkAssignments"
+    assert local_path["post"]["operationId"] == "openLocalReviewerWork"
+    assert online_path["post"]["operationId"] == "openOnlineReviewerWork"
+    assert heartbeat_path["post"]["operationId"] == "heartbeatReviewerWorkAssignment"
+    assert close_path["post"]["operationId"] == "closeReviewerWorkAssignment"
+    assignment = schema["components"]["schemas"]["ReviewerWorkAssignmentResponse"]
+    assert "leaseToken" not in assignment["properties"]
+    assert "reviewerAccessSessionId" not in assignment["properties"]
+    assert set(schema["components"]["schemas"]["ReviewerWorkOpenedResponse"]["required"]) == {
+        "accessCode",
+        "accessExpiresAt",
+        "assignment",
+        "created",
+    }
 
 
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:

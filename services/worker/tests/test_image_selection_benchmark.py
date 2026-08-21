@@ -121,7 +121,7 @@ def test_smoke_benchmark_uses_production_scan_and_preserves_source(tmp_path: Pat
 
     metrics = report["metrics"]
     assert isinstance(metrics, dict)
-    assert metrics["technicalGatePassed"] is True
+    assert metrics["technicalGatePassed"] is True, json.dumps(report, indent=2)
     assert report["sourceIntegrity"]["sourceUnchanged"] is True
     assert metrics["quality"]["falseMergeCount"] == 0
     assert metrics["quality"]["unsafeAutomaticCount"] == 0

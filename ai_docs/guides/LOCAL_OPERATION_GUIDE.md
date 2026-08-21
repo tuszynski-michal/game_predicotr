@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -176,17 +176,17 @@ blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
 równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
 niż wtedy, gdy jest jedynym obciążeniem komputera.
 
-Domyślny budżet wynosi 2 wątki dla general i 4 dla Selekcji. Można go zmienić
+Domyślny budżet wynosi 2 wątki dla general i 5 dla Selekcji. Można go zmienić
 przy starcie, nadal w zakresie 1–64:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 4
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 5
 ```
 
 Nie przekazuj tych parametrów przez `npm run workers:start -- ...`: npm na
 Windows może usunąć nazwy argumentów i PowerShell zwiąże wartość `2` z
 parametrem `Lane`. Zwykłe `npm run workers:start` zawsze stosuje domyślne
-budżety `2/4`.
+budżety `2/5`.
 
 Workspace `Joby` pokazuje oba procesy niezależnie jako `Działa`, `Brak świeżego
 sygnału` albo `Zatrzymany`, również gdy nie ma żadnego joba w kolejce. Status
@@ -232,9 +232,9 @@ Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawn
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
 
-### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.4
+### Uruchomienie dużego runu Selekcji Zdjęć na bieżącym selektorze
 
-Nowe runy używają `fast-image-selector-v10.4`. Po aktualizacji kodu zatrzymaj
+Nowe runy używają `fast-image-selector-v10.14`. Po aktualizacji kodu zatrzymaj
 procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
 zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
 
@@ -257,8 +257,8 @@ to poprawne. Sprawdź aktywny manifest:
 Oczekiwany wynik:
 
 ```text
-fast-image-selector-v10.4
-8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e
+fast-image-selector-v10.14
+f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8
 ```
 
 Pozostaw pierwszy terminal dla API:
@@ -277,10 +277,11 @@ npm run admin:dev
 Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
 `Selekcja zdjęć`. Wskaż folder zawierający naturalnie uporządkowane JPEG-i,
 poczekaj na zakończenie uploadu, wpisz dodatni numer pierwszego layoutu i
-uruchom selekcję. V10.4 nie rozpocznie nowego runu bez tej kotwicy.
+uruchom selekcję. Pełny run v10.14 wymaga jednoznacznych granic sekwencji; bez
+kotwicy początku nie może zastosować bramki pełnej liczności.
 Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
-miarodajnym pomiarem v10.4. Postęp i stan procesu obserwuj w workspace `Joby` albo
-przez:
+miarodajnym pomiarem bieżącego selektora. Postęp i stan procesu obserwuj w
+workspace `Joby` albo przez:
 
 ```powershell
 npm run workers:status
@@ -334,22 +335,28 @@ nowego wydania APK z wyższym `VersionCode`.
 ## Uruchomienie aplikacji Reviewer
 
 Do pracy wyłącznie lokalnej Reviewer wymaga działających PostgreSQL, API i
-własnego procesu Next.js. W osobnym oknie PowerShell uruchom:
+własnego procesu Next.js. Po zbudowaniu Reviewera panel może uruchamiać ten
+proces samodzielnie. Jednorazowo po zmianie jego kodu wykonaj:
 
 ```powershell
-npm run reviewer:dev
+npm run reviewer:build
 ```
 
 Następnie:
 
 1. w Adminie otwórz `Zatwierdzanie`,
 2. wybierz aktywną grę i jej import zdjęć,
-3. utwórz lokalną sesję albo użyj niżej opisanego przycisku online,
-4. otwórz wygenerowany link pod portem `3001`,
-5. wpisz kod pokazany osobno w panelu.
+3. kliknij `Otwórz lokalnie`,
+4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
+   import bez tunelu oraz kodu.
 
-Kod jest pokazywany tylko przy tworzeniu sesji. Sesja jest trwała, ważna przez
-8 godzin, ma limit pięciu błędnych prób i może zostać unieważniona.
+Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
+lokalny wykorzysta gotowy proces na porcie 3001. Przycisk
+`Utwórz link i wystaw online` zachowuje osobny zdalny workflow: uruchamia tunel,
+tworzy sesję i pokazuje link oraz jednorazowy kod.
+
+Kod jest pokazywany tylko przy tworzeniu sesji online. Taka sesja jest trwała,
+ważna przez 8 godzin, ma limit pięciu błędnych prób i może zostać unieważniona.
 
 Nie wysyłaj lokalnego adresu `127.0.0.1`. Zdalny dostęp używa wyłącznie
 kontrolowanego trybu HTTPS opisanego niżej; nie przekierowuj portów routera.
@@ -581,16 +588,22 @@ Uruchom PostgreSQL, migracje, API i Admin. Nie uruchamiaj `reviewer:dev`,
 ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
 
 1. otwórz `Zatwierdzanie`,
-2. wybierz grę i import zdjęć,
-3. kliknij `Utwórz link i wystaw online`,
-4. poczekaj na stan `online`,
-5. skopiuj publiczny link oraz osobno kod.
+2. wybierz grę, a następnie gotowy import zdjęć z listy,
+3. kliknij `Otwórz lokalnie` albo `Utwórz link online`,
+4. dla pracy online poczekaj na stan `gotowy`,
+5. skopiuj publiczny link oraz osobno kod pokazany wyłącznie po pierwszym
+   utworzeniu assignmentu.
 
-Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
-Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
-komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
-ponownie. Zimny start ma twardy limit 60 sekund; nie wymaga restartu komputera.
-Proces uruchomiony przez `npm run api:dev` automatycznie przeładowuje zmiany API.
+Praca lokalna uruchamia lub wykorzystuje gotowego Reviewera na loopback i nie
+zajmuje limitu online. Maksymalnie trzy różne importy mogą być jednocześnie
+udostępnione online; każdy ma własny kod, sesję i przycisk zakończenia, ale
+wszystkie wykorzystują jeden produkcyjny Reviewer oraz jeden Quick Tunnel.
+Przycisk online uruchamia brakujące procesy, czeka na gotowość i tworzy scoped
+sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz komunikat o trybie
+developerskim, zatrzymaj okno z `reviewer:dev` i kliknij ponownie. Zimny start
+ma twardy limit 60 sekund; zdrowy warm ingress jest używany ponownie bez nowego
+procesu i bez zmiany publicznego originu. Proces uruchomiony przez
+`npm run api:dev` automatycznie przeładowuje zmiany API.
 Awaryjny odpowiednik CLI:
 
 ```powershell
@@ -607,17 +620,45 @@ wychodzącego HTTPS; restart komputera nie jest potrzebny. Firewall może
 blokować Admin i API od strony sieci przychodzącej, ale proces API musi móc
 nawiązać wychodzące połączenie HTTPS dla jawnie uruchamianego Quick Tunnel.
 
+Nowy losowy hostname Quick Tunnel może przez kilka sekund być ukryty przez
+lokalny negatywny cache DNS. Kontroler sprawdza ograniczenie kolejno przez
+lokalny resolver, `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS. Jeżeli
+adres jest już widoczny tylko w publicznym DNS, health check używa curl
+`--resolve`: połączenie nadal wymaga zgodnego hostname'u, SNI i certyfikatu TLS.
+Nie trzeba ręcznie czyścić cache DNS ani ponawiać startu z drugiego terminala.
+
 `start` uruchamia proces w tle i pokazuje losowy adres
 `https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego
 publicznego originu.
+
+Kontrolery `reviewer:remote:start`, `reviewer:remote:status`,
+`reviewer:remote:stop` oraz lokalny start używają tego samego nazwanego mutexu
+Windows. Równoległe wywołania są serializowane i mają ograniczony czas
+oczekiwania. Stan w `.runtime/` jest publikowany atomowo dopiero po potwierdzeniu
+gotowości procesu i zawiera PID, czas startu, executable oraz losowy identyfikator
+instancji. Dzięki temu stary plik stanu albo PID ponownie użyty przez inny proces
+nie powoduje jego zatrzymania. Nie usuwaj ręcznie pliku stanu podczas aktywnego
+startu; `status` zgłosi niepełny lub niezgodny stan jako `stale`.
+
+Każda próba startu zapisuje osobne pliki w
+`.runtime/reviewer-lifecycle-logs/`, więc równoległy albo kolejny start nie
+próbuje ponownie otworzyć jednego używanego pliku logu. Pliki wynikowe poleceń
+API są również unikalne i znajdują się w
+`.runtime/reviewer-ingress-controller-results/`. Oba katalogi są danymi
+diagnostycznymi runtime i nie zawierają kodu sesji ani bearer tokenu.
 
 Wyślij link i kod dwoma osobnymi kanałami. Odbiorca nie instaluje klienta VPN:
 otwiera link w przeglądarce i podaje kod. Kod ma najwyżej pięć prób, a sesja
 wygasa najpóźniej po 24 godzinach.
 
-Po zakończeniu kliknij `Zatrzymaj udostępnianie`. Panel próbuje unieważnić
-bieżącą sesję i zawsze zatrzymuje publiczny tunel. Decyzje plansz i audyt
-pozostają w PostgreSQL. Awaryjnie:
+Po zakończeniu użyj `Zakończ pracę` przy właściwym imporcie. Panel unieważnia
+tylko sesję tego assignmentu. Pozostałe linki działają nadal, a Quick Tunnel
+jest zatrzymywany dopiero po zamknięciu ostatniej aktywnej pracy online. Praca
+lokalna może pozostać aktywna, ponieważ nie publikuje portu. Po odświeżeniu
+Admin odtwarza assignmenty z PostgreSQL, lecz ze względów bezpieczeństwa nie
+pokazuje ponownie jednorazowego kodu. Decyzje plansz i audyt pozostają w
+PostgreSQL. Awaryjny globalny stop jest przeznaczony wyłącznie do sytuacji, w
+której nie ma już aktywnych prac online:
 
 ```powershell
 npm run reviewer:remote:stop

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -10,7 +11,12 @@ from numpy.typing import NDArray
 
 from game_predictor_worker.images.geometry import BoardDetection
 
-from .contracts import ImageQualityMetrics, ImageSelectionSource, SequenceRange
+from .contracts import (
+    ImageQualityMetrics,
+    ImageSelectionSource,
+    RangeLabelObservation,
+    SequenceRange,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +35,19 @@ class LatticeFingerprint:
     boards: tuple[BoardDetection, ...]
     reason_codes: tuple[str, ...]
     appearance_signature: tuple[float, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RangeRecognitionResult:
+    recognized_range: SequenceRange | None
+    reason_codes: tuple[str, ...]
+    label_observations: tuple[RangeLabelObservation, ...] = ()
+
+    def __iter__(self) -> Iterator[SequenceRange | tuple[str, ...] | None]:
+        # Keep direct recognizer diagnostics backward-compatible while the
+        # verifier consumes the richer fields explicitly.
+        yield self.recognized_range
+        yield self.reason_codes
 
 
 class ThumbnailLoader(Protocol):
@@ -63,7 +82,7 @@ class SequenceRangeRecognizer(Protocol):
         self,
         rgb_image: NDArray[np.uint8],
         boards: tuple[BoardDetection, ...],
-    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+    ) -> tuple[SequenceRange | None, tuple[str, ...]] | RangeRecognitionResult:
         """Recognize bounded first/middle/last sequence anchors."""
 
 
@@ -71,6 +90,7 @@ __all__ = [
     "ImageQualityAnalyzer",
     "LatticeFingerprint",
     "LatticeFingerprintAnalyzer",
+    "RangeRecognitionResult",
     "SequenceRangeRecognizer",
     "ThumbnailFrame",
     "ThumbnailLoader",

@@ -95,8 +95,5 @@ def test_current_mesh_recovers_shifted_columns_from_bright_components() -> None:
 
     assert result.status == "meshed"
     assert result.column_center_source == "bright-component-lattice"
-    measured_columns = [
-        result.cells[column].center_x
-        for column in range(5)
-    ]
+    measured_columns = [result.cells[column].center_x for column in range(5)]
     assert measured_columns == pytest.approx(expected_columns, abs=2.0)

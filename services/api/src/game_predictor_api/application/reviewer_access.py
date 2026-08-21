@@ -163,6 +163,7 @@ class ReviewerAccessService:
         game_id: UUID,
         import_job_id: UUID,
         lifetime_minutes: int,
+        reviewer_origin: str | None = None,
     ) -> CreatedReviewerAccess:
         if not 5 <= lifetime_minutes <= 24 * 60:
             raise ReviewerAccessError(
@@ -193,7 +194,7 @@ class ReviewerAccessService:
         return CreatedReviewerAccess(
             session=session,
             code=code,
-            review_url=f"{self._resolve_reviewer_origin()}/?session={session.id}",
+            review_url=(f"{self._resolve_reviewer_origin(reviewer_origin)}/?session={session.id}"),
         )
 
     def unlock(self, session_id: UUID, code: str) -> UnlockedReviewerAccess:
@@ -318,7 +319,9 @@ class ReviewerAccessService:
                 "Reviewer session is locked.",
             )
 
-    def _resolve_reviewer_origin(self) -> str:
+    def _resolve_reviewer_origin(self, override: str | None = None) -> str:
+        if override is not None:
+            return override.rstrip("/")
         origin = (
             self._reviewer_origin() if callable(self._reviewer_origin) else self._reviewer_origin
         )

@@ -1,14 +1,14 @@
 ---
 title: TASK-0149 pending-only re-inference and import pinning
-status: todo
-last_updated: 2026-08-01
+status: in_progress
+last_updated: 2026-08-20
 ---
 
 # TASK-0149 — Pending-only re-inference and import pinning
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -100,4 +100,82 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Zaimplementowano migrację append-only rewizji predykcji, jawny typ joba
+`image_symbol_reinference`, snapshot aktywnego modelu oraz warunkowy zapis
+pending-only w workerze. Reviewer nakłada najnowszą rewizję na sugestię bez
+zmiany bazowych obserwacji. Dodano także `image_grid_reinference`, diagnostykę
+kohorty, podgląd i przyciski `Przelicz oczekujące` w Adminie. Pozostaje pełny
+odbiór E2E na rzeczywistych danych.
+W v0.6.41 dodano wspólną diagnostykę kwalifikacji geometrii, a import v0.6.42
+przypina aktywne snapshoty siatki i symboli podczas rerunu browserowego stagingu.
+W v0.6.48 preflight zwraca fingerprinty obu snapshotów, a Admin przekazuje je
+przy starcie; zmiana aktywnego modelu pomiędzy preflightem i startem jest
+odrzucana. Naprawiono również wstrzykiwanie JobService do endpointu preflight.
+W v0.6.49–v0.6.53 browserowy import `seq_*` otrzymał dodatkowy, przypięty
+preflight geometrii strony. Pending-only import nie może już użyć syntetycznej
+lub częściowej siatki: czeka na manifest dziewięciu zweryfikowanych quadów albo
+na append-only korektę całej strony. Odbiór E2E na stagingu pozostaje otwarty.
+W v0.6.54 rozdzielono checksumę poświadczonego manifestu browsera od
+job-specific manifestu managed originals, dzięki czemu preflight może być
+bezpiecznie ponawiany po restarcie workera.
+W v0.6.56 przypięty profil rejestracji zawiera również wersję deskryptora ORB.
+Limit `1000` cech zastępuje regresyjne `500`: wykryte strony pozostają objęte
+pełną bramką RANSAC i czerwonych ramek, ale czytelne, ukośne fotografie nie są
+już błędnie kierowane do korekty wyłącznie przez brak 35 inlierów.
+W v0.6.57 preflight wykonuje ograniczone partie po 25 stron i checkpointuje po
+każdej partii, więc restart workera nie może ukryć postępu ani zablokować
+anulowania na całym stagingu.
+W v0.6.58 retry pełnego preflightu geometrii jawnie resetuje tylko jego
+pochodne liczniki i checkpoint; nie zmienia to zachowania retry dla jobów,
+które rzeczywiście wznawiają trwały kursor.
+W v0.6.59 deskryptor rejestracji ma deterministyczną politykę
+`1000 → 1500 → 3000`; wyższy budżet może być użyty tylko po nieudanej próbie
+niższego budżetu tej samej strony i nadal musi przejść kompletną bramkę
+geometrii. Realny preflight zostanie powtórzony przed uruchomieniem importu.
+
+Preflight `9950ec44-146b-4219-9e23-0de6e83b4b89` spełnił bramkę operacyjną:
+`2194` stron zarejestrowanych, `7` kanonicznie pominiętych i `0` wymagających
+korekty. Import `b2d9b299-a851-4e17-9ba3-dacaa7966978` przypina wynikowy
+manifest geometrii `61e8c5b2…`. Pierwsza próba ujawniła błąd wyłącznie podczas
+eager-load fallbackowych anchorów (`data/data/originals`); poprawka wyłącza ten
+nieużywany fallback dla joba z przypiętym manifestem oraz używa poprawnej ścieżki
+dla importu legacy bez manifestu. Retry zachowuje ten sam staging, snapshoty i
+id joba, a jego odbiór E2E pozostaje aktywny w trybie review-first.
+
+TASK-0249 oddziela geometrię komórek v19 od tego zadania. TASK-0149 pozostaje
+bez recropu i korekty geometrii; może jedynie wykorzystać osobno odebraną,
+append-only rewizję cropów. Symbolowa reinferencja i wszystkie jej ochrony
+decyzji pozostają bez zmian.
+
+W TASK-0249/TASK 8 osobno odebrano geometrię komórek v19 i podłączono ją do
+istniejącego typu `image_grid_reinference` jako payload schema v2. Ta ścieżka
+wykonuje wyłącznie pending-only recrop i append-only rewizję geometrii; nie
+zmienia zakresu symbolowej reinferencji TASK-0149, nie otwiera decyzji
+rozstrzygniętych i nie uruchamia OCR/discovery.
+
+Odbiór rzeczywisty ujawnił, że worker uruchomiony przed wdrożeniem schema v2
+obsłużył nowy job historyczną ścieżką v1 i zwrócił
+`IMAGE_GRID_PROFILE_SNAPSHOT_INVALID` przed pierwszą planszą. Świeży proces
+workera używa jawnej dyspozycji schema v2 i nie wymaga historycznego
+`gridProfile`. Dodatkowo preview, symbolowa reinferencja i oba warianty
+grid-reinference filtrują źródłowy import do stanu `waiting_for_review`.
+Anulowane oraz nieudane importy nie zasilają już nowych przeliczeń. Ochrona
+`accepted/corrected/rejected` i warunkowy zapis pod blokadą pozostają bez zmian.
+Pierwszy retry na świeżym workerze ujawnił brak wymaganego `schema_version=1`
+w checkpointach obu handlerów reinferencji. Grid v1/v2 oraz symbole zapisują
+teraz checkpoint zgodny ze wspólnym runtime; regresja obejmuje zarówno payload
+v19, jak i symbolowy.
+
+Rzeczywisty odbiór na aktywnym imporcie
+`b2d9b299-a851-4e17-9ba3-dacaa7966978` zakończył oba joby statusem
+`completed`. Recrop `9363e55b-3493-4dc5-b296-3e6a21efdb24` objął dokładnie
+`19 745` oczekujących plansz: `19 364` otrzymały rewizję v19, `381` pozostało
+pending do ręcznej geometrii, a błędów technicznych było zero. Następnie
+symbolowa reinferencja `23f37219-2964-412a-a7f6-0284d334ad9a` zapisała
+`19 745/19 745` append-only rewizji bez błędu.
+
+Kontrolny fingerprint `64` decyzji `accepted/corrected/rejected` przed i po obu
+jobach pozostał identyczny:
+`e6395e3026ea1f4e65326328940f58374a2e4e040ee7707dd9b028991f6f7e3b`.
+Anulowany import `b057…` i testowy `0490…` usunięto transakcyjnie po
+potwierdzeniu, że nie zawierały kanonicznych decyzji, kohort ani rewizji.

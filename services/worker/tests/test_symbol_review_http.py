@@ -118,9 +118,7 @@ def test_static_bootstrap_state_and_crop_are_served(tmp_path: Path) -> None:
         assert status == 200
         assert _json(body) == {"token": token}
 
-        status, body, _ = _request(
-            f"{origin}/api/state?status=accepted&offset=2&limit=1"
-        )
+        status, body, _ = _request(f"{origin}/api/state?status=accepted&offset=2&limit=1")
         assert status == 200
         assert _json(body)["samples"] == []
         assert review.calls[-1] == (

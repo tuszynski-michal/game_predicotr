@@ -4,8 +4,8 @@ import type {
   GameResponse,
   JobResponse,
   OperationalImageReviewCountsResponse,
+  OperationalImageReviewGeometryResponse,
   OperationalImageReviewItemResponse,
-  OperationalImageReviewPageResponse,
   OperationalImageReviewResolutionResponse,
   SymbolResponse,
   VerifiedCohortExportResponse,
@@ -20,6 +20,7 @@ import {
   loadOperationalReviewJobs,
   loadOperationalReviewPage,
   loadOperationalReviewSymbols,
+  prefetchOperationalReviewPageBuffer,
   resolveOperationalReview,
   type LoadOperationalReviewPageOptions,
   type OperationalReviewsClient,
@@ -28,16 +29,24 @@ import { OperationalReviewGeometryEditor } from '@/features/operational-reviews/
 import {
   buildOperationalReviewResolutionCommand,
   buildOperationalReviewSymbolShortcuts,
+  createOperationalReviewPageBuffer,
   formatOperationalConfidence,
   isOperationalReviewDraftChangedFromCurrent,
   isOperationalReviewTypingTarget,
   operationalReviewAssetUrl,
+  operationalReviewBufferedAssetUrls,
   operationalReviewDraftSymbols,
   operationalReviewJobLabel,
   operationalReviewKeyboardAction,
   operationalReviewNativeContextViewport,
+  operationalReviewPageBufferAdvance,
+  operationalReviewPageBufferAfterResolution,
+  operationalReviewPageBufferReplaceCurrent,
+  operationalReviewPageBufferRetreat,
+  operationalReviewResolutionIdempotencyKey,
   operationalReviewSequence,
   operationalReviewStatusLabel,
+  type OperationalReviewPageBuffer,
   updateOperationalReviewCounts,
 } from '@/features/operational-reviews/operational-review-state';
 
@@ -66,6 +75,7 @@ const EMPTY_COUNTS: OperationalImageReviewCountsResponse = {
   corrected: 0,
   pending: 0,
   rejected: 0,
+  superseded: 0,
   total: 0,
 };
 
@@ -90,8 +100,8 @@ export function OperationalReviewWorkspace({
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [symbolsError, setSymbolsError] = useState('');
-  const [page, setPage] = useState<OperationalImageReviewPageResponse | null>(
-    null,
+  const [pageBuffer, setPageBuffer] = useState<OperationalReviewPageBuffer>(
+    () => createOperationalReviewPageBuffer(null),
   );
   const [pageState, setPageState] = useState<LoadState>('ready');
   const [pageError, setPageError] = useState('');
@@ -110,7 +120,17 @@ export function OperationalReviewWorkspace({
   const jobsRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
+  const pageBufferRequestId = useRef(0);
+  const pageBufferRef = useRef(pageBuffer);
   const cohortRequestId = useRef(0);
+
+  const commitPageBuffer = useCallback(
+    (nextBuffer: OperationalReviewPageBuffer) => {
+      pageBufferRef.current = nextBuffer;
+      setPageBuffer(nextBuffer);
+    },
+    [],
+  );
 
   const refreshGames = useCallback(async () => {
     const requestId = ++gamesRequestId.current;
@@ -170,14 +190,65 @@ export function OperationalReviewWorkspace({
     setSymbolsState('ready');
   }, [api, selectedGameId]);
 
+  const prefetchPageBuffer = useCallback(
+    async (bufferRequestId: number) => {
+      const buffer = pageBufferRef.current;
+      const currentItemId = buffer.current?.items[0]?.id ?? null;
+      if (
+        buffer.current === null ||
+        selectedGameId === '' ||
+        selectedJobId === ''
+      ) {
+        return;
+      }
+      const isCurrentRequest = () =>
+        mounted.current &&
+        bufferRequestId === pageBufferRequestId.current &&
+        (pageBufferRef.current.current?.items[0]?.id ?? null) === currentItemId;
+      const result = await prefetchOperationalReviewPageBuffer(
+        api,
+        {
+          gameId: selectedGameId,
+          importJobId: selectedJobId,
+          view: REVIEW_QUEUE_VIEW,
+        },
+        buffer,
+      );
+      if (!isCurrentRequest()) return;
+      if (!result.ok) {
+        pageBufferRequestId.current += 1;
+        setPageState('error');
+        setPageError(result.error);
+        setCursorConflict(true);
+        return;
+      }
+      commitPageBuffer(result.buffer);
+    },
+    [api, commitPageBuffer, selectedGameId, selectedJobId],
+  );
+
+  const activatePageBuffer = useCallback(
+    (nextBuffer: OperationalReviewPageBuffer) => {
+      const bufferRequestId = ++pageBufferRequestId.current;
+      commitPageBuffer(nextBuffer);
+      setPageState('ready');
+      setPageError('');
+      setCursorConflict(false);
+      void prefetchPageBuffer(bufferRequestId);
+    },
+    [commitPageBuffer, prefetchPageBuffer],
+  );
+
   const refreshPage = useCallback(
     async (navigation: PageNavigation = {}) => {
       if (selectedGameId === '' || selectedJobId === '') {
-        setPage(null);
+        pageBufferRequestId.current += 1;
+        commitPageBuffer(createOperationalReviewPageBuffer(null));
         setPageState('ready');
         return;
       }
       const requestId = ++pageRequestId.current;
+      pageBufferRequestId.current += 1;
       setPageState('loading');
       setPageError('');
       setCursorConflict(false);
@@ -195,10 +266,9 @@ export function OperationalReviewWorkspace({
         setCursorConflict(result.isCursorConflict);
         return;
       }
-      setPage(result.page);
-      setPageState('ready');
+      activatePageBuffer(createOperationalReviewPageBuffer(result.page));
     },
-    [api, selectedGameId, selectedJobId],
+    [activatePageBuffer, api, commitPageBuffer, selectedGameId, selectedJobId],
   );
 
   const refreshCohorts = useCallback(async () => {
@@ -259,8 +329,30 @@ export function OperationalReviewWorkspace({
     games.find((candidate) => candidate.id === selectedGameId) ?? null;
   const selectedJob =
     jobs.find((candidate) => candidate.id === selectedJobId) ?? null;
+  const page = pageBuffer.current;
   const item = page?.items[0] ?? null;
   const counts = page?.counts ?? EMPTY_COUNTS;
+  const bufferedAssetUrls = useMemo(
+    () =>
+      operationalReviewBufferedAssetUrls(apiBaseUrl, selectedJobId, pageBuffer),
+    [apiBaseUrl, pageBuffer, selectedJobId],
+  );
+
+  useEffect(() => {
+    const images = bufferedAssetUrls.map((source) => {
+      const image = new window.Image();
+      image.crossOrigin = 'anonymous';
+      image.decoding = 'async';
+      image.src = source;
+      return image;
+    });
+    return () => {
+      for (const image of images) {
+        image.onload = null;
+        image.onerror = null;
+      }
+    };
+  }, [bufferedAssetUrls]);
 
   function jumpToSequence() {
     const sequenceNumber = Number(jumpValue);
@@ -277,42 +369,76 @@ export function OperationalReviewWorkspace({
         ? `Układ #${resolution.item.sequenceNumber ?? '—'} zapisano jako ${operationalReviewStatusLabel(resolution.item.status).toLocaleLowerCase('pl-PL')}.`
         : 'Ten sam zapis był już przyjęty — nie utworzono drugiej rewizji.',
     );
-    if (page?.nextCursor !== null && page?.nextCursor !== undefined) {
-      void refreshPage({ afterCursor: page.nextCursor });
+    const currentBuffer = pageBufferRef.current;
+    if (currentBuffer.current?.items[0]?.id !== resolution.item.id) {
+      void refreshPage({ resumeAtFirstPending: true });
       return;
     }
-    setPage((current) => {
-      if (current === null) return current;
-      const previousStatus = current.items[0]?.status;
-      return {
-        ...current,
-        counts: updateOperationalReviewCounts(
-          current.counts,
-          previousStatus,
-          resolution.item.status,
-        ),
-        items: [resolution.item],
-      };
-    });
+    const resolvedBuffer = operationalReviewPageBufferAfterResolution(
+      currentBuffer,
+      resolution,
+    );
+    const advancedBuffer = operationalReviewPageBufferAdvance(resolvedBuffer);
+    if (advancedBuffer !== resolvedBuffer) {
+      activatePageBuffer(advancedBuffer);
+      return;
+    }
+    const nextCursor = resolvedBuffer.current?.nextCursor;
+    if (nextCursor != null) {
+      commitPageBuffer(resolvedBuffer);
+      void refreshPage({ afterCursor: nextCursor });
+      return;
+    }
+    activatePageBuffer(resolvedBuffer);
   }
 
-  function handleGeometrySaved(updated: OperationalImageReviewItemResponse) {
+  function handleGeometrySaved(
+    geometry: OperationalImageReviewGeometryResponse,
+  ) {
     setPageNotice(
-      `Zapisano siatkę jako rewizję ${updated.geometryRevision}. Plansza i cropy zostały odświeżone.`,
+      geometry.created
+        ? `Zapisano rewizję geometrii ${geometry.geometryRevision.revision}. Plansza wróciła do weryfikacji symboli.`
+        : 'Ta sama rewizja geometrii była już zapisana — nie utworzono duplikatu.',
     );
-    setPage((current) => {
-      if (current === null) return current;
-      const previousStatus = current.items[0]?.status;
-      return {
+    const currentBuffer = pageBufferRef.current;
+    const current = currentBuffer.current;
+    if (current === null || current.items[0]?.id !== geometry.item.id) return;
+    const previousStatus = current.items[0]?.status;
+    activatePageBuffer(
+      operationalReviewPageBufferReplaceCurrent(currentBuffer, {
         ...current,
         counts: updateOperationalReviewCounts(
           current.counts,
           previousStatus,
-          updated.status,
+          geometry.item.status,
         ),
-        items: [updated],
-      };
-    });
+        items: [geometry.item],
+      }),
+    );
+  }
+
+  function showNextPage() {
+    const currentBuffer = pageBufferRef.current;
+    const advancedBuffer = operationalReviewPageBufferAdvance(currentBuffer);
+    if (advancedBuffer !== currentBuffer) {
+      activatePageBuffer(advancedBuffer);
+      return;
+    }
+    const nextCursor = currentBuffer.current?.nextCursor;
+    if (nextCursor != null) void refreshPage({ afterCursor: nextCursor });
+  }
+
+  function showPreviousPage() {
+    const currentBuffer = pageBufferRef.current;
+    const retreatedBuffer = operationalReviewPageBufferRetreat(currentBuffer);
+    if (retreatedBuffer !== currentBuffer) {
+      activatePageBuffer(retreatedBuffer);
+      return;
+    }
+    const previousCursor = currentBuffer.current?.previousCursor;
+    if (previousCursor != null) {
+      void refreshPage({ beforeCursor: previousCursor });
+    }
   }
 
   async function handleFreezeCohort() {
@@ -479,17 +605,9 @@ export function OperationalReviewWorkspace({
                 key={`${item.id}:${item.geometryRevision}:${item.resolutionRevision}`}
                 onJumpChange={setJumpValue}
                 onJumpSubmit={jumpToSequence}
-                onNext={() =>
-                  void refreshPage({
-                    afterCursor: page?.nextCursor ?? undefined,
-                  })
-                }
-                onPrevious={() =>
-                  void refreshPage({
-                    beforeCursor: page?.previousCursor ?? undefined,
-                  })
-                }
                 onGeometrySaved={handleGeometrySaved}
+                onNext={showNextPage}
+                onPrevious={showPreviousPage}
                 onReload={() => {
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
@@ -571,7 +689,8 @@ function OperationalReviewCohortPanel({
       <div>
         <strong>{counts.completed} zweryfikowanych plansz</strong>
         <span>
-          {counts.pending} oczekujących · {counts.rejected} odrzuconych
+          {counts.pending} oczekujących · {counts.rejected} odrzuconych ·{' '}
+          {counts.superseded} zastąpionych
         </span>
       </div>
       <div className="operationalReviewCohortLatest">
@@ -669,9 +788,9 @@ function OperationalReviewBoard({
   jumpValue,
   onJumpChange,
   onJumpSubmit,
+  onGeometrySaved,
   onNext,
   onPrevious,
-  onGeometrySaved,
   onReload,
   onResolved,
   symbols,
@@ -687,9 +806,11 @@ function OperationalReviewBoard({
   readonly jumpValue: string;
   readonly onJumpChange: (value: string) => void;
   readonly onJumpSubmit: () => void;
+  readonly onGeometrySaved: (
+    geometry: OperationalImageReviewGeometryResponse,
+  ) => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
-  readonly onGeometrySaved: (item: OperationalImageReviewItemResponse) => void;
   readonly onReload: () => void;
   readonly onResolved: (
     resolution: OperationalImageReviewResolutionResponse,
@@ -704,10 +825,17 @@ function OperationalReviewBoard({
   const [sequenceDraft, setSequenceDraft] = useState(() =>
     String(operationalReviewSequence(item) ?? ''),
   );
+  const sequenceIsAttestedByFilename =
+    item.geometry.sequenceSource === 'filename';
+  const [sequenceCorrectionEnabled, setSequenceCorrectionEnabled] =
+    useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [revisionConflict, setRevisionConflict] = useState(false);
   const savingRef = useRef(false);
+  const [resolutionIdempotencyKey, setResolutionIdempotencyKey] = useState<
+    string | null
+  >(null);
   const shortcuts = useMemo(
     () => buildOperationalReviewSymbolShortcuts(symbols),
     [symbols],
@@ -776,6 +904,7 @@ function OperationalReviewBoard({
           index === selectedCellIndex ? symbolCode : value,
         ),
       );
+      setResolutionIdempotencyKey(null);
       setSaveError('');
       setRevisionConflict(false);
     },
@@ -804,11 +933,16 @@ function OperationalReviewBoard({
     setIsSaving(true);
     setSaveError('');
     setRevisionConflict(false);
+    const idempotencyKey = operationalReviewResolutionIdempotencyKey(
+      resolutionIdempotencyKey,
+      () => globalThis.crypto.randomUUID(),
+    );
+    setResolutionIdempotencyKey(idempotencyKey);
     const command = buildOperationalReviewResolutionCommand(
       item,
       sequenceNumber,
       draftSymbols,
-      globalThis.crypto.randomUUID(),
+      idempotencyKey,
     );
     const result = await resolveOperationalReview(api, {
       command,
@@ -823,6 +957,7 @@ function OperationalReviewBoard({
       setRevisionConflict(result.isRevisionConflict);
       return;
     }
+    setResolutionIdempotencyKey(null);
     onResolved(result.resolution);
   }, [
     api,
@@ -834,6 +969,7 @@ function OperationalReviewBoard({
     item,
     onNext,
     onResolved,
+    resolutionIdempotencyKey,
     sequenceIsValid,
     sequenceNumber,
     setIsSaving,
@@ -918,7 +1054,7 @@ function OperationalReviewBoard({
             <button
               aria-label="Poprzednia plansza"
               className="operationalReviewArrow"
-              disabled={!hasPrevious}
+              disabled={!hasPrevious || isSaving}
               onClick={onPrevious}
               type="button"
             >
@@ -966,6 +1102,10 @@ function OperationalReviewBoard({
               <dt>Odrzucone</dt>
               <dd>{counts.rejected}</dd>
             </div>
+            <div>
+              <dt>Zastąpione</dt>
+              <dd>{counts.superseded}</dd>
+            </div>
           </dl>
           <form
             onSubmit={(event) => {
@@ -1008,16 +1148,41 @@ function OperationalReviewBoard({
             Numer układu
             <input
               aria-invalid={!sequenceIsValid}
-              disabled={isSaving}
+              disabled={
+                isSaving ||
+                (sequenceIsAttestedByFilename && !sequenceCorrectionEnabled)
+              }
               min="1"
               onChange={(event) => {
                 setSequenceDraft(event.target.value);
+                setResolutionIdempotencyKey(null);
                 setSaveError('');
+                setRevisionConflict(false);
               }}
               type="number"
               value={sequenceDraft}
             />
           </label>
+          {sequenceIsAttestedByFilename ? (
+            <div className="operationalReviewAttestedSequence" role="status">
+              <small>
+                Numer z nazwy pliku <code>seq_*</code>; przypisanie jest
+                zablokowane do czasu jawnej korekty.
+              </small>
+              {!sequenceCorrectionEnabled ? (
+                <button
+                  className="textButton"
+                  disabled={isSaving}
+                  onClick={() => setSequenceCorrectionEnabled(true)}
+                  type="button"
+                >
+                  Zezwól na korektę numeru
+                </button>
+              ) : (
+                <small>Korekta numeru odblokowana.</small>
+              )}
+            </div>
+          ) : null}
           {item.status !== 'pending' ? (
             <em>Edycja dozwolona — kolejny zapis utworzy nową rewizję.</em>
           ) : null}
@@ -1145,18 +1310,35 @@ function OperationalReviewBoard({
           </div>
 
           <section className="operationalReviewBoardReference">
-            <OperationalReviewNativeContext
-              alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
-              item={item}
-              key={item.id}
-              src={operationalReviewAssetUrl(
-                apiBaseUrl,
-                context,
-                item.id,
-                'source',
-                { version: item.sourceChecksumSha256 },
-              )}
-            />
+            {item.geometry.displayAssetKind === 'source_context' ? (
+              <OperationalReviewImage
+                alt={`Natywny wycinek planszy i numer układu ${displaySequence ?? 'bez numeru'}`}
+                key={`${item.id}:${item.boardChecksumSha256}`}
+                src={operationalReviewAssetUrl(
+                  apiBaseUrl,
+                  context,
+                  item.id,
+                  'board',
+                  { version: item.boardChecksumSha256 },
+                )}
+              />
+            ) : (
+              <OperationalReviewNativeContext
+                alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
+                item={item}
+                key={item.id}
+                src={operationalReviewAssetUrl(
+                  apiBaseUrl,
+                  context,
+                  item.id,
+                  'source',
+                  {
+                    usage: 'native-context-v2',
+                    version: item.sourceChecksumSha256,
+                  },
+                )}
+              />
+            )}
           </section>
         </div>
       </article>
@@ -1241,6 +1423,7 @@ function OperationalReviewNativeContext({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         alt={alt}
+        crossOrigin="anonymous"
         onError={() => setFailed(true)}
         onLoad={(event) =>
           setNaturalSize({
@@ -1282,7 +1465,7 @@ function OperationalReviewEmpty({
       <p>
         {counts.total > 0
           ? `Kolejka zawiera ${counts.total} układów. Wróć do pierwszej planszy oczekującej na zatwierdzenie.`
-          : `Do weryfikacji: ${counts.pending}. Kompletne: ${counts.completed}. Odrzucone: ${counts.rejected}.`}
+          : `Do weryfikacji: ${counts.pending}. Kompletne: ${counts.completed}. Odrzucone: ${counts.rejected}. Zastąpione: ${counts.superseded}.`}
       </p>
       <button className="secondaryButton" onClick={onReset} type="button">
         Wróć do pierwszej niezatwierdzonej

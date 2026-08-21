@@ -10,8 +10,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from game_predictor_worker.images.manual_geometry_recrop import (
-    ManualGeometryRecropper,
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreviewer,
 )
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
@@ -56,6 +56,9 @@ from game_predictor_api.application.layout_imports import (
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
+from game_predictor_api.application.page_geometry_overrides import (
+    PageGeometryOverrideService,
+)
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
     ReviewerAccessService,
@@ -63,6 +66,12 @@ from game_predictor_api.application.reviewer_access import (
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressError,
     ReviewerIngressService,
+)
+from game_predictor_api.application.reviewer_work_assignments import (
+    ReviewerWorkAssignmentService,
+)
+from game_predictor_api.application.reviewer_work_lifecycle import (
+    ReviewerWorkLifecycleService,
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
@@ -100,6 +109,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionError,
     ImageSelectionNotFoundError,
 )
+from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
 from game_predictor_api.domain.iterative_image_imports import (
     IterativeImageImportConflictError,
     IterativeImageImportError,
@@ -114,6 +124,10 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseConflictError,
     MobileReleaseError,
     MobileReleaseNotFoundError,
+)
+from game_predictor_api.domain.reviewer_work_assignments import (
+    ReviewerWorkAssignmentConflictError,
+    ReviewerWorkAssignmentError,
 )
 from game_predictor_api.domain.reviews import (
     ReviewConflictError,
@@ -162,6 +176,9 @@ from game_predictor_api.storage.image_review_repository import (
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
+from game_predictor_api.storage.image_sequence_canonical_repository import (
+    SqlAlchemyImageSequenceCanonicalRepository,
+)
 from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
 )
@@ -172,11 +189,17 @@ from game_predictor_api.storage.layout_import_report_repository import (
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
+from game_predictor_api.storage.page_geometry_override_repository import (
+    SqlAlchemyPageGeometryOverrideRepository,
+)
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
 from game_predictor_api.storage.reviewer_access_repository import (
     SqlAlchemyReviewerAccessRepository,
+)
+from game_predictor_api.storage.reviewer_work_assignment_repository import (
+    SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 from game_predictor_api.storage.symbol_bootstrap_repository import (
@@ -211,6 +234,7 @@ def create_app(
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
+    image_sequence_canonical_service_dependency: Callable[..., object] | None = None,
     iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
@@ -220,12 +244,14 @@ def create_app(
     review_service_dependency: Callable[..., object] | None = None,
     reviewer_access_service_dependency: Callable[..., object] | None = None,
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
+    reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
+    page_geometry_override_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -304,6 +330,9 @@ def create_app(
                     artifact_root=resolved_settings.artifact_root,
                 ),
                 SqlAlchemyGridProfileSnapshotResolver(session),
+                page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
+                    SqlAlchemyPageGeometryOverrideRepository(session)
+                ),
                 deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
                     artifact_root=resolved_settings.artifact_root,
                     import_root=resolved_settings.import_root,
@@ -358,6 +387,24 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+
+    def default_image_sequence_canonical_service_dependency() -> Iterator[
+        ImageSequenceCanonicalService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ImageSequenceCanonicalService(
+                    SqlAlchemyImageSequenceCanonicalRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_sequence_canonical_dependency = (
+        image_sequence_canonical_service_dependency
+        or default_image_sequence_canonical_service_dependency
     )
 
     def default_iterative_image_import_service_dependency() -> Iterator[
@@ -430,7 +477,7 @@ def create_app(
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
                     artifact_root=resolved_settings.artifact_root,
-                    geometry_recropper=ManualGeometryRecropper(),
+                    board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
                 )
                 session.commit()
             except BaseException:
@@ -520,6 +567,22 @@ def create_app(
         grid_calibration_service_dependency or default_grid_calibration_service_dependency
     )
 
+    def default_page_geometry_override_service_dependency() -> Iterator[
+        PageGeometryOverrideService
+    ]:
+        with session_factory() as session:
+            try:
+                yield PageGeometryOverrideService(SqlAlchemyPageGeometryOverrideRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_page_geometry_override_dependency = (
+        page_geometry_override_service_dependency
+        or default_page_geometry_override_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -584,6 +647,33 @@ def create_app(
     resolved_reviewer_ingress_dependency = reviewer_ingress_service_dependency or (
         lambda: reviewer_ingress_service
     )
+
+    def default_reviewer_work_lifecycle_service_dependency() -> Iterator[
+        ReviewerWorkLifecycleService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ReviewerWorkLifecycleService(
+                    ReviewerWorkAssignmentService(
+                        SqlAlchemyReviewerWorkAssignmentRepository(session)
+                    ),
+                    ReviewerAccessService(
+                        lambda: _active_reviewer_origin(
+                            resolved_settings.reviewer_origin,
+                        ),
+                        SqlAlchemyReviewerAccessRepository(session),
+                    ),
+                    reviewer_ingress_service,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_reviewer_work_lifecycle_dependency = (
+        reviewer_work_lifecycle_service_dependency
+        or default_reviewer_work_lifecycle_service_dependency
+    )
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -619,6 +709,7 @@ def create_app(
     application.add_middleware(
         LocalAdminSecurityMiddleware,
         admin_origin=resolved_settings.admin_origin,
+        reviewer_origin=resolved_settings.reviewer_origin,
         audit_log=AppendOnlyAdminAuditLog(resolved_settings.artifact_root),
     )
     application.state.database_engine = database_engine
@@ -635,6 +726,7 @@ def create_app(
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
             resolved_iterative_image_import_dependency,
+            resolved_image_sequence_canonical_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,
@@ -643,12 +735,15 @@ def create_app(
             resolved_review_dependency,
             resolved_reviewer_access_dependency,
             resolved_reviewer_ingress_dependency,
+            resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_bootstrap_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
+            resolved_page_geometry_override_dependency,
+            resolved_settings.artifact_root,
         )
     )
 
@@ -871,6 +966,25 @@ def create_app(
         return JSONResponse(
             status_code=503,
             content={"code": error.code, "message": error.message, "details": {}},
+        )
+
+    @application.exception_handler(ReviewerWorkAssignmentError)
+    async def handle_reviewer_work_assignment_error(
+        _request: Request,
+        error: ReviewerWorkAssignmentError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code == "REVIEWER_ASSIGNMENT_NOT_FOUND":
+            status_code = 404
+        elif isinstance(error, ReviewerWorkAssignmentConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
         )
 
     @application.exception_handler(RequestValidationError)

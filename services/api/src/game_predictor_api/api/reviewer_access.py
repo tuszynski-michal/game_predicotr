@@ -1,6 +1,7 @@
 """HTTP endpoints for durable Reviewer session lifecycle."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -16,6 +17,9 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessSession,
 )
 from game_predictor_api.application.reviewer_ingress import ReviewerIngressService
+from game_predictor_api.application.reviewer_work_lifecycle import (
+    ReviewerWorkLifecycleService,
+)
 from game_predictor_api.schemas.catalog import (
     ErrorResponse,
     GameResponse,
@@ -25,11 +29,18 @@ from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_api.schemas.reviewer_access import (
     ReviewerIngressCommand,
     ReviewerIngressStatusResponse,
+    ReviewerLocalCommand,
     ReviewerSessionCreate,
     ReviewerSessionCreatedResponse,
     ReviewerSessionScopeResponse,
     ReviewerSessionUnlock,
     ReviewerSessionUnlockResponse,
+    ReviewerWorkActionCommand,
+    ReviewerWorkClosedResponse,
+    ReviewerWorkHeartbeatResponse,
+    ReviewerWorkOpenCommand,
+    ReviewerWorkOpenedResponse,
+    ReviewerWorkOverviewResponse,
 )
 
 
@@ -38,12 +49,14 @@ def create_reviewer_access_router(
     catalog_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
     ingress_service_dependency: Callable[..., object],
+    work_lifecycle_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(tags=["reviewer-access"])
     service_parameter = Depends(service_dependency)
     catalog_parameter = Depends(catalog_service_dependency)
     job_parameter = Depends(job_service_dependency)
     ingress_parameter = Depends(ingress_service_dependency)
+    work_lifecycle_parameter = Depends(work_lifecycle_service_dependency)
     authorized_session_parameter = Depends(
         create_required_reviewer_session_dependency(service_dependency)
     )
@@ -73,6 +86,19 @@ def create_reviewer_access_router(
         return ReviewerIngressStatusResponse.from_domain(ingress.start())
 
     @router.post(
+        "/admin/reviewer-local/start",
+        response_model=ReviewerIngressStatusResponse,
+        operation_id="startLocalReviewer",
+        summary="Start the standalone Reviewer on loopback without a public tunnel",
+        responses={503: {"model": ErrorResponse}},
+    )
+    def start_local_reviewer(
+        _payload: ReviewerLocalCommand,
+        ingress: Annotated[ReviewerIngressService, ingress_parameter],
+    ) -> ReviewerIngressStatusResponse:
+        return ReviewerIngressStatusResponse.from_domain(ingress.start_local())
+
+    @router.post(
         "/admin/reviewer-ingress/stop",
         response_model=ReviewerIngressStatusResponse,
         operation_id="stopReviewerIngress",
@@ -84,6 +110,98 @@ def create_reviewer_access_router(
         ingress: Annotated[ReviewerIngressService, ingress_parameter],
     ) -> ReviewerIngressStatusResponse:
         return ReviewerIngressStatusResponse.from_domain(ingress.stop())
+
+    @router.get(
+        "/admin/games/{game_id}/reviewer-work-assignments",
+        response_model=ReviewerWorkOverviewResponse,
+        operation_id="listReviewerWorkAssignments",
+        summary="List active scoped Reviewer work for one game",
+    )
+    def list_reviewer_work_assignments(
+        game_id: UUID,
+        lifecycle: Annotated[ReviewerWorkLifecycleService, work_lifecycle_parameter],
+    ) -> ReviewerWorkOverviewResponse:
+        return ReviewerWorkOverviewResponse.from_overview(lifecycle.overview(game_id))
+
+    @router.post(
+        "/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local",
+        response_model=ReviewerWorkOpenedResponse,
+        operation_id="openLocalReviewerWork",
+        summary="Open or reuse one loopback-only Reviewer work assignment",
+        responses={409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+    )
+    def open_local_reviewer_work(
+        game_id: UUID,
+        import_job_id: UUID,
+        payload: ReviewerWorkOpenCommand,
+        lifecycle: Annotated[ReviewerWorkLifecycleService, work_lifecycle_parameter],
+    ) -> ReviewerWorkOpenedResponse:
+        return ReviewerWorkOpenedResponse.from_opened(
+            lifecycle.open_local(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                lease_owner="admin-api",
+                lease_expires_at=datetime.now(UTC) + timedelta(minutes=payload.lifetime_minutes),
+            )
+        )
+
+    @router.post(
+        "/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/online",
+        response_model=ReviewerWorkOpenedResponse,
+        operation_id="openOnlineReviewerWork",
+        summary="Open or reuse one scoped online Reviewer work assignment",
+        responses={409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+    )
+    def open_online_reviewer_work(
+        game_id: UUID,
+        import_job_id: UUID,
+        payload: ReviewerWorkOpenCommand,
+        lifecycle: Annotated[ReviewerWorkLifecycleService, work_lifecycle_parameter],
+    ) -> ReviewerWorkOpenedResponse:
+        lease_expires_at = datetime.now(UTC) + timedelta(minutes=payload.lifetime_minutes)
+        return ReviewerWorkOpenedResponse.from_opened(
+            lifecycle.open_online(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                lease_owner="admin-api",
+                lease_expires_at=lease_expires_at,
+                session_lifetime_minutes=payload.lifetime_minutes,
+            )
+        )
+
+    @router.post(
+        "/admin/reviewer-work-assignments/{assignment_id}/heartbeat",
+        response_model=ReviewerWorkHeartbeatResponse,
+        operation_id="heartbeatReviewerWorkAssignment",
+        summary="Heartbeat one active Reviewer work assignment",
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def heartbeat_reviewer_work_assignment(
+        assignment_id: UUID,
+        _payload: ReviewerWorkActionCommand,
+        lifecycle: Annotated[ReviewerWorkLifecycleService, work_lifecycle_parameter],
+    ) -> ReviewerWorkHeartbeatResponse:
+        return ReviewerWorkHeartbeatResponse.from_assignment(lifecycle.heartbeat(assignment_id))
+
+    @router.post(
+        "/admin/reviewer-work-assignments/{assignment_id}/close",
+        response_model=ReviewerWorkClosedResponse,
+        operation_id="closeReviewerWorkAssignment",
+        summary="Close only the selected Reviewer work assignment",
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def close_reviewer_work_assignment(
+        assignment_id: UUID,
+        _payload: ReviewerWorkActionCommand,
+        lifecycle: Annotated[ReviewerWorkLifecycleService, work_lifecycle_parameter],
+    ) -> ReviewerWorkClosedResponse:
+        return ReviewerWorkClosedResponse.from_assignment(
+            lifecycle.close_current(
+                assignment_id,
+                reason="owner_stopped",
+                actor="local-owner",
+            )
+        )
 
     @router.post(
         "/admin/reviewer-sessions",

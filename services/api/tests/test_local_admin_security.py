@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
@@ -12,6 +13,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 from game_predictor_api.security.local_admin import (
     AppendOnlyAdminAuditLog,
+    LocalAdminSecurityMiddleware,
     match_high_impact_operation,
     redact_security_metadata,
 )
@@ -27,6 +29,15 @@ class _FakeIngress:
     def start(self) -> ReviewerIngressStatus:
         self.started = True
         return self._response()
+
+    def start_local(self) -> ReviewerIngressStatus:
+        return ReviewerIngressStatus(
+            state="running",
+            public_origin=None,
+            target="http://127.0.0.1:3001",
+            started_at=datetime(2026, 8, 15, 18, 0, tzinfo=UTC),
+            reviewer_ready=True,
+        )
 
     def stop(self) -> ReviewerIngressStatus:
         self.started = False
@@ -162,6 +173,17 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     job_operation, job_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/jobs/{job_id}"
     )
+    local_reviewer_operation, local_reviewer_target = match_high_impact_operation(
+        "POST", "/api/v1/admin/reviewer-local/start"
+    )
+    reviewer_work_operation, reviewer_work_target = match_high_impact_operation(
+        "POST",
+        f"/api/v1/admin/games/{game_id}/imports/{job_id}/reviewer-work-assignments/online",
+    )
+    reviewer_close_operation, reviewer_close_target = match_high_impact_operation(
+        "POST",
+        f"/api/v1/admin/reviewer-work-assignments/{job_id}/close",
+    )
 
     assert release_operation is not None
     assert release_operation.action == "delete-mobile-release"
@@ -172,6 +194,15 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert job_operation is not None
     assert job_operation.action == "delete-image-selection-job"
     assert job_target == f"job:{job_id}"
+    assert local_reviewer_operation is not None
+    assert local_reviewer_operation.action == "start-local-reviewer"
+    assert local_reviewer_target == "local-reviewer"
+    assert reviewer_work_operation is not None
+    assert reviewer_work_operation.action == "open-online-reviewer-work"
+    assert reviewer_work_target == f"reviewer-work:{job_id}:online"
+    assert reviewer_close_operation is not None
+    assert reviewer_close_operation.action == "close-reviewer-work"
+    assert reviewer_close_target == f"reviewer-work:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:
@@ -215,3 +246,50 @@ def test_manual_image_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
     assert response.status_code == 200
     allowed_headers = response.headers["access-control-allow-headers"].casefold()
     assert "x-image-file-name" in allowed_headers
+
+
+def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path) -> None:
+    app = FastAPI()
+    app.add_middleware(
+        LocalAdminSecurityMiddleware,
+        admin_origin="http://127.0.0.1:3000",
+        reviewer_origin="http://127.0.0.1:3001",
+        audit_log=AppendOnlyAdminAuditLog(tmp_path),
+    )
+
+    @app.post("/api/v1/admin/image-review-items/{item_id}/geometry-preview")
+    def preview(item_id: str) -> dict[str, str]:
+        return {"itemId": item_id}
+
+    @app.post("/api/v1/admin/jobs")
+    def create_job() -> dict[str, bool]:
+        return {"created": True}
+
+    headers = {
+        "Origin": "http://127.0.0.1:3001",
+        "X-Admin-Intent": "local-owner",
+    }
+    with TestClient(
+        app,
+        base_url="http://127.0.0.1:8000",
+        client=("127.0.0.1", 42002),
+    ) as client:
+        accepted = client.post(
+            "/api/v1/admin/image-review-items/review-item/geometry-preview",
+            headers=headers,
+        )
+        forbidden_admin_mutation = client.post(
+            "/api/v1/admin/jobs",
+            headers=headers,
+        )
+        foreign_origin = client.post(
+            "/api/v1/admin/image-review-items/review-item/geometry-preview",
+            headers=headers | {"Origin": "https://attacker.example"},
+        )
+
+    assert accepted.status_code == 200
+    assert accepted.json() == {"itemId": "review-item"}
+    assert forbidden_admin_mutation.status_code == 403
+    assert forbidden_admin_mutation.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
+    assert foreign_origin.status_code == 403
+    assert foreign_origin.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"

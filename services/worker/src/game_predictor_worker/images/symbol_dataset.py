@@ -857,15 +857,9 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 else None
             ),
             crop_sample_id=(
-                _sha256(sample.get("cropSampleId"), "cropSampleId")
-                if versioned_inventory
-                else None
+                _sha256(sample.get("cropSampleId"), "cropSampleId") if versioned_inventory else None
             ),
-            board_id=(
-                _sha256(sample.get("boardId"), "boardId")
-                if versioned_inventory
-                else None
-            ),
+            board_id=(_sha256(sample.get("boardId"), "boardId") if versioned_inventory else None),
             board_relative_path=(
                 _text(sample.get("boardRelativePath"), "boardRelativePath")
                 if versioned_inventory
@@ -900,9 +894,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 observation_id=cast(str, parsed.observation_id),
                 cropper_version=_text(value.get("cropperVersion"), "cropperVersion"),
                 geometry_provenance_id=cast(str, parsed.calibration_profile_id),
-                geometry_provenance_version=cast(
-                    int, parsed.calibration_profile_version
-                ),
+                geometry_provenance_version=cast(int, parsed.calibration_profile_version),
                 crop_checksum=parsed.crop_checksum_sha256,
             )
         else:
@@ -945,10 +937,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                     board_index=parsed.board_index,
                 )
             )
-            or (
-                versioned_inventory
-                and sample.get("geometryStatus") != "accepted"
-            )
+            or (versioned_inventory and sample.get("geometryStatus") != "accepted")
         ):
             raise SymbolDatasetError(
                 "SYMBOL_DATASET_INVENTORY_DRIFT",

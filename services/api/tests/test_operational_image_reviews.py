@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -17,6 +19,7 @@ from game_predictor_api.application.image_review_assets import (
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
     OperationalImageReviewService,
+    PendingGridReinferencePreview,
 )
 from game_predictor_api.application.reviewer_access import ReviewerAccessService
 from game_predictor_api.config import ApiSettings
@@ -37,7 +40,9 @@ from game_predictor_api.domain.image_reviews import (
     ValidatedImageReviewResolution,
 )
 from game_predictor_api.main import create_app
-from game_predictor_worker.images.manual_geometry_recrop import ManualGeometryRecropper
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreviewer,
+)
 
 
 class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -51,6 +56,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         self.game_id = game_id
         self.import_job_id = import_job_id
         self.items = {item.id: item for item in items}
+        self.queue_version = 1 if self.items else 0
         self.events: dict[UUID, list[ImageReviewResolutionEvent]] = {}
         self.geometry_revisions: dict[UUID, list[ImageReviewGeometryRevision]] = {}
         self.staging: dict[UUID, tuple[int, tuple[str, ...]]] = {}
@@ -68,8 +74,9 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
-        after_key: tuple[int, int, int, str] | None,
-        before_key: tuple[int, int, int, str] | None,
+        after_key: tuple[int, int, str] | None,
+        before_key: tuple[int, int, str] | None,
+        expected_queue_version: int | None,
         sequence_number: int | None,
         resume_at_first_pending: bool,
         limit: int,
@@ -81,7 +88,13 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.status == "pending"
             if view is ImageReviewView.COMPLETED:
                 return item.status in {"accepted", "corrected"}
-            return item.status in {"pending", "accepted", "corrected", "rejected"}
+            return item.status in {
+                "pending",
+                "accepted",
+                "corrected",
+                "rejected",
+                "superseded",
+            }
 
         def effective_sequence_number(item: ImageReviewItem) -> int | None:
             if view is ImageReviewView.PENDING:
@@ -90,8 +103,14 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.queue_sequence_number
             return item.queue_sequence_number or item.suggested_sequence_number
 
-        def key(item: ImageReviewItem) -> tuple[int, int, int, str]:
-            return item.cursor_key_for(view)
+        if expected_queue_version is not None and expected_queue_version != self.queue_version:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CURSOR_STALE",
+                "The operational review queue topology changed.",
+            )
+
+        def key(item: ImageReviewItem) -> tuple[int, int, str]:
+            return item.queue_order_key
 
         candidates = [
             item
@@ -109,18 +128,8 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 first_pending_key = key(first_pending)
                 candidates = [item for item in candidates if key(item) >= first_pending_key]
         if after_key is not None:
-            if not any(key(item) == after_key for item in candidates):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_CURSOR_STALE",
-                    "The operational review cursor is stale.",
-                )
             candidates = [item for item in candidates if key(item) > after_key]
         if before_key is not None:
-            if not any(key(item) == before_key for item in candidates):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_CURSOR_STALE",
-                    "The operational review cursor is stale.",
-                )
             candidates = [item for item in candidates if key(item) < before_key]
             visible = candidates[-limit:]
         else:
@@ -136,7 +145,17 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 visible and any(key(item) < key(visible[0]) for item in all_for_view)
             ),
             has_next=bool(visible and any(key(item) > key(visible[-1]) for item in all_for_view)),
+            queue_version=self.queue_version,
         )
+
+    def queue_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> tuple[int, ImageReviewCounts]:
+        self.require_context(game_id=game_id, import_job_id=import_job_id)
+        return self.queue_version, self._counts()
 
     def get_item(
         self,
@@ -183,6 +202,13 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_REVISION_CONFLICT",
                 "The operational review item changed after it was loaded.",
+                details={
+                    "actualRevision": item.resolution_revision,
+                    "actualStatus": item.status,
+                    "conflictScope": "item",
+                    "expectedRevision": expected_revision,
+                    "reviewItemId": str(review_item_id),
+                },
             )
         revision = item.resolution_revision + 1
         event = ImageReviewResolutionEvent(
@@ -295,6 +321,11 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             revision=revision_number,
             idempotency_key=idempotency_key,
             command_sha256=command.command_sha256,
+            decision_checksum_sha256=(
+                str(artifacts.geometry["decisionChecksumSha256"])
+                if "decisionChecksumSha256" in artifacts.geometry
+                else None
+            ),
             corners=command.corners,
             board_relative_path=artifacts.board_relative_path,
             board_checksum_sha256=artifacts.board_checksum_sha256,
@@ -343,6 +374,42 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             accepted=statuses.count("accepted"),
             corrected=statuses.count("corrected"),
             rejected=statuses.count("rejected"),
+            superseded=statuses.count("superseded"),
+        )
+
+    def pending_grid_reinference_preview(
+        self,
+        game_id: UUID,
+        *,
+        geometry_version: str,
+        cropper_version: str,
+        audit_report_checksum_sha256: str,
+    ) -> PendingGridReinferencePreview:
+        if game_id != self.game_id:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_CONTEXT_NOT_FOUND",
+                "The selected operational review context does not exist.",
+            )
+        items = tuple(self.items.values())
+        pending = tuple(item for item in items if item.status == "pending")
+        current = tuple(
+            item
+            for item in pending
+            if item.geometry.get("geometryVersion") == geometry_version
+            and item.geometry.get("cropperVersion") == cropper_version
+        )
+        return PendingGridReinferencePreview(
+            game_id=game_id,
+            pending_board_count=len(pending),
+            recalculable_board_count=len(pending) - len(current),
+            current_v19_board_count=len(current),
+            protected_board_count=len(items) - len(pending),
+            pending_source_count=len(pending),
+            partially_resolved_source_count=0,
+            fully_resolved_source_count=len(items) - len(pending),
+            geometry_version=geometry_version,
+            cropper_version=cropper_version,
+            audit_report_checksum_sha256=audit_report_checksum_sha256,
         )
 
 
@@ -459,6 +526,43 @@ def _resolution_payload(
     }
 
 
+def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, _import_job_id = operational_review_context
+    current_id = next(iter(repository.items))
+    current = repository.items[current_id]
+    repository.items[current_id] = replace(
+        current,
+        geometry={
+            **current.geometry,
+            "cropperVersion": ("board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"),
+            "geometryVersion": "board-cell-geometry-v19-multi-point-source-direct-v1",
+        },
+    )
+
+    response = client.get(
+        f"/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pendingBoardCount"] == 3
+    assert payload["recalculableBoardCount"] == 2
+    assert payload["currentV19BoardCount"] == 1
+    assert payload["protectedBoardCount"] == 0
+    assert payload["geometryVersion"] == ("board-cell-geometry-v19-multi-point-source-direct-v1")
+    assert payload["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    assert len(payload["auditReportChecksumSha256"]) == 64
+
+
 def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
     game_id = uuid4()
     import_job_id = uuid4()
@@ -547,6 +651,23 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         original,
         source_relative_path=source_relative_path,
         source_checksum_sha256=hashlib.sha256(source_content).hexdigest(),
+        queue_sequence_number=1,
+        geometry={
+            **original.geometry,
+            "sequenceSource": "filename",
+            "sequenceLabelQuad": [
+                {"x": 260, "y": 370},
+                {"x": 450, "y": 370},
+                {"x": 450, "y": 395},
+                {"x": 260, "y": 395},
+            ],
+            "sourceContextBounds": {
+                "height": 380,
+                "width": 680,
+                "x": 20,
+                "y": 20,
+            },
+        },
         status="corrected",
         resolved_value={
             "action": "corrected",
@@ -574,7 +695,7 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     service = OperationalImageReviewService(
         repository,
         artifact_root=tmp_path,
-        geometry_recropper=ManualGeometryRecropper(),
+        board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
     )
     client = TestClient(
         create_app(
@@ -600,6 +721,14 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     )
     assert preview.status_code == 200
     assert preview.headers["content-type"] == "image/png"
+    assert preview.headers["x-board-cell-count"] == "15"
+    assert preview.headers["x-board-cell-preview-kind"] == "contact-sheet-5x3"
+    assert preview.headers["x-board-cell-cropper-version"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    contact_sheet = cv2.imdecode(np.frombuffer(preview.content, dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert contact_sheet is not None
+    assert contact_sheet.shape[:2] == (3 * 64, 5 * 64)
     assert not (tmp_path / "data" / "image-review-geometry").exists()
 
     idempotency_key = uuid4()
@@ -623,6 +752,33 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     assert body["item"]["geometryRevision"] == 1
     assert body["item"]["resolutionRevision"] == 2
     assert body["item"]["resolvedValue"] is None
+    assert body["item"]["geometry"]["sourceContextBounds"] == {
+        "height": 380,
+        "width": 680,
+        "x": 20,
+        "y": 20,
+    }
+    assert body["item"]["geometry"]["sequenceLabelQuad"] == item.geometry["sequenceLabelQuad"]
+    assert body["item"]["geometry"]["source"] == "manual_override"
+    assert body["item"]["geometry"]["cornerSemantics"] == ("symbol-lattice-outer-bounds-5x3")
+    assert body["item"]["geometry"]["geometryVersion"] == (
+        "board-cell-geometry-v19-multi-point-source-direct-v1"
+    )
+    assert body["item"]["geometry"]["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
+    assert body["item"]["geometry"]["sourceImageChecksumSha256"] == (item.source_checksum_sha256)
+    assert body["item"]["geometry"]["sourceOrderIndex"] == item.source_order_index
+    assert body["item"]["geometry"]["positionIndex"] == item.position_index
+    assert body["item"]["geometry"]["correctedBy"] == "local-admin"
+    assert len(body["item"]["geometry"]["cells"]) == 15
+    assert (
+        body["geometryRevision"]["decisionChecksumSha256"]
+        == (body["item"]["geometry"]["decisionChecksumSha256"])
+    )
+    assert body["geometryRevision"]["cropperVersion"] == (
+        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
+    )
     assert len(body["geometryRevision"]["cells"]) == 15
     assert all(
         cell["currentSymbolCode"] == cell["predictedSymbolCode"] for cell in body["item"]["cells"]
@@ -631,7 +787,21 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         revised["cropSampleId"] != previous.crop_sample_id
         for revised, previous in zip(body["item"]["cells"], item.cells, strict=True)
     )
-    assert len(list((tmp_path / "data" / "image-review-geometry").rglob("*.png"))) == 16
+    persisted_cells = list(
+        (tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png")
+    )
+    assert len(persisted_cells) == 15
+    assert not (tmp_path / "data" / "image-review-geometry").exists()
+    first_revision = repository.geometry_revisions[item.id][0]
+    for cell in first_revision.cells:
+        persisted = cv2.imread(str(tmp_path / "data" / cell.crop_relative_path))
+        assert persisted is not None
+        size = 64
+        expected = contact_sheet[
+            cell.row_index * size : (cell.row_index + 1) * size,
+            cell.column_index * size : (cell.column_index + 1) * size,
+        ]
+        assert np.array_equal(persisted, expected)
     assert repository.items[untouched.id] == untouched
 
     retry = client.post(
@@ -658,12 +828,55 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     assert stale.status_code == 409
     assert stale.json()["code"] == "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT"
 
-    invalid = client.post(
+    second_preview = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
         params=query,
         json={
             "expectedGeometryRevision": 1,
             "expectedResolutionRevision": 2,
+            "corners": corners,
+        },
+    )
+    assert second_preview.status_code == 200
+    assert second_preview.headers["content-type"] == "image/png"
+
+    second_corners = [
+        {"x": 95, "y": 62},
+        {"x": 625, "y": 67},
+        {"x": 630, "y": 347},
+        {"x": 90, "y": 342},
+    ]
+    second_saved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
+        params=query,
+        json={
+            "idempotencyKey": str(uuid4()),
+            "expectedGeometryRevision": 1,
+            "expectedResolutionRevision": 2,
+            "corners": second_corners,
+            "correctedBy": "second-owner",
+        },
+    )
+    assert second_saved.status_code == 200, second_saved.text
+    assert second_saved.json()["geometryRevision"]["revision"] == 2
+    assert second_saved.json()["item"]["geometryRevision"] == 2
+    assert second_saved.json()["item"]["resolutionRevision"] == 3
+    assert len(repository.geometry_revisions[item.id]) == 2
+    assert repository.geometry_revisions[item.id][0] == first_revision
+    assert (
+        repository.geometry_revisions[item.id][1].decision_checksum_sha256
+        != first_revision.decision_checksum_sha256
+    )
+    assert (
+        len(list((tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png"))) == 30
+    )
+
+    invalid = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
+        params=query,
+        json={
+            "expectedGeometryRevision": 2,
+            "expectedResolutionRevision": 3,
             "corners": [
                 {"x": 90, "y": 60},
                 {"x": 630, "y": 350},
@@ -674,6 +887,55 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     )
     assert invalid.status_code == 409
     assert invalid.json()["code"] == "IMAGE_REVIEW_GEOMETRY_CORNERS_INVALID"
+
+
+def test_v19_geometry_preview_does_not_treat_an_unattested_suggestion_as_sequence(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    item = next(iter(repository.items.values()))
+
+    response = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json={
+            "expectedGeometryRevision": item.geometry_revision,
+            "expectedResolutionRevision": item.resolution_revision,
+            "corners": [
+                {"x": 0, "y": 0},
+                {"x": 10, "y": 0},
+                {"x": 10, "y": 10},
+                {"x": 0, "y": 10},
+            ],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
+
+    saved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json={
+            "idempotencyKey": str(uuid4()),
+            "expectedGeometryRevision": item.geometry_revision,
+            "expectedResolutionRevision": item.resolution_revision,
+            "corners": [
+                {"x": 0, "y": 0},
+                {"x": 10, "y": 0},
+                {"x": 10, "y": 10},
+                {"x": 0, "y": 10},
+            ],
+            "correctedBy": "local-admin",
+        },
+    )
+    assert saved.status_code == 409
+    assert saved.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
 
 
 def test_cursor_queue_is_bounded_reversible_and_scope_bound(
@@ -695,11 +957,22 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         "accepted": 0,
         "corrected": 0,
         "rejected": 0,
+        "superseded": 0,
         "completed": 0,
         "total": 3,
     }
+    assert first_body["queueVersion"] == 1
     assert first_body["previousCursor"] is None
     assert first_body["nextCursor"]
+    padding = "=" * (-len(first_body["nextCursor"]) % 4)
+    cursor_payload = json.loads(base64.urlsafe_b64decode(first_body["nextCursor"] + padding))
+    assert cursor_payload["version"] == 2
+    assert cursor_payload["queueVersion"] == 1
+    assert cursor_payload["key"] == [
+        first_body["items"][-1]["sourceOrderIndex"],
+        first_body["items"][-1]["positionIndex"],
+        first_body["items"][-1]["id"],
+    ]
 
     second = client.get(
         "/api/v1/admin/image-review-items",
@@ -727,6 +1000,56 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         },
     )
     assert wrong_scope.status_code in {404, 409}
+
+
+def test_pending_cursor_survives_boundary_resolution_but_not_topology_change(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    query = {
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "view": "pending",
+        "limit": 1,
+    }
+    first = client.get("/api/v1/admin/image-review-items", params=query)
+    assert first.status_code == 200
+    first_body = first.json()
+    first_item = repository.items[UUID(first_body["items"][0]["id"])]
+
+    resolved = client.post(
+        f"/api/v1/admin/image-review-items/{first_item.id}/resolution",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json=_resolution_payload(
+            first_item,
+            idempotency_key=uuid4(),
+            action="corrected",
+            sequence_number=999,
+            corrected_cell=0,
+        ),
+    )
+    assert resolved.status_code == 200
+
+    next_page = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "afterCursor": first_body["nextCursor"]},
+    )
+    assert next_page.status_code == 200
+    assert next_page.json()["items"][0]["sourceOrderIndex"] == 1
+    assert next_page.json()["queueVersion"] == 1
+
+    repository.queue_version += 1
+    stale = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "afterCursor": first_body["nextCursor"]},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "IMAGE_REVIEW_CURSOR_STALE"
 
 
 def test_all_view_keeps_source_order_and_cursor_valid_after_resolution(
@@ -936,6 +1259,79 @@ def test_whole_board_resolution_is_idempotent_and_reeditable(
         params=query,
     )
     assert [event["revision"] for event in history.json()] == [1, 2]
+
+
+def test_resolution_uses_item_revision_and_returns_authoritative_queue_snapshot(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    items = sorted(repository.items.values(), key=lambda value: value.source_order_index)
+    current, neighbor, remaining = items
+    endpoint = f"/api/v1/admin/image-review-items/{current.id}/resolution"
+    context = {"gameId": str(game_id), "importJobId": str(import_job_id)}
+    command_key = uuid4()
+    command = _resolution_payload(current, idempotency_key=command_key)
+
+    neighbor_response = client.post(
+        f"/api/v1/admin/image-review-items/{neighbor.id}/resolution",
+        params=context,
+        json=_resolution_payload(neighbor, idempotency_key=uuid4()),
+    )
+    assert neighbor_response.status_code == 200
+
+    resolved = client.post(endpoint, params=context, json=command)
+    assert resolved.status_code == 200
+    assert resolved.json()["created"] is True
+    assert resolved.json()["queueVersion"] == 1
+    assert resolved.json()["counts"] == {
+        "pending": 1,
+        "accepted": 2,
+        "corrected": 0,
+        "rejected": 0,
+        "superseded": 0,
+        "completed": 2,
+        "total": 3,
+    }
+
+    last_response = client.post(
+        f"/api/v1/admin/image-review-items/{remaining.id}/resolution",
+        params=context,
+        json=_resolution_payload(remaining, idempotency_key=uuid4()),
+    )
+    assert last_response.status_code == 200
+
+    exact_retry = client.post(endpoint, params=context, json=command)
+    assert exact_retry.status_code == 200
+    assert exact_retry.json()["created"] is False
+    assert exact_retry.json()["queueVersion"] == 1
+    assert exact_retry.json()["counts"]["pending"] == 0
+    assert exact_retry.json()["counts"]["accepted"] == 3
+
+    stale = client.post(
+        endpoint,
+        params=context,
+        json=_resolution_payload(
+            repository.items[current.id],
+            idempotency_key=uuid4(),
+            expected_revision=0,
+            action="corrected",
+            corrected_cell=0,
+        ),
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "IMAGE_REVIEW_REVISION_CONFLICT"
+    assert stale.json()["details"] == {
+        "actualRevision": 1,
+        "actualStatus": "accepted",
+        "conflictScope": "item",
+        "expectedRevision": 0,
+        "reviewItemId": str(current.id),
+    }
 
 
 def test_resolution_rejects_stale_revision_and_changed_idempotent_command(

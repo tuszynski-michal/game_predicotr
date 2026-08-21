@@ -3,6 +3,10 @@ import test from 'node:test';
 
 import {
   createImageFolderImport,
+  listReadyBrowserImageSelections,
+  previewReadyBrowserImageImport,
+  reprocessImageFolderImport,
+  startReadyBrowserImageImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
 
@@ -55,7 +59,12 @@ test('uploads a browser-native folder and returns a validated selection', async 
     [file],
   );
 
-  assert.deepEqual(result, { displayName: 'photos', ok: true, selection });
+  assert.deepEqual(result, {
+    displayName: 'photos',
+    ok: true,
+    selection,
+    uploadId: 'upload-1',
+  });
   assert.deepEqual(calls[0], [
     'create',
     {
@@ -72,6 +81,29 @@ test('uploads a browser-native folder and returns a validated selection', async 
     file,
   ]);
   assert.deepEqual(calls[2], ['finalize', 'upload-1']);
+});
+
+test('reprocesses an import from its managed originals', async () => {
+  const job = {
+    id: 'job-2',
+    inputPayload: { importKind: 'image_directory', schemaVersion: 4 },
+    jobType: 'import',
+    status: 'created',
+  };
+  let sourceJobId;
+
+  const result = await reprocessImageFolderImport(
+    {
+      reprocessManagedImageImport: async (value) => {
+        sourceJobId = value;
+        return { data: { job } };
+      },
+    },
+    'job-1',
+  );
+
+  assert.equal(sourceJobId, 'job-1');
+  assert.deepEqual(result, { job, ok: true });
 });
 
 test('creates an image import only from the approved selection token', async () => {
@@ -120,4 +152,78 @@ test('preserves a stable browser folder validation error', async () => {
     error: 'No supported files. (IMAGE_FOLDER_EMPTY)',
     ok: false,
   });
+});
+
+test('previews and starts a recovered browser staging idempotently', async () => {
+  const calls = [];
+  const api = {
+    listReadyBrowserImageSelections: async () => ({
+      data: [{ uploadId: 'upload-1', displayName: '1-18' }],
+    }),
+    previewReadyBrowserImageImport: async (uploadId, body) => {
+      calls.push(['preview', uploadId, body]);
+      return {
+        data: {
+          uploadId,
+          gameId: body.gameId,
+          manifestChecksumSha256: 'a'.repeat(64),
+          preflightChecksumSha256: 'b'.repeat(64),
+          sourceFileCount: 2,
+          attestedFileCount: 2,
+          newSequenceCount: 9,
+          reusedSequenceCount: 9,
+          skippedSourceCount: 1,
+          partialSourceCount: 0,
+          alternativeSourceCount: 0,
+          firstUnresolvedSequence: 10,
+          lastUnresolvedSequence: 18,
+          warnings: [],
+          displayName: '1-18',
+        },
+      };
+    },
+    startReadyBrowserImageImport: async (uploadId, body) => {
+      calls.push(['start', uploadId, body]);
+      return {
+        data: {
+          created: false,
+          job: { id: 'job-1' },
+          preflight: {},
+        },
+      };
+    },
+  };
+
+  assert.equal((await listReadyBrowserImageSelections(api)).ok, true);
+  const preview = await previewReadyBrowserImageImport(
+    api,
+    'upload-1',
+    'game-1',
+  );
+  assert.equal(preview.ok, true);
+  const started = await startReadyBrowserImageImport(
+    api,
+    'upload-1',
+    'game-1',
+    'a'.repeat(64),
+    'b'.repeat(64),
+    'geometry-job-1',
+    'c'.repeat(64),
+  );
+
+  assert.equal(started.ok, true);
+  assert.deepEqual(calls, [
+    ['preview', 'upload-1', { gameId: 'game-1' }],
+    [
+      'start',
+      'upload-1',
+      {
+        gameId: 'game-1',
+        geometryManifestChecksumSha256: 'c'.repeat(64),
+        geometryPreflightJobId: 'geometry-job-1',
+        manifestChecksumSha256: 'a'.repeat(64),
+        preflightChecksumSha256: 'b'.repeat(64),
+      },
+    ],
+  ]);
 });

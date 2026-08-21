@@ -2,6 +2,7 @@
 
 import type {
   ModelQualityResponse,
+  PendingSymbolReinferencePreviewResponse,
   SymbolModelActivationAction,
   SymbolModelActivationPreviewResponse,
   SymbolModelActivationResponse,
@@ -17,6 +18,8 @@ import {
   confirmModelActivation,
   loadModelQuality,
   previewModelActivation,
+  previewPendingSymbolReinference as loadPendingSymbolReinference,
+  startPendingSymbolReinference,
   type ModelQualityClient,
 } from '@/features/model-quality/model-quality-actions';
 
@@ -66,6 +69,9 @@ export function ModelQualityWorkspace({
   const [activations, setActivations] = useState<
     readonly SymbolModelActivationResponse[]
   >([]);
+  const [pendingPreview, setPendingPreview] =
+    useState<PendingSymbolReinferencePreviewResponse | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
   const [activationPreview, setActivationPreview] =
     useState<SymbolModelActivationPreviewResponse | null>(null);
   const [activationAction, setActivationAction] =
@@ -83,7 +89,10 @@ export function ModelQualityWorkspace({
     async (signal?: AbortSignal) => {
       setLoading(true);
       setError('');
-      const result = await loadModelQuality(api, gameId, signal);
+      const [result, pendingResult] = await Promise.all([
+        loadModelQuality(api, gameId, signal),
+        loadPendingSymbolReinference(api, gameId),
+      ]);
       if (signal?.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
@@ -94,6 +103,7 @@ export function ModelQualityWorkspace({
       setPreview(result.preview);
       setIterations(result.iterations);
       setActivations(result.activations);
+      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -132,6 +142,20 @@ export function ModelQualityWorkspace({
     setConfirming(false);
     setFreezing(false);
     await refresh();
+  }
+
+  async function recalculatePendingSymbols() {
+    if (pendingPreview === null || pendingPreview.pendingCount === 0 || recalculating) return;
+    setRecalculating(true);
+    setError('');
+    const result = await startPendingSymbolReinference(api, gameId);
+    if (result.ok) {
+      setNotice(`Uruchomiono przeliczenie oczekujących (job ${result.job.id}).`);
+      setPendingPreview({ ...pendingPreview, pendingCount: 0 });
+    } else {
+      setError(result.error);
+    }
+    setRecalculating(false);
   }
 
   async function prepareActivation(
@@ -532,18 +556,30 @@ export function ModelQualityWorkspace({
       ) : null}
 
       {!confirming ? (
-        <button
-          className="primaryButton"
-          disabled={!quality.canFreeze || loading}
-          onClick={() => {
-            setError('');
-            setNotice('');
-            setConfirming(true);
-          }}
-          type="button"
-        >
-          Ulepsz rozpoznawanie
-        </button>
+        <div className="buttonRow">
+          <button
+            className="primaryButton"
+            disabled={!quality.canFreeze || loading}
+            onClick={() => {
+              setError('');
+              setNotice('');
+              setConfirming(true);
+            }}
+            type="button"
+          >
+            Ulepsz rozpoznawanie
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={recalculating || pendingPreview?.pendingCount === 0}
+            onClick={() => void recalculatePendingSymbols()}
+            type="button"
+          >
+            {recalculating
+              ? 'Przeliczanie…'
+              : `Przelicz oczekujące (${pendingPreview?.pendingCount ?? '…'})`}
+          </button>
+        </div>
       ) : (
         <section
           className="modelQualityConfirmation"

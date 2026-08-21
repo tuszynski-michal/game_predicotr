@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,10 +17,12 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
+    ImageReviewConflictError,
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
     ImageReviewResolutionCell,
+    ImageReviewView,
     validate_image_review_geometry_command,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
@@ -40,7 +44,11 @@ from game_predictor_api.storage.models import (
     ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
+    ImageReviewQueueItemModel,
+    ImageReviewQueueStateModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceAlternativeModel,
+    ImageSequenceCanonicalModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -53,13 +61,20 @@ from game_predictor_worker.images.orchestration_store import (
     ImageOrchestrationStoreError,
     SqlAlchemyImageBatchStore,
 )
+from game_predictor_worker.images.pending_grid_reinference import (
+    PendingGridReinferenceHandler,
+)
+from game_predictor_worker.images.pending_symbol_reinference import (
+    PendingSymbolReinferenceHandler,
+)
 from game_predictor_worker.images.pipeline_store import (
     ImagePipelineStoreError,
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, null, select
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -121,6 +136,713 @@ def _image_job(game_id: UUID, pipeline: str, created_at: datetime) -> Job:
         },
         created_at=created_at,
     )
+
+
+def _add_review_projection_source(
+    session: Session,
+    *,
+    job_id: UUID,
+    file_execution_key: str,
+    source_checksum: str,
+    source_name: str,
+    position_index: int,
+    sequence_number: int,
+    status: str,
+    created_at: datetime,
+) -> tuple[UUID, UUID]:
+    source = SourceImageModel(
+        import_job_id=job_id,
+        file_execution_key=file_execution_key,
+        relative_path=source_name,
+        checksum_sha256=source_checksum,
+        width=1920,
+        height=1080,
+        status="waiting_for_review",
+        created_at=created_at,
+    )
+    session.add(source)
+    session.flush()
+    board = RecognizedBoardModel(
+        source_image_id=source.id,
+        position_index=position_index,
+        sequence_number_raw=str(sequence_number),
+        sequence_number=sequence_number,
+        sequence_confidence=1.0,
+        board_geometry={"source": "projection-test"},
+        board_relative_path=f"crops/{source_name}.png",
+        board_checksum_sha256=f"{sequence_number:064x}",
+        cells_prediction={"cells": []},
+        board_confidence=1.0,
+        pipeline_fingerprint=PIPELINE,
+        status="pending_review" if status == "pending" else status,
+        created_at=created_at,
+    )
+    session.add(board)
+    session.flush()
+    resolved = status != "pending"
+    review_values: dict[str, object] = {}
+    if resolved:
+        review_values = {
+            "resolved_value": {"action": status, "rejectionReason": "test"},
+            "resolved_by": "projection-test",
+            "resolved_at": created_at,
+        }
+    review = ImageReviewItemModel(
+        recognized_board_id=board.id,
+        status=status,
+        snapshot={"sequenceNumber": sequence_number},
+        resolution_revision=1 if resolved else 0,
+        created_at=created_at,
+        **review_values,
+    )
+    session.add(review)
+    session.flush()
+    session.add_all(
+        CellObservationModel(
+            recognized_board_id=board.id,
+            row_index=index // 5,
+            column_index=index % 5,
+            crop_relative_path=f"crops/{source_name}-{index}.png",
+            crop_checksum_sha256=f"{sequence_number * 100 + index:064x}",
+            cropper_version="projection-test-cropper",
+            prediction={
+                "symbolCode": "test",
+                "confidence": 1.0,
+                "alternatives": [{"symbolCode": "test", "confidence": 1.0}],
+            },
+            created_at=created_at,
+        )
+        for index in range(15)
+    )
+    return review.id, board.id
+
+
+def test_image_review_queue_projection_backfills_and_tracks_durable_state(
+    isolated_image_batch_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_batch_database)
+    command.upgrade(config, "0048_image_page_geometry_overrides")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 20, 12, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="review-queue-projection",
+                name="Review queue projection",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        later_source = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="later.jpg",
+            order_index=8,
+            registered_at=now,
+        )
+        earlier_source = image_store.register_file(
+            job.id,
+            source_checksum_sha256="2" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="earlier.jpg",
+            order_index=2,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            later_review_id, later_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=later_source.file_execution_key,
+                source_checksum="1" * 64,
+                source_name="later.jpg",
+                position_index=5,
+                sequence_number=10,
+                status="pending",
+                created_at=now,
+            )
+            earlier_review_id, _earlier_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=earlier_source.file_execution_key,
+                source_checksum="2" * 64,
+                source_name="earlier.jpg",
+                position_index=7,
+                sequence_number=1,
+                status="rejected",
+                created_at=now,
+            )
+            session.commit()
+
+        engine.dispose()
+        command.upgrade(config, "head")
+        engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+        session_factory = create_session_factory(engine)
+
+        with Session(engine, expire_on_commit=False) as session:
+            projected = session.scalars(
+                select(ImageReviewQueueItemModel)
+                .where(ImageReviewQueueItemModel.import_job_id == job.id)
+                .order_by(
+                    ImageReviewQueueItemModel.source_order_index,
+                    ImageReviewQueueItemModel.position_index,
+                    ImageReviewQueueItemModel.review_item_id,
+                )
+            ).all()
+            assert [item.review_item_id for item in projected] == [
+                earlier_review_id,
+                later_review_id,
+            ]
+            assert [
+                (item.source_order_index, item.position_index, item.status) for item in projected
+            ] == [(2, 7, "rejected"), (8, 5, "pending")]
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert state is not None
+            assert state.queue_version == 1
+            assert state.total_count == 2
+            assert state.pending_count == 1
+            assert state.rejected_count == 1
+
+            earlier_review = session.get(
+                ImageReviewItemModel,
+                earlier_review_id,
+                with_for_update=True,
+            )
+            later_board = session.get(RecognizedBoardModel, later_board_id)
+            assert earlier_review is not None
+            assert later_board is not None
+            earlier_review.status = "corrected"
+            earlier_review.resolved_value = {
+                "action": "corrected",
+                "sequenceNumber": 1,
+                "symbolCodes": ["test"] * 15,
+            }
+            later_board.sequence_number = 1
+            session.commit()
+
+        image_store = SqlAlchemyImageBatchStore(session_factory)
+        middle_source = image_store.register_file(
+            job.id,
+            source_checksum_sha256="3" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="middle.jpg",
+            order_index=4,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            middle_review_id, _middle_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=middle_source.file_execution_key,
+                source_checksum="3" * 64,
+                source_name="middle.jpg",
+                position_index=0,
+                sequence_number=5,
+                status="pending",
+                created_at=now,
+            )
+            session.commit()
+
+        with Session(engine) as session:
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert state is not None
+            assert state.queue_version == 2
+            assert state.total_count == 3
+            assert state.pending_count == 2
+            assert state.accepted_count == 0
+            assert state.corrected_count == 1
+            assert state.rejected_count == 0
+            projected = session.scalars(
+                select(ImageReviewQueueItemModel)
+                .where(ImageReviewQueueItemModel.import_job_id == job.id)
+                .order_by(ImageReviewQueueItemModel.source_order_index)
+            ).all()
+            assert [item.review_item_id for item in projected] == [
+                earlier_review_id,
+                middle_review_id,
+                later_review_id,
+            ]
+            assert projected[-1].source_order_index == 8
+            assert projected[-1].position_index == 5
+
+            operational = OperationalImageReviewService(
+                SqlAlchemyOperationalImageReviewRepository(session)
+            )
+            resumed = operational.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                after_cursor=None,
+                before_cursor=None,
+                sequence_number=None,
+                resume_at_first_pending=True,
+                limit=1,
+            )
+            assert resumed.queue_version == 2
+            assert resumed.items[0].id == middle_review_id
+            assert resumed.items[0].source_order_index == 4
+            assert resumed.previous_cursor is not None
+            assert resumed.next_cursor is not None
+            after_resumed = operational.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                after_cursor=resumed.next_cursor,
+                before_cursor=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=1,
+            )
+            assert after_resumed.items[0].id == later_review_id
+            assert after_resumed.items[0].suggested_sequence_number == 1
+            topology_cursor = resumed.next_cursor
+
+        with Session(engine) as session:
+            immutable_item = session.get(ImageReviewQueueItemModel, middle_review_id)
+            assert immutable_item is not None
+            immutable_item.source_order_index = 100
+            with pytest.raises(IntegrityError):
+                session.commit()
+            session.rollback()
+
+        with Session(engine) as session:
+            removable_review = session.get(ImageReviewItemModel, middle_review_id)
+            assert removable_review is not None
+            session.delete(removable_review)
+            session.commit()
+
+        with Session(engine) as session:
+            assert session.get(ImageReviewQueueItemModel, middle_review_id) is None
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert state is not None
+            assert state.queue_version == 3
+            assert state.total_count == 2
+            assert state.pending_count == 1
+            assert state.corrected_count == 1
+            operational = OperationalImageReviewService(
+                SqlAlchemyOperationalImageReviewRepository(session)
+            )
+            with pytest.raises(ImageReviewConflictError) as stale:
+                operational.list_items(
+                    game_id=game.id,
+                    import_job_id=job.id,
+                    view=ImageReviewView.ALL,
+                    after_cursor=topology_cursor,
+                    before_cursor=None,
+                    sequence_number=None,
+                    resume_at_first_pending=False,
+                    limit=1,
+                )
+            assert stale.value.code == "IMAGE_REVIEW_CURSOR_STALE"
+    finally:
+        engine.dispose()
+
+
+def test_review_queue_completes_and_reopens_image_import_job(
+    isolated_image_batch_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_batch_database)
+    command.upgrade(config, "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 21, 10, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="review-job-lifecycle",
+                name="Review job lifecycle",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            record = session.get(JobModel, job.id)
+            assert record is not None
+            record.status = JobStatus.WAITING_FOR_REVIEW
+            record.stage = "image_pipeline:manual_review"
+            session.commit()
+
+        first_registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="9" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="review-lifecycle-1.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        second_registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="7" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="review-lifecycle-2.jpg",
+            order_index=1,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            first_id, _first_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=first_registered.file_execution_key,
+                source_checksum="9" * 64,
+                source_name="review-lifecycle-1.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            second_id, _second_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=second_registered.file_execution_key,
+                source_checksum="7" * 64,
+                source_name="review-lifecycle-2.jpg",
+                position_index=0,
+                sequence_number=2,
+                status="pending",
+                created_at=now,
+            )
+            session.commit()
+
+        with Session(engine) as session:
+            first = session.get(ImageReviewItemModel, first_id)
+            assert first is not None
+            first.status = "accepted"
+            first.resolved_value = {"action": "accepted", "sequenceNumber": 1}
+            first.resolved_by = "lifecycle-test"
+            first.resolved_at = now
+            first.resolution_revision = 1
+            session.commit()
+
+        with Session(engine) as session:
+            still_waiting = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert still_waiting is not None
+            assert state is not None
+            assert still_waiting.status is JobStatus.WAITING_FOR_REVIEW
+            assert still_waiting.finished_at is None
+            assert state.pending_count == 1
+
+            second = session.get(ImageReviewItemModel, second_id)
+            assert second is not None
+            second.status = "corrected"
+            second.resolved_value = {"action": "corrected", "sequenceNumber": 2}
+            second.resolved_by = "lifecycle-test"
+            second.resolved_at = now + timedelta(seconds=1)
+            second.resolution_revision = 1
+            session.commit()
+
+        with Session(engine) as session:
+            completed = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert completed is not None
+            assert state is not None
+            assert completed.status is JobStatus.COMPLETED
+            assert completed.finished_at is not None
+            assert state.pending_count == 0
+
+            first = session.get(ImageReviewItemModel, first_id)
+            assert first is not None
+            first.status = "pending"
+            first.resolved_value = null()
+            first.resolved_by = None
+            first.resolved_at = None
+            first.resolution_revision = 2
+            session.commit()
+
+        with Session(engine) as session:
+            reopened = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert reopened is not None
+            assert state is not None
+            assert reopened.status is JobStatus.WAITING_FOR_REVIEW
+            assert reopened.finished_at is None
+            assert state.pending_count == 1
+    finally:
+        engine.dispose()
+
+
+def test_review_job_completion_migration_backfills_resolved_import(
+    isolated_image_batch_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_batch_database)
+    command.upgrade(config, "0052_reviewer_assignment_sessions")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 21, 11, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="review-job-backfill",
+                name="Review job backfill",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            record = session.get(JobModel, job.id)
+            assert record is not None
+            record.status = JobStatus.WAITING_FOR_REVIEW
+            record.stage = "image_pipeline:manual_review"
+            session.commit()
+
+        registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="8" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="resolved-before-upgrade.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine) as session:
+            _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=registered.file_execution_key,
+                source_checksum="8" * 64,
+                source_name="resolved-before-upgrade.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="corrected",
+                created_at=now,
+            )
+            session.commit()
+            before_upgrade = session.get(JobModel, job.id)
+            assert before_upgrade is not None
+            assert before_upgrade.status is JobStatus.WAITING_FOR_REVIEW
+
+        engine.dispose()
+        command.upgrade(config, "head")
+        engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+
+        with Session(engine) as session:
+            completed = session.get(JobModel, job.id)
+            state = session.get(ImageReviewQueueStateModel, job.id)
+            assert completed is not None
+            assert state is not None
+            assert completed.status is JobStatus.COMPLETED
+            assert completed.finished_at is not None
+            assert state.total_count == 1
+            assert state.pending_count == 0
+    finally:
+        engine.dispose()
+
+
+def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_loser(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 20, 14, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="first-save-wins",
+                name="First save wins",
+                status=GameStatus.ACTIVE,
+            )
+            CatalogService(SqlAlchemyCatalogRepository(session)).create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            jobs = (
+                repository.add_job(_image_job(game.id, PIPELINE, now)),
+                repository.add_job(_image_job(game.id, PIPELINE, now + timedelta(seconds=1))),
+            )
+            session.commit()
+
+        review_ids: list[UUID] = []
+        for index, job in enumerate(jobs, start=1):
+            registered = image_store.register_file(
+                job.id,
+                source_checksum_sha256=f"{index}" * 64,
+                pipeline_fingerprint=PIPELINE,
+                source_relative_path=f"source-{index}.jpg",
+                order_index=0,
+                registered_at=now,
+            )
+            with Session(engine) as session:
+                review_id, _board_id = _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=registered.file_execution_key,
+                    source_checksum=f"{index}" * 64,
+                    source_name=f"source-{index}.jpg",
+                    position_index=0,
+                    sequence_number=1,
+                    status="pending",
+                    created_at=now,
+                )
+                review_ids.append(review_id)
+                session.commit()
+
+        ready = Barrier(2)
+
+        def resolve(review_id: UUID, job_id: UUID) -> tuple[UUID, str, str]:
+            with Session(engine, expire_on_commit=False) as session:
+                service = OperationalImageReviewService(
+                    SqlAlchemyOperationalImageReviewRepository(session)
+                )
+                current = service.get_item(
+                    review_id,
+                    game_id=game.id,
+                    import_job_id=job_id,
+                )
+                cells = tuple(
+                    ImageReviewResolutionCell(
+                        cell_index=cell.cell_index,
+                        crop_sample_id=cell.crop_sample_id,
+                        symbol_code="test",
+                    )
+                    for cell in current.cells
+                )
+                ready.wait(timeout=10)
+                resolved, event, created = service.resolve_item(
+                    review_id,
+                    game_id=game.id,
+                    import_job_id=job_id,
+                    idempotency_key=uuid4(),
+                    expected_revision=0,
+                    action=ImageReviewAction.ACCEPTED,
+                    sequence_number=1,
+                    geometry_revision=0,
+                    cells=cells,
+                    rejection_reason=None,
+                    resolved_by=f"reviewer-{job_id}",
+                )
+                assert created is True
+                queue_version, counts = service.queue_snapshot(
+                    game_id=game.id,
+                    import_job_id=job_id,
+                )
+                assert queue_version == 1
+                assert counts.total == 1
+                assert counts.accepted + counts.superseded == 1
+                session.commit()
+                return resolved.id, resolved.status, event.action
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = tuple(
+                executor.map(
+                    lambda pair: resolve(*pair),
+                    zip(review_ids, (jobs[0].id, jobs[1].id), strict=True),
+                )
+            )
+
+        assert sorted(status for _item_id, status, _action in results) == [
+            "accepted",
+            "superseded",
+        ]
+        assert sorted(action for _item_id, _status, action in results) == [
+            "accepted",
+            "superseded",
+        ]
+
+        with Session(engine) as session:
+            canonical = session.scalar(
+                select(ImageSequenceCanonicalModel).where(
+                    ImageSequenceCanonicalModel.game_id == game.id,
+                    ImageSequenceCanonicalModel.sequence_number == 1,
+                )
+            )
+            assert canonical is not None
+            assert canonical.review_item_id in review_ids
+            assert (
+                session.scalar(select(func.count()).select_from(ImageSequenceCanonicalModel)) == 1
+            )
+            losing_id = next(
+                review_id for review_id in review_ids if review_id != canonical.review_item_id
+            )
+            loser = session.get(ImageReviewItemModel, losing_id)
+            assert loser is not None
+            assert loser.status == "superseded"
+            assert loser.resolution_revision == 2
+            assert loser.resolved_value is not None
+            assert loser.resolved_value["canonicalReviewItemId"] == str(canonical.review_item_id)
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSequenceAlternativeModel)
+                    .where(ImageSequenceAlternativeModel.game_id == game.id)
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewResolutionEventModel)
+                    .where(ImageReviewResolutionEventModel.action == "superseded")
+                )
+                == 2
+            )
+            assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 1
+            states = session.scalars(
+                select(ImageReviewQueueStateModel).where(
+                    ImageReviewQueueStateModel.import_job_id.in_((jobs[0].id, jobs[1].id))
+                )
+            ).all()
+            assert len(states) == 2
+            assert all(state.queue_version == 1 and state.total_count == 1 for state in states)
+            assert sum(state.accepted_count for state in states) == 1
+            assert sum(state.superseded_count for state in states) == 1
+            assert sum(state.pending_count for state in states) == 0
+
+            operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            blocked_geometry = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=0,
+                expected_resolution_revision=loser.resolution_revision,
+                corrected_by="late-reviewer",
+            )
+            with pytest.raises(ImageReviewConflictError) as protected:
+                operational_repository.save_geometry_revision(
+                    review_item_id=losing_id,
+                    game_id=game.id,
+                    import_job_id=next(
+                        job.id
+                        for job, review_id in zip(jobs, review_ids, strict=True)
+                        if review_id == losing_id
+                    ),
+                    idempotency_key=uuid4(),
+                    command=blocked_geometry,
+                    artifacts=ImageReviewGeometryArtifacts(
+                        geometry={"source": "blocked-test"},
+                        board_relative_path="blocked/board.png",
+                        board_checksum_sha256="f" * 64,
+                        cropper_version="blocked-test",
+                        cells=tuple(
+                            ImageReviewGeometryCellArtifact(
+                                row_index=index // 5,
+                                column_index=index % 5,
+                                crop_relative_path=f"blocked/cell-{index}.png",
+                                crop_checksum_sha256=f"{index + 500:064x}",
+                            )
+                            for index in range(15)
+                        ),
+                    ),
+                    created_at=now + timedelta(minutes=1),
+                )
+            assert protected.value.code == "IMAGE_REVIEW_SUPERSEDED"
+    finally:
+        engine.dispose()
 
 
 def test_image_batch_store_reuses_execution_and_fences_checkpoint(
@@ -295,15 +1017,26 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                     prediction={
                         "symbolCode": "lemon",
                         "confidence": 1.0,
-                        "alternatives": [
-                            {"symbolCode": "lemon", "confidence": 1.0}
-                        ],
+                        "alternatives": [{"symbolCode": "lemon", "confidence": 1.0}],
                     },
                     created_at=now,
                 )
                 for index in range(15)
             )
             session.commit()
+
+        with Session(engine) as session:
+            queue_item = session.get(ImageReviewQueueItemModel, review.id)
+            queue_state = session.get(ImageReviewQueueStateModel, second_job.id)
+            assert queue_item is not None
+            assert queue_item.import_job_id == second_job.id
+            assert queue_item.source_order_index == 0
+            assert queue_item.position_index == 0
+            assert queue_item.status == "pending"
+            assert queue_state is not None
+            assert queue_state.queue_version == 1
+            assert queue_state.total_count == 1
+            assert queue_state.pending_count == 1
 
         pipeline_store = SqlAlchemyImagePipelineStore(session_factory)
         idempotency_key = uuid4()
@@ -471,16 +1204,24 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 session.scalar(select(func.count()).select_from(ImageReviewResolutionEventModel))
                 == 4
             )
+            assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 0
             assert (
-                session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel))
-                == 0
-            )
-            assert (
-                session.scalar(
-                    select(func.count()).select_from(ImageBoardGeometryRevisionModel)
-                )
+                session.scalar(select(func.count()).select_from(ImageBoardGeometryRevisionModel))
                 == 1
             )
+            queue_item = session.get(ImageReviewQueueItemModel, review.id)
+            queue_state = session.get(ImageReviewQueueStateModel, second_job.id)
+            assert queue_item is not None
+            assert queue_item.status == "pending"
+            assert queue_item.source_order_index == 0
+            assert queue_item.position_index == 0
+            assert queue_state is not None
+            assert queue_state.queue_version == 1
+            assert queue_state.total_count == 1
+            assert queue_state.pending_count == 1
+            assert queue_state.accepted_count == 0
+            assert queue_state.corrected_count == 0
+            assert queue_state.rejected_count == 0
     finally:
         engine.dispose()
 
@@ -574,5 +1315,100 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
             assert refreshed_job.status is JobStatus.CREATED
             assert refreshed_job.error_code is None
             assert refreshed_job.finished_at is None
+    finally:
+        engine.dispose()
+
+
+def test_pending_reinference_excludes_cancelled_imports(
+    isolated_image_batch_database: URL,
+    tmp_path: Path,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 20, 22, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="pending-reinference-scope",
+                name="Pending reinference scope",
+                status=GameStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            active_job = repository.add_job(_image_job(game.id, PIPELINE, now))
+            cancelled_job = repository.add_job(
+                _image_job(game.id, PIPELINE, now + timedelta(seconds=1))
+            )
+            active_record = session.get(JobModel, active_job.id)
+            cancelled_record = session.get(JobModel, cancelled_job.id)
+            assert active_record is not None
+            assert cancelled_record is not None
+            active_record.status = JobStatus.WAITING_FOR_REVIEW
+            cancelled_record.status = JobStatus.CANCELLED
+
+            for index, job in enumerate((active_job, cancelled_job), start=1):
+                file_execution_key = f"{index:064x}"
+                session.add(
+                    ImageFileExecutionModel(
+                        file_execution_key=file_execution_key,
+                        source_checksum_sha256=f"{index + 10:064x}",
+                        pipeline_fingerprint=PIPELINE,
+                        checkpoint_payload={"schemaVersion": 1},
+                        status="waiting_for_review",
+                        review_required=True,
+                        created_at=now,
+                    )
+                )
+                session.flush()
+                session.add(
+                    ImageImportJobFileModel(
+                        job_id=job.id,
+                        file_execution_key=file_execution_key,
+                        order_index=0,
+                        source_relative_path=f"scope-{index}.jpg",
+                        workflow_checkpoint_payload={"schemaVersion": 1},
+                        workflow_status="waiting_for_review",
+                        review_required=True,
+                        created_at=now,
+                    )
+                )
+                session.flush()
+                _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=file_execution_key,
+                    source_checksum=f"{index + 10:064x}",
+                    source_name=f"scope-{index}.jpg",
+                    position_index=0,
+                    sequence_number=index,
+                    status="pending",
+                    created_at=now,
+                )
+            session.commit()
+
+        with Session(engine) as session:
+            review_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            preview = review_repository.pending_grid_reinference_preview(
+                game.id,
+                geometry_version="board-cell-geometry-v19-test",
+                cropper_version="board-cell-crops-v19-test",
+                audit_report_checksum_sha256="a" * 64,
+            )
+            assert review_repository.canonical_pending_count(game.id) == 1
+            assert preview.pending_board_count == 1
+            assert preview.recalculable_board_count == 1
+            assert preview.pending_source_count == 1
+
+        grid_rows = PendingGridReinferenceHandler(session_factory, tmp_path)._pending_v19_rows(
+            game.id
+        )
+        symbol_rows = PendingSymbolReinferenceHandler(
+            session_factory,
+            tmp_path,
+            REPOSITORY_ROOT,
+        )._pending_rows(game.id)
+        assert [row.import_job_id for row in grid_rows] == [active_job.id]
+        assert [row[2].import_job_id for row in symbol_rows] == [active_job.id]
     finally:
         engine.dispose()

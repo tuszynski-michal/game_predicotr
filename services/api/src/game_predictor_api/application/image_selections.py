@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
 from game_predictor_worker.images.selection.contracts import SelectionContractError
 from game_predictor_worker.images.selection.manifest import (
+    DEFAULT_SELECTOR_MANIFEST,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
 )
@@ -26,6 +27,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionConflictError,
     ImageSelectionError,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
@@ -108,6 +110,17 @@ class ManualImageSelectionFile:
 class ImageSelectionManualApproval:
     group: ImageSelectionGroup
     decision: ImageSelectionManualDecision
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionRecoveryPreview:
+    source_run_id: UUID
+    source_snapshot_sha256: str
+    problem_group_count: int
+    candidate_count: int
+    block_count: int
+    selector_fingerprint: str
+    selector_version: str
 
 
 class ManualImageSelectionFileStore:
@@ -262,7 +275,21 @@ class ImageSelectionRepository(Protocol):
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
+
+    def find_recovery_run(
+        self,
+        *,
+        source_run_id: UUID,
+        selector_fingerprint: str,
+        source_snapshot_sha256: str,
+        last_sequence_number: int | None,
+    ) -> ImageSelectionRun | None: ...
+
+    def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]: ...
+
+    def has_handoff(self, run_id: UUID) -> bool: ...
 
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]: ...
 
@@ -275,6 +302,8 @@ class ImageSelectionRepository(Protocol):
         offset: int,
         limit: int,
     ) -> Sequence[ImageSelectionRun]: ...
+
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None: ...
 
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun: ...
 
@@ -365,6 +394,7 @@ class ImageSelectionService:
             ImageSelectionSequenceDirection.ASCENDING
         ),
         first_sequence_number: int | None = None,
+        last_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         if not self._repository.game_exists(game_id):
             raise ImageSelectionNotFoundError(
@@ -378,6 +408,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=sequence_direction,
             first_sequence_number=first_sequence_number,
+            last_sequence_number=last_sequence_number,
         )
         if existing is not None:
             return existing, False
@@ -388,6 +419,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=sequence_direction,
             first_sequence_number=first_sequence_number,
+            last_sequence_number=last_sequence_number,
         )
         return self._repository.add_run(run)
 
@@ -400,6 +432,116 @@ class ImageSelectionService:
                 details={"runId": str(run_id)},
             )
         return run
+
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        return self._repository.get_run_sequence_range(run_id)
+
+    def preview_range_recovery(self, run_id: UUID) -> ImageSelectionRecoveryPreview:
+        source = self.get_run(run_id)
+        if source.execution_mode is not ImageSelectionExecutionMode.FULL:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                "Range recovery must start from an original full run.",
+            )
+        if source.job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.COMPLETED}:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_ACTIVE",
+                "Range recovery requires a terminal source selection.",
+            )
+        if self._repository.has_handoff(run_id):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_HANDED_OFF",
+                "A selection already handed to Layout Import cannot be rebuilt in place.",
+            )
+        self._verify_reusable_source(source)
+        snapshot, problem_count, candidate_count, block_count = self._repository.recovery_snapshot(
+            run_id
+        )
+        if problem_count == 0:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
+                "The source run has no unresolved range-review groups.",
+            )
+        return ImageSelectionRecoveryPreview(
+            source_run_id=run_id,
+            source_snapshot_sha256=snapshot,
+            problem_group_count=problem_count,
+            candidate_count=candidate_count,
+            block_count=block_count,
+            selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
+            selector_version=DEFAULT_SELECTOR_MANIFEST.algorithm_version,
+        )
+
+    def recover_ranges(
+        self,
+        *,
+        run_id: UUID,
+        expected_source_snapshot_sha256: str,
+        last_sequence_number: int | None = None,
+    ) -> tuple[ImageSelectionRun, bool, ImageSelectionRecoveryPreview]:
+        preview = self.preview_range_recovery(run_id)
+        if expected_source_snapshot_sha256 != preview.source_snapshot_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
+                "The source run changed after the recovery preview.",
+                details={"sourceSnapshotSha256": preview.source_snapshot_sha256},
+            )
+        source = self.get_run(run_id)
+        effective_last_sequence_number = (
+            source.last_sequence_number if last_sequence_number is None else last_sequence_number
+        )
+        existing = self._repository.find_recovery_run(
+            source_run_id=run_id,
+            selector_fingerprint=preview.selector_fingerprint,
+            source_snapshot_sha256=preview.source_snapshot_sha256,
+            last_sequence_number=effective_last_sequence_number,
+        )
+        if existing is not None:
+            return existing, False, preview
+        derived = create_image_selection_run(
+            game_id=source.game_id,
+            source_selection_id=source.source_selection_id,
+            input_manifest_sha256=source.input_manifest_sha256,
+            selector_fingerprint=preview.selector_fingerprint,
+            sequence_direction=source.sequence_direction,
+            first_sequence_number=source.first_sequence_number,
+            last_sequence_number=effective_last_sequence_number,
+            execution_mode=ImageSelectionExecutionMode.RANGE_RECOVERY,
+            source_run_id=source.id,
+            source_snapshot_sha256=preview.source_snapshot_sha256,
+        )
+        saved, created = self._repository.add_run(derived)
+        return saved, created, preview
+
+    def _verify_reusable_source(self, source_run: ImageSelectionRun) -> None:
+        if self._browser_upload_root is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                "The managed browser staging cannot be reused by this API process.",
+            )
+        source_root = (self._browser_upload_root / str(source_run.source_selection_id)).resolve()
+        manifest = source_root / BROWSER_SELECTION_MANIFEST
+        if (
+            not source_root.is_relative_to(self._browser_upload_root)
+            or not source_root.is_dir()
+            or not manifest.is_file()
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging is no longer available.",
+            )
+        try:
+            manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        except OSError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging cannot be read.",
+            ) from error
+        if manifest_sha256 != source_run.input_manifest_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_INPUT_MANIFEST_CHANGED",
+                "The previously uploaded image manifest has changed.",
+            )
 
     def list_runs(
         self,
@@ -435,12 +577,26 @@ class ImageSelectionService:
         run_id: UUID,
         selector_fingerprint: str,
         first_sequence_number: int | None = None,
+        last_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         source_run = self.get_run(run_id)
         effective_first_sequence_number = (
             source_run.first_sequence_number
             if first_sequence_number is None
             else first_sequence_number
+        )
+        effective_last_sequence_number = (
+            last_sequence_number
+            if last_sequence_number is not None
+            else (
+                source_run.last_sequence_number
+                if first_sequence_number is None
+                else (
+                    source_run.last_sequence_number
+                    if first_sequence_number == source_run.first_sequence_number
+                    else None
+                )
+            )
         )
         if (
             selector_fingerprint
@@ -489,6 +645,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=source_run.sequence_direction,
             first_sequence_number=effective_first_sequence_number,
+            last_sequence_number=effective_last_sequence_number,
         )
         if created or rerun.job.status not in {
             JobStatus.CANCELLED,
@@ -924,11 +1081,68 @@ class ImageSelectionService:
         group_id: UUID,
         idempotency_key: UUID,
         range_start: int,
-        range_end: int,
+        range_end: int | None,
+        candidate_id: UUID | None = None,
     ) -> ImageSelectionManualApproval:
         run = self.get_run(run_id)
         locked_job = self._lock_run_job(run)
         group = self._get_group(run_id=run_id, group_id=group_id)
+        effective_range_end = range_start + 8 if range_end is None else range_end
+        if effective_range_end - range_start + 1 > 9:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RANGE_INVALID",
+                "A manually confirmed group may contain at most nine layouts.",
+            )
+        existing = self._repository.get_manual_decision(idempotency_key)
+        duplicate_exists = group.status is ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE or any(
+            other.id != group.id
+            and other.status
+            in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.MISSING_IMAGE,
+                ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            }
+            and other.range_start == range_start
+            and other.range_end == effective_range_end
+            for other in self._all_groups(run_id)
+        )
+        if duplicate_exists:
+            proposed_group, proposed = create_duplicate_range_decision(
+                idempotency_key=idempotency_key,
+                group=group,
+                range_start=range_start,
+                range_end=effective_range_end,
+                revision=(
+                    existing.revision
+                    if existing is not None
+                    else self._repository.next_manual_revision(
+                        run_id=run_id,
+                        group_id=group_id,
+                    )
+                ),
+            )
+            if existing is not None:
+                if existing.payload_sha256 != proposed.payload_sha256:
+                    raise ImageSelectionConflictError(
+                        "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                        "The idempotency key was already used for another decision.",
+                    )
+                self._resume_completed_manual_review(
+                    run_id=run_id,
+                    locked_job=locked_job,
+                )
+                return ImageSelectionManualApproval(
+                    replace(proposed_group, updated_at=existing.created_at),
+                    existing,
+                )
+            return self._save_review_decision(
+                run=run,
+                locked_job=locked_job,
+                group=proposed_group,
+                decision=proposed,
+            )
+
         if group.status not in {
             ImageSelectionGroupStatus.RANGE_REQUIRED,
             ImageSelectionGroupStatus.RANGE_CONFIRMED,
@@ -937,27 +1151,27 @@ class ImageSelectionService:
                 "IMAGE_SELECTION_GROUP_NOT_RANGE_REQUIRED",
                 "This group does not require a manual sequence range.",
             )
-        if group.selected_candidate_id is None:
+        selected_candidate_id = candidate_id or group.selected_candidate_id
+        if selected_candidate_id is None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                 "The range-review group has no automatic representative.",
             )
         candidate = self._repository.get_candidate(
             run_id=run_id,
-            candidate_id=group.selected_candidate_id,
+            candidate_id=selected_candidate_id,
         )
         if candidate is None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                 "The automatic representative no longer exists.",
             )
-        existing = self._repository.get_manual_decision(idempotency_key)
         proposed_group, proposed = create_range_confirmation_decision(
             idempotency_key=idempotency_key,
             group=group,
             candidate=candidate,
             range_start=range_start,
-            range_end=range_end,
+            range_end=effective_range_end,
             revision=(
                 existing.revision
                 if existing is not None

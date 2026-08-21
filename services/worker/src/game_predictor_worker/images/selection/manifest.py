@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 LEGACY_SELECTOR_VERSION = "fast-image-selector-v2"
 CONTINUITY_SELECTOR_VERSION = "fast-image-selector-v3"
@@ -24,8 +24,27 @@ CENTER_FIRST_SELECTOR_VERSION = "fast-image-selector-v10.6"
 FOUR_LABEL_SELECTOR_VERSION = "fast-image-selector-v10.7"
 LAYOUT_ANCHORED_SELECTOR_VERSION = "fast-image-selector-v10.8"
 PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION = "fast-image-selector-v10.9"
+LABEL_LATTICE_SAFE_SELECTOR_VERSION = "fast-image-selector-v10.10"
+FUSED_RANGE_EVIDENCE_SELECTOR_VERSION = "fast-image-selector-v10.11"
+TWO_LABEL_CONSENSUS_SELECTOR_VERSION = "fast-image-selector-v10.12"
+CARDINALITY_GUARDED_SELECTOR_VERSION = "fast-image-selector-v10.13"
+CARDINALITY_PARTITIONED_SELECTOR_VERSION = "fast-image-selector-v10.14"
+ADAPTIVE_CARDINALITY_SELECTOR_VERSION = "fast-image-selector-v10.15"
+STAGED_OCR_SELECTOR_VERSION = "fast-image-selector-v10.16"
+QUANTILE_SAMPLED_SELECTOR_VERSION = "fast-image-selector-v10.17"
+SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION = "fast-image-selector-v10.18"
+PROOF_FIRST_SELECTOR_VERSION = "fast-image-selector-v10.19"
+SEQUENCE_VALIDATED_SELECTOR_VERSION = "fast-image-selector-v10.20"
+SEQUENCE_STABLE_SELECTOR_VERSION = "fast-image-selector-v10.21"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = SEQUENCE_STABLE_SELECTOR_VERSION
+PROOF_FIRST_SELECTOR_VERSIONS = frozenset(
+    {
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
+    }
+)
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -43,6 +62,18 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -73,6 +104,18 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 
@@ -112,6 +155,30 @@ PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v9:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v10:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+FUSED_RANGE_EVIDENCE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v11:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v12:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+PROOF_FIRST_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v15:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v18:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+STAGED_OCR_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v13:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 GRID_FIRST_RANGE_ADAPTER_VERSION = (
     "visible-sequence-label-grid-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
@@ -138,6 +205,18 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -155,6 +234,18 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -168,6 +259,18 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -182,6 +285,18 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -191,6 +306,18 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -209,6 +336,18 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -219,6 +358,18 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -227,10 +378,70 @@ CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
     }
 )
 LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
-    {LAYOUT_ANCHORED_SELECTOR_VERSION, PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION}
+    {
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
+    }
+)
+PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
+    {
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
+    }
+)
+LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
+    {
+        LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+        FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+        TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+        CARDINALITY_GUARDED_SELECTOR_VERSION,
+        CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+        PROOF_FIRST_SELECTOR_VERSION,
+        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+        SEQUENCE_STABLE_SELECTOR_VERSION,
+    }
 )
 
 
@@ -323,6 +534,13 @@ class AdaptiveRangeConsensusPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class StagedOcrPolicy:
+    fast_verification_levels: tuple[int, ...] = (1, 2, 4)
+    minimum_agreeing_frames: int = 2
+    broad_candidate_levels: tuple[int, ...] = (12,)
+
+
+@dataclass(frozen=True, slots=True)
 class ProgressiveVisibleLabelFallbackPolicy:
     candidate_levels: tuple[int, ...] = (18, 36, 72)
 
@@ -331,6 +549,13 @@ class ProgressiveVisibleLabelFallbackPolicy:
 class RepresentativeSamplingPolicy:
     center_candidate_count: int = 5
     edge_candidate_count: int = 3
+
+
+@dataclass(frozen=True, slots=True)
+class QuantileRepresentativeSamplingPolicy:
+    candidate_quantiles: tuple[float, ...] = (0.50, 0.35, 0.65, 0.15, 0.85)
+    allow_single_strong_range: bool = False
+    stop_after_range_confirmation: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,8 +605,10 @@ class SelectorManifest:
     representative_policy: RangeFreeRepresentativePolicy = RangeFreeRepresentativePolicy()
     full_geometry_policy: FullGeometryPolicy | None = None
     adaptive_range_consensus_policy: AdaptiveRangeConsensusPolicy | None = None
+    staged_ocr_policy: StagedOcrPolicy | None = None
     progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
     representative_sampling_policy: RepresentativeSamplingPolicy | None = None
+    quantile_representative_sampling_policy: QuantileRepresentativeSamplingPolicy | None = None
     contiguous_sequence_window_policy: ContiguousSequenceWindowPolicy | None = None
     layout_anchor_policy: LayoutAnchorPolicy | None = None
 
@@ -448,6 +675,22 @@ class SelectorManifest:
                 and levels[-1] <= self.top_k
             ):
                 raise ValueError("Adaptive range consensus policy is outside supported bounds.")
+        if self.staged_ocr_policy is not None:
+            staged_policy = self.staged_ocr_policy
+            verification_levels = staged_policy.fast_verification_levels
+            broad_levels = staged_policy.broad_candidate_levels
+            if not (
+                verification_levels
+                and tuple(sorted(set(verification_levels))) == verification_levels
+                and staged_policy.minimum_agreeing_frames >= 2
+                and verification_levels[-1] >= staged_policy.minimum_agreeing_frames
+                and verification_levels[-1] <= self.top_k
+                and broad_levels
+                and tuple(sorted(set(broad_levels))) == broad_levels
+                and broad_levels[0] >= 6
+                and broad_levels[-1] <= 72
+            ):
+                raise ValueError("Staged OCR policy is outside supported bounds.")
         if self.progressive_visible_label_fallback_policy is not None:
             fallback_policy = self.progressive_visible_label_fallback_policy
             levels = fallback_policy.candidate_levels
@@ -468,6 +711,25 @@ class SelectorManifest:
                 <= self.top_k
             ):
                 raise ValueError("Representative sampling policy is outside supported bounds.")
+        if self.quantile_representative_sampling_policy is not None:
+            quantile_policy = self.quantile_representative_sampling_policy
+            quantiles = quantile_policy.candidate_quantiles
+            if not (
+                quantiles
+                and len(quantiles) <= self.top_k
+                and len(set(quantiles)) == len(quantiles)
+                and all(0 < quantile < 1 for quantile in quantiles)
+            ):
+                raise ValueError(
+                    "Quantile representative sampling policy is outside supported bounds."
+                )
+            if (
+                quantile_policy.stop_after_range_confirmation
+                and not quantile_policy.allow_single_strong_range
+            ):
+                raise ValueError(
+                    "Quantile early exit requires single-frame strong-range acceptance."
+                )
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
             if not (
@@ -593,6 +855,13 @@ class SelectorManifest:
                 "minimumAgreeingFrames": consensus_policy.minimum_agreeing_frames,
                 "verificationLevels": list(consensus_policy.verification_levels),
             }
+        if self.staged_ocr_policy is not None:
+            staged_policy = self.staged_ocr_policy
+            payload["stagedOcrPolicy"] = {
+                "broadCandidateLevels": list(staged_policy.broad_candidate_levels),
+                "fastVerificationLevels": list(staged_policy.fast_verification_levels),
+                "minimumAgreeingFrames": staged_policy.minimum_agreeing_frames,
+            }
         if self.progressive_visible_label_fallback_policy is not None:
             fallback_policy = self.progressive_visible_label_fallback_policy
             payload["progressiveVisibleLabelFallbackPolicy"] = {
@@ -604,6 +873,16 @@ class SelectorManifest:
                 "centerCandidateCount": sampling_policy.center_candidate_count,
                 "edgeCandidateCount": sampling_policy.edge_candidate_count,
             }
+        if self.quantile_representative_sampling_policy is not None:
+            quantile_policy = self.quantile_representative_sampling_policy
+            quantile_payload: dict[str, object] = {
+                "candidateQuantiles": list(quantile_policy.candidate_quantiles),
+            }
+            if quantile_policy.allow_single_strong_range:
+                quantile_payload["allowSingleStrongRange"] = True
+            if quantile_policy.stop_after_range_confirmation:
+                quantile_payload["stopAfterRangeConfirmation"] = True
+            payload["quantileRepresentativeSamplingPolicy"] = quantile_payload
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
             payload["contiguousSequenceWindowPolicy"] = {
@@ -622,7 +901,7 @@ class SelectorManifest:
                 "minimumRedValue": layout_policy.minimum_red_value,
                 "minimumSharpLayoutCount": layout_policy.minimum_sharp_layout_count,
             }
-            if self.algorithm_version == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION:
+            if self.algorithm_version in PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS:
                 anchor_payload = payload["layoutAnchorPolicy"]
                 assert isinstance(anchor_payload, dict)
                 anchor_payload.update(
@@ -958,8 +1237,233 @@ PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109 = SelectorManifest(
     representative_sampling_policy=RepresentativeSamplingPolicy(),
     layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
 )
-DEFAULT_SELECTOR_MANIFEST = PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109
+LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010 = SelectorManifest(
+    algorithm_version=LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011 = SelectorManifest(
+    algorithm_version=FUSED_RANGE_EVIDENCE_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=FUSED_RANGE_EVIDENCE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012 = SelectorManifest(
+    algorithm_version=TWO_LABEL_CONSENSUS_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013 = SelectorManifest(
+    algorithm_version=CARDINALITY_GUARDED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014 = SelectorManifest(
+    algorithm_version=CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015 = SelectorManifest(
+    algorithm_version=ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+STAGED_OCR_SELECTOR_MANIFEST_V1016 = SelectorManifest(
+    algorithm_version=STAGED_OCR_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=STAGED_OCR_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    staged_ocr_policy=StagedOcrPolicy(),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017 = SelectorManifest(
+    algorithm_version=QUANTILE_SAMPLED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 3, 5),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    quantile_representative_sampling_policy=QuantileRepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018 = SelectorManifest(
+    algorithm_version=SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 3, 5),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    quantile_representative_sampling_policy=QuantileRepresentativeSamplingPolicy(
+        allow_single_strong_range=True,
+        stop_after_range_confirmation=True,
+    ),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+PROOF_FIRST_SELECTOR_MANIFEST_V1019 = SelectorManifest(
+    algorithm_version=PROOF_FIRST_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=PROOF_FIRST_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 3, 5),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(6, 12),
+    ),
+    quantile_representative_sampling_policy=QuantileRepresentativeSamplingPolicy(
+        allow_single_strong_range=True,
+        stop_after_range_confirmation=True,
+    ),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020 = replace(
+    PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+    algorithm_version=SEQUENCE_VALIDATED_SELECTOR_VERSION,
+    range_adapter_version=SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION,
+    representative_policy=RangeFreeRepresentativePolicy(
+        minimum_quality_score=0.62,
+        minimum_sharpness=0.50,
+        minimum_exposure=0.30,
+        minimum_highlight_retention=0.50,
+        minimum_board_visibility=0.45,
+    ),
+)
+SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021 = replace(
+    SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+    algorithm_version=SEQUENCE_STABLE_SELECTOR_VERSION,
+)
+DEFAULT_SELECTOR_MANIFEST = SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021
 SUPPORTED_SELECTOR_MANIFESTS = (
+    SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
+    SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+    PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    STAGED_OCR_SELECTOR_MANIFEST_V1016,
+    ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
+    CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014,
+    CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+    FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+    LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010,
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     FOUR_LABEL_SELECTOR_MANIFEST_V107,
@@ -1000,6 +1504,30 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 
 __all__ = [
+    "SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021",
+    "SEQUENCE_STABLE_SELECTOR_VERSION",
+    "SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020",
+    "SEQUENCE_VALIDATED_SELECTOR_VERSION",
+    "SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION",
+    "PROOF_FIRST_RANGE_ADAPTER_VERSION",
+    "PROOF_FIRST_SELECTOR_MANIFEST_V1019",
+    "PROOF_FIRST_SELECTOR_VERSION",
+    "PROOF_FIRST_SELECTOR_VERSIONS",
+    "SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018",
+    "SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION",
+    "QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017",
+    "QUANTILE_SAMPLED_SELECTOR_VERSION",
+    "QuantileRepresentativeSamplingPolicy",
+    "STAGED_OCR_RANGE_ADAPTER_VERSION",
+    "STAGED_OCR_SELECTOR_MANIFEST_V1016",
+    "STAGED_OCR_SELECTOR_VERSION",
+    "StagedOcrPolicy",
+    "ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015",
+    "ADAPTIVE_CARDINALITY_SELECTOR_VERSION",
+    "CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014",
+    "CARDINALITY_PARTITIONED_SELECTOR_VERSION",
+    "CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013",
+    "CARDINALITY_GUARDED_SELECTOR_VERSION",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK",
@@ -1049,6 +1577,9 @@ __all__ = [
     "FIRST_USABLE_SELECTOR_MANIFEST_V8",
     "FIRST_USABLE_SELECTOR_VERSION",
     "FIRST_USABLE_SELECTOR_VERSIONS",
+    "FUSED_RANGE_EVIDENCE_ADAPTER_VERSION",
+    "FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011",
+    "FUSED_RANGE_EVIDENCE_SELECTOR_VERSION",
     "FOUR_LABEL_SELECTOR_MANIFEST_V107",
     "FOUR_LABEL_SELECTOR_VERSION",
     "FullGeometryPolicy",
@@ -1056,9 +1587,14 @@ __all__ = [
     "LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108",
     "LAYOUT_ANCHORED_SELECTOR_VERSION",
     "LAYOUT_ANCHORED_SELECTOR_VERSIONS",
+    "LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION",
+    "LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010",
+    "LABEL_LATTICE_SAFE_SELECTOR_VERSION",
+    "LABEL_LATTICE_SAFE_SELECTOR_VERSIONS",
     "PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION",
     "PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109",
     "PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION",
+    "PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS",
     "LayoutAnchorPolicy",
     "INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION",
     "GRID_FIRST_RANGE_ADAPTER_VERSION",
@@ -1080,6 +1616,9 @@ __all__ = [
     "SELECTOR_VERSION",
     "SUPPORTED_SELECTOR_MANIFESTS",
     "SUPPORTED_SELECTOR_VERSIONS",
+    "TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION",
+    "TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012",
+    "TWO_LABEL_CONSENSUS_SELECTOR_VERSION",
     "SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS",
     "QualityWeights",
     "PROGRESSIVE_RANGE_ADAPTER_VERSION",

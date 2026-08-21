@@ -35,10 +35,7 @@ DEFAULT_CALIBRATED_CROP_REPORT = (
     ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-v2-calibrated-report.json"
 )
 DEFAULT_OUTPUT = (
-    ROOT
-    / "ai_docs"
-    / "quality"
-    / "m5-board-cell-crops-v2-calibrated-quality-report.json"
+    ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-v2-calibrated-quality-report.json"
 )
 
 

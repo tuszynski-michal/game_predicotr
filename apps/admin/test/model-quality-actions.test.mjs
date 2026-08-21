@@ -268,6 +268,18 @@ test('loads, creates and explicitly activates grid quality independently', async
   const client = {
     listGridCalibrationProfiles: async () => ({ data: [profile] }),
     listGridProfileActivations: async () => ({ data: [] }),
+    getGridCalibrationCohortDiagnostics: async () => ({
+      data: {
+        acceptedGeometryCount: 0,
+        correctedGeometryCount: 0,
+        firstSequenceNumber: null,
+        gameId,
+        incompleteGeometryCount: 0,
+        lastSequenceNumber: null,
+        missingDetectionCount: 0,
+        sourceImageCount: 0,
+      },
+    }),
     createGridCalibrationCandidate: async () => ({
       data: { created: true, profile },
     }),

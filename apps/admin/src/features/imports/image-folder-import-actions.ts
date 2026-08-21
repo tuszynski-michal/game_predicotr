@@ -1,5 +1,9 @@
 import type {
   AdminApiClient,
+  BrowserImageImportPreflightResponse,
+  BrowserImageImportStartResponse,
+  BrowserPageGeometryPreflightResponse,
+  BrowserReadySelectionResponse,
   ImageFolderSelectionResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
@@ -12,6 +16,12 @@ export type ImageFolderImportClient = Pick<
   | 'createBrowserImageSelection'
   | 'uploadBrowserImageSelectionFile'
   | 'finalizeBrowserImageSelection'
+  | 'listReadyBrowserImageSelections'
+  | 'previewReadyBrowserImageImport'
+  | 'startReadyBrowserImageImport'
+  | 'startBrowserPageGeometryPreflight'
+  | 'listBrowserPageGeometryReviewSources'
+  | 'createBrowserPageGeometryOverride'
   | 'cancelBrowserImageSelection'
   | 'getImageDatasetCompleteness'
   | 'getImageSequenceSourceSelection'
@@ -19,6 +29,8 @@ export type ImageFolderImportClient = Pick<
   | 'listCuratedImageImportSources'
   | 'createNextCuratedImageImportBatch'
   | 'listJobs'
+  | 'getJob'
+  | 'reprocessManagedImageImport'
   | 'selectImageSequenceSource'
 >;
 
@@ -27,17 +39,25 @@ type Failure = { readonly error: string; readonly ok: false };
 export async function uploadImageFolder(
   api: ImageFolderImportClient,
   files: readonly File[],
-  onProgress?: (uploaded: number, total: number) => void,
+  gameIdOrProgress?: string | ((uploaded: number, total: number) => void),
+  progressCallback?: (uploaded: number, total: number) => void,
 ): Promise<
   | {
       readonly displayName: string;
       readonly ok: true;
       readonly selection: ImageFolderSelectionResponse;
+      readonly uploadId: string;
     }
   | Failure
 > {
   let uploadId: string | null = null;
   try {
+    const gameId =
+      typeof gameIdOrProgress === 'string' ? gameIdOrProgress : undefined;
+    const onProgress =
+      typeof gameIdOrProgress === 'function'
+        ? gameIdOrProgress
+        : progressCallback;
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
     const firstRelativePath = files[0]?.webkitRelativePath || files[0]?.name;
     const displayName = firstRelativePath?.split('/')[0] || 'Wybrane pliki';
@@ -45,6 +65,7 @@ export async function uploadImageFolder(
       displayName,
       expectedFileCount: files.length,
       expectedTotalBytes: totalBytes,
+      ...(gameId === undefined ? {} : { gameId }),
     });
     if (created.error !== undefined || created.data === undefined) {
       return {
@@ -86,14 +107,155 @@ export async function uploadImageFolder(
         ok: false,
       };
     }
+    const finalizedUploadId = uploadId;
     uploadId = null;
-    return { displayName, ok: true, selection: finalized.data };
+    return {
+      displayName,
+      ok: true,
+      selection: finalized.data,
+      uploadId: finalizedUploadId,
+    };
   } catch {
     if (uploadId !== null) {
       await cancelBrowserUpload(api, uploadId);
     }
     return {
       error: 'Przesyłanie folderu do lokalnego Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function listReadyBrowserImageSelections(
+  api: ImageFolderImportClient,
+): Promise<
+  | {
+      readonly data: readonly BrowserReadySelectionResponse[];
+      readonly ok: true;
+    }
+  | Failure
+> {
+  try {
+    const result = await api.listReadyBrowserImageSelections();
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać gotowych stagingów importu layoutów.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function previewReadyBrowserImageImport(
+  api: ImageFolderImportClient,
+  uploadId: string,
+  gameId: string,
+): Promise<
+  | { readonly data: BrowserImageImportPreflightResponse; readonly ok: true }
+  | Failure
+> {
+  try {
+    const result = await api.previewReadyBrowserImageImport(uploadId, {
+      gameId,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przygotować raportu przed importem layoutów.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function startReadyBrowserImageImport(
+  api: ImageFolderImportClient,
+  uploadId: string,
+  gameId: string,
+  manifestChecksumSha256: string,
+  preflightChecksumSha256: string,
+  geometryPreflightJobId: string,
+  geometryManifestChecksumSha256: string,
+  symbolModelInferenceFingerprint?: string,
+  gridProfileInferenceFingerprint?: string,
+): Promise<
+  | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
+  | Failure
+> {
+  try {
+    const result = await api.startReadyBrowserImageImport(uploadId, {
+      gameId,
+      manifestChecksumSha256,
+      preflightChecksumSha256,
+      ...(symbolModelInferenceFingerprint === undefined
+        ? {}
+        : { symbolModelInferenceFingerprint }),
+      ...(gridProfileInferenceFingerprint === undefined
+        ? {}
+        : { gridProfileInferenceFingerprint }),
+      geometryPreflightJobId,
+      geometryManifestChecksumSha256,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się utworzyć importu layoutów.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function startBrowserPageGeometryPreflight(
+  api: ImageFolderImportClient,
+  uploadId: string,
+  gameId: string,
+): Promise<
+  | { readonly data: BrowserPageGeometryPreflightResponse; readonly ok: true }
+  | Failure
+> {
+  try {
+    const result = await api.startBrowserPageGeometryPreflight(uploadId, {
+      gameId,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się utworzyć preflightu geometrii stron.',
+        ),
+        ok: false,
+      };
+    }
+    return { data: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       ok: false,
     };
   }
@@ -125,6 +287,30 @@ export async function createImageFolderImport(
         error: apiErrorMessage(
           result.error,
           'Nie udało się utworzyć importu zdjęć.',
+        ),
+        ok: false,
+      };
+    }
+    return { job: result.data.job, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function reprocessImageFolderImport(
+  api: ImageFolderImportClient,
+  sourceJobId: string,
+): Promise<{ readonly job: JobResponse; readonly ok: true } | Failure> {
+  try {
+    const result = await api.reprocessManagedImageImport(sourceJobId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się ponownie przetworzyć zachowanych oryginałów.',
         ),
         ok: false,
       };

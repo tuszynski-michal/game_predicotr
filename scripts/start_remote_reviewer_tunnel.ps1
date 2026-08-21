@@ -5,22 +5,26 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $processEnvironmentScript = Join-Path $PSScriptRoot "windows_process_environment.ps1"
-if (-not (Test-Path -LiteralPath $processEnvironmentScript -PathType Leaf)) {
-    throw "Windows process environment helper is unavailable: $processEnvironmentScript"
+$lifecycleScript = Join-Path $PSScriptRoot "reviewer_process_lifecycle.ps1"
+foreach ($requiredScript in @($processEnvironmentScript, $lifecycleScript)) {
+    if (-not (Test-Path -LiteralPath $requiredScript -PathType Leaf)) {
+        throw "Reviewer lifecycle helper is unavailable: $requiredScript"
+    }
+    . $requiredScript
 }
-. $processEnvironmentScript
 Repair-WindowsProcessPath
 
 $runtimeDirectory = Join-Path $projectRoot ".runtime"
 $statePath = Join-Path $runtimeDirectory "remote-reviewer.json"
-$logPath = Join-Path $runtimeDirectory "remote-reviewer-cloudflared.log"
-$reviewerOutPath = Join-Path $runtimeDirectory "remote-reviewer-app.out.log"
-$reviewerErrorPath = Join-Path $runtimeDirectory "remote-reviewer-app.error.log"
 $reviewerUrl = "http://127.0.0.1:3001"
 $reviewerStartupAttempts = 40
-$tunnelStartupAttempts = 60
+$tunnelStartupAttempts = 30
+$tunnelReachabilityAttempts = 30
+$maximumTunnelStarts = 2
 $cloudflareProvisioningHost = "api.trycloudflare.com"
 $cloudflareProvisioningPort = 443
 $cloudflareConnectTimeoutMilliseconds = 5000
@@ -78,6 +82,15 @@ function Test-TcpEndpoint {
     }
 }
 
+function Test-PublicOriginReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublicOrigin
+    )
+
+    return Test-ReviewerPublicOriginReady -PublicOrigin $PublicOrigin
+}
+
 function Write-Result {
     param(
         [Parameter(Mandatory = $true)]
@@ -101,8 +114,51 @@ function Write-Result {
     }
 }
 
-try {
-    $reviewerManagedPid = $null
+function Convert-LegacyRemoteState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$State
+    )
+
+    if ($null -ne $State.PSObject.Properties["instanceId"]) {
+        return $State
+    }
+    try {
+        $process = Get-Process -Id ([int]$State.pid) -ErrorAction SilentlyContinue
+        if (
+            $null -eq $process -or
+            $process.ProcessName -notlike "cloudflared*" -or
+            -not (Test-PublicOriginReady -PublicOrigin ([string]$State.publicOrigin)) -or
+            -not (Test-ReviewerProductionReady)
+        ) {
+            return $State
+        }
+        $identity = New-ReviewerProcessIdentity `
+            -Process $process `
+            -InstanceId ([Guid]::NewGuid())
+        $adopted = [ordered]@{
+            schemaVersion = 2
+            instanceId = $identity.instanceId
+            pid = $identity.pid
+            processStartedAt = $identity.processStartedAt
+            executablePath = $identity.executablePath
+            processName = $identity.processName
+            publicOrigin = [string]$State.publicOrigin
+            target = [string]$State.target
+            startedAt = [string]$State.startedAt
+            cloudflaredLogPath = $null
+            reviewerManagedProcess = $null
+        }
+        Write-ReviewerAtomicJson -LiteralPath $statePath -Value $adopted
+        return [pscustomobject]$adopted
+    }
+    catch {
+        return $State
+    }
+}
+
+function Invoke-RemoteReviewerStart {
+    $reviewerManagedProcess = $null
     if ((Test-ReviewerReady) -and -not (Test-ReviewerProductionReady)) {
         throw "Port 3001 is used by a development Reviewer. Stop npm run reviewer:dev before publishing online."
     }
@@ -112,25 +168,37 @@ try {
             throw "npm.cmd is unavailable. Run npm run windows:environment:check."
         }
         $nextBuildPath = Join-Path $projectRoot "apps\reviewer\.next\BUILD_ID"
-        if (-not (Test-Path -LiteralPath $nextBuildPath)) {
+        if (-not (Test-Path -LiteralPath $nextBuildPath -PathType Leaf)) {
             throw "Reviewer production build is missing. Run npm run reviewer:build."
         }
 
+        $reviewerInstanceId = [Guid]::NewGuid()
+        $reviewerLogs = New-ReviewerAttemptPaths `
+            -RuntimeDirectory $runtimeDirectory `
+            -Prefix "reviewer-app" `
+            -InstanceId $reviewerInstanceId
         $reviewerProcess = Start-Process `
             -FilePath $npm.Source `
             -ArgumentList @("run", "reviewer:start") `
             -WorkingDirectory $projectRoot `
-            -RedirectStandardOutput $reviewerOutPath `
-            -RedirectStandardError $reviewerErrorPath `
+            -RedirectStandardOutput $reviewerLogs.out `
+            -RedirectStandardError $reviewerLogs.error `
             -PassThru `
             -WindowStyle Hidden
-        $reviewerManagedPid = $reviewerProcess.Id
+        try {
+            $reviewerManagedProcess = New-ReviewerProcessIdentity `
+                -Process $reviewerProcess `
+                -InstanceId $reviewerInstanceId
+        }
+        catch {
+            if (-not $reviewerProcess.HasExited) {
+                Stop-Process -Id $reviewerProcess.Id
+            }
+            throw
+        }
         for ($attempt = 0; $attempt -lt $reviewerStartupAttempts; $attempt++) {
             Start-Sleep -Milliseconds 500
-            if ($reviewerProcess.HasExited) {
-                break
-            }
-            if (Test-ReviewerProductionReady) {
+            if ($reviewerProcess.HasExited -or (Test-ReviewerProductionReady)) {
                 break
             }
         }
@@ -138,23 +206,33 @@ try {
             if (-not $reviewerProcess.HasExited) {
                 Stop-Process -Id $reviewerProcess.Id
             }
-            throw "Reviewer did not become ready within 20 seconds. Check .runtime remote-reviewer-app logs."
+            throw "Reviewer did not become ready within 20 seconds. Check the unique reviewer-lifecycle-logs entry."
         }
     }
 
-    if (Test-Path -LiteralPath $statePath) {
-        $existing = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-        $existingProcess = Get-Process -Id $existing.pid -ErrorAction SilentlyContinue
-        if ($null -ne $existingProcess -and $existingProcess.ProcessName -like "cloudflared*") {
-            Write-Result @{
+    $existing = Read-ReviewerJsonState -LiteralPath $statePath
+    if ($null -ne $existing) {
+        $existing = Convert-LegacyRemoteState -State $existing
+        $existingIdentity = Test-ReviewerProcessIdentity `
+            -State $existing `
+            -ExpectedProcessName "cloudflared*"
+        if (
+            $existingIdentity.isMatch -and
+            (Test-PublicOriginReady -PublicOrigin ([string]$existing.publicOrigin)) -and
+            (Test-ReviewerProductionReady)
+        ) {
+            return @{
                 state = "running"
                 publicOrigin = $existing.publicOrigin
                 target = $existing.target
                 startedAt = $existing.startedAt
-                reviewerReady = (Test-ReviewerProductionReady)
+                reviewerReady = $true
+                instanceId = $existing.instanceId
                 message = "Tunnel is already running: $($existing.publicOrigin)"
             }
-            exit 0
+        }
+        if ($existingIdentity.isMatch) {
+            Stop-Process -Id $existingIdentity.process.Id
         }
         Remove-Item -LiteralPath $statePath -Force
     }
@@ -187,98 +265,158 @@ try {
         )
     }
 
-    if (Test-Path -LiteralPath $logPath) {
-        Remove-Item -LiteralPath $logPath -Force
-    }
-
-    $arguments = @(
-        "tunnel",
-        "--no-autoupdate",
-        "--loglevel", "info",
-        "--logfile", $logPath,
-        "--url", $reviewerUrl
-    )
-    $process = Start-Process -FilePath $cloudflaredPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
-
     $publicOrigin = $null
-    for ($attempt = 0; $attempt -lt $tunnelStartupAttempts; $attempt++) {
-        Start-Sleep -Milliseconds 500
-        if ($process.HasExited) {
-            break
+    $process = $null
+    $processIdentity = $null
+    $successfulLogPath = $null
+    for ($tunnelStart = 0; $tunnelStart -lt $maximumTunnelStarts; $tunnelStart++) {
+        $instanceId = [Guid]::NewGuid()
+        $logs = New-ReviewerAttemptPaths `
+            -RuntimeDirectory $runtimeDirectory `
+            -Prefix "cloudflared" `
+            -InstanceId $instanceId `
+            -Attempt $tunnelStart
+        $arguments = @(
+            "tunnel",
+            "--no-autoupdate",
+            "--loglevel", "info",
+            "--logfile", $logs.process,
+            "--url", $reviewerUrl
+        )
+        $process = Start-Process `
+            -FilePath $cloudflaredPath `
+            -ArgumentList $arguments `
+            -PassThru `
+            -WindowStyle Hidden
+        try {
+            $processIdentity = New-ReviewerProcessIdentity `
+                -Process $process `
+                -InstanceId $instanceId
         }
-        if (Test-Path -LiteralPath $logPath) {
-            $match = Select-String -LiteralPath $logPath -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -AllMatches
-            if ($null -ne $match) {
-                $publicOrigin = $match.Matches[-1].Value
+        catch {
+            if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id
+            }
+            throw
+        }
+        $candidateOrigin = $null
+        for ($attempt = 0; $attempt -lt $tunnelStartupAttempts; $attempt++) {
+            Start-Sleep -Milliseconds 500
+            if ($process.HasExited) {
                 break
             }
+            if (Test-Path -LiteralPath $logs.process -PathType Leaf) {
+                $match = Select-String `
+                    -LiteralPath $logs.process `
+                    -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" `
+                    -AllMatches
+                if ($null -ne $match) {
+                    $candidateOrigin = $match.Matches[-1].Value
+                    break
+                }
+            }
+        }
+
+        if ($null -ne $candidateOrigin) {
+            for ($attempt = 0; $attempt -lt $tunnelReachabilityAttempts; $attempt++) {
+                if ($process.HasExited) {
+                    break
+                }
+                if (Test-PublicOriginReady -PublicOrigin $candidateOrigin) {
+                    $publicOrigin = $candidateOrigin
+                    $successfulLogPath = $logs.process
+                    break
+                }
+                Start-Sleep -Milliseconds 500
+            }
+        }
+
+        if ($null -ne $publicOrigin) {
+            break
+        }
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id
         }
     }
 
-    if ($null -eq $publicOrigin) {
-        $processExitedBeforeCleanup = $process.HasExited
-        if (-not $processExitedBeforeCleanup) {
+    if ($null -eq $publicOrigin -or $null -eq $process -or $null -eq $processIdentity) {
+        throw (
+            "Cloudflare Quick Tunnel published no reachable public address after " +
+            "$maximumTunnelStarts bounded attempts. Check the unique reviewer-lifecycle-logs entries."
+        )
+    }
+    if (-not (Test-ReviewerProductionReady)) {
+        Stop-Process -Id $process.Id
+        throw "Reviewer lost readiness before tunnel state publication."
+    }
+    $verifiedIdentity = Test-ReviewerProcessIdentity `
+        -State ([pscustomobject]$processIdentity) `
+        -ExpectedProcessName "cloudflared*"
+    if (-not $verifiedIdentity.isMatch) {
+        if (-not $process.HasExited) {
             Stop-Process -Id $process.Id
         }
-        $failureKind = if ($processExitedBeforeCleanup) {
-            "cloudflared exited before publishing an address"
-        }
-        else {
-            "the provisioning endpoint was reachable but did not publish an address"
-        }
-        throw (
-            "Cloudflare Quick Tunnel could not start within 30 seconds: $failureKind. " +
-            "Retry once; if it repeats, check: $logPath"
-        )
+        throw "Cloudflared identity changed before tunnel state publication."
     }
 
     $startedAt = [DateTimeOffset]::Now.ToString("o")
     $state = [ordered]@{
-        pid = $process.Id
+        schemaVersion = 2
+        instanceId = $processIdentity.instanceId
+        pid = $processIdentity.pid
+        processStartedAt = $processIdentity.processStartedAt
+        executablePath = $processIdentity.executablePath
+        processName = $processIdentity.processName
         publicOrigin = $publicOrigin
         target = $reviewerUrl
         startedAt = $startedAt
-        reviewerManagedPid = $reviewerManagedPid
+        cloudflaredLogPath = $successfulLogPath
+        reviewerManagedProcess = $reviewerManagedProcess
     }
-    $stateJson = $state | ConvertTo-Json
-    [IO.File]::WriteAllText(
-        $statePath,
-        $stateJson,
-        [Text.UTF8Encoding]::new($false)
-    )
+    try {
+        Write-ReviewerAtomicJson -LiteralPath $statePath -Value $state
+    }
+    catch {
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id
+        }
+        throw
+    }
 
-    Write-Result @{
+    return @{
         state = "running"
         publicOrigin = $publicOrigin
         target = $reviewerUrl
         startedAt = $startedAt
         reviewerReady = $true
+        instanceId = $processIdentity.instanceId
         message = "Remote Reviewer is running: $publicOrigin"
     }
 }
-catch {
-    if ($Json) {
-        $errorJson = @{
-            state = "error"
-            publicOrigin = $null
-            target = $reviewerUrl
-            startedAt = $null
-            reviewerReady = $false
-            message = $_.Exception.Message
-        } | ConvertTo-Json -Compress
-        if ([string]::IsNullOrWhiteSpace($ResultPath)) {
-            Write-Output $errorJson
-        }
-        else {
-            [IO.File]::WriteAllText(
-                $ResultPath,
-                $errorJson,
-                [Text.UTF8Encoding]::new($false)
-            )
-        }
-    }
-    else {
-        Write-Error $_
-    }
-    exit 1
+
+$lifecycleMutex = $null
+$exitCode = 0
+try {
+    $lifecycleMutex = Enter-ReviewerLifecycleLock `
+        -ProjectRoot $projectRoot `
+        -TimeoutMilliseconds 55000
+    Write-Result (Invoke-RemoteReviewerStart)
 }
+catch {
+    $exitCode = 1
+    Write-Result @{
+        state = "error"
+        publicOrigin = $null
+        target = $reviewerUrl
+        startedAt = $null
+        reviewerReady = $false
+        instanceId = $null
+        message = $_.Exception.Message
+    }
+}
+finally {
+    if ($null -ne $lifecycleMutex) {
+        Exit-ReviewerLifecycleLock -Mutex $lifecycleMutex
+    }
+}
+exit $exitCode

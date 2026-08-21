@@ -2,9 +2,11 @@
 
 import type {
   GridCalibrationProfileResponse,
+  GeometryCohortDiagnosticsResponse,
   GridProfileActivationAction,
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
+  PendingGridReinferencePreviewResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -14,6 +16,8 @@ import {
   createGridCandidate,
   loadGridQuality,
   previewGridActivation,
+  previewPendingGridReinference,
+  startPendingGridReinference,
   type GridQualityClient,
 } from '@/features/model-quality/model-quality-actions';
 
@@ -49,12 +53,17 @@ export function GridQualityPanel({
   const [activations, setActivations] = useState<
     readonly GridProfileActivationResponse[]
   >([]);
+  const [diagnostics, setDiagnostics] =
+    useState<GeometryCohortDiagnosticsResponse | null>(null);
+  const [pendingPreview, setPendingPreview] =
+    useState<PendingGridReinferencePreviewResponse | null>(null);
   const [preview, setPreview] =
     useState<GridProfileActivationPreviewResponse | null>(null);
   const [action, setAction] = useState<GridProfileActivationAction>('activate');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idempotencyKey = useRef<string | null>(null);
@@ -62,14 +71,19 @@ export function GridQualityPanel({
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
-      const result = await loadGridQuality(api, gameId, signal);
+      const [result, pendingResult] = await Promise.all([
+        loadGridQuality(api, gameId, signal),
+        previewPendingGridReinference(api, gameId),
+      ]);
       if (signal?.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
       } else {
         setProfiles(result.profiles);
         setActivations(result.activations);
+        setDiagnostics(result.diagnostics);
       }
+      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -95,13 +109,36 @@ export function GridQualityPanel({
       setError(result.error);
     } else {
       setNotice(
-        result.response.profile.status === 'candidate_ready'
-          ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
-          : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
+        !result.response.created
+          ? 'Profil dla tej samej kohorty już istnieje; używam zapisanej wersji.'
+          : result.response.profile.status === 'candidate_ready'
+            ? 'Kandydat przeszedł bramkę. Aktywuj go osobną akcją.'
+            : 'Kandydat nie przeszedł bramki. Poprzedni profil pozostał bez zmian.',
       );
       await refresh();
     }
     setCreating(false);
+  }
+
+  async function recalculatePending() {
+    if (
+      pendingPreview === null ||
+      pendingPreview.recalculableBoardCount === 0 ||
+      recalculating
+    )
+      return;
+    setRecalculating(true);
+    setError('');
+    const result = await startPendingGridReinference(api, gameId);
+    if (result.ok) {
+      setNotice(
+        `Uruchomiono odświeżenie geometrii komórek v19 dla oczekujących plansz (job ${result.job.id}).`,
+      );
+      setPendingPreview({ ...pendingPreview, recalculableBoardCount: 0 });
+    } else {
+      setError(result.error);
+    }
+    setRecalculating(false);
   }
 
   async function prepareActivation(
@@ -161,6 +198,31 @@ export function GridQualityPanel({
           nie zmienia historycznych ani rozstrzygniętych plansz.
         </p>
       </header>
+      <div className="modelQualityActions">
+        <button
+          className="secondaryButton"
+          disabled={
+            recalculating || pendingPreview?.recalculableBoardCount === 0
+          }
+          onClick={() => void recalculatePending()}
+          type="button"
+        >
+          {recalculating
+            ? 'Przeliczanie…'
+            : `Przelicz oczekujące (${pendingPreview?.recalculableBoardCount ?? '…'})`}
+        </button>
+        {pendingPreview !== null ? (
+          <small>
+            Oczekujące: {pendingPreview.pendingBoardCount}; już w v19:{' '}
+            {pendingPreview.currentV19BoardCount}; chronione:{' '}
+            {pendingPreview.protectedBoardCount}; źródła częściowe:{' '}
+            {pendingPreview.partiallyResolvedSourceCount}; pominięte:{' '}
+            {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
+            {pendingPreview.geometryVersion}; cropper:{' '}
+            {pendingPreview.cropperVersion}.
+          </small>
+        ) : null}
+      </div>
       <dl className="modelQualityDecisionCounts">
         <div>
           <dt>Aktywny profil</dt>
@@ -195,6 +257,29 @@ export function GridQualityPanel({
             {metric(latest, 'baseline', 'p95NormalizedCornerError')} →{' '}
             {metric(latest, 'candidate', 'p95NormalizedCornerError')}
           </dd>
+        </div>
+        <div>
+          <dt>Geometria zaakceptowana</dt>
+          <dd>{diagnostics?.acceptedGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Geometria poprawiona ręcznie</dt>
+          <dd>{diagnostics?.correctedGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Brak detekcji / niekompletne</dt>
+          <dd>
+            {diagnostics?.missingDetectionCount ?? '—'} /{' '}
+            {diagnostics?.incompleteGeometryCount ?? '—'}
+          </dd>
+        </div>
+        <div>
+          <dt>Kwalifikuje się do profilu</dt>
+          <dd>{diagnostics?.eligibleGeometryCount ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Wykluczone próbki</dt>
+          <dd>{diagnostics?.excludedGeometryCount ?? '—'}</dd>
         </div>
       </dl>
       {latest !== null && latest.rejectionReasons.length > 0 ? (

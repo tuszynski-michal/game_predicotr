@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -12,15 +12,30 @@ from game_predictor_api.application.image_selections import ImageSelectionServic
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.image_selections import (
+    ImageSelectionCandidateDecision,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
 )
+from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
-from sqlalchemy import create_engine
+from game_predictor_api.storage.models import ImageSelectionCandidateModel
+from game_predictor_worker.images.selection.contracts import (
+    CandidateDecision,
+    CandidateResult,
+    ImageQualityMetrics,
+    ImageSelectionSource,
+    SelectionGroupResult,
+    SelectionGroupStatus,
+    SequenceRange,
+)
+from game_predictor_worker.images.selection.job import SqlAlchemyImageSelectionJobStore
+from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
+from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
+from sqlalchemy import create_engine, inspect, update
 from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -31,6 +46,9 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
     reason="Set GAME_PREDICTOR_RUN_POSTGRES_TESTS=1 to run isolated PostgreSQL tests.",
 )
+
+DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
+REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
 
 
 def _database_url(database_name: str) -> URL:
@@ -139,3 +157,270 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
         assert persisted_missing.range_end is None
     finally:
         engine.dispose()
+
+
+def test_final_projection_reassigns_selected_ranges_atomically(
+    isolated_image_selection_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_selection_database), "head")
+    engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 14, 10, tzinfo=UTC)
+
+    def group(
+        order: int,
+        start: int,
+        *,
+        selected_order: int | None = None,
+        candidate_orders: tuple[int, ...] | None = None,
+        stale_selected_order: int | None = None,
+    ) -> SelectionGroupResult:
+        recognized_range = SequenceRange(start, start + 8, 0.99)
+        orders = candidate_orders or (order,)
+        selected = order if selected_order is None else selected_order
+        candidates = tuple(
+            CandidateResult(
+                source=ImageSelectionSource(
+                    order_index=candidate_order,
+                    relative_path=f"source/{candidate_order}.jpg",
+                    stored_relative_path=f"{candidate_order:08d}.jpg",
+                    checksum_sha256=format(candidate_order + 1, "x") * 64,
+                    size_bytes=1024,
+                ),
+                decision=(
+                    CandidateDecision.SELECTED_AUTOMATIC
+                    if candidate_order == stale_selected_order
+                    else CandidateDecision.ELIGIBLE
+                ),
+                quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+                recognized_range=recognized_range,
+                reason_codes=(),
+                width=1080,
+                height=1920,
+            )
+            for candidate_order in orders
+        )
+        selected_candidate = next(
+            candidate for candidate in candidates if candidate.source.order_index == selected
+        )
+        return SelectionGroupResult(
+            group_order=order,
+            source_count=len(candidates),
+            range=recognized_range,
+            fingerprint_sha256=format(order, "x") * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.AUTO_SELECTED,
+            selected_candidate=selected_candidate,
+            top_candidates=candidates,
+        )
+
+    try:
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="atomic-projection-test",
+                name="Atomic projection test",
+                status=GameStatus.DRAFT,
+            )
+            run, created = ImageSelectionService(
+                SqlAlchemyImageSelectionRepository(session)
+            ).create_run(
+                game_id=game.id,
+                source_selection_id=uuid4(),
+                input_manifest_sha256="1" * 64,
+                selector_fingerprint="2" * 64,
+                first_sequence_number=1,
+                last_sequence_number=18,
+            )
+            session.commit()
+        assert created is True
+
+        claimed = SqlAlchemyWorkerJobStore(session_factory).claim_next(
+            worker_id="projection-test-worker",
+            worker_version="v0.6.14-test",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=now,
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert claimed is not None and claimed.lease_token is not None
+        store = SqlAlchemyImageSelectionJobStore(session_factory)
+        store.persist_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(
+                group(0, 10, selected_order=0, candidate_orders=(0, 2)),
+                group(1, 1),
+            ),
+            group_sources={},
+            persisted_at=now,
+        )
+        # Reproduce the historical inconsistency from the 32,079-image run:
+        # the mutable group is automatic, while its old representative still
+        # carries a selected_manual candidate decision.
+        with session_factory() as session, session.begin():
+            session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == run.id,
+                    ImageSelectionCandidateModel.order_index == 0,
+                )
+                .values(decision=ImageSelectionCandidateDecision.SELECTED_MANUAL)
+            )
+
+        store.persist_reconciled_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(
+                group(
+                    0,
+                    1,
+                    selected_order=2,
+                    candidate_orders=(0, 2),
+                    stale_selected_order=0,
+                ),
+                group(1, 10),
+            ),
+            persisted_at=now + timedelta(seconds=1),
+        )
+
+        persisted = store.load_groups(run.id)
+        assert [(item.range.start, item.range.end) for item in persisted if item.range] == [
+            (1, 9),
+            (10, 18),
+        ]
+        assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in persisted)
+        assert persisted[0].selected_candidate is not None
+        assert persisted[0].selected_candidate.source.order_index == 2
+    finally:
+        engine.dispose()
+
+
+def test_proof_first_projection_keeps_review_candidate_eligible(
+    isolated_image_selection_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_selection_database), "head")
+    engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 17, 18, tzinfo=UTC)
+    candidate = CandidateResult(
+        source=ImageSelectionSource(
+            order_index=0,
+            relative_path="source/0.jpg",
+            stored_relative_path="00000000.jpg",
+            checksum_sha256="a" * 64,
+            size_bytes=1024,
+        ),
+        decision=CandidateDecision.ELIGIBLE,
+        quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+        recognized_range=None,
+        reason_codes=("RANGE_LABEL_LATTICE_INCOMPLETE",),
+        width=1080,
+        height=1920,
+    )
+    review_group = SelectionGroupResult(
+        group_order=0,
+        source_count=1,
+        range=None,
+        fingerprint_sha256="b" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.RANGE_REQUIRED,
+        selected_candidate=candidate,
+        top_candidates=(candidate,),
+    )
+
+    try:
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="proof-first-review-candidate-test",
+                name="Proof-first review candidate test",
+                status=GameStatus.DRAFT,
+            )
+            run, created = ImageSelectionService(
+                SqlAlchemyImageSelectionRepository(session)
+            ).create_run(
+                game_id=game.id,
+                source_selection_id=uuid4(),
+                input_manifest_sha256="1" * 64,
+                selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
+                first_sequence_number=1,
+                last_sequence_number=9,
+            )
+            session.commit()
+        assert created is True
+
+        claimed = SqlAlchemyWorkerJobStore(session_factory).claim_next(
+            worker_id="proof-first-review-candidate-worker",
+            worker_version="v0.6-proof-first-test",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=now,
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert claimed is not None and claimed.lease_token is not None
+        store = SqlAlchemyImageSelectionJobStore(session_factory)
+        store.persist_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(review_group,),
+            group_sources={},
+            persisted_at=now,
+        )
+
+        store.persist_reconciled_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(review_group,),
+            persisted_at=now + timedelta(seconds=1),
+        )
+
+        persisted = store.load_groups(run.id)
+        assert len(persisted) == 1
+        assert persisted[0].status is SelectionGroupStatus.RANGE_REQUIRED
+        assert persisted[0].selected_candidate is None
+        assert len(persisted[0].top_candidates) == 1
+        assert persisted[0].top_candidates[0].decision is CandidateDecision.ELIGIBLE
+    finally:
+        engine.dispose()
+
+
+def test_derived_recovery_migration_round_trip(
+    isolated_image_selection_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_selection_database)
+    command.upgrade(config, REVIEW_QUEUES_REVISION)
+
+    command.upgrade(config, DERIVED_RECOVERY_REVISION)
+    upgraded_engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    try:
+        run_columns = {
+            column["name"]
+            for column in inspect(upgraded_engine).get_columns("image_selection_runs")
+        }
+        group_columns = {
+            column["name"]
+            for column in inspect(upgraded_engine).get_columns("image_selection_groups")
+        }
+    finally:
+        upgraded_engine.dispose()
+    assert {"execution_mode", "source_run_id", "source_snapshot_sha256"} <= run_columns
+    assert "origin_group_id" in group_columns
+
+    command.downgrade(config, REVIEW_QUEUES_REVISION)
+    downgraded_engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    try:
+        run_columns = {
+            column["name"]
+            for column in inspect(downgraded_engine).get_columns("image_selection_runs")
+        }
+        group_columns = {
+            column["name"]
+            for column in inspect(downgraded_engine).get_columns("image_selection_groups")
+        }
+    finally:
+        downgraded_engine.dispose()
+    assert not {"execution_mode", "source_run_id", "source_snapshot_sha256"} & run_columns
+    assert "origin_group_id" not in group_columns

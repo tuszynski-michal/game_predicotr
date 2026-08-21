@@ -11,7 +11,7 @@ from typing import cast
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-CALIBRATION_VERSION = "symbol-temperature-calibration-v1"
+CALIBRATION_VERSION = "symbol-temperature-calibration-v2-safe-floor-v1"
 CONFIDENCE_POLICY_VERSION = "symbol-confidence-policy-v1"
 ACTIVE_LEARNING_VERSION = "whole-layout-active-learning-v1"
 CALIBRATION_BIN_COUNT = 10
@@ -20,7 +20,11 @@ AUTO_ACCEPT_MINIMUM_SAMPLES = 20
 AUTO_ACCEPT_MINIMUM_CLASS_SAMPLES = 3
 AUTO_ACCEPT_MINIMUM_CLASS_PRECISION = 0.90
 DEFAULT_ACTIVE_LEARNING_BATCH_SIZE = 30
-TEMPERATURE_MINIMUM = 0.05
+# A tiny perfect cohort can mathematically prefer a near-zero temperature.
+# That turns unknown/blank crops into almost 100% predictions.  Calibration is
+# allowed to sharpen only within a conservative range; geometry still has its
+# own independent validity gate.
+TEMPERATURE_MINIMUM = 0.50
 TEMPERATURE_MAXIMUM = 20.0
 TEMPERATURE_SEARCH_ITERATIONS = 96
 
@@ -230,9 +234,7 @@ def calibration_metrics(
                 "meanConfidenceWhenPredicted": _round(
                     float(confidence[predicted].mean()) if predicted_count else 0.0
                 ),
-                "precision": _round(
-                    true_positive / predicted_count if predicted_count else 0.0
-                ),
+                "precision": _round(true_positive / predicted_count if predicted_count else 0.0),
                 "predictedCount": predicted_count,
                 "recall": _round(true_positive / support if support else 0.0),
                 "support": support,
@@ -244,9 +246,7 @@ def calibration_metrics(
         "brierScore": _round(float(np.square(values - one_hot).sum(axis=1).mean())),
         "ece": _round(ece),
         "meanConfidence": _round(float(confidence.mean())),
-        "negativeLogLikelihood": _round(
-            float(-np.log(np.clip(selected, 1e-15, 1.0)).mean())
-        ),
+        "negativeLogLikelihood": _round(float(-np.log(np.clip(selected, 1e-15, 1.0)).mean())),
         "perClass": per_class,
         "reliabilityBins": reliability,
         "sampleCount": int(targets.size),
@@ -259,9 +259,7 @@ def _wilson_lower_bound(correct: int, total: int, z: float = 1.959963984540054) 
     proportion = correct / total
     denominator = 1.0 + z * z / total
     centre = proportion + z * z / (2.0 * total)
-    radius = z * math.sqrt(
-        (proportion * (1.0 - proportion) + z * z / (4.0 * total)) / total
-    )
+    radius = z * math.sqrt((proportion * (1.0 - proportion) + z * z / (4.0 * total)) / total)
     return max(0.0, (centre - radius) / denominator)
 
 
@@ -370,11 +368,7 @@ def build_confidence_policy(
     if candidate is None:
         reason_codes.append("VALIDATION_THRESHOLD_GATE_NOT_MET")
     enabled = not reason_codes
-    selected_threshold = (
-        candidate.get("threshold")
-        if enabled and candidate is not None
-        else None
-    )
+    selected_threshold = candidate.get("threshold") if enabled and candidate is not None else None
     return {
         "autoAccept": {
             "enabled": enabled,
@@ -444,8 +438,7 @@ def select_active_learning_boards(
             or len(board.cells) != 15
             or sorted(cell.cell_index for cell in board.cells) != list(range(15))
             or any(
-                cell.row_index * 5 + cell.column_index != cell.cell_index
-                for cell in board.cells
+                cell.row_index * 5 + cell.column_index != cell.cell_index for cell in board.cells
             )
         ):
             raise SymbolConfidenceError(
@@ -479,15 +472,10 @@ def select_active_learning_boards(
             parsed[board_id][0].source_image_checksum not in selected_sources
             for board_id in remaining
         )
-        candidates: list[
-            tuple[float, int, str, dict[str, object], NDArray[np.float64], str]
-        ] = []
+        candidates: list[tuple[float, int, str, dict[str, object], NDArray[np.float64], str]] = []
         for board_id in remaining:
             board, probabilities = parsed[board_id]
-            if (
-                unseen_source_exists
-                and board.source_image_checksum in selected_sources
-            ):
+            if unseen_source_exists and board.source_image_checksum in selected_sources:
                 continue
             entropies = _entropy(probabilities)
             uncertainty = float(np.mean(np.sort(entropies)[-5:]))
@@ -509,17 +497,8 @@ def select_active_learning_boards(
                     ]
                 )
             )
-            source_novelty = (
-                1.0
-                if board.source_image_checksum not in selected_sources
-                else 0.0
-            )
-            score = (
-                0.65 * uncertainty
-                + 0.15 * diversity
-                + 0.15 * source_novelty
-                + 0.05 * rarity
-            )
+            source_novelty = 1.0 if board.source_image_checksum not in selected_sources else 0.0
+            score = 0.65 * uncertainty + 0.15 * diversity + 0.15 * source_novelty + 0.05 * rarity
             cells = []
             ordered_cells = sorted(board.cells, key=lambda item: item.cell_index)
             for cell, vector, entropy in zip(

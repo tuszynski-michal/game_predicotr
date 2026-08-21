@@ -21,6 +21,8 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   android_build: 'Build APK',
   symbol_training: 'Trening modelu symboli',
   image_selection: 'Selekcja zdjęć',
+  image_symbol_reinference: 'Przeliczenie oczekujących symboli',
+  image_grid_reinference: 'Przeliczenie oczekującej siatki',
 };
 
 export const JOB_STATUS_OPTIONS = Object.keys(
@@ -62,8 +64,19 @@ export function jobErrorSummary(job: JobResponse, limit = 140): string | null {
   return `${summary.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
-export function jobStageLabel(stage: string | null): string {
+export function jobStageLabel(
+  stage: string | null,
+  inputPayload?: JobResponse['inputPayload'],
+): string {
   if (stage === null) return 'Etap nie został jeszcze rozpoczęty';
+  if (
+    stage.endsWith('sequence_ocr') &&
+    inputPayload !== undefined &&
+    'schemaVersion' in inputPayload &&
+    inputPayload.schemaVersion === 5
+  ) {
+    return 'Przypisanie numerów z nazwy pliku — OCR pominięty';
+  }
   return stage.replaceAll('_', ' ');
 }
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Sequence
 from uuid import UUID
 
@@ -14,6 +16,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidate,
     ImageSelectionCandidateDecision,
     ImageSelectionConflictError,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
@@ -28,6 +31,7 @@ from game_predictor_api.storage.job_repository import (
     job_record_from_domain,
 )
 from game_predictor_api.storage.models import (
+    CuratedImageImportSourceModel,
     GameModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
@@ -58,6 +62,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         row = self._session.execute(
             select(ImageSelectionRunModel, JobModel)
@@ -68,9 +73,122 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
                 ImageSelectionRunModel.sequence_direction == sequence_direction.value,
                 ImageSelectionRunModel.first_sequence_number == (first_sequence_number or 0),
+                ImageSelectionRunModel.last_sequence_number == (last_sequence_number or 0),
+                ImageSelectionRunModel.execution_mode == ImageSelectionExecutionMode.FULL.value,
             )
         ).one_or_none()
         return None if row is None else _run_from_records(*row)
+
+    def find_recovery_run(
+        self,
+        *,
+        source_run_id: UUID,
+        selector_fingerprint: str,
+        source_snapshot_sha256: str,
+        last_sequence_number: int | None,
+    ) -> ImageSelectionRun | None:
+        row = self._session.execute(
+            select(ImageSelectionRunModel, JobModel)
+            .join(JobModel, JobModel.id == ImageSelectionRunModel.job_id)
+            .where(
+                ImageSelectionRunModel.execution_mode
+                == ImageSelectionExecutionMode.RANGE_RECOVERY.value,
+                ImageSelectionRunModel.source_run_id == source_run_id,
+                ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
+                ImageSelectionRunModel.source_snapshot_sha256 == source_snapshot_sha256,
+                ImageSelectionRunModel.last_sequence_number == (last_sequence_number or 0),
+            )
+        ).one_or_none()
+        return None if row is None else _run_from_records(*row)
+
+    def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]:
+        groups = tuple(
+            self._session.scalars(
+                select(ImageSelectionGroupModel)
+                .where(ImageSelectionGroupModel.run_id == run_id)
+                .order_by(ImageSelectionGroupModel.group_order)
+            )
+        )
+        candidates = tuple(
+            self._session.scalars(
+                select(ImageSelectionCandidateModel)
+                .where(ImageSelectionCandidateModel.run_id == run_id)
+                .order_by(ImageSelectionCandidateModel.order_index)
+            )
+        )
+        decisions = tuple(
+            self._session.scalars(
+                select(ImageSelectionManualDecisionModel)
+                .where(ImageSelectionManualDecisionModel.run_id == run_id)
+                .order_by(
+                    ImageSelectionManualDecisionModel.group_id,
+                    ImageSelectionManualDecisionModel.revision,
+                )
+            )
+        )
+        payload = {
+            "candidates": [
+                {
+                    "checksum": item.checksum_sha256,
+                    "decision": str(item.decision),
+                    "groupId": None if item.group_id is None else str(item.group_id),
+                    "id": str(item.id),
+                    "order": item.order_index,
+                }
+                for item in candidates
+            ],
+            "decisions": [
+                {
+                    "candidateId": None if item.candidate_id is None else str(item.candidate_id),
+                    "groupId": str(item.group_id),
+                    "payload": item.payload_sha256,
+                    "revision": item.revision,
+                }
+                for item in decisions
+            ],
+            "groups": [
+                {
+                    "id": str(item.id),
+                    "order": item.group_order,
+                    "range": [item.range_start, item.range_end],
+                    "status": str(item.status),
+                }
+                for item in groups
+            ],
+            "runId": str(run_id),
+            "schemaVersion": 1,
+        }
+        checksum = hashlib.sha256(
+            json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        problem_groups = {
+            item.id
+            for item in groups
+            if ImageSelectionGroupStatus(item.status) is ImageSelectionGroupStatus.RANGE_REQUIRED
+        }
+        block_count = 0
+        previous_order: int | None = None
+        for group in groups:
+            if group.id not in problem_groups:
+                previous_order = None
+                continue
+            if previous_order is None or group.group_order != previous_order + 1:
+                block_count += 1
+            previous_order = group.group_order
+        candidate_count = sum(item.group_id in problem_groups for item in candidates)
+        return checksum, len(problem_groups), candidate_count, block_count
+
+    def has_handoff(self, run_id: UUID) -> bool:
+        return (
+            self._session.scalar(
+                select(CuratedImageImportSourceModel.id).where(
+                    CuratedImageImportSourceModel.image_selection_run_id == run_id
+                )
+            )
+            is not None
+        )
 
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]:
         record = ImageSelectionRunModel(
@@ -83,6 +201,10 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             ordering_policy=run.ordering_policy,
             sequence_direction=run.sequence_direction.value,
             first_sequence_number=run.first_sequence_number or 0,
+            last_sequence_number=run.last_sequence_number or 0,
+            execution_mode=run.execution_mode.value,
+            source_run_id=run.source_run_id,
+            source_snapshot_sha256=run.source_snapshot_sha256,
             contract_version=run.contract_version,
             output_manifest_sha256=run.output_manifest_sha256,
             output_manifest_relative_path=run.output_manifest_relative_path,
@@ -99,12 +221,22 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 self._session.add(record)
                 self._session.flush()
         except IntegrityError as error:
-            existing = self.find_run_by_identity(
-                game_id=run.game_id,
-                input_manifest_sha256=run.input_manifest_sha256,
-                selector_fingerprint=run.selector_fingerprint,
-                sequence_direction=run.sequence_direction,
-                first_sequence_number=run.first_sequence_number,
+            existing = (
+                self.find_run_by_identity(
+                    game_id=run.game_id,
+                    input_manifest_sha256=run.input_manifest_sha256,
+                    selector_fingerprint=run.selector_fingerprint,
+                    sequence_direction=run.sequence_direction,
+                    first_sequence_number=run.first_sequence_number,
+                    last_sequence_number=run.last_sequence_number,
+                )
+                if run.execution_mode is ImageSelectionExecutionMode.FULL
+                else self.find_recovery_run(
+                    source_run_id=run.source_run_id or UUID(int=0),
+                    selector_fingerprint=run.selector_fingerprint,
+                    source_snapshot_sha256=run.source_snapshot_sha256 or "",
+                    last_sequence_number=run.last_sequence_number,
+                )
             )
             if existing is not None:
                 return existing, False
@@ -141,6 +273,21 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             .limit(limit)
         )
         return tuple(_run_from_records(*row) for row in rows)
+
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        range_start, range_end = self._session.execute(
+            select(
+                func.min(ImageSelectionGroupModel.range_start),
+                func.max(ImageSelectionGroupModel.range_end),
+            ).where(
+                ImageSelectionGroupModel.run_id == run_id,
+                ImageSelectionGroupModel.range_start.is_not(None),
+                ImageSelectionGroupModel.range_end.is_not(None),
+            )
+        ).one()
+        if range_start is None or range_end is None:
+            return None
+        return int(range_start), int(range_end)
 
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         record = self._session.get(ImageSelectionRunModel, run.id)
@@ -226,6 +373,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 if group.rejection_origin_status is None
                 else group.rejection_origin_status.value
             ),
+            origin_group_id=group.origin_group_id,
             created_at=group.created_at,
             updated_at=group.updated_at,
         )
@@ -404,6 +552,32 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 )
                 .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
             )
+        elif decision.resolution is ImageSelectionManualResolution.RANGE_CONFIRMED:
+            self._session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == group.run_id,
+                    ImageSelectionCandidateModel.group_id == group.id,
+                    ImageSelectionCandidateModel.decision
+                    == ImageSelectionCandidateDecision.SELECTED_AUTOMATIC.value,
+                )
+                .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
+            )
+        elif decision.resolution is ImageSelectionManualResolution.DUPLICATE_RANGE:
+            self._session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == group.run_id,
+                    ImageSelectionCandidateModel.group_id == group.id,
+                    ImageSelectionCandidateModel.decision.in_(
+                        (
+                            ImageSelectionCandidateDecision.SELECTED_AUTOMATIC.value,
+                            ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+                        )
+                    ),
+                )
+                .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
+            )
         selected = (
             None
             if decision.candidate_id is None
@@ -420,6 +594,8 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 )
             if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
                 selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
+            elif decision.resolution is ImageSelectionManualResolution.RANGE_CONFIRMED:
+                selected.decision = ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
         record.range_start = group.range_start
         record.range_end = group.range_end
         record.status = group.status
@@ -478,6 +654,10 @@ def _run_from_records(
         updated_at=record.updated_at,
         sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
         first_sequence_number=record.first_sequence_number or None,
+        last_sequence_number=record.last_sequence_number or None,
+        execution_mode=ImageSelectionExecutionMode(record.execution_mode),
+        source_run_id=record.source_run_id,
+        source_snapshot_sha256=record.source_snapshot_sha256,
     )
 
 
@@ -502,6 +682,7 @@ def _group_from_record(
             if record.rejection_origin_status is None
             else ImageSelectionGroupStatus(record.rejection_origin_status)
         ),
+        origin_group_id=record.origin_group_id,
     )
 
 

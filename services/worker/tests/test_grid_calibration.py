@@ -53,8 +53,7 @@ def _entry(
 ) -> GridReviewEntry:
     detected = _quad(position * 2.0, position * 1.0)
     accepted = tuple(
-        (point[0] + accepted_shift[0], point[1] + accepted_shift[1])
-        for point in detected
+        (point[0] + accepted_shift[0], point[1] + accepted_shift[1]) for point in detected
     )
     source_checksum = _sha(f"{source_group}-source")
     candidate = BoardCandidate(
@@ -253,8 +252,7 @@ def test_calibrator_applies_scope_and_records_provenance(tmp_path: Path) -> None
         image_width=1000,
         image_height=800,
         boards=tuple(
-            BoardGeometry(position_index=position, quad=detected)
-            for position in range(9)
+            BoardGeometry(position_index=position, quad=detected) for position in range(9)
         ),
     )
 

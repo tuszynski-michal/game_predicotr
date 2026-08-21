@@ -2,7 +2,7 @@
 title: Fast representative image selection
 status: accepted
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Selekcja reprezentatywnych zdjęć
@@ -604,3 +604,288 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   kolejki review oraz reguła `skipped_unreadable` nie zmieniają się.
 - Przed pełnym runem obowiązuje próba pierwszych 1440 zdjęć. Dopiero wynik z
   zerem błędnych zakresów i review pozwala uruchomić wszystkie 42 403 źródła.
+
+### Bezpieczna siatka etykiet v10.10 — 2026-08-13
+
+- Nowy run używa `fast-image-selector-v10.10`; v10.9 oraz wszystkie wcześniejsze
+  fingerprinty zachowują historyczne zachowanie i nie mogą być wznawiane jako
+  nowy silnik.
+- Ogólny fallback obejmuje etykiety wszystkich trzech rzędów widocznego ekranu.
+  Osie `3 × 3` są dopasowywane wyłącznie z komponentów o położeniu, szerokości i
+  proporcjach zgodnych z etykietami numerów; wąskie symbole i tabela wypłat nie
+  mogą wyznaczać rzędów siatki.
+- Cztery kolejne liczby o confidence `>= 0.72` wystarczają tylko wtedy, gdy
+  tworzą cztery kolejne pozycje row-major i przechodzą kontrolę odstępów w osi X
+  i Y. Remis albo niezgodna geometria pozostają `range_required`.
+- Częściowa kotwica musi zawierać co najmniej jedną faktycznie wykrytą planszę w
+  górnym rzędzie. Rekonstrukcja złożona wyłącznie ze środkowego i dolnego rzędu
+  nie może automatycznie przesunąć zakresu o trzy numery; przechodzi do
+  niezależnej siatki etykiet.
+- Dwie etykiety nie są w v10.10 samodzielnym dowodem zakresu. Trzy etykiety mogą
+  pozostać silnym dowodem wyłącznie w bezpiecznej, rzeczywiście zakotwiczonej
+  siatce.
+- Jeśli operator podał pierwszy numer zbioru, automatyczny zakres musi należeć
+  do tej samej siatki dziewięcioelementowej. Niezgodny zakres jest odrzucany z
+  `RANGE_OWNER_ALIGNMENT_MISMATCH`; wartość nie jest poprawiana ani zgadywana.
+- Jedna grupa wyglądu może zostać rozdzielona na więcej niż jeden wynik tylko,
+  gdy jej własne kandydaty zawierają silne, bezpośrednio kolejne zakresy w
+  zgodnej kolejności źródłowej. Każdy wynik zachowuje własnego JPEG-a; brakujący
+  zakres bez rozpoznanego kandydata nie jest syntetyzowany.
+- Przed pełnym runem obowiązuje regresja wskazanych JPEG-ów i profil pierwszych
+  1440 zdjęć z kontrolą błędnych przesunięć, duplikatów i ciągłości.
+
+### Pochodne odzyskiwanie zakresów v10.11 — 2026-08-13
+
+- Historyczny run nie jest mutowany podczas naprawy. Użytkownik otrzymuje nowy
+  run oznaczony jako pochodny, ze wskazaniem wersji silnika i runu źródłowego.
+- Naprawa grup `range_required` nie może ufać dotychczasowej granicy grupy ani
+  wybranemu reprezentantowi. Analizuje wszystkich zachowanych kandydatów w
+  pierwotnej kolejności i potrafi scalić false split, rozdzielić false merge
+  oraz wymienić błędnego reprezentanta.
+- Reprezentant może otrzymać zakres wyłącznie na podstawie własnego zgodnego
+  dowodu. Zdjęcie bardzo rozmazane jest odrzucane; czytelne, ale nadal
+  niejednoznaczne pozostaje dostępne w galerii `Ustal grupę`.
+- Niezależna siatka etykiet ma pierwszeństwo przed niejednoznaczną częściową
+  geometrią. Mocny konflikt pozostaje fail-closed, a słaby konsensus wymaga
+  różnych checksum, zgodnych pozycji i braku konkurencyjnej hipotezy.
+- Przed zapisaniem runu pochodnego system wykonuje pełny dry-run bloków
+  problematycznych i raportuje proponowane scalenia, podziały, wymiany
+  reprezentanta, konflikty oraz pozostałe przypadki ręczne.
+- W ręcznym ustalaniu grupy domyślnie podaje się tylko pierwszy numer, z końcem
+  `start + 8`. Jawny tryb krótkiej grupy końcowej pozwala podać ostatni numer.
+  Użytkownik może zmienić zdjęcie albo odrzucić grupę.
+- Otwarcie modala nie może wykonywać pełnego uzgodnienia folderu. Zapis decyzji
+  czeka tylko na bieżący JPEG; pełne uzgodnienie jest oddzielną operacją z
+  widocznym postępem.
+
+### Dwucyfrowy konsensus v10.12 — 2026-08-14
+
+- Pełny dry-run v10.11 na 748 historycznych grupach jest bramką jakości, a nie
+  zgodą na utworzenie runu. Wynik z 283 czytelnymi grupami nadal wymagającymi
+  zakresu i konfliktem zduplikowanego zakresu blokuje publikację.
+- Dwie etykiety mogą tworzyć wyłącznie słaby dowód zakresu, jeżeli obie mają
+  pewność co najmniej `0.90`, zajmują różne pozycje tej samej siatki i wskazują
+  jedną, niekonkurencyjną hipotezę początku. Remis lub druga hipoteza pozostają
+  fail-closed.
+- Pojedynczy JPEG z dwoma etykietami nigdy nie wystarcza do automatycznego
+  wyboru. Ten sam zakres muszą niezależnie potwierdzić co najmniej dwa JPEG-i o
+  różnych checksumach; konflikt z silnym dowodem pozostaje `range_required`.
+- Projekcja recovery globalnie uzgadnia zakresy zaproponowane przez niezależne
+  bloki. Jeden deterministyczny właściciel zachowuje wynik, a pozostałe kopie
+  stają się `skipped_existing_range`. Istniejąca decyzja użytkownika ma
+  pierwszeństwo; konflikt dwóch decyzji użytkownika nadal blokuje dry-run.
+- V10.11 i jego fingerprint pozostają niezmienne oraz rozwiązywalne dla runów
+  historycznych. Nowe wykonania używają osobnego manifestu v10.12.
+
+### Pełna liczność sekwencji v10.13 — 2026-08-14
+
+- Nowy run utworzony z folderu o ścisłej nazwie `pierwszy - ostatni` zapisuje
+  oba końce inkluzywnego przedziału. Pierwszy numer musi zgadzać się z kierunkiem
+  i wartością podaną przez operatora; niespójna nazwa kończy się jawnym błędem.
+- Rerun istniejącego stagingu może jawnie podać oba końce przedziału. Jest to
+  wymagane dla historycznego runu bez `last_sequence_number`, aby nowy run miał
+  twardą oczekiwaną liczność zamiast niepełnego kontraktu odziedziczonego ze
+  starej wersji.
+- Liczba logicznych grup wynosi
+  `ceil((abs(last_sequence_number - first_sequence_number) + 1) / 9)`.
+  Każda pełna grupa obejmuje dziewięć kolejnych layoutów, a wyłącznie ostatnia
+  grupa może być krótsza.
+- Gotowy wynik musi mieć dokładnie jednego logicznego właściciela każdej pozycji
+  tej siatki. Dodatkowe fizyczne fragmenty mogą istnieć tylko jako
+  `skipped_existing_range` z odwołaniem do właściciela; luka, duplikat właściciela
+  albo zakres poza siatką blokują publikację.
+- Każdy logiczny właściciel musi wskazywać co najmniej jeden rzeczywisty JPEG
+  obecny w niezmiennym manifeście wejściowym. Grupa bez wybranego zdjęcia może
+  pozostać manualna tylko wtedy, gdy ma niepustą galerię review; pusta grupa albo
+  checksum spoza manifestu blokują dry-run i utworzenie recovery.
+- Istniejącej decyzji użytkownika nie wolno pominąć ani przenieść do innego
+  zakresu. Konflikt decyzji z pełnym przedziałem pozostaje fail-closed.
+- Historyczny fragment o dużej liczbie źródeł nie może zostać uznany za prosty
+  duplikat tylko po pozycji. Taki potencjalny false merge oraz automatyczny
+  zakres poza globalną siatką muszą ponownie przejść segmentację i wybór JPEG-a.
+- Pełna liczność może przypisać numer bez OCR dopiero po udowodnieniu ciągłej
+  projekcji i istnienia bezpiecznego reprezentanta. Rozmazanie, zasłonięcie,
+  błąd geometrii albo konflikt zakresu nadal kierują zdjęcie do review.
+  Kandydat z własnym rozpoznanym zakresem innym niż oczekiwany nie może zostać
+  automatycznie przepisany; algorytm wybiera zgodnego lub nierozstrzygniętego
+  reprezentanta, a przy ich braku pozostawia grupę manualną.
+- V10.12 oraz starsze fingerprinty pozostają niezmienne. V10.13 może ponownie
+  wykorzystać cache weryfikacji v10.12, ponieważ adapter obrazu i OCR nie uległ
+  zmianie; nowy wpis jest następnie zapisywany pod fingerprintem v10.13.
+- Końcowa projekcja pełnego runu jest zapisywana atomowo. System najpierw zwalnia
+  zakresy modyfikowalnych automatycznych właścicieli oraz wszystkie stare sloty
+  wybranych kandydatów w niechronionych grupach, potem zapisuje całą uzgodnioną
+  projekcję i przed zatwierdzeniem transakcji ponownie sprawdza liczbę
+  właścicieli, liczbę duplikatów, dokładną kolejność siatki oraz jednego właściwego
+  reprezentanta każdej gotowej grupy. Pole `selected_candidate` jest
+  autorytatywne; historyczna decyzja innego elementu `top_candidates` nie może
+  ponownie wybrać starego JPEG-a. Decyzje użytkownika nie są zwalniane ani
+  degradowane.
+- Błąd zapisu projekcji ma stabilny kod
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`; nie może zostać ukryty jako
+  ogólny `JOB_EXECUTION_FAILED` ani pozostawić częściowo przepisanych zakresów.
+- Końcowy checkpoint zapisuje dokładne liczniki bieżącej projekcji po
+  uzgodnieniu, a nie z surowych grup zapisanych podczas skanowania. Ogólne
+  liczniki postępu joba pozostają monotoniczną historią wykonania: retry ani
+  zmiana klasyfikacji nie mogą ich zmniejszyć. UI i raport stanu selekcji muszą
+  używać dokładnych liczników projekcji z payloadu checkpointu.
+- Monitor operatorski przy `waiting_for_review` albo `completed` odczytuje
+  wszystkie grupy ponownie od początku. Eksportuje `auto_selected`,
+  `manually_selected` i `range_confirmed`, uzupełnia wybory zmienione za bieżącym
+  kursorem oraz usuwa wyłącznie nieaktualne pliki własnego kontraktu
+  `seq_<start>-<end>.jpg` z izolowanego katalogu wynikowego.
+- Raport operatorski schema v3 zapisuje oczekiwaną i rzeczywistą liczbę grup
+  logicznych, liczbę duplikatów, dokładne liczniki statusów, brakujące,
+  powtórzone i pozasiatkowe zakresy oraz osobne bramki pokrycia projekcji i
+  plików. Job `failed` albo `cancelled` jest tylko audytowany i nie naprawia
+  katalogu wynikowego; następny etap może ruszyć wyłącznie po przejściu obu
+  bramek przez `waiting_for_review` albo `completed`.
+
+### Partycjonowanie przed reconciliacją v10.14 — 2026-08-15
+
+- Pełny run z jawnym początkiem i końcem sekwencji musi utworzyć co najmniej
+  tyle fizycznych fragmentów, ile wynosi oczekiwana liczba logicznych grup.
+- Maksymalna liczba źródeł w jednym fragmencie wynosi
+  `max(1, floor(source_count / expected_group_count))`. Granice wykryte przez
+  analizę obrazu nadal mogą zakończyć fragment wcześniej.
+- Nadmiarowe fragmenty są dozwolone i końcowy reconciler może oznaczyć je jako
+  duplikaty. Każdy logiczny właściciel nadal musi jednak wskazywać rzeczywisty
+  JPEG z niezmiennego manifestu wejściowego.
+- Jeśli źródeł jest mniej niż oczekiwanych grup, job kończy się jawnym błędem
+  `IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`; system nie tworzy pustych ani
+  syntetycznych właścicieli.
+- Manifest i fingerprint v10.13 pozostają niezmienne. Reguła partycjonowania
+  należy do osobnego selektora v10.14, który może ponownie wykorzystać zgodny
+  cache weryfikacji v10.13 lub v10.12.
+
+### Adaptacyjne partycjonowanie v10.15 — 2026-08-16
+
+- V10.15 zachowuje bramkę liczności v10.14, ale limit bieżącego fragmentu
+  wylicza z liczby pozostałych źródeł i pozostałych wymaganych grup:
+  `ceil(remaining_source_count / remaining_group_count)`.
+- Naturalna granica obrazu nadal może zakończyć fragment wcześniej. Następny
+  limit jest wtedy przeliczany, aby wcześniejszy podział nie wymuszał lawiny
+  nadmiarowych fragmentów i weryfikacji OCR.
+- Dla wejścia bez wykrytych granic reguła musi utworzyć dokładnie oczekiwaną
+  liczbę fizycznych fragmentów, o rozmiarach różniących się najwyżej o jeden.
+  Wznowienie z tego samego checkpointu musi dawać identyczną projekcję.
+- Niedobór rzeczywistych źródeł nadal kończy się
+  `IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`. Reconciler, ochrona decyzji
+  użytkownika i bramki pokrycia pozostają bez zmian.
+- Czas dwóch godzin nie jest sztywną bramką akceptacji. Pomiar ma wykazać
+  istotne odzyskanie różnicy wydajności względem porównywalnego, zimnego runu
+  v10.13 bez cofnięcia naprawy granic v10.14.
+
+### Etapowy OCR v10.16 — 2026-08-16
+
+- V10.16 najpierw weryfikuje środkowych kandydatów na poziomach `1`, `2`, `4`
+  i ogranicza szeroką siatkę etykiet do poziomu `12`.
+- Szybka ścieżka może zakończyć grupę automatycznie wyłącznie wtedy, gdy co
+  najmniej dwa różne checksumy JPEG wskazują ten sam, zgodny z właścicielem
+  zakres na podstawie mocnego dowodu. Dwucyfrowy dowód słaby nie wystarcza.
+- Konflikt tras OCR, dwa różne zakresy albo brak konsensusu blokują szybki
+  wynik. System wykonuje wtedy niezmienioną pełną weryfikację z poziomami
+  kandydatów `12` i `18` oraz dotychczasowymi bramkami v10.14/v10.15.
+- Reprezentant szybkiego automatu musi mieć własny mocny odczyt zgodny z
+  zakresem grupy. Nie wolno pożyczyć zakresu lepiej wyglądającemu JPEG-owi bez
+  takiego dowodu.
+- Telemetria osobno raportuje próby, sukcesy, konflikty i fallback szybkiego
+  etapu. Wynik szybkiego etapu nie jest zapisywany jako pełny cache; pełny
+  fallback może nadal korzystać ze zgodnych wpisów historycznych.
+
+### Próbkowanie pięciu wnętrz grupy v10.17 — 2026-08-16
+
+- V10.17 nie sprawdza kolejnych pięciu zdjęć wokół środka ani pierwszych i
+  ostatnich zdjęć grupy. Używa maksymalnie pięciu pozycji: `50%`, `35%`, `65%`,
+  `15%`, `85%`, w tej kolejności etapów.
+- Pozycja procentowa jest zaokrąglana deterministycznie do najbliższego numeru
+  zdjęcia z połówką w górę. Dla 30 zdjęć są to numery `15, 11, 20, 5, 26`.
+  Powtórzone pozycje w małej grupie są usuwane bez zmiany kolejności.
+- OCR działa etapami `1 → 3 → 5`: najpierw środek, następnie para wewnętrzna,
+  a na końcu para z 15% i 85%. Automat nadal wymaga dwóch różnych checksumów z
+  tym samym mocnym zakresem; pojedyncze środkowe zdjęcie nie może samodzielnie
+  ustalić zakresu.
+- Po potwierdzeniu zakresu wybierany jest pierwszy czytelny, nierozmazany
+  kandydat w kolejności próbkowania. Dzięki temu środek ma pierwszeństwo, ale
+  zdjęcie niespełniające bramek jakości nie blokuje wyboru dalszych próbek.
+- Każdy z maksymalnie pięciu kandydatów przechodzi jeden progresywny verifier:
+  poziom 12, a przy braku wyniku poziom 18. Kandydat nie może być ponownie
+  weryfikowany wyłącznie po to, aby wybrać reprezentanta.
+- Siedem próbek nie jest aktywne. Może zostać dodane wyłącznie jako osobna,
+  wersjonowana polityka po pomiarze wykazującym, że pięć pozycji daje zbyt małą
+  skuteczność. Pierwsze i ostatnie zdjęcie pozostają wykluczone.
+
+### Jednoklatkowe zakończenie po mocnym środku v10.18 — 2026-08-16
+
+- V10.18 zachowuje kwantyle `50%, 35%, 65%, 15%, 85%`, ale mocny,
+  jednoznaczny odczyt pierwszego czytelnego i nierozmazanego JPEG-a może
+  samodzielnie zakończyć grupę automatem.
+- Wynik jednoklatkowy musi przejść pełną bramkę reprezentanta: widoczny layout,
+  zgodna liczba plansz, brak twardego blur, okluzji, błędu skanu i konfliktu
+  zakresu. Dowód `RANGE_OCR_FUZZY_CANDIDATE` nie wystarcza.
+- Jeżeli środek nie przejdzie bramki, selektor sprawdza razem `35%` i `65%`.
+  Dopiero brak mocnego użytecznego wyniku w tej trójce uruchamia `15%` i `85%`.
+- Po zaakceptowaniu mocnego wyniku pozostałe kwantyle nie przechodzą ani OCR,
+  ani pełnej oceny reprezentanta. Tani skan całej grupy i kontrola granic nadal
+  pozostają obowiązkowe.
+- Dwa różne mocne zakresy wykryte w tym samym wykonanym poziomie są konfliktem
+  fail-closed. Zakres spoza zadeklarowanej siatki właściciela również nie może
+  uruchomić early exit.
+
+### Proof-first zakres i audyt v10.19 — 2026-08-17
+
+- `auto_selected` wymaga, aby zapisany reprezentant sam dostarczył mocny dowód
+  dokładnie swojego kanonicznego zakresu. Kolejność, deklarowana liczba grup i
+  sąsiednie zakresy nie mogą utworzyć ani zastąpić odczytu OCR.
+- Mocny dowód obejmuje co najmniej trzy różne pozycje plansz, w tym jedną parę
+  sąsiadującą. Wszystkie obserwacje muszą mieć tę samą bazę
+  `sequenceNumber - positionIndex`; dla trasy trzyetykietowej confidence każdej
+  użytej etykiety wynosi co najmniej `0,82`.
+- Dwie etykiety, wynik fuzzy, zakres z liczności, luka oraz kotwica właściciela
+  są wyłącznie sugestią do ręcznego audytu. Grupa pozostaje `range_required`
+  bez kanonicznego `rangeStart/rangeEnd`.
+- Wykrycie tylko części dziewięciu plansz nie blokuje automatu, jeżeli trzy
+  prawidłowo umiejscowione etykiety i jakość wybranego JPEG-a spełniają bramki.
+  Nie wolno syntetyzować niewidocznych etykiet jako odczytów.
+- Reconciler może oznaczyć drugi mocno udowodniony identyczny zakres jako
+  duplikat, lecz nie może wypełniać luk kolejnymi numerami. `skipped_unreadable`
+  oraz `rejected_by_user` nie tworzą zielonego pokrycia wynikowego.
+- UI pokazuje oddzielnie sugestię zakresu i kanoniczny zakres. Dla oglądanego
+  kandydata prezentuje pozycje, odczytane numery, confidence i informację, czy
+  dowód jest mocny; zmiana zdjęcia aktualizuje tylko sugestię formularza.
+- Raport rozdziela automaty z dowodem, ręcznie potwierdzone grupy, zakresy
+  oczekujące, duplikaty i rzeczywiście brakujące zakresy. Stan
+  `waiting_for_review` nie jest błędem procesu, ale nie może udawać pełnej
+  ciągłości.
+- V10.19 zachowuje etapy kwantylowe `50% → 35%+65% → 15%+85%`, wyłącza
+  bezproduktywny poziom OCR 18 i kończy grupę po pierwszym czytelnym kandydacie
+  z mocnym dowodem. Pierwsze i ostatnie zdjęcie nadal nie są próbkami.
+
+### Sekwencyjnie walidowany zakres v10.20 — 2026-08-18
+
+- Deklarowany pełny przedział ustala oczekiwane kolejne zakresy dziewięciu
+  layoutów. Oczekiwany zakres jest wyłącznie hipotezą, którą musi potwierdzić
+  OCR pozycyjny tego samego JPEG-a; nie wolno przypisać go z samego kursora.
+- Poza mocnym dowodem v10.19 automat może zaakceptować dwa dokładne odczyty
+  pozycyjne z pełnej geometrii plansz. Dla częściowego widoku v10.20 wymaga co
+  najmniej trzech pozycji z confidence `>= 0,82`, obejmujących dwie kolumny i
+  dwa wiersze; co najmniej jeden odczyt musi być dokładny, a pozostałe mogą
+  różnić się od oczekiwanej liczby najwyżej jednym znakiem OCR.
+- Mocny niezależny odczyt innego zakresu, konflikt tras, rozmazanie, okluzja
+  albo błąd geometrii blokują promocję. Oczekiwany zakres jest zawsze dokładnie
+  następnym slotem z pełnych granic; nie tworzy się przesuniętych startów `±1`.
+  Jedna obserwacja lub brak wymaganego pokrycia pozostawiają `range_required`.
+- Fizycznych fragmentów może być przejściowo więcej niż oczekiwanych zakresów.
+  Po zablokowaniu wszystkich logicznych właścicieli nadmiarowe fragmenty są
+  oznaczane `skipped_existing_range`, więc liczba właścicieli pozostaje równa
+  liczbie slotów z deklarowanego zakresu.
+  `range_required` jest osobną kolejką i nie jest doliczany do `automat + wybór
+  zdjęcia`. Po ręcznym wskazaniu brakującego zakresu staje się jego właścicielem;
+  wskazanie zakresu istniejącego zapisuje `duplicate_range` i
+  `skipped_existing_range` bez drugiego outputu.
+- Checkpoint oraz API raportują `manual` wyłącznie dla `manual_required` i
+  `rangeRequired` wyłącznie dla `range_required`. Ogólny `review` może być ich
+  sumą, ale UI i raport operatorski muszą pokazywać je osobno.
+- V10.20 ma adapter `visible-sequence-label-range-v18` i fingerprint
+  `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
+  Manifest i fingerprint v10.19 pozostają niezmienne.

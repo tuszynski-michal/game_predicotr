@@ -22,19 +22,13 @@ from game_predictor_worker.images.rectification import (  # noqa: E402
     crop_detected_corpus,
 )
 
-DEFAULT_NORMALIZATION_REPORT = (
-    ROOT / "ai_docs" / "quality" / "m5-normalization-report.json"
-)
-DEFAULT_DETECTION_REPORT = (
-    ROOT / "ai_docs" / "quality" / "m5-page-board-detection-report.json"
-)
+DEFAULT_NORMALIZATION_REPORT = ROOT / "ai_docs" / "quality" / "m5-normalization-report.json"
+DEFAULT_DETECTION_REPORT = ROOT / "ai_docs" / "quality" / "m5-page-board-detection-report.json"
 DEFAULT_MANIFEST = ROOT / "ai_docs" / "quality" / "m5-corpus-manifest.json"
 DEFAULT_PROFILES = ROOT / "ai_docs" / "quality" / "m5-grid-calibration-profiles.json"
 DEFAULT_NORMALIZATION_ROOT = ROOT / "artifacts" / "m5-normalization"
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "m5-board-crops"
-DEFAULT_OUTPUT = (
-    ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-v2-calibrated-report.json"
-)
+DEFAULT_OUTPUT = ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-v2-calibrated-report.json"
 
 
 def _args() -> argparse.Namespace:

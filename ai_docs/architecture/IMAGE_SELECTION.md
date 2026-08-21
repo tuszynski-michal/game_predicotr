@@ -2,7 +2,7 @@
 title: Fast representative image selection architecture
 status: accepted
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Architektura selekcji reprezentatywnych zdjęć
@@ -371,6 +371,10 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   `sourceSelectionId` i checksum manifestu, a następnie sprawdza kontrolowany
   katalog `browser-selections/<sourceSelectionId>` przed użyciem aktualnego
   fingerprintu. Nie przyjmuje od UI ścieżki ani checksumy i nie kopiuje obrazów.
+- Opcjonalne `firstSequenceNumber` i `lastSequenceNumber` nadpisują historyczne
+  granice rerunu. Jawny koniec jest częścią tożsamości runu i payloadu joba;
+  umożliwia bezpieczne objęcie v10.13 pełną licznością stagingu utworzonego przed
+  migracją 0043.
 - Gdy idempotentna tożsamość wskazuje run `cancelled` albo `failed`, endpoint
   blokuje jego job, wykonuje przejście do `created`, czyści terminalny błąd,
   `finishedAt` i żądanie anulowania, ale zachowuje postęp oraz checkpoint.
@@ -416,10 +420,11 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   jak utrata lease; handler nie może wtedy wykonać terminalnego zapisu.
 - Supervisor ustawia per proces budżet wątków dla OpenMP, OpenBLAS, MKL,
   NumExpr i Accelerate oraz limit współbieżności CLI. General domyślnie używa
-  budżetu 2. Selekcja ma cztery zewnętrzne `scan_workers`, ale biblioteki
-  natywne wewnątrz każdego skanu pozostają jednowątkowe, aby nie tworzyć
-  zagnieżdżonej nadsubskrypcji. Jest to przenośny limit współbieżności, nie
-  twardy limit procentu CPU systemu operacyjnego.
+  budżetu 2. Selekcja używa łącznego budżetu 5: czterech zewnętrznych
+  `scan_workers` i jednego `verification_worker`. Biblioteki natywne wewnątrz
+  każdego zadania pozostają jednowątkowe, aby nie tworzyć zagnieżdżonej
+  nadsubskrypcji. Jest to przenośny limit współbieżności, nie twardy limit
+  procentu CPU systemu operacyjnego.
 - Checkpoint JSON przechowuje tylko potwierdzony `nextOrderIndex`, bounded stan
   otwartej grupy, pending guard, top-k i liczniki. Pełne grupy oraz kandydaci
   pozostają w PostgreSQL.
@@ -649,10 +654,14 @@ Implementacja potrafi dzielić każdy poziom adaptacyjny na najwyżej dwie
 szeregowe partycje. Każda partycja ma własny predictor, recognizery i detector,
 a wynik jest składany według indeksu wejściowego. Pomiar TASK-0194 wykazał na
 komputerze właściciela konkurencję Paddle/OpenCV: dwa verifiery były wolniejsze
-od jednego. Produkcyjny budżet lane równy cztery używa dlatego trzech scan
-workers i jednego verification workera. Adapter dwóch izolowanych verifierów
-pozostaje nieaktywną opcją do ponownej bramki na innym sprzęcie. Telemetria
-`parallelVerification*` nie uczestniczy w decyzji domenowej.
+od jednego, dlatego produkcja nadal używa jednego verification workera.
+Powtarzalny profil ABBA v10.13 z 2026-08-15 podniósł wyłącznie łączny budżet
+lane z czterech do pięciu: cztery scan workers plus jeden verification worker
+skróciły średni wall time próbki 1000 JPEG-ów z `210,338 s` do `194,425 s`
+(`7,566%`) przy identycznej kanonicznej decyzji wszystkich grup. Adapter dwóch
+izolowanych verifierów pozostaje nieaktywną opcją do ponownej bramki na innym
+sprzęcie. Telemetria `parallelVerification*` nie uczestniczy w decyzji
+domenowej.
 
 Powtarzalna bramka `scripts/run_image_selection_verifier_gate.py` uruchamia oba
 warianty sekwencyjnie na tym samym wycinku i tym samym aktywnym manifeście.
@@ -951,6 +960,396 @@ Manifest v10.9 zmienia fingerprint pełnej selekcji, ale zachowuje adapter tanie
 skanu v10.8. Cache skanu jest więc współdzielony, natomiast cache weryfikacji
 pozostaje rozdzielony fingerprintem selektora. Nie ma zmiany schematu bazy,
 OpenAPI ani typów Admina.
+
+## Architektura bezpiecznej siatki etykiet v10.10
+
+`LabelLatticeSafeVisibleSequenceLabelRangeRecognizer` zachowuje częściową
+kotwicę v10.9, lecz odrzuca ją, gdy żadna rzeczywiście wykryta ramka nie należy
+do górnego rzędu. Eliminuje to przypadek, w którym detektor dopasował
+syntetyczny górny rząd do tabeli wypłat, a dwa poprawne odczyty z niższych
+rzędów wyprowadziły zakres przesunięty o trzy.
+
+Niezależny fallback działa progresywnie na 12, a następnie najwyżej 18 cropach.
+Priorytet obejmuje zakres pionowy od górnych etykiet pierwszego rzędu do etykiet
+trzeciego. Dopasowanie trzech osi odrzuca kandydatów bez minimalnej szerokości i
+proporcji etykiety, dzięki czemu symbole nie przejmują pików wierszy. Resolver
+akceptuje wyłącznie czteroelementowe okno v10.7 z jednoznaczną geometrią.
+
+Podany przez operatora `first_sequence_number` jest w v10.10 ograniczeniem
+modulo liczby layoutów, a nie kursorem przewidującym następny ekran. OCR spoza
+tej siatki jest usuwany z dowodu przed konsensusem. Engine może następnie
+rozdzielić fałszywie szeroką grupę wyglądu, ale tylko gdy dwie lub więcej
+silnych hipotez tworzy bezpośrednio kolejny ciąg i ich reprezentanci występują w
+tej samej kolejności w źródle. Liczność pierwotnej grupy jest dzielona
+deterministycznie na granicach pomiędzy indeksami reprezentantów; kandydat nie
+jest współdzielony przez dwa wyniki.
+
+V10.10 ma osobny adapter zakresu, manifest i fingerprint. Manifest v10.9 oraz
+jego fabryka pozostają rozwiązywalne bez zmiany zachowania. Cache taniego skanu
+pozostaje współdzielony, a cache weryfikacji jest izolowany fingerprintem.
+Zmiana nie wymaga migracji bazy ani modyfikacji OpenAPI.
+
+## Architektura pochodnego odzyskiwania v10.11
+
+Run pochodny jest zwykłym runem selekcji korzystającym z istniejącego stagingu
+i lane, ale zapisuje `source_run_id`, `source_snapshot_sha256` oraz tryb
+`range_recovery`. Idempotencja obejmuje źródło, snapshot i fingerprint selektora.
+Publikacja sprawdza, czy snapshot źródła nie zmienił się od utworzenia runu; w
+przeciwnym razie wynik nie jest udostępniany jako aktualny.
+
+Pewne grupy są kopiowane jako projekcja z jawnym `origin_group_id`. Maksymalne
+bloki `range_required` otrzymują po dwie kotwice z każdej strony. Kotwice są
+ponownie sprawdzane i przy konflikcie blok rozszerza się do dwóch zgodnych
+kotwic albo granicy zbioru. Wszystkie kandydaty rozszerzonego bloku są
+deduplikowane checksumą, sortowane po `order_index` i ponownie segmentowane;
+stare `group_id`, granice i `selected_candidate_id` nie wpływają na wynik.
+
+V10.11 najpierw ocenia niezależne, pozycyjne hipotezy siatki etykiet. Częściowa
+geometria jest dowodem pomocniczym i nie może zawetować jednego silnego okna.
+Słaby konsensus obejmuje co najmniej dwa różne JPEG-i, trzy różne pozycje i
+cztery zgodne obserwacje. Jedna dokładnie ograniczona luka może potwierdzić
+lokalny odczyt, ale ciągłość nie jest samodzielnym źródłem zakresu.
+
+API tworzenia recovery zwraca run i job pochodny oraz statystyki snapshotu.
+Potwierdzenie zakresu przyjmuje opcjonalny `candidateId`, aby w jednej
+transakcji zmienić reprezentanta i zakres. Admin otwiera modal po przywróceniu
+samego uchwytu folderu; pełny reconcile nie znajduje się na ścieżce krytycznej.
+
+Worker oraz operatorski dry-run wywołują tę samą funkcję `evaluate_recovery`.
+Każdy lokalny blok nadal otrzymuje globalny `first_sequence_number` do kontroli
+zgodności modulo, ale wyłącza regułę kotwiczącą jego pierwszą grupę jako początek
+całego runu. Po zakończeniu segmentacji osobna bramka cofa automatyczny wynik do
+`range_required`, jeżeli wybrany JPEG nie ma własnego, zgodnego odczytu albo ma
+powód `RANGE_OWNER_ANCHOR`/`RANGE_INFERRED_FROM_BOUNDED_GAP`.
+
+Dry-run jest tylko do odczytu względem bazy i źródłowego runu. Odmawia startu
+przed migracją 0042 oraz podczas aktywnego joba selekcji, ponownie sprawdza
+snapshot po analizie i zapisuje atomowy raport
+`image-selection-range-recovery-dry-run-v1`. Raport zawiera wszystkie bramki
+strukturalne oraz deterministyczną, warstwową próbę 100 wyników. Utworzenie runu
+recovery pozostaje zablokowane, dopóki właściciel nie dostarczy pełnego audytu
+tej próby z zerem błędnych zakresów.
+
+## Korekta dwucyfrowego konsensusu v10.12
+
+Dry-run v10.11 wykazał, że niezależna siatka odrzucała 282 grupy jako
+`RANGE_LABEL_LATTICE_INCOMPLETE`, chociaż zakotwiczona ścieżka znajdowała w
+części z nich bezpieczne pary etykiet. `TwoLabelConsensusVisibleSequenceLabelRangeRecognizer`
+dziedziczy kolejność tras i bramki konfliktów v10.11, ale dodaje słabą hipotezę
+z dwóch różnych pozycji o minimalnej pewności `0.90`. Hipoteza musi jednoznacznie
+wyznaczać ten sam początek; równorzędne rozwiązania są odrzucane.
+
+Adapter nie publikuje zakresu na podstawie jednego zdjęcia. Engine zachowuje
+bramkę `_hybrid_group_range`, która dla słabego dowodu wymaga zgodności co
+najmniej dwóch różnych checksum JPEG. Mocna, sprzeczna hipoteza nadal ma
+pierwszeństwo fail-closed. Pozwala to wykorzystać czytelne pary liczb bez
+powrotu do zgadywania z kursora albo z samej ciągłości.
+
+`assemble_recovery_projection` wykonuje po złożeniu wszystkich lokalnych bloków
+globalne uzgodnienie zakresów. Dla powtórzonego zakresu wybiera jednego
+deterministycznego właściciela, preferując jedyną chronioną decyzję użytkownika,
+a inne wyniki oznacza `skipped_existing_range` z odwołaniem do właściciela.
+Co najmniej dwie chronione decyzje o tym samym zakresie pozostają konfliktem
+strukturalnym, aby dry-run nie ukrywał niespójności danych.
+
+V10.12 ma osobny manifest i fingerprint
+`d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`.
+Cache taniego skanu pozostaje współdzielony, a cache pełnej weryfikacji jest
+izolowany fingerprintem. Resolver i fingerprint v10.11 pozostają niezmienne.
+
+## Uzgadnianie pełnej liczności v10.13
+
+`SequenceBounds` modeluje inkluzywny przedział, kierunek i stały rozmiar grupy
+równy dziewięć. Liczba oczekiwanych grup jest zaokrąglana w górę, dzięki czemu
+przedział `229913–248184` ma 2031 grup, z ostatnią `248183–248184`. API zapisuje
+`last_sequence_number` w runie i payloadzie joba; migracja 0043 rozszerza nim
+również klucze idempotencji pełnego runu i recovery. Historyczne runy zachowują
+wartość zerową i wymagają jawnego końca przy pierwszej naprawie. Kontrakt rerunu
+przenosi ten koniec razem z opcjonalną nową kotwicą początku; kontrolowany runner
+zapisuje oba parametry w PID state i raporcie operatorskim.
+
+Przed recovery algorytm rozwiązuje monotoniczne przypisanie 2295 fizycznych
+fragmentów do 2201 pozycji siatki. Programowanie dynamiczne ma dokładnie dwie
+operacje: zachowanie fragmentu jako kolejnego właściciela albo pominięcie go
+jako duplikatu. Liczba pominięć jest z góry wyznaczona przez różnicę liczności.
+Chroniona decyzja użytkownika może tylko pozostać właścicielem swojego dokładnego
+zakresu. Koszt preferuje istniejący zgodny zakres oraz dotychczasowy duplikat;
+duży fragment nie jest pomijalny, ponieważ może zawierać false merge.
+
+Fragment zachowany na innej pozycji niż jego poprzedni automatyczny zakres oraz
+wcześniej nadmiarowo pominięty fragment stają się wejściem `range_required`.
+Recovery ponownie analizuje ich kandydatów, wyznacza granice i reprezentanta.
+Po złożeniu bloków ten sam typ przypisania działa jako końcowy reconciler:
+ustawia dokładne zakresy siatki, wiąże każdy nadmiarowy fragment z właścicielem
+i sprawdza liczbę oraz ciągłość wszystkich właścicieli.
+
+Operatorski dry-run wykonuje dodatkową bramkę pokrycia obrazami. Dla grup
+przebudowanych źródłem dowodu jest wybrany kandydat, lista kandydatów albo
+odtworzona galeria; dla grup nietkniętych wolno użyć zachowanej galerii grupy
+źródłowej. Checksum każdego dowodu musi występować w manifeście stagingu.
+`skipped_existing_range` nie jest osobnym logicznym właścicielem. Raport zapisuje
+liczbę właścicieli ze zdjęciem, grup pustych i referencji spoza manifestu.
+
+Powód `RANGE_CARDINALITY_INFERRED` oznacza, że numer wynika z udowodnionej
+pozycji w kompletnej sekwencji, a nie z pojedynczego OCR. Nie omija on bramek
+jakości reprezentanta: konflikt, rozmycie, zasłonięcie i błąd geometrii
+pozostają manualne. Własny rozpoznany zakres kandydata musi być zgodny z
+oczekiwanym; zakresu sprzecznego nie wolno nadpisać inferencją liczności. Pełny
+run wykonuje końcowe uzgodnienie przed review i eksportem; recovery stosuje je
+po globalnym złożeniu przebudowanych bloków.
+
+Końcowe uzgodnienie pełnego runu używa osobnej operacji repozytorium
+`persist_reconciled_groups`. W jednej fenced transakcji PostgreSQL blokowany jest
+run i wszystkie jego grupy. Pierwsza faza zmienia wyłącznie modyfikowalne
+`auto_selected` na neutralne `range_required` bez zakresu, aby zwolnić wpisy
+częściowego indeksu `uq_image_selection_groups_selected_range`, a we wszystkich
+niechronionych grupach cofa `selected_automatic` i historyczne
+`selected_manual` do `eligible`, zwalniając
+`uq_image_selection_candidates_selected_group`. Po `flush` druga faza zapisuje
+wszystkie docelowe statusy, zakresy i reprezentantów. `selected_candidate` jest
+źródłem prawdy; stare flagi wyboru pozostałych `top_candidates` są normalizowane
+do `eligible`. Chronione decyzje
+`manually_selected`, `missing_image`, `range_confirmed` i `rejected_by_user`
+pozostają nietknięte przez fazę zwalniania. Przed commitem repozytorium porównuje
+każdy rekord z projekcją i ponownie egzekwuje dokładną liczność, uporządkowaną
+siatkę `SequenceBounds` oraz dokładnie jednego zgodnego reprezentanta gotowej
+grupy. `IntegrityError` tej operacji jest mapowany na
+`IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT` i powoduje rollback całej
+transakcji.
+
+Po udanym zapisie sink zastępuje swój surowy widok grup uzgodnioną projekcją.
+Dzięki temu checkpoint `manual_review` albo `writing_manifest` raportuje tę samą
+liczbę właścicieli i duplikatów, którą odczyta API, zamiast stanu sprzed
+reconciliacji.
+
+Dokładne `selected_count`, `manual_count`, `missing_image_count` i
+`skipped_count` w payloadzie checkpointu opisują aktualną projekcję i mogą
+zmienić proporcje po reconciliacji. Ogólne pola domeny joba (`progress_current`,
+`success_count`, `failure_count`, `review_count`) są osobną monotoniczną kopertą
+historii wykonania: każdy zapis bierze maksimum z poprzedniego licznika i
+bieżącej wartości. Dotyczy to także recovery i jego publikacji. Dzięki temu
+retry nie narusza `JOB_PROGRESS_REGRESSION`, a dokładność raportu selekcji nie
+jest poświęcana na rzecz technicznych liczników joba.
+
+Progresywny eksport nadal przesuwa monotoniczny `groupOrder`, ale nie jest
+źródłem prawdy dla stanu końcowego. Dla `waiting_for_review` i `completed`
+runner pobiera wszystkie strony od `afterGroupOrder=-1`, buduje kanoniczny zbiór
+plików dla trzech gotowych statusów, weryfikuje lub atomowo zastępuje zawartość i
+usuwa wyłącznie osierocone pliki pasujące do `seq_<start>-<end>.jpg`. Następnie
+raport schema v3 niezależnie sprawdza pokrycie logicznej siatki i pokrycie
+gotowych grup plikami. Stan `failed`/`cancelled` uruchamia ten sam audyt bez
+jakiejkolwiek mutacji katalogu.
+
+V10.13 zachowuje adaptery obrazu oraz OCR v10.12, ma jednak osobny manifest i
+fingerprint `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`.
+Cache może odczytać zgodny wynik weryfikacji v10.12 i promować go pod nowy klucz;
+telemetria raportuje takie trafienia osobno.
+
+## Partycjonowanie fizycznych fragmentów v10.14
+
+Pełny run z zadeklarowanymi granicami zna przed skanowaniem oczekiwaną liczbę
+logicznych grup. V10.14 wylicza limit źródeł jednego fizycznego fragmentu jako
+`max(1, floor(source_count / expected_group_count))` i kończy fragment przed
+przekroczeniem tego limitu. Zwykłe granice wyglądu nadal mogą zakończyć go
+wcześniej, dlatego reguła nie zastępuje segmentacji obrazu, lecz nakłada na nią
+bezpieczną górną granicę.
+
+Dla stagingu `124129–149634` limit wynosi `floor(21211 / 2834) = 7`, więc
+segmentacja tworzy co najmniej 3031 fragmentów. Końcowy dynamiczny reconciler
+wybiera z nich dokładnie 2834 logicznych właścicieli, a nadmiar oznacza jako
+duplikaty. Każdy właściciel zachowuje co najmniej jeden rzeczywisty JPEG; gdy
+liczba źródeł jest mniejsza od oczekiwanej liczby grup, job kończy się błędem
+`IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`.
+
+V10.14 ma fingerprint
+`f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8`.
+Adaptery obrazu i OCR są zgodne z v10.13 i v10.12, więc cache weryfikacji może
+być bezpiecznie ponownie wykorzystany. Fingerprint v10.13 nie ulega zmianie.
+
+## Adaptacyjne partycjonowanie fizycznych fragmentów v10.15
+
+V10.15 nie używa stałego limitu `floor(total / expected)`. Na początku każdego
+otwartego fragmentu oblicza deterministycznie:
+
+`ceil((total_sources - first_source_index) / (expected_groups - finalized_groups))`.
+
+Limit jest funkcją wyłącznie niezmiennego manifestu źródeł, indeksu pierwszego
+źródła fragmentu i liczby zatwierdzonych fragmentów. Dzięki temu checkpoint nie
+musi zapisywać dodatkowego stanu, a wznowienie odtwarza tę samą granicę. Jeżeli
+segmentacja wyglądu zakończy grupę wcześniej, kolejna grupa przejmuje większą
+część pozostałego budżetu. Bez naturalnych granic wejście `20 / 3` daje
+`7 + 7 + 6`, zamiast statycznego `6 + 6 + 6 + 2`.
+
+Wymuszone granice adaptacyjne są liczone w telemetrii stage timing. Końcowy
+reconciler nadal odpowiada za dokładną siatkę logicznych właścicieli i jawne
+duplikaty. Adaptery obrazu oraz OCR pozostają identyczne jak w v10.14, dlatego
+v10.15 może promować zgodne wpisy cache v10.14, v10.13 i v10.12 pod własny
+fingerprint.
+
+## Dwustopniowa weryfikacja OCR v10.16
+
+Engine v10.16 wykonuje przed dotychczasową pętlą weryfikacji osobny etap szybki.
+Kandydaci są nadal uporządkowani center-first, ale analizowani tylko do poziomu
+`1 → 2 → 4`. Szybki verifier używa tej samej detekcji układu, modelu OCR i
+reguł fuzji co pełny verifier, lecz szeroka siatka kończy się na 12 cropach i
+nie uruchamia poziomu 18.
+
+Szybki konsensus uwzględnia wyłącznie mocne zakresy o pewności co najmniej
+`minimum_range_confidence`, odrzuca `RANGE_OCR_FUZZY_CANDIDATE` i wymaga dwóch
+różnych checksum. Każdy konflikt fuzji lub więcej niż jeden klucz zakresu
+zamyka szybką ścieżkę. Po sukcesie selektor preferuje reprezentanta spośród
+JPEG-ów, które same dostarczyły mocny zgodny dowód, dzięki czemu nie wykonuje
+pełnego OCR tylko po to, aby sprawdzić lepiej oceniony, ale nierozpoznany kadr.
+
+Przy braku konsensusu engine odrzuca tymczasowe szybkie wyniki i od początku
+wykonuje historyczną pętlę pełnego verifiera v10.15 na poziomach
+`1, 2, 4, 5, 7, 11`; sam recognizer zachowuje szerokie poziomy `12, 18`.
+Pełne wyniki używają zwykłego cache fingerprintu i mogą być promowane z
+v10.15–v10.12. Wyniki szybkie celowo omijają ten cache, aby pełna odpowiedź
+historycznego selektora nie została błędnie uznana za pomiar ograniczonej
+ścieżki.
+
+## Kwantylowe próbkowanie reprezentanta v10.17
+
+V10.17 zastępuje `RepresentativeSamplingPolicy(5 center + 3/3 edge)` polityką
+kwantylową. Dla fizycznej grupy o `N` źródłach pozycja kwantyla `q` jest liczona
+jako `clamp(1, N, floor(q * N + 0.5))`, a następnie zamieniana na indeks
+globalnego manifestu. Kolejność `(0.50, 0.35, 0.65, 0.15, 0.85)` jest częścią
+manifestu i fingerprintu. Deduplikacja zachowująca pierwsze wystąpienie obsługuje
+grupy krótsze niż pięć zdjęć.
+
+Tani skan wszystkich źródeł nadal jest konieczny do wyznaczenia granic grupy.
+Kwantyle ograniczają kosztowną analizę reprezentanta i OCR po zamknięciu grupy;
+nie usuwają zdjęć z galerii ani nie zmieniają manifestu wejściowego. Kandydaci
+niespełniający istniejącej bramki jakości są pomijani przed OCR.
+
+Engine uruchamia jeden pełny verifier na skumulowanych poziomach kandydatów
+`1, 3, 5`. Wewnątrz każdego kandydata recognizer zachowuje progresję `12, 18`,
+ale ten sam JPEG nie jest drugi raz weryfikowany przez osobną ścieżkę fast ani
+przy wyborze reprezentanta. Po mocnym konsensusie reprezentant jest wybierany
+według kolejności kwantyli przed rankingiem estetycznym, ale tylko spośród
+kandydatów z własnym zgodnym dowodem i poprawną jakością.
+
+Adapter pełnej weryfikacji jest semantycznie zgodny z v10.15–v10.12, dlatego
+cache tych wersji może być promowany pod fingerprint v10.17. Zmienia się dobór
+i kolejność kandydatów, zapisane osobno w manifeście selektora, nie działanie
+recognizera dla pojedynczego JPEG-a.
+
+## Mocny single-frame early exit v10.18
+
+V10.18 rozszerza `QuantileRepresentativeSamplingPolicy` o dwie jawne flagi
+manifestu: `allowSingleStrongRange` i `stopAfterRangeConfirmation`. V10.17 nie
+ma tych pól w kanonicznym manifeście, dzięki czemu jego fingerprint i historyczne
+zachowanie pozostają niezmienne.
+
+Po każdym poziomie `1, 3, 5` engine buduje zbiór wyłącznie mocnych zakresów.
+Pomija dowód fuzzy, odrzuca konflikt fuzji i wymaga jednego klucza zakresu.
+Przy polityce v10.18 co najmniej jeden JPEG dostarczający ten klucz musi także
+przejść `_candidate_result` oraz bramkę best-available: czytelność, widoczność
+planszy, zgodność board count, brak twardego blur, okluzji i błędu skanu.
+
+Jeżeli warunek jest spełniony po pierwszym kandydacie, lista
+`remaining_observations` jest pusta i nie dochodzi do oceny czterech pozostałych
+kwantyli. Po niepowodzeniu środka poziom `3` weryfikuje parę wewnętrzną jako
+jeden batch, więc dwa różne mocne zakresy nadal tworzą konflikt. Konflikt jest
+lepki dla całej grupy i poziom `5` nie może go zamienić w automat.
+
+Verifier pojedynczego JPEG-a nie zmienia semantyki, dlatego v10.18 może czytać
+zgodny cache v10.17–v10.12. Nowy fingerprint opisuje wyłącznie inną regułę
+zatrzymania i akceptacji grupy.
+
+## Proof-first range pipeline v10.19
+
+`ProofFirstVisibleSequenceLabelRangeRecognizer` zwraca rozszerzony
+`RangeRecognitionResult`. Obok zakresu i kodów przyczyny zawiera surowe
+`RangeLabelObservation(positionIndex, sequenceNumber, confidence, route)`.
+Obserwacje przechodzą przez verifier, `CandidateResult`, cache i trwałe
+`quality_metrics`; API wystawia je w audycie bez uznawania sugestii za domenowy
+zakres grupy.
+
+Wspólna funkcja `has_strong_local_range_proof` jest bramką zarówno engine, jak
+i końcowego reconciler/persistence invariant. Akceptuje tylko jawne trasy
+trzech/czterech etykiet, odrzuca fuzzy, dwie etykiety oraz wszystkie trasy
+inferencyjne. Następnie odtwarza bazę z każdej obserwacji, wymaga minimum trzech
+pozycji i pary sąsiadującej. Dzięki temu modyfikacja jednej cyfry o `±1` albo
+przesunięcie pozycji unieważnia automat.
+
+Engine nadal wykonuje tani skan całego wejścia potrzebny do granic, lecz drogi
+verifier uruchamia etapami dla kwantyli `1, 3, 5`. Mocny środek przechodzący
+bramkę jakości kończy grupę natychmiast. Poziom 18 usunięto z manifestu v10.19;
+fallback etykiet wykonuje poziomy `6 -> 12`. Zakotwiczona trasa najpierw OCR-uje
+jednym batchem wariant przetworzony i dopiero przy braku jednoznacznego dowodu
+dobiera wariant surowy. Niezależna trasa lattice nadal bierze udział w fuzji,
+więc rozbieżność zakresów pozostaje blokująca. Po pięciu nieudanych próbkach
+grupa pozostaje do review. Telemetria zapisuje rozkład liczby zweryfikowanych
+JPEG-ów na grupę oraz przyczyny odrzuceń dowodu.
+
+`_reconcile_proof_first_projection` nie wywołuje przypisania kardynalnego ani
+odtwarzania luk. Zachowuje mocno udowodnionych właścicieli, scala wyłącznie
+udowodnione duplikaty, a każdy inny automat degraduje do `range_required` z
+osobną sugestią kandydata. Warstwa zapisu ponownie sprawdza invariant przed
+commitem transakcji. Historyczne fingerprinty zachowują dawny reconciler.
+
+Kandydat zachowany wyłącznie jako sugestia dla `range_required` pozostaje w
+`top_candidates` z decyzją `eligible`. Samo pole `selected_candidate` projekcji
+nie może zmienić go w `selected_automatic`; decyzje `selected_automatic` oraz
+`selected_manual` są materializowane tylko dla gotowych statusów
+`auto_selected`, `manually_selected` i `range_confirmed`. Normalizacja przed
+zapisem zwalnia oba historyczne warianty flagi wyboru także wtedy, gdy grupa
+wraca do review.
+
+Domyślny manifest to `fast-image-selector-v10.19`, fingerprint
+`18886fe8f54aaa161f4ab59fd793a6c8c498d9046ec565b45e23d4cb857da351`.
+V10.19 celowo nie promuje cache pełnej weryfikacji ze starszych wersji, ponieważ
+zmieniła się semantyka dowodu i jego trwały payload.
+
+## Sekwencyjna walidacja zakresu v10.20
+
+V10.20 zachowuje proof-first v10.19 jako niezależną ścieżkę trzyetykietową, ale
+dodaje osobny adapter
+`SequenceValidatedVisibleSequenceLabelRangeRecognizer`. Adapter v18 mapuje
+częściowe okno etykiet na pozycje stabilnego viewportu i zachowuje dwie zgodne,
+wysokiej pewności obserwacje zakotwiczone w pełnej geometrii jako sugestię.
+Historyczny adapter v15 nie zmienia zachowania.
+
+Po standardowej reconciliacji mocne automaty są blokowane jako kotwice swoich
+slotów. Programowanie dynamiczne wyznacza monotoniczną hipotezę slotu dla
+pozostałych fizycznych fragmentów. Nie zapisuje jej bez dowodu. Kandydat
+`range_required` jest promowany po dwóch dokładnych etykietach z zakotwiczonej
+geometrii albo po trzech wspierających pozycjach częściowego viewportu, z czego
+jedna jest dokładna, a pokrycie obejmuje co najmniej dwa wiersze i dwie kolumny.
+Mocny niezależny odczyt innego zakresu zawsze wygrywa i blokuje hipotezę.
+Sprzeczne kotwice wyłączają promocję sekwencyjną zamiast kończyć cały job.
+
+Jeżeli wczesny kwantyl wskazuje inny slot niż dokładnie następny oczekiwany,
+verifier rozszerza próbę do maksymalnie pięciu wewnętrznych kwantyli. Dwa
+sąsiednie zakresy z osobnym mocnym dowodem są rozdzielane nawet wtedy, gdy tani
+deskryptor wyglądu skleił je w jeden fragment. Po monotonicznym przypisaniu
+nadmiarowe fragmenty nie są właścicielami ani pozycjami review: wskazują
+istniejącego właściciela jako `skipped_existing_range`.
+
+`SequenceBounds.group_index_for_range` wylicza indeks arytmetycznie w O(1).
+Złożoność uzgodnienia pozostaje O(`physical_groups * extra_groups`) i w
+syntetycznym przypadku 2583/2201 wyniosła 1,922 s. Nie dodaje to kosztu OCR ani
+dekodowania JPEG-ów.
+
+Rzeczywisty korpus regresyjny zawiera 283 zdjęcia w kolejności malejącej,
+17 ręcznie potwierdzonych zakresów oraz trzy negatywne przykłady jakościowe.
+Adnotacje są związane checksumami z plikami. Zimny benchmark v10.20 trwa
+`68,298789 s`, wykonuje 48 pełnych weryfikacji i kończy z 17 logicznymi
+właścicielami, 17/17 pokrytymi slotami, 9 pominiętymi fragmentami, bramką
+adnotacji 20/20 i zerem automatów bez wymaganego dowodu.
+
+Potwierdzenie zakresu w API najpierw sprawdza istniejącego rozwiązanego
+właściciela. Jeżeli istnieje, to samo polecenie tworzy idempotentną decyzję
+`duplicate_range`, zmienia fragment na `skipped_existing_range` i demotuje jego
+wcześniej automatycznego kandydata do `eligible`. Jawny endpoint odrzucenia
+duplikatu pozostaje zgodny wstecznie.
+
+Postęp ma dwa niezależne pola: `manual_count/manual` dla wyboru JPEG-a oraz
+`range_required_count/rangeRequired` dla ustalenia numerów. `review_count`
+pozostaje sumą operacyjną do sterowania jobem, lecz nie jest liczbą logicznych
+grup ani miarą skuteczności automatu.
 
 ## Odrzucone warianty
 

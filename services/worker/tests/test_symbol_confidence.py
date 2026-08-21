@@ -6,6 +6,7 @@ from game_predictor_worker.images.symbol_confidence import (
     ActiveLearningBoard,
     ActiveLearningCell,
     SymbolConfidenceError,
+    TEMPERATURE_MINIMUM,
     build_confidence_policy,
     calibrated_probabilities,
     calibration_metrics,
@@ -44,6 +45,14 @@ def test_temperature_reduces_validation_nll_without_changing_top_one() -> None:
         np.argmax(after_probabilities, axis=1),
         np.argmax(logits, axis=1),
     )
+
+
+def test_perfect_small_cohort_cannot_calibrate_to_near_zero_temperature() -> None:
+    logits = np.asarray([[12.0, 0.0], [0.0, 12.0]], dtype=np.float64)
+
+    temperature = fit_temperature(logits, np.asarray([0, 1], dtype=np.int64))
+
+    assert temperature >= TEMPERATURE_MINIMUM
 
 
 def test_metrics_expose_reliability_and_each_class() -> None:

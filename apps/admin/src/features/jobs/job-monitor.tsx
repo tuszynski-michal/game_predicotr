@@ -472,7 +472,8 @@ function JobCard({
       <div className="jobCardDetails">
         <div className="jobCardHeader">
           <p className="jobStage">
-            Etap: <strong>{jobStageLabel(job.progress.stage)}</strong>
+            Etap:{' '}
+            <strong>{jobStageLabel(job.progress.stage, job.inputPayload)}</strong>
           </p>
           <div className="jobActions">
             {deleteConfirmation ? (

@@ -18,6 +18,8 @@ class JobType(StrEnum):
     SNAPSHOT = "snapshot"
     ANDROID_BUILD = "android_build"
     SYMBOL_TRAINING = "symbol_training"
+    IMAGE_SYMBOL_REINFERENCE = "image_symbol_reinference"
+    IMAGE_GRID_REINFERENCE = "image_grid_reinference"
 
 
 class JobStatus(StrEnum):
@@ -96,11 +98,28 @@ def create_job(
 ) -> Job:
     schema_version = input_payload.get("schema_version")
     supports_pinned_image_model = (
-        schema_version in {2, 3}
+        schema_version in {2, 3, 4, 5}
         and job_type is JobType.IMPORT
         and input_payload.get("import_kind") == "image_directory"
     )
-    if schema_version != 1 and not supports_pinned_image_model:
+    supports_symbol_training_v2 = schema_version == 2 and job_type is JobType.SYMBOL_TRAINING
+    supports_page_geometry_preflight_v2 = (
+        schema_version == 2
+        and job_type is JobType.VALIDATE
+        and input_payload.get("validation_kind") == "page_geometry_preflight"
+    )
+    supports_pending_grid_reinference_v2 = (
+        schema_version == 2
+        and job_type is JobType.IMAGE_GRID_REINFERENCE
+        and input_payload.get("inference_kind") == "pending_grid_only"
+    )
+    if (
+        schema_version != 1
+        and not supports_pinned_image_model
+        and not supports_symbol_training_v2
+        and not supports_page_geometry_preflight_v2
+        and not supports_pending_grid_reinference_v2
+    ):
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
             "Job inputPayload must use a supported schema version.",
@@ -393,6 +412,32 @@ def requeue_job(
             error_code=None,
             error_message=None,
         )
+    )
+
+
+def requeue_job_with_fresh_progress(
+    job: Job,
+    *,
+    updated_at: datetime | None = None,
+) -> Job:
+    """Requeue a job whose handler deterministically recomputes all progress.
+
+    This is intentionally distinct from :func:`requeue_job`: resumable jobs
+    retain their durable cursor, whereas a whole-staging preflight starts a
+    fresh calculation. Carrying prior partial counters would make its first
+    correct checkpoint look like a progress regression.
+    """
+
+    requeued = requeue_job(job, updated_at=updated_at)
+    return replace(
+        requeued,
+        stage=None,
+        progress_current=0,
+        progress_total=None,
+        success_count=0,
+        failure_count=0,
+        review_count=0,
+        checkpoint_payload=None,
     )
 
 

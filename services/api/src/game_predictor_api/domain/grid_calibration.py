@@ -7,7 +7,7 @@ import json
 import math
 import statistics
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -36,7 +36,7 @@ class VerifiedGeometrySample:
     review_item_id: UUID
     source_image_id: UUID
     source_checksum_sha256: str
-    image_selection_run_id: UUID
+    image_selection_run_id: UUID | None
     position_index: int
     image_width: int
     image_height: int
@@ -99,6 +99,21 @@ class GridProfileActivationPreview:
     can_activate: bool
 
 
+@dataclass(frozen=True, slots=True)
+class GeometryCohortDiagnostics:
+    game_id: UUID
+    accepted_geometry_count: int
+    corrected_geometry_count: int
+    missing_detection_count: int
+    incomplete_geometry_count: int
+    source_image_count: int
+    first_sequence_number: int | None
+    last_sequence_number: int | None
+    eligible_geometry_count: int = 0
+    excluded_geometry_count: int = 0
+    exclusion_reason_counts: dict[str, int] = field(default_factory=dict)
+
+
 def build_geometry_manifest(
     game_id: UUID,
     samples: Iterable[VerifiedGeometrySample],
@@ -122,7 +137,11 @@ def build_geometry_manifest(
                 "reviewItemId": str(item.review_item_id),
                 "sourceImageId": str(item.source_image_id),
                 "sourceChecksumSha256": item.source_checksum_sha256,
-                "imageSelectionRunId": str(item.image_selection_run_id),
+                "imageSelectionRunId": (
+                    None
+                    if item.image_selection_run_id is None
+                    else str(item.image_selection_run_id)
+                ),
                 "positionIndex": item.position_index,
                 "imageWidth": item.image_width,
                 "imageHeight": item.image_height,
@@ -247,7 +266,13 @@ def _offset_scopes(
 ) -> list[dict[str, object]]:
     grouped: dict[tuple[str, int], list[list[tuple[float, float]]]] = {}
     for item in samples:
-        run = str(item.get("imageSelectionRunId")) if include_run else "*"
+        raw_run = item.get("imageSelectionRunId")
+        if include_run:
+            if not isinstance(raw_run, str):
+                continue
+            run = raw_run
+        else:
+            run = "*"
         position = item.get("positionIndex")
         width = item.get("imageWidth")
         height = item.get("imageHeight")
@@ -361,7 +386,7 @@ def _quad_is_valid(quad: NormalizedQuad | None) -> bool:
 def _profile_offsets(profile: dict[str, object], item: dict[str, object]) -> NormalizedQuad | None:
     position = item.get("positionIndex")
     run = item.get("imageSelectionRunId")
-    for key, require_run in (("scopes", True),):
+    for key, require_run in (("scopes", True), ("positionFallbacks", False)):
         values = profile.get(key)
         if not isinstance(values, list):
             continue

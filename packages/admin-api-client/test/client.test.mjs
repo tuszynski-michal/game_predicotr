@@ -155,6 +155,137 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
 });
 
+test('generated client starts only the confirmed local Reviewer target', async () => {
+  let captured;
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({
+        publicOrigin: null,
+        reviewerReady: true,
+        startedAt: null,
+        state: 'running',
+        target: 'http://127.0.0.1:3001',
+      });
+    },
+  });
+
+  await client.startLocalReviewer({
+    confirmed: true,
+    target: 'local-reviewer',
+  });
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    '/api/v1/admin/reviewer-local/start',
+  );
+  assert.equal(captured.headers.get('X-Admin-Target'), 'local-reviewer');
+});
+
+test('generated client uses import-scoped Reviewer work targets', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const importJobId = '22222222-2222-4222-8222-222222222222';
+  const assignmentId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/heartbeat')) {
+        return Response.json({
+          assignmentId,
+          heartbeatAt: '2026-08-20T12:01:00Z',
+          leaseExpiresAt: '2026-08-20T20:00:00Z',
+        });
+      }
+      if (path.endsWith('/close')) {
+        return Response.json({
+          assignmentId,
+          closedAt: '2026-08-20T12:02:00Z',
+          closeReason: 'owner_stopped',
+        });
+      }
+      if (request.method === 'GET') {
+        return Response.json({
+          activeOnlineCount: 0,
+          assignments: [],
+          ingress: {
+            publicOrigin: null,
+            reviewerReady: false,
+            startedAt: null,
+            state: 'stopped',
+            target: 'http://127.0.0.1:3001',
+          },
+          maximumOnlineCount: 3,
+        });
+      }
+      return Response.json({
+        accessCode: null,
+        accessExpiresAt: null,
+        assignment: {
+          assignmentId,
+          assignmentType: path.endsWith('/online') ? 'online' : 'local',
+          createdAt: '2026-08-20T12:00:00Z',
+          gameId,
+          heartbeatAt: '2026-08-20T12:00:00Z',
+          importJobId,
+          leaseExpiresAt: '2026-08-20T20:00:00Z',
+          ready: true,
+          reviewUrl: 'http://127.0.0.1:3001/',
+        },
+        created: true,
+      });
+    },
+  });
+
+  await client.listReviewerWorkAssignments(gameId);
+  await client.openLocalReviewerWork(gameId, importJobId, {
+    lifetimeMinutes: 480,
+  });
+  await client.openOnlineReviewerWork(gameId, importJobId, {
+    lifetimeMinutes: 480,
+  });
+  await client.heartbeatReviewerWorkAssignment(assignmentId, {
+    confirmed: true,
+  });
+  await client.closeReviewerWorkAssignment(assignmentId, { confirmed: true });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/reviewer-work-assignments`],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/imports/${importJobId}/reviewer-work-assignments/local`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/imports/${importJobId}/reviewer-work-assignments/online`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/reviewer-work-assignments/${assignmentId}/heartbeat`,
+      ],
+      ['POST', `/api/v1/admin/reviewer-work-assignments/${assignmentId}/close`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `reviewer-work:${importJobId}:local`,
+  );
+  assert.equal(
+    requests[2].headers.get('X-Admin-Target'),
+    `reviewer-work:${importJobId}:online`,
+  );
+  assert.equal(
+    requests[4].headers.get('X-Admin-Target'),
+    `reviewer-work:${assignmentId}`,
+  );
+});
+
 test('generated client reads both local worker lanes', async () => {
   const requests = [];
   const lanes = [
@@ -270,6 +401,30 @@ test('generated client selects a folder and creates its image import', async () 
   assert.equal(
     requests[1].headers.get('X-Admin-Target'),
     `image-import:${gameId}`,
+  );
+});
+
+test('generated client reprocesses a managed image import with explicit confirmation', async () => {
+  let captured;
+  const sourceJobId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ job: {} }, { status: 201 });
+    },
+  });
+
+  await client.reprocessManagedImageImport(sourceJobId);
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/${sourceJobId}/reprocess`,
+  );
+  assert.equal(
+    captured.headers.get('X-Admin-Target'),
+    `image-import:${sourceJobId}:reprocess`,
   );
 });
 

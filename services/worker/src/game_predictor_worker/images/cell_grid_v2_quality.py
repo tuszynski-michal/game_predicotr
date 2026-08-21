@@ -248,12 +248,9 @@ def _build_quality_report(
         )
     if profiles is not None and (
         crop_report.get("calibrationProfileSetVersion") != PROFILE_SET_VERSION
-        or crop_report.get("calibrationProfileSetSha256")
-        != profiles.profile_set_sha256
-        or crop_report.get("corpusManifestSha256")
-        != profiles.corpus_manifest_sha256
-        or crop_report.get("detectionReportSha256")
-        != profiles.detection_report_sha256
+        or crop_report.get("calibrationProfileSetSha256") != profiles.profile_set_sha256
+        or crop_report.get("corpusManifestSha256") != profiles.corpus_manifest_sha256
+        or crop_report.get("detectionReportSha256") != profiles.detection_report_sha256
     ):
         raise CellGridV2QualityError(
             "CELL_GRID_V2_CALIBRATION_PROFILE_DRIFT",
@@ -354,10 +351,7 @@ def _build_quality_report(
             )
             expected_quad = cast(
                 Quad,
-                tuple(
-                    (float(point.x), float(point.y))
-                    for point in application.calibrated_quad
-                ),
+                tuple((float(point.x), float(point.y)) for point in application.calibrated_quad),
             )
             if actual_quad != expected_quad:
                 raise CellGridV2QualityError(
@@ -466,9 +460,10 @@ def _build_quality_report(
                 "sequenceNumber": candidate.sequence_number,
                 "sourceGroup": candidate.source_group,
             }
-            quad_error[
-                "detectedPoint" if profiles is None else "calibratedPoint"
-            ] = {"x": actual[0], "y": actual[1]}
+            quad_error["detectedPoint" if profiles is None else "calibratedPoint"] = {
+                "x": actual[0],
+                "y": actual[1],
+            }
             quad_errors.append(quad_error)
         for axis, coordinates in (
             ("vertical", EXPECTED_INTERNAL_VERTICAL_LINES),

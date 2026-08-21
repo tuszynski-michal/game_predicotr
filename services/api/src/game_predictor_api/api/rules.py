@@ -148,9 +148,7 @@ def create_rules_router(service_dependency: RulesServiceDependency) -> APIRouter
         rules_version_id: UUID,
         service: Annotated[RulesService, service_parameter],
     ) -> RulesVersionResponse:
-        return RulesVersionResponse.model_validate(
-            service.publish_rules_version(rules_version_id)
-        )
+        return RulesVersionResponse.model_validate(service.publish_rules_version(rules_version_id))
 
     @router.delete(
         "/rules-versions/{rules_version_id}",

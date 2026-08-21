@@ -25,16 +25,12 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(
-        database=database_name
-    )
+    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
     config = Config(str(ALEMBIC_INI))
-    rendered_url = database_url.render_as_string(
-        hide_password=False
-    ).replace("%", "%%")
+    rendered_url = database_url.render_as_string(hide_password=False).replace("%", "%%")
     config.set_main_option("sqlalchemy.url", rendered_url)
     return config
 
@@ -51,17 +47,13 @@ def isolated_m2_database() -> Iterator[URL]:
 
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(
-                f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)"
-            )
+            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
         command.upgrade(_migration_config(test_database_url), "head")
         yield test_database_url
     finally:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(
-                f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)"
-            )
+            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
         maintenance_engine.dispose()
 
 
@@ -74,11 +66,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
     isolated_m2_database: URL,
 ) -> None:
     settings = ApiSettings.from_environment(
-        {
-            "GAME_PREDICTOR_DATABASE_URL": isolated_m2_database.render_as_string(
-                hide_password=False
-            )
-        }
+        {"GAME_PREDICTOR_DATABASE_URL": isolated_m2_database.render_as_string(hide_password=False)}
     )
     application = create_app(settings)
 
@@ -101,18 +89,14 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
             game_id = game["id"]
             assert (
                 _json(
-                    client.get(
-                        f"/api/v1/admin/games/{game_id}/rules-versions"
-                    ),
+                    client.get(f"/api/v1/admin/games/{game_id}/rules-versions"),
                     200,
                 )
                 == []
             )
             assert (
                 _json(
-                    client.get(
-                        f"/api/v1/admin/games/{game_id}/dataset-versions"
-                    ),
+                    client.get(f"/api/v1/admin/games/{game_id}/dataset-versions"),
                     200,
                 )
                 == []
@@ -127,11 +111,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                             json={
                                 "mobileCode": number,
                                 "code": f"S{number}",
-                                "name": (
-                                    "Joker"
-                                    if number == 12
-                                    else f"Symbol {number}"
-                                ),
+                                "name": ("Joker" if number == 12 else f"Symbol {number}"),
                                 "imagePath": f"symbols/m2-game/s{number}.png",
                                 "isWildcard": number == 12,
                                 "displayOrder": number * 10,
@@ -141,12 +121,15 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                         201,
                     )
                 )
-            assert len(
-                _json(
-                    client.get(f"/api/v1/admin/games/{game_id}/symbols"),
-                    200,
+            assert (
+                len(
+                    _json(
+                        client.get(f"/api/v1/admin/games/{game_id}/symbols"),
+                        200,
+                    )
                 )
-            ) == 12
+                == 12
+            )
 
             rules = _json(
                 client.post(
@@ -172,9 +155,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
             )
             assert incomplete["code"] == "INVALID_PAYLINE_LENGTH"
 
-            for row_index, code in enumerate(
-                ("line-top", "line-middle", "line-bottom")
-            ):
+            for row_index, code in enumerate(("line-top", "line-middle", "line-bottom")):
                 _json(
                     client.post(
                         f"/api/v1/admin/rules-versions/{rules_id}/paylines",
@@ -209,10 +190,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                 minimum = None if is_wildcard else (2 if index == 0 else 3)
                 _json(
                     client.patch(
-                        (
-                            f"/api/v1/admin/rules-versions/{rules_id}"
-                            f"/symbols/{symbol['id']}"
-                        ),
+                        (f"/api/v1/admin/rules-versions/{rules_id}/symbols/{symbol['id']}"),
                         json={
                             "minimumMatchLength": minimum,
                             "isActive": True,
@@ -226,17 +204,11 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                 for match_length in range(minimum, 6):
                     _json(
                         client.post(
-                            (
-                                f"/api/v1/admin/rules-versions/{rules_id}"
-                                "/payout-rules"
-                            ),
+                            (f"/api/v1/admin/rules-versions/{rules_id}/payout-rules"),
                             json={
                                 "symbolId": symbol["id"],
                                 "matchLength": match_length,
-                                "payoutCredits": (
-                                    match_length - minimum + 1
-                                )
-                                * 10,
+                                "payoutCredits": (match_length - minimum + 1) * 10,
                                 "isActive": True,
                             },
                         ),
@@ -244,10 +216,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                     )
 
             readiness = _json(
-                client.get(
-                    f"/api/v1/admin/rules-versions/{rules_id}"
-                    "/publication-readiness"
-                ),
+                client.get(f"/api/v1/admin/rules-versions/{rules_id}/publication-readiness"),
                 200,
             )
             assert readiness == {
@@ -257,9 +226,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
             }
 
             published_rules = _json(
-                client.post(
-                    f"/api/v1/admin/rules-versions/{rules_id}/publish"
-                ),
+                client.post(f"/api/v1/admin/rules-versions/{rules_id}/publish"),
                 200,
             )
             assert published_rules["status"] == "published"
@@ -286,10 +253,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
             assert dataset["status"] == "staging"
 
             report = _json(
-                client.get(
-                    f"/api/v1/admin/dataset-versions/{dataset_id}"
-                    "/validation-report"
-                ),
+                client.get(f"/api/v1/admin/dataset-versions/{dataset_id}/validation-report"),
                 200,
             )
             assert report["readyForPublication"] is True
@@ -311,31 +275,21 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
             assert preview["nextAfterSequenceNumber"] == 12
 
             published_dataset = _json(
-                client.post(
-                    f"/api/v1/admin/dataset-versions/{dataset_id}/publish"
-                ),
+                client.post(f"/api/v1/admin/dataset-versions/{dataset_id}/publish"),
                 200,
             )
             assert published_dataset["status"] == "published"
             assert published_dataset["publishedAt"] is not None
 
             rules_history = _json(
-                client.get(
-                    f"/api/v1/admin/games/{game_id}/rules-versions"
-                ),
+                client.get(f"/api/v1/admin/games/{game_id}/rules-versions"),
                 200,
             )
             dataset_history = _json(
-                client.get(
-                    f"/api/v1/admin/games/{game_id}/dataset-versions"
-                ),
+                client.get(f"/api/v1/admin/games/{game_id}/dataset-versions"),
                 200,
             )
-            assert [
-                item["status"] for item in rules_history
-            ] == ["published"]
-            assert [
-                item["status"] for item in dataset_history
-            ] == ["published"]
+            assert [item["status"] for item in rules_history] == ["published"]
+            assert [item["status"] for item in dataset_history] == ["published"]
     finally:
         application.state.database_engine.dispose()

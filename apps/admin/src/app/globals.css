@@ -911,8 +911,14 @@ nav {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px 30px 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #0b1524;
   color: var(--text);
+  color-scheme: dark;
+}
+
+.manualImageSelectionStep select option {
+  background: #0b1524;
+  color: #f8fafc;
 }
 
 .manualImageSelectionZoom {

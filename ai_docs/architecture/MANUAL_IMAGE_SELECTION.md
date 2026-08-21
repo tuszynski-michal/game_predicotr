@@ -48,3 +48,10 @@ podglądu. Zoom oblicza rzeczywiste wymiary layoutu z naturalnego rozmiaru JPEG-
 i aktualnego viewportu, dzięki czemu pionowy scroll obejmuje cały obraz;
 viewport ukrywa poziomy overflow i centruje nadmiar obrazu bez ingerencji w
 Blob.
+
+Bieżący `scrollTop` viewportu jest przechowywany w zwykłym `useRef`. Przejście
+na inny indeks oznacza pozycję jako oczekującą na odtworzenie; dopiero po
+dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
+`requestAnimationFrame` ustawia `scrollTop`. Zdarzenia scrolla nie zmieniają
+stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
+zapisu i dekodowania JPEG-a.

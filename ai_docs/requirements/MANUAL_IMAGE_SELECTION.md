@@ -30,14 +30,17 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - `Tab` pomija bieżące zdjęcie dla zakresu i przechodzi do następnego zakresu,
   pozostawiając ten sam obraz do ponownego wykorzystania.
 - Strzałki zmieniają wyświetlane zdjęcie bez zmiany zakresu ani decyzji.
-  Operator wybiera trwały skok `1, 2, 5, 7, 10, 15` albo `20` zdjęć; Enter po
-  zapisie nadal przechodzi dokładnie o jedno zdjęcie.
+  Operator wybiera trwały skok `1, 2, 3, 4, 5, 6, 7, 10, 15` albo `20` zdjęć;
+  Enter po zapisie nadal przechodzi dokładnie o jedno zdjęcie. Select zachowuje
+  czytelne ciemne tło również po rozwinięciu natywnej listy opcji.
 - Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–3000%`; oba dotyczą
   wyłącznie prezentacji bieżącego JPEG-a i nie zmieniają pliku zapisywanego na
   dysku. Powiększony obraz ma pionowy viewport, więc można przewinąć go od
   góry do dołu; poziomo pozostaje wyśrodkowany, a nadmiar jest celowo obcięty
   po bokach bez poziomego scrolla. Pełny ekran zawsze pokazuje także bieżący
-  zakres, pozycję i nazwę pliku.
+  zakres, pozycję i nazwę pliku. Przejście między JPEG-ami zachowuje bieżącą
+  pionową pozycję viewportu w ramach aktywnej sesji; krótszy obraz jest
+  naturalnie ograniczany do własnego maksymalnego scrolla.
 - `Ctrl+Z` albo pojedyncze `A` cofa ostatnią decyzję i usuwa tylko plik, który
   aplikacja wcześniej zapisała oraz którego checksum nadal odpowiada źródłu.
 - `Enter` albo pojedyncze `F` zatwierdza bieżące zdjęcie; skróty nie działają,

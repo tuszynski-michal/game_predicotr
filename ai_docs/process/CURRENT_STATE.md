@@ -65,6 +65,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Walidacja: 221 testów Admina, typecheck, celowany ESLint, Prettier,
   `git diff --check` i produkcyjny build Admina przeszły.
 
+### Stabilny scroll i wybór skoku ręcznej selekcji — TASK-0257
+
+- Ręczna selekcja zachowuje bieżący pionowy `scrollTop` przy przejściu między
+  JPEG-ami i przywraca go dopiero po ułożeniu nowego obrazu. Wartość istnieje
+  wyłącznie w pamięci aktywnego workspace'u; scroll nie zapisuje IndexedDB ani
+  nie wywołuje renderowania React.
+- Select skoku zawiera `1, 2, 3, 4, 5, 6, 7, 10, 15, 20` i ma jawne ciemne tło
+  oraz tekst również dla natywnych opcji rozwijanej listy.
+
 ### Odzyskiwanie otwarcia i zapisu Reviewera — TASK-0255
 
 - Lokalny launcher przekazuje zwrócony URL do przygotowanego okna przed

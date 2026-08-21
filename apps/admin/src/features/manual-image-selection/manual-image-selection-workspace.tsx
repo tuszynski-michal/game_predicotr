@@ -42,7 +42,7 @@ interface LoadedImageSize {
 }
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
-const NAVIGATION_STEPS = [1, 2, 5, 7, 10, 15, 20] as const;
+const NAVIGATION_STEPS = [1, 2, 3, 4, 5, 6, 7, 10, 15, 20] as const;
 
 function fitImageToViewport(
   naturalSize: ImageSize | null,
@@ -84,6 +84,8 @@ export function ManualImageSelectionWorkspace({
   const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
   const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
+  const imageScrollTopRef = useRef(0);
+  const pendingImageScrollRestoreRef = useRef(false);
   const traceEventIndexRef = useRef(0);
   const viewTimerRef = useRef<number | null>(null);
   const [firstLayout, setFirstLayout] = useState('1');
@@ -116,6 +118,13 @@ export function ManualImageSelectionWorkspace({
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
+  const zoomedImageSize = fitImageToViewport(
+    loadedImageSize?.sourceUrl === visibleImageUrl
+      ? loadedImageSize.size
+      : null,
+    imageViewportSize,
+    zoom,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -273,8 +282,21 @@ export function ManualImageSelectionWorkspace({
   }, [currentImageIndex]);
 
   useEffect(() => {
-    imageViewportRef.current?.scrollTo({ top: 0 });
-  }, [currentImageIndex, visibleImageUrl]);
+    if (
+      !pendingImageScrollRestoreRef.current ||
+      visibleImageUrl === null ||
+      zoomedImageSize === null
+    ) {
+      return;
+    }
+    const animationFrame = window.requestAnimationFrame(() => {
+      const viewport = imageViewportRef.current;
+      if (viewport === null) return;
+      viewport.scrollTop = imageScrollTopRef.current;
+      pendingImageScrollRestoreRef.current = false;
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [currentImageIndex, visibleImageUrl, zoomedImageSize]);
 
   useEffect(() => {
     if (record === null || state === null) return;
@@ -488,6 +510,12 @@ export function ManualImageSelectionWorkspace({
 
   async function persist(next: ManualSelectionState): Promise<void> {
     if (record === null) return;
+    const previous = stateRef.current;
+    if (previous !== null && previous.currentIndex !== next.currentIndex) {
+      imageScrollTopRef.current =
+        imageViewportRef.current?.scrollTop ?? imageScrollTopRef.current;
+      pendingImageScrollRestoreRef.current = true;
+    }
     const nextRecord = { ...record, state: next };
     stateRef.current = next;
     setRecord(nextRecord);
@@ -914,13 +942,6 @@ export function ManualImageSelectionWorkspace({
   const current = images[state.currentIndex];
   const range = rangeForStart(state.nextRangeStart);
   const navigationStep = normalizeNavigationStep(state.navigationStep);
-  const zoomedImageSize = fitImageToViewport(
-    loadedImageSize?.sourceUrl === visibleImageUrl
-      ? loadedImageSize.size
-      : null,
-    imageViewportSize,
-    zoom,
-  );
   return (
     <section
       className="manualImageSelectionWorkspace manualImageSelectionActive"
@@ -971,7 +992,11 @@ export function ManualImageSelectionWorkspace({
             {NAVIGATION_STEPS.map((step) => (
               <option key={step} value={step}>
                 co {step}{' '}
-                {step === 1 ? 'zdjęcie' : step === 2 ? 'zdjęcia' : 'zdjęć'}
+                {step === 1
+                  ? 'zdjęcie'
+                  : step >= 2 && step <= 4
+                    ? 'zdjęcia'
+                    : 'zdjęć'}
               </option>
             ))}
           </select>
@@ -1032,6 +1057,11 @@ export function ManualImageSelectionWorkspace({
         <div className="manualImageSelectionImageFrame">
           <div
             className="manualImageSelectionImageViewport"
+            onScroll={(event) => {
+              if (!pendingImageScrollRestoreRef.current) {
+                imageScrollTopRef.current = event.currentTarget.scrollTop;
+              }
+            }}
             ref={imageViewportRef}
           >
             {visibleImageUrl === null ? (

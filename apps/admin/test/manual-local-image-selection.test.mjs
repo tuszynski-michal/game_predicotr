@@ -50,7 +50,7 @@ test('offers the requested persisted arrow navigation steps', () => {
   assert.equal(initial.navigationStep, 1);
   assert.match(
     workspaceSource,
-    /NAVIGATION_STEPS = \[1, 2, 5, 7, 10, 15, 20\]/,
+    /NAVIGATION_STEPS = \[1, 2, 3, 4, 5, 6, 7, 10, 15, 20\]/,
   );
   assert.match(workspaceSource, /delta \* navigationStep/);
   assert.match(workspaceSource, /navigationStep,/);
@@ -135,6 +135,28 @@ test('uses scrollable layout dimensions for zoomed images instead of a visual tr
   assert.match(
     stylesSource,
     /\.manualImageSelectionViewer:fullscreen\s*\{[\s\S]*grid-template-rows:\s*auto minmax\(0, 1fr\);/,
+  );
+});
+
+test('keeps the vertical image position while navigating between photos', () => {
+  assert.match(workspaceSource, /imageScrollTopRef/);
+  assert.match(workspaceSource, /pendingImageScrollRestoreRef/);
+  assert.match(
+    workspaceSource,
+    /viewport\.scrollTop = imageScrollTopRef\.current/,
+  );
+  assert.match(workspaceSource, /onScroll=/);
+  assert.doesNotMatch(workspaceSource, /scrollTo\(\{ top: 0 \}\)/);
+});
+
+test('renders the navigation step selector with a readable dark popup', () => {
+  assert.match(
+    stylesSource,
+    /\.manualImageSelectionStep select\s*\{[\s\S]*background:\s*#0b1524;[\s\S]*color-scheme:\s*dark;/,
+  );
+  assert.match(
+    stylesSource,
+    /\.manualImageSelectionStep select option\s*\{[\s\S]*background:\s*#0b1524;[\s\S]*color:\s*#f8fafc;/,
   );
 });
 

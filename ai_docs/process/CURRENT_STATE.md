@@ -74,6 +74,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Select skoku zawiera `1, 2, 3, 4, 5, 6, 7, 10, 15, 20` i ma jawne ciemne tło
   oraz tekst również dla natywnych opcji rozwijanej listy.
 
+### Automatyczne odzyskiwanie konfliktu Reviewera — TASK-0258
+
+- Plansza `253` importu `b2d9b299…` została faktycznie zaakceptowana i ma jedną
+  append-only rewizję. Komunikat `IMAGE_REVIEW_REVISION_CONFLICT` pochodził z
+  ponownej komendy opartej na starszym snapshotcie rewizji `0`, nie z utraty
+  decyzji ani błędu symboli.
+- Konflikt rewizji pełnej decyzji automatycznie unieważnia klucz starej komendy
+  i pobiera aktualny item. Reviewer nie pozostaje na niezapisywalnym buforze,
+  ale nadal nie nadpisuje decyzji zapisanej w innym oknie lub przez inną osobę.
+- API, baza, bounded prefetch i konflikty geometrii pozostały bez zmian.
+  Walidacja: `35/35` testów Reviewera, typecheck, ESLint i build produkcyjny.
+
 ### Odzyskiwanie otwarcia i zapisu Reviewera — TASK-0255
 
 - Lokalny launcher przekazuje zwrócony URL do przygotowanego okna przed

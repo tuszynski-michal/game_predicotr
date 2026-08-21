@@ -609,6 +609,9 @@ export function OperationalReviewWorkspace({
                 onNext={showNextPage}
                 onPrevious={showPreviousPage}
                 onReload={() => {
+                  setPageNotice(
+                    'Plansza została zmieniona w innym żądaniu. Wczytuję jej aktualną rewizję bez nadpisywania zapisanej decyzji.',
+                  );
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
                     sequenceNumber === null ? {} : { sequenceNumber },
@@ -955,6 +958,10 @@ function OperationalReviewBoard({
     if (!result.ok) {
       setSaveError(result.error);
       setRevisionConflict(result.isRevisionConflict);
+      if (result.isRevisionConflict) {
+        setResolutionIdempotencyKey(null);
+        onReload();
+      }
       return;
     }
     setResolutionIdempotencyKey(null);
@@ -968,6 +975,7 @@ function OperationalReviewBoard({
     importJobId,
     item,
     onNext,
+    onReload,
     onResolved,
     resolutionIdempotencyKey,
     sequenceIsValid,

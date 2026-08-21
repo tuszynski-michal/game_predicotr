@@ -398,7 +398,12 @@ zwraca trwały `queueVersion` i dokładne liczniki po całej transakcji, w tym p
 ewentualnym zastąpieniu innych źródeł. Reviewer nie wyprowadza tych liczników z
 lokalnej tablicy. Przeładowanie bieżącej planszy jest wymagane tylko przy
 konflikcie jej rewizji lub geometrii; zmiana sąsiedniej pozycji albo samych
-liczników nie jest konfliktem komendy.
+liczników nie jest konfliktem komendy. Konflikt rewizji podczas zapisu pełnej
+decyzji automatycznie pobiera autorytatywną, aktualną rewizję tej planszy i
+czyści klucz nieaktualnej komendy. Reviewer nie pozostawia operatora na
+niezapisywalnym snapshotcie ani nie ponawia tej komendy na nowej rewizji. Jeżeli
+inna sesja zdążyła już zapisać decyzję, jej wynik pozostaje widoczny i nie jest
+po cichu nadpisywany.
 
 Jeżeli inny reviewer wcześniej zapisze kanoniczną decyzję dla tej samej gry i
 numeru, bieżąca oczekująca pozycja otrzymuje kontrolowany status `superseded`.

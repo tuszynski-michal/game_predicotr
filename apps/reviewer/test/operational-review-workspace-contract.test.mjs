@@ -70,6 +70,10 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /naciśnij Enter, aby od razu zapisać/);
   assert.doesNotMatch(source, /operational-review-confirm-title/);
   assert.match(actions, /IMAGE_REVIEW_REVISION_CONFLICT/);
+  assert.match(
+    source,
+    /if \(result\.isRevisionConflict\) \{[\s\S]*setResolutionIdempotencyKey\(null\);[\s\S]*onReload\(\);/,
+  );
   assert.match(source, /OperationalReviewGeometryEditor/);
   assert.match(geometryEditor, /Edytuj siatkę/);
   assert.match(geometryEditor, /Pojedynczy layout z marginesem/);

@@ -31,8 +31,44 @@ interface DirectoryPickerWindow extends Window {
   }) => Promise<FileSystemDirectoryHandle>;
 }
 
+interface ImageSize {
+  readonly height: number;
+  readonly width: number;
+}
+
+interface LoadedImageSize {
+  readonly size: ImageSize;
+  readonly sourceUrl: string;
+}
+
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
 const NAVIGATION_STEPS = [1, 2, 5, 7, 10, 15, 20] as const;
+
+function fitImageToViewport(
+  naturalSize: ImageSize | null,
+  viewportSize: ImageSize | null,
+  zoom: number,
+): ImageSize | null {
+  if (
+    naturalSize === null ||
+    viewportSize === null ||
+    naturalSize.height < 1 ||
+    naturalSize.width < 1 ||
+    viewportSize.height < 1 ||
+    viewportSize.width < 1
+  ) {
+    return null;
+  }
+  const fitScale = Math.min(
+    1,
+    viewportSize.width / naturalSize.width,
+    viewportSize.height / naturalSize.height,
+  );
+  return {
+    height: Math.max(1, Math.round(naturalSize.height * fitScale * zoom)),
+    width: Math.max(1, Math.round(naturalSize.width * fitScale * zoom)),
+  };
+}
 
 export function ManualImageSelectionWorkspace({
   gameId,
@@ -42,6 +78,7 @@ export function ManualImageSelectionWorkspace({
   const busyRef = useRef(false);
   const folderPickerActiveRef = useRef(false);
   const viewerRef = useRef<HTMLDivElement | null>(null);
+  const imageViewportRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<ManualSelectionState | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
@@ -71,8 +108,14 @@ export function ManualImageSelectionWorkspace({
   const [imageUrlIndex, setImageUrlIndex] = useState(-1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [loadedImageSize, setLoadedImageSize] =
+    useState<LoadedImageSize | null>(null);
+  const [imageViewportSize, setImageViewportSize] = useState<ImageSize | null>(
+    null,
+  );
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
+  const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -213,6 +256,25 @@ export function ManualImageSelectionWorkspace({
     return () =>
       document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
+
+  useEffect(() => {
+    const viewport = imageViewportRef.current;
+    if (viewport === null) return;
+    const updateViewportSize = () => {
+      setImageViewportSize({
+        height: viewport.clientHeight,
+        width: viewport.clientWidth,
+      });
+    };
+    updateViewportSize();
+    const observer = new ResizeObserver(updateViewportSize);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [currentImageIndex]);
+
+  useEffect(() => {
+    imageViewportRef.current?.scrollTo({ top: 0 });
+  }, [currentImageIndex, visibleImageUrl]);
 
   useEffect(() => {
     if (record === null || state === null) return;
@@ -852,8 +914,13 @@ export function ManualImageSelectionWorkspace({
   const current = images[state.currentIndex];
   const range = rangeForStart(state.nextRangeStart);
   const navigationStep = normalizeNavigationStep(state.navigationStep);
-  const visibleImageUrl =
-    imageUrlIndex === state.currentIndex ? imageUrl : null;
+  const zoomedImageSize = fitImageToViewport(
+    loadedImageSize?.sourceUrl === visibleImageUrl
+      ? loadedImageSize.size
+      : null,
+    imageViewportSize,
+    zoom,
+  );
   return (
     <section
       className="manualImageSelectionWorkspace manualImageSelectionActive"
@@ -963,15 +1030,40 @@ export function ManualImageSelectionWorkspace({
           ←
         </button>
         <div className="manualImageSelectionImageFrame">
-          {visibleImageUrl === null ? (
-            <p>Wczytywanie zdjęcia…</p>
-          ) : (
-            <img
-              alt={current?.relativePath ?? 'Bieżące zdjęcie'}
-              style={{ transform: `scale(${zoom})` }}
-              src={visibleImageUrl}
-            />
-          )}
+          <div
+            className="manualImageSelectionImageViewport"
+            ref={imageViewportRef}
+          >
+            {visibleImageUrl === null ? (
+              <p>Wczytywanie zdjęcia…</p>
+            ) : (
+              <div
+                className="manualImageSelectionImageCanvas"
+                style={
+                  zoomedImageSize === null
+                    ? undefined
+                    : {
+                        height: `${zoomedImageSize.height}px`,
+                        width: `${zoomedImageSize.width}px`,
+                      }
+                }
+              >
+                <img
+                  alt={current?.relativePath ?? 'Bieżące zdjęcie'}
+                  onLoad={(event) => {
+                    setLoadedImageSize({
+                      size: {
+                        height: event.currentTarget.naturalHeight,
+                        width: event.currentTarget.naturalWidth,
+                      },
+                      sourceUrl: visibleImageUrl,
+                    });
+                  }}
+                  src={visibleImageUrl}
+                />
+              </div>
+            )}
+          </div>
           <p className="manualImageSelectionFilename">
             {current?.relativePath ?? 'brak zdjęcia'}
           </p>

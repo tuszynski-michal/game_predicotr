@@ -34,8 +34,10 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   zapisie nadal przechodzi dokładnie o jedno zdjęcie.
 - Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–3000%`; oba dotyczą
   wyłącznie prezentacji bieżącego JPEG-a i nie zmieniają pliku zapisywanego na
-  dysku. Pełny ekran zawsze pokazuje także bieżący zakres, pozycję i nazwę
-  pliku.
+  dysku. Powiększony obraz ma pionowy viewport, więc można przewinąć go od
+  góry do dołu; poziomo pozostaje wyśrodkowany, a nadmiar jest celowo obcięty
+  po bokach bez poziomego scrolla. Pełny ekran zawsze pokazuje także bieżący
+  zakres, pozycję i nazwę pliku.
 - `Ctrl+Z` albo pojedyncze `A` cofa ostatnią decyzję i usuwa tylko plik, który
   aplikacja wcześniej zapisała oraz którego checksum nadal odpowiada źródłu.
 - `Enter` albo pojedyncze `F` zatwierdza bieżące zdjęcie; skróty nie działają,

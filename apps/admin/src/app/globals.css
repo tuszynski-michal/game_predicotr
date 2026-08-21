@@ -887,7 +887,7 @@ nav {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(1, 7, 14, 0.72);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .manualImageSelectionViewerToolbar {
@@ -930,6 +930,8 @@ nav {
 }
 
 .manualImageSelectionViewer:fullscreen {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
   width: 100vw;
   height: 100vh;
   min-height: 100vh;
@@ -971,21 +973,43 @@ nav {
 
 .manualImageSelectionImageFrame {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 50vh;
-  place-items: center;
+  height: calc(64vh + 30px);
   gap: 12px;
 }
 
-.manualImageSelectionImageFrame img {
+.manualImageSelectionImageViewport {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.manualImageSelectionImageCanvas {
+  flex: 0 0 auto;
+  margin-block: auto;
+}
+
+.manualImageSelectionImageCanvas img {
   display: block;
-  width: auto;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: 64vh;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 8px;
-  transform-origin: center center;
-  transition: transform 120ms ease-out;
+}
+
+.manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
+  min-height: 0;
+  height: auto;
 }
 
 .manualImageSelectionNav {

@@ -25,6 +25,10 @@ const selectionSource = await readFile(
   ),
   'utf8',
 );
+const stylesSource = await readFile(
+  new URL('../src/app/globals.css', import.meta.url),
+  'utf8',
+);
 
 test('sorts image names in the same numeric order as Explorer', () => {
   const names = ['1_10.jpg', '1_2.jpg', '1_1.jpg', '1_20.jpg'];
@@ -112,6 +116,26 @@ test('offers fullscreen and bounded zoom controls without changing the source fi
   assert.match(workspaceSource, /zoom >= 30/);
   assert.match(workspaceSource, /manualImageSelectionFullscreenInfo/);
   assert.match(workspaceSource, /Zakres \{range\.start\}–\{range\.end\}/);
+});
+
+test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
+  assert.match(workspaceSource, /fitImageToViewport/);
+  assert.match(workspaceSource, /manualImageSelectionImageViewport/);
+  assert.match(workspaceSource, /manualImageSelectionImageCanvas/);
+  assert.match(workspaceSource, /imageViewportRef\.current\?\.scrollTo/);
+  assert.doesNotMatch(workspaceSource, /transform:\s*`scale/);
+  assert.match(
+    stylesSource,
+    /\.manualImageSelectionImageViewport\s*\{[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto;/,
+  );
+  assert.match(
+    stylesSource,
+    /\.manualImageSelectionImageViewport\s*\{[\s\S]*justify-content:\s*center;/,
+  );
+  assert.match(
+    stylesSource,
+    /\.manualImageSelectionViewer:fullscreen\s*\{[\s\S]*grid-template-rows:\s*auto minmax\(0, 1fr\);/,
+  );
 });
 
 test('indexes handles without opening every JPEG and preloads a bounded neighbour window', () => {

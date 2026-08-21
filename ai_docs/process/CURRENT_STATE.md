@@ -52,6 +52,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Walidacja: 220 testów Admina, typecheck, celowany ESLint bez błędów,
   Prettier oraz `git diff --check` przeszły.
 
+### Pionowe przewijanie zoomu ręcznej selekcji — TASK-0254
+
+- Lokalna ręczna selekcja nie skaluje już JPEG-a przez wizualny `transform`,
+  który nie powiększał obszaru przewijania. Zoom oblicza rzeczywiste wymiary
+  layoutu z naturalnych wymiarów JPEG-a i viewportu.
+- Wewnętrzny viewport przewija obraz wyłącznie pionowo. Szerokie zdjęcie jest
+  wyśrodkowane, a jego boki są symetrycznie przycięte bez poziomego scrolla.
+  Zmiana zdjęcia wraca na górę nowego obrazu.
+- Pełny ekran utrzymuje zakres, pozycję i nazwę nad przewijanym obrazem;
+  File System Access API, source Blob, nawigacja i skróty nie zostały zmienione.
+- Walidacja: 221 testów Admina, typecheck, celowany ESLint, Prettier,
+  `git diff --check` i produkcyjny build Admina przeszły.
+
 ### Przejście z wersji 0.6 do 0.7 — 2026-08-21
 
 - Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w

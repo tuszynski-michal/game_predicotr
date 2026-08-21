@@ -44,4 +44,7 @@ Nie ma endpointu HTTP, joba, workera ani API/OpenAPI dla tego workspace'u.
 Kontrakt serwerowy pozostaje właścicielem automatycznej selekcji i importu;
 lokalny fallback zapisuje wyłącznie pliki przygotowane do późniejszego,
 jawnego importu layoutów. Pełny ekran używa `requestFullscreen` na kontenerze
-podglądu, a zoom jest lokalnym stylem `transform` obrazu i nie ingeruje w Blob.
+podglądu. Zoom oblicza rzeczywiste wymiary layoutu z naturalnego rozmiaru JPEG-a
+i aktualnego viewportu, dzięki czemu pionowy scroll obejmuje cały obraz;
+viewport ukrywa poziomy overflow i centruje nadmiar obrazu bez ingerencji w
+Blob.

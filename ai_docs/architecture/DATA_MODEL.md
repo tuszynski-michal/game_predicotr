@@ -147,9 +147,9 @@ roli zwykły/joker tego symbolu.
 | id | UUID | |
 | rules_version_id | UUID | |
 | code | varchar | stabilny w wersji |
-| name | varchar | |
+| name | varchar | opisowa etykieta; Admin przy tworzeniu ustawia ją równą `code` |
 | row_path | smallint[] | indeksy 0-based, po jednym na kolumnę |
-| display_order | integer | |
+| display_order | integer | deterministyczna kolejność prezentacji; Admin nadaje ją automatycznie |
 | is_active | boolean | |
 
 Nie ma pola `pattern_type`: jedynym typem jest `PAYLINE`.

@@ -73,6 +73,8 @@ Administrator może:
 
 - kliknąć `Dodaj wzór`,
 - zobaczyć w modalu pustą siatkę o wymiarach gry,
+- podać stabilny kod wzorca; opisowa nazwa nie jest osobnym polem i przy
+  tworzeniu przyjmuje wartość kodu,
 - zaznaczyć kafelek, który zostaje podświetlony lub oznaczony,
 - wybrać najwyżej jedną komórkę w każdej kolumnie,
 - zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
@@ -86,6 +88,10 @@ Walidacja:
 - UI pokazuje wiersze od 1, a API normalizuje je do indeksów od 0,
 - identyczny `row_path` nie może zostać dodany dwa razy do tej samej wersji reguł,
 - nie można wybrać dwóch komórek w jednej kolumnie.
+
+Administrator nie ustawia ręcznie kolejności prezentacji. Nowy wzorzec trafia
+za istniejące wzorce wersji; kolejność służy wyłącznie deterministycznemu
+wyświetlaniu i nie wpływa na obliczenie wypłat.
 
 Dokładny wygląd modala i tabeli zostanie ustalony przy projektowaniu UI, ale powyższy kontrakt zachowania jest obowiązkowy.
 

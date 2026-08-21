@@ -3550,9 +3550,10 @@ div.imageJobInlineError {
 .paylineTableHeader,
 .paylineTableRow {
   display: grid;
-  grid-template-columns:
-    minmax(180px, 1fr) minmax(210px, 1.1fr) minmax(90px, 0.35fr)
-    minmax(210px, 0.8fr);
+  grid-template-columns: minmax(180px, 1fr) minmax(210px, 1.1fr) minmax(
+      210px,
+      0.8fr
+    );
   gap: 18px;
   align-items: center;
   padding: 16px 18px;
@@ -3701,7 +3702,7 @@ div.imageJobInlineError {
 
 .paylineFields {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 0.7fr 0.75fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
 }
 
@@ -4516,7 +4517,7 @@ div.imageJobInlineError {
 
   .paylineTableHeader,
   .paylineTableRow {
-    min-width: 820px;
+    min-width: 640px;
   }
 
   .jobFilters {

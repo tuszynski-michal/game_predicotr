@@ -6,7 +6,10 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
-import type { ValidatedPaylineDraft } from './payline-editor-state.ts';
+import {
+  nextPaylineDisplayOrder,
+  type ValidatedPaylineDraft,
+} from './payline-editor-state.ts';
 
 export type PaylinesClient = Pick<
   AdminApiClient,
@@ -26,30 +29,32 @@ export async function savePayline(
   rulesVersionId: string,
   intent: SavePaylineIntent,
   draft: ValidatedPaylineDraft,
+  existingPaylines: readonly PaylineResponse[],
 ): Promise<SavePaylineResult> {
   try {
-    const result =
-      intent.mode === 'create'
-        ? await api.createPayline(rulesVersionId, {
-            code: draft.code,
-            displayOrder: draft.displayOrder,
-            isActive: draft.isActive,
-            name: draft.name,
-            rowPath: [...draft.rowPath],
-          } satisfies PaylineCreate)
-        : await api.updatePayline(rulesVersionId, intent.paylineId, {
-            displayOrder: draft.displayOrder,
-            isActive: draft.isActive,
-            name: draft.name,
-            rowPath: [...draft.rowPath],
-          } satisfies PaylineUpdate);
-    if (result.error !== undefined || result.data === undefined) {
-      return {
-        error: apiErrorMessage(result.error, 'Nie udało się zapisać wzorca.'),
-        ok: false,
-      };
+    if (intent.mode === 'create') {
+      const displayOrder = nextPaylineDisplayOrder(existingPaylines);
+      if (displayOrder === null) {
+        return {
+          error:
+            'Nie można nadać automatycznej kolejności: osiągnięto maksymalną liczbę wzorców.',
+          ok: false,
+        };
+      }
+      const result = await api.createPayline(rulesVersionId, {
+        code: draft.code,
+        displayOrder,
+        isActive: draft.isActive,
+        name: draft.code,
+        rowPath: [...draft.rowPath],
+      } satisfies PaylineCreate);
+      return mapSaveResponse(result);
     }
-    return { ok: true, payline: result.data };
+    const result = await api.updatePayline(rulesVersionId, intent.paylineId, {
+      isActive: draft.isActive,
+      rowPath: [...draft.rowPath],
+    } satisfies PaylineUpdate);
+    return mapSaveResponse(result);
   } catch {
     return {
       error:
@@ -57,6 +62,19 @@ export async function savePayline(
       ok: false,
     };
   }
+}
+
+function mapSaveResponse(result: {
+  readonly data?: PaylineResponse;
+  readonly error?: unknown;
+}): SavePaylineResult {
+  if (result.error !== undefined || result.data === undefined) {
+    return {
+      error: apiErrorMessage(result.error, 'Nie udało się zapisać wzorca.'),
+      ok: false,
+    };
+  }
+  return { ok: true, payline: result.data };
 }
 
 export type ArchivePaylineResult =

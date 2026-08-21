@@ -18,9 +18,7 @@ const savedPayline = {
 };
 const draft = {
   code: 'line-v',
-  displayOrder: 10,
   isActive: true,
-  name: 'V',
   rowPath: [0, 1, 2, 1, 0],
 };
 
@@ -48,6 +46,12 @@ test('creates a payline with the complete zero-based contract', async () => {
     rulesVersionId,
     { mode: 'create' },
     draft,
+    [
+      {
+        ...savedPayline,
+        displayOrder: 9,
+      },
+    ],
   );
 
   assert.equal(receivedRulesVersionId, rulesVersionId);
@@ -55,7 +59,7 @@ test('creates a payline with the complete zero-based contract', async () => {
     code: 'line-v',
     displayOrder: 10,
     isActive: true,
-    name: 'V',
+    name: 'line-v',
     rowPath: [0, 1, 2, 1, 0],
   });
   assert.deepEqual(result, { ok: true, payline: savedPayline });
@@ -72,10 +76,13 @@ test('updates mutable fields without sending the stable code', async () => {
     }),
     rulesVersionId,
     { mode: 'edit', paylineId: savedPayline.id },
-    { ...draft, isActive: false, name: 'V line' },
+    { ...draft, isActive: false },
+    [savedPayline],
   );
 
   assert.equal('code' in request, false);
+  assert.equal('name' in request, false);
+  assert.equal('displayOrder' in request, false);
   assert.equal(request.isActive, false);
   assert.equal(result.ok, true);
 });
@@ -105,12 +112,36 @@ test('archives through the typed boundary and preserves duplicate errors', async
     rulesVersionId,
     { mode: 'create' },
     draft,
+    [],
   );
 
   assert.equal(archivedId, savedPayline.id);
   assert.deepEqual(success, { ok: true });
   assert.deepEqual(duplicate, {
     error: 'A payline with this rowPath already exists. (DUPLICATE_PAYLINE)',
+    ok: false,
+  });
+});
+
+test('blocks a create before the API call when automatic display order would overflow', async () => {
+  let called = false;
+  const result = await savePayline(
+    createClient({
+      createPayline: async () => {
+        called = true;
+        return { data: savedPayline };
+      },
+    }),
+    rulesVersionId,
+    { mode: 'create' },
+    draft,
+    [{ ...savedPayline, displayOrder: 2_147_483_647 }],
+  );
+
+  assert.equal(called, false);
+  assert.deepEqual(result, {
+    error:
+      'Nie można nadać automatycznej kolejności: osiągnięto maksymalną liczbę wzorców.',
     ok: false,
   });
 });

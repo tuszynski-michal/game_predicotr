@@ -26,6 +26,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   UI poprawnie wybiera najnowszy v2. Żaden rekord nie został usunięty.
 - Walidacja: 216 testów Admina, typecheck, celowany ESLint i Prettier przeszły.
 
+### Uproszczenie edytora wzorców — TASK-0252
+
+- Edytor payline pozostawia administratorowi stabilny kod, aktywność i wybór
+  ścieżki na siatce. Pola opisowej nazwy oraz kolejności nie są już ręcznie
+  edytowane ani prezentowane w tabeli.
+- Przy utworzeniu Admin zapisuje `name = code` i następną kolejność po
+  istniejących rekordach; przy edycji zachowuje historyczną nazwę i kolejność.
+  Pola te nadal istnieją w kontrakcie API i bazie dla zgodności.
+- D-207 potwierdza, że kolejność jest wyłącznie deterministyczną prezentacją,
+  bez wpływu na wynik payoutu. Walidacja: 219 testów Admina, typecheck,
+  celowany ESLint oraz Prettier przeszły.
+
 ### Przejście z wersji 0.6 do 0.7 — 2026-08-21
 
 - Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w

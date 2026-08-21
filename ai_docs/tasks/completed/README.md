@@ -39,6 +39,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 ## Wersja 0.7
 
 - [TASK-0251 — Uzgodnienie wyniku tworzenia reguł](0251-rules-creation-response-reconciliation.md)
+- [TASK-0252 — Uproszczenie edytora wzorców](0252-simplify-payline-editor.md)
 
 ## Zawartość
 

@@ -4978,6 +4978,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Supersedes:** rozszerza D-095, D-120 i D-188 oraz zastępuje w D-098 zasadę
   zatrzymywania całego tunelu przy zakończeniu pojedynczej sesji.
 
+## D-207 — Edytor payline nie eksponuje nazwy ani kolejności technicznej
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** administrator wskazuje stabilny `code`, aktywność i `row_path`.
+  Przy POST Admin zapisuje `name = code` oraz automatyczną kolejność o jeden
+  większą od najwyższej istniejącej wartości w tej wersji reguł. PATCH nie
+  zmienia ani nazwy, ani kolejności. Tabela identyfikuje wzorzec przez kod i
+  nie pokazuje pomocniczych pól.
+- **Context:** ręczne pola `name` i `displayOrder` nie przekazują semantyki
+  potrzebnej do definicji ani obliczenia payline, a zwiększają liczbę czynności
+  podczas konfiguracji reguł.
+- **Safety:** `code` pozostaje stabilny i unikalny zgodnie z D-026; `row_path`
+  zachowuje wszystkie walidacje wymiarów i unikalności. `displayOrder` nie jest
+  unikalny, lecz sort po nim, kodzie i UUID pozostaje deterministyczny. Kolejność
+  nie wpływa na wynik payoutu.
+- **Consequences:** kontrakt API i schemat bazy pozostają kompatybilne, bez
+  migracji. Historyczne wartości nazwy i kolejności są zachowane podczas edycji;
+  nowe rekordy otrzymują wartości automatyczne.
+
 ## Szablon nowej decyzji
 
 ```text

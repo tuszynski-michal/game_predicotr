@@ -29,3 +29,10 @@ test('rules workspace exposes explicit payout recomputation and progress', () =>
   assert.match(payoutSource, /Wznów przeliczanie/);
   assert.match(payoutSource, /progress/);
 });
+
+test('rules creation always releases its submitting guard', () => {
+  assert.match(
+    source,
+    /finally\s*\{\s*mutationInProgress\.current = false;\s*setIsSubmitting\(false\);\s*\}/,
+  );
+});

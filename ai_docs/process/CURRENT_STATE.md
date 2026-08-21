@@ -13,7 +13,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.7 planning: new scope has not been created yet`
+`Version 0.7 implementation: Admin rules creation reliability`
+
+### Pierwszy pion wersji 0.7 — TASK-0251
+
+- Pierwsze zadanie 0.7 naprawiło zawieszony stan ładowania przy tworzeniu reguł.
+- Rzeczywisty draft v1 został zapisany, mimo że panel nie pokazał zakończenia
+  operacji. Admin otrzyma ograniczony czas oczekiwania i uzgodnienie skutecznej
+  mutacji przez ponowny odczyt reguł gry.
+- Zakres nie zmienia domeny reguł, API, publikacji ani payoutów.
+- Kontrola ujawniła dwa zgodne drafty: v1 z `10:57:38` oraz v2 z `11:00:31`.
+  UI poprawnie wybiera najnowszy v2. Żaden rekord nie został usunięty.
+- Walidacja: 216 testów Admina, typecheck, celowany ESLint i Prettier przeszły.
 
 ### Przejście z wersji 0.6 do 0.7 — 2026-08-21
 

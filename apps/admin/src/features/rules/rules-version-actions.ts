@@ -44,6 +44,17 @@ export type SaveRulesVersionResult =
   | { readonly ok: true; readonly rulesVersion: RulesVersionResponse }
   | { readonly error: string; readonly ok: false };
 
+export type LoadRulesVersionsResult =
+  | {
+      readonly ok: true;
+      readonly rulesVersions: readonly RulesVersionResponse[];
+    }
+  | { readonly error: string; readonly ok: false };
+
+export interface RulesRequestPolicy {
+  readonly timeoutMs?: number;
+}
+
 export type PublicationReadinessResult =
   | {
       readonly ok: true;
@@ -54,6 +65,65 @@ export type PublicationReadinessResult =
 export type RulesVersionTransitionResult =
   | { readonly ok: true; readonly rulesVersion: RulesVersionResponse }
   | { readonly error: string; readonly ok: false };
+
+const DEFAULT_RULES_REQUEST_TIMEOUT_MS = 15_000;
+
+class RulesRequestTimeoutError extends Error {
+  constructor() {
+    super('Rules request timed out.');
+    this.name = 'RulesRequestTimeoutError';
+  }
+}
+
+async function withRulesRequestTimeout<T>(
+  request: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new RulesRequestTimeoutError()),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+}
+
+function requestTimeout(policy?: RulesRequestPolicy): number {
+  return policy?.timeoutMs ?? DEFAULT_RULES_REQUEST_TIMEOUT_MS;
+}
+
+export async function loadRulesVersionsForGame(
+  api: RulesVersionsClient,
+  gameId: string,
+  policy?: RulesRequestPolicy,
+): Promise<LoadRulesVersionsResult> {
+  try {
+    const result = await withRulesRequestTimeout(
+      api.listRulesVersions(gameId),
+      requestTimeout(policy),
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać wersji reguł.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, rulesVersions: result.data };
+  } catch {
+    return {
+      error: 'Lokalne Admin API nie zakończyło pobierania wersji reguł.',
+      ok: false,
+    };
+  }
+}
 
 export async function createEditableRulesDraft(
   api: RulesVersionsClient,
@@ -85,7 +155,9 @@ export async function saveRulesVersion(
   api: RulesVersionsClient,
   intent: SaveRulesVersionIntent,
   draft: ValidatedRulesVersionDraft,
+  policy?: RulesRequestPolicy,
 ): Promise<SaveRulesVersionResult> {
+  const timeoutMs = requestTimeout(policy);
   try {
     const body = {
       columns: draft.columns,
@@ -94,16 +166,33 @@ export async function saveRulesVersion(
     };
     const result =
       intent.mode === 'create'
-        ? await api.createRulesVersion(
-            intent.gameId,
-            body satisfies RulesVersionCreate,
+        ? await withRulesRequestTimeout(
+            api.createRulesVersion(
+              intent.gameId,
+              body satisfies RulesVersionCreate,
+            ),
+            timeoutMs,
           )
-        : await api.updateRulesVersion(
-            intent.rulesVersionId,
-            body satisfies RulesVersionUpdate,
+        : await withRulesRequestTimeout(
+            api.updateRulesVersion(
+              intent.rulesVersionId,
+              body satisfies RulesVersionUpdate,
+            ),
+            timeoutMs,
           );
 
     if (result.error !== undefined || result.data === undefined) {
+      if (result.error === undefined && intent.mode === 'create') {
+        const reconciled = await reconcileCreatedRulesVersion(
+          api,
+          intent.gameId,
+          draft,
+          timeoutMs,
+        );
+        if (reconciled !== null) {
+          return { ok: true, rulesVersion: reconciled };
+        }
+      }
       return {
         error: apiErrorMessage(
           result.error,
@@ -114,11 +203,49 @@ export async function saveRulesVersion(
     }
     return { ok: true, rulesVersion: result.data };
   } catch {
+    if (intent.mode === 'create') {
+      const reconciled = await reconcileCreatedRulesVersion(
+        api,
+        intent.gameId,
+        draft,
+        timeoutMs,
+      );
+      if (reconciled !== null) {
+        return { ok: true, rulesVersion: reconciled };
+      }
+    }
     return {
       error:
-        'Połączenie z lokalnym Admin API zostało przerwane. Spróbuj ponownie.',
+        'Nie udało się potwierdzić zapisu reguł w lokalnym Admin API. Odśwież sekcję przed ponowieniem.',
       ok: false,
     };
+  }
+}
+
+async function reconcileCreatedRulesVersion(
+  api: RulesVersionsClient,
+  gameId: string,
+  draft: ValidatedRulesVersionDraft,
+  timeoutMs: number,
+): Promise<RulesVersionResponse | null> {
+  try {
+    const result = await withRulesRequestTimeout(
+      api.listRulesVersions(gameId),
+      timeoutMs,
+    );
+    if (result.error !== undefined || result.data === undefined) return null;
+    return (
+      result.data.find(
+        (rulesVersion) =>
+          rulesVersion.gameId === gameId &&
+          rulesVersion.status === 'draft' &&
+          rulesVersion.rows === draft.rows &&
+          rulesVersion.columns === draft.columns &&
+          rulesVersion.spinCost === draft.spinCost,
+      ) ?? null
+    );
+  } catch {
+    return null;
   }
 }
 

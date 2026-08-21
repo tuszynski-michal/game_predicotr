@@ -20,6 +20,7 @@ import { PayoutRulesManagerModal } from '@/features/rules/payout-rules-manager-m
 import { PayoutComputationPanel } from '@/features/rules/payout-computation-panel';
 import {
   createEditableRulesDraft,
+  loadRulesVersionsForGame,
   saveRulesVersion,
   type RulesVersionsClient,
 } from '@/features/rules/rules-version-actions';
@@ -115,24 +116,15 @@ export function RulesVersionCatalog({
       const requestId = ++rulesRequestId.current;
       setRulesState('loading');
       setError('');
-      try {
-        const result = await api.listRulesVersions(gameId);
-        if (requestId !== rulesRequestId.current) return;
-        if (result.error !== undefined || result.data === undefined) {
-          setError(
-            apiErrorMessage(result.error, 'Nie udało się pobrać wersji reguł.'),
-          );
-          setRulesState('error');
-          return;
-        }
-        setRulesVersions(result.data);
-        setRulesState('ready');
-      } catch {
-        if (requestId === rulesRequestId.current) {
-          setError('Brak połączenia z lokalnym Admin API.');
-          setRulesState('error');
-        }
+      const result = await loadRulesVersionsForGame(api, gameId);
+      if (requestId !== rulesRequestId.current) return;
+      if (!result.ok) {
+        setError(result.error);
+        setRulesState('error');
+        return;
       }
+      setRulesVersions(result.rulesVersions);
+      setRulesState('ready');
     },
     [api],
   );
@@ -213,31 +205,34 @@ export function RulesVersionCatalog({
     mutationInProgress.current = true;
     setIsSubmitting(true);
     setFormError('');
-    const result = await saveRulesVersion(
-      api,
-      editor.mode === 'create'
-        ? { gameId: selectedGameId!, mode: 'create' }
-        : {
-            mode: 'edit',
-            rulesVersionId: editor.rulesVersion.id,
-          },
-      validation.value,
-    );
-    mutationInProgress.current = false;
-    setIsSubmitting(false);
-    if (!result.ok) {
-      setFormError(result.error);
-      return;
+    try {
+      const result = await saveRulesVersion(
+        api,
+        editor.mode === 'create'
+          ? { gameId: selectedGameId!, mode: 'create' }
+          : {
+              mode: 'edit',
+              rulesVersionId: editor.rulesVersion.id,
+            },
+        validation.value,
+      );
+      if (!result.ok) {
+        setFormError(result.error);
+        return;
+      }
+      setRulesVersions((current) =>
+        upsertRulesVersion(current, result.rulesVersion),
+      );
+      setEditor({ mode: 'closed' });
+      setFeedback(
+        editor.mode === 'create'
+          ? 'Utworzono pierwszą konfigurację reguł.'
+          : 'Zapisano bieżące reguły.',
+      );
+    } finally {
+      mutationInProgress.current = false;
+      setIsSubmitting(false);
     }
-    setRulesVersions((current) =>
-      upsertRulesVersion(current, result.rulesVersion),
-    );
-    setEditor({ mode: 'closed' });
-    setFeedback(
-      editor.mode === 'create'
-        ? 'Utworzono pierwszą konfigurację reguł.'
-        : 'Zapisano bieżące reguły.',
-    );
   }
 
   function onPublished(rulesVersion: RulesVersionResponse) {

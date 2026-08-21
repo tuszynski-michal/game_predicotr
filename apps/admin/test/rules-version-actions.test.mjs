@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   archiveRulesVersion,
   createEditableRulesDraft,
+  loadRulesVersionsForGame,
   loadPublicationReadiness,
   publishRulesVersion,
   saveRulesVersion,
@@ -102,6 +103,90 @@ test('creates a server-numbered rules draft with dimensions and cost only', asyn
   assert.deepEqual(result, {
     ok: true,
     rulesVersion: savedRulesVersion,
+  });
+});
+
+test('reconciles a created draft when the mutation response is lost', async () => {
+  let listCalls = 0;
+  const result = await saveRulesVersion(
+    createClient({
+      createRulesVersion: async () => {
+        throw new Error('response lost');
+      },
+      listRulesVersions: async () => {
+        listCalls += 1;
+        return { data: [savedRulesVersion] };
+      },
+    }),
+    { gameId, mode: 'create' },
+    draft,
+    { timeoutMs: 20 },
+  );
+
+  assert.equal(listCalls, 1);
+  assert.deepEqual(result, {
+    ok: true,
+    rulesVersion: savedRulesVersion,
+  });
+});
+
+test('does not mask a stable create error with reconciliation', async () => {
+  let listCalls = 0;
+  const result = await saveRulesVersion(
+    createClient({
+      createRulesVersion: async () => ({
+        error: {
+          code: 'INVALID_RULES_ROWS',
+          details: {},
+          message: 'Rows are invalid.',
+        },
+      }),
+      listRulesVersions: async () => {
+        listCalls += 1;
+        return { data: [savedRulesVersion] };
+      },
+    }),
+    { gameId, mode: 'create' },
+    draft,
+  );
+
+  assert.equal(listCalls, 0);
+  assert.deepEqual(result, {
+    error: 'Rows are invalid. (INVALID_RULES_ROWS)',
+    ok: false,
+  });
+});
+
+test('bounds a hanging create and reconciliation request', async () => {
+  const never = () => new Promise(() => {});
+  const startedAt = Date.now();
+  const result = await saveRulesVersion(
+    createClient({
+      createRulesVersion: never,
+      listRulesVersions: never,
+    }),
+    { gameId, mode: 'create' },
+    draft,
+    { timeoutMs: 5 },
+  );
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Nie udało się potwierdzić zapisu reguł/);
+  assert.ok(Date.now() - startedAt < 500);
+});
+
+test('bounds loading the rules catalog', async () => {
+  const result = await loadRulesVersionsForGame(
+    createClient({
+      listRulesVersions: () => new Promise(() => {}),
+    }),
+    gameId,
+    { timeoutMs: 5 },
+  );
+
+  assert.deepEqual(result, {
+    error: 'Lokalne Admin API nie zakończyło pobierania wersji reguł.',
+    ok: false,
   });
 });
 

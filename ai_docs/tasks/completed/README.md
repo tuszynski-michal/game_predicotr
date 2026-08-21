@@ -36,6 +36,10 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0247 — Attested `seq_*` import](0247-attested-seq-range-import.md)
 - [TASK-0248 — Representative quality ranking](0248-representative-quality-ranking.md)
 
+## Wersja 0.7
+
+- [TASK-0251 — Uzgodnienie wyniku tworzenia reguł](0251-rules-creation-response-reconciliation.md)
+
 ## Zawartość
 
 - [TASK-0001 — Architecture clarification](0001-architecture-clarification.md)

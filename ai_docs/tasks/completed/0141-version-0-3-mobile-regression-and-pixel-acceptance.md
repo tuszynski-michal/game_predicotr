@@ -1,14 +1,14 @@
 ---
 title: TASK-0141 — Version 0.3 mobile regression and Pixel acceptance
-status: in_progress
-last_updated: 2026-08-01
+status: done
+last_updated: 2026-08-21
 ---
 
 # TASK-0141 — Version 0.3 mobile regression and Pixel acceptance
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -142,3 +142,9 @@ npm.cmd run android:device:accept -- -ExpectedModelPattern '^Pixel 10 Pro XL$' -
 
 - Dokończyć TASK-0141 po podłączeniu Google Pixel 10 Pro XL; nie rozpoczynać
   zakresu 0.4 przed wynikiem odbioru.
+
+## Closure
+
+Zamknięto administracyjnie 2026-08-21 przy przejściu do planowania wersji 0.7.
+Niedokończony odbiór APK i Google Pixel nie należy do zakresu 0.7; jeśli wróci
+na roadmapę, wymaga nowego zadania z aktualnym urządzeniem i kryteriami.

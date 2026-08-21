@@ -1,15 +1,15 @@
 ---
 title: TASK-0242 image selection v10.11 derived range recovery
-status: in_progress
+status: done
 release: "0.6"
-last_updated: 2026-08-16
+last_updated: 2026-08-21
 ---
 
 # TASK-0242 — Image selection v10.11 derived range recovery
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -393,3 +393,9 @@ wzrosła. Raporty zapisano jako
 
 Walidacja v10.18 przeszła: `738/738` testów workera, Ruff i Ruff Formatter dla
 519 plików oraz mypy dla 328 modułów.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Odzyskiwanie historycznych runów v10.11–
+v10.18 nie jest dalszym zakresem wersji 0.7. Jeżeli będzie potrzebne odzyskanie
+konkretnego runu, należy utworzyć nowe zadanie z jego snapshotem i kryteriami.

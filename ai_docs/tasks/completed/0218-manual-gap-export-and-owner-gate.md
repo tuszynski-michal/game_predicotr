@@ -1,8 +1,8 @@
 ---
 title: TASK-0218 manual gap export and owner gate
-status: in_progress
+status: done
 release: "0.4"
-last_updated: 2026-08-09
+last_updated: 2026-08-21
 ---
 
 # TASK-0218 — Uzupełnianie katalogu i odbiór
@@ -31,3 +31,9 @@ dało kanonicznie identyczne decyzje dla jednego i dwóch verifierów. Trudny
 wycinek `29640–29739` nie wyeksportował niespójnego reprezentanta i skierował
 mieszaną grupę do `manual_required`. Pozostają: manualny odbiór galerii,
 rzeczywisty pomiar kursora eksportu i warm cache oraz test 5000/32079.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Aktualna ręczna selekcja eksportuje
+poświadczone pliki `seq_*` do niezależnego importu layoutów, więc dopisywanie
+luk do historycznego joba nie jest już aktywnym przebiegiem operatora.

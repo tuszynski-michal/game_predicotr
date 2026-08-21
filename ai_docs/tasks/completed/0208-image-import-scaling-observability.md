@@ -1,8 +1,8 @@
 ---
 title: TASK-0208 image import scaling and observability
-status: in_progress
+status: done
 release: "0.5"
-last_updated: 2026-08-09
+last_updated: 2026-08-21
 ---
 
 # TASK-0208 — Image import scaling and observability
@@ -38,3 +38,10 @@ udział etapów. Procedurę 10/100/1000 i warunkową bramkę 5000 opisuje
 
 Rzeczywiste pomiary pozostają odroczonym odbiorem właściciela. Zadanie nie jest
 oznaczone jako ukończone, dopóki wyniki nie zostaną zebrane i zaakceptowane.
+
+## Closure
+
+Właściciel zaakceptował 2026-08-21 obecną poprawę geometrii oraz rozpoznawania
+symboli na podstawie wcześniejszych 63 plansz. Zamknięto ten historyczny pion
+obserwowalności; przyszłe pomiary muszą być opisane jako nowe zadanie wersji
+0.7, z aktualnym pipeline'em geometrii i symboli.

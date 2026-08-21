@@ -1,15 +1,15 @@
 ---
 title: TASK-0157 image selection scale quality and owner acceptance
-status: in_progress
+status: done
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-21
 ---
 
 # TASK-0157 — Image selection scale, quality and owner acceptance
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -312,3 +312,10 @@ appearance-only grouping, first-usable selection, range-free handoff,
 wersjonowany cache oraz pojedynczą końcową regresję 40 000 zdjęć. Upload schema
 v2 nie należy do zakresu i nie będzie zmieniany. Implementacja pierwszego kroku
 nie została jeszcze rozpoczęta.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Kryteria dotyczą historycznego selektora
+v9 z wersji 0.4; obecny proces używa ręcznej selekcji jako pełnoprawnego
+fallbacku oraz późniejszych adapterów. Nie wolno reaktywować tego zadania bez
+nowego planu i aktualnych danych jakościowych.

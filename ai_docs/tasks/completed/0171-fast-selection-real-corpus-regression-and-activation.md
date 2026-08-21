@@ -1,15 +1,15 @@
 ---
 title: TASK-0171 fast selection real corpus regression and activation
-status: in_progress
+status: done
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-21
 ---
 
 # TASK-0171 — Fast selection real-corpus regression and activation
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -152,3 +152,9 @@ handlera oraz `28 passed` dla API tworzenia/rerunu stagingu. Ruff, MyPy i jawna
 kontrola importów potwierdziły, że API i worker widzą ten sam fingerprint v9.
 Oba worker lanes pozostają zatrzymane, aby właściciel uruchomił nowe procesy już
 z aktywnym manifestem.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Bramka odnosi się do historycznej
+aktywacji selektora v9; nie opisuje późniejszych wersji ani obecnego ręcznego
+workflow. Ewentualne nowe benchmarki wymagają osobnego zadania wersji 0.7.

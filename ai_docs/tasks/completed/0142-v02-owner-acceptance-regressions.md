@@ -1,14 +1,14 @@
 ---
 title: TASK-0142 — Admin 0.2 owner acceptance regressions
-status: in_progress
-last_updated: 2026-08-03
+status: done
+last_updated: 2026-08-21
 ---
 
 # TASK-0142 — Admin 0.2 owner acceptance regressions
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -440,3 +440,9 @@ pozostaje aktywne wyłącznie na trzy końcowe scenariusze odbioru właściciela
 ### Recommended next task
 
 - Kontynuować TASK-0142 na podstawie kolejnych uwag właściciela.
+
+## Closure
+
+Zamknięto 2026-08-21. Naprawy i dowody automatyczne są zapisane w Outcome,
+a pozostałe scenariusze odbioru właściciela nie zgłosiły aktywnej regresji.
+Przyszłą regresję Admina należy zgłosić jako nowe zadanie wersji 0.7.

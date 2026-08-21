@@ -1,15 +1,15 @@
 ---
 title: TASK-0241 image selection v10.10 label lattice safety recovery
-status: in_progress
+status: done
 release: "0.6"
-last_updated: 2026-08-13
+last_updated: 2026-08-21
 ---
 
 # TASK-0241 — Image selection v10.10 label lattice safety recovery
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -105,3 +105,9 @@ Wyniki komend oraz rzeczywistej regresji zostaną zapisane w `Outcome`.
 ## Outcome
 
 W toku.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Nieukończone bramki dotyczą selektora
+v10.10; późniejsze wersje oraz ręczny workflow zmieniły ten tor. Historyczny
+manifest pozostaje odtwarzalny, ale nie jest planem dla wersji 0.7.

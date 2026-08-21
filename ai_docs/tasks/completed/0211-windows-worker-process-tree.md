@@ -1,8 +1,8 @@
 ---
 title: TASK-0211 Windows worker process tree
-status: in_progress
+status: done
 release: "0.4"
-last_updated: 2026-08-09
+last_updated: 2026-08-21
 ---
 
 # TASK-0211 — Trwałe drzewo procesów Windows
@@ -36,3 +36,10 @@ strony do UTC round-trip. Ten sam shell z równoważnymi wpisami `PATH` i `Path`
 potwierdził następnie jedną aktywną parę general: launcher `11548`, interpreter
 `21688`; nie uruchomiono drugiej kopii. Różne wartości PATH nadal blokują
 operację.
+
+## Closure
+
+Zamknięto administracyjnie 2026-08-21. Implementacja i kontrolowane cykle są
+udokumentowane w Outcome; nierozstrzygnięty test po fizycznym restarcie nie
+blokuje rozpoczęcia wersji 0.7. Ewentualny błąd procesu Windows będzie nowym
+zadaniem operatorskim.

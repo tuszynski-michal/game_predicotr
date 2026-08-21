@@ -1,8 +1,8 @@
 ---
 title: TASK-0246 local manual image selection workspace
-status: in_progress
+status: done
 release: '0.6'
-last_updated: 2026-08-18
+last_updated: 2026-08-21
 ---
 
 # TASK-0246 — Lokalna ręczna selekcja zdjęć
@@ -41,3 +41,9 @@ widoczności oraz decyzji. Wynik i ślad treningowy są eksportowane jako
 `manual-image-selection-output-v1.json` i `manual-image-selection-trace-v1.json`.
 Pozostało wykonać końcowy przegląd integracyjny oraz oznaczyć zadanie jako done
 po akceptacji manualnego przepływu w przeglądarce.
+
+## Closure
+
+Właściciel zaakceptował manualny przepływ w rzeczywistym użyciu przed
+2026-08-21. Workspace, trwały output i ślad uczenia są używane operacyjnie;
+TASK-0246 zostaje zamknięty. Nowe usprawnienia będą osobnymi zadaniami 0.7.

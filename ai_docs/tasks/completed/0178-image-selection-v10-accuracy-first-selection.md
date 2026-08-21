@@ -1,8 +1,8 @@
 ---
 title: TASK-0178 image selection v10 accuracy-first selection
-status: in_progress
+status: done
 release: "0.4"
-last_updated: 2026-08-11
+last_updated: 2026-08-21
 ---
 
 # TASK-0178 — Image selection v10 accuracy-first selection
@@ -146,3 +146,9 @@ domkniętych grupach dokładnie 60 automatycznych unikalnych zakresów oraz 40
 duplikatów, bez review i nieznanego zakresu. Raport:
 `artifacts/image-selection-v109-first-1440-gate-final.json`. Pełny run 42 403
 jest odblokowany i ma użyć nowego pustego katalogu outputu.
+
+## Closure
+
+Zamknięto jako zastąpione 2026-08-21. Plan v10 accuracy-first został rozwinięty
+w późniejszych wersjach selektora, a właściciel przyjął ręczną selekcję jako
+niezależny workflow. Historyczne wyniki zachowano wyłącznie do audytu.

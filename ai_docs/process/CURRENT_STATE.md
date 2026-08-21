@@ -13,7 +13,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.6 implementation: source-native Layout Import quality and completeness`
+`Version 0.7 planning: new scope has not been created yet`
+
+### Przejście z wersji 0.6 do 0.7 — 2026-08-21
+
+- Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w
+  `ai_docs/tasks/`. Każde zadanie zostało przeniesione do `tasks/completed/`
+  z zachowanym Outcome oraz jawnym powodem zamknięcia.
+- TASK-0149 jest zaakceptowany na podstawie ciągłego testowania panelu Admin
+  przez właściciela bez zgłoszonych problemów; regresje pending-only lub
+  pinningu modeli wymagają nowego zadania 0.7.
+- TASK-0208 jest zamknięty po akceptacji poprawy geometrii i rozpoznawania
+  symboli na bazie wcześniejszych 63 plansz. Kolejne pomiary wydajności muszą
+  używać aktualnego pipeline'u i osobnej bramki 0.7.
+- Historyczne zadania selektorów v9–v10.18 oraz ręcznego eksportu luk zostały
+  oznaczone jako zastąpione przez późniejsze implementacje i workflow ręczny.
+- Nie ma obecnie aktywnego zadania implementacyjnego. Nowy zakres 0.7 powstaje
+  dopiero po osobnym planie i akceptacji właściciela.
 
 ### Domykanie statusu importu po review — v0.6.79
 

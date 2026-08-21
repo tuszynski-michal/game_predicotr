@@ -1,14 +1,14 @@
 ---
 title: TASK-0150 iterative supervised loop acceptance
-status: in_progress
-last_updated: 2026-08-19
+status: done
+last_updated: 2026-08-21
 ---
 
 # TASK-0150 — Iterative supervised loop acceptance
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -112,3 +112,9 @@ Od v0.6.49 trening symboli i ewentualne przeliczenie oczekujących są dodatkowo
 odgrodzone od niezweryfikowanej geometrii strony. Pierwszy rerun stagingu ma
 pozostać review-first; żadna pewność modelu symboli nie może automatycznie
 zaakceptować wyniku ani zastąpić dowodu geometrii.
+
+## Closure
+
+Zamknięto jako odroczony eksperyment 2026-08-21. Pełny odbiór dwóch iteracji
+nie jest bramką wejścia do wersji 0.7. Gdy zbiór etykiet i geometria będą
+stabilne, należy utworzyć nowe zadanie z aktualną kohortą i nową bramką jakości.

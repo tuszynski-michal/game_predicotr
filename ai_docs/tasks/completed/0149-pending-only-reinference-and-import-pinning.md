@@ -1,14 +1,14 @@
 ---
 title: TASK-0149 pending-only re-inference and import pinning
-status: in_progress
-last_updated: 2026-08-20
+status: done
+last_updated: 2026-08-21
 ---
 
 # TASK-0149 — Pending-only re-inference and import pinning
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -179,3 +179,10 @@ jobach pozostał identyczny:
 `e6395e3026ea1f4e65326328940f58374a2e4e040ee7707dd9b028991f6f7e3b`.
 Anulowany import `b057…` i testowy `0490…` usunięto transakcyjnie po
 potwierdzeniu, że nie zawierały kanonicznych decyzji, kohort ani rewizji.
+
+## Closure
+
+Właściciel potwierdził 2026-08-21 ciągłe testowanie panelu Admin bez
+zaobserwowanych problemów. TASK-0149 jest zamknięty na podstawie tego odbioru
+oraz zapisanych dowodów integracyjnych; ewentualna regresja pending-only lub
+pinningu modeli wymaga nowego, osobnego zadania wersji 0.7.

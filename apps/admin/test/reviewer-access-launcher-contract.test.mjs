@@ -48,14 +48,15 @@ test('local launch navigates the prepared window before refreshing assignment st
   );
   const launchSource = source.slice(launchStart, launchEnd);
   const navigateAt = launchSource.indexOf(
-    'reviewerWindow.location.replace(reviewUrl)',
+    'navigatePreparedLocalReviewerWindow',
   );
   const refreshAt = launchSource.indexOf('void refreshOverview(false)');
 
   assert.notEqual(navigateAt, -1);
   assert.ok(refreshAt > navigateAt);
   assert.doesNotMatch(launchSource, /await refreshOverview\(false\)/);
-  assert.match(launchSource, /reviewerWindow\.close\(\)/);
+  assert.doesNotMatch(launchSource, /about:blank/);
+  assert.match(launchSource, /closePreparedLocalReviewerWindow/);
   assert.match(launchSource, /setLocalReviewUrl\(reviewUrl\)/);
   assert.match(launchSource, /Nie udało się przekierować przygotowanego okna/);
 });

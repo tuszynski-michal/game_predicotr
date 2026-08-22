@@ -15,6 +15,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Trwałe usunięcie `about:blank` lokalnego Reviewera — v0.7.13
+
+- `Otwórz lokalnie` nie tworzy już pustej karty. Synchronicznie otwiera
+  przewidywany loopback-only URL wybranej gry i importu, a po odpowiedzi API
+  ponawia nawigację zwróconym, zwalidowanym adresem.
+- Odmowa ustawienia `window.opener = null` jest izolowana i nie może przerwać
+  handlera przed `openLocalReviewerWork`. Poprzednio taki wyjątek pozostawiał
+  `about:blank`, a do API nie trafiało żadne żądanie.
+- Poprawny URL jest zachowywany jako link ręczny również po udanej odpowiedzi,
+  dzięki czemu blokada popupu lub późniejszej nawigacji nie odbiera dostępu do
+  działającego Reviewera.
+- Wykonywalna regresja symuluje `SecurityError` przeglądarki. Przeszło `237/237`
+  testów Admina, typecheck, lint bez błędów, Prettier i build produkcyjny.
+  Idempotentne otwarcie rzeczywistej pracy zwróciło `ready=true`, a jej strona
+  odpowiedziała HTTP 200. Workery, joby i decyzje review nie zostały zmienione.
+
 ### Odzyskiwanie ręcznej sesji i stabilne odczyty API — v0.7.12
 
 - Ręczna selekcja rozpoznaje nieaktualny uchwyt źródła lub wyniku i prowadzi do

@@ -30,6 +30,11 @@ import {
   reviewReadyImports,
   selectReviewImportId,
 } from '@/features/reviewer-access/reviewer-access-state';
+import {
+  closePreparedLocalReviewerWindow,
+  navigatePreparedLocalReviewerWindow,
+  prepareLocalReviewerWindow,
+} from '@/features/reviewer-access/reviewer-local-window';
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
@@ -254,8 +259,11 @@ export function ReviewerAccessLauncher({
 
   async function launchLocalReviewer() {
     if (!canOpenWork()) return;
-    const reviewerWindow = window.open('about:blank', '_blank');
-    if (reviewerWindow !== null) reviewerWindow.opener = null;
+    const reviewerWindow = prepareLocalReviewerWindow(
+      window.location.href,
+      { gameId, importJobId: jobId },
+      (url, target) => window.open(url, target),
+    );
     setOpening('local');
     setError('');
     setNotice('');
@@ -266,28 +274,25 @@ export function ReviewerAccessLauncher({
         importJobId: jobId,
       });
       if (!result.ok) {
-        reviewerWindow?.close();
+        closePreparedLocalReviewerWindow(reviewerWindow);
         setError(result.error);
         return;
       }
       const reviewUrl = result.opened.assignment.reviewUrl;
       if (reviewUrl === null) {
-        reviewerWindow?.close();
+        closePreparedLocalReviewerWindow(reviewerWindow);
         setError('Lokalna aplikacja Reviewer nie zwróciła adresu.');
         return;
       }
+      setLocalReviewUrl(reviewUrl);
       if (reviewerWindow === null) {
-        setLocalReviewUrl(reviewUrl);
         setError(
           'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
         );
         return;
       }
-      try {
-        reviewerWindow.location.replace(reviewUrl);
-      } catch {
-        reviewerWindow.close();
-        setLocalReviewUrl(reviewUrl);
+      if (!navigatePreparedLocalReviewerWindow(reviewerWindow, reviewUrl)) {
+        closePreparedLocalReviewerWindow(reviewerWindow);
         setError(
           'Nie udało się przekierować przygotowanego okna. Otwórz lokalny Reviewer z linku poniżej.',
         );

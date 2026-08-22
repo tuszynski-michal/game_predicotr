@@ -6927,6 +6927,33 @@ div.imageJobInlineError {
   min-height: 42px;
 }
 
+.reviewerImportChoice {
+  min-width: 0;
+}
+
+.reviewerImportSelect {
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerSelectedImportId {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerSelectedImportId code {
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
+}
+
 .reviewerLauncherError {
   margin: 16px 0 0;
   color: var(--danger);

@@ -78,10 +78,18 @@ export function readyBoardImportStaging(
 
 export function reviewJobLabel(job: JobResponse): string {
   const timestamp = new Intl.DateTimeFormat('pl-PL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
   }).format(new Date(job.createdAt));
-  const status =
-    job.status === 'completed' ? 'ukończony' : 'oczekuje na zatwierdzenie';
-  return `${timestamp} · ${status} · ${job.id.slice(0, 8)}`;
+  const status = job.status === 'completed' ? 'gotowy' : 'do zatw.';
+  const displayName =
+    'sourceDisplayName' in job.inputPayload &&
+    typeof job.inputPayload.sourceDisplayName === 'string' &&
+    job.inputPayload.sourceDisplayName.trim() !== ''
+      ? job.inputPayload.sourceDisplayName.trim()
+      : 'Import bez nazwy katalogu';
+  return `${timestamp} · ${displayName} · ${status}`;
 }

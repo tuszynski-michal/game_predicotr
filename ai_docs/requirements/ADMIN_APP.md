@@ -301,6 +301,9 @@ Operacyjne review dużego importu używa `image_review_items`, a nie ograniczone
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
+- prezentować gotowe stagingi w `Import plansz` według liczbowego początku
+  zakresu z nazwy katalogu; nazwy bez prefiksu `<liczba>-` są umieszczane za
+  zakresami w stabilnej kolejności,
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
@@ -311,6 +314,9 @@ pełnych plansz i ma:
   `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
   kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
   oraz unikalny kod wejścia,
+- identyfikować import w dropdownie krótką datą i godziną, nazwą katalogu oraz
+  krótkim statusem; techniczne ID wybranego joba jest widoczne osobno, a długa
+  etykieta nie poszerza bez ograniczenia kontrolki,
 - mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
   wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
   tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla

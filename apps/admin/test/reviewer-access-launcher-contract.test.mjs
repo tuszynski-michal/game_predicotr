@@ -26,6 +26,9 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /listReadyBrowserImageSelections/);
   assert.match(source, /readyBoardImportStaging/);
   assert.match(source, /Gotowy staging plansz czeka na uruchomienie importu/);
+  assert.match(source, /className="reviewerImportSelect"/);
+  assert.match(source, /className="reviewerSelectedImportId"/);
+  assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
   assert.match(source, /Przejdź do Importu plansz/);
   assert.match(source, /reviewCounts\?\.total === 0/);
   assert.match(source, /reviewReadyImports/);

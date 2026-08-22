@@ -35,6 +35,7 @@ import {
   startReadyBrowserImageImport,
   uploadImageFolder,
 } from './image-folder-import-actions';
+import { sortReadyBoardImports } from './image-folder-import-state';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 
 interface ImageFolderImportPanelProps {
@@ -180,7 +181,7 @@ export function ImageFolderImportPanel({
       const gameReady = readyResult.data.filter(
         (item) => item.gameId === null || item.gameId === gameId,
       );
-      setReadySelections(gameReady);
+      setReadySelections(sortReadyBoardImports(gameReady));
       setReadyUploadId((current) => {
         if (
           current !== null &&

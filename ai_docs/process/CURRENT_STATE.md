@@ -13,7 +13,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.7 implementation: Admin rules creation reliability`
+`Version 0.7 implementation: board import and review operations`
+
+### Numeryczna kolejność importów i czytelny wybór Reviewera — v0.7.10
+
+- Gotowe stagingi w `Import plansz` są sortowane rosnąco po liczbie przed
+  pierwszym myślnikiem. Zakres `20000-99999` jest dzięki temu przed
+  `100000-150000`; nazwy bez takiego prefiksu pozostają za zakresami w
+  deterministycznej kolejności.
+- Dropdown `Gotowy import plansz` używa krótkiej daty i godziny, nazwy katalogu
+  źródłowego oraz skróconego statusu. Nie pokazuje już skrótu technicznego ID;
+  pełne ID wybranego joba jest widoczne osobno pod kontrolką.
+- Etykieta dropdownu ma ograniczoną szerokość i ellipsis. Kolejność wykonywania
+  jobów, statusy domenowe, API oraz działające pipeline'y nie zostały zmienione.
+- Walidacja: `227/227` testów Admina, typecheck, ESLint, Prettier i produkcyjny
+  build Admina przeszły.
 
 ### Monotoniczny postęp preflightu geometrii — v0.7.9
 

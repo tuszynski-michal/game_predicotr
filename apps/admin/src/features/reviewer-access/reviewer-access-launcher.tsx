@@ -139,6 +139,7 @@ export function ReviewerAccessLauncher({
   const availableJobs = reviewReadyImports(jobs, gameId);
   const availableStaging = readyBoardImportStaging(readyStaging, gameId);
   const gameHasImageImport = hasImageImport(jobs, gameId);
+  const selectedJob = availableJobs.find((job) => job.id === jobId) ?? null;
   const selectedAssignment =
     overview?.assignments.find((item) => item.importJobId === jobId) ?? null;
 
@@ -396,9 +397,10 @@ export function ReviewerAccessLauncher({
             </label>
           ) : null}
           {availableJobs.length > 0 ? (
-            <label>
+            <label className="reviewerImportChoice">
               Gotowy import plansz
               <select
+                className="reviewerImportSelect"
                 disabled={loading || opening !== null || reviewContextLoading}
                 onChange={(event) => {
                   setJobId(event.target.value);
@@ -407,6 +409,9 @@ export function ReviewerAccessLauncher({
                   setCopied(null);
                   setNotice('');
                 }}
+                title={
+                  selectedJob === null ? undefined : reviewJobLabel(selectedJob)
+                }
                 value={jobId}
               >
                 {availableJobs.map((job) => (
@@ -415,6 +420,11 @@ export function ReviewerAccessLauncher({
                   </option>
                 ))}
               </select>
+              {selectedJob !== null ? (
+                <span className="reviewerSelectedImportId">
+                  ID: <code>{selectedJob.id}</code>
+                </span>
+              ) : null}
             </label>
           ) : null}
 

@@ -41,6 +41,7 @@ function imageJob(overrides = {}) {
       importKind: 'image_directory',
       pipelineFingerprint: 'a'.repeat(64),
       schemaVersion: 1,
+      sourceDisplayName: '19810 - 45162',
     },
     jobType: 'import',
     status: 'waiting_for_review',
@@ -73,8 +74,9 @@ test('selects the newest ready image import and preserves an explicit choice', (
     selectReviewImportId([older, newest], gameId, older.id),
     older.id,
   );
-  assert.match(reviewJobLabel(older), /ukończony/);
-  assert.match(reviewJobLabel(newest), /oczekuje na zatwierdzenie/);
+  assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
+  assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
+  assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);
 });
 
 test('distinguishes an unfinished image import from no image import', () => {

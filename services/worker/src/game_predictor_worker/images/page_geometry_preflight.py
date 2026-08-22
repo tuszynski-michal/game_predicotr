@@ -640,6 +640,17 @@ def _checkpoint(
     if manifest_checksum is not None and manifest_relative_path is not None:
         value["geometry_manifest_checksum_sha256"] = manifest_checksum
         value["geometry_manifest_relative_path"] = manifest_relative_path
+    # In v2 ``review_required`` is provisional until the bounded auto-anchor
+    # passes have finished.  Publishing it as the shared job review counter
+    # during the first pass makes that counter decrease whenever a later pass
+    # resolves a page, which violates the monotonic job-progress contract.
+    # Keep the provisional value in the checkpoint payload, but publish the
+    # review outcome only with the immutable final manifest.
+    published_review_count = (
+        review_required
+        if complete or payload["preflightPolicyVersion"] != PAGE_GEOMETRY_PREFLIGHT_VERSION
+        else 0
+    )
     context.checkpoint(
         checkpoint_payload=value,
         stage=("page_geometry_manifest_ready" if complete else "page_geometry_registering"),
@@ -647,7 +658,7 @@ def _checkpoint(
         total=total,
         success_count=registered,
         failure_count=0,
-        review_count=review_required,
+        review_count=published_review_count,
     )
 
 

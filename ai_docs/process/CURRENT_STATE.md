@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-21
+last_updated: 2026-08-22
 ---
 
 # Current State
@@ -14,6 +14,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.7 implementation: Admin rules creation reliability`
+
+### Monotoniczny postęp preflightu geometrii — v0.7.9
+
+- Preflight v2 nie publikuje już tymczasowej liczby `review_required` jako
+  wspólnego licznika review przed zakończeniem ograniczonych przebiegów
+  auto-kotwic. Tymczasowy wynik pozostaje w trwałym checkpointcie, natomiast
+  finalny licznik review jest publikowany razem z niezmiennym manifestem.
+- Naprawa usuwa `JOB_PROGRESS_REGRESSION`, który występował po pełnym skanie,
+  gdy auto-kotwice przenosiły stronę z tymczasowego review do `registered`.
+  Progi geometrii, kolejność źródeł i zawartość manifestu nie zostały zmienione.
+- Regresja obejmuje kontekst egzekwujący monotoniczność wszystkich wspólnych
+  liczników. Przeszło 18 testów preflightu i domeny jobów oraz Ruff; mypy nadal
+  kończy się na dwóch istniejących błędach w
+  `symbol_model_iteration_repository.py`.
 
 ### Pierwszy pion wersji 0.7 — TASK-0251
 

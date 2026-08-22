@@ -2,7 +2,7 @@
 title: TASK-0256 deferred self-improving page geometry
 status: in_progress
 release: "0.7"
-last_updated: 2026-08-21
+last_updated: 2026-08-22
 ---
 
 # TASK-0256 — Automatyczna geometria z korektą odroczoną na koniec
@@ -91,3 +91,16 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   przerwany. Mypy zmienionych modułów dochodzi do dwóch istniejących błędów w
   `symbol_model_iteration_repository.py`; zmienione moduły nie zgłosiły nowego
   błędu przed tym transytywnym problemem.
+- Rzeczywisty preflight stagingu `70363–93861` ujawnił regresję końcowego
+  raportowania: pierwszy przebieg publikował `152` tymczasowe pozycje review,
+  a auto-kotwice próbowały później zmniejszyć ten monotoniczny licznik. Worker
+  kończył po `2611/2611` kodem `JOB_PROGRESS_REGRESSION`, zanim zapisał finalny
+  manifest. Preflight v2 publikuje teraz tymczasowe review wyłącznie w
+  checkpoint payload, a wspólny licznik review ustala dopiero przy finalizacji.
+- Testowy kontekst preflightu egzekwuje monotoniczność `current`, `success`,
+  `failure` i `review`, dzięki czemu przypadek rozwiązania strony przez
+  auto-kotwicę nie może ponownie przejść z cofającym się licznikiem.
+- Walidacja poprawki: `18/18` testów preflightu i domeny jobów, Ruff oraz
+  formatowanie przeszły. Celowany mypy nie wykazał nowego błędu, ale nadal
+  raportuje dwa istniejące błędy w
+  `symbol_model_iteration_repository.py`.

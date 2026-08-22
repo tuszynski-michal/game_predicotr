@@ -24,6 +24,10 @@ class _Context:
         self.checkpoints: list[dict[str, object]] = []
 
     def checkpoint(self, **kwargs: object) -> None:
+        if self.checkpoints:
+            previous = self.checkpoints[-1]
+            for key in ("current", "success_count", "failure_count", "review_count"):
+                assert int(kwargs[key]) >= int(previous[key]), f"{key} regressed"
         self.checkpoints.append(kwargs)
 
 
@@ -224,3 +228,4 @@ def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
     assert payload["registeredSourceCount"] == 2
     assert payload["reviewRequiredSourceCount"] == 0
     assert payload["automaticAnchorPasses"][0]["resolvedSourceCount"] == 1
+    assert [checkpoint["review_count"] for checkpoint in context.checkpoints] == [0, 0, 0]

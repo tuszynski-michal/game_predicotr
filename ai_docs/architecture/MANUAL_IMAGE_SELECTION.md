@@ -15,12 +15,20 @@ ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każde
 strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
 
 Sesje są przechowywane w osobnej bazie IndexedDB
-`game-predictor-manual-image-selection`, w magazynie `sessions` z kluczem
-`gameId`. Rekord obejmuje uchwyty folderów i serializowalny stan decyzji, więc
-nie wymaga migracji backendowej ani tabel domenowych. Wersja 2 bazy dodaje
-magazyn `traceEvents` z kluczem złożonym `(gameId, sessionKey, eventIndex)`;
-migracja zachowuje istniejące sesje i uchwyty folderów. LocalStorage służy tylko
-do szybkiego odtworzenia kursora diagnostycznego.
+`game-predictor-manual-image-selection`, w magazynie `sessions`. Historyczne
+pole klucza `gameId` pozostaje dla zgodności schematu v2, ale nowy workspace
+zawsze używa stabilnego lokalnego identyfikatora
+`local-independent-manual-image-selection`; nie jest to identyfikator domenowej
+gry. Rekord obejmuje uchwyty folderów i serializowalny stan decyzji, więc nie
+wymaga migracji backendowej ani tabel domenowych. Magazyn `traceEvents` nadal
+ma klucz złożony `(gameId, sessionKey, eventIndex)`.
+
+Jeżeli niezależny rekord jeszcze nie istnieje, store wybiera deterministycznie
+najnowszą historyczną sesję per gra, kopiuje ją oraz należące do niej zdarzenia
+do nowego namespace'u i zachowuje stary rekord. `sessionKey` nie zmienia się,
+więc istniejący manifest w folderze wynikowym nadal należy do tej samej sesji.
+LocalStorage służy tylko do szybkiego odtworzenia kursora diagnostycznego i
+używa tego samego niezależnego identyfikatora.
 
 Workspace zapisuje dwa jawne artefakty przez wybrany uchwyt folderu wynikowego:
 kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,

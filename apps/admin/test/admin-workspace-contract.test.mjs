@@ -28,6 +28,14 @@ test('uses a single controlled game context for dependent sections', () => {
   assert.doesNotMatch(shellSource, /href="#jobs"/);
 });
 
+test('keeps local manual image selection independent from game context', () => {
+  assert.match(workspaceSource, /<ManualImageSelectionWorkspace\s*\/>/);
+  assert.doesNotMatch(
+    workspaceSource,
+    /Ręczna selekcja zapisuje sesję w kontekście wybranej gry/,
+  );
+});
+
 test('does not expose duplicate Dataset or Manual Review workspaces', () => {
   assert.doesNotMatch(workspaceSource, /DatasetCatalog/);
   assert.doesNotMatch(workspaceSource, /ReviewWorkspace/);

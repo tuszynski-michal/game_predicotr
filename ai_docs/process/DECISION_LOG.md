@@ -5041,6 +5041,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Supersedes:** zmienia część D-195 wymagającą zera stron review przed startem,
   zachowując jej fail-closed zasady geometrii.
 
+## D-210 — Lokalna ręczna selekcja nie należy do gry
+
+- **Status:** accepted
+- **Date:** 2026-08-22
+- **Decision:** zakładka `Ręczna selekcja` jest dostępna bez aktywnej gry i
+  utrzymuje jedną lokalną sesję pod stabilnym namespace'em narzędzia. Pole
+  `gameId` historycznego schematu IndexedDB i manifestu v1 pozostaje technicznie
+  obecne dla kompatybilności, ale zawiera identyfikator lokalnego workspace'u,
+  a nie UUID gry.
+- **Context:** wybór pojedynczych zdjęć oraz zapis `seq_*` korzystają wyłącznie
+  z File System Access API. Wymaganie aktywnej gry blokowało niezależny proces,
+  mimo że narzędzie nie wywołuje backendu, OCR ani workera.
+- **Safety:** przy pierwszym wejściu najnowsza historyczna sesja per gra jest
+  niedestrukcyjnie kopiowana razem z własnym trace. Jej `sessionKey`, checksumy,
+  uchwyty i własność manifestu pozostają bez zmian, a stary rekord nie jest
+  usuwany. Automatyczna selekcja i późniejszy jawny import pozostają odrębne.
+- **Consequences:** zmiana nie wymaga migracji PostgreSQL ani OpenAPI. Format
+  manifestu v1 pozostaje czytelny dla istniejącego rankera, który grupuje po
+  `sessionKey` i zakresie, a przypisanie kohorty do gry następuje osobno.
+
 ## Szablon nowej decyzji
 
 ```text

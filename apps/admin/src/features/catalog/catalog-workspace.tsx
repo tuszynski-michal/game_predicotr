@@ -419,26 +419,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           )
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
-          activeGame === null ? (
-            <section className="catalogEmptyState">
-              <p className="eyebrow">Brak aktywnego kontekstu</p>
-              <h2>Najpierw wybierz grę</h2>
-              <p>Ręczna selekcja zapisuje sesję w kontekście wybranej gry.</p>
-              <button
-                className="primaryButton"
-                onClick={() => selectWorkspace('games')}
-                type="button"
-              >
-                Przejdź do gier
-              </button>
-            </section>
-          ) : (
-            <ManualImageSelectionWorkspace
-              gameId={activeGame.id}
-              gameName={activeGame.name}
-              key={activeGame.id}
-            />
-          )
+          <ManualImageSelectionWorkspace />
         ) : null}
       </div>
     </div>

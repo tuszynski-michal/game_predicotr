@@ -12,6 +12,10 @@ import {
   rangeForStart,
   writeManualOutputManifest,
 } from '../src/features/manual-image-selection/manual-image-selection.ts';
+import {
+  latestLegacyManualSelectionSession,
+  migrateLegacyManualSelectionSession,
+} from '../src/features/manual-image-selection/manual-image-selection-store.ts';
 
 const workspaceSource = await readFile(
   new URL(
@@ -39,6 +43,63 @@ test('sorts image names in the same numeric order as Explorer', () => {
     '1_2.jpg',
     '1_10.jpg',
     '1_20.jpg',
+  ]);
+});
+
+test('adopts the newest legacy game-scoped session for the independent workspace', () => {
+  const session = (gameId, key, updatedAt) => ({
+    gameId,
+    key,
+    state: { updatedAt },
+  });
+  const newest = session('game-new', 'session-new', '2026-08-22T12:00:00Z');
+  const selected = latestLegacyManualSelectionSession(
+    [
+      session(
+        'local-independent-manual-image-selection',
+        'current',
+        '2026-08-23T12:00:00Z',
+      ),
+      session('game-old', 'session-old', '2026-08-20T12:00:00Z'),
+      newest,
+    ],
+    'local-independent-manual-image-selection',
+  );
+
+  assert.equal(selected, newest);
+});
+
+test('copies only the adopted session trace without mutating its legacy record', () => {
+  const legacy = {
+    gameId: 'game-old',
+    key: 'session-old',
+    state: { updatedAt: '2026-08-22T12:00:00Z' },
+  };
+  const matching = {
+    eventIndex: 0,
+    gameId: 'game-old',
+    sessionKey: 'session-old',
+  };
+  const migrated = migrateLegacyManualSelectionSession(
+    legacy,
+    [
+      matching,
+      { ...matching, eventIndex: 1, sessionKey: 'other-session' },
+      { ...matching, eventIndex: 2, gameId: 'other-game' },
+    ],
+    'local-independent-manual-image-selection',
+  );
+
+  assert.equal(legacy.gameId, 'game-old');
+  assert.equal(
+    migrated.record.gameId,
+    'local-independent-manual-image-selection',
+  );
+  assert.deepEqual(migrated.traceEvents, [
+    {
+      ...matching,
+      gameId: 'local-independent-manual-image-selection',
+    },
   ]);
 });
 

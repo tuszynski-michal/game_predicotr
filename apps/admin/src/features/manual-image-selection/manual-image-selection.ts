@@ -88,6 +88,9 @@ export interface ManualSelectionSessionRecord {
 const JPEG_EXTENSIONS = new Set(['.jpg', '.jpeg']);
 const NATURAL_PARTS = /(\d+)/g;
 
+export const INDEPENDENT_MANUAL_SELECTION_ID =
+  'local-independent-manual-image-selection';
+
 export const MANUAL_IMAGE_NAVIGATION_STEPS = [
   1, 2, 3, 4, 5, 6, 7, 10, 15, 20,
 ] as const;

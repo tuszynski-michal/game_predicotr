@@ -15,8 +15,9 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 
 ## Przebieg
 
-- Przed rozpoczęciem operator wybiera grę, pierwszy numer layoutu, kierunek
-  kolejności zdjęć, folder źródłowy i folder wynikowy.
+- Ręczna selekcja jest niezależna od gry. Przed rozpoczęciem operator wybiera
+  pierwszy numer layoutu, kierunek kolejności zdjęć, folder źródłowy i folder
+  wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
   nazwach plików), z możliwością odwrócenia kolejności.
@@ -53,8 +54,12 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 ## Trwałość i bezpieczeństwo
 
 Stan sesji (foldery, indeks zdjęcia, zakres i decyzje) jest zapisywany w
-IndexedDB per gra i odtwarzany po ponownym wejściu do zakładki. Uchwyt folderu
-może wymagać ponownego nadania uprawnień przez przeglądarkę.
+IndexedDB pod jednym stabilnym kluczem lokalnego narzędzia i odtwarzany po
+ponownym wejściu do zakładki, niezależnie od bieżącej nawigacji gry. Przy
+pierwszym wejściu po zmianie najnowsza historyczna sesja zapisana wcześniej per
+gra jest kopiowana do niezależnego namespace'u razem ze swoim śladem; rekord
+historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
+uprawnień przez przeglądarkę.
 
 W danym momencie może być aktywne tylko jedno okno wyboru folderu. Oba przyciski
 wyboru są blokowane podczas aktywnego pickera, a ponowne kliknięcie jest

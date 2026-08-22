@@ -15,6 +15,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Ręczna selekcja niezależna od gry — v0.7.11
+
+- Zakładka `Ręczna selekcja` otwiera lokalny workspace bez aktywnego kontekstu
+  gry. Wybór folderów, wznowienie, nawigacja, zapis `seq_*` i trace nie zależą
+  od odpowiedzi API ani `activeGame`.
+- IndexedDB używa jednego stabilnego namespace'u narzędzia. Przy pierwszym
+  wejściu najnowsza historyczna sesja per gra i jej zdarzenia są kopiowane do
+  nowego namespace'u; stary rekord pozostaje nienaruszony, a `sessionKey`
+  zachowuje własność istniejących manifestów.
+- Format manifestu v1, checksumy, File System Access API, automatyczna selekcja,
+  import plansz i workery nie zostały zmienione.
+- Walidacja: `229/229` testów Admina, typecheck, celowany ESLint bez błędów oraz
+  Prettier przeszły. Widok sprawdzono lokalnie bez parametru `game`.
+
 ### Numeryczna kolejność importów i czytelny wybór Reviewera — v0.7.10
 
 - Gotowe stagingi w `Import plansz` są sortowane rosnąco po liczbie przed

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   adjacentManualNavigationStep,
   createManualSelectionState,
+  INDEPENDENT_MANUAL_SELECTION_ID,
   listManualImages,
   MANUAL_IMAGE_NAVIGATION_STEPS,
   nextManualSelectionState,
@@ -21,11 +22,6 @@ import {
   writeManualOutput,
 } from './manual-image-selection';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
-
-interface ManualImageSelectionWorkspaceProps {
-  readonly gameId: string;
-  readonly gameName: string;
-}
 
 interface DirectoryPickerWindow extends Window {
   showDirectoryPicker?: (options?: {
@@ -71,10 +67,8 @@ function fitImageToViewport(
   };
 }
 
-export function ManualImageSelectionWorkspace({
-  gameId,
-  gameName,
-}: ManualImageSelectionWorkspaceProps) {
+export function ManualImageSelectionWorkspace() {
+  const workspaceId = INDEPENDENT_MANUAL_SELECTION_ID;
   const store = useMemo(() => new ManualImageSelectionStore(), []);
   const busyRef = useRef(false);
   const folderPickerActiveRef = useRef(false);
@@ -130,7 +124,7 @@ export function ManualImageSelectionWorkspace({
   useEffect(() => {
     let cancelled = false;
     void store
-      .load(gameId)
+      .loadIndependent(workspaceId)
       .then((loaded) => {
         if (!cancelled) setSavedRecord(loaded);
       })
@@ -140,7 +134,7 @@ export function ManualImageSelectionWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [gameId, store]);
+  }, [store, workspaceId]);
 
   useEffect(() => {
     const cache = imageUrlCacheRef.current;
@@ -310,10 +304,10 @@ export function ManualImageSelectionWorkspace({
       updatedAt: state.updatedAt,
     };
     window.localStorage.setItem(
-      `${CURSOR_PREFIX}${gameId}`,
+      `${CURSOR_PREFIX}${workspaceId}`,
       JSON.stringify(cursor),
     );
-  }, [gameId, record, state]);
+  }, [record, state, workspaceId]);
 
   useEffect(() => {
     if (viewTimerRef.current !== null) {
@@ -340,7 +334,7 @@ export function ManualImageSelectionWorkspace({
       const event: ManualSelectionTraceEvent = {
         decoded: true,
         eventIndex: traceEventIndexRef.current++,
-        gameId,
+        gameId: workspaceId,
         imagePath: current.relativePath,
         kind: 'viewed',
         rangeEnd: range.end,
@@ -361,12 +355,12 @@ export function ManualImageSelectionWorkspace({
   }, [
     currentImageIndex,
     currentRangeStart,
-    gameId,
     imageUrl,
     imageUrlIndex,
     images,
     record?.key,
     store,
+    workspaceId,
   ]);
 
   async function pickDirectory(
@@ -459,8 +453,8 @@ export function ManualImageSelectionWorkspace({
     }
     const next = createManualSelectionState(parsed, direction);
     const nextRecord: ManualSelectionSessionRecord = {
-      gameId,
-      key: `${gameId}:${Date.now()}`,
+      gameId: workspaceId,
+      key: `${workspaceId}:${Date.now()}`,
       outputDirectory,
       sourceDirectory,
       sourceDirectoryName: sourceDirectory.name,
@@ -494,7 +488,7 @@ export function ManualImageSelectionWorkspace({
       setRecord(savedRecord);
       setState(savedRecord.state);
       stateRef.current = savedRecord.state;
-      const events = await store.loadTraceEvents(gameId, savedRecord.key);
+      const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
       traceEventIndexRef.current =
         events.reduce(
           (highest, event) => Math.max(highest, event.eventIndex),
@@ -690,7 +684,7 @@ export function ManualImageSelectionWorkspace({
       decoded: true,
       decisionOrdinal: kind === 'undo' ? null : decisionOrdinal,
       eventIndex: traceEventIndexRef.current++,
-      gameId,
+      gameId: workspaceId,
       imageChecksum: output?.checksum ?? null,
       imagePath: image.relativePath,
       kind,
@@ -710,7 +704,7 @@ export function ManualImageSelectionWorkspace({
     setBusy(true);
     setError(null);
     try {
-      const events = await store.loadTraceEvents(gameId, record.key);
+      const events = await store.loadTraceEvents(workspaceId, record.key);
       await writeManualTraceManifest(outputDirectory, record, events);
     } catch (cause) {
       setError(
@@ -856,7 +850,7 @@ export function ManualImageSelectionWorkspace({
       >
         <header className="manualImageSelectionHeader">
           <div>
-            <p className="eyebrow">{gameName} · lokalnie</p>
+            <p className="eyebrow">Niezależnie od gry · lokalnie</p>
             <h1 id="manual-image-selection-title">Ręczna selekcja zdjęć</h1>
             <p>
               Wybierz pierwszą planszę i dwa foldery. Zdjęcia pozostają na

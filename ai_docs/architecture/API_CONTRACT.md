@@ -1729,6 +1729,12 @@ checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
 
+GET jest odczytem bez `FOR UPDATE`. Backend zachowuje pełną checksumę manifestu,
+ale nie pobiera geometrii ani cropów dla elementów `pending`, `rejected` i
+`superseded`; kompletne dane obrazu są potrzebne tylko rozstrzygnięciom
+`accepted/corrected`. Blokowany snapshot pozostaje częścią wyłącznie jawnego
+POST zamrażającego kohortę.
+
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
 Body zawiera `idempotencyKey`, `createdBy` i

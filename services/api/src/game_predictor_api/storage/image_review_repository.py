@@ -45,6 +45,8 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.verified_training_cohorts import (
+    CumulativeVerifiedTrainingSnapshot,
+    VerifiedTrainingReviewState,
     require_pending_model_prediction_target,
 )
 from game_predictor_api.storage.models import (
@@ -582,11 +584,51 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
         return self._items_from_rows(rows), self._counts(game_id, import_job_id)
 
+    def cumulative_verified_snapshot(
+        self,
+        *,
+        game_id: UUID,
+    ) -> CumulativeVerifiedTrainingSnapshot:
+        game = self._session.scalar(select(GameModel).where(GameModel.id == game_id))
+        if game is None:
+            raise ImageReviewNotFoundError(
+                "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
+                "The selected training cohort game does not exist.",
+            )
+        state_rows = self._session.execute(
+            _verified_training_review_state_query(game_id).order_by(
+                JobModel.id,
+                ImageReviewQueueItemModel.source_order_index,
+                ImageReviewQueueItemModel.position_index,
+                ImageReviewQueueItemModel.review_item_id,
+            )
+        ).all()
+        resolved_rows = list(
+            self._session.execute(
+                _base_game_query(game_id)
+                .where(ImageReviewItemModel.status.in_(("accepted", "corrected")))
+                .order_by(
+                    JobModel.id,
+                    ImageReviewQueueItemModel.source_order_index,
+                    ImageReviewQueueItemModel.position_index,
+                    ImageReviewQueueItemModel.review_item_id,
+                )
+            )
+            .tuples()
+            .all()
+        )
+        return CumulativeVerifiedTrainingSnapshot(
+            review_states=tuple(
+                _verified_training_review_state_from_row(row) for row in state_rows
+            ),
+            resolved_items=self._items_from_rows(resolved_rows),
+        )
+
     def lock_cumulative_verified_snapshot(
         self,
         *,
         game_id: UUID,
-    ) -> Sequence[ImageReviewItem]:
+    ) -> CumulativeVerifiedTrainingSnapshot:
         game = self._session.scalar(
             select(GameModel).where(GameModel.id == game_id).with_for_update()
         )
@@ -595,9 +637,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
                 "The selected training cohort game does not exist.",
             )
-        rows = list(
+        state_rows = self._session.execute(
+            _verified_training_review_state_query(game_id)
+            .order_by(
+                JobModel.id,
+                ImageReviewQueueItemModel.source_order_index,
+                ImageReviewQueueItemModel.position_index,
+                ImageReviewQueueItemModel.review_item_id,
+            )
+            .with_for_update()
+        ).all()
+        resolved_rows = list(
             self._session.execute(
                 _base_game_query(game_id)
+                .where(ImageReviewItemModel.status.in_(("accepted", "corrected")))
                 .order_by(
                     JobModel.id,
                     ImageReviewQueueItemModel.source_order_index,
@@ -609,7 +662,12 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .tuples()
             .all()
         )
-        return self._items_from_rows(rows)
+        return CumulativeVerifiedTrainingSnapshot(
+            review_states=tuple(
+                _verified_training_review_state_from_row(row) for row in state_rows
+            ),
+            resolved_items=self._items_from_rows(resolved_rows),
+        )
 
     def lock_model_prediction_target(
         self,
@@ -1765,6 +1823,41 @@ def _base_game_query(game_id: UUID) -> Any:
     )
 
 
+def _verified_training_review_state_query(game_id: UUID) -> Any:
+    return (
+        select(
+            JobModel.game_id.label("game_id"),
+            ImageReviewItemModel.id.label("review_item_id"),
+            RecognizedBoardModel.id.label("recognized_board_id"),
+            SourceImageModel.id.label("source_image_id"),
+            SourceImageModel.import_job_id.label("import_job_id"),
+            ImageReviewQueueItemModel.source_order_index.label("source_order_index"),
+            ImageReviewQueueItemModel.position_index.label("position_index"),
+            ImageReviewItemModel.status.label("status"),
+            ImageReviewItemModel.resolution_revision.label("resolution_revision"),
+            RecognizedBoardModel.geometry_revision.label("geometry_revision"),
+            SourceImageModel.checksum_sha256.label("source_checksum_sha256"),
+            RecognizedBoardModel.board_checksum_sha256.label("board_checksum_sha256"),
+            RecognizedBoardModel.pipeline_fingerprint.label("pipeline_fingerprint"),
+        )
+        .select_from(ImageReviewItemModel)
+        .join(
+            RecognizedBoardModel,
+            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        )
+        .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+        .join(
+            ImageReviewQueueItemModel,
+            and_(
+                ImageReviewQueueItemModel.review_item_id == ImageReviewItemModel.id,
+                ImageReviewQueueItemModel.import_job_id == SourceImageModel.import_job_id,
+            ),
+        )
+        .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+        .where(JobModel.game_id == game_id)
+    )
+
+
 def _sequence_expression(view: ImageReviewView) -> ColumnElement[int]:
     if view is ImageReviewView.PENDING:
         return cast(ColumnElement[int], RecognizedBoardModel.sequence_number)
@@ -1839,6 +1932,24 @@ def _lexicographic_equal(
     key: OrderKey,
 ) -> ColumnElement[bool]:
     return and_(*(expression == value for expression, value in zip(expressions, key, strict=True)))
+
+
+def _verified_training_review_state_from_row(row: Any) -> VerifiedTrainingReviewState:
+    return VerifiedTrainingReviewState(
+        game_id=cast(UUID, row.game_id),
+        review_item_id=cast(UUID, row.review_item_id),
+        recognized_board_id=cast(UUID, row.recognized_board_id),
+        source_image_id=cast(UUID, row.source_image_id),
+        import_job_id=cast(UUID, row.import_job_id),
+        source_order_index=int(row.source_order_index),
+        position_index=int(row.position_index),
+        status=str(row.status),
+        resolution_revision=int(row.resolution_revision),
+        geometry_revision=int(row.geometry_revision),
+        source_checksum_sha256=str(row.source_checksum_sha256),
+        board_checksum_sha256=str(row.board_checksum_sha256),
+        pipeline_fingerprint=str(row.pipeline_fingerprint),
+    )
 
 
 def _item_from_records(

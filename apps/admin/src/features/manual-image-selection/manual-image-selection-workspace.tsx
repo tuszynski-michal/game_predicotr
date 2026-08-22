@@ -6,11 +6,13 @@ import {
   adjacentManualNavigationStep,
   createManualSelectionState,
   INDEPENDENT_MANUAL_SELECTION_ID,
+  isMissingManualDirectoryHandleError,
   listManualImages,
   MANUAL_IMAGE_NAVIGATION_STEPS,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  relinkManualSelectionSession,
   removeManagedManualOutput,
   writeManualOutputManifest,
   writeManualTraceManifest,
@@ -38,6 +40,8 @@ interface LoadedImageSize {
   readonly size: ImageSize;
   readonly sourceUrl: string;
 }
+
+type ResumeRecoveryTarget = 'source' | 'output';
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
 
@@ -100,6 +104,8 @@ export function ManualImageSelectionWorkspace() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resumeRecovery, setResumeRecovery] =
+    useState<ResumeRecoveryTarget | null>(null);
   const [state, setState] = useState<ManualSelectionState | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageUrlIndex, setImageUrlIndex] = useState(-1);
@@ -472,20 +478,59 @@ export function ManualImageSelectionWorkspace() {
     if (savedRecord === null) return;
     setError(null);
     setLoading(true);
+    const sourceHandle = sourceDirectory ?? savedRecord.sourceDirectory;
+    const outputHandle = outputDirectory ?? savedRecord.outputDirectory;
     try {
-      await requestPermission(savedRecord.sourceDirectory, 'read');
-      await requestPermission(savedRecord.outputDirectory, 'readwrite');
-      const found = await listManualImages(savedRecord.sourceDirectory);
+      let found: ManualImageFile[];
+      try {
+        await requestPermission(sourceHandle, 'read');
+        found = await listManualImages(sourceHandle);
+      } catch (cause) {
+        if (isMissingManualDirectoryHandleError(cause)) {
+          setResumeRecovery('source');
+          setError(
+            'Zapisany folder źródłowy nie jest już dostępny. Wybierz go ponownie; zapisane decyzje, zakres i pozycja zostaną zachowane.',
+          );
+          return;
+        }
+        throw cause;
+      }
       if (found.length === 0)
         throw new Error('Folder źródłowy nie zawiera już zdjęć JPG/JPEG.');
-      setSourceDirectory(savedRecord.sourceDirectory);
-      setOutputDirectory(savedRecord.outputDirectory);
+      if (savedRecord.state.currentIndex >= found.length) {
+        throw new Error(
+          `Wybrany folder zawiera tylko ${found.length.toLocaleString('pl-PL')} zdjęć i nie obejmuje zapisanej pozycji ${savedRecord.state.currentIndex + 1}.`,
+        );
+      }
+      try {
+        await requestPermission(outputHandle, 'readwrite');
+        await verifyDirectoryHandle(outputHandle);
+      } catch (cause) {
+        if (isMissingManualDirectoryHandleError(cause)) {
+          setResumeRecovery('output');
+          setError(
+            'Zapisany folder wynikowy nie jest już dostępny. Wybierz go ponownie; żadne decyzje ani istniejące pliki nie zostaną usunięte.',
+          );
+          return;
+        }
+        throw cause;
+      }
+      const repairedRecord = relinkManualSelectionSession(
+        savedRecord,
+        sourceHandle,
+        outputHandle,
+      );
+      await store.save(repairedRecord);
+      setResumeRecovery(null);
+      setSavedRecord(repairedRecord);
+      setSourceDirectory(sourceHandle);
+      setOutputDirectory(outputHandle);
       setImages(
         savedRecord.state.direction === 'ascending'
           ? found
           : [...found].reverse(),
       );
-      setRecord(savedRecord);
+      setRecord(repairedRecord);
       setState(savedRecord.state);
       stateRef.current = savedRecord.state;
       const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
@@ -892,9 +937,13 @@ export function ManualImageSelectionWorkspace() {
               onClick={() => void chooseSource()}
               type="button"
             >
-              {sourceDirectory === null
-                ? 'Wybierz folder źródłowy'
-                : `Źródło: ${sourceDirectory.name}`}
+              {resumeRecovery === 'source'
+                ? sourceDirectory === null
+                  ? 'Wybierz ponownie folder źródłowy'
+                  : `Nowe źródło: ${sourceDirectory.name}`
+                : sourceDirectory === null
+                  ? 'Wybierz folder źródłowy'
+                  : `Źródło: ${sourceDirectory.name}`}
             </button>
             <button
               className="secondaryButton"
@@ -902,9 +951,13 @@ export function ManualImageSelectionWorkspace() {
               onClick={() => void chooseOutput()}
               type="button"
             >
-              {outputDirectory === null
-                ? 'Wybierz folder wynikowy'
-                : `Wynik: ${outputDirectory.name}`}
+              {resumeRecovery === 'output'
+                ? outputDirectory === null
+                  ? 'Wybierz ponownie folder wynikowy'
+                  : `Nowy wynik: ${outputDirectory.name}`
+                : outputDirectory === null
+                  ? 'Wybierz folder wynikowy'
+                  : `Wynik: ${outputDirectory.name}`}
             </button>
           </div>
           {loading ? (
@@ -927,7 +980,10 @@ export function ManualImageSelectionWorkspace() {
           <button
             className="primaryButton"
             disabled={
-              loading || sourceDirectory === null || outputDirectory === null
+              loading ||
+              resumeRecovery !== null ||
+              sourceDirectory === null ||
+              outputDirectory === null
             }
             onClick={() => void startSession()}
             type="button"
@@ -941,9 +997,19 @@ export function ManualImageSelectionWorkspace() {
               onClick={() => void resumeSession()}
               type="button"
             >
-              Wznów poprzednią sesję ({savedRecord.state.decisions.length}{' '}
-              decyzji, zdjęcie {savedRecord.state.currentIndex + 1})
+              {resumeRecovery === null
+                ? 'Wznów poprzednią sesję'
+                : 'Wznów z ponownie wybranymi folderami'}{' '}
+              ({savedRecord.state.decisions.length} decyzji, zdjęcie{' '}
+              {savedRecord.state.currentIndex + 1})
             </button>
+          ) : null}
+          {resumeRecovery !== null ? (
+            <p className="manualImageSelectionStatus" role="status">
+              Postęp sesji jest bezpieczny. Wybierz ponownie folder{' '}
+              {resumeRecovery === 'source' ? 'źródłowy' : 'wynikowy'} i kliknij
+              przycisk wznowienia.
+            </p>
           ) : null}
           {error !== null ? (
             <p className="formError" role="alert">
@@ -1169,6 +1235,12 @@ export function ManualImageSelectionWorkspace() {
       </p>
     </section>
   );
+}
+
+async function verifyDirectoryHandle(
+  directory: FileSystemDirectoryHandle,
+): Promise<void> {
+  await directory.entries().next();
 }
 
 async function requestPermission(

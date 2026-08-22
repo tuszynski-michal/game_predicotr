@@ -84,6 +84,13 @@ zaakceptowaną geometrią oraz kompletem komórek. Zamrożony manifest wiąże:
 - zdjęcie źródłowe i import,
 - wersję geometrii oraz pipeline'u.
 
+Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
+czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast
+pełną geometrię i 15 cropów materializuje wyłącznie dla `accepted` oraz
+`corrected`. Manifest i jego check­suma są identyczne z pełnym odczytem.
+Jawne zamrożenie korzysta z tego samego zwartego wejścia, ale utrzymuje
+transakcyjną blokadę gry i pozycji do zakończenia zapisu kohorty.
+
 Grupą podziału jest co najmniej zdjęcie źródłowe. Builder generuje stabilny
 train/validation/test i osobny stały zestaw regresyjny. Ta sama grupa nie może
 wystąpić w kilku częściach. Kolejna iteracja trenuje od początku na całej

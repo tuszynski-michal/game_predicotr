@@ -15,6 +15,30 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Odzyskiwanie ręcznej sesji i stabilne odczyty API — v0.7.12
+
+- Ręczna selekcja rozpoznaje nieaktualny uchwyt źródła lub wyniku i prowadzi do
+  ponownego wskazania właściwego folderu. Nie tworzy nowej sesji: zachowuje
+  `sessionKey`, wszystkie decyzje, kolejny zakres i pozycję, a naprawione
+  uchwyty utrwala w IndexedDB.
+- Zamknięte sekcje Gry nie są już montowane, dzięki czemu nie uruchamiają
+  równoległych requestów podczas wejścia na ekran. Rozwinięcie sekcji zachowuje
+  dotychczasowe zachowanie i kontrakty.
+- Read-only podgląd kohorty oraz jakość modelu nie używają `FOR UPDATE` i nie
+  materializują cropów około 67 tys. oczekujących pozycji. Lekka projekcja
+  całej historii zachowuje identyczny manifest/checksumę, a pełne plansze są
+  pobierane tylko dla `accepted/corrected`. Freeze nadal stosuje blokowany
+  snapshot transakcyjny.
+- Panel jakości wykonuje jeden ciężki odczyt `model-quality`; preview wymagany
+  do zamrożenia wyprowadza z tej samej odpowiedzi, zamiast równolegle budować
+  ten sam snapshot drugi raz.
+- Panel siatki jest montowany dopiero po zakończeniu podstawowego odczytu
+  jakości. Jego ciężki preview oczekujących nie konkuruje już o bazę w trakcie
+  requestu inicjalizującego cały ekran ani nie powoduje fałszywego timeoutu.
+- Na rzeczywistej bazie endpointy wróciły z timeoutu/błędu limitu parametrów do
+  HTTP 200: preview około 4,9 s, model quality około 7,2 s. Workery i joby nie
+  zostały zatrzymane ani zmienione.
+
 ### Ręczna selekcja niezależna od gry — v0.7.11
 
 - Zakładka `Ręczna selekcja` otwiera lokalny workspace bez aktywnego kontekstu

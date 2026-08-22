@@ -56,3 +56,18 @@ test('keeps destructive game cleanup after every ordinary game section', () => {
   assert.notEqual(cleanupIndex, -1);
   assert.ok(cleanupIndex > gameSectionsIndex);
 });
+
+test('mounts only the expanded game section to avoid hidden request storms', () => {
+  for (const section of [
+    'imports',
+    'symbols',
+    'rules',
+    'reviews',
+    'model-quality',
+  ]) {
+    assert.match(
+      workspaceSource,
+      new RegExp(`expanded && section\\.id === '${section}'`),
+    );
+  }
+});

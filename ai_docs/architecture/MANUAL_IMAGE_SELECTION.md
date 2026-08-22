@@ -30,6 +30,14 @@ więc istniejący manifest w folderze wynikowym nadal należy do tej samej sesji
 LocalStorage służy tylko do szybkiego odtworzenia kursora diagnostycznego i
 używa tego samego niezależnego identyfikatora.
 
+Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
+jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym
+utworzeniu katalogu uruchamia kontrolowane ponowne powiązanie. Operator wskazuje
+osobno źródło albo wynik, aplikacja najpierw potwierdza możliwość listowania,
+a następnie zastępuje wyłącznie uchwyty i nazwę źródła w istniejącym rekordzie.
+Stan, `sessionKey` i trace pozostają niezmienne, a poprawiony rekord jest
+utrwalany przed otwarciem przeglądarki zdjęć.
+
 Workspace zapisuje dwa jawne artefakty przez wybrany uchwyt folderu wynikowego:
 kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,
 `manual-image-selection-trace-v1.json`. Manifest wyjściowy jest synchronizowany

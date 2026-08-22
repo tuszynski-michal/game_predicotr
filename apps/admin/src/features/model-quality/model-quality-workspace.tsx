@@ -145,12 +145,19 @@ export function ModelQualityWorkspace({
   }
 
   async function recalculatePendingSymbols() {
-    if (pendingPreview === null || pendingPreview.pendingCount === 0 || recalculating) return;
+    if (
+      pendingPreview === null ||
+      pendingPreview.pendingCount === 0 ||
+      recalculating
+    )
+      return;
     setRecalculating(true);
     setError('');
     const result = await startPendingSymbolReinference(api, gameId);
     if (result.ok) {
-      setNotice(`Uruchomiono przeliczenie oczekujących (job ${result.job.id}).`);
+      setNotice(
+        `Uruchomiono przeliczenie oczekujących (job ${result.job.id}).`,
+      );
       setPendingPreview({ ...pendingPreview, pendingCount: 0 });
     } else {
       setError(result.error);
@@ -212,7 +219,6 @@ export function ModelQualityWorkspace({
     return (
       <section className="modelQualityWorkspace">
         <p className="modelQualityLoading">Ładowanie jakości modelu…</p>
-        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
       </section>
     );
   }

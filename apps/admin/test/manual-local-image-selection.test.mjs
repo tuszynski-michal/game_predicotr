@@ -5,11 +5,13 @@ import { readFile } from 'node:fs/promises';
 import {
   adjacentManualNavigationStep,
   createManualSelectionState,
+  isMissingManualDirectoryHandleError,
   MANUAL_IMAGE_NAVIGATION_STEPS,
   naturalCompare,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  relinkManualSelectionSession,
   writeManualOutputManifest,
 } from '../src/features/manual-image-selection/manual-image-selection.ts';
 import {
@@ -101,6 +103,48 @@ test('copies only the adopted session trace without mutating its legacy record',
       gameId: 'local-independent-manual-image-selection',
     },
   ]);
+});
+
+test('recognizes a stale directory handle and relinks it without resetting state', () => {
+  assert.equal(
+    isMissingManualDirectoryHandleError({ name: 'NotFoundError' }),
+    true,
+  );
+  assert.equal(
+    isMissingManualDirectoryHandleError({
+      message:
+        'A requested file or directory could not be found at the time an operation was processed.',
+    }),
+    true,
+  );
+  const state = createManualSelectionState(100, 'ascending');
+  const legacy = {
+    gameId: 'local-independent-manual-image-selection',
+    key: 'session-key',
+    outputDirectory: { name: 'old-output' },
+    sourceDirectory: { name: 'old-source' },
+    sourceDirectoryName: 'old-source',
+    state,
+  };
+  const sourceDirectory = { name: 'relinked-source' };
+  const outputDirectory = { name: 'relinked-output' };
+
+  const repaired = relinkManualSelectionSession(
+    legacy,
+    sourceDirectory,
+    outputDirectory,
+  );
+
+  assert.equal(repaired.state, state);
+  assert.equal(repaired.key, legacy.key);
+  assert.equal(repaired.sourceDirectory, sourceDirectory);
+  assert.equal(repaired.outputDirectory, outputDirectory);
+  assert.equal(repaired.sourceDirectoryName, 'relinked-source');
+  assert.equal(legacy.sourceDirectoryName, 'old-source');
+  assert.match(workspaceSource, /Wznów z ponownie wybranymi folderami/);
+  assert.match(workspaceSource, /Wybierz ponownie folder źródłowy/);
+  assert.match(workspaceSource, /Wybierz ponownie folder wynikowy/);
+  assert.match(workspaceSource, /resumeRecovery !== null/);
 });
 
 test('derives each inclusive nine-layout range from its first number', () => {

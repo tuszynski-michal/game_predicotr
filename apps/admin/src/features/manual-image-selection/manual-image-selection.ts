@@ -91,6 +91,35 @@ const NATURAL_PARTS = /(\d+)/g;
 export const INDEPENDENT_MANUAL_SELECTION_ID =
   'local-independent-manual-image-selection';
 
+export function isMissingManualDirectoryHandleError(cause: unknown): boolean {
+  if (typeof cause !== 'object' || cause === null) return false;
+  const name =
+    'name' in cause && typeof cause.name === 'string' ? cause.name : '';
+  const message =
+    'message' in cause && typeof cause.message === 'string'
+      ? cause.message
+      : '';
+  return (
+    name === 'NotFoundError' ||
+    message
+      .toLowerCase()
+      .includes('requested file or directory could not be found')
+  );
+}
+
+export function relinkManualSelectionSession(
+  record: ManualSelectionSessionRecord,
+  sourceDirectory: FileSystemDirectoryHandle,
+  outputDirectory: FileSystemDirectoryHandle,
+): ManualSelectionSessionRecord {
+  return {
+    ...record,
+    outputDirectory,
+    sourceDirectory,
+    sourceDirectoryName: sourceDirectory.name,
+  };
+}
+
 export const MANUAL_IMAGE_NAVIGATION_STEPS = [
   1, 2, 3, 4, 5, 6, 7, 10, 15, 20,
 ] as const;

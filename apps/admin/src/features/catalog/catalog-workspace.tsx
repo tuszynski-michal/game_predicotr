@@ -313,7 +313,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                         hidden={!expanded}
                         id={`game-section-${section.id}`}
                       >
-                        {section.id === 'imports' ? (
+                        {expanded && section.id === 'imports' ? (
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
@@ -328,28 +328,28 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             }
                           />
                         ) : null}
-                        {section.id === 'symbols' ? (
+                        {expanded && section.id === 'symbols' ? (
                           <SymbolCatalog
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             gamesRevision={gamesRevision}
                           />
                         ) : null}
-                        {section.id === 'rules' ? (
+                        {expanded && section.id === 'rules' ? (
                           <RulesVersionCatalog
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             gamesRevision={gamesRevision}
                           />
                         ) : null}
-                        {section.id === 'reviews' ? (
+                        {expanded && section.id === 'reviews' ? (
                           <ReviewerAccessLauncher
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             onOpenImports={() => openSection('imports')}
                           />
                         ) : null}
-                        {section.id === 'model-quality' ? (
+                        {expanded && section.id === 'model-quality' ? (
                           <ModelQualityWorkspace
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}

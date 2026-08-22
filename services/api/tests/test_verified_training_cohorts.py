@@ -24,9 +24,12 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewItem,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
+    CumulativeVerifiedTrainingSnapshot,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
     VerifiedTrainingCohortSource,
+    VerifiedTrainingReviewState,
+    build_verified_training_cohort_source,
     require_pending_model_prediction_target,
 )
 from game_predictor_api.main import create_app
@@ -37,6 +40,8 @@ class MemorySourceRepository(VerifiedTrainingCohortSourceRepository):
         self.game_id = game_id
         self.items = list(items)
         self.heavy_job_active = False
+        self.read_snapshot_count = 0
+        self.lock_snapshot_count = 0
 
     def active_symbol_codes(self, game_id: UUID) -> Sequence[str]:
         if game_id != self.game_id:
@@ -52,10 +57,31 @@ class MemorySourceRepository(VerifiedTrainingCohortSourceRepository):
         self,
         *,
         game_id: UUID,
-    ) -> Sequence[ImageReviewItem]:
+    ) -> CumulativeVerifiedTrainingSnapshot:
+        self.lock_snapshot_count += 1
         if game_id != self.game_id:
             raise ImageReviewConflictError("GAME_NOT_FOUND", "Unknown game.")
-        return tuple(self.items)
+        return CumulativeVerifiedTrainingSnapshot(
+            review_states=tuple(_review_state(item) for item in self.items),
+            resolved_items=tuple(
+                item for item in self.items if item.status in {"accepted", "corrected"}
+            ),
+        )
+
+    def cumulative_verified_snapshot(
+        self,
+        *,
+        game_id: UUID,
+    ) -> CumulativeVerifiedTrainingSnapshot:
+        self.read_snapshot_count += 1
+        if game_id != self.game_id:
+            raise ImageReviewConflictError("GAME_NOT_FOUND", "Unknown game.")
+        return CumulativeVerifiedTrainingSnapshot(
+            review_states=tuple(_review_state(item) for item in self.items),
+            resolved_items=tuple(
+                item for item in self.items if item.status in {"accepted", "corrected"}
+            ),
+        )
 
     def lock_model_prediction_target(
         self,
@@ -245,6 +271,24 @@ def _item(
     )
 
 
+def _review_state(item: ImageReviewItem) -> VerifiedTrainingReviewState:
+    return VerifiedTrainingReviewState(
+        game_id=item.game_id,
+        review_item_id=item.id,
+        recognized_board_id=item.recognized_board_id,
+        source_image_id=item.source_image_id,
+        import_job_id=item.import_job_id,
+        source_order_index=item.source_order_index,
+        position_index=item.position_index,
+        status=item.status,
+        resolution_revision=item.resolution_revision,
+        geometry_revision=item.geometry_revision,
+        source_checksum_sha256=item.source_checksum_sha256,
+        board_checksum_sha256=item.board_checksum_sha256,
+        pipeline_fingerprint=item.pipeline_fingerprint,
+    )
+
+
 def _service(
     tmp_path: Path,
 ) -> tuple[
@@ -288,7 +332,7 @@ def _service(
 
 
 def test_preview_uses_only_complete_human_verified_items(tmp_path: Path) -> None:
-    service, _source, _cohorts, game_id = _service(tmp_path)
+    service, source, _cohorts, game_id = _service(tmp_path)
 
     preview = service.preview(game_id=game_id)
 
@@ -304,6 +348,38 @@ def test_preview_uses_only_complete_human_verified_items(tmp_path: Path) -> None
         "corrected",
     }
     assert all(len(board["cells"]) == 15 for board in preview.boards)
+    assert source.read_snapshot_count == 1
+    assert source.lock_snapshot_count == 0
+
+
+def test_compact_read_snapshot_preserves_full_manifest_and_checksum(tmp_path: Path) -> None:
+    _service_value, source, _cohorts, game_id = _service(tmp_path)
+    full = build_verified_training_cohort_source(game_id=game_id, items=source.items)
+    compact = source.cumulative_verified_snapshot(game_id=game_id)
+
+    optimized = build_verified_training_cohort_source(
+        game_id=game_id,
+        items=compact.resolved_items,
+        review_states=compact.review_states,
+    )
+
+    assert optimized.manifest == full.manifest
+    assert optimized.manifest_checksum_sha256 == full.manifest_checksum_sha256
+
+
+def test_freeze_uses_a_locked_snapshot_after_read_only_preview(tmp_path: Path) -> None:
+    service, source, _cohorts, game_id = _service(tmp_path)
+    preview = service.preview(game_id=game_id)
+
+    service.freeze(
+        game_id=game_id,
+        idempotency_key=uuid4(),
+        created_by="owner",
+        expected_manifest_checksum_sha256=preview.manifest_checksum_sha256,
+    )
+
+    assert source.read_snapshot_count == 1
+    assert source.lock_snapshot_count == 1
 
 
 def test_freeze_is_idempotent_and_changed_human_label_creates_next_iteration(

@@ -61,6 +61,12 @@ gra jest kopiowana do niezależnego namespace'u razem ze swoim śladem; rekord
 historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
 uprawnień przez przeglądarkę.
 
+Jeżeli zapisany uchwyt wskazuje folder usunięty, przeniesiony albo utworzony
+ponownie pod tą samą ścieżką, workspace nie może porzucić sesji ani tworzyć
+nowego postępu. Pokazuje osobno brak folderu źródłowego lub wynikowego, pozwala
+wskazać go ponownie i zachowuje `sessionKey`, decyzje, kolejny zakres oraz
+indeks zdjęcia. Naprawione uchwyty są ponownie zapisywane w IndexedDB.
+
 W danym momencie może być aktywne tylko jedno okno wyboru folderu. Oba przyciski
 wyboru są blokowane podczas aktywnego pickera, a ponowne kliknięcie jest
 obsługiwane jako komunikat zamiast drugiego wywołania przeglądarkowego dialogu.

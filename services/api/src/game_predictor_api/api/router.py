@@ -5,6 +5,9 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from game_predictor_api.api.board_cell_geometry_pending import (
+    create_board_cell_geometry_pending_router,
+)
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
@@ -66,6 +69,7 @@ def create_api_router(
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
     page_geometry_override_service_dependency: Callable[..., object],
+    board_cell_geometry_pending_service_dependency: Callable[..., object],
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -134,6 +138,9 @@ def create_api_router(
         )
     )
     router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
+    router.include_router(
+        create_board_cell_geometry_pending_router(board_cell_geometry_pending_service_dependency)
+    )
     router.include_router(
         create_layout_import_reports_router(layout_import_report_service_dependency)
     )

@@ -232,6 +232,47 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
     }
 
 
+def test_job_exposes_explicit_board_cell_geometry_progress() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": r"C:\photos",
+            "source_display_name": "photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+        created_at=datetime(2026, 8, 23, tzinfo=UTC),
+    )
+    job = replace(
+        job,
+        checkpoint_payload={
+            "board_cell_geometry": {
+                "status": "waiting_for_geometry",
+                "total": 90,
+                "processed": 90,
+                "succeeded": 86,
+                "pending": 3,
+                "resolved": 0,
+                "superseded": 1,
+            }
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["boardCellGeometry"] == {
+        "status": "waiting_for_geometry",
+        "total": 90,
+        "processed": 90,
+        "succeeded": 86,
+        "pending": 3,
+        "resolved": 0,
+        "superseded": 1,
+    }
+
+
 def test_curated_image_import_job_preserves_selection_run_provenance(
     tmp_path: Path,
 ) -> None:

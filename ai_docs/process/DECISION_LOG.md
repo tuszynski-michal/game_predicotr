@@ -5061,6 +5061,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   manifestu v1 pozostaje czytelny dla istniejącego rankera, który grupuje po
   `sessionKey` i zakresie, a przypisanie kohorty do gry następuje osobno.
 
+## D-211 — Niewiarygodna geometria komórek ma trwały stan bez predykcji
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** brak zweryfikowanej geometrii 3 × 5 zapisuje się jako osobny
+  rekord `image_board_geometry_pending`, związany z jobem, źródłem i pozycją
+  planszy. Rekord może powstać przed `recognized_board` i nie wymaga utworzenia
+  15 cropów ani `cells_prediction`. Jego niezmienny
+  `BoardCellProcessingManifestV1` przypina poświadczoną sekwencję, rewizje oraz
+  wszystkie wersje i fingerprinty przetwarzania.
+- **Context:** bez osobnego stanu pełny pipeline musiałby albo zgubić planszę,
+  albo utworzyć pozornie kompletną planszę z niewiarygodnymi/pustymi 15
+  predykcjami. Oba zachowania łamią fail-closed i utrudniają trwałe wznowienie.
+- **Safety:** zamknięte statusy to `pending`, `resolved`, `superseded`, a powody
+  v1 to `insufficient_centers`, `incomplete_lattice`, `residual_too_high` i
+  `source_unavailable`. Exact retry jest idempotentny. Rozwiązanie ponownie
+  sprawdza planszę oraz review pod blokadą; późniejsza decyzja człowieka zawsze
+  wygrywa i kończy automat jako `superseded`.
+- **Consequences:** API TASK-0264 jest tylko do odczytu. Produkcyjne tworzenie
+  rekordów należy do osobnego adaptera, nie przełącza v19 i nie zmienia
+  historycznego v18. Tabela przechowuje ścieżki i checksumy, nigdy obrazy BLOB.
+- **Supersedes:** rozszerza D-204 i D-209 o trwały fallback na poziomie
+  pojedynczej planszy; nie osłabia ich bramek geometrii.
+
 ## Szablon nowej decyzji
 
 ```text

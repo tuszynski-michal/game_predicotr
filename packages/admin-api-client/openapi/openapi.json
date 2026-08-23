@@ -73,6 +73,316 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BoardCellGeometryJobCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pending": {
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "resolved": {
+            "minimum": 0.0,
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "pending",
+          "resolved",
+          "superseded"
+        ],
+        "title": "BoardCellGeometryJobCountsResponse",
+        "type": "object"
+      },
+      "BoardCellGeometryJobProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pending": {
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "processed": {
+            "minimum": 0.0,
+            "title": "Processed",
+            "type": "integer"
+          },
+          "resolved": {
+            "minimum": 0.0,
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "processing",
+              "waiting_for_geometry",
+              "complete"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "succeeded": {
+            "minimum": 0.0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "total",
+          "processed",
+          "succeeded",
+          "pending",
+          "resolved",
+          "superseded"
+        ],
+        "title": "BoardCellGeometryJobProgressResponse",
+        "type": "object"
+      },
+      "BoardCellGeometryPendingPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/BoardCellGeometryJobCountsResponse"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BoardCellGeometryPendingResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "counts",
+          "nextCursor"
+        ],
+        "title": "BoardCellGeometryPendingPageResponse",
+        "type": "object"
+      },
+      "BoardCellGeometryPendingReason": {
+        "enum": [
+          "insufficient_centers",
+          "incomplete_lattice",
+          "residual_too_high",
+          "source_unavailable"
+        ],
+        "title": "BoardCellGeometryPendingReason",
+        "type": "string"
+      },
+      "BoardCellGeometryPendingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedReviewResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedreviewresolutionrevision",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "pipelineFingerprintSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pipelinefingerprintsha256",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "processingManifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Processingmanifestchecksumsha256",
+            "type": "string"
+          },
+          "processingManifestRelativePath": {
+            "title": "Processingmanifestrelativepath",
+            "type": "string"
+          },
+          "reasonCode": {
+            "$ref": "#/components/schemas/BoardCellGeometryPendingReason"
+          },
+          "recognizedBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedat"
+          },
+          "resolvedGeometryRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedgeometryrevision"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BoardCellGeometryPendingStatus"
+          },
+          "supersededAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersededat"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "importJobId",
+          "sourceImageId",
+          "recognizedBoardId",
+          "reviewItemId",
+          "sequenceNumber",
+          "positionIndex",
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "status",
+          "reasonCode",
+          "processingManifestChecksumSha256",
+          "processingManifestRelativePath",
+          "pipelineFingerprintSha256",
+          "expectedGeometryRevision",
+          "expectedReviewResolutionRevision",
+          "createdAt",
+          "updatedAt",
+          "resolvedAt",
+          "supersededAt"
+        ],
+        "title": "BoardCellGeometryPendingResponse",
+        "type": "object"
+      },
+      "BoardCellGeometryPendingStatus": {
+        "enum": [
+          "pending",
+          "resolved",
+          "superseded"
+        ],
+        "title": "BoardCellGeometryPendingStatus",
+        "type": "string"
+      },
       "BoardCellRecropJobSnapshotPayload": {
         "additionalProperties": false,
         "properties": {
@@ -5357,6 +5667,16 @@
       "JobProgressResponse": {
         "additionalProperties": false,
         "properties": {
+          "boardCellGeometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellGeometryJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "current": {
             "title": "Current",
             "type": "integer"
@@ -13335,6 +13655,206 @@
         "summary": "Rollback",
         "tags": [
           "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending": {
+      "get": {
+        "operationId": "listPendingBoardCellGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BoardCellGeometryPendingStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardCellGeometryPendingPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry item not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List durable board-cell geometry fallback items",
+        "tags": [
+          "board-cell-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}": {
+      "get": {
+        "operationId": "getPendingBoardCellGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pending_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pending Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardCellGeometryPendingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry item not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get one durable board-cell geometry fallback item",
+        "tags": [
+          "board-cell-geometry"
         ]
       }
     },

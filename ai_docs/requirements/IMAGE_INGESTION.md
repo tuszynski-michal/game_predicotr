@@ -280,6 +280,19 @@ discovery, detektora strony ani OCR numerów. Tylko kompletne evidence 3 × 5
 może utworzyć 15 source-direct cropów i append-only rewizję geometrii. Brak
 pełnej geometrii pozostawia planszę w review bez częściowych plików.
 
+Przed integracją następcy pełnego pipeline'u istnieje osobny trwały kontrakt
+`BoardCellProcessingManifestV1`. Manifest jest content-addressed i przypina
+poświadczony numer, źródło, oczekiwane rewizje oraz wersje i fingerprinty
+pipeline'u, estymatora i croppera. Nie zawiera obrazu ani 15 predykcji.
+
+Niewiarygodny wynik geometrii zapisuje się w
+`image_board_geometry_pending` z jednym z zamkniętych powodów:
+`insufficient_centers`, `incomplete_lattice`, `residual_too_high` albo
+`source_unavailable`. Stan `pending` może przejść wyłącznie do `resolved` albo
+`superseded`. Równoległa decyzja człowieka lub zmiana przypiętej rewizji zawsze
+prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
+aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
+
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
 sprawdza status itemu, rewizję resolution, rewizję i całą geometrię planszy,

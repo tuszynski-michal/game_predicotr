@@ -224,6 +224,9 @@ import type {
   GetPayoutRuleData,
   GetPayoutRuleErrors,
   GetPayoutRuleResponses,
+  GetPendingBoardCellGeometryData,
+  GetPendingBoardCellGeometryErrors,
+  GetPendingBoardCellGeometryResponses,
   GetReviewBatchData,
   GetReviewBatchErrors,
   GetReviewBatchResponses,
@@ -327,6 +330,9 @@ import type {
   ListPayoutRulesData,
   ListPayoutRulesErrors,
   ListPayoutRulesResponses,
+  ListPendingBoardCellGeometryData,
+  ListPendingBoardCellGeometryErrors,
+  ListPendingBoardCellGeometryResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
@@ -916,6 +922,48 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List durable board-cell geometry fallback items
+ */
+export const listPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  ListPendingBoardCellGeometryResponses,
+  ListPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPendingBoardCellGeometryResponses,
+    ListPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending',
+    ...options,
+  });
+
+/**
+ * Get one durable board-cell geometry fallback item
+ */
+export const getPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  GetPendingBoardCellGeometryResponses,
+  GetPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometryResponses,
+    GetPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}',
+    ...options,
   });
 
 /**

@@ -327,6 +327,16 @@ class ImageSelectionJobProgressResponse(ApiModel):
     telemetry_counters: dict[str, int] | None = None
 
 
+class BoardCellGeometryJobProgressResponse(ApiModel):
+    status: Literal["processing", "waiting_for_geometry", "complete"]
+    total: int = Field(ge=0)
+    processed: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    pending: int = Field(ge=0)
+    resolved: int = Field(ge=0)
+    superseded: int = Field(ge=0)
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -339,6 +349,10 @@ class JobProgressResponse(ApiModel):
         exclude_if=lambda value: value is None,
     )
     page_geometry_preflight: PageGeometryPreflightJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    board_cell_geometry: BoardCellGeometryJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
@@ -419,6 +433,7 @@ class JobResponse(ApiModel):
                 review=job.review_count,
                 image_selection=_image_selection_progress(job),
                 page_geometry_preflight=_page_geometry_preflight_progress(job),
+                board_cell_geometry=_board_cell_geometry_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -449,6 +464,29 @@ def _page_geometry_preflight_progress(
         complete=complete,
         geometry_manifest_checksum_sha256=checksum,
     )
+
+
+def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressResponse | None:
+    if job.checkpoint_payload is None:
+        return None
+    raw = job.checkpoint_payload.get("board_cell_geometry")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        status = raw["status"]
+        if status not in {"processing", "waiting_for_geometry", "complete"}:
+            return None
+        return BoardCellGeometryJobProgressResponse(
+            status=status,
+            total=_progress_integer(raw["total"]),
+            processed=_progress_integer(raw["processed"]),
+            succeeded=_progress_integer(raw["succeeded"]),
+            pending=_progress_integer(raw["pending"]),
+            resolved=_progress_integer(raw["resolved"]),
+            superseded=_progress_integer(raw["superseded"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | None:

@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Trwały kontrakt deferred geometrii komórek — v0.7.16
+
+- Na jawne polecenie właściciela TASK 3 został ograniczony do warstwy kontraktu
+  mimo niezaliczonej bramki pokrycia TASK 2. Nie aktywuje to v19 w workerze i
+  nie zezwala na rozpoczęcie TASK 4.
+- `BoardCellProcessingManifestV1` przypina źródło, sekwencję, rewizje i
+  fingerprinty. `image_board_geometry_pending` utrwala `pending`, `resolved`
+  albo `superseded` bez JPEG-ów, cropów i fałszywych 15 predykcji.
+- Exact retry jest serializowany na zdjęciu źródłowym. Przy rozwiązaniu
+  repozytorium ponownie odczytuje planszę i review; późniejsza decyzja człowieka
+  zawsze kończy automat statusem `superseded`.
+- Read-only API list/get, liczniki joba, OpenAPI i klient Admina są gotowe.
+  Produkcyjny zapis tych rekordów przez worker oraz UI korekty pozostają poza
+  zakresem.
+- Lokalna baza jest na migracji `0054`. Pełny zestaw API bez izolowanych testów
+  PostgreSQL przeszedł `410 passed, 2 skipped`; celowany zestaw kontraktu,
+  migracji i jobów przeszedł `65/65`. Pełne Ruff/mypy nadal zatrzymują się na
+  wcześniejszych błędach poza plikami TASK-0264.
+
 ### Cross-staging shadow benchmark geometrii v19 — v0.7.15
 
 - TASK 2 dodał read-only, content-addressed benchmark 300 stron / 2700 plansz:
@@ -29,9 +48,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Checkpoint ma status `REJECTED_FOR_ROLLOUT`: pokrycie wynosi `93,78%`
   (`2532/2700`) zamiast wymaganych minimum `98%`; 168 plansz zostało bezpiecznie
   odroczonych bez częściowych cropów ani inferencji.
-- Produkcyjny estymator, cropper, joby, decyzje, baza i aktywny model nie zostały
-  zmienione. TASK 3 nie może rozpocząć się przed osobną poprawą pokrycia i
-  ponownym zaliczeniem benchmarku.
+- Produkcyjny estymator, cropper, joby, decyzje i aktywny model nie zostały
+  zmienione. Warstwa kontraktu TASK 3 została później wykonana na jawne
+  polecenie właściciela, ale TASK 4 nadal wymaga poprawy pokrycia i ponownego
+  zaliczenia benchmarku.
 - Raport: `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`.
 
 ### Read-only diagnoza cropów v18/v19 — v0.7.14

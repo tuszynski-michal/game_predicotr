@@ -1518,6 +1518,25 @@ Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
 stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+
+Read-only kontrakt odroczonej geometrii komórek wykorzystuje:
+
+```text
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}
+```
+
+Lista ma stabilny keyset cursor po `(sequence_number, position_index, id)`,
+opcjonalny filtr `status`, limit maksymalnie 200 oraz liczniki `total`,
+`pending`, `resolved`, `superseded` dla wskazanego joba. Element zwraca reason
+code, scope źródła, opcjonalne identyfikatory planszy/review, checksumę i
+ścieżkę niezmiennego manifestu, fingerprint pipeline'u oraz oczekiwane i
+wynikowe rewizje. TASK-0264 nie wystawia mutacji ani nie aktywuje workera v19.
+
+`JobProgressResponse.boardCellGeometry` jest opcjonalną projekcją checkpointu
+o statusie `processing | waiting_for_geometry | complete` i licznikach
+`total`, `processed`, `succeeded`, `pending`, `resolved`, `superseded`.
+Historyczne joby bez tego checkpointu nie zwracają tej sekcji.
 Preview i worker obejmują wyłącznie importy w stanie `waiting_for_review`.
 Oczekujące projekcje importów `cancelled` albo `failed` pozostają audytowalne,
 ale nie mogą zwiększać zakresu nowego przeliczenia.

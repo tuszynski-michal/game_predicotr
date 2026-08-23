@@ -104,3 +104,6 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   formatowanie przeszły. Celowany mypy nie wykazał nowego błędu, ale nadal
   raportuje dwa istniejące błędy w
   `symbol_model_iteration_repository.py`.
+- TASK-0264 dodał niezależny trwały kontrakt wyjątków geometrii komórek. Nie
+  zmienia preflightu strony ani pełnego pipeline'u: pozwala przyszłemu adapterowi
+  zapisać fail-closed planszę bez syntetycznych cropów i zachować human-wins.

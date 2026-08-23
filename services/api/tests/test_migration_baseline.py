@@ -63,6 +63,7 @@ IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
 REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
 REVIEWER_ASSIGNMENT_SESSIONS_REVISION = "0052_reviewer_assignment_sessions"
 IMAGE_REVIEW_JOB_COMPLETION_REVISION = "0053_image_review_job_completion"
+IMAGE_BOARD_GEOMETRY_PENDING_REVISION = "0054_image_board_geometry_pending"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -137,7 +138,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     reviewer_work_assignments = script.get_revision(REVIEWER_WORK_ASSIGNMENTS_REVISION)
     reviewer_assignment_sessions = script.get_revision(REVIEWER_ASSIGNMENT_SESSIONS_REVISION)
     image_review_job_completion = script.get_revision(IMAGE_REVIEW_JOB_COMPLETION_REVISION)
-    assert script.get_heads() == [IMAGE_REVIEW_JOB_COMPLETION_REVISION]
+    image_board_geometry_pending = script.get_revision(IMAGE_BOARD_GEOMETRY_PENDING_REVISION)
+    assert script.get_heads() == [IMAGE_BOARD_GEOMETRY_PENDING_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -254,6 +256,32 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert reviewer_assignment_sessions.down_revision == REVIEWER_WORK_ASSIGNMENTS_REVISION
     assert image_review_job_completion is not None
     assert image_review_job_completion.down_revision == REVIEWER_ASSIGNMENT_SESSIONS_REVISION
+    assert image_board_geometry_pending is not None
+    assert image_board_geometry_pending.down_revision == IMAGE_REVIEW_JOB_COMPLETION_REVISION
+
+
+def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_JOB_COMPLETION_REVISION}:{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}:{IMAGE_REVIEW_JOB_COMPLETION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_board_geometry_pending" in upgrade_sql
+    assert "uq_image_board_geometry_pending_manifest" in upgrade_sql
+    assert "uq_image_board_geometry_pending_current" in upgrade_sql
+    assert "ck_image_board_geometry_pending_lifecycle" in upgrade_sql
+    assert "bytea" not in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table image_board_geometry_pending" in downgrade_sql
 
 
 def test_reviewer_assignment_sessions_migration_is_scoped_and_reversible() -> None:

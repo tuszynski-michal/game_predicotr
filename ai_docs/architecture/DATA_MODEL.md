@@ -849,6 +849,22 @@ identyczne ze snapshotem workera. Rozwiązana lub równolegle zmieniona pozycja
 nie tworzy rekordu. Istniejąca rewizja geometrii/croppera v19 jest uznawana za
 aktualną i nie jest nadpisywana.
 
+### image_board_geometry_pending
+
+Trwała projekcja fail-closed przechowuje plansze, dla których nie istnieje
+zweryfikowana geometria 3 × 5. Rekord należy do gry, joba importu, źródła i
+pozycji 0–8 oraz zachowuje poświadczony `sequence_number`. Powiązanie z
+`recognized_boards` i `image_review_items` jest opcjonalne: brak geometrii nie
+może wymuszać utworzenia planszy z pustym `cells_prediction`.
+
+Rekord zawiera status `pending | resolved | superseded`, zamknięty reason code,
+ścieżkę i SHA-256 `BoardCellProcessingManifestV1`, fingerprint pipeline'u oraz
+oczekiwane rewizje geometrii i decyzji. Nie przechowuje JPEG-a ani cropów.
+Unikalność manifestu zapewnia idempotentny retry, a częściowy indeks dopuszcza
+tylko jeden bieżący `pending` dla `job + source + position`. Nowy manifest
+superseduje poprzedni. Rozwiązanie zapisuje wyłącznie numer nowej rewizji;
+zmiana planszy albo review po snapshotcie kończy rekord jako `superseded`.
+
 ### reviewer_access_sessions i reviewer_access_audit_events
 
 Trwała sesja Reviewera wiąże dokładnie `game_id` i `import_job_id`. Przechowuje

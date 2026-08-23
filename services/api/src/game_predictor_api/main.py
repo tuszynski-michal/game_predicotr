@@ -16,6 +16,10 @@ from game_predictor_worker.images.manual_board_cell_geometry_preview import (
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.application.board_cell_geometry_pending import (
+    BoardCellGeometryPendingService,
+    ManagedBoardCellProcessingManifestStore,
+)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
@@ -147,6 +151,9 @@ from game_predictor_api.security.local_admin import (
     LocalAdminSecurityMiddleware,
     augment_admin_security_openapi,
 )
+from game_predictor_api.storage.board_cell_geometry_pending_repository import (
+    SqlAlchemyBoardCellGeometryPendingRepository,
+)
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
@@ -252,6 +259,7 @@ def create_app(
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
+    board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -583,6 +591,25 @@ def create_app(
         or default_page_geometry_override_service_dependency
     )
 
+    def default_board_cell_geometry_pending_service_dependency() -> Iterator[
+        BoardCellGeometryPendingService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardCellGeometryPendingService(
+                    SqlAlchemyBoardCellGeometryPendingRepository(session),
+                    ManagedBoardCellProcessingManifestStore(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_cell_geometry_pending_dependency = (
+        board_cell_geometry_pending_service_dependency
+        or default_board_cell_geometry_pending_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -743,6 +770,7 @@ def create_app(
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
             resolved_page_geometry_override_dependency,
+            resolved_board_cell_geometry_pending_dependency,
             resolved_settings.artifact_root,
         )
     )

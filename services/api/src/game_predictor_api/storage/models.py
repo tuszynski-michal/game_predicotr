@@ -1871,6 +1871,112 @@ class ImagePageGeometryOverrideModel(Base):
     )
 
 
+class ImageBoardGeometryPendingModel(Base):
+    """A board for which verified cell geometry is not yet available."""
+
+    __tablename__ = "image_board_geometry_pending"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND position_index BETWEEN 0 AND 8 "
+            "AND expected_geometry_revision >= 0 "
+            "AND expected_review_resolution_revision >= 0",
+            name="ck_image_board_geometry_pending_values",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND processing_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND pipeline_fingerprint_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_geometry_pending_checksums",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'resolved', 'superseded')",
+            name="ck_image_board_geometry_pending_status",
+        ),
+        CheckConstraint(
+            "reason_code IN ('insufficient_centers', 'incomplete_lattice', "
+            "'residual_too_high', 'source_unavailable')",
+            name="ck_image_board_geometry_pending_reason",
+        ),
+        CheckConstraint(
+            "(status = 'pending' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NULL) OR "
+            "(status = 'resolved' AND resolved_geometry_revision IS NOT NULL "
+            "AND resolved_geometry_revision > expected_geometry_revision "
+            "AND resolved_at IS NOT NULL AND superseded_at IS NULL) OR "
+            "(status = 'superseded' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NOT NULL)",
+            name="ck_image_board_geometry_pending_lifecycle",
+        ),
+        CheckConstraint(
+            r"length(btrim(source_relative_path)) > 0 "
+            r"AND source_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)' "
+            r"AND length(btrim(processing_manifest_relative_path)) > 0 "
+            r"AND processing_manifest_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_board_geometry_pending_paths",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "source_image_id",
+            "position_index",
+            "processing_manifest_checksum_sha256",
+            name="uq_image_board_geometry_pending_manifest",
+        ),
+        Index(
+            "ix_image_board_geometry_pending_job_status_sequence",
+            "import_job_id",
+            "status",
+            "sequence_number",
+            "position_index",
+            "id",
+        ),
+        Index(
+            "uq_image_board_geometry_pending_current",
+            "import_job_id",
+            "source_image_id",
+            "position_index",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=True
+    )
+    review_item_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    processing_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    processing_manifest_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    pipeline_fingerprint_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_review_resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resolved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ReviewerAccessSessionModel(Base):
     __tablename__ = "reviewer_access_sessions"
     __table_args__ = (

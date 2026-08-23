@@ -209,6 +209,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
     'b'.repeat(64),
     'geometry-job-1',
     'c'.repeat(64),
+    'historical_v18',
   );
 
   assert.equal(started.ok, true);
@@ -219,6 +220,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       'upload-1',
       {
         gameId: 'game-1',
+        boardCellProcessingMode: 'historical_v18',
         geometryManifestChecksumSha256: 'c'.repeat(64),
         geometryPreflightJobId: 'geometry-job-1',
         manifestChecksumSha256: 'a'.repeat(64),
@@ -226,4 +228,32 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       },
     ],
   ]);
+});
+
+test('pins the explicitly confirmed v20 board-cell processing mode', async () => {
+  let command;
+  const result = await startReadyBrowserImageImport(
+    {
+      startReadyBrowserImageImport: async (_uploadId, body) => {
+        command = body;
+        return {
+          data: {
+            created: true,
+            job: { id: 'job-v20' },
+            preflight: {},
+          },
+        };
+      },
+    },
+    'upload-v20',
+    'game-1',
+    'a'.repeat(64),
+    'b'.repeat(64),
+    'geometry-job-v20',
+    'c'.repeat(64),
+    'verified_v19',
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(command.boardCellProcessingMode, 'verified_v19');
 });

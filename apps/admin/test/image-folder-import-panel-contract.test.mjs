@@ -9,6 +9,13 @@ const panelSource = await readFile(
   ),
   'utf8',
 );
+const modePickerSource = await readFile(
+  new URL(
+    '../src/features/imports/board-cell-processing-mode-picker.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const globalStyles = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
@@ -47,11 +54,25 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
+  assert.match(panelSource, /BoardCellProcessingModePicker/);
+  assert.match(panelSource, /boardCellProcessingStartAllowed/);
+  assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
+  assert.match(panelSource, /Rozpocznij import v20 z raportu/);
   assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
   assert.doesNotMatch(panelSource, /Import jest zablokowany/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
   assert.match(panelSource, /Import plansz z folderu/);
+});
+
+test('keeps v20 as an acknowledged staging-local opt-in', () => {
+  assert.match(modePickerSource, /Historyczny v18 — domyślny/);
+  assert.match(modePickerSource, /v20 z geometrią v19 — jawny opt-in/);
+  assert.match(modePickerSource, /93,78%/);
+  assert.match(modePickerSource, /wymaganej bramce 98%/);
+  assert.match(modePickerSource, /verifiedV19Confirmed/);
+  assert.match(modePickerSource, /onVerifiedV19ConfirmationChange/);
+  assert.match(panelSource, /setVerifiedV19Confirmed\(false\)/);
 });
 
 test('provides styled actions and accessible import help', () => {
@@ -61,6 +82,7 @@ test('provides styled actions and accessible import help', () => {
   assert.match(panelSource, /role="tooltip"/);
   assert.match(panelSource, /Co robią te akcje\?/);
   assert.match(globalStyles, /\.importActionButtons \{/);
+  assert.match(globalStyles, /\.boardCellProcessingModePicker \{/);
   assert.match(globalStyles, /\.importActionHelp:focus-within/);
 });
 

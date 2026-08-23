@@ -5481,6 +5481,91 @@ div.imageJobInlineError {
   line-height: 1.5;
 }
 
+.boardCellProcessingModePicker {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(2, 7, 12, 0.42);
+}
+
+.boardCellProcessingModePicker legend {
+  padding: 0 6px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.boardCellProcessingModePicker > p,
+.boardCellProcessingModeWarning p {
+  margin: 0;
+}
+
+.boardCellProcessingModeOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.boardCellProcessingModeOption {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.boardCellProcessingModeOption.selected {
+  border-color: rgba(112, 225, 180, 0.62);
+  background: var(--accent-soft);
+}
+
+.boardCellProcessingModeOption input,
+.boardCellProcessingModeWarning input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.boardCellProcessingModeOption span,
+.boardCellProcessingModeOption strong,
+.boardCellProcessingModeOption small {
+  display: block;
+  min-width: 0;
+}
+
+.boardCellProcessingModeOption small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.boardCellProcessingModeWarning {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid rgba(255, 190, 87, 0.42);
+  border-radius: 10px;
+  background: rgba(255, 190, 87, 0.08);
+}
+
+.boardCellProcessingModeWarning p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.boardCellProcessingModeWarning label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-weight: 750;
+}
+
 .pageGeometryCorrection {
   display: grid;
   gap: 14px;
@@ -6229,6 +6314,10 @@ div.imageJobInlineError {
   .curatedImportMetrics,
   .importMetrics,
   .importSourceControls {
+    grid-template-columns: 1fr;
+  }
+
+  .boardCellProcessingModeOptions {
     grid-template-columns: 1fr;
   }
 

@@ -315,6 +315,14 @@ idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Pokrycie TASK 2
 wynosi nadal `93,78%`, dlatego v20 pozostaje wyłącznie opt-in; zmiana domyślnego
 trybu wymaga osobnego checkpointu i osiągnięcia bramki co najmniej `98%`.
 
+Admin udostępnia ten opt-in wyłącznie dla aktywnego, gotowego browser stagingu
+po przygotowaniu raportu i geometrii strony. Każdy nowy staging zaczyna w
+`historical_v18`; wybór `verified_v19` wymaga staging-local potwierdzenia ryzyka.
+Komenda startu zawsze zawiera wybrany `boardCellProcessingMode`, a odpowiedź
+idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
+snapshot joba odpowiada temu wyborowi. Nie zmienia to wartości domyślnej API ani
+bramki automatycznego rollout.
+
 Trwały deferred może zostać rozwiązany ręcznie bez ponownego uruchamiania
 pipeline'u. Komenda czterech narożników jest związana z checksumą manifestu,
 źródła, oczekiwanymi rewizjami oraz snapshotem modelu symboli przypiętym do

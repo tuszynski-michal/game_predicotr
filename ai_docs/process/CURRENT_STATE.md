@@ -15,6 +15,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Kontrolowany opt-in importu v20 — v0.7.20
+
+- TASK 7 podłącza istniejący `boardCellProcessingMode=verified_v19` do startu
+  gotowego browser stagingu w Adminie. Każdy staging domyślnie pozostaje w
+  historycznym v18; v20 wymaga jawnego, lokalnego dla stagingu potwierdzenia.
+- UI pokazuje niezaliczoną bramkę `93,78% < 98%`, brak fallbacku do v18 i
+  trwałe odroczenie nierozpoznanej geometrii do końcowej korekty Reviewera.
+- Checksum-bound start zawsze przesyła wybrany tryb. Admin porównuje zwrócony
+  niezmienny snapshot joba z wyborem i nie raportuje sukcesu przy rozbieżności;
+  komunikat końcowy podaje faktycznie przypięty tryb.
+- Domyślna wartość backendu, kontrakt HTTP/OpenAPI, fingerprinty algorytmów,
+  próg rollout, istniejące joby i dane kanoniczne nie zostały zmienione.
+- Walidacja: Admin `243/243`, klient Admin API `40/40`, oba typechecki, lint,
+  build Admina, formatowanie zmienionych plików i kontrola OpenAPI przeszły.
+  Lint Admina zachowuje dwa wcześniejsze ostrzeżenia `<img>` w plikach spoza
+  TASK 7. Nie uruchamiano rzeczywistego importu danych użytkownika.
+
 ### Końcowa kolejka korekty geometrii — v0.7.19
 
 - TASK 6 udostępnia w Reviewerze osobny, bounded tryb dla trwałych

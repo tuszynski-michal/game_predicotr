@@ -239,6 +239,7 @@ export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
+  BrowserImageImportStart,
   BrowserImageImportStartResponse,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryOverrideResponse,

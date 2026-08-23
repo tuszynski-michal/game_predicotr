@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   BrowserImageImportPreflightResponse,
+  BrowserImageImportStart,
   BrowserImageImportStartResponse,
   BrowserPageGeometryPreflightResponse,
   BrowserReadySelectionResponse,
@@ -35,6 +36,10 @@ export type ImageFolderImportClient = Pick<
 >;
 
 type Failure = { readonly error: string; readonly ok: false };
+
+export type BoardCellProcessingMode = NonNullable<
+  BrowserImageImportStart['boardCellProcessingMode']
+>;
 
 export async function uploadImageFolder(
   api: ImageFolderImportClient,
@@ -193,6 +198,7 @@ export async function startReadyBrowserImageImport(
   preflightChecksumSha256: string,
   geometryPreflightJobId: string,
   geometryManifestChecksumSha256: string,
+  boardCellProcessingMode: BoardCellProcessingMode,
   symbolModelInferenceFingerprint?: string,
   gridProfileInferenceFingerprint?: string,
 ): Promise<
@@ -212,6 +218,7 @@ export async function startReadyBrowserImageImport(
         : { gridProfileInferenceFingerprint }),
       geometryPreflightJobId,
       geometryManifestChecksumSha256,
+      boardCellProcessingMode,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {

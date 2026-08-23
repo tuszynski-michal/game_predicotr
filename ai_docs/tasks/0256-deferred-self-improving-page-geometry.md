@@ -120,3 +120,7 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   zapisu, exact retry zachowuje idempotency key, a konflikty przeładowują stan
   bez nadpisania human-wins. Po zapisie plansza trafia do istniejącej zwykłej
   kolejki review.
+- TASK-0268 udostępnił właścicielowi staging-local wybór v20 w Adminie. V18
+  pozostaje domyślny, a v20 wymaga potwierdzenia komunikatu o wyniku `93,78%`,
+  braku fallbacku oraz deferred. Start przesyła wybrany tryb i kontroluje
+  zgodność zwróconego snapshotu joba; próg `98%` nie został obniżony.

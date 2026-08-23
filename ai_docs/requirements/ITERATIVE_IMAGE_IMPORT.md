@@ -1,8 +1,8 @@
 ---
 title: Iterative image import requirements
 status: accepted
-last_updated: 2026-08-09
-release: "0.5"
+last_updated: 2026-08-23
+release: "0.7"
 ---
 
 # Iteracyjny import zdjęć i ulepszanie pipeline'u
@@ -10,7 +10,7 @@ release: "0.5"
 ## Cel
 
 Wynik Selekcji Zdjęć może zawierać kilka tysięcy uporządkowanych zdjęć i
-kilkanaście tysięcy layoutów. Import Layoutów musi pozwalać właścicielowi
+kilkanaście tysięcy plansz. Import Plansz musi pozwalać właścicielowi
 przetwarzać kolejne małe partie, zweryfikować rezultat, ulepszyć rozpoznawanie i
 dopiero potem uruchomić następną partię.
 
@@ -69,6 +69,36 @@ zdjęciach, należy zaproponować przejście na model neuronowy. Dataset pod tak
 model zachowuje oryginalny obraz, cztery zatwierdzone narożniki, pozycję i sesję;
 podział train/validation/test odbywa się po zdjęciu i sesji.
 
+## Aktywny kontrakt geometrii komórek v18/v20
+
+Domyślny import nadal używa historycznego
+`board-cell-crops-v18-source-direct-validated-v1`. Następca
+`board-cell-processing-v20-verified-v19-v1` jest dostępny wyłącznie jako jawny,
+lokalny dla stagingu wybór `verified_v19`. Brak wyboru oznacza
+`historical_v18`; idempotentna odpowiedź startu musi potwierdzić ten sam tryb,
+który wskazał operator.
+
+V20 używa kompletnej, wielopunktowej geometrii 5 × 3 i source-direct croppera
+v19. Każda pozycja planszy ma dokładnie jeden z dwóch wyników:
+
+- 15 zweryfikowanych cropów row-major i inferencję modelu przypiętego do joba,
+- trwały `deferred` z zamkniętym powodem, bez cropów i bez inferencji.
+
+Nie wolno wykonać fallbacku z nieudanej geometrii v19 do v18. Deferred należy
+do granicy `waiting_for_review` i może zostać rozwiązany na końcu w Reviewerze
+przez korektę czterech narożników siatki symboli. Dopiero poprawny preview 15
+cropów pozwala atomowo utworzyć zwykły element istniejącej kolejki plansz.
+Decyzja człowieka albo istniejąca plansza zawsze wygrywa.
+
+Cross-staging benchmark 300 stron osiągnął `93,78%` automatycznego pokrycia
+przy wymaganym minimum `98%`. Dlatego v20 nie jest trybem domyślnym i nie wolno
+przedstawiać go jako automatycznie odebranego rollout'u. Właściciel może użyć
+go świadomie jako opt-in, akceptując trwałe wyjątki do ręcznej korekty.
+
+Rollback nowych importów polega na wybraniu `historical_v18` dla kolejnego
+joba. Snapshot już utworzonego joba jest niezmienny i nie może zostać
+przełączony w locie między v18 i v20.
+
 ## Reviewer i jakość obrazu
 
 - Prawy podgląd pokazuje natywny fragment oryginalnego zdjęcia obejmujący
@@ -101,3 +131,8 @@ degradację jednostkowego kosztu, ale nie może zmieniać zachowania pipeline'u.
 - Reviewer pokazuje planszę i numer z oryginalnego źródła,
 - kalibracja nie może zostać aktywowana po regresji na zbiorze testowym,
 - żadna automatyczna operacja nie zmienia decyzji człowieka.
+- v20 nie staje się domyślny, dopóki niezależny benchmark nie osiągnie co
+  najmniej `98%` pokrycia przy zachowaniu wszystkich bramek jakości,
+- nieudana geometria v20 tworzy zero cropów i zero predykcji,
+- ręczne rozwiązanie deferred korzysta z modelu przypiętego do źródłowego joba
+  i materializuje istniejącą kolejkę review, a nie równoległy workflow.

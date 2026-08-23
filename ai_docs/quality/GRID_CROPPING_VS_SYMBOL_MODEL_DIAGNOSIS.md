@@ -86,10 +86,15 @@ checksumę i celowo nie przechodzi starej kontroli.
 
 TASK 2 rozszerzył benchmark do 300 stron i zweryfikował automatyczne v19 na
 sześciu stagingach. Jakość trafień przeszła bramki, ale automatyczne pokrycie
-`93,78%` nie osiągnęło wymaganego `98%`, dlatego checkpoint blokuje aktywację i
-TASK 3. Szczegóły zawiera
-`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`. Trening modelu
-pozostaje poza zakresem do czasu zaliczenia tej bramki.
+`93,78%` nie osiągnęło wymaganego `98%`, dlatego checkpoint zablokował
+domyślną aktywację. Właściciel później jawnie dopuścił wyłącznie bezpieczny,
+staging-local opt-in v20 z trwałym deferred; v18 pozostał domyślny.
+
+TASK 8 potwierdził na poprawnych cropach v19 jeden istotny residual M2, a TASK
+9 wytrenował kandydata od początku. Kandydat poprawił metryki, lecz został
+kontrolowanie odrzucony po jednym błędzie o confidence co najmniej `0,99`.
+Końcowy stan, rollback i odwołania do wszystkich niezmiennych raportów opisuje
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
 
 ## Changelog
 
@@ -97,3 +102,5 @@ pozostaje poza zakresem do czasu zaliczenia tej bramki.
   snapshotu modelu.
 - 2026-08-23 — TASK 2 zakończył cross-staging shadow benchmark wynikiem
   `REJECTED_FOR_ROLLOUT` z powodu niewystarczającego pokrycia.
+- 2026-08-23 — uzupełniono końcowy stan kontrolowanego opt-in v20 oraz
+  odrzuconego kandydata modelu symboli.

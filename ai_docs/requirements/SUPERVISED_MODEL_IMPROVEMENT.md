@@ -1,7 +1,7 @@
 ---
 title: Iterative supervised symbol model improvement requirements
 status: accepted
-last_updated: 2026-08-09
+last_updated: 2026-08-23
 ---
 
 # Iteracyjne ulepszanie rozpoznawania symboli
@@ -105,6 +105,20 @@ draft -> training -> evaluating -> candidate_ready -> active
 - aktywacja wymaga jawnego potwierdzenia użytkownika po pokazaniu porównania z
   bieżącym modelem,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
+
+### Wynik kandydata wytrenowanego na cropach v19
+
+Kohorta v19 obejmuje 321 kompletnych plansz, 4815 cropów, 41 rodzin źródeł i
+sześć stagingów. Wytrenowany od początku kandydat poprawił accuracy całych
+plansz o `5,8824 pp` i nie pogorszył recall żadnej klasy o więcej niż `1 pp`,
+ale audyt 100 plansz wykrył jeden błąd `lemon -> orange` z confidence
+`0,99999698`.
+
+Ponieważ zaakceptowana bramka wymaga zera błędów o confidence co najmniej
+`0,99`, kandydat ma status `rejected`. Nie wolno go aktywować ani użyć do
+nowych importów. Aktywny snapshot i jego fingerprint pozostają niezmienione;
+kolejna iteracja wymaga osobnego, jawnego zadania oraz nowego niezmiennego
+raportu. Odrzucenie jest wynikiem jakościowym, a nie technicznym `failed`.
 
 ## Użycie nowego modelu
 

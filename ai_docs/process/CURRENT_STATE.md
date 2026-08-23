@@ -15,6 +15,27 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Zamknięcie rollout'u geometrii v19 i modelu symboli — v0.7.23
+
+- TASK 10 zsynchronizował wymagania, architekturę, decyzje i instrukcję
+  operatorską z faktycznym wynikiem TASK 1–9. Końcowy raport:
+  `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
+- `historical_v18` pozostaje domyślnym trybem importu. Adapter
+  `board-cell-processing-v20-verified-v19-v1` jest wyłącznie staging-local
+  opt-in, ponieważ cross-staging benchmark osiągnął `93,78%` pokrycia przy
+  wymaganym minimum `98%`.
+- V20 zachowuje fail-closed: każda plansza daje dokładnie 15 source-direct
+  cropów albo trwały deferred bez inferencji. Deferred można rozwiązać ręcznie
+  na końcu w tej samej kolejce Reviewera; istniejąca plansza i decyzja człowieka
+  zawsze wygrywają.
+- Kandydat modelu symboli TASK 9 pozostaje `rejected` po jednym błędzie
+  wysokiej pewności. Aktywny fingerprint nadal wynosi
+  `19e15e92...e48db64`; nie powstało zdarzenie aktywacji.
+- D-214 formalizuje kontrolowany opt-in i rollback przez nowy job v18. D-215
+  formalizuje odrzucenie kandydata bez osłabienia bramki.
+- Umbrella TASK-0256 oraz dokumentacyjne TASK-0271 są zamknięte. Następna praca
+  wersji 0.7 wymaga nowego, osobno zleconego zadania.
+
 ### Kontrolowanie odrzucony kandydat modelu v19 — v0.7.22
 
 - TASK 9 wytrenował od początku `spatial-symbol-cnn-v1` na zamrożonej kohorcie

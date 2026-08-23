@@ -5126,6 +5126,49 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   administratora. UI fallbacku, rollout v20, trening i backfill pozostają
   osobnymi zadaniami.
 
+## D-214 — Rollout geometrii v19 kończy się kontrolowanym opt-in v20
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** `historical_v18` pozostaje domyślnym trybem importu.
+  `board-cell-processing-v20-verified-v19-v1` może zostać wybrany wyłącznie
+  jawnie dla konkretnego stagingu i każdą pozycję kończy dokładnie 15 cropami
+  v19 albo trwałym deferred bez inferencji. Nie ma fallbacku v19 → v18.
+- **Context:** benchmark 300 stron i 2700 plansz potwierdził jakość trafień, ale
+  osiągnął `93,78%` pokrycia przy wymaganym minimum `98%`. Właściciel jawnie
+  dopuścił integrację i użycie bezpiecznego opt-in mimo odrzuconej aktywacji
+  domyślnej.
+- **Safety:** bramka `98%` nie zostaje obniżona. Snapshoty i fingerprinty
+  rozdzielają v18/v20; istniejącego joba nie wolno przełączać w locie. Deferred
+  jest rozwiązywany przez ten sam source-direct cropper v19 i model przypięty
+  do źródłowego joba, a decyzja człowieka zawsze wygrywa.
+- **Consequences:** rollback polega na utworzeniu kolejnego joba z
+  `historical_v18`, bez mutowania historycznych wyników. Domyślny rollout v20
+  wymaga nowego benchmarku osiągającego co najmniej `98%` i osobnej decyzji.
+- **Supersedes:** domyka D-211–D-213; nie zmienia ich invariantów ani
+  historycznego v18.
+
+## D-215 — Kandydat modelu symboli v19 pozostaje odrzucony
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** kandydat `spatial-symbol-cnn-v1` wytrenowany na zamrożonej
+  kohorcie v19 otrzymuje końcowy status `rejected` i nie może zostać aktywowany.
+  Aktywny fingerprint pozostaje równy
+  `19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64`.
+- **Context:** kandydat poprawił whole-board accuracy o `5,8824 pp`, przeszedł
+  ONNX parity i nie miał regresji recall powyżej `1 pp`, ale audyt 100 plansz
+  wykrył jeden błąd `lemon → orange` z confidence `0,99999698`. Bramka wymaga
+  zera błędów o confidence co najmniej `0,99`.
+- **Safety:** próg nie jest osłabiany po zobaczeniu wyniku. Odrzucone artefakty
+  i raport pozostają content-addressed oraz audytowalne; nie powstaje zdarzenie
+  aktywacji i żaden trwający ani nowy import nie użyje kandydata.
+- **Consequences:** kolejna iteracja wymaga osobnego jawnego zadania, nowej
+  niezmiennej kohorty i ponownego przejścia pełnej bramki. Odrzucenie jakościowe
+  nie jest klasyfikowane jako techniczny `failed`.
+- **Supersedes:** domyka wynik D-159 bez zmiany D-160 i monotonicznego rejestru
+  aktywacji.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -1,6 +1,6 @@
 ---
 title: Board cell geometry v19 cross-staging shadow benchmark
-status: active
+status: accepted
 last_updated: 2026-08-23
 ---
 
@@ -77,6 +77,11 @@ pozostaje dostępna do niezależnego review właściciela.
 automatycznych spełnia bramki, lecz pokrycie 93,78% nie spełnia wymaganego 98%.
 TASK 2 dostarcza powtarzalny benchmark i dowód wyniku, ale nie upoważnia do
 zmiany produkcyjnego pipeline'u ani rozpoczęcia TASK 3.
+
+Późniejsze jawne polecenie właściciela dopuściło implementację pełnego adaptera
+v20 wyłącznie jako staging-local opt-in z trwałym deferred. Nie zmieniło
+wyniku tego checkpointu: v18 pozostaje domyślny, bramka `98%` nie została
+obniżona, a automatyczny rollout nadal jest odrzucony.
 
 ## Odtworzenie
 

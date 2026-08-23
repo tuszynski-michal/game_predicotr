@@ -1,7 +1,7 @@
 ---
 title: Supervised symbol model improvement architecture
 status: accepted
-last_updated: 2026-08-09
+last_updated: 2026-08-23
 ---
 
 # Architektura iteracyjnego ulepszania modelu symboli
@@ -191,6 +191,14 @@ Pierwszy kandydat jawnie raportuje `baseline_unavailable`; od kolejnej aktywnej
 wersji kandydat i baza muszą być mierzone na dokładnie tych samych próbkach.
 Regresja recall pojedynczego symbolu blokuje kandydata nawet przy wzroście
 metryki globalnej.
+
+W iteracji opartej na cropach v19 gate dodatkowo wymaga zera błędów o
+confidence co najmniej `0,99` w deterministycznym audycie 100 plansz. Raport
+`V19_SYMBOL_MODEL_CANDIDATE.md` wykazał jeden taki błąd, dlatego stan końcowy
+tej iteracji to kontrolowane `rejected`. Artefakty pozostają audytowalne, ale
+resolver aktywnego modelu nie może ich zwrócić, ponieważ nie powstało zdarzenie
+aktywacji. Fingerprint aktywnego modelu pozostał równy
+`19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64`.
 
 ## Aktywacja, rollback i przypięcie importu
 

@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-23
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -180,7 +180,7 @@ Produkcyjna ścieżka v0.6 zastępuje pośredni raster planszy kontraktem
 - geometria przechowuje `sourceContextBounds`, `displayAssetKind` oraz
   `cellOutputSize`, aby Reviewer i audyt nie zgadywały pochodzenia obrazu.
 
-Aktywny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
+Domyślny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
 niezmieniony do czasu odbioru następcy. TASK-0249 wprowadza najpierw nieaktywny
 kontrakt `BoardCellGeometryManifestV1` dla
 `board-cell-geometry-v19-multi-point-source-direct-v1`:
@@ -220,8 +220,9 @@ Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
 maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
 częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
 globalnych przypisań. Estymator nie zmienia pełnego pipeline'u importu v18;
-po zaliczeniu bramki 100 stron może działać wyłącznie w jawnej operacji
-pending-only opisanej poniżej.
+Po późniejszym cross-staging benchmarku może działać w jawnej operacji
+pending-only oraz w opisanym poniżej pełnym adapterze v20. Nie zmienia to
+domyślnego pipeline'u v18.
 
 Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
 deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
@@ -242,9 +243,9 @@ drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
 evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
 resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
 paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
-fingerprintem. Adapter pozostaje poza pełnym pipeline'em importu; po osobnym
-odbiorze integracji jest aktywny tylko dla ręcznej korekty i jawnego
-pending-only recropu.
+fingerprintem. Dla historycznego trybu v18 adapter pozostaje poza pełnym
+pipeline'em. Jawny adapter v20 opisany poniżej może użyć go także w pełnym
+imporcie, bez zmiany wartości domyślnej.
 
 Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
 cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
@@ -338,6 +339,11 @@ manifestu, źródła, modelu albo rewizji kończy się stabilnym konfliktem.
 Istniejąca plansza lub późniejsza decyzja człowieka zawsze wygrywa, a deferred
 przechodzi do `superseded`. Ręczne rozwiązanie nie zmienia poświadczonego
 numeru `seq_*`, aktywnego modelu, domyślnego v18 ani bramki rollout v20.
+
+Końcowy wynik rollout'u zachowuje tę granicę: benchmark 300 stron osiągnął
+`93,78%` pokrycia przy wymaganym minimum `98%`, dlatego v20 pozostaje
+staging-local opt-in. Raport, checksumy dowodowe, rollback i ograniczenia są
+opisane w `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
 
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie

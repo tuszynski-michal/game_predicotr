@@ -1,8 +1,8 @@
 ---
 title: TASK-0256 deferred self-improving page geometry
-status: in_progress
+status: done
 release: "0.7"
-last_updated: 2026-08-22
+last_updated: 2026-08-23
 ---
 
 # TASK-0256 — Automatyczna geometria z korektą odroczoną na koniec
@@ -134,3 +134,8 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   regresji recall powyżej 1 pp, ale audyt 100 plansz znalazł jeden błąd
   `lemon -> orange` z confidence `0,99999698`. Zgodnie z niezmienioną bramką
   kandydat został kontrolowanie odrzucony, a aktywny model pozostał bez zmian.
+- TASK-0271 zsynchronizował wymagania, architekturę, Decision Log, stan projektu
+  i instrukcję operatorską. Końcowy rollout pozostawia v18 jako domyślny, v20
+  jako staging-local opt-in oraz odrzuconego kandydata bez aktywacji. Raport
+  `BOARD_CELL_GEOMETRY_V19_ROLLOUT.md` przypina wszystkie checksumy dowodowe,
+  rollback i ograniczenia.

@@ -1,8 +1,8 @@
 ---
 title: Iterative image import architecture
 status: accepted
-last_updated: 2026-08-09
-release: "0.5"
+last_updated: 2026-08-23
+release: "0.7"
 ---
 
 # Architektura iteracyjnego importu
@@ -96,6 +96,20 @@ Oczekujący deferred geometrii należy do granicy `waiting_for_review`. Blokuje
 przedwczesną walidację ciągłości i nie jest interpretowany jako brakująca
 sekwencja.
 
+### Stan rollout'u i rollback
+
+Cross-staging benchmark obejmujący 300 stron i 2700 plansz potwierdził jakość
+automatycznych trafień v19, ale osiągnął `2532/2700 = 93,78%` pokrycia przy
+bramce co najmniej `98%`. Z tego powodu `historical_v18` pozostaje domyślnym
+snapshotem, a `verified_v19` jest wyłącznie staging-local opt-in. Jawna decyzja
+właściciela pozwoliła zintegrować i używać bezpiecznego adaptera v20, lecz nie
+zmieniła wyniku bramki ani domyślnego trybu.
+
+Rollback nie mutuje działającego ani historycznego joba. Operator wybiera
+`historical_v18` podczas tworzenia kolejnego joba z tego samego lub innego
+stagingu. Efektywny fingerprint i checkpointy v18/v20 są rozłączne, więc retry
+zawsze zachowuje snapshot pierwotnego joba.
+
 ### Ręczne rozwiązanie deferred komórek
 
 Końcowy fallback nie tworzy równoległej kolejki plansz. Dla jednego
@@ -184,8 +198,11 @@ CORS, aby ponowne otwarcie edytora nie dziedziczyło niezgodnej odpowiedzi obraz
 
 Każdy etap pipeline'u zapisuje czas wykonania. Raport skali agreguje czas,
 throughput i liczbę elementów bez skanowania całej historii przy każdym
-checkpointcie. Obowiązują istniejące lane'y i kolejki; wersja 0.5 nie dodaje
+checkpointcie. Obowiązują istniejące lane'y i kolejki; ten pion nie dodaje
 Redis, Celery, mikroserwisu ani nowego workera.
+
+Końcowy raport rollout'u oraz przypięte checksumy benchmarków znajdują się w
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
 
 ## Model neuronowy — ścieżka awaryjna
 

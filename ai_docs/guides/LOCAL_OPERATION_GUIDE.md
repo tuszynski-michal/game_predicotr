@@ -322,6 +322,38 @@ Admin 0.2 nie pokazuje osobnych workspace'ów `Datasety` ani `Manual review`.
 Pozostają one wewnętrznymi encjami workflow, a decyzje użytkownika prowadzą
 przez import, reguły i osobną aplikację Reviewer.
 
+### Wybór geometrii plansz v18/v20
+
+Po przygotowaniu raportu i geometrii gotowego browser stagingu Admin pokazuje
+tryb cięcia komórek dla tego stagingu:
+
+- pozostaw `Historyczny v18`, aby utworzyć job z domyślnym
+  `historical_v18`,
+- wybierz `Zweryfikowany v19 (v20)` wyłącznie świadomie, potwierdź ostrzeżenie
+  i uruchom job z `verified_v19`.
+
+V20 nie jest obecnie trybem domyślnym. Benchmark osiągnął `93,78%` pokrycia
+przy wymaganych `98%`. Trafienia spełniają bramki jakości, ale pozostałe
+pozycje są odkładane do ręcznej korekty. V20 nigdy nie wraca po cichu do v18:
+pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
+
+Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
+`Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
+
+1. ustaw cztery narożniki zewnętrznej siatki symboli 5 × 3,
+2. wygeneruj podgląd wszystkich 15 cropów,
+3. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
+   do sąsiedniego pola,
+4. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
+
+Snapshot działającego joba jest niezmienny. Aby wycofać użycie v20, nie wznawiaj
+ani nie przełączaj istniejącego joba. Utwórz kolejny job i wybierz
+`historical_v18`. Nie usuwaj ręcznie rekordów deferred ani artefaktów v20.
+
+Kandydat modelu symboli wytrenowany na cropach v19 został odrzucony przez
+bramkę błędów wysokiej pewności. Nie wymaga ręcznego rollbacku, ponieważ nigdy
+nie został aktywowany; nowe joby nadal przypinają dotychczasowy aktywny model.
+
 Końcową techniczną bramkę 0.2 można powtórzyć bez użycia danych roboczych:
 
 ```powershell

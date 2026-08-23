@@ -70,6 +70,32 @@ snapshotami, pozostawiając poprzedni job audytowalny; identyczne żądanie jest
 idempotentne. Staging nie jest ponownie przesyłany, a kanoniczne numery są
 ponownie sprawdzane przed startem.
 
+### Jawnie przypięty adapter komórek v20
+
+Schema v5 może opcjonalnie zawierać snapshot
+`board-cell-processing-v20-verified-v19-v1`. Pole nie jest dodawane domyślnie:
+operator wybiera `verified_v19`, a zwykły start zachowuje historyczny v18.
+Konfiguracja estymatora i croppera wchodzi do efektywnego fingerprintu.
+
+Historyczna lista checkpointów pliku pozostaje niezmienna. V20 wykonuje
+`board_cell_geometry` jako trwały, niezmienny pre-crop substage etapu
+`board_crops`. Jeśli worker zakończy się po zapisaniu geometrii, resume używa
+stage result bez ponownego estymowania. Replayer po zapisie oraz przy
+rehydration materializuje job-local `image_board_geometry_pending`
+idempotentnie, co jest konieczne również przy współdzieleniu file execution
+przez dwa joby.
+
+Wynik strony może zawierać udane i odroczone pozycje. Tylko udane pozycje
+tworzą 15 cropów v19 i przechodzą przez numer z poświadczonego zakresu oraz
+model symboli. Odroczone pozycje tworzą zero cropów i zero predykcji. Nie
+istnieje przejście z błędu v19 do v18. Dzięki temu historyczne checkpointy i
+manifesty są odtwarzalne, a rollback nowych jobów polega na ponownym jawnym
+wyborze `historical_v18`.
+
+Oczekujący deferred geometrii należy do granicy `waiting_for_review`. Blokuje
+przedwczesną walidację ciągłości i nie jest interpretowany jako brakująca
+sekwencja.
+
 ## Kohorta i profil geometrii
 
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej

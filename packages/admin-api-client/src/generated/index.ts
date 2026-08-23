@@ -236,6 +236,7 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  BoardCellProcessingJobSnapshotPayload,
   BoardCellRecropJobSnapshotPayload,
   BrowserImageImportJobPayload,
   BrowserImageImportPreflightCreate,

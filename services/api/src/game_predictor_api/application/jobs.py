@@ -13,6 +13,7 @@ from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_worker.images.board_cell_geometry_activation import (
+    board_cell_processing_snapshot,
     board_cell_recrop_snapshot,
 )
 
@@ -368,6 +369,7 @@ class JobService:
         start_mode: str | None = None,
         previous_job_id: UUID | None = None,
         page_geometry_manifest: dict[str, object] | None = None,
+        use_verified_board_cell_geometry: bool = False,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -431,6 +433,23 @@ class JobService:
             input_payload["grid_profile"] = grid_profile
             if page_geometry_manifest is not None:
                 input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
+        if use_verified_board_cell_geometry:
+            processing_snapshot = board_cell_processing_snapshot(
+                cell_output_size=symbol_model.input_size
+            )
+            configuration_fingerprint = processing_snapshot[
+                "configurationFingerprintSha256"
+            ]
+            if not isinstance(configuration_fingerprint, str):
+                raise JobError(
+                    "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
+                    "The verified board-cell processing snapshot is invalid.",
+                )
+            effective_pipeline_fingerprint = hashlib.sha256(
+                f"{effective_pipeline_fingerprint}:{configuration_fingerprint}".encode("ascii")
+            ).hexdigest()
+            input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
+            input_payload["board_cell_processing"] = processing_snapshot
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
         if canonical_sequence_numbers is not None:

@@ -5085,6 +5085,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Supersedes:** rozszerza D-204 i D-209 o trwały fallback na poziomie
   pojedynczej planszy; nie osłabia ich bramek geometrii.
 
+## D-212 — Pełny adapter v20 jest jawny i nie zmienia domyślnego v18
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** `board-cell-processing-v20-verified-v19-v1` może działać w
+  pełnym imporcie wyłącznie po jawnym przypięciu
+  `boardCellProcessingMode=verified_v19`. Brak pola oznacza historyczny v18.
+  W obrębie v20 plansza daje dokładnie 15 zweryfikowanych cropów v19 albo
+  trwały deferred bez cropów i inferencji; fallback do v18 jest zabroniony.
+- **Context:** cross-staging benchmark potwierdził jakość trafień, lecz osiągnął
+  `93,78%` pokrycia przy bramce `98%`. Właściciel jawnie zlecił TASK 4 mimo tej
+  bramki, aby zintegrować bezpieczny opt-in bez aktywacji domyślnej.
+- **Safety:** snapshot i fingerprint rozdzielają execution v18/v20. Trwały
+  pre-crop stage oraz replay po restarcie zapisują job-local deferrals
+  idempotentnie. Równoległa decyzja człowieka nadal wygrywa. Historyczne
+  checkpointy i manifest v18 nie są modyfikowane.
+- **Consequences:** API pozwala jawnie uruchomić v20 i jawnie wrócić do v18.
+  Zmiana domyślnego trybu pozostaje zablokowana do osobnego checkpointu z
+  pokryciem co najmniej `98%`. TASK 5 nie został rozpoczęty.
+
 ## Szablon nowej decyzji
 
 ```text

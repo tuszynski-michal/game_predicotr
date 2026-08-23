@@ -300,6 +300,39 @@ def test_curated_image_import_job_preserves_selection_run_provenance(
     assert len(str(symbol_model["inferenceFingerprint"])) == 64
 
 
+def test_verified_v19_full_import_requires_an_explicit_pin(tmp_path: Path) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "curated"
+    source.mkdir()
+
+    historical = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="historical",
+        pipeline_fingerprint="a" * 64,
+    )
+    pinned = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="v20",
+        pipeline_fingerprint="a" * 64,
+        use_verified_board_cell_geometry=True,
+    )
+
+    assert "board_cell_processing" not in historical.input_payload
+    processing = pinned.input_payload["board_cell_processing"]
+    assert isinstance(processing, dict)
+    assert processing["activationVersion"] == "board-cell-processing-v20-verified-v19-v1"
+    assert processing["rolloutMode"] == "explicit_job_only"
+    assert pinned.input_payload["pipeline_fingerprint"] != historical.input_payload[
+        "pipeline_fingerprint"
+    ]
+    response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["boardCellProcessing"] == processing
+
+
 class _MutableSymbolModelResolver:
     def __init__(self, snapshot: SymbolModelJobSnapshot) -> None:
         self.snapshot = snapshot

@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-08-23
 ---
 
 # Current State
@@ -15,11 +15,35 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Jawnie przypięty adapter pełnego importu v20 — v0.7.17
+
+- Na jawne polecenie właściciela TASK 4 został wykonany mimo niezaliczonej
+  bramki pokrycia TASK 2. Wyjątek nie aktywuje v19 domyślnie: zwykły start
+  nadal używa v18, a v20 wymaga `boardCellProcessingMode=verified_v19`.
+- Snapshot `board-cell-processing-v20-verified-v19-v1` przypina cały kontrakt
+  v19 i wchodzi do fingerprintu joba. `board_cell_geometry` jest trwałym
+  pre-crop substage; restart i job-local rehydration odtwarzają deferrals bez
+  ponownego estymowania.
+- Każda plansza daje dokładnie 15 zweryfikowanych source-direct cropów v19 albo
+  zero cropów oraz trwały `image_board_geometry_pending`. Błąd v19 nigdy nie
+  wraca do v18 i nie uruchamia ONNX dla tej planszy.
+- Migracja `0055_board_cell_geometry_pipeline_stage` rozszerza wyłącznie
+  zamknięty zbiór nazw stage results. Historyczne checkpointy i domyślny
+  manifest v18 pozostają niezmienione.
+- Celowane testy kontraktu, workera, API, migracji i benchmarku shadow
+  przechodzą `154/154`, w tym regresja zaliczająca durable deferred do granicy
+  `waiting_for_review`. Pełny worker
+  doszedł do `91%` bez błędu, po czym został zatrzymany zgodnie z limitem 120 s.
+  Pełny mypy nadal raportuje dwa wcześniejsze błędy
+  `symbol_model_iteration_repository.py`, niezwiązane z TASK 4.
+- Bramka domyślnego rollout pozostaje zamknięta: `93,78% < 98%`. Przed TASK 5
+  wymagany jest osobny review/checkpoint TASK 4.
+
 ### Trwały kontrakt deferred geometrii komórek — v0.7.16
 
 - Na jawne polecenie właściciela TASK 3 został ograniczony do warstwy kontraktu
-  mimo niezaliczonej bramki pokrycia TASK 2. Nie aktywuje to v19 w workerze i
-  nie zezwala na rozpoczęcie TASK 4.
+  mimo niezaliczonej bramki pokrycia TASK 2. TASK 4 został później wykonany
+  wyłącznie jako jawnie przypięty opt-in; nie zmienił domyślnego v18.
 - `BoardCellProcessingManifestV1` przypina źródło, sekwencję, rewizje i
   fingerprinty. `image_board_geometry_pending` utrwala `pending`, `resolved`
   albo `superseded` bez JPEG-ów, cropów i fałszywych 15 predykcji.
@@ -27,9 +51,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   repozytorium ponownie odczytuje planszę i review; późniejsza decyzja człowieka
   zawsze kończy automat statusem `superseded`.
 - Read-only API list/get, liczniki joba, OpenAPI i klient Admina są gotowe.
-  Produkcyjny zapis tych rekordów przez worker oraz UI korekty pozostają poza
-  zakresem.
-- Lokalna baza jest na migracji `0054`. Pełny zestaw API bez izolowanych testów
+  Produkcyjny zapis tych rekordów przez jawny adapter v20 jest gotowy; UI
+  korekty pozostaje poza zakresem.
+- Migracja `0054` definiuje rekordy, a `0055` dopuszcza trwały stage v20. Pełny zestaw API bez izolowanych testów
   PostgreSQL przeszedł `410 passed, 2 skipped`; celowany zestaw kontraktu,
   migracji i jobów przeszedł `65/65`. Pełne Ruff/mypy nadal zatrzymują się na
   wcześniejszych błędach poza plikami TASK-0264.
@@ -49,9 +73,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   (`2532/2700`) zamiast wymaganych minimum `98%`; 168 plansz zostało bezpiecznie
   odroczonych bez częściowych cropów ani inferencji.
 - Produkcyjny estymator, cropper, joby, decyzje i aktywny model nie zostały
-  zmienione. Warstwa kontraktu TASK 3 została później wykonana na jawne
-  polecenie właściciela, ale TASK 4 nadal wymaga poprawy pokrycia i ponownego
-  zaliczenia benchmarku.
+  zmienione. Warstwa kontraktu TASK 3 i jawnie przypięty adapter TASK 4 zostały
+  później wykonane na polecenie właściciela. Domyślny rollout nadal wymaga
+  poprawy pokrycia i ponownego zaliczenia benchmarku.
 - Raport: `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`.
 
 ### Read-only diagnoza cropów v18/v19 — v0.7.14

@@ -293,6 +293,28 @@ Niewiarygodny wynik geometrii zapisuje się w
 prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
 aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
 
+Jawnie przypięty kontrakt pełnego importu
+`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem,
+ale nie jest domyślnym pipeline'em. Żądanie startu musi wskazać
+`boardCellProcessingMode=verified_v19`; brak pola zachowuje historyczny v18.
+Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
+niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
+snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
+
+Przed etapem `board_crops` executor zapisuje osobny, niezmienny wynik
+`board_cell_geometry`. Dla każdej z dziewięciu plansz dozwolony jest wyłącznie
+jeden z wyników: kompletna zweryfikowana geometria 15 komórek albo `deferred`
+bez quadów komórek. Cropper v19 zwraca następnie dokładnie 15 source-direct
+cropów albo zero. Po błędzie nie wolno uruchomić historycznego v18 jako
+fallbacku ani wywołać modelu symboli dla tej planszy. Udane pozycje tej samej
+strony mogą kontynuować inferencję i review.
+
+Deferrals są odtwarzane z niezmiennych stage results po restarcie workera oraz
+przy job-local rehydration współdzielonego file execution. Exact replay jest
+idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Pokrycie TASK 2
+wynosi nadal `93,78%`, dlatego v20 pozostaje wyłącznie opt-in; zmiana domyślnego
+trybu wymaga osobnego checkpointu i osiągnięcia bramki co najmniej `98%`.
+
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
 sprawdza status itemu, rewizję resolution, rewizję i całą geometrię planszy,

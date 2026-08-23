@@ -457,6 +457,11 @@ def create_image_imports_router(
         rerun = requested_mode == "rerun_current_models" or existing is None
         if existing is not None and existing.input_payload.get("schema_version") != 5:
             rerun = True
+        requested_v19 = payload.board_cell_processing_mode == "verified_v19"
+        if existing is not None and (
+            (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
+        ):
+            rerun = True
         geometry_manifest = _geometry_manifest_descriptor(
             job_service=job_service,
             game_id=payload.game_id,
@@ -486,6 +491,7 @@ def create_image_imports_router(
                     start_mode="rerun_current_models",
                     previous_job_id=None if existing is None else existing.id,
                     page_geometry_manifest=geometry_manifest,
+                    use_verified_board_cell_geometry=requested_v19,
                 )
                 created = True
             except JobConflictError as error:

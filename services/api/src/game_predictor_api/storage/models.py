@@ -1335,7 +1335,7 @@ class ImagePipelineStageResultModel(Base):
     __table_args__ = (
         CheckConstraint(
             "stage IN ('discovery', 'normalization', 'board_detection', "
-            "'board_crops', 'sequence_ocr', 'symbol_inference')",
+            "'board_cell_geometry', 'board_crops', 'sequence_ocr', 'symbol_inference')",
             name="ck_image_pipeline_stage_results_stage",
         ),
         CheckConstraint(

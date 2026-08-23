@@ -222,6 +222,68 @@ export type BoardCellGeometryPendingStatus =
   'pending' | 'resolved' | 'superseded';
 
 /**
+ * BoardCellProcessingJobSnapshotPayload
+ */
+export type BoardCellProcessingJobSnapshotPayload = {
+  /**
+   * Activationversion
+   */
+  activationVersion: 'board-cell-processing-v20-verified-v19-v1';
+  /**
+   * Auditreportchecksumsha256
+   */
+  auditReportChecksumSha256: string;
+  /**
+   * Configurationfingerprintsha256
+   */
+  configurationFingerprintSha256: string;
+  /**
+   * Cropperfingerprintsha256
+   */
+  cropperFingerprintSha256: string;
+  /**
+   * Cropperversion
+   */
+  cropperVersion: string;
+  /**
+   * Estimatorfingerprintsha256
+   */
+  estimatorFingerprintSha256: string;
+  /**
+   * Estimatorversion
+   */
+  estimatorVersion: string;
+  /**
+   * Geometryversion
+   */
+  geometryVersion: string;
+  /**
+   * Homographyversion
+   */
+  homographyVersion: string;
+  /**
+   * Locatorversion
+   */
+  locatorVersion: string;
+  /**
+   * Rolloutmode
+   */
+  rolloutMode: 'explicit_job_only';
+  /**
+   * Shadowbenchmarkmanifestchecksumsha256
+   */
+  shadowBenchmarkManifestChecksumSha256: string;
+  /**
+   * Thresholdsfingerprintsha256
+   */
+  thresholdsFingerprintSha256: string;
+  /**
+   * Thresholdsversion
+   */
+  thresholdsVersion: string;
+};
+
+/**
  * BoardCellRecropJobSnapshotPayload
  */
 export type BoardCellRecropJobSnapshotPayload = {
@@ -275,6 +337,7 @@ export type BoardCellRecropJobSnapshotPayload = {
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Canonicalsequencenumbers
    */
@@ -416,6 +479,10 @@ export type BrowserImageImportPreflightResponse = {
  * BrowserImageImportStart
  */
 export type BrowserImageImportStart = {
+  /**
+   * Boardcellprocessingmode
+   */
+  boardCellProcessingMode?: 'historical_v18' | 'verified_v19';
   /**
    * Gameid
    */
@@ -979,6 +1046,7 @@ export type CuratedImageImportBatchResponse = {
  * CuratedImageImportJobPayload
  */
 export type CuratedImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Curatedimageimportbatchid
    */
@@ -1916,6 +1984,7 @@ export type ImageFolderSelectionResponse = {
  * ImageImportJobPayload
  */
 export type ImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Canonicalsequencenumbers
    */
@@ -3740,6 +3809,7 @@ export type LegacyImageImportJobPayload = {
  * ManagedImageReprocessJobPayload
  */
 export type ManagedImageReprocessJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
   /**
    * Imageselectionrunid

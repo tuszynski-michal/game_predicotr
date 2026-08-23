@@ -383,6 +383,105 @@
         "title": "BoardCellGeometryPendingStatus",
         "type": "string"
       },
+      "BoardCellProcessingJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "activationVersion": {
+            "const": "board-cell-processing-v20-verified-v19-v1",
+            "title": "Activationversion",
+            "type": "string"
+          },
+          "auditReportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Auditreportchecksumsha256",
+            "type": "string"
+          },
+          "configurationFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configurationfingerprintsha256",
+            "type": "string"
+          },
+          "cropperFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cropperfingerprintsha256",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "estimatorFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Estimatorfingerprintsha256",
+            "type": "string"
+          },
+          "estimatorVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Estimatorversion",
+            "type": "string"
+          },
+          "geometryVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Geometryversion",
+            "type": "string"
+          },
+          "homographyVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Homographyversion",
+            "type": "string"
+          },
+          "locatorVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Locatorversion",
+            "type": "string"
+          },
+          "rolloutMode": {
+            "const": "explicit_job_only",
+            "title": "Rolloutmode",
+            "type": "string"
+          },
+          "shadowBenchmarkManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Shadowbenchmarkmanifestchecksumsha256",
+            "type": "string"
+          },
+          "thresholdsFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Thresholdsfingerprintsha256",
+            "type": "string"
+          },
+          "thresholdsVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Thresholdsversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activationVersion",
+          "auditReportChecksumSha256",
+          "configurationFingerprintSha256",
+          "cropperFingerprintSha256",
+          "cropperVersion",
+          "estimatorFingerprintSha256",
+          "estimatorVersion",
+          "geometryVersion",
+          "homographyVersion",
+          "locatorVersion",
+          "rolloutMode",
+          "shadowBenchmarkManifestChecksumSha256",
+          "thresholdsFingerprintSha256",
+          "thresholdsVersion"
+        ],
+        "title": "BoardCellProcessingJobSnapshotPayload",
+        "type": "object"
+      },
       "BoardCellRecropJobSnapshotPayload": {
         "additionalProperties": false,
         "properties": {
@@ -468,6 +567,16 @@
       "BrowserImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "boardCellProcessing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "canonicalSequenceNumbers": {
             "default": [],
             "items": {
@@ -725,6 +834,15 @@
       "BrowserImageImportStart": {
         "additionalProperties": false,
         "properties": {
+          "boardCellProcessingMode": {
+            "default": "historical_v18",
+            "enum": [
+              "historical_v18",
+              "verified_v19"
+            ],
+            "title": "Boardcellprocessingmode",
+            "type": "string"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -1755,6 +1873,16 @@
       "CuratedImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "boardCellProcessing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "curatedImageImportBatchId": {
             "format": "uuid",
             "title": "Curatedimageimportbatchid",
@@ -3291,6 +3419,16 @@
       "ImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "boardCellProcessing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "canonicalSequenceNumbers": {
             "default": [],
             "items": {
@@ -6613,6 +6751,16 @@
       "ManagedImageReprocessJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "boardCellProcessing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCellProcessingJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
           },

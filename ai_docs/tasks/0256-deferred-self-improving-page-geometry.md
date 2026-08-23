@@ -107,3 +107,6 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
 - TASK-0264 dodał niezależny trwały kontrakt wyjątków geometrii komórek. Nie
   zmienia preflightu strony ani pełnego pipeline'u: pozwala przyszłemu adapterowi
   zapisać fail-closed planszę bez syntetycznych cropów i zachować human-wins.
+- TASK-0265 podłączył ten kontrakt do pełnego pipeline'u wyłącznie jako jawny
+  opt-in `board-cell-processing-v20-verified-v19-v1`. Domyślny v18 pozostaje
+  bez zmian; TASK 5 oraz domyślna aktywacja są nadal poza zakresem.

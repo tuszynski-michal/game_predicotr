@@ -10,11 +10,17 @@ import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import Protocol, cast
 from uuid import UUID
 
 import cv2
 import numpy as np
+from game_predictor_api.application.board_cell_geometry_pending import (
+    ManagedBoardCellProcessingManifestStore,
+)
+from game_predictor_api.domain.board_cell_geometry_pending import (
+    BoardCellGeometryPendingReason,
+)
 from game_predictor_api.domain.jobs import Job
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -27,6 +33,28 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
+from .board_cell_geometry_activation import (
+    BOARD_CELL_PROCESSING_VERSION,
+    BoardCellRecropSnapshotError,
+    validate_board_cell_processing_snapshot,
+)
+from .board_cell_geometry_contract import (
+    BoardCellGeometryEntry,
+    BoardCellGeometryEvidence,
+    BoardCellQuad,
+    EvidenceKind,
+)
+from .board_cell_geometry_contract import (
+    Quad as BoardCellContractQuad,
+)
+from .board_cell_geometry_crops import (
+    CROPPER_VERSION as V19_CROPPER_VERSION,
+)
+from .board_cell_geometry_crops import (
+    BoardCellGeometrySourceDirectCropper,
+)
+from .board_cell_geometry_deferred_writer import BoardCellGeometryDeferredWriter
+from .board_cell_geometry_estimator import estimate_board_cell_geometry
 from .geometry import ClassicalPageBoardDetector, Point, Quad
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
@@ -64,6 +92,18 @@ SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
 SEQUENCE_ADAPTER_VERSION = "sequence-number-ocr-v2-page-continuity-v1"
 
 
+class BoardCellGeometryDeferrer(Protocol):
+    def defer(
+        self,
+        context: ImageStageContext,
+        *,
+        position_index: int,
+        sequence_number: int,
+        reason_code: BoardCellGeometryPendingReason,
+        processing_snapshot: Mapping[str, object],
+    ) -> None: ...
+
+
 class ProductionImageImportWorkflow:
     """Run the complete image workflow behind one image import job."""
 
@@ -80,6 +120,10 @@ class ProductionImageImportWorkflow:
         self._source_handler = ImageSourceIngestionHandler(self._original_store)
         self._batch_store = SqlAlchemyImageBatchStore(session_factory)
         self._projection_store = SqlAlchemyImagePipelineStore(session_factory)
+        self._board_cell_geometry_deferred_writer = BoardCellGeometryDeferredWriter(
+            session_factory,
+            ManagedBoardCellProcessingManifestStore(self._artifact_root),
+        )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         manifest = self._original_store.load_or_create_manifest(
@@ -145,6 +189,7 @@ class ProductionImageImportWorkflow:
             pipeline_fingerprint=_pipeline_fingerprint(job),
             registered_at=context.now(),
         )
+        board_cell_processing = _board_cell_processing_snapshot(job)
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             repository_root=self._repository_root,
@@ -154,6 +199,12 @@ class ProductionImageImportWorkflow:
             page_geometry_manifest=geometry_manifest,
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
+            board_cell_processing=board_cell_processing,
+            board_cell_geometry_deferred_writer=(
+                self._board_cell_geometry_deferred_writer
+                if board_cell_processing is not None
+                else None
+            ),
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
@@ -302,6 +353,8 @@ class ProductionImageStageAdapterSuite:
         page_geometry_manifest: Mapping[str, object] | None = None,
         image_selection_run_id: str | None = None,
         attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
+        board_cell_processing: Mapping[str, object] | None = None,
+        board_cell_geometry_deferred_writer: BoardCellGeometryDeferrer | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -312,6 +365,8 @@ class ProductionImageStageAdapterSuite:
         self._page_geometry_manifest = dict(page_geometry_manifest or {})
         self._image_selection_run_id = image_selection_run_id
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
+        self._board_cell_processing = dict(board_cell_processing or {})
+        self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -327,28 +382,46 @@ class ProductionImageStageAdapterSuite:
         self._cropper = SourceDirectBoardCellCropper(
             cell_output_size=self._symbol_model_snapshot.input_size,
         )
+        self._v19_cropper = BoardCellGeometrySourceDirectCropper(
+            cell_output_size=self._symbol_model_snapshot.input_size,
+        )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
 
     def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
-        return cast(
-            tuple[VersionedImageStageAdapter, ...],
-            (
-                FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
+        stages: list[FunctionImageStageAdapter] = [
+            FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
+            FunctionImageStageAdapter(
+                "normalization",
+                NORMALIZATION_ADAPTER_VERSION,
+                self.normalization,
+            ),
+            FunctionImageStageAdapter(
+                "board_detection",
+                DETECTION_ADAPTER_VERSION,
+                self.board_detection,
+            ),
+        ]
+        if self._board_cell_processing:
+            stages.append(
                 FunctionImageStageAdapter(
-                    "normalization",
-                    NORMALIZATION_ADAPTER_VERSION,
-                    self.normalization,
-                ),
-                FunctionImageStageAdapter(
-                    "board_detection",
-                    DETECTION_ADAPTER_VERSION,
-                    self.board_detection,
-                ),
+                    "board_cell_geometry",
+                    BOARD_CELL_PROCESSING_VERSION,
+                    self.board_cell_geometry,
+                    self.persist_board_cell_geometry_deferrals,
+                )
+            )
+        stages.extend(
+            [
                 FunctionImageStageAdapter(
                     "board_crops",
-                    CROP_ADAPTER_VERSION,
+                    V19_CROPPER_VERSION if self._board_cell_processing else CROP_ADAPTER_VERSION,
                     self.board_crops,
+                    (
+                        self.persist_board_crop_deferrals
+                        if self._board_cell_processing
+                        else None
+                    ),
                 ),
                 FunctionImageStageAdapter(
                     "sequence_ocr",
@@ -364,7 +437,11 @@ class ProductionImageStageAdapterSuite:
                     SYMBOL_ADAPTER_VERSION,
                     self.symbol_inference,
                 ),
-            ),
+            ]
+        )
+        return cast(
+            tuple[VersionedImageStageAdapter, ...],
+            tuple(stages),
         )
 
     def discovery(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -502,7 +579,98 @@ class ProductionImageStageAdapterSuite:
             "recoveryMode": "complete_verified_detector",
         }
 
+    def board_cell_geometry(self, context: ImageStageContext) -> Mapping[str, object]:
+        """Estimate all nine lattices and persist only fail-closed deferrals."""
+
+        if not self._board_cell_processing:
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CELL_PROCESSING_NOT_PINNED",
+                "The v20 geometry stage requires an explicit job snapshot.",
+            )
+        sequence_range = context.attested_sequence_range
+        if sequence_range is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CELL_SEQUENCE_UNATTESTED",
+                "The v20 geometry stage requires an attested seq_* range.",
+            )
+        normalized = _previous(context, "normalization")
+        detections = _boards(_previous(context, "board_detection"))
+        start, end = sequence_range
+        if end - start + 1 != len(detections):
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CELL_ATTESTED_RANGE_INVALID",
+                "The attested sequence range differs from the verified page geometry.",
+            )
+        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        projected: list[dict[str, object]] = []
+        for board in detections:
+            position = _integer(board, "positionIndex")
+            sequence_number = start + position
+            estimate = estimate_board_cell_geometry(
+                rgb,
+                _quad(_mapping(board.get("geometry"), "geometry")),
+            )
+            common = {
+                "confidence": _number(board, "confidence"),
+                "geometry": dict(_mapping(board.get("geometry"), "geometry")),
+                "positionIndex": position,
+                "sequenceNumber": sequence_number,
+            }
+            if (
+                estimate.status == "estimated"
+                and estimate.lattice_bounds_quad is not None
+                and estimate.evidence is not None
+                and len(estimate.cells) == 15
+            ):
+                entry = BoardCellGeometryEntry(
+                    source_order_index=0,
+                    image_id=context.file_execution_key,
+                    source_image_checksum_sha256=context.source_checksum_sha256,
+                    source_image_relative_path=context.source_relative_path,
+                    source_image_width=int(rgb.shape[1]),
+                    source_image_height=int(rgb.shape[0]),
+                    source_group=str(context.job_id),
+                    condition_tags=("production-v20",),
+                    sequence_number=sequence_number,
+                    position_index=position,
+                    lattice_bounds_quad=estimate.lattice_bounds_quad,
+                    cells=estimate.cells,
+                    evidence=estimate.evidence,
+                )
+                projected.append(
+                    {
+                        **common,
+                        "cellGeometry": entry.to_dict(),
+                        "status": "verified",
+                    }
+                )
+                continue
+            estimator_reason = (
+                estimate.fallback_reason
+                or "BOARD_CELL_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
+            )
+            reason = _pending_reason(estimator_reason)
+            projected.append(
+                {
+                    **common,
+                    "cellGeometry": None,
+                    "diagnostics": estimate.to_dict(),
+                    "estimatorFailureReason": estimator_reason,
+                    "reasonCode": reason.value,
+                    "status": "deferred",
+                }
+            )
+        return {
+            "boards": projected,
+            "configurationFingerprintSha256": self._board_cell_processing[
+                "configurationFingerprintSha256"
+            ],
+            "processingVersion": BOARD_CELL_PROCESSING_VERSION,
+        }
+
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
+        if self._board_cell_processing:
+            return self._board_crops_v19(context)
         normalized = _previous(context, "normalization")
         detection_payload = _previous(context, "board_detection")
         detections = _boards(detection_payload)
@@ -576,13 +744,153 @@ class ProductionImageStageAdapterSuite:
             )
         return {"boards": projected}
 
+    def _board_crops_v19(self, context: ImageStageContext) -> Mapping[str, object]:
+        normalized = _previous(context, "normalization")
+        detection_by_position = {
+            _integer(board, "positionIndex"): board
+            for board in _boards(_previous(context, "board_detection"))
+        }
+        geometry_boards = _boards(_previous(context, "board_cell_geometry"))
+        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        projected: list[dict[str, object]] = []
+        deferred: list[dict[str, object]] = []
+        for geometry_board in geometry_boards:
+            if geometry_board.get("status") != "verified":
+                continue
+            position = _integer(geometry_board, "positionIndex")
+            sequence_number = _integer(geometry_board, "sequenceNumber")
+            entry = _board_cell_geometry_entry(
+                _mapping(geometry_board.get("cellGeometry"), "cellGeometry")
+            )
+            cropped = self._v19_cropper.crop(rgb, entry)
+            if cropped.status != "cropped" or len(cropped.cells) != 15:
+                estimator_reason = (
+                    cropped.review_reasons[0]
+                    if cropped.review_reasons
+                    else "BOARD_CELL_CROP_RESULT_INCOMPLETE"
+                )
+                reason = _pending_reason(estimator_reason)
+                deferred.append(
+                    {
+                        "estimatorFailureReason": estimator_reason,
+                        "positionIndex": position,
+                        "reasonCode": reason.value,
+                        "sequenceNumber": sequence_number,
+                    }
+                )
+                continue
+            detection = detection_by_position[position]
+            board_quad = _quad(_mapping(detection.get("geometry"), "geometry"))
+            context_rgb, context_bounds = _source_context(rgb, board_quad)
+            root = PurePosixPath(
+                "crops",
+                "source-direct-v19",
+                context.file_execution_key[:2],
+                context.file_execution_key,
+                f"board-{position:02d}",
+            )
+            board_relative = (root / "source-context.png").as_posix()
+            board_checksum = self._artifacts.write_rgb(board_relative, context_rgb)
+            cells: list[dict[str, object]] = []
+            for cell in cropped.cells:
+                relative = (
+                    root
+                    / "cells"
+                    / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
+                ).as_posix()
+                cells.append(
+                    {
+                        "columnIndex": cell.column_index,
+                        "cropChecksumSha256": self._artifacts.write_rgb(relative, cell.rgb),
+                        "cropRelativePath": relative,
+                        "paddedSourceQuad": _contract_quad_payload(cell.padded_source_quad),
+                        "rowIndex": cell.row_index,
+                        "sourceQuad": _contract_quad_payload(cell.source_quad),
+                    }
+                )
+            projected.append(
+                {
+                    "boardChecksumSha256": board_checksum,
+                    "boardRelativePath": board_relative,
+                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cells": cells,
+                    "cropperVersion": V19_CROPPER_VERSION,
+                    "cropValidity": "source_direct_verified_v19_geometry",
+                    "displayAssetKind": "source_context",
+                    "positionIndex": position,
+                    "sourceContextBounds": context_bounds,
+                }
+            )
+        return {"boards": projected, "deferredBoards": deferred}
+
+    def persist_board_cell_geometry_deferrals(
+        self,
+        context: ImageStageContext,
+        payload: Mapping[str, object],
+    ) -> None:
+        for board in _boards(payload):
+            if board.get("status") != "deferred":
+                continue
+            self._defer_board_cell_geometry(
+                context,
+                position_index=_integer(board, "positionIndex"),
+                sequence_number=_integer(board, "sequenceNumber"),
+                reason=_pending_reason(_text(board, "estimatorFailureReason")),
+            )
+
+    def persist_board_crop_deferrals(
+        self,
+        context: ImageStageContext,
+        payload: Mapping[str, object],
+    ) -> None:
+        for value in _sequence(payload.get("deferredBoards", []), "deferredBoards"):
+            board = _mapping(value, "deferredBoard")
+            self._defer_board_cell_geometry(
+                context,
+                position_index=_integer(board, "positionIndex"),
+                sequence_number=_integer(board, "sequenceNumber"),
+                reason=_pending_reason(_text(board, "estimatorFailureReason")),
+            )
+
+    def _defer_board_cell_geometry(
+        self,
+        context: ImageStageContext,
+        *,
+        position_index: int,
+        sequence_number: int,
+        reason: BoardCellGeometryPendingReason,
+    ) -> None:
+        if self._board_cell_geometry_deferred_writer is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_BOARD_CELL_PENDING_WRITER_MISSING",
+                "The explicitly pinned v20 job has no durable deferred writer.",
+            )
+        self._board_cell_geometry_deferred_writer.defer(
+            context,
+            position_index=position_index,
+            sequence_number=sequence_number,
+            reason_code=reason,
+            processing_snapshot=self._board_cell_processing,
+        )
+
     def sequence_ocr(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         detections = _boards(_previous(context, "board_detection"))
+        if self._board_cell_processing:
+            crop_positions = {
+                _integer(board, "positionIndex")
+                for board in _boards(_previous(context, "board_crops"))
+            }
+            detections = tuple(
+                board
+                for board in detections
+                if _integer(board, "positionIndex") in crop_positions
+            )
         if context.attested_sequence_range is not None:
             return _attested_sequence_payload(
                 detections,
                 context.attested_sequence_range,
+                allow_sparse=self._board_cell_processing is not None,
             )
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         recognizer = self._ocr_recognizer()
@@ -681,25 +989,28 @@ class ProductionImageStageAdapterSuite:
                 normalized = model_rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
                 tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
                 cell_metadata.append((position, cell))
-        if not tensors:
+        if not tensors and not self._board_cell_processing:
             raise ImagePipelineExecutionError(
                 "IMAGE_SYMBOL_INPUT_EMPTY",
                 "The image pipeline produced no cell crops for symbol inference.",
             )
-        try:
-            inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
-        except SymbolOnnxError as error:
-            raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
-        predictions = build_symbol_predictions(
-            inference.logits,
-            # Historical model snapshots may contain the former 0.05 floor.
-            # Never let a legacy calibration turn out-of-distribution crops
-            # into synthetic certainty; this is intentionally independent of
-            # the geometry validity decision above.
-            temperature=max(0.50, self._symbol_model_snapshot.temperature),
-            class_codes=self._symbol_model_snapshot.class_codes,
-            alternative_limit=3,
-        )
+        if tensors:
+            try:
+                inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+            except SymbolOnnxError as error:
+                raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
+            predictions = build_symbol_predictions(
+                inference.logits,
+                # Historical model snapshots may contain the former 0.05 floor.
+                # Never let a legacy calibration turn out-of-distribution crops
+                # into synthetic certainty; this is intentionally independent of
+                # the geometry validity decision above.
+                temperature=max(0.50, self._symbol_model_snapshot.temperature),
+                class_codes=self._symbol_model_snapshot.class_codes,
+                alternative_limit=3,
+            )
+        else:
+            predictions = ()
         by_position: dict[int, list[dict[str, object]]] = {}
         for (position, cell), prediction in zip(cell_metadata, predictions, strict=True):
             by_position.setdefault(position, []).append(
@@ -937,6 +1248,22 @@ def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
             "The pinned symbol model inference fingerprint changed.",
         )
     return snapshot
+
+
+def _board_cell_processing_snapshot(job: Job) -> dict[str, object] | None:
+    value = job.input_payload.get("board_cell_processing")
+    if value is None:
+        return None
+    try:
+        return validate_board_cell_processing_snapshot(
+            value,
+            cell_output_size=_symbol_model_snapshot(job).input_size,
+        )
+    except BoardCellRecropSnapshotError as error:
+        raise JobHandlerError(
+            "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
+            "The pinned v20 board-cell processing snapshot is invalid.",
+        ) from error
 
 
 def _grid_profile_snapshot(job: Job) -> Mapping[str, object]:
@@ -1281,6 +1608,8 @@ def _data_relative_path(value: str) -> str:
 def _attested_sequence_payload(
     detections: Sequence[Mapping[str, object]],
     sequence_range: tuple[int, int],
+    *,
+    allow_sparse: bool = False,
 ) -> dict[str, object]:
     """Assign row-major numbers from a validated ``seq_start-end`` filename.
 
@@ -1291,8 +1620,14 @@ def _attested_sequence_payload(
 
     start, end = sequence_range
     expected_count = end - start + 1
-    complete = len(detections) == expected_count and all(
-        _integer(board, "positionIndex") == index for index, board in enumerate(detections)
+    positions = [_integer(board, "positionIndex") for board in detections]
+    complete = (
+        expected_count == 9
+        and positions == sorted(set(positions))
+        and all(position < expected_count for position in positions)
+        if allow_sparse
+        else len(detections) == expected_count
+        and all(position == index for index, position in enumerate(positions))
     )
     boards: list[dict[str, object]] = []
     for board in detections:
@@ -1353,6 +1688,145 @@ def _boards(value: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
     return tuple(_mapping(item, "board") for item in _sequence(value.get("boards"), "boards"))
 
 
+def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometryEntry:
+    cells = tuple(
+        BoardCellQuad(
+            row_index=_integer(cell, "rowIndex"),
+            column_index=_integer(cell, "columnIndex"),
+            quad=_contract_quad(cell.get("quad")),
+        )
+        for raw_cell in _sequence(value.get("cells"), "cellGeometry.cells")
+        for cell in (_mapping(raw_cell, "cellGeometry.cell"),)
+    )
+    evidence_value = _mapping(value.get("evidence"), "cellGeometry.evidence")
+    slots = tuple(
+        (
+            _integer(slot, "rowIndex"),
+            _integer(slot, "columnIndex"),
+        )
+        for raw_slot in _sequence(evidence_value.get("inlierSlots"), "evidence.inlierSlots")
+        for slot in (_mapping(raw_slot, "evidence.inlierSlot"),)
+    )
+    residual = evidence_value.get("inlierP95ResidualPx")
+    if residual is not None and (
+        not isinstance(residual, int | float) or isinstance(residual, bool)
+    ):
+        raise ImagePipelineExecutionError(
+            "IMAGE_STAGE_RESULT_INVALID",
+            "inlierP95ResidualPx must be numeric or null.",
+        )
+    evidence_kind = evidence_value.get("kind")
+    if evidence_kind not in {"automatic", "human_reviewed", "manual_override"}:
+        raise ImagePipelineExecutionError(
+            "IMAGE_STAGE_RESULT_INVALID",
+            "The board-cell evidence kind is invalid.",
+        )
+    evidence = BoardCellGeometryEvidence(
+        kind=cast(EvidenceKind, evidence_kind),
+        estimator_version=_text(evidence_value, "estimatorVersion"),
+        thresholds_version=_text(evidence_value, "thresholdsVersion"),
+        locator_version=cast(str | None, evidence_value.get("locatorVersion")),
+        homography_version=cast(str | None, evidence_value.get("homographyVersion")),
+        candidate_center_count=_integer(evidence_value, "candidateCenterCount"),
+        reliable_center_count=_integer(evidence_value, "reliableCenterCount"),
+        inlier_count=_integer(evidence_value, "inlierCount"),
+        inlier_slots=slots,
+        inlier_p95_residual_px=None if residual is None else float(residual),
+        decision_checksum_sha256=cast(
+            str | None, evidence_value.get("decisionChecksumSha256")
+        ),
+    )
+    tags = _sequence(value.get("conditionTags"), "cellGeometry.conditionTags")
+    return BoardCellGeometryEntry(
+        source_order_index=_integer(value, "sourceOrderIndex"),
+        image_id=_text(value, "imageId"),
+        source_image_checksum_sha256=_text(value, "sourceImageChecksumSha256"),
+        source_image_relative_path=_text(value, "sourceImageRelativePath"),
+        source_image_width=_integer(value, "sourceImageWidth"),
+        source_image_height=_integer(value, "sourceImageHeight"),
+        source_group=_text(value, "sourceGroup"),
+        condition_tags=tuple(cast(str, item) for item in tags),
+        sequence_number=_integer(value, "sequenceNumber"),
+        position_index=_integer(value, "positionIndex"),
+        lattice_bounds_quad=_contract_quad(
+            value.get("latticeBoundsQuad")
+        ),
+        cells=cells,
+        evidence=evidence,
+    )
+
+
+def _contract_quad(value: object) -> BoardCellContractQuad:
+    points: list[tuple[float, float]] = []
+    for raw in _sequence(value, "quad"):
+        point = _mapping(raw, "quad point")
+        x = point.get("x")
+        y = point.get("y")
+        if (
+            not isinstance(x, int | float)
+            or isinstance(x, bool)
+            or not isinstance(y, int | float)
+            or isinstance(y, bool)
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_STAGE_RESULT_INVALID",
+                "A board-cell quad point must be numeric.",
+            )
+        points.append((float(x), float(y)))
+    if len(points) != 4:
+        raise ImagePipelineExecutionError(
+            "IMAGE_STAGE_RESULT_INVALID",
+            "A board-cell quad must contain four points.",
+        )
+    return cast(BoardCellContractQuad, tuple(points))
+
+
+def _contract_quad_payload(
+    value: tuple[tuple[float, float], ...],
+) -> list[dict[str, float]]:
+    return [{"x": round(x, 4), "y": round(y, 4)} for x, y in value]
+
+
+def _source_context(
+    rgb: NDArray[np.uint8],
+    quad: Quad,
+) -> tuple[NDArray[np.uint8], dict[str, int]]:
+    xs = [point.x for point in quad]
+    ys = [point.y for point in quad]
+    height, width = rgb.shape[:2]
+    board_width = max(xs) - min(xs)
+    board_height = max(ys) - min(ys)
+    left = max(0, int(np.floor(min(xs) - board_width * 0.12)))
+    right = min(width, int(np.ceil(max(xs) + board_width * 0.12)) + 1)
+    top = max(0, int(np.floor(min(ys) - board_height * 0.12)))
+    bottom = min(height, int(np.ceil(max(ys) + board_height * 0.50)) + 1)
+    bounds = {
+        "height": max(1, bottom - top),
+        "width": max(1, right - left),
+        "x": left,
+        "y": top,
+    }
+    return rgb[top:bottom, left:right].copy(), bounds
+
+
+def _pending_reason(estimator_reason: str) -> BoardCellGeometryPendingReason:
+    if "SOURCE" in estimator_reason and (
+        "UNAVAILABLE" in estimator_reason or "DECODE" in estimator_reason
+    ):
+        return BoardCellGeometryPendingReason.SOURCE_UNAVAILABLE
+    if "INSUFFICIENT" in estimator_reason and (
+        "CANDIDATE" in estimator_reason or "CENTER" in estimator_reason
+    ):
+        return BoardCellGeometryPendingReason.INSUFFICIENT_CENTERS
+    if (
+        "RESIDUAL" in estimator_reason
+        or "RANSAC" in estimator_reason
+        or "EVIDENCE" in estimator_reason
+    ):
+        return BoardCellGeometryPendingReason.RESIDUAL_TOO_HIGH
+    return BoardCellGeometryPendingReason.INCOMPLETE_LATTICE
+
+
 def _text(value: Mapping[str, object], key: str) -> str:
     item = value.get(key)
     if not isinstance(item, str) or not item:
@@ -1371,6 +1845,16 @@ def _integer(value: Mapping[str, object], key: str) -> int:
             f"{key} must be a non-negative integer.",
         )
     return item
+
+
+def _number(value: Mapping[str, object], key: str) -> float:
+    item = value.get(key)
+    if not isinstance(item, int | float) or isinstance(item, bool):
+        raise ImagePipelineExecutionError(
+            "IMAGE_STAGE_RESULT_INVALID",
+            f"{key} must be numeric.",
+        )
+    return float(item)
 
 
 def _quad(geometry: Mapping[str, object]) -> Quad:

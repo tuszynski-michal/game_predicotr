@@ -52,6 +52,23 @@ class SymbolModelJobSnapshotPayload(ApiModel):
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class BoardCellProcessingJobSnapshotPayload(ApiModel):
+    activation_version: Literal["board-cell-processing-v20-verified-v19-v1"]
+    audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_version: str = Field(min_length=1, max_length=255)
+    estimator_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    estimator_version: str = Field(min_length=1, max_length=255)
+    geometry_version: str = Field(min_length=1, max_length=255)
+    homography_version: str = Field(min_length=1, max_length=255)
+    locator_version: str = Field(min_length=1, max_length=255)
+    rollout_mode: Literal["explicit_job_only"]
+    shadow_benchmark_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    thresholds_version: str = Field(min_length=1, max_length=255)
+
+
 class ImageImportJobPayload(ApiModel):
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -67,6 +84,7 @@ class ImageImportJobPayload(ApiModel):
         pattern=r"^[0-9a-f]{64}$",
     )
     symbol_model: SymbolModelJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class GridProfileJobSnapshotPayload(ApiModel):
@@ -101,6 +119,7 @@ class BrowserImageImportJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     page_geometry_manifest: PageGeometryManifestJobPayload | None = None
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -120,6 +139,7 @@ class CuratedImageImportJobPayload(ApiModel):
     curated_manifest_entry_count: int = Field(ge=1)
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class ManagedImageReprocessJobPayload(ApiModel):
@@ -134,6 +154,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     managed_source_job_id: UUID
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):

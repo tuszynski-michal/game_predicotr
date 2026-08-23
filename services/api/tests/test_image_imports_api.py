@@ -448,6 +448,14 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json=start_payload,
         )
+        pinned_v19 = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                **start_payload,
+                "boardCellProcessingMode": "verified_v19",
+                "startMode": "rerun_current_models",
+            },
+        )
 
     assert started.status_code == 201
     assert started.json()["created"] is True
@@ -457,6 +465,12 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert (
         replay.json()["job"]["inputPayload"]["sourceManifestSha256"]
         == report["manifestChecksumSha256"]
+    )
+    assert pinned_v19.status_code == 201, pinned_v19.text
+    assert pinned_v19.json()["created"] is True
+    assert (
+        pinned_v19.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
     )
 
 

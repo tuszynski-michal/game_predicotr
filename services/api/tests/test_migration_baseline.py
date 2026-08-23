@@ -64,6 +64,7 @@ REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
 REVIEWER_ASSIGNMENT_SESSIONS_REVISION = "0052_reviewer_assignment_sessions"
 IMAGE_REVIEW_JOB_COMPLETION_REVISION = "0053_image_review_job_completion"
 IMAGE_BOARD_GEOMETRY_PENDING_REVISION = "0054_image_board_geometry_pending"
+BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION = "0055_board_cell_geometry_pipeline_stage"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -139,7 +140,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     reviewer_assignment_sessions = script.get_revision(REVIEWER_ASSIGNMENT_SESSIONS_REVISION)
     image_review_job_completion = script.get_revision(IMAGE_REVIEW_JOB_COMPLETION_REVISION)
     image_board_geometry_pending = script.get_revision(IMAGE_BOARD_GEOMETRY_PENDING_REVISION)
-    assert script.get_heads() == [IMAGE_BOARD_GEOMETRY_PENDING_REVISION]
+    board_cell_geometry_pipeline_stage = script.get_revision(
+        BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
+    )
+    assert script.get_heads() == [BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -258,6 +262,29 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_review_job_completion.down_revision == REVIEWER_ASSIGNMENT_SESSIONS_REVISION
     assert image_board_geometry_pending is not None
     assert image_board_geometry_pending.down_revision == IMAGE_REVIEW_JOB_COMPLETION_REVISION
+    assert board_cell_geometry_pipeline_stage is not None
+    assert (
+        board_cell_geometry_pipeline_stage.down_revision
+        == IMAGE_BOARD_GEOMETRY_PENDING_REVISION
+    )
+
+
+def test_board_cell_geometry_pipeline_stage_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}:{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}:{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}",
+        sql=True,
+    )
+
+    assert "'board_cell_geometry'" in upgrade_output.getvalue().lower()
+    assert "'board_cell_geometry'" not in downgrade_output.getvalue().lower()
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

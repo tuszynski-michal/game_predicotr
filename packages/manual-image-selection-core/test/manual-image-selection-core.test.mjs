@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import {
   buildRemoteSourceManifestV1,
+  compareRemoteSourceManifestV1,
   canonicalRemoteChecksumSha256,
   createManualSelectionOutputManifest,
   createManualSelectionState,
@@ -151,6 +152,54 @@ test('builds a canonical remote source manifest in natural order', async () => {
   );
   assert.equal(manifest.manifestChecksumSha256, replay.manifestChecksumSha256);
   assert.match(manifest.manifestChecksumSha256, /^[0-9a-f]{64}$/);
+});
+
+test('compares remote source manifests without exposing paths', async () => {
+  const metadata = [
+    {
+      relativePath: 'batch/1.jpg',
+      name: '1.jpg',
+      sizeBytes: 10,
+      lastModifiedMs: 100,
+      mimeType: 'image/jpeg',
+    },
+    {
+      relativePath: 'batch/2.jpg',
+      name: '2.jpg',
+      sizeBytes: 20,
+      lastModifiedMs: 200,
+      mimeType: 'image/jpeg',
+    },
+  ];
+  const expected = await buildRemoteSourceManifestV1(
+    metadata,
+    'directory_handle',
+  );
+  const reordered = await buildRemoteSourceManifestV1(
+    metadata.toReversed(),
+    'directory_handle',
+  );
+  const changed = await buildRemoteSourceManifestV1(
+    [{ ...metadata[0], sizeBytes: 11 }, metadata[1]],
+    'directory_handle',
+  );
+  const fallback = await buildRemoteSourceManifestV1(
+    metadata,
+    'webkitdirectory_reselect',
+  );
+
+  assert.deepEqual(compareRemoteSourceManifestV1(expected, reordered), {
+    changedFileCount: 0,
+    status: 'same',
+  });
+  assert.deepEqual(compareRemoteSourceManifestV1(expected, changed), {
+    changedFileCount: 1,
+    status: 'different',
+  });
+  assert.deepEqual(compareRemoteSourceManifestV1(expected, fallback), {
+    changedFileCount: null,
+    status: 'incompatible',
+  });
 });
 
 test('rejects unsafe or duplicate remote source paths with a stable code', async () => {

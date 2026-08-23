@@ -14,6 +14,14 @@ const legacyProxyPath = new URL(
   '../src/app/review-api/[...path]/route.ts',
   import.meta.url,
 );
+const workspacePath = new URL(
+  '../src/features/manual-selection/remote-manual-selection-workspace-foundation.tsx',
+  import.meta.url,
+);
+const remoteStorePath = new URL(
+  '../src/features/manual-selection/remote-selection-store.ts',
+  import.meta.url,
+);
 
 test('manual selection shell uses only purpose-scoped same-origin endpoints', async () => {
   const gate = await readFile(gatePath, 'utf8');
@@ -43,4 +51,18 @@ test('remote selection cookie cannot authorize the legacy Reviewer proxy', async
 
   assert.match(legacyProxy, /gp_reviewer_token/);
   assert.doesNotMatch(legacyProxy, /gp_remote_selection_token/);
+});
+
+test('TASK 8 workspace remains metadata-only and does not apply operations over HTTP', async () => {
+  const gate = await readFile(gatePath, 'utf8');
+  const workspace = await readFile(workspacePath, 'utf8');
+  const store = await readFile(remoteStorePath, 'utf8');
+
+  assert.match(gate, /RemoteManualSelectionWorkspaceFoundation/);
+  assert.match(workspace, /obrazy nie są kopiowane do IndexedDB/);
+  assert.match(workspace, /nie wysyła operacji ani danych JPEG do hosta/);
+  assert.doesNotMatch(workspace, /\bfetch\s*\(/);
+  assert.match(store, /game-predictor-remote-manual-selection/);
+  assert.doesNotMatch(store, /game-predictor-manual-image-selection/);
+  assert.doesNotMatch(store, /readonly (?:blob|bytes|jpegData):/i);
 });

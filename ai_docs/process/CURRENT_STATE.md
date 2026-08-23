@@ -15,6 +15,35 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Trwałe źródło i outbox zdalnej selekcji — v0.7.32
+
+- TASK-0280 dodaje do Reviewera osobny IndexedDB
+  `game-predictor-remote-manual-selection` w wersji 1. Schemat ma jawne store'y
+  `sessions`, `batches`, `sourceItems`, `outbox`, `transferCheckpoints` oraz
+  `clientInstances`; nie zmienia lokalnego IndexedDB v2 Admina.
+- Adapter File System Access otwiera źródło wyłącznie z `mode: read`, indeksuje
+  tylko metadane JPEG w deterministycznej naturalnej kolejności i przechowuje
+  uchwyt katalogu bez kopiowania Blobów. `webkitdirectory` pozostaje jawnym,
+  sesyjnym fallbackiem wymagającym ponownego wskazania folderu.
+- Kursor i pending outbox są odtwarzane po utworzeniu nowej instancji store.
+  Exact retry zachowuje `operationId`, konflikt treści i luka
+  `clientSequence` są blokowane, a ack usuwa wyłącznie jawnie wymienione ID.
+- Utrata permission/handle nie usuwa kursora ani outboxu. Relink wymaga
+  identycznego checksumowanego manifestu i działa fail-closed przy zmianie lub
+  niekompatybilnym source kind. Ścieżki absolutne/traversal i trwały Blob są
+  blokowane przed zapisem.
+- `BroadcastChannel` wybiera jedną kartę zapisującą w obrębie sesji; kolejne są
+  read-only. Brak API przeglądarki jest jawnie komunikowany. Persist storage
+  jest best effort i nie stanowi gwarancji permission.
+- Bramka: 79/79 testów Reviewera i 9/9 testów wspólnego core, w tym fake FSA,
+  fake IndexedDB, crash restore, exact ack, 1000 metadanych i 15 000 rekordów
+  outboxu. Reviewer lint/typecheck/build oraz typecheck core są zielone.
+  Chromium fixture potwierdził IndexedDB handle roundtrip i restore po reload;
+  zewnętrzny Chrome nie był podłączony do sesji i pozostaje ręcznym punktem
+  odbioru przed publicznym rolloutem.
+- TASK 8 nie wysyła operacji HTTP ani bajtów JPEG. Control-plane apply pozostaje
+  zakresem TASK 9, transfer binarny TASK 10, a pełny workspace TASK 13.
+
 ### Izolowana powierzchnia Reviewera dla zdalnej selekcji — v0.7.31
 
 - TASK-0279 udostępnia shell `/manual-selection` i osobny same-origin proxy

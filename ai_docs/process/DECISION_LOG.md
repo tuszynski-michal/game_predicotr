@@ -5293,6 +5293,27 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** drugi Reviewer/tunnel oraz wspólne credentials lub route
   proxy odrzucono jako bardziej awaryjne albo zbyt szerokie.
 
+## D-221 — Zdalna mutacja wymaga trwałego lokalnego outboxu
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** każda zdalna operacja wpływająca na finalny JPEG musi zostać
+  zapisana w osobnym, wersjonowanym IndexedDB outboxie przed próbą wysłania.
+  Lokalna operacja jest `pending`, dopóki host jawnie nie potwierdzi jej
+  dokładnego `operationId`; `beforeunload` nie jest mechanizmem poprawności.
+- **Context:** refresh, crash, utrata sieci lub permission mogą nastąpić między
+  decyzją operatora a odpowiedzią hosta. Stan wyłącznie w React albo pamięci
+  procesu zgubiłby pracę lub zacierał różnicę między intencją i skutkiem.
+- **Safety:** exact retry wymaga tego samego `operationId + checksum`,
+  `clientSequence` jest monotoniczny, ack usuwa wyłącznie jawnie wymienione ID,
+  a utrata uchwytu nie usuwa kursora ani outboxu. IndexedDB nie przechowuje
+  Blobów JPEG ani ścieżek absolutnych.
+- **Consequences:** TASK 9 może wysyłać i uzgadniać wyłącznie operacje wcześniej
+  zapisane w outboxie. TASK 8 nie implementuje jeszcze transportu ani nie
+  deklaruje synchronizacji bez host ack.
+- **Alternatives:** request przed zapisem, pamięć React, localStorage i
+  `beforeunload` odrzucono jako nietrwałe lub niewystarczające dla crash replay.
+
 ## Szablon nowej decyzji
 
 ```text

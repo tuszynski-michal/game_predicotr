@@ -1304,7 +1304,7 @@ publiczna allowlista wymaga rygorystycznego review.
 
 ### TASK 8: Remote source adapter i trwały IndexedDB outbox
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.32`
 
 **Cel:** Czytać lokalne JPEG-i operatora i zachowywać kursor, handle, source
 manifest oraz niepotwierdzone operacje bez kopiowania obrazów do storage.
@@ -1348,6 +1348,15 @@ odrzucenie relinku innego manifestu.
 
 **Definition of Done:** Refresh zachowuje wszystkie pending op IDs i kursor;
 UI nie przechowuje Blobów i nie deklaruje sync bez host ack.
+
+**Outcome:** Reviewer ma osobny IndexedDB v1 z sześcioma jawnymi store'ami,
+read-only FSA adapter, naturalny checksumowany manifest, ścisły relink,
+permission recovery, best-effort persist oraz koordynację kart. Outbox zachowuje
+exact `operationId`, monotoniczny `clientSequence` i usuwa rekord wyłącznie po
+jawnym ack. Fake IndexedDB/FSA potwierdziły crash restore, 1000 source metadata
+i bounded odczyt przy 15 000 operacji. Fixture Chromium potwierdził restore
+uchwytu po reload; zewnętrzny Chrome pozostaje ręczną bramką przed rolloutem.
+Nie dodano HTTP apply, uploadu ani pełnego workspace'u.
 
 **Rollback:** Migracja IDB zachowuje poprzedni store albo eksportuje pending;
 feature flag nie dotyka lokalnego Admin IDB.
@@ -2325,7 +2334,7 @@ Reguły są propozycjami do osobnej akceptacji. Na tym etapie nie zmieniają
 
 ### REGUŁA R-001: Trwały outbox przed zdalną mutacją pliku
 
-**Status:** `DO AKCEPTACJI`
+**Status:** `ZAAKCEPTOWANA — D-221`
 
 **Problem:** Request wysłany bez wcześniejszego trwałego zapisu może zniknąć po
 refreshu, zamknięciu karty lub utracie sieci.

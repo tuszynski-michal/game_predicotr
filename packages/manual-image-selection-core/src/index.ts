@@ -370,6 +370,11 @@ export interface RemoteSourceManifestV1 {
   readonly manifestChecksumSha256: string;
 }
 
+export type RemoteSourceManifestComparison =
+  | { readonly status: 'same'; readonly changedFileCount: 0 }
+  | { readonly status: 'different'; readonly changedFileCount: number }
+  | { readonly status: 'incompatible'; readonly changedFileCount: null };
+
 export interface RemoteManualSelectionSessionV1 {
   readonly schemaVersion: 'remote-manual-selection-session-v1';
   readonly id: string;
@@ -582,6 +587,44 @@ export async function buildRemoteSourceManifestV1(
     ...content,
     manifestChecksumSha256: await canonicalRemoteChecksumSha256(content),
   };
+}
+
+export function compareRemoteSourceManifestV1(
+  expected: RemoteSourceManifestV1,
+  candidate: RemoteSourceManifestV1,
+): RemoteSourceManifestComparison {
+  if (
+    expected.schemaVersion !== REMOTE_SOURCE_MANIFEST_SCHEMA ||
+    candidate.schemaVersion !== REMOTE_SOURCE_MANIFEST_SCHEMA ||
+    expected.sourceKind !== candidate.sourceKind
+  ) {
+    return { changedFileCount: null, status: 'incompatible' };
+  }
+  if (expected.manifestChecksumSha256 === candidate.manifestChecksumSha256) {
+    return { changedFileCount: 0, status: 'same' };
+  }
+  const expectedByPath = new Map(
+    expected.entries.map((entry) => [entry.relativePath, entry]),
+  );
+  const candidateByPath = new Map(
+    candidate.entries.map((entry) => [entry.relativePath, entry]),
+  );
+  const paths = new Set([...expectedByPath.keys(), ...candidateByPath.keys()]);
+  let changedFileCount = 0;
+  for (const path of paths) {
+    const left = expectedByPath.get(path);
+    const right = candidateByPath.get(path);
+    if (
+      left === undefined ||
+      right === undefined ||
+      left.sizeBytes !== right.sizeBytes ||
+      left.lastModifiedMs !== right.lastModifiedMs ||
+      left.mimeType !== right.mimeType
+    ) {
+      changedFileCount += 1;
+    }
+  }
+  return { changedFileCount, status: 'different' };
 }
 
 export async function canonicalRemoteChecksumSha256(

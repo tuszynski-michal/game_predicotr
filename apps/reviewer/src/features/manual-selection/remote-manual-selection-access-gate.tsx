@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { RemoteManualSelectionWorkspaceFoundation } from './remote-manual-selection-workspace-foundation';
 
 const CLIENT_INSTANCE_KEY = 'gp.remote-manual-selection.client-instance.v1';
 const API_BASE = '/selection-api/api/v1/remote-manual-selections';
@@ -225,10 +226,11 @@ export function RemoteManualSelectionAccessGate({
               {error}
             </p>
           ) : null}
-          <small>
-            Źródła zdjęć i właściwy workspace zostaną podłączone w następnym
-            etapie.
-          </small>
+          <RemoteManualSelectionWorkspaceFoundation
+            clientInstanceId={clientInstanceId}
+            serverWriter={context.isWriter}
+            sessionId={context.sessionId}
+          />
         </section>
       </main>
     );

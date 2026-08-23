@@ -98,3 +98,25 @@ automatycznie par treningowych rankera.
 
 Ta zakładka jest narzędziem lokalnym i nie zmienia automatycznego kontraktu
 selekcji zdjęć, stagingu ani importu layoutów.
+
+## Fundament trybu zdalnego
+
+Zdalny Reviewer utrzymuje osobny, wersjonowany IndexedDB i nie współdzieli
+namespace'u ani migracji lokalnego narzędzia Admina. W wersji 1 przechowuje
+wyłącznie sesję, partię, metadane źródłowych JPEG-ów, kursor, client instance,
+transfer checkpoints oraz niepotwierdzony outbox. Blobów JPEG i absolutnych
+ścieżek nie wolno zapisywać w IndexedDB.
+
+Źródło File System Access jest otwierane wyłącznie do odczytu. Po każdym resume
+permission jest sprawdzany ponownie. Brak uchwytu lub prawa odczytu zachowuje
+kursor oraz outbox i wymaga relinku. Relink jest dozwolony tylko dla identycznego
+checksumowanego manifestu; inny folder, zmieniony plik albo inny rodzaj źródła
+jest odrzucany. `webkitdirectory` jest fallbackiem sesyjnym i po reloadzie
+wymaga ponownego wskazania tego samego manifestu.
+
+Każda przyszła zdalna mutacja wpływająca na wynik musi najpierw zostać trwale
+dopisana do outboxu. Lokalna decyzja pozostaje `pending`, dopóki host nie
+potwierdzi dokładnego `operationId`; ack nie może usuwać innych operacji.
+Odświeżenie albo utrata procesu odtwarza ten sam kursor i pełny zbiór pending ID.
+TASK-0280 przygotowuje tę trwałość, ale nie wykonuje jeszcze operacji HTTP ani
+transferu JPEG.

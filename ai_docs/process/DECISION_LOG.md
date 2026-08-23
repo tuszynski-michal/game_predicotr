@@ -5190,6 +5190,29 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** jeden wspólny licznik dla partii i plików odrzucono, bo
   powodowałby fałszywe konflikty przy równoległym uploadzie i deselect.
 
+## D-217 — Trwałość zdalnej selekcji jest scope-bound i append-only
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** stan zdalnej ręcznej selekcji jest utrwalany w ośmiu
+  addytywnych tabelach. Composite FK wiążą rekordy z jednym
+  `session + batch + file` scope, globalne mapowanie
+  `base binding + collection + batch` jest unikalne, a operacje i audyt są
+  append-only także dla bezpośrednich poleceń SQL.
+- **Context:** retry, dwóch klientów i dwie sesje mogą równolegle dotknąć tej
+  samej logicznej partii. Spójność nie może zależeć wyłącznie od późniejszej
+  warstwy HTTP ani od pojedynczego procesu API.
+- **Safety:** aplikacja blokuje wiersz partii i pliku przed zastosowaniem
+  operacji, tworzenie mapowania serializuje advisory lockiem, a constrainty
+  pozostają ostateczną ochroną. Publiczne mappery nie zwracają ścieżek hosta,
+  ścieżek tymczasowych, salt/hash ani lease tokenów. Obrazy pozostają poza
+  bazą.
+- **Consequences:** filesystem picker i path containment powstaną dopiero w
+  TASK 5, a auth/writer lease service w TASK 6. Migracji nie należy cofać na
+  produkcyjnych danych bez eksportu, audytu i jawnej decyzji.
+- **Alternatives:** walidację tylko w repozytorium odrzucono, ponieważ nie
+  zabezpiecza innych procesów ani bezpośrednich zapisów do bazy.
+
 ## Szablon nowej decyzji
 
 ```text

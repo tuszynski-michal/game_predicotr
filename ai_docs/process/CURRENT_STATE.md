@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Trwały model zdalnej ręcznej selekcji — v0.7.28
+
+- TASK-0276 utrwalił kontrakty TASK-0275 w ośmiu addytywnych tabelach
+  PostgreSQL, modelach ORM i repozytoriach SQLAlchemy/in-memory parity.
+- Composite FK egzekwują `session + batch + file` scope. Globalna unikalność
+  mapowania katalogu jest chroniona advisory lockiem oraz constraintem, a
+  operacje zmieniają rewizję i desired state atomowo pod row lockiem.
+- Dzienniki operacji i audytu są append-only także przy bezpośrednim SQL.
+  Publiczne mappery nie ujawniają base/temp path, salt/hash ani lease tokenu;
+  baza nie przechowuje bajtów JPEG.
+- Bounded delta i plan indeksów sprawdzono na 15 000 plików i 15 000 operacji.
+  Izolowane testy TASK 4: 10/10 PostgreSQL oraz 53/53 unit/migration.
+- Pełna historyczna bramka PostgreSQL ma wynik 35/39: cztery istniejące testy
+  spoza zakresu wymagają osobnego uporządkowania fixture
+  `expected_layout_count`, kodu błędu raportu importu i duplikatów generatora.
+  Nowa migracja nie zmienia tabel używanych przez te cztery testy.
+- Nie dodano API, filesystem pickera, auth, uploadu, materializacji ani UI.
+  Przed TASK 5 obowiązuje osobny checkpoint/review.
+
 ### Kontrakty domenowe zdalnej ręcznej selekcji — v0.7.27
 
 - TASK-0275 zamroził wersjonowane kontrakty sesji, kolekcji, partii, pliku,

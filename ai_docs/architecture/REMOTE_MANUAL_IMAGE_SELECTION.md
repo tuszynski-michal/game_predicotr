@@ -1046,7 +1046,7 @@ determinują odporność wszystkich późniejszych warstw.
 
 ### TASK 4: Trwały model PostgreSQL i repozytoria
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.28`
 
 **Cel:** Utrwalić stan z TASK 3 bez obrazów w bazie i z pełnymi constraintami.
 

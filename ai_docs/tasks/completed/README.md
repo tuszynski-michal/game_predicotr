@@ -45,6 +45,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0273 — Browser capability zdalnego źródła](0273-remote-source-browser-capability-spike.md)
 - [TASK-0274 — Wspólny silnik ręcznej selekcji i adapter lokalny](0274-manual-image-selection-shared-core.md)
 - [TASK-0275 — Kontrakty domenowe zdalnej ręcznej selekcji](0275-remote-manual-selection-domain-contracts.md)
+- [TASK-0276 — Trwały model zdalnej ręcznej selekcji](0276-remote-manual-selection-persistence.md)
 
 ## Zawartość
 

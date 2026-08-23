@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0052_reviewer_assignment_sessions"
+HEAD_REVISION = "0056_remote_manual_selection_persistence"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 EXPECTED_TABLES = {
     "alembic_version",
@@ -44,6 +44,7 @@ EXPECTED_TABLES = {
     "grid_calibration_profiles",
     "grid_geometry_cohorts",
     "image_board_geometry_revisions",
+    "image_board_geometry_pending",
     "image_file_executions",
     "image_import_job_files",
     "image_layout_staging_rows",
@@ -84,6 +85,14 @@ EXPECTED_TABLES = {
     "reviewer_access_audit_events",
     "reviewer_access_sessions",
     "reviewer_work_assignments",
+    "remote_manual_selection_audit_events",
+    "remote_manual_selection_batches",
+    "remote_manual_selection_collections",
+    "remote_manual_selection_files",
+    "remote_manual_selection_host_actions",
+    "remote_manual_selection_operations",
+    "remote_manual_selection_sessions",
+    "remote_manual_selection_transfers",
     "rules_version_symbols",
     "rules_versions",
     "source_images",

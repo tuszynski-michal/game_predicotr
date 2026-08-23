@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-23
 ---
 
 # Model danych
@@ -16,6 +16,38 @@ domenowej. Każdy wpis ma UUID zdarzenia, czas UTC, serwerowego aktora
 przyczyny; body, Authorization, kody, tokeny, hasła i klucze nie są zapisywane.
 
 ## PostgreSQL — dane kanoniczne
+
+### Zdalna ręczna selekcja zdjęć
+
+Stan protokołu zdalnej ręcznej selekcji jest przechowywany w ośmiu tabelach:
+
+- `remote_manual_selection_sessions` — sesja, host-only binding katalogu oraz
+  opcjonalne sole i skróty poświadczeń; publiczna projekcja nie ujawnia tych
+  wartości;
+- `remote_manual_selection_collections` — kolekcje w scope sesji;
+- `remote_manual_selection_batches` — partie przypisane do jednego
+  `base_binding + normalized collection + normalized batch`, wraz z
+  monotonicznym `server_revision` i `last_client_sequence`;
+- `remote_manual_selection_files` — wyłącznie względne metadane plików,
+  desired state, generacja, zakres i checksumy; bez JPEG/BLOB;
+- `remote_manual_selection_operations` — append-only dziennik komend i ich
+  wyników, unikalny po `operationId` oraz
+  `batch + clientInstance + clientSequence`;
+- `remote_manual_selection_transfers` — metadane prób transferu, bez zawartości
+  obrazu;
+- `remote_manual_selection_host_actions` — kolejka host-only weryfikacji,
+  materializacji, usunięcia i reconciliacji; aktywna akcja jest unikalna dla
+  `file + generation + action type`;
+- `remote_manual_selection_audit_events` — append-only audyt bez sekretów.
+
+Composite foreign keys wiążą każdy rekord z tym samym
+`session + batch + file` scope. Operacja domenowa blokuje wiersz partii i pliku,
+więc zwiększenie rewizji, aktualizacja desired state oraz dopisanie operacji są
+jedną transakcją. Tworzenie globalnego mapowania partii dodatkowo serializuje
+się advisory lockiem; constraint unikalności pozostaje ostateczną ochroną.
+Indeksy delta obsługują ograniczone strony zmian plików po rewizji i operacji
+po numerze klienta. Aktualizacja lub usunięcie rekordów operations/audit jest
+blokowane triggerem bazy.
 
 ### games
 

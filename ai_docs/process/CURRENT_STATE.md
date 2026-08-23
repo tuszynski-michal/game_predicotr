@@ -15,6 +15,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Read-only diagnoza cropów v18/v19 — v0.7.14
+
+- TASK 1 przygotował `grid-cropping-vs-symbol-model-diagnosis-v1`: powtarzalny,
+  content-addressed raport A/B bez zmiany jobów, modelu, review albo danych
+  kanonicznych.
+- Rzeczywista kohorta obejmuje 81 ręcznie rozwiązanych plansz v19 i 1215
+  symboli z sześciu stagingów. Baseline v18 oraz ponowna inferencja cropów v19
+  używają tego samego przypiętego fingerprintu aktywnego modelu.
+- Wynik: symbol accuracy `71,03% → 95,80%`, whole-board accuracy
+  `22,22% → 72,84%`, średnia liczba poprawek `4,35 → 0,63` na planszę.
+  Trzy nieaktualne rewizje zostały jawnie wykluczone.
+- Dokumentacja: `ai_docs/quality/GRID_CROPPING_VS_SYMBOL_MODEL_DIAGNOSIS.md`.
+  Następny krok to cross-staging shadow benchmark v19; pełny import i trening
+  pozostają bez zmian.
+
 ### Trwałe usunięcie `about:blank` lokalnego Reviewera — v0.7.13
 
 - `Otwórz lokalnie` nie tworzy już pustej karty. Synchronicznie otwiera

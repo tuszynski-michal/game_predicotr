@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Kohorta pozostałych błędów modelu v19 — v0.7.21
+
+- TASK 8 zamroził read-only kohortę 321 ręcznie rozwiązanych plansz, 4815
+  checksum-verified cropów v19, 41 rodzin źródeł i sześciu stagingów. Każda
+  plansza ma dokładnie 15 komórek row-major, a split po rodzinie źródła nie ma
+  przecieku.
+- Audyt błędów wysokiej pewności wykrył 12 plansz z konfliktem ręcznej etykiety
+  lub pozycji. Całe plansze są wykluczone fail-closed, ich 27 cropów dowodowych
+  jest przypięte checksumami, a problem ma klasyfikację `OPEN` zamiast
+  fałszywego błędu modelu.
+- Na oczyszczonej kohorcie aktywny model osiąga `99,3354%` accuracy symboli i
+  `94,3925%` całych plansz. Parity preprocessingu przeszło `4815/4815`.
+  Jedyny istotny residual to M2 `plum -> grapes`: 9 błędów na dwóch nowych
+  rodzinach źródeł.
+- Raport wydaje decyzję `retrain`, ale TASK 8 nie uruchamia treningu ani
+  aktywacji. Manifest kohorty ma checksumę `eaa368b5...523ab88`, a raport
+  `c617fdf4...07d3cc`. Szczegóły:
+  `ai_docs/quality/V19_SYMBOL_RESIDUAL_COHORT.md`.
+
 ### Kontrolowany opt-in importu v20 — v0.7.20
 
 - TASK 7 podłącza istniejący `boardCellProcessingMode=verified_v19` do startu

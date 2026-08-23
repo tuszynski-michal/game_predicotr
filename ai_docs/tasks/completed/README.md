@@ -110,3 +110,4 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0094 — Independent cell-grid golden annotations and crop quality gate](0094-cell-grid-golden-annotations-crop-quality-gate.md)
 - [TASK-0095 — Board cell cropper v2 and corpus regeneration](0095-board-cell-cropper-v2-corpus-regeneration.md)
 - [TASK-0096 — Grid calibration profiles and perspective editor](0096-grid-calibration-profiles-line-editor.md)
+- [TASK-0269 — Kohorta pozostałych błędów modelu](0269-v19-symbol-residual-cohort.md)

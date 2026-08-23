@@ -1,0 +1,119 @@
+{
+  "auditedLabelConflicts": [
+    {
+      "evidenceCropChecksumsSha256": [
+        "df35510952fbb143a6064e9938f87e312d707985b45539979b1c8888c496bd5a"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 15
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "1c67f58ae7008b3efdcb234a7c70c6bb951dac38eb2cbf834eb6df40cba5c2e3",
+        "bbaeeb26f08c322787bdd17675c9c69b8c94446984093797260f6976b803c821",
+        "fa7160b7b8d75d8bae34f90512af154865a9df743e490d089029ce0e41c0aeff"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 54
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "052699b096441c156780ef9ce58f4b94ebcc687175ee284c85ec2747d537e11b",
+        "43bc037615ef33ce6eb7b674ef4545962ea48d27ed039db08f01305c7afc0008",
+        "4aeb88e4f1557e88cda1a14ff422c0fe4a0c756bfad61273641e79e73d112809",
+        "6ddb643063bb331841bf988da9a73c20893290659f56e06b10129786cb4043ed",
+        "dfd7dcb20ebfaa5556f40b029c33c89441c1be0ff0cbc6623035fbd5fd745a1f"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 118
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "de4610146b1d7f7c8e5376454ed4c5382435236a05480f353bfa75aa231d35bf",
+        "ea6230cbe5f93c6af5f44cd1885bfce0273eedaa3a51c287c94f4bd9d07e37df"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 19814
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "0bda22e5b064da72c90b725fc9a634a05d29dc5aa1fc3812679c764c259d21c2",
+        "5afd20592e9b19ecf987825e5db8815adcc7652f370077a0b86fc162e7f10231"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 19816
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "1b42355de89eabab2f09c9c9697caabc99d63269fb3bad850bfda4e9d0a92e28",
+        "870f99a2a77a878b10be5b4f0ceb13df839d4f9db9875e160d467296efb2d047",
+        "d6c9e018f163b6067866f0dd7781f80b8030c29749cb25b3516248fdb7f0bf1f"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 19817
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "1f581e11943c3c04f12e9471bcddc370a07c8e8ffe90f8a83b56ae68c6b30bee",
+        "544d59bdcdec64d2f291faf840377120697dc00cc1a37ba390323733b0e56e10",
+        "966de041f54c32045c3c176b30ae8817ba9d2bcea794682d426dc968b316efd6",
+        "f333831d8ecb632e86c9a67dec128f58e0b8b4879a812efee6fe9f9041dc28fa"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 19835
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "ef7f80b33744b33e033aad2ad1e3bf7556b6267aeffd3c698853562ed425954d"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 70369
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "88a08efe4fb48973be7b01fb6bcc9bad695c906767262331580e571e9d3a3231",
+        "d195e221174f363cfffb9b97b6e1b48ad8f660c2ecea0087d986502ba37b945b"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 70377
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "23809b317fcb7a1069aed410ba135cb7a5bd3c0326bca15460cd4b104b064710"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 70384
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "4f0f056175d15f818a5b04de031e58f31f807d800e94b9a7a5a89c0268488307",
+        "a3721ff29028eb06cce047dcfaf873dc152e8c8b694f3a38e339c0addd9c1a89"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 70388
+    },
+    {
+      "evidenceCropChecksumsSha256": [
+        "af6cf9fb903e7ea747017296c9426b04d0304b6ceb4630df36ed45da45564276"
+      ],
+      "reason": "visual_label_or_slot_conflict",
+      "sequenceNumber": 93859
+    }
+  ],
+  "expectedActiveModelFingerprintSha256": "19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64",
+  "expectedCohortChecksumSha256": "eaa368b5fd6671103c1e2e65ff06ada082a08da0d47a09ea48f629791523ab88",
+  "expectedEvaluationChecksumSha256": "c617fdf461fa4e9a56d5bebc96a01f01ab3e3b3348c46670a731613c5d07d3cc",
+  "expectedTrainingDatasetChecksumSha256": "56b3fde24745a24cbed2c0cb8ef2aabbebc754d65530252e6218c74d22d00238",
+  "gameId": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+  "minimumBoardCount": 300,
+  "splitSeed": "game-predictor-m6.6-symbol-split-v1",
+  "stagingLabels": [
+    "1-19809",
+    "test",
+    "19810 - 45162",
+    "45163 - 70371",
+    "70363 - 93861",
+    "93853 -117828"
+  ],
+  "version": "v19-symbol-residual-cohort-descriptor-v1"
+}

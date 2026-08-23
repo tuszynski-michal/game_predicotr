@@ -70,6 +70,24 @@ lub 100 plansz pozwala uruchomić trening.
 - brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego
   zaakceptowania ograniczenia przez właściciela.
 
+## Read-only diagnoza residuali przed kolejną iteracją
+
+Przed podjęciem decyzji o kolejnej iteracji można zamrozić osobną kohortę
+diagnostyczną poprawnych cropów aktualnej wersji geometrii. Taka kohorta:
+
+- zawiera wyłącznie kompletne `accepted/corrected`, dokładnie 15 komórek
+  row-major i zweryfikowane checksumy źródeł oraz cropów,
+- odrzuca starsze wersje croppera, niepewną geometrię i konflikt etykiety;
+  wizualnie potwierdzony konflikt jest audytowalnym `OPEN`, a nie błędem modelu,
+- stosuje deterministyczny, rozłączny split po rodzinie źródła,
+- porównuje preprocessing treningowy z produkcyjnym wejściem ONNX dla każdej
+  próbki,
+- klasyfikuje każdy istotny residual jako M1, M2, P1 albo `OPEN` i kończy się
+  jawną decyzją `retrain` albo `no-retrain`.
+
+Diagnoza nie tworzy iteracji, nie uruchamia treningu i nie aktywuje modelu.
+Decyzja `retrain` jest wyłącznie wejściem do osobnego, jawnego workflow.
+
 ## Cykl życia wersji modelu
 
 ```text

@@ -120,6 +120,26 @@ data/
 Manifest modelu zawiera co najmniej checksumę kohorty, konfiguracji, checkpointu
 i ONNX, wersję kodu, kalibrację, progi, katalog symboli oraz pełne metryki.
 
+### Niezmienna diagnoza residuali
+
+Read-only builder residuali jest osobnym konsumentem aktywnego snapshotu ONNX i
+nie korzysta z tabel iteracji jako miejsca zapisu. Descriptor w dokumentacji
+przypina model, dataset treningowy, sześć stagingów, seed splitu oraz oczekiwane
+checksumy. Content-addressed manifest zawiera pełne plansze v19, źródła,
+etykiety człowieka, cropy i audytowane wykluczenia; raport zawiera inferencję,
+parity, confusion matrix oraz decyzję.
+
+Zapisane cropy v19 mogą zostać użyte wyłącznie po kontroli kompletnej geometrii
+3 × 5 i checksumy. Brakujący zapis może zostać odtworzony read-only tylko przez
+ten sam wersjonowany fail-closed estymator i source-direct cropper. Cała rodzina
+źródła należy do jednego splitu. Konflikt etykiety wykryty podczas audytu usuwa
+całą planszę z metryk i zostaje przypięty przez sekwencję oraz checksumy cropów
+dowodowych.
+
+Skrypty diagnostyczne nie wykonują zapisu ORM, treningu ani aktywacji. Tryb
+`--check` wymaga dokładnego odtworzenia przypiętych checksum i dzięki temu
+wykrywa zmianę danych, modelu, preprocessingu lub implementacji.
+
 ## Trwały job
 
 Jedna iteracja ma kontrolowane etapy:

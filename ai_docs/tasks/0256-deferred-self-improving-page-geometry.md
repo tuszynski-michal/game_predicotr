@@ -124,3 +124,8 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   pozostaje domyślny, a v20 wymaga potwierdzenia komunikatu o wyniku `93,78%`,
   braku fallbacku oraz deferred. Start przesyła wybrany tryb i kontroluje
   zgodność zwróconego snapshotu joba; próg `98%` nie został obniżony.
+- TASK-0269 zamroził niezależną kohortę pozostałych błędów aktywnego modelu:
+  321 plansz i 4815 cropów v19 z sześciu stagingów. Audyt wykluczył fail-closed
+  12 plansz z konfliktem etykiety, parity przeszło w 100%, a jedyny istotny
+  residual M2 to `plum -> grapes`. Raport rekomenduje osobny retraining, ale
+  nie uruchomił treningu ani aktywacji.

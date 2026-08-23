@@ -129,3 +129,8 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   12 plansz z konfliktem etykiety, parity przeszło w 100%, a jedyny istotny
   residual M2 to `plum -> grapes`. Raport rekomenduje osobny retraining, ale
   nie uruchomił treningu ani aktywacji.
+- TASK-0270 wykonał warunkowy retrening od początku na tej kohorcie. Kandydat
+  poprawił accuracy całych plansz o 5,8824 pp, przeszedł ONNX parity i nie miał
+  regresji recall powyżej 1 pp, ale audyt 100 plansz znalazł jeden błąd
+  `lemon -> orange` z confidence `0,99999698`. Zgodnie z niezmienioną bramką
+  kandydat został kontrolowanie odrzucony, a aktywny model pozostał bez zmian.

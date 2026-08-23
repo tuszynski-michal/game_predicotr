@@ -15,6 +15,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Kontrolowanie odrzucony kandydat modelu v19 — v0.7.22
+
+- TASK 9 wytrenował od początku `spatial-symbol-cnn-v1` na zamrożonej kohorcie
+  321 plansz i 4815 cropów v19. Split zachował 38 rodzin train oraz po jednej
+  validation, test i regression, bez przecieku źródeł.
+- Najlepsza była epoka 24/40. Kandydat poprawił accuracy symboli na połączonym
+  test/regression z `98,4314%` do `99,2157%`, a accuracy całych plansz z
+  `88,2353%` do `94,1176%`. Recall żadnej klasy nie spadł o więcej niż 1 pp.
+- ONNX top-1 parity przeszło, maksymalny błąd logitów wyniósł `0,000002861`, a
+  temperatura `0,60057958` pozostała w bezpiecznym zakresie.
+- Kandydat został poprawnie oznaczony `rejected`: audyt 100 plansz znalazł
+  jeden błąd wysokiej pewności `lemon -> orange` dla sekwencji 35, komórki 13,
+  confidence `0,99999698`. Bramka nie została osłabiona.
+- Aktywny model nie został zmieniony; jego fingerprint nadal wynosi
+  `19e15e92...e48db64`. Raport decyzji ma checksumę `4e6ace22...421578`.
+  Szczegóły: `ai_docs/quality/V19_SYMBOL_MODEL_CANDIDATE.md`.
+
 ### Kohorta pozostałych błędów modelu v19 — v0.7.21
 
 - TASK 8 zamroził read-only kohortę 321 ręcznie rozwiązanych plansz, 4815

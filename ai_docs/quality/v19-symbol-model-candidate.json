@@ -1,0 +1,22 @@
+{
+  "activeModelFingerprintSha256": "19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64",
+  "cohortChecksumSha256": "eaa368b5fd6671103c1e2e65ff06ada082a08da0d47a09ea48f629791523ab88",
+  "evaluationChecksumSha256": "c617fdf461fa4e9a56d5bebc96a01f01ab3e3b3348c46670a731613c5d07d3cc",
+  "expectedCandidateManifestChecksumSha256": "ced0140fe8641ed3cb8059b46ee3bdb1200b875a986de0b5affd02f78190c804",
+  "expectedCandidateManifestRelativePath": "data/models/777/v19-candidates/eaa368b5fd6671103c1e2e65ff06ada082a08da0d47a09ea48f629791523ab88/61061/candidate/manifests/ced0140fe8641ed3cb8059b46ee3bdb1200b875a986de0b5affd02f78190c804.json",
+  "expectedCheckpointChecksumSha256": "da69f8c28ca3781279379f235dddef9fde9ff54400583eda9b2c4a965241f9e7",
+  "expectedCheckpointRelativePath": "data/models/777/v19-candidates/eaa368b5fd6671103c1e2e65ff06ada082a08da0d47a09ea48f629791523ab88/61061/checkpoints/spatial-symbol-cnn-v19-da69f8c28ca3781279379f235dddef9fde9ff54400583eda9b2c4a965241f9e7.pt",
+  "expectedDecisionChecksumSha256": "4e6ace22cc4d90ee230cc66ae4a3a306afa54c6b19f9e8d96544dbebee421578",
+  "expectedDecisionRelativePath": "data/models/777/v19-candidates/eaa368b5fd6671103c1e2e65ff06ada082a08da0d47a09ea48f629791523ab88/61061/decisions/4e6ace22cc4d90ee230cc66ae4a3a306afa54c6b19f9e8d96544dbebee421578.json",
+  "expectedStatus": "rejected",
+  "gameId": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+  "trainingConfiguration": {
+    "batchSize": 32,
+    "epochs": 40,
+    "inputSize": 64,
+    "learningRate": 0.001,
+    "seed": 61061,
+    "weightDecay": 0.0001
+  },
+  "version": "v19-symbol-model-candidate-descriptor-v1"
+}

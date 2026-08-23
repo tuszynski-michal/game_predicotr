@@ -15,6 +15,38 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Izolowana powierzchnia Reviewera dla zdalnej selekcji — v0.7.31
+
+- TASK-0279 udostępnia shell `/manual-selection` i osobny same-origin proxy
+  `/selection-api` w istniejącej aplikacji Reviewer. Nie powstał drugi proces
+  Reviewera ani drugi Quick Tunnel.
+- Zamknięta allowlista obejmuje wyłącznie unlock, context, heartbeat i takeover
+  purpose-scoped sesji. Route Admina, legacy Reviewera, jobów, storage, eksportu
+  oraz binarnego uploadu kończą się przed API stabilnym `403`.
+- Publiczne cookie `gp_remote_selection_token` ma `HttpOnly`, `Secure`,
+  `SameSite=Strict` i `Path=/selection-api`; proxy tłumaczy je na host-only
+  cookie API. Token, kod, host path i fencing token nie trafiają do URL-a,
+  JavaScriptu ani odpowiedzi JSON.
+- Mutacje wymagają same-origin `Origin`/Fetch Metadata, JSON i maksymalnie
+  128 KiB. Proxy filtruje nagłówki i odpowiedź, wymaga JSON, blokuje odpowiedzi
+  ponad 128 KiB i łączy się z API wyłącznie przez HTTP loopback. Dedykowany CSP
+  nie dopuszcza połączenia przeglądarki z `127.0.0.1:8000`.
+- Create sesji wykorzystuje rozgrzany wspólny ingress albo uruchamia dokładnie
+  jedną brakującą instancję. `reviewUrl` jest dynamiczną projekcją bieżącego
+  originu i zachowuje ten sam opaque session ID po restarcie tunelu. Revoke nie
+  zależy od dostępności tunelu i nie zatrzymuje go dla innych prac.
+- Bramka: 62/62 testów Reviewera, 9/9 nowych testów API dostępu, 28/28 testów
+  access/ingress oraz 62/62 pozostałych celowanych testów lifecycle,
+  security i kontraktu. Reviewer lint/typecheck/build, Ruff, format,
+  OpenAPI i klient są zielone. Lokalny production E2E potwierdził shell, brak
+  błędów konsoli i ścisły CSP; rzeczywistego publicznego tunelu nie uruchamiano.
+- Mypy grafu API pozostaje czerwony na dwóch wcześniejszych błędach typów w
+  `symbol_model_iteration_repository.py`, po czym sam mypy kończy się błędem
+  wewnętrznym. Zmienione TypeScript i kontrakty wygenerowanego klienta są
+  sprawdzone; problem nie został objęty TASK-0279.
+- Workspace, remote source adapter, outbox, operacje i upload pozostają zakresem
+  TASK 8+. Przed TASK 8 obowiązuje checkpoint bezpieczeństwa.
+
 ### Purpose-scoped dostęp i writer lease zdalnej selekcji — v0.7.30
 
 - TASK-0278 wydzielił wspólne primitives kodu/tokena bez zmiany parametrów ani

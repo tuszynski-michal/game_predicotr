@@ -107,6 +107,12 @@ zawierają rozszerzenia pliku, ponieważ panel konsumuje TypeScript bezpośredni
 przez `moduleResolution: Bundler`; wymuszanie `.js` nie jest zgodne z buildem
 Turbopack tego pakietu źródłowego.
 
+Osobny workspace Next.js `@game-predictor/reviewer` pozostaje jedyną aplikacją
+publikowaną przez współdzielony Quick Tunnel. Legacy zatwierdzanie plansz używa
+`/review-api`, a zdalna ręczna selekcja izolowanych tras `/manual-selection`
+i `/selection-api`. Obie powierzchnie mają oddzielne cookie, allowlisty i CSP;
+przeglądarka nie łączy się publicznie bezpośrednio z FastAPI.
+
 ## Backend administracyjny
 
 ### Python + FastAPI

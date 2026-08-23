@@ -721,3 +721,24 @@ Po restarcie API wszystkie te route znikają z OpenAPI. Ponowne ustawienie
 nieważne; cookie aktywnej sesji pozostaje ważne do TTL, rotacji lub revoke,
 ponieważ binding, hash-only credentials, stan lease i audyt są trwałe w
 PostgreSQL.
+
+Od TASK-0279 utworzenie purpose-scoped sesji zdalnej selekcji automatycznie
+wykorzystuje ten sam produkcyjny Reviewer i Quick Tunnel. Publiczny link ma
+postać `/manual-selection?session=<UUID>` i nie zawiera kodu ani tokenu. Po
+restarcie tunelu odśwież detail/listę sesji w Adminie: ten sam identyfikator
+sesji otrzyma bieżący origin. Nie uruchamiaj drugiej kopii Reviewera ani tunelu.
+
+Shell TASK 7 obsługuje kod, context, heartbeat i takeover. Nie pokazuje jeszcze
+folderu ani zdjęć — workspace i synchronizacja należą do TASK 8. Revoke działa
+również wtedy, gdy kontroler tunelu jest niedostępny, i celowo nie zatrzymuje
+wspólnego ingressu. Awaryjne wyłączenie całej powierzchni:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED = 'false'
+npm run api:dev
+```
+
+Zatrzymaj wcześniej uruchomiony Reviewer i uruchom go ponownie z procesu API,
+który dziedziczy tę flagę. Po ponownym uruchomieniu API i Reviewera
+`/manual-selection` zwraca 404, proxy
+nie przekazuje żądań, a starsze linki zatwierdzania plansz pozostają bez zmian.

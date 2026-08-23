@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import UUID
 
 from pydantic import Field
@@ -15,6 +16,10 @@ from game_predictor_api.application.remote_manual_selection_access import (
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionBaseCapability,
+)
+from game_predictor_api.application.reviewer_ingress import (
+    ReviewerIngressStatus,
+    is_ready_online_reviewer_ingress,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -59,12 +64,20 @@ class RemoteManualSelectionSessionResponse(ApiModel):
     revoked_at: datetime | None
     writer_active: bool
     writer_lease_expires_at: datetime | None
+    ready: bool
+    review_url: str | None
 
     @classmethod
     def from_view(
         cls,
         value: RemoteManualSelectionAccessView,
+        ingress: ReviewerIngressStatus | None,
     ) -> RemoteManualSelectionSessionResponse:
+        ready = (
+            value.status.value == "active"
+            and ingress is not None
+            and is_ready_online_reviewer_ingress(ingress)
+        )
         return cls(
             session_id=value.session_id,
             status=value.status.value,
@@ -77,6 +90,12 @@ class RemoteManualSelectionSessionResponse(ApiModel):
             revoked_at=value.revoked_at,
             writer_active=value.writer_active,
             writer_lease_expires_at=value.writer_lease_expires_at,
+            ready=ready,
+            review_url=(
+                _manual_selection_url(ingress.public_origin, value.session_id)
+                if ready and ingress is not None and ingress.public_origin is not None
+                else None
+            ),
         )
 
 
@@ -88,9 +107,13 @@ class RemoteManualSelectionSessionCreatedResponse(ApiModel):
     def from_created(
         cls,
         value: CreatedRemoteManualSelectionAccess,
+        ingress: ReviewerIngressStatus,
     ) -> RemoteManualSelectionSessionCreatedResponse:
         return cls(
-            session=RemoteManualSelectionSessionResponse.from_view(value.session),
+            session=RemoteManualSelectionSessionResponse.from_view(
+                value.session,
+                ingress,
+            ),
             access_code=value.access_code,
         )
 
@@ -133,6 +156,16 @@ class RemoteManualSelectionContextResponse(ApiModel):
             writer_active=value.writer_active,
             writer_lease_expires_at=value.writer_lease_expires_at,
         )
+
+
+def _manual_selection_url(public_origin: str, session_id: UUID) -> str:
+    parsed = urlparse(public_origin)
+    return urlunparse(
+        parsed._replace(
+            path="/manual-selection",
+            query=urlencode({"session": str(session_id)}),
+        )
+    )
 
 
 __all__ = [

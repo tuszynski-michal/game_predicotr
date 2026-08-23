@@ -96,6 +96,7 @@ def create_api_router(
             create_remote_manual_selections_admin_router(
                 remote_manual_selection_host_service_dependency,
                 remote_manual_selection_access_service_dependency,
+                reviewer_ingress_service_dependency,
             )
         )
         router.include_router(

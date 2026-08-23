@@ -23,6 +23,13 @@ Admina, PostgreSQL ani workera. Next.js przekazuje wyłącznie jawnie
 dozwolone odczyty kontekstu jednej sesji, operacyjne review, assety, korektę
 geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 
+Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
+powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
+osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
+`reviewer-v1`. Zamknięta allowlista TASK 7 obejmuje tylko unlock, context,
+heartbeat i takeover. Cookie starego Reviewera nie autoryzuje selekcji, a cookie
+selekcji nie autoryzuje `/review-api`.
+
 Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
 Cloudflare ani sesji z kodem, a Reviewer odblokowuje wskazany scope tylko przy
 żądaniu strony z nagłówkiem `Host` równym loopback na porcie 3001. Następnie
@@ -62,6 +69,9 @@ sesji i kodu.
 | ponowne użycie PID albo stary plik stanu | pełna tożsamość procesu obejmuje PID, czas startu, executable i losowy instance id; niezgodny proces nie jest zatrzymywany |
 | zatrzymanie nowszej instancji przez spóźnione żądanie | wewnętrzny compare-and-stop wymaga zgodnego instance id i pozostawia nowszą instancję bez zmian |
 | blokada wspólnego pliku logu lub wyniku | każda próba startu i każde wywołanie kontrolera API używa unikalnej ścieżki |
+| CSRF z obcego originu | mutacje `/selection-api` wymagają zgodnego `Origin`, `Sec-Fetch-Site: same-origin`, Strict cookie i JSON |
+| nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, brak query i Authorization, limit 128 KiB request/response oraz JSON-only |
+| awaria ingressu podczas revoke | revoke nie odczytuje ani nie zatrzymuje ingressu; token i lease są czyszczone niezależnie |
 
 Host base zdalnej selekcji jest wybierany wyłącznie przez stały lokalny picker.
 Publiczny request nie zawiera ścieżki. Każdy komponent collection/batch jest
@@ -84,6 +94,12 @@ Jedna sesja ma jeden 45-sekundowy writer lease. Klient przesyła wyłącznie
 klienta daje tryb read-only, heartbeat nie przyjmuje fencing tokenu, a takeover
 przed expiry kończy się konfliktem. Audyt zapisuje wynik i licznik prób, ale
 odrzuca kod, token, salt, lease token i ścieżkę hosta.
+
+Dedykowany CSP `/manual-selection` i `/selection-api` zezwala na transport tylko
+do własnego originu; nie zawiera loopback FastAPI. Route ogólne Reviewera nadal
+mają dotychczasową politykę, ale matcher nie nakłada jej na nową powierzchnię.
+Nieprawidłowa wartość feature flagi kończy się fail-closed. Wyłączenie flagi
+usuwa shell i proxy bez usuwania trwałej sesji lub audytu.
 
 `reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
 scope, typ pracy, identyfikator sesji online, fencing token lease, heartbeat i

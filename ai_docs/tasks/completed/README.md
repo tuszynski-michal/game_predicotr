@@ -48,6 +48,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0276 — Trwały model zdalnej ręcznej selekcji](0276-remote-manual-selection-persistence.md)
 - [TASK-0277 — Host base binding i bezpieczne mapowanie Windows](0277-remote-manual-selection-host-path-safety.md)
 - [TASK-0278 — Purpose-scoped sesja, kod i writer lease](0278-remote-manual-selection-access-and-writer-lease.md)
+- [TASK-0279 — Osobna powierzchnia Reviewera i reuse ingressu](0279-remote-manual-selection-reviewer-ingress.md)
 
 ## Zawartość
 

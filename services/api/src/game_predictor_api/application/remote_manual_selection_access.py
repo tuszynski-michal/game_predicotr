@@ -31,6 +31,7 @@ MAX_FAILED_ACCESS_ATTEMPTS = 5
 WRITER_LEASE_DURATION = timedelta(seconds=45)
 REMOTE_SELECTION_COOKIE_NAME = "remote_manual_selection_access"
 REMOTE_SELECTION_COOKIE_PATH = "/selection-api"
+REMOTE_SELECTION_PROXY_INTENT = "reviewer-v1"
 
 
 class RemoteManualSelectionAccessError(RemoteManualSelectionError):
@@ -42,6 +43,10 @@ class RemoteManualSelectionAccessNotFoundError(RemoteManualSelectionAccessError)
 
 
 class RemoteManualSelectionAuthenticationError(RemoteManualSelectionAccessError):
+    pass
+
+
+class RemoteManualSelectionAuthorizationError(RemoteManualSelectionAccessError):
     pass
 
 
@@ -612,6 +617,7 @@ __all__ = [
     "MIN_SESSION_LIFETIME_MINUTES",
     "REMOTE_SELECTION_COOKIE_NAME",
     "REMOTE_SELECTION_COOKIE_PATH",
+    "REMOTE_SELECTION_PROXY_INTENT",
     "RemoteManualSelectionAccessError",
     "RemoteManualSelectionAccessNotFoundError",
     "RemoteManualSelectionAccessRecord",
@@ -619,6 +625,7 @@ __all__ = [
     "RemoteManualSelectionAccessService",
     "RemoteManualSelectionAccessView",
     "RemoteManualSelectionAuthenticationError",
+    "RemoteManualSelectionAuthorizationError",
     "RemoteManualSelectionBaseConsumer",
     "RemoteManualSelectionContext",
     "RemoteManualSelectionLeaseConflictError",

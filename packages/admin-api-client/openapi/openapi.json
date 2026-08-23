@@ -9232,6 +9232,21 @@
             ],
             "title": "Lockedat"
           },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reviewUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewurl"
+          },
           "revision": {
             "title": "Revision",
             "type": "integer"
@@ -9297,7 +9312,9 @@
           "lockedAt",
           "revokedAt",
           "writerActive",
-          "writerLeaseExpiresAt"
+          "writerLeaseExpiresAt",
+          "ready",
+          "reviewUrl"
         ],
         "title": "RemoteManualSelectionSessionResponse",
         "type": "object"
@@ -27705,6 +27722,22 @@
             }
           },
           {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
+            }
+          },
+          {
             "in": "cookie",
             "name": "remote_manual_selection_access",
             "required": false,
@@ -27771,6 +27804,22 @@
               "format": "uuid",
               "title": "Session Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
             }
           }
         ],
@@ -27844,6 +27893,22 @@
               "format": "uuid",
               "title": "Session Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
             }
           },
           {
@@ -27933,6 +27998,22 @@
               "format": "uuid",
               "title": "Session Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
             }
           },
           {

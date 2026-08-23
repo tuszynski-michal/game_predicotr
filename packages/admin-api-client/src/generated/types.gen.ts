@@ -5265,6 +5265,14 @@ export type RemoteManualSelectionSessionResponse = {
    */
   lockedAt: string | null;
   /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Reviewurl
+   */
+  reviewUrl: string | null;
+  /**
    * Revision
    */
   revision: number;
@@ -15437,6 +15445,10 @@ export type GetRemoteManualSelectionContextData = {
      * X-Remote-Selection-Client
      */
     'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
   };
   path?: never;
   query?: never;
@@ -15469,6 +15481,12 @@ export type GetRemoteManualSelectionContextResponse =
 
 export type UnlockRemoteManualSelectionSessionData = {
   body: RemoteManualSelectionUnlock;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
   path: {
     /**
      * Session Id
@@ -15509,6 +15527,12 @@ export type UnlockRemoteManualSelectionSessionResponse =
 
 export type HeartbeatRemoteManualSelectionWriterLeaseData = {
   body: RemoteManualSelectionWriterLeaseCommand;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
   path: {
     /**
      * Session Id
@@ -15549,6 +15573,12 @@ export type HeartbeatRemoteManualSelectionWriterLeaseResponse =
 
 export type TakeoverRemoteManualSelectionWriterLeaseData = {
   body: RemoteManualSelectionWriterLeaseCommand;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
   path: {
     /**
      * Session Id

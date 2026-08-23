@@ -71,6 +71,7 @@ from game_predictor_api.application.remote_manual_selection_access import (
     RemoteManualSelectionAccessNotFoundError,
     RemoteManualSelectionAccessService,
     RemoteManualSelectionAuthenticationError,
+    RemoteManualSelectionAuthorizationError,
     RemoteManualSelectionLeaseConflictError,
 )
 from game_predictor_api.application.remote_manual_selection_host import (
@@ -1008,6 +1009,8 @@ def create_app(
             status_code = 404
         elif isinstance(error, RemoteManualSelectionAuthenticationError):
             status_code = 401
+        elif isinstance(error, RemoteManualSelectionAuthorizationError):
+            status_code = 403
         elif isinstance(
             error,
             RemoteManualSelectionConflictError | RemoteManualSelectionLeaseConflictError,

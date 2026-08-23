@@ -1,4 +1,32 @@
 const UUID = '[0-9a-fA-F-]{36}';
+const STRICT_UUID =
+  '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
+
+export function remoteSelectionProxyTarget(
+  method: string,
+  path: string,
+): string | null {
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/sessions/${STRICT_UUID}/unlock$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (method === 'GET' && path === '/api/v1/remote-manual-selections/context') {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/sessions/${STRICT_UUID}/writer-lease/(?:heartbeat|takeover)$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  return null;
+}
 
 export function reviewerProxyTarget(
   method: string,

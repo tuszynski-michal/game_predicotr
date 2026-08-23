@@ -10,7 +10,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Final, Literal, cast
+from typing import Final, Literal, Protocol, cast
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 ReviewerIngressState = Literal["running", "stopped", "stale", "degraded"]
@@ -91,6 +92,50 @@ class ReviewerIngressError(RuntimeError):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+class SharedReviewerIngress(Protocol):
+    def status(self) -> ReviewerIngressStatus: ...
+
+    def start(self) -> ReviewerIngressStatus: ...
+
+
+def is_ready_online_reviewer_ingress(status: ReviewerIngressStatus) -> bool:
+    if (
+        status.state != "running"
+        or status.reviewer_ready is not True
+        or status.target != "http://127.0.0.1:3001"
+        or status.public_origin is None
+    ):
+        return False
+    parsed = urlparse(status.public_origin)
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname is not None
+        and parsed.hostname.endswith(".trycloudflare.com")
+        and parsed.port is None
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def ensure_online_reviewer_ingress(
+    ingress: SharedReviewerIngress,
+) -> ReviewerIngressStatus:
+    status = ingress.status()
+    if is_ready_online_reviewer_ingress(status):
+        return status
+    started = ingress.start()
+    if not is_ready_online_reviewer_ingress(started):
+        raise ReviewerIngressError(
+            "REVIEWER_INGRESS_NOT_READY",
+            "Shared Reviewer ingress did not reach a ready online state.",
+        )
+    return started
 
 
 def _run_command(
@@ -333,4 +378,7 @@ __all__ = [
     "ReviewerIngressService",
     "ReviewerIngressState",
     "ReviewerIngressStatus",
+    "SharedReviewerIngress",
+    "ensure_online_reviewer_ingress",
+    "is_ready_online_reviewer_ingress",
 ]

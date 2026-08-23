@@ -10,11 +10,17 @@ from fastapi import APIRouter, Cookie, Depends, Header, Query, Response
 from game_predictor_api.application.remote_manual_selection_access import (
     REMOTE_SELECTION_COOKIE_NAME,
     REMOTE_SELECTION_COOKIE_PATH,
+    REMOTE_SELECTION_PROXY_INTENT,
     RemoteManualSelectionAccessService,
     RemoteManualSelectionAuthenticationError,
+    RemoteManualSelectionAuthorizationError,
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
+)
+from game_predictor_api.application.reviewer_ingress import (
+    ReviewerIngressService,
+    ensure_online_reviewer_ingress,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.remote_manual_selections import (
@@ -32,10 +38,12 @@ from game_predictor_api.schemas.remote_manual_selections import (
 def create_remote_manual_selections_admin_router(
     host_service_dependency: Callable[..., object],
     access_service_dependency: Callable[..., object],
+    ingress_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/remote-manual-selections")
     host_service_parameter = Depends(host_service_dependency)
     access_service_parameter = Depends(access_service_dependency)
+    ingress_service_parameter = Depends(ingress_service_dependency)
 
     @router.post(
         "/base-capabilities",
@@ -67,12 +75,15 @@ def create_remote_manual_selections_admin_router(
     def create_session(
         payload: RemoteManualSelectionSessionCreate,
         service: Annotated[RemoteManualSelectionAccessService, access_service_parameter],
+        ingress: Annotated[ReviewerIngressService, ingress_service_parameter],
     ) -> RemoteManualSelectionSessionCreatedResponse:
+        ingress_status = ensure_online_reviewer_ingress(ingress)
         return RemoteManualSelectionSessionCreatedResponse.from_created(
             service.create(
                 base_capability=payload.base_capability,
                 lifetime_minutes=payload.lifetime_minutes,
-            )
+            ),
+            ingress_status,
         )
 
     @router.get(
@@ -84,11 +95,13 @@ def create_remote_manual_selections_admin_router(
     )
     def list_sessions(
         service: Annotated[RemoteManualSelectionAccessService, access_service_parameter],
+        ingress: Annotated[ReviewerIngressService, ingress_service_parameter],
         limit: Annotated[int, Query(ge=1, le=100)] = 100,
     ) -> RemoteManualSelectionSessionListResponse:
+        ingress_status = ingress.status()
         return RemoteManualSelectionSessionListResponse(
             sessions=[
-                RemoteManualSelectionSessionResponse.from_view(item)
+                RemoteManualSelectionSessionResponse.from_view(item, ingress_status)
                 for item in service.list_sessions(limit=limit)
             ]
         )
@@ -104,8 +117,12 @@ def create_remote_manual_selections_admin_router(
     def get_session(
         session_id: UUID,
         service: Annotated[RemoteManualSelectionAccessService, access_service_parameter],
+        ingress: Annotated[ReviewerIngressService, ingress_service_parameter],
     ) -> RemoteManualSelectionSessionResponse:
-        return RemoteManualSelectionSessionResponse.from_view(service.get_session(session_id))
+        return RemoteManualSelectionSessionResponse.from_view(
+            service.get_session(session_id),
+            ingress.status(),
+        )
 
     @router.post(
         "/sessions/{session_id}/revoke",
@@ -119,7 +136,13 @@ def create_remote_manual_selections_admin_router(
         session_id: UUID,
         service: Annotated[RemoteManualSelectionAccessService, access_service_parameter],
     ) -> RemoteManualSelectionSessionResponse:
-        return RemoteManualSelectionSessionResponse.from_view(service.revoke(session_id))
+        # Revocation is a safety operation and must not depend on the optional
+        # public ingress process being healthy. A later read projects the current
+        # shared ingress URL again if it is available.
+        return RemoteManualSelectionSessionResponse.from_view(
+            service.revoke(session_id),
+            None,
+        )
 
     return router
 
@@ -127,7 +150,10 @@ def create_remote_manual_selections_admin_router(
 def create_remote_manual_selections_public_router(
     access_service_dependency: Callable[..., object],
 ) -> APIRouter:
-    router = APIRouter(prefix="/remote-manual-selections")
+    router = APIRouter(
+        prefix="/remote-manual-selections",
+        dependencies=[Depends(_require_remote_selection_proxy)],
+    )
     access_service_parameter = Depends(access_service_dependency)
     client_header_parameter = Header(alias="X-Remote-Selection-Client")
 
@@ -246,6 +272,19 @@ def _require_cookie(access_token: str | None) -> str:
             "Remote selection access token is required.",
         )
     return access_token
+
+
+def _require_remote_selection_proxy(
+    proxy_intent: Annotated[
+        str | None,
+        Header(alias="X-Remote-Selection-Proxy"),
+    ] = None,
+) -> None:
+    if proxy_intent != REMOTE_SELECTION_PROXY_INTENT:
+        raise RemoteManualSelectionAuthorizationError(
+            "REMOTE_SELECTION_PROXY_REQUIRED",
+            "Remote selection access is available only through the Reviewer proxy.",
+        )
 
 
 def _utc_now() -> datetime:

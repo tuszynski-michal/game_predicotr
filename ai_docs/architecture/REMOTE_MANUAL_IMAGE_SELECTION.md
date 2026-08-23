@@ -1239,7 +1239,7 @@ lease wymagają security-first implementacji.
 
 ### TASK 7: Osobna powierzchnia Reviewera i reuse ingressu
 
-**Status:** `PLANNED`
+**Status:** `DONE` (`v0.7.31`)
 
 **Cel:** Udostępnić wyłącznie shell/unlock/context nowego modułu przez jeden
 istniejący Reviewer i Quick Tunnel.
@@ -1287,7 +1287,9 @@ scope, a istniejący Reviewer/Quick Tunnel lifecycle nie tworzy drugiego procesu
 
 **Ryzyko:** `WYSOKIE`
 
-**Checkpoint przed kontynuacją:** `TAK`
+**Checkpoint przed kontynuacją:** `TAK` — wykonany po zamkniętej macierzy
+allowlisty, lokalnym production E2E i weryfikacji CSP. TASK 8 może rozpocząć
+się dopiero na jawne polecenie użytkownika.
 
 **Model do implementacji:** `gpt-5.6-terra`
 

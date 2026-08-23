@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { reviewerProxyTarget } from '../src/security/reviewer-proxy-policy.ts';
+import {
+  remoteSelectionProxyTarget,
+  reviewerProxyTarget,
+} from '../src/security/reviewer-proxy-policy.ts';
 
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const itemId = '22222222-2222-4222-8222-222222222222';
@@ -85,5 +88,48 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
     ],
   ]) {
     assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
+  }
+});
+
+test('remote selection has a separate closed control-plane allowlist', () => {
+  for (const [method, path] of [
+    ['POST', `/api/v1/remote-manual-selections/sessions/${sessionId}/unlock`],
+    ['GET', '/api/v1/remote-manual-selections/context'],
+    [
+      'POST',
+      `/api/v1/remote-manual-selections/sessions/${sessionId}/writer-lease/heartbeat`,
+    ],
+    [
+      'POST',
+      `/api/v1/remote-manual-selections/sessions/${sessionId}/writer-lease/takeover`,
+    ],
+  ]) {
+    assert.equal(remoteSelectionProxyTarget(method, path), path);
+  }
+});
+
+test('remote selection rejects Reviewer, Admin, binary and malformed routes', () => {
+  for (const [method, path] of [
+    ['POST', `/api/v1/reviewer/sessions/${sessionId}/unlock`],
+    ['GET', '/api/v1/reviewer/context/games'],
+    ['GET', '/api/v1/admin/games'],
+    ['GET', '/api/v1/admin/jobs'],
+    ['POST', '/api/v1/admin/reviewer-ingress/start'],
+    ['GET', `/api/v1/remote-manual-selections/sessions/${sessionId}`],
+    [
+      'PUT',
+      `/api/v1/remote-manual-selections/sessions/${sessionId}/files/${itemId}/content`,
+    ],
+    [
+      'POST',
+      '/api/v1/remote-manual-selections/sessions/11111111-1111-1111-1111-111111111111/unlock',
+    ],
+    ['DELETE', '/api/v1/remote-manual-selections/context'],
+  ]) {
+    assert.equal(
+      remoteSelectionProxyTarget(method, path),
+      null,
+      `${method} ${path}`,
+    );
   }
 });

@@ -581,10 +581,15 @@ def test_remote_manual_selection_host_base_openapi_is_local_and_path_free() -> N
     assert "accesscode" not in serialized_session
     assert "token" not in serialized_session
     assert "path" not in serialized_session
+    assert {"ready", "reviewUrl"} <= set(session_schema["properties"])
     unlock = schema["paths"]["/api/v1/remote-manual-selections/sessions/{session_id}/unlock"][
         "post"
     ]
     assert unlock["operationId"] == "unlockRemoteManualSelectionSession"
+    assert any(
+        parameter["in"] == "header" and parameter["name"] == "X-Remote-Selection-Proxy"
+        for parameter in unlock["parameters"]
+    )
     context = schema["components"]["schemas"]["RemoteManualSelectionContextResponse"]
     assert "accessToken" not in context["properties"]
     assert "gameId" not in context["properties"]

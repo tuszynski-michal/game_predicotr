@@ -101,11 +101,13 @@ POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
 
 Create przyjmuje wyłącznie `baseCapability` i TTL `5..1440` minut. Surowy
 `accessCode` występuje tylko w tej jednej odpowiedzi. Lista i detail pokazują
-status, display name, rewizję, daty, lock/revoke i stan writer lease; nie
+status, display name, rewizję, daty, lock/revoke, stan writer lease, `ready`
+oraz dynamiczny `reviewUrl`; nie
 zwracają kodu, tokenu, client/fencing tokenu ani ścieżki hosta. Create i revoke
 są operacjami high-impact z exact target lokalnego Admina.
 
-Publiczna powierzchnia TASK 6, jeszcze bez proxy Reviewera z TASK 7:
+Publiczna powierzchnia jest osiągalna z przeglądarki wyłącznie przez osobny
+same-origin proxy Reviewera `/selection-api`. Proxy przepuszcza dokładnie:
 
 ```text
 POST /api/v1/remote-manual-selections/sessions/{sessionId}/unlock
@@ -116,9 +118,23 @@ POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/takeover
 
 Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
 purpose-scoped context. Token jest ustawiany jako cookie
-`remote_manual_selection_access` z `HttpOnly`, `Secure`, `SameSite=Strict` i
-`Path=/selection-api`; nigdy nie jest polem JSON. Context wymaga tego cookie i
-nagłówka `X-Remote-Selection-Client`. Nie zawiera `gameId` ani `importJobId`.
+`gp_remote_selection_token` z `HttpOnly`, `Secure`, `SameSite=Strict` i
+`Path=/selection-api`; nigdy nie jest polem JSON. Reviewer tłumaczy je na
+host-only cookie API `remote_manual_selection_access`. Context wymaga cookie i
+`X-Remote-Selection-Client`; nie zawiera `gameId` ani `importJobId`.
+
+Proxy dodaje stały `X-Remote-Selection-Proxy: reviewer-v1`, którego wymagają
+wszystkie publiczne route FastAPI. Nie przekazuje Authorization, legacy cookie
+Reviewera ani `Set-Cookie` upstreamu. Wymusza same-origin Origin/Fetch Metadata,
+JSON i limit 128 KiB dla requestu oraz odpowiedzi. Zapytania, binarne body,
+route Admina, legacy Reviewera, jobów, storage, eksportów i wydań są zabronione.
+API nie ma publicznego CORS i pozostaje na loopback.
+
+Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
+Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać
+`https://<origin>/manual-selection?session=<UUID>` i przy restarcie tunelu
+zmienia wyłącznie origin, bez tworzenia nowej sesji. Revoke działa także przy
+awarii ingressu i nie zatrzymuje współdzielonego tunelu.
 
 Writer lease trwa 45 sekund. Unlock zajmuje wolny lease, ale nie kradnie
 aktywnego lease innego klienta. Heartbeat tego samego klienta przedłuża go

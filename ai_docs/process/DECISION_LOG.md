@@ -5268,6 +5268,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   client-provided lease token odrzucono jako rozszerzające lub osłabiające
   granicę bezpieczeństwa.
 
+## D-220 — Zdalna selekcja współdzieli ingress, ale nie powierzchnię uprawnień
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** jeden produkcyjny Reviewer i jeden Quick Tunnel obsługują legacy
+  review oraz zdalną ręczną selekcję. Selekcja ma osobny shell
+  `/manual-selection`, proxy `/selection-api`, cookie i zamkniętą allowlistę.
+  Publiczny URL sesji jest dynamiczną projekcją bieżącego originu tunelu.
+- **Context:** drugi proces lub tunel zwiększałby ryzyko konfliktów portu, plików
+  runtime i lifecycle. Reuse legacy cookie/allowlisty rozszerzyłby z kolei scope
+  na grę, import i operacje zatwierdzania plansz.
+- **Safety:** proxy tłumaczy purpose-scoped HttpOnly cookie, wymaga stałej
+  intencji backendu i same-origin mutacji, filtruje nagłówki, ogranicza request
+  i response do 128 KiB oraz łączy się tylko z loopback API. Revoke nie zależy
+  od dostępności ani zatrzymania wspólnego ingressu.
+- **Consequences:** restart Quick Tunnel zmienia URL, ale nie session ID. TASK 8
+  rozszerzy tylko allowlistę nowego scope o read-only źródło i workspace;
+  nie może użyć `/review-api` ani publicznego CORS FastAPI.
+- **Rollback:** flaga
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` usuwa shell,
+  proxy i backend route po restarcie, bez kasowania sesji i audytu. Legacy
+  Reviewer pozostaje aktywny.
+- **Alternatives:** drugi Reviewer/tunnel oraz wspólne credentials lub route
+  proxy odrzucono jako bardziej awaryjne albo zbyt szerokie.
+
 ## Szablon nowej decyzji
 
 ```text

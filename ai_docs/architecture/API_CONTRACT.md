@@ -90,6 +90,43 @@ Endpoint można wyłączyć bez zmiany danych przez
 również z runtime OpenAPI. Klient Admina jest generowany z domyślnie włączonego
 kontraktu.
 
+Po uzyskaniu capability lokalny Admin obsługuje trwałe sesje:
+
+```text
+POST /api/v1/admin/remote-manual-selections/sessions
+GET  /api/v1/admin/remote-manual-selections/sessions?limit=1..100
+GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}
+POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
+```
+
+Create przyjmuje wyłącznie `baseCapability` i TTL `5..1440` minut. Surowy
+`accessCode` występuje tylko w tej jednej odpowiedzi. Lista i detail pokazują
+status, display name, rewizję, daty, lock/revoke i stan writer lease; nie
+zwracają kodu, tokenu, client/fencing tokenu ani ścieżki hosta. Create i revoke
+są operacjami high-impact z exact target lokalnego Admina.
+
+Publiczna powierzchnia TASK 6, jeszcze bez proxy Reviewera z TASK 7:
+
+```text
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/unlock
+GET  /api/v1/remote-manual-selections/context
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/heartbeat
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/takeover
+```
+
+Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
+purpose-scoped context. Token jest ustawiany jako cookie
+`remote_manual_selection_access` z `HttpOnly`, `Secure`, `SameSite=Strict` i
+`Path=/selection-api`; nigdy nie jest polem JSON. Context wymaga tego cookie i
+nagłówka `X-Remote-Selection-Client`. Nie zawiera `gameId` ani `importJobId`.
+
+Writer lease trwa 45 sekund. Unlock zajmuje wolny lease, ale nie kradnie
+aktywnego lease innego klienta. Heartbeat tego samego klienta przedłuża go
+idempotentnie, a takeover jest dozwolony dopiero po expiry. Fencing token
+pozostaje wyłącznie w PostgreSQL. Piąta błędna próba blokuje sesję i usuwa token
+oraz lease; revoke robi to natychmiast. Wszystkie te route znikają razem z flagą
+rollbacku TASK 5.
+
 ## Games i symbols
 
 Operacje gier:

@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-15
+last_updated: 2026-08-24
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -707,14 +707,17 @@ TASK-0115 wykonuje się z urządzenia poza domową siecią: unlock, odczyt tylko
 wskazanej gry/importu, jeden zapis, revoke oraz próby wejścia na zabronione
 ścieżki Admina.
 
-Lokalny endpoint wyboru bazy dla zdalnej ręcznej selekcji zdjęć jest domyślnie
-włączony. Awaryjny rollback bez zmiany bazy i istniejących markerów:
+Lokalny endpoint wyboru bazy i purpose-scoped route sesji zdalnej ręcznej
+selekcji zdjęć są domyślnie włączone. Awaryjny rollback bez zmiany bazy,
+audytu i istniejących markerów:
 
 ```powershell
 $env:GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED = 'false'
 npm run api:dev
 ```
 
-Po restarcie API endpoint znika z OpenAPI. Ponowne ustawienie `true` przywraca
-go; capability utworzone przed restartem są celowo nieważne, natomiast binding
-zapisany w PostgreSQL pozostaje trwały.
+Po restarcie API wszystkie te route znikają z OpenAPI. Ponowne ustawienie
+`true` przywraca je. Capability utworzone przed restartem procesu API są celowo
+nieważne; cookie aktywnej sesji pozostaje ważne do TTL, rotacji lub revoke,
+ponieważ binding, hash-only credentials, stan lease i audyt są trwałe w
+PostgreSQL.

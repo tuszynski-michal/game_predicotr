@@ -12,10 +12,16 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.remote_manual_selection_access import (
+    RemoteManualSelectionAccessService,
+    RemoteManualSelectionAuthenticationError,
+    RemoteManualSelectionLeaseConflictError,
+)
 from game_predictor_api.application.remote_manual_selection_host import (
     OWNERSHIP_DIRECTORY,
     OWNERSHIP_MARKER_NAME,
     OWNERSHIP_VERSION_DIRECTORY,
+    ConsumedRemoteManualSelectionBase,
     RemoteManualSelectionHostService,
 )
 from game_predictor_api.config import ApiSettings
@@ -41,13 +47,18 @@ from game_predictor_api.domain.remote_manual_selections import (
 )
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.models import (
+    RemoteManualSelectionAuditEventModel,
     RemoteManualSelectionFileModel,
     RemoteManualSelectionOperationModel,
+    RemoteManualSelectionSessionModel,
+)
+from game_predictor_api.storage.remote_manual_selection_access_repository import (
+    SqlAlchemyRemoteManualSelectionAccessRepository,
 )
 from game_predictor_api.storage.remote_manual_selection_repository import (
     SqlAlchemyRemoteManualSelectionRepository,
 )
-from sqlalchemy import create_engine, insert, text
+from sqlalchemy import create_engine, insert, select, text
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.exc import DBAPIError
 
@@ -645,5 +656,287 @@ def test_delta_indexes_cover_fifteen_thousand_files_and_operations(
         assert len(operations) == 100
         assert "ix_rms_files_delta" in file_plan
         assert "ix_rms_operations_delta" in operation_plan
+    finally:
+        engine.dispose()
+
+
+class _AccessHost:
+    def __init__(self) -> None:
+        self.used = False
+
+    def consume_base_capability(self, capability: str) -> ConsumedRemoteManualSelectionBase:
+        assert capability == "postgres-capability"
+        assert self.used is False
+        self.used = True
+        return ConsumedRemoteManualSelectionBase(
+            base_binding_id=uuid4(),
+            host_base_path=Path(r"C:\host-only\remote-selection"),
+            display_name="remote-selection",
+        )
+
+
+def test_access_session_unlock_restart_and_immediate_revoke_in_postgres(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    host = _AccessHost()
+    try:
+        with session_factory() as session:
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                host,
+                now=lambda: NOW,
+            )
+            created = service.create(
+                base_capability="postgres-capability",
+                lifetime_minutes=60,
+            )
+            session.commit()
+
+        client_id = uuid4()
+        with session_factory() as session:
+            # A fresh service/repository simulates an API restart.
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                _AccessHost(),
+                now=lambda: NOW + timedelta(seconds=1),
+            )
+            unlocked = service.unlock(
+                session_id=created.session.session_id,
+                access_code=created.access_code,
+                client_instance_id=client_id,
+            )
+            session.commit()
+
+        with session_factory() as session:
+            restarted = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                _AccessHost(),
+                now=lambda: NOW + timedelta(seconds=2),
+            )
+            context = restarted.context(
+                access_token=unlocked.access_token,
+                client_instance_id=client_id,
+            )
+            assert context.is_writer is True
+            restarted.revoke(created.session.session_id)
+            session.commit()
+
+        with session_factory() as session:
+            restarted = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                _AccessHost(),
+                now=lambda: NOW + timedelta(seconds=3),
+            )
+            with pytest.raises(RemoteManualSelectionAuthenticationError):
+                restarted.context(
+                    access_token=unlocked.access_token,
+                    client_instance_id=client_id,
+                )
+            record = session.get(
+                RemoteManualSelectionSessionModel,
+                created.session.session_id,
+            )
+            assert record is not None
+            assert record.code_hash != created.access_code.encode()
+            assert record.token_hash is None
+            assert record.writer_lease_token is None
+            audit = tuple(
+                session.scalars(
+                    select(RemoteManualSelectionAuditEventModel).where(
+                        RemoteManualSelectionAuditEventModel.session_id
+                        == created.session.session_id
+                    )
+                )
+            )
+            serialized_audit = repr([event.payload for event in audit])
+            assert created.access_code not in serialized_audit
+            assert unlocked.access_token not in serialized_audit
+            assert record.host_base_path not in serialized_audit
+    finally:
+        engine.dispose()
+
+
+def test_concurrent_writer_takeover_has_exactly_one_winner_in_postgres(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    host = _AccessHost()
+    try:
+        with session_factory() as session:
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                host,
+                now=lambda: NOW,
+            )
+            created = service.create(
+                base_capability="postgres-capability",
+                lifetime_minutes=60,
+            )
+            initial = service.unlock(
+                session_id=created.session.session_id,
+                access_code=created.access_code,
+                client_instance_id=uuid4(),
+            )
+            session.commit()
+
+        contenders = (uuid4(), uuid4())
+        barrier = Barrier(2)
+
+        def takeover(client_id: UUID) -> tuple[str, UUID]:
+            with session_factory() as session:
+                service = RemoteManualSelectionAccessService(
+                    SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                    _AccessHost(),
+                    now=lambda: NOW + timedelta(seconds=46),
+                )
+                barrier.wait(timeout=5)
+                try:
+                    service.takeover(
+                        session_id=created.session.session_id,
+                        access_token=initial.access_token,
+                        client_instance_id=client_id,
+                    )
+                    session.commit()
+                    return "won", client_id
+                except RemoteManualSelectionLeaseConflictError:
+                    session.rollback()
+                    return "conflict", client_id
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = tuple(executor.map(takeover, contenders))
+
+        winners = [client_id for outcome, client_id in results if outcome == "won"]
+        assert len(winners) == 1
+        assert sorted(outcome for outcome, _client_id in results) == ["conflict", "won"]
+        with session_factory() as session:
+            record = session.get(
+                RemoteManualSelectionSessionModel,
+                created.session.session_id,
+            )
+            assert record is not None
+            assert record.writer_client_instance_id == winners[0]
+            assert record.writer_lease_token is not None
+            assert record.writer_lease_expires_at == NOW + timedelta(seconds=91)
+    finally:
+        engine.dispose()
+
+
+def test_concurrent_unlock_rotates_to_one_valid_token_in_postgres(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    host = _AccessHost()
+    try:
+        with session_factory() as session:
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                host,
+                now=lambda: NOW,
+            )
+            created = service.create(
+                base_capability="postgres-capability",
+                lifetime_minutes=60,
+            )
+            session.commit()
+
+        barrier = Barrier(2)
+
+        def unlock(client_id: UUID) -> str:
+            with session_factory() as session:
+                service = RemoteManualSelectionAccessService(
+                    SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                    _AccessHost(),
+                    now=lambda: NOW + timedelta(seconds=1),
+                )
+                barrier.wait(timeout=5)
+                unlocked = service.unlock(
+                    session_id=created.session.session_id,
+                    access_code=created.access_code,
+                    client_instance_id=client_id,
+                )
+                session.commit()
+                return unlocked.access_token
+
+        clients = (uuid4(), uuid4())
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            tokens = tuple(executor.map(unlock, clients))
+
+        valid_count = 0
+        with session_factory() as session:
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                _AccessHost(),
+                now=lambda: NOW + timedelta(seconds=2),
+            )
+            for token, client_id in zip(tokens, clients, strict=True):
+                try:
+                    service.context(access_token=token, client_instance_id=client_id)
+                except RemoteManualSelectionAuthenticationError:
+                    continue
+                valid_count += 1
+        assert valid_count == 1
+    finally:
+        engine.dispose()
+
+
+def test_concurrent_failed_unlocks_cannot_lose_lockout_attempts_in_postgres(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    host = _AccessHost()
+    try:
+        with session_factory() as session:
+            service = RemoteManualSelectionAccessService(
+                SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                host,
+                now=lambda: NOW,
+            )
+            created = service.create(
+                base_capability="postgres-capability",
+                lifetime_minutes=60,
+            )
+            session.commit()
+
+        barrier = Barrier(5)
+
+        def rejected(_index: int) -> str:
+            with session_factory() as session:
+                service = RemoteManualSelectionAccessService(
+                    SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                    _AccessHost(),
+                    now=lambda: NOW + timedelta(seconds=1),
+                )
+                barrier.wait(timeout=5)
+                try:
+                    service.unlock(
+                        session_id=created.session.session_id,
+                        access_code="WRONG-CODE",
+                        client_instance_id=uuid4(),
+                    )
+                except RemoteManualSelectionAuthenticationError as error:
+                    session.commit()
+                    return error.code
+                raise AssertionError("Wrong access code unexpectedly unlocked the session.")
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            codes = tuple(executor.map(rejected, range(5)))
+
+        assert codes.count("REMOTE_SELECTION_ACCESS_CODE_INVALID") == 4
+        assert codes.count("REMOTE_SELECTION_SESSION_LOCKED") == 1
+        with session_factory() as session:
+            record = session.get(
+                RemoteManualSelectionSessionModel,
+                created.session.session_id,
+            )
+            assert record is not None
+            assert record.failed_attempts == 5
+            assert record.locked_at == NOW + timedelta(seconds=1)
+            assert record.token_hash is None
+            assert record.writer_lease_token is None
     finally:
         engine.dispose()

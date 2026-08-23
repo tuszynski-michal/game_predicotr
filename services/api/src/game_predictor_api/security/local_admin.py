@@ -158,6 +158,20 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "POST",
         "/api/v1/admin/reviewer-sessions/{session_id}/revoke",
     ): HighImpactOperation("revoke-reviewer-session", "reviewer-session:{session_id}"),
+    (
+        "POST",
+        "/api/v1/admin/remote-manual-selections/sessions",
+    ): HighImpactOperation(
+        "create-remote-manual-selection-session",
+        "remote-manual-selection-session:new",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke",
+    ): HighImpactOperation(
+        "revoke-remote-manual-selection-session",
+        "remote-manual-selection-session:{session_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(

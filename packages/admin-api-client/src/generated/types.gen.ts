@@ -5176,6 +5176,149 @@ export type RemoteManualSelectionBaseCapabilityResponse = {
 };
 
 /**
+ * RemoteManualSelectionContextResponse
+ */
+export type RemoteManualSelectionContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Iswriter
+   */
+  isWriter: boolean;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: 'active';
+  /**
+   * Writeractive
+   */
+  writerActive: boolean;
+  /**
+   * Writerleaseexpiresat
+   */
+  writerLeaseExpiresAt: string | null;
+};
+
+/**
+ * RemoteManualSelectionSessionCreate
+ */
+export type RemoteManualSelectionSessionCreate = {
+  /**
+   * Basecapability
+   */
+  baseCapability: string;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * RemoteManualSelectionSessionCreatedResponse
+ */
+export type RemoteManualSelectionSessionCreatedResponse = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+  session: RemoteManualSelectionSessionResponse;
+};
+
+/**
+ * RemoteManualSelectionSessionListResponse
+ */
+export type RemoteManualSelectionSessionListResponse = {
+  /**
+   * Sessions
+   */
+  sessions: Array<RemoteManualSelectionSessionResponse>;
+};
+
+/**
+ * RemoteManualSelectionSessionResponse
+ */
+export type RemoteManualSelectionSessionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Lockedat
+   */
+  lockedAt: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Revokedat
+   */
+  revokedAt: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: 'draft' | 'active' | 'completed' | 'expired' | 'revoked';
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Writeractive
+   */
+  writerActive: boolean;
+  /**
+   * Writerleaseexpiresat
+   */
+  writerLeaseExpiresAt: string | null;
+};
+
+/**
+ * RemoteManualSelectionUnlock
+ */
+export type RemoteManualSelectionUnlock = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+};
+
+/**
+ * RemoteManualSelectionWriterLeaseCommand
+ */
+export type RemoteManualSelectionWriterLeaseCommand = {
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+};
+
+/**
  * ReviewAlternative
  */
 export type ReviewAlternative = {
@@ -13453,6 +13596,157 @@ export type SelectRemoteManualSelectionHostBaseResponses = {
 export type SelectRemoteManualSelectionHostBaseResponse =
   SelectRemoteManualSelectionHostBaseResponses[keyof SelectRemoteManualSelectionHostBaseResponses];
 
+export type ListRemoteManualSelectionSessionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/remote-manual-selections/sessions';
+};
+
+export type ListRemoteManualSelectionSessionsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListRemoteManualSelectionSessionsError =
+  ListRemoteManualSelectionSessionsErrors[keyof ListRemoteManualSelectionSessionsErrors];
+
+export type ListRemoteManualSelectionSessionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionListResponse;
+};
+
+export type ListRemoteManualSelectionSessionsResponse =
+  ListRemoteManualSelectionSessionsResponses[keyof ListRemoteManualSelectionSessionsResponses];
+
+export type CreateRemoteManualSelectionSessionData = {
+  body: RemoteManualSelectionSessionCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions';
+};
+
+export type CreateRemoteManualSelectionSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionSessionError =
+  CreateRemoteManualSelectionSessionErrors[keyof CreateRemoteManualSelectionSessionErrors];
+
+export type CreateRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionSessionCreatedResponse;
+};
+
+export type CreateRemoteManualSelectionSessionResponse =
+  CreateRemoteManualSelectionSessionResponses[keyof CreateRemoteManualSelectionSessionResponses];
+
+export type GetRemoteManualSelectionSessionData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}';
+};
+
+export type GetRemoteManualSelectionSessionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionSessionError =
+  GetRemoteManualSelectionSessionErrors[keyof GetRemoteManualSelectionSessionErrors];
+
+export type GetRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionResponse;
+};
+
+export type GetRemoteManualSelectionSessionResponse =
+  GetRemoteManualSelectionSessionResponses[keyof GetRemoteManualSelectionSessionResponses];
+
+export type RevokeRemoteManualSelectionSessionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke';
+};
+
+export type RevokeRemoteManualSelectionSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeRemoteManualSelectionSessionError =
+  RevokeRemoteManualSelectionSessionErrors[keyof RevokeRemoteManualSelectionSessionErrors];
+
+export type RevokeRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionResponse;
+};
+
+export type RevokeRemoteManualSelectionSessionResponse =
+  RevokeRemoteManualSelectionSessionResponses[keyof RevokeRemoteManualSelectionSessionResponses];
+
 export type ListReviewBatchesData = {
   body?: never;
   path?: never;
@@ -15135,6 +15429,163 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetRemoteManualSelectionContextData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/remote-manual-selections/context';
+};
+
+export type GetRemoteManualSelectionContextErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionContextError =
+  GetRemoteManualSelectionContextErrors[keyof GetRemoteManualSelectionContextErrors];
+
+export type GetRemoteManualSelectionContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type GetRemoteManualSelectionContextResponse =
+  GetRemoteManualSelectionContextResponses[keyof GetRemoteManualSelectionContextResponses];
+
+export type UnlockRemoteManualSelectionSessionData = {
+  body: RemoteManualSelectionUnlock;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/unlock';
+};
+
+export type UnlockRemoteManualSelectionSessionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UnlockRemoteManualSelectionSessionError =
+  UnlockRemoteManualSelectionSessionErrors[keyof UnlockRemoteManualSelectionSessionErrors];
+
+export type UnlockRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type UnlockRemoteManualSelectionSessionResponse =
+  UnlockRemoteManualSelectionSessionResponses[keyof UnlockRemoteManualSelectionSessionResponses];
+
+export type HeartbeatRemoteManualSelectionWriterLeaseData = {
+  body: RemoteManualSelectionWriterLeaseCommand;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/heartbeat';
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseError =
+  HeartbeatRemoteManualSelectionWriterLeaseErrors[keyof HeartbeatRemoteManualSelectionWriterLeaseErrors];
+
+export type HeartbeatRemoteManualSelectionWriterLeaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseResponse =
+  HeartbeatRemoteManualSelectionWriterLeaseResponses[keyof HeartbeatRemoteManualSelectionWriterLeaseResponses];
+
+export type TakeoverRemoteManualSelectionWriterLeaseData = {
+  body: RemoteManualSelectionWriterLeaseCommand;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/takeover';
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseError =
+  TakeoverRemoteManualSelectionWriterLeaseErrors[keyof TakeoverRemoteManualSelectionWriterLeaseErrors];
+
+export type TakeoverRemoteManualSelectionWriterLeaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseResponse =
+  TakeoverRemoteManualSelectionWriterLeaseResponses[keyof TakeoverRemoteManualSelectionWriterLeaseResponses];
 
 export type ListReviewerGamesData = {
   body?: never;

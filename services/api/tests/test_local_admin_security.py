@@ -184,6 +184,14 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
         "POST",
         f"/api/v1/admin/reviewer-work-assignments/{job_id}/close",
     )
+    remote_create_operation, remote_create_target = match_high_impact_operation(
+        "POST",
+        "/api/v1/admin/remote-manual-selections/sessions",
+    )
+    remote_revoke_operation, remote_revoke_target = match_high_impact_operation(
+        "POST",
+        f"/api/v1/admin/remote-manual-selections/sessions/{job_id}/revoke",
+    )
 
     assert release_operation is not None
     assert release_operation.action == "delete-mobile-release"
@@ -203,6 +211,12 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert reviewer_close_operation is not None
     assert reviewer_close_operation.action == "close-reviewer-work"
     assert reviewer_close_target == f"reviewer-work:{job_id}"
+    assert remote_create_operation is not None
+    assert remote_create_operation.action == "create-remote-manual-selection-session"
+    assert remote_create_target == "remote-manual-selection-session:new"
+    assert remote_revoke_operation is not None
+    assert remote_revoke_operation.action == "revoke-remote-manual-selection-session"
+    assert remote_revoke_target == f"remote-manual-selection-session:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:

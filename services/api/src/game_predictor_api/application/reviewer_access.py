@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import hmac
-import secrets
-import string
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -13,7 +10,14 @@ from threading import Lock
 from typing import Protocol
 from uuid import UUID, uuid4
 
-_CODE_ALPHABET = string.ascii_uppercase.replace("I", "").replace("O", "") + "23456789"
+from game_predictor_api.application.access_credentials import (
+    generate_access_code,
+    generate_access_token,
+    generate_code_salt,
+    hash_access_code,
+    hash_access_token,
+)
+
 _MAX_FAILED_ATTEMPTS = 5
 
 
@@ -177,8 +181,8 @@ class ReviewerAccessService:
                 "review, and contain boards.",
             )
         now = self._now()
-        code = "-".join("".join(secrets.choice(_CODE_ALPHABET) for _ in range(4)) for _ in range(2))
-        salt = secrets.token_bytes(16)
+        code = generate_access_code()
+        salt = generate_code_salt()
         session = self._repository.add(
             ReviewerAccessSession(
                 id=uuid4(),
@@ -187,7 +191,7 @@ class ReviewerAccessService:
                 created_at=now,
                 expires_at=now + timedelta(minutes=lifetime_minutes),
                 code_salt=salt,
-                code_hash=_hash_code(code, salt),
+                code_hash=hash_access_code(code, salt),
             )
         )
         self._repository.append_audit(session.id, "created", now)
@@ -204,7 +208,7 @@ class ReviewerAccessService:
         assert session is not None
         if not hmac.compare_digest(
             session.code_hash,
-            _hash_code(code.strip().upper(), session.code_salt),
+            hash_access_code(code, session.code_salt),
         ):
             failed_attempts = session.failed_attempts + 1
             locked_at = now if failed_attempts >= _MAX_FAILED_ATTEMPTS else None
@@ -230,12 +234,12 @@ class ReviewerAccessService:
                 if locked_at is not None
                 else "Reviewer access code is invalid.",
             )
-        access_token = secrets.token_urlsafe(32)
+        access_token = generate_access_token()
         unlocked = self._repository.save(
             replace(
                 session,
                 failed_attempts=0,
-                token_hash=_hash_token(access_token),
+                token_hash=hash_access_token(access_token),
                 token_expires_at=session.expires_at,
                 last_unlocked_at=now,
             )
@@ -245,7 +249,7 @@ class ReviewerAccessService:
 
     def authenticate(self, access_token: str) -> ReviewerAccessSession:
         now = self._now()
-        token_hash = _hash_token(access_token)
+        token_hash = hash_access_token(access_token)
         session = self._repository.find_by_token_hash(token_hash)
         self._assert_available(session, now, hide_missing=False)
         assert session is not None
@@ -326,19 +330,6 @@ class ReviewerAccessService:
             self._reviewer_origin() if callable(self._reviewer_origin) else self._reviewer_origin
         )
         return origin.rstrip("/")
-
-
-def _hash_code(code: str, salt: bytes) -> bytes:
-    return hashlib.pbkdf2_hmac(
-        "sha256",
-        code.encode("ascii", errors="ignore"),
-        salt,
-        210_000,
-    )
-
-
-def _hash_token(token: str) -> bytes:
-    return hashlib.sha256(token.encode("ascii", errors="ignore")).digest()
 
 
 __all__ = [

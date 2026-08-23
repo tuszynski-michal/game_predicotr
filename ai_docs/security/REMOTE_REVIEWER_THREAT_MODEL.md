@@ -71,6 +71,20 @@ zmiana final path, case/Unicode collision oraz obcy lub uszkodzony ownership
 marker kończą operację fail-closed. Uchwyt bazy, collection i batch pozostaje
 otwarty przez utworzenie atomowego markera, ograniczając okno TOCTOU.
 
+Zdalna ręczna selekcja ma osobny purpose i nie używa scope
+`gameId/importJobId` istniejącego Reviewera. Kod jest pokazany tylko przy
+lokalnym create, ma maksymalnie pięć trwałych prób i jest przechowywany jako
+PBKDF2-SHA256. Unlock rotuje losowy token zapisany wyłącznie jako SHA-256;
+publiczna odpowiedź ustawia go w cookie `HttpOnly`, `Secure`,
+`SameSite=Strict`, `Path=/selection-api` i nie zawiera bearer w JSON. Revoke i
+piąta błędna próba atomowo usuwają token oraz writer lease.
+
+Jedna sesja ma jeden 45-sekundowy writer lease. Klient przesyła wyłącznie
+`clientInstanceId`; fencing token nie opuszcza bazy. Aktywny lease innego
+klienta daje tryb read-only, heartbeat nie przyjmuje fencing tokenu, a takeover
+przed expiry kończy się konfliktem. Audyt zapisuje wynik i licznik prób, ale
+odrzuca kod, token, salt, lease token i ścieżkę hosta.
+
 `reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
 scope, typ pracy, identyfikator sesji online, fencing token lease, heartbeat i
 historię zamknięcia. Nie zawiera kodu, bearer tokenu, publicznego URL ani

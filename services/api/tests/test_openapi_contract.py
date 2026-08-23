@@ -576,17 +576,30 @@ def test_remote_manual_selection_host_base_openapi_is_local_and_path_free() -> N
         "expiresAt",
     }
     assert "path" not in json.dumps(response_schema).lower()
+    session_schema = schema["components"]["schemas"]["RemoteManualSelectionSessionResponse"]
+    serialized_session = json.dumps(session_schema).lower()
+    assert "accesscode" not in serialized_session
+    assert "token" not in serialized_session
+    assert "path" not in serialized_session
+    unlock = schema["paths"]["/api/v1/remote-manual-selections/sessions/{session_id}/unlock"][
+        "post"
+    ]
+    assert unlock["operationId"] == "unlockRemoteManualSelectionSession"
+    context = schema["components"]["schemas"]["RemoteManualSelectionContextResponse"]
+    assert "accessToken" not in context["properties"]
+    assert "gameId" not in context["properties"]
+    assert "importJobId" not in context["properties"]
 
 
-def test_remote_manual_selection_host_base_route_can_be_disabled() -> None:
+def test_remote_manual_selection_routes_can_be_disabled() -> None:
     settings = ApiSettings.from_environment(
         {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false"}
     )
 
-    assert (
-        "/api/v1/admin/remote-manual-selections/base-capabilities"
-        not in create_app(settings).openapi()["paths"]
-    )
+    paths = create_app(settings).openapi()["paths"]
+    assert "/api/v1/admin/remote-manual-selections/base-capabilities" not in paths
+    assert "/api/v1/admin/remote-manual-selections/sessions" not in paths
+    assert "/api/v1/remote-manual-selections/context" not in paths
 
 
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:

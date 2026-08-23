@@ -1,7 +1,7 @@
 ---
 title: Remote manual image selection architecture and implementation plan
 status: proposed
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 ---
 
 # Zdalna ręczna selekcja zdjęć
@@ -1175,7 +1175,7 @@ najbardziej niebezpieczny element feature'u.
 
 ### TASK 6: Purpose-scoped sesja, kod i writer lease
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.30`
 
 **Cel:** Dodać trwałą, odwoływalną sesję zdalnej selekcji bez rozszerzania
 game/import scope Reviewera.

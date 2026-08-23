@@ -3,10 +3,10 @@
 import json
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -65,6 +65,13 @@ from game_predictor_api.application.mobile_releases import (
 )
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
+)
+from game_predictor_api.application.remote_manual_selection_access import (
+    RemoteManualSelectionAccessError,
+    RemoteManualSelectionAccessNotFoundError,
+    RemoteManualSelectionAccessService,
+    RemoteManualSelectionAuthenticationError,
+    RemoteManualSelectionLeaseConflictError,
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
@@ -209,6 +216,9 @@ from game_predictor_api.storage.mobile_release_repository import (
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
+from game_predictor_api.storage.remote_manual_selection_access_repository import (
+    SqlAlchemyRemoteManualSelectionAccessRepository,
+)
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
@@ -271,6 +281,7 @@ def create_app(
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -414,6 +425,37 @@ def create_app(
     resolved_remote_manual_selection_host_dependency = (
         remote_manual_selection_host_service_dependency
         or (lambda: default_remote_manual_selection_host_service)
+    )
+
+    remote_manual_selection_host_parameter = Depends(
+        resolved_remote_manual_selection_host_dependency
+    )
+
+    def default_remote_manual_selection_access_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionAccessService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionAccessService(
+                    SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                    host_service,
+                )
+                session.commit()
+            except RemoteManualSelectionAccessError:
+                # Failed access attempts, lockout and successful lease mutations
+                # are security state and must survive the HTTP error response.
+                session.commit()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_access_dependency = (
+        remote_manual_selection_access_service_dependency
+        or default_remote_manual_selection_access_service_dependency
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -799,6 +841,7 @@ def create_app(
             resolved_page_geometry_override_dependency,
             resolved_board_cell_geometry_pending_dependency,
             resolved_remote_manual_selection_host_dependency,
+            resolved_remote_manual_selection_access_dependency,
             resolved_settings.artifact_root,
         )
     )
@@ -960,8 +1003,18 @@ def create_app(
         _request: Request,
         error: RemoteManualSelectionError,
     ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, RemoteManualSelectionAccessNotFoundError):
+            status_code = 404
+        elif isinstance(error, RemoteManualSelectionAuthenticationError):
+            status_code = 401
+        elif isinstance(
+            error,
+            RemoteManualSelectionConflictError | RemoteManualSelectionLeaseConflictError,
+        ):
+            status_code = 409
         return JSONResponse(
-            status_code=(409 if isinstance(error, RemoteManualSelectionConflictError) else 422),
+            status_code=status_code,
             content={
                 "code": error.code,
                 "message": error.message,

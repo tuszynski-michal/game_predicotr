@@ -30,6 +30,7 @@ from game_predictor_api.api.mobile_releases import (
 )
 from game_predictor_api.api.remote_manual_selections import (
     create_remote_manual_selections_admin_router,
+    create_remote_manual_selections_public_router,
 )
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
@@ -74,6 +75,7 @@ def create_api_router(
     page_geometry_override_service_dependency: Callable[..., object],
     board_cell_geometry_pending_service_dependency: Callable[..., object],
     remote_manual_selection_host_service_dependency: Callable[..., object],
+    remote_manual_selection_access_service_dependency: Callable[..., object],
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -93,6 +95,12 @@ def create_api_router(
         router.include_router(
             create_remote_manual_selections_admin_router(
                 remote_manual_selection_host_service_dependency,
+                remote_manual_selection_access_service_dependency,
+            )
+        )
+        router.include_router(
+            create_remote_manual_selections_public_router(
+                remote_manual_selection_access_service_dependency,
             )
         )
     router.include_router(

@@ -93,6 +93,9 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreateRemoteManualSelectionSessionData,
+  CreateRemoteManualSelectionSessionErrors,
+  CreateRemoteManualSelectionSessionResponses,
   CreateReviewerSessionData,
   CreateReviewerSessionErrors,
   CreateReviewerSessionResponses,
@@ -233,6 +236,12 @@ import type {
   GetPendingBoardCellGeometrySourceData,
   GetPendingBoardCellGeometrySourceErrors,
   GetPendingBoardCellGeometrySourceResponses,
+  GetRemoteManualSelectionContextData,
+  GetRemoteManualSelectionContextErrors,
+  GetRemoteManualSelectionContextResponses,
+  GetRemoteManualSelectionSessionData,
+  GetRemoteManualSelectionSessionErrors,
+  GetRemoteManualSelectionSessionResponses,
   GetReviewBatchData,
   GetReviewBatchErrors,
   GetReviewBatchResponses,
@@ -274,6 +283,9 @@ import type {
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
+  HeartbeatRemoteManualSelectionWriterLeaseData,
+  HeartbeatRemoteManualSelectionWriterLeaseErrors,
+  HeartbeatRemoteManualSelectionWriterLeaseResponses,
   HeartbeatReviewerWorkAssignmentData,
   HeartbeatReviewerWorkAssignmentErrors,
   HeartbeatReviewerWorkAssignmentResponses,
@@ -342,6 +354,9 @@ import type {
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
+  ListRemoteManualSelectionSessionsData,
+  ListRemoteManualSelectionSessionsErrors,
+  ListRemoteManualSelectionSessionsResponses,
   ListReviewBatchesData,
   ListReviewBatchesErrors,
   ListReviewBatchesResponses,
@@ -480,6 +495,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeRemoteManualSelectionSessionData,
+  RevokeRemoteManualSelectionSessionErrors,
+  RevokeRemoteManualSelectionSessionResponses,
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
@@ -525,6 +543,12 @@ import type {
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
+  TakeoverRemoteManualSelectionWriterLeaseData,
+  TakeoverRemoteManualSelectionWriterLeaseErrors,
+  TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockRemoteManualSelectionSessionData,
+  UnlockRemoteManualSelectionSessionErrors,
+  UnlockRemoteManualSelectionSessionResponses,
   UnlockReviewerSessionData,
   UnlockReviewerSessionErrors,
   UnlockReviewerSessionResponses,
@@ -3507,6 +3531,93 @@ export const selectRemoteManualSelectionHostBase = <
   });
 
 /**
+ * List remote manual selection sessions without secrets
+ */
+export const listRemoteManualSelectionSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListRemoteManualSelectionSessionsData, ThrowOnError>,
+): RequestResult<
+  ListRemoteManualSelectionSessionsResponses,
+  ListRemoteManualSelectionSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListRemoteManualSelectionSessionsResponses,
+    ListRemoteManualSelectionSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/remote-manual-selections/sessions', ...options });
+
+/**
+ * Create one purpose-scoped remote manual selection session
+ */
+export const createRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionSessionResponses,
+  CreateRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionSessionResponses,
+    CreateRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one remote manual selection session without secrets
+ */
+export const getRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionSessionResponses,
+  GetRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionSessionResponses,
+    GetRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}',
+    ...options,
+  });
+
+/**
+ * Immediately revoke one remote manual selection session
+ */
+export const revokeRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeRemoteManualSelectionSessionResponses,
+  RevokeRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeRemoteManualSelectionSessionResponses,
+    RevokeRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke',
+    ...options,
+  });
+
+/**
  * List immutable manual-review batches
  */
 export const listReviewBatches = <ThrowOnError extends boolean = false>(
@@ -4308,6 +4419,99 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
     ...options,
+  });
+
+/**
+ * Read the authenticated remote manual selection context
+ */
+export const getRemoteManualSelectionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionContextData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionContextResponses,
+  GetRemoteManualSelectionContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionContextResponses,
+    GetRemoteManualSelectionContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/remote-manual-selections/context', ...options });
+
+/**
+ * Unlock one purpose-scoped remote manual selection session
+ */
+export const unlockRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockRemoteManualSelectionSessionResponses,
+  UnlockRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockRemoteManualSelectionSessionResponses,
+    UnlockRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Renew the currently owned remote selection writer lease
+ */
+export const heartbeatRemoteManualSelectionWriterLease = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<HeartbeatRemoteManualSelectionWriterLeaseData, ThrowOnError>,
+): RequestResult<
+  HeartbeatRemoteManualSelectionWriterLeaseResponses,
+  HeartbeatRemoteManualSelectionWriterLeaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    HeartbeatRemoteManualSelectionWriterLeaseResponses,
+    HeartbeatRemoteManualSelectionWriterLeaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/heartbeat',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Take over an expired remote selection writer lease
+ */
+export const takeoverRemoteManualSelectionWriterLease = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<TakeoverRemoteManualSelectionWriterLeaseData, ThrowOnError>,
+): RequestResult<
+  TakeoverRemoteManualSelectionWriterLeaseResponses,
+  TakeoverRemoteManualSelectionWriterLeaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    TakeoverRemoteManualSelectionWriterLeaseResponses,
+    TakeoverRemoteManualSelectionWriterLeaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/takeover',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

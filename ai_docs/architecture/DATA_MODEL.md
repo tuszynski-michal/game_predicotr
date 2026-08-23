@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 ---
 
 # Model danych
@@ -39,6 +39,20 @@ Stan protokołu zdalnej ręcznej selekcji jest przechowywany w ośmiu tabelach:
   materializacji, usunięcia i reconciliacji; aktywna akcja jest unikalna dla
   `file + generation + action type`;
 - `remote_manual_selection_audit_events` — append-only audyt bez sekretów.
+
+TASK 6 aktywuje opcjonalne pola poświadczeń i writer lease utworzone w migracji
+`0056`. Kod ma 16-bajtową sól i 32-bajtowy PBKDF2-SHA256 hash; token występuje
+wyłącznie jako 32-bajtowy SHA-256 i wygasa nie później niż sesja. Piąta błędna
+próba ustawia `locked_at` i usuwa token oraz pełną trójkę lease. Revoke ustawia
+status `revoked`, `revoked_at` i również atomowo czyści token/lease.
+
+Aktywny writer jest opisany przez nierozdzielną trójkę
+`writer_client_instance_id + writer_lease_token + writer_lease_expires_at`.
+Klient zna tylko własne `clientInstanceId`; fencing token pozostaje host-only.
+Lease trwa 45 sekund, heartbeat zachowuje token fencing, a takeover tworzy nowy
+token dopiero po expiry. Lookup bearer tokenu przy duplikacie skrótu kończy się
+fail-closed. Nie dodano nowej migracji, ponieważ 0056 zawiera komplet wymaganych
+pól i constraintów.
 
 Composite foreign keys wiążą każdy rekord z tym samym
 `session + batch + file` scope. Operacja domenowa blokuje wiersz partii i pliku,

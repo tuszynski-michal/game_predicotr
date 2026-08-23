@@ -5239,6 +5239,35 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   podatne na TOCTOU; automatyczny suffix i nadpisywanie odrzucono jako
   nieaudytowalne.
 
+## D-219 — Zdalna selekcja ma osobne credentials i host-only writer fencing
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** sesja zdalnej ręcznej selekcji nie korzysta z
+  `reviewer_access_sessions` ani scope `game/import`. Używa wspólnych primitives
+  PBKDF2/token hash, ale własnej tabeli, kodu, rotowanego tokenu i
+  45-sekundowego writer lease. Bearer trafia wyłącznie do ciasteczka
+  `HttpOnly/Secure/SameSite=Strict` o ścieżce `/selection-api`, a fencing token
+  lease pozostaje host-only.
+- **Context:** reuse istniejącej sesji Reviewera rozszerzyłby dostęp do danych
+  gry/importu. Przekazywanie bearer lub fencing tokenu w JSON/URL zwiększałoby
+  ryzyko wycieku i pozwalało klientowi fałszować własność lease.
+- **Safety:** kod jest ujawniany tylko przy create, pięć błędnych prób trwale
+  blokuje sesję, unlock rotuje token, revoke usuwa token i lease. Aktywny lease
+  innego `clientInstanceId` pozostaje read-only; takeover jest dozwolony dopiero
+  po expiry i dostaje nowy host-only fencing token. Audyt nie zawiera sekretów
+  ani ścieżki.
+- **Consequences:** TASK 7 może wystawić cookie wyłącznie przez osobną
+  allowlistę `/selection-api`. Operacje TASK 9 muszą sprawdzać zarówno session
+  token, jak i aktualne writer ownership bez przyjmowania fencing tokenu od
+  przeglądarki.
+- **Rollback:** wyłączyć
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED`; route znikają, a
+  hash-only dane i audyt pozostają do kontrolowanego revoke/retencji.
+- **Alternatives:** reuse bearer Reviewera, token w JSON/localStorage oraz
+  client-provided lease token odrzucono jako rozszerzające lub osłabiające
+  granicę bezpieczeństwa.
+
 ## Szablon nowej decyzji
 
 ```text

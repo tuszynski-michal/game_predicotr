@@ -15,6 +15,32 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Purpose-scoped dostęp i writer lease zdalnej selekcji — v0.7.30
+
+- TASK-0278 wydzielił wspólne primitives kodu/tokena bez zmiany parametrów ani
+  zachowania istniejącego Reviewera: PBKDF2-SHA256 `210000`, sól 16 B i SHA-256
+  tokenu. Regresja Reviewera przeszła bez zmian kontraktu `game/import`.
+- Lokalny Admin może zużyć jednorazową base capability i utworzyć sesję z TTL
+  5 minut–24 godziny. Kod jest pokazany tylko w odpowiedzi create; list/detail
+  nie zawierają kodu, tokenu, client/fencing tokenu ani host path.
+- Publiczne unlock/context nie zawierają bearer w JSON. Unlock rotuje token i
+  ustawia wyłącznie `HttpOnly`, `Secure`, `SameSite=Strict` cookie o ścieżce
+  `/selection-api`. Purpose-scoped context nie ma `gameId/importJobId`.
+- Piąta trwała błędna próba blokuje sesję. Revoke natychmiast czyści token i
+  lease. Jeden 45-sekundowy writer lease jest przypisany do client instance;
+  heartbeat zachowuje host-only fencing token, a takeover działa dopiero po
+  expiry. Audyt pozostaje append-only i path/secret-free.
+- PostgreSQL potwierdził restart, równoległy unlock, pięć współbieżnych błędnych
+  prób oraz exactly-one-winner takeover. PBKDF2 kosztował średnio około
+  `103 ms/hash` na pięciu próbkach na obecnym komputerze.
+- Celowana bramka zakończyła się wynikiem 108/108, a izolowana bramka
+  PostgreSQL 12/12. Ruff, formatowanie i focused mypy są zielone.
+- Pełny historyczny pytest API doszedł do 55% bez błędu, ale został przerwany
+  po 120 sekundach zgodnie z limitem; proces potomny zakończono. Celowane testy,
+  12 testów PostgreSQL, Ruff, focused mypy, OpenAPI i klient są bramką TASK 6.
+- Nie dodano proxy/Quick Tunnel, UI, kolekcji/partii, operacji zdjęć, uploadu ani
+  materializacji. Przed TASK 7 obowiązuje osobny checkpoint bezpieczeństwa.
+
 ### Bezpieczne mapowanie hosta zdalnej selekcji — v0.7.29
 
 - TASK-0277 wydzielił jeden współdzielony, kontrolowany picker Windows bez

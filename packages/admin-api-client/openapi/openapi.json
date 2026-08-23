@@ -9090,6 +9090,255 @@
         "title": "RemoteManualSelectionBaseCapabilityResponse",
         "type": "object"
       },
+      "RemoteManualSelectionContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "isWriter": {
+            "title": "Iswriter",
+            "type": "boolean"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "status": {
+            "const": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "writerActive": {
+            "title": "Writeractive",
+            "type": "boolean"
+          },
+          "writerLeaseExpiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writerleaseexpiresat"
+          }
+        },
+        "required": [
+          "sessionId",
+          "status",
+          "revision",
+          "expiresAt",
+          "isWriter",
+          "writerActive",
+          "writerLeaseExpiresAt"
+        ],
+        "title": "RemoteManualSelectionContextResponse",
+        "type": "object"
+      },
+      "RemoteManualSelectionSessionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "baseCapability": {
+            "maxLength": 200,
+            "minLength": 32,
+            "title": "Basecapability",
+            "type": "string"
+          },
+          "lifetimeMinutes": {
+            "default": 480,
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Lifetimeminutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "baseCapability"
+        ],
+        "title": "RemoteManualSelectionSessionCreate",
+        "type": "object"
+      },
+      "RemoteManualSelectionSessionCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "title": "Accesscode",
+            "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+          }
+        },
+        "required": [
+          "session",
+          "accessCode"
+        ],
+        "title": "RemoteManualSelectionSessionCreatedResponse",
+        "type": "object"
+      },
+      "RemoteManualSelectionSessionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "RemoteManualSelectionSessionListResponse",
+        "type": "object"
+      },
+      "RemoteManualSelectionSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "lockedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lockedat"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revokedat"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active",
+              "completed",
+              "expired",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "writerActive": {
+            "title": "Writeractive",
+            "type": "boolean"
+          },
+          "writerLeaseExpiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writerleaseexpiresat"
+          }
+        },
+        "required": [
+          "sessionId",
+          "status",
+          "revision",
+          "displayName",
+          "createdAt",
+          "updatedAt",
+          "expiresAt",
+          "lockedAt",
+          "revokedAt",
+          "writerActive",
+          "writerLeaseExpiresAt"
+        ],
+        "title": "RemoteManualSelectionSessionResponse",
+        "type": "object"
+      },
+      "RemoteManualSelectionUnlock": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Accesscode",
+            "type": "string"
+          },
+          "clientInstanceId": {
+            "format": "uuid",
+            "title": "Clientinstanceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessCode",
+          "clientInstanceId"
+        ],
+        "title": "RemoteManualSelectionUnlock",
+        "type": "object"
+      },
+      "RemoteManualSelectionWriterLeaseCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "clientInstanceId": {
+            "format": "uuid",
+            "title": "Clientinstanceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientInstanceId"
+        ],
+        "title": "RemoteManualSelectionWriterLeaseCommand",
+        "type": "object"
+      },
       "ReviewAlternative": {
         "additionalProperties": false,
         "properties": {
@@ -24122,6 +24371,272 @@
         ]
       }
     },
+    "/api/v1/admin/remote-manual-selections/sessions": {
+      "get": {
+        "operationId": "listRemoteManualSelectionSessions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionSessionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List remote manual selection sessions without secrets",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      },
+      "post": {
+        "operationId": "createRemoteManualSelectionSession",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteManualSelectionSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionSessionCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create one purpose-scoped remote manual selection session",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/remote-manual-selections/sessions/{session_id}": {
+      "get": {
+        "operationId": "getRemoteManualSelectionSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one remote manual selection session without secrets",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke": {
+      "post": {
+        "operationId": "revokeRemoteManualSelectionSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Immediately revoke one remote manual selection session",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
     "/api/v1/admin/review-batches": {
       "get": {
         "operationId": "listReviewBatches",
@@ -27172,6 +27687,326 @@
         "summary": "Get API health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/context": {
+      "get": {
+        "operationId": "getRemoteManualSelectionContext",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Client",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Client",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read the authenticated remote manual selection context",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/sessions/{session_id}/unlock": {
+      "post": {
+        "operationId": "unlockRemoteManualSelectionSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteManualSelectionUnlock"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlock one purpose-scoped remote manual selection session",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/heartbeat": {
+      "post": {
+        "operationId": "heartbeatRemoteManualSelectionWriterLease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteManualSelectionWriterLeaseCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew the currently owned remote selection writer lease",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/takeover": {
+      "post": {
+        "operationId": "takeoverRemoteManualSelectionWriterLease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteManualSelectionWriterLeaseCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take over an expired remote selection writer lease",
+        "tags": [
+          "remote-manual-selections"
         ]
       }
     },

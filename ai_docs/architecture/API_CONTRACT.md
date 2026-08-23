@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-15
+last_updated: 2026-08-24
 ---
 
 # Kontrakty API i danych mobilnych
@@ -62,12 +62,33 @@ Format błędu:
 /image-imports
 /import-jobs
 /layout-import-validations
+/remote-manual-selections
 /review-batches
 /review-items
 /mobile-releases
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+### Host base zdalnej ręcznej selekcji
+
+Lokalny Admin może otworzyć wyłącznie stały systemowy picker:
+
+```text
+POST /api/v1/admin/remote-manual-selections/base-capabilities
+```
+
+Request nie ma body ani pola ścieżki. Sukces zwraca jednorazowe
+`baseCapability`, bezpieczny `displayName` i `expiresAt`; anulowanie zwraca
+status `cancelled`. Pełna i finalna ścieżka pozostaje host-only. Capability
+wygasa po pięciu minutach i może zostać użyta dokładnie raz przez przyszły
+lokalny workflow tworzenia sesji. Publiczne endpointy, kod i token powstaną
+dopiero w TASK 6.
+
+Endpoint można wyłączyć bez zmiany danych przez
+`GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false`; znika wtedy
+również z runtime OpenAPI. Klient Admina jest generowany z domyślnie włączonego
+kontraktu.
 
 ## Games i symbols
 

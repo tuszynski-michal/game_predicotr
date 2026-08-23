@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 ---
 
 # Decision Log
@@ -5064,7 +5064,7 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 ## D-211 — Niewiarygodna geometria komórek ma trwały stan bez predykcji
 
 - **Status:** accepted
-- **Date:** 2026-08-23
+- **Date:** 2026-08-24
 - **Decision:** brak zweryfikowanej geometrii 3 × 5 zapisuje się jako osobny
   rekord `image_board_geometry_pending`, związany z jobem, źródłem i pozycją
   planszy. Rekord może powstać przed `recognized_board` i nie wymaga utworzenia
@@ -5212,6 +5212,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   produkcyjnych danych bez eksportu, audytu i jawnej decyzji.
 - **Alternatives:** walidację tylko w repozytorium odrzucono, ponieważ nie
   zabezpiecza innych procesów ani bezpośrednich zapisów do bazy.
+
+## D-218 — Host filesystem wymaga final-handle containment i własności
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** zdalnie inicjowane mapowanie katalogu nie przyjmuje ścieżki.
+  Host wybiera bazę stałym pickerem i przekazuje tylko jednorazową opaque
+  capability. Collection i batch są dwoma walidowanymi komponentami, a zapis
+  wymaga final-handle containment, braku reparse w łańcuchu oraz zgodnego,
+  checksumowanego ownership markera.
+- **Context:** tekstowe `resolve()` nie chroni przed junctionem podstawionym po
+  walidacji, case/Unicode collision ani wznowieniem w obcym folderze.
+- **Safety:** adapter trzyma uchwyty bazy, collection i batch bez
+  `FILE_SHARE_DELETE`, ponownie sprawdza final path, nie wykonuje suffix ani
+  overwrite i tworzy marker atomowym rename bez zastępowania celu. Marker bez
+  zgodnego scope/DB blokuje operację; crash po markerze, ale przed commitem DB,
+  można odzyskać tylko z tymi samymi identyfikatorami.
+- **Consequences:** TASK 6 może zużyć capability przy lokalnym tworzeniu sesji,
+  ale publiczny klient nigdy nie otrzyma ścieżki. Materializacja i usuwanie w
+  późniejszych zadaniach muszą zachować ten sam guard oraz własność plików.
+- **Rollback:** ustawienie
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` usuwa lokalny
+  endpoint z runtime OpenAPI bez mutowania istniejących danych.
+- **Alternatives:** `Path.resolve()` i walidację samych stringów odrzucono jako
+  podatne na TOCTOU; automatyczny suffix i nadpisywanie odrzucono jako
+  nieaudytowalne.
 
 ## Szablon nowej decyzji
 

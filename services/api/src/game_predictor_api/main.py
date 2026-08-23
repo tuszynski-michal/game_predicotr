@@ -28,13 +28,13 @@ from game_predictor_api.application.cleanup import (
     CleanupService,
     ManagedCleanupArtifactStore,
 )
+from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
     ImageFolderSelectionService,
-    WindowsFolderPicker,
 )
 from game_predictor_api.application.image_jobs import ImageJobOperationsService
 from game_predictor_api.application.image_review_cohorts import (
@@ -65,6 +65,9 @@ from game_predictor_api.application.mobile_releases import (
 )
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
+)
+from game_predictor_api.application.remote_manual_selection_host import (
+    RemoteManualSelectionHostService,
 )
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
@@ -131,6 +134,10 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseConflictError,
     MobileReleaseError,
     MobileReleaseNotFoundError,
+)
+from game_predictor_api.domain.remote_manual_selections import (
+    RemoteManualSelectionConflictError,
+    RemoteManualSelectionError,
 )
 from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignmentConflictError,
@@ -263,6 +270,7 @@ def create_app(
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -384,9 +392,10 @@ def create_app(
         image_selection_service_dependency or default_image_selection_service_dependency
     )
 
-    default_image_folder_selection_service = ImageFolderSelectionService(
-        WindowsFolderPicker(Path.cwd() / "scripts" / "select_local_image_folder.ps1")
+    controlled_folder_picker = WindowsFolderPicker(
+        Path.cwd() / "scripts" / "select_local_image_folder.ps1"
     )
+    default_image_folder_selection_service = ImageFolderSelectionService(controlled_folder_picker)
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
     )
@@ -398,6 +407,13 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+    default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
+        controlled_folder_picker
+    )
+    resolved_remote_manual_selection_host_dependency = (
+        remote_manual_selection_host_service_dependency
+        or (lambda: default_remote_manual_selection_host_service)
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -782,6 +798,7 @@ def create_app(
             resolved_grid_calibration_dependency,
             resolved_page_geometry_override_dependency,
             resolved_board_cell_geometry_pending_dependency,
+            resolved_remote_manual_selection_host_dependency,
             resolved_settings.artifact_root,
         )
     )
@@ -931,6 +948,20 @@ def create_app(
             status_code = 409
         return JSONResponse(
             status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(RemoteManualSelectionError)
+    async def handle_remote_manual_selection_error(
+        _request: Request,
+        error: RemoteManualSelectionError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=(409 if isinstance(error, RemoteManualSelectionConflictError) else 422),
             content={
                 "code": error.code,
                 "message": error.message,

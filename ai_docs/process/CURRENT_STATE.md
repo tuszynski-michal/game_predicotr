@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 ---
 
 # Current State
@@ -14,6 +14,30 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.7 implementation: board import and review operations`
+
+### Bezpieczne mapowanie hosta zdalnej selekcji — v0.7.29
+
+- TASK-0277 wydzielił jeden współdzielony, kontrolowany picker Windows bez
+  caller-controlled command/path. Równoległa próba z importu i zdalnej
+  selekcji nie może otworzyć drugiego okna.
+- Lokalny endpoint zwraca tylko pięciominutową, jednorazową opaque capability,
+  display name i expiry. OpenAPI oraz generowany klient nie zawierają ścieżki
+  hosta; request nie przyjmuje body.
+- Centralna polityka nazw wymusza NFC, case-insensitive key, rzeczywiste limity
+  filesystemu oraz blokuje traversal, drive/UNC, separatory, reserved names,
+  kontrolne znaki i końcową kropkę/spację.
+- Final-handle guard blokuje reparse/symlink/junction i trzyma uchwyty bez
+  `FILE_SHARE_DELETE` podczas utworzenia collection/batch. Batch dostaje
+  atomowy, checksumowany marker własności; zgodny marker pozwala odzyskać
+  crash-window po rollbacku DB i wznowić po restarcie.
+- Testy: 104/104 celowanych unit/API/kontraktu/security oraz 8/8 izolowanych
+  PostgreSQL. Junction i podstawienie TOCTOU przeszły na realnym
+  Windows. OpenAPI, klient, PowerShell, Ruff i focused mypy są zielone.
+- Pełny mypy monorepo został przerwany po ponad 60 sekundach bez wyniku;
+  osierocony proces został zakończony. Nie rozpoczęto TASK 6.
+- Rollback: ustawić
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` i uruchomić API
+  ponownie; endpoint znika bez zmiany bazy ani markerów.
 
 ### Trwały model zdalnej ręcznej selekcji — v0.7.28
 

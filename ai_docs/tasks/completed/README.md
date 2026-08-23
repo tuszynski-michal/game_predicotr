@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 ---
 
 # Ukończone zadania
@@ -46,6 +46,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0274 — Wspólny silnik ręcznej selekcji i adapter lokalny](0274-manual-image-selection-shared-core.md)
 - [TASK-0275 — Kontrakty domenowe zdalnej ręcznej selekcji](0275-remote-manual-selection-domain-contracts.md)
 - [TASK-0276 — Trwały model zdalnej ręcznej selekcji](0276-remote-manual-selection-persistence.md)
+- [TASK-0277 — Host base binding i bezpieczne mapowanie Windows](0277-remote-manual-selection-host-path-safety.md)
 
 ## Zawartość
 

@@ -5154,6 +5154,28 @@ export type PendingSymbolReinferencePreviewResponse = {
 };
 
 /**
+ * RemoteManualSelectionBaseCapabilityResponse
+ */
+export type RemoteManualSelectionBaseCapabilityResponse = {
+  /**
+   * Basecapability
+   */
+  baseCapability?: string | null;
+  /**
+   * Displayname
+   */
+  displayName?: string | null;
+  /**
+   * Expiresat
+   */
+  expiresAt?: string | null;
+  /**
+   * Status
+   */
+  status: 'selected' | 'cancelled';
+};
+
+/**
  * ReviewAlternative
  */
 export type ReviewAlternative = {
@@ -13395,6 +13417,41 @@ export type PreviewMobileReleaseDeletionResponses = {
 
 export type PreviewMobileReleaseDeletionResponse =
   PreviewMobileReleaseDeletionResponses[keyof PreviewMobileReleaseDeletionResponses];
+
+export type SelectRemoteManualSelectionHostBaseData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/base-capabilities';
+};
+
+export type SelectRemoteManualSelectionHostBaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type SelectRemoteManualSelectionHostBaseError =
+  SelectRemoteManualSelectionHostBaseErrors[keyof SelectRemoteManualSelectionHostBaseErrors];
+
+export type SelectRemoteManualSelectionHostBaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionBaseCapabilityResponse;
+};
+
+export type SelectRemoteManualSelectionHostBaseResponse =
+  SelectRemoteManualSelectionHostBaseResponses[keyof SelectRemoteManualSelectionHostBaseResponses];
 
 export type ListReviewBatchesData = {
   body?: never;

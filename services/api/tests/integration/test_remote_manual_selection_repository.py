@@ -12,6 +12,12 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.remote_manual_selection_host import (
+    OWNERSHIP_DIRECTORY,
+    OWNERSHIP_MARKER_NAME,
+    OWNERSHIP_VERSION_DIRECTORY,
+    RemoteManualSelectionHostService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionBatchStatus,
@@ -271,6 +277,76 @@ def test_sql_repository_roundtrip_and_exact_retry(remote_database: URL) -> None:
         assert public_session == _session()
         assert not hasattr(public_session, "host_base_path")
         assert not hasattr(public_session, "token_hash")
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows host path boundary")
+def test_host_binding_marker_recovers_rollback_and_survives_service_restart(
+    remote_database: URL,
+    tmp_path: Path,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    base = tmp_path / "remote-output"
+    base.mkdir()
+    try:
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.add_session(
+                _session(),
+                base_binding_id=BINDING_ID,
+                host_base_path=str(base),
+                display_name=base.name,
+            )
+            session.commit()
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            orphaned = RemoteManualSelectionHostService(lambda: None).provision_batch_mapping(
+                repository,
+                session_id=SESSION_ID,
+                collection=_collection(),
+                batch=_batch(),
+                total_file_count=2201,
+            )
+            session.rollback()  # Crash window: marker persisted, DB transaction did not.
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            recovered = RemoteManualSelectionHostService(lambda: None).provision_batch_mapping(
+                repository,
+                session_id=SESSION_ID,
+                collection=_collection(),
+                batch=_batch(),
+                total_file_count=2201,
+            )
+            session.commit()
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            resumed = RemoteManualSelectionHostService(lambda: None).provision_batch_mapping(
+                repository,
+                session_id=SESSION_ID,
+                collection=_collection(),
+                batch=_batch(),
+                total_file_count=2201,
+            )
+            session.commit()
+
+        marker = (
+            base
+            / "777"
+            / "1-19809"
+            / OWNERSHIP_DIRECTORY
+            / OWNERSHIP_VERSION_DIRECTORY
+            / OWNERSHIP_MARKER_NAME
+        )
+        assert orphaned.created is True and orphaned.resumed is False
+        assert recovered.created is True and recovered.resumed is True
+        assert resumed.created is False and resumed.resumed is True
+        assert marker.is_file()
+        assert str(base).lower() not in marker.read_text(encoding="utf-8").lower()
     finally:
         engine.dispose()
 

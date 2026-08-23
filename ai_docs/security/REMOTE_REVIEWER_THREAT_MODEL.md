@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-08-20
+last_updated: 2026-08-24
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -62,6 +62,14 @@ sesji i kodu.
 | ponowne użycie PID albo stary plik stanu | pełna tożsamość procesu obejmuje PID, czas startu, executable i losowy instance id; niezgodny proces nie jest zatrzymywany |
 | zatrzymanie nowszej instancji przez spóźnione żądanie | wewnętrzny compare-and-stop wymaga zgodnego instance id i pozostawia nowszą instancję bez zmian |
 | blokada wspólnego pliku logu lub wyniku | każda próba startu i każde wywołanie kontrolera API używa unikalnej ścieżki |
+
+Host base zdalnej selekcji jest wybierany wyłącznie przez stały lokalny picker.
+Publiczny request nie zawiera ścieżki. Każdy komponent collection/batch jest
+walidowany jako pojedyncza nazwa Windows, a finalne katalogi są otwierane przez
+uchwyty bez `FILE_SHARE_DELETE`. Reparse point/junction w istniejącym łańcuchu,
+zmiana final path, case/Unicode collision oraz obcy lub uszkodzony ownership
+marker kończą operację fail-closed. Uchwyt bazy, collection i batch pozostaje
+otwarty przez utworzenie atomowego markera, ograniczając okno TOCTOU.
 
 `reviewer_work_assignments` nie rozszerza granicy dostępu. Tabela przechowuje
 scope, typ pracy, identyfikator sesji online, fencing token lease, heartbeat i

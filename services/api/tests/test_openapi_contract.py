@@ -1,3 +1,5 @@
+import json
+
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 
@@ -532,9 +534,7 @@ def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> No
 
 def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
-    list_path = schema["paths"][
-        "/api/v1/admin/games/{game_id}/reviewer-work-assignments"
-    ]
+    list_path = schema["paths"]["/api/v1/admin/games/{game_id}/reviewer-work-assignments"]
     local_path = schema["paths"][
         "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local"
     ]
@@ -544,9 +544,7 @@ def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
     heartbeat_path = schema["paths"][
         "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat"
     ]
-    close_path = schema["paths"][
-        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"
-    ]
+    close_path = schema["paths"]["/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"]
 
     assert list_path["get"]["operationId"] == "listReviewerWorkAssignments"
     assert local_path["post"]["operationId"] == "openLocalReviewerWork"
@@ -562,6 +560,33 @@ def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
         "assignment",
         "created",
     }
+
+
+def test_remote_manual_selection_host_base_openapi_is_local_and_path_free() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    operation = schema["paths"]["/api/v1/admin/remote-manual-selections/base-capabilities"]["post"]
+
+    assert operation["operationId"] == "selectRemoteManualSelectionHostBase"
+    assert "requestBody" not in operation
+    response_schema = schema["components"]["schemas"]["RemoteManualSelectionBaseCapabilityResponse"]
+    assert set(response_schema["properties"]) == {
+        "status",
+        "baseCapability",
+        "displayName",
+        "expiresAt",
+    }
+    assert "path" not in json.dumps(response_schema).lower()
+
+
+def test_remote_manual_selection_host_base_route_can_be_disabled() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false"}
+    )
+
+    assert (
+        "/api/v1/admin/remote-manual-selections/base-capabilities"
+        not in create_app(settings).openapi()["paths"]
+    )
 
 
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:

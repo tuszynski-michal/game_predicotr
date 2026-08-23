@@ -9038,6 +9038,58 @@
         "title": "PendingSymbolReinferencePreviewResponse",
         "type": "object"
       },
+      "RemoteManualSelectionBaseCapabilityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baseCapability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basecapability"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "status": {
+            "enum": [
+              "selected",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RemoteManualSelectionBaseCapabilityResponse",
+        "type": "object"
+      },
       "ReviewAlternative": {
         "additionalProperties": false,
         "properties": {
@@ -24010,6 +24062,63 @@
         "summary": "Preview complete deletion of one mobile release",
         "tags": [
           "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/remote-manual-selections/base-capabilities": {
+      "post": {
+        "operationId": "selectRemoteManualSelectionHostBase",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionBaseCapabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Select a local host base for remote manual image selection",
+        "tags": [
+          "remote-manual-selections"
         ]
       }
     },

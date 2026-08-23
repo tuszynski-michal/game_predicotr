@@ -21,6 +21,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_root.is_absolute()
     assert settings.import_root.name == "imports"
     assert settings.import_max_bytes == 1024 * 1024 * 1024
+    assert settings.remote_manual_selection_host_mapping_enabled is True
 
 
 @pytest.mark.parametrize(
@@ -82,6 +83,10 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_IMPORT_MAX_BYTES": "one"},
             "GAME_PREDICTOR_IMPORT_MAX_BYTES",
         ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "yes"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -121,3 +126,11 @@ def test_import_root_and_limit_are_configurable(tmp_path) -> None:
 
     assert settings.import_root == import_root.resolve()
     assert settings.import_max_bytes == 2048
+
+
+def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false"}
+    )
+
+    assert settings.remote_manual_selection_host_mapping_enabled is False

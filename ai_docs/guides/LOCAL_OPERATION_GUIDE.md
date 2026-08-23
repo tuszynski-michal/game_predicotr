@@ -706,3 +706,15 @@ Stały adres wymaga później named tunnel i osobnej decyzji. Pełny test odbior
 TASK-0115 wykonuje się z urządzenia poza domową siecią: unlock, odczyt tylko
 wskazanej gry/importu, jeden zapis, revoke oraz próby wejścia na zabronione
 ścieżki Admina.
+
+Lokalny endpoint wyboru bazy dla zdalnej ręcznej selekcji zdjęć jest domyślnie
+włączony. Awaryjny rollback bez zmiany bazy i istniejących markerów:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED = 'false'
+npm run api:dev
+```
+
+Po restarcie API endpoint znika z OpenAPI. Ponowne ustawienie `true` przywraca
+go; capability utworzone przed restartem są celowo nieważne, natomiast binding
+zapisany w PostgreSQL pozostaje trwały.

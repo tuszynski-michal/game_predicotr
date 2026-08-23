@@ -495,6 +495,9 @@ import type {
   SelectLocalImageFolderData,
   SelectLocalImageFolderErrors,
   SelectLocalImageFolderResponses,
+  SelectRemoteManualSelectionHostBaseData,
+  SelectRemoteManualSelectionHostBaseErrors,
+  SelectRemoteManualSelectionHostBaseResponses,
   SelectSymbolImageCandidateData,
   SelectSymbolImageCandidateErrors,
   SelectSymbolImageCandidateResponses,
@@ -3478,6 +3481,28 @@ export const previewMobileReleaseDeletion = <
     ThrowOnError
   >({
     url: '/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview',
+    ...options,
+  });
+
+/**
+ * Select a local host base for remote manual image selection
+ */
+export const selectRemoteManualSelectionHostBase = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SelectRemoteManualSelectionHostBaseData, ThrowOnError>,
+): RequestResult<
+  SelectRemoteManualSelectionHostBaseResponses,
+  SelectRemoteManualSelectionHostBaseErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectRemoteManualSelectionHostBaseResponses,
+    SelectRemoteManualSelectionHostBaseErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/base-capabilities',
     ...options,
   });
 

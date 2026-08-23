@@ -1109,7 +1109,7 @@ naprawienia po powstaniu danych.
 
 ### TASK 5: Host base binding i bezpieczne mapowanie Windows
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.29`
 
 **Cel:** Pozwolić hostowi wybrać jedyną bazę zapisu i bezpiecznie tworzyć
 collection/batch bez sterowania ścieżką przez remote.
@@ -2351,7 +2351,7 @@ manualnej selekcji.
 
 ### REGUŁA R-002: Zapis host filesystem wymaga containment i własności
 
-**Status:** `DO AKCEPTACJI`
+**Status:** `ZAAKCEPTOWANA — D-218`
 
 **Problem:** Walidacja tekstowej ścieżki nie chroni przed junction/reparse,
 TOCTOU ani nadpisaniem obcego pliku.
@@ -2374,7 +2374,8 @@ tests.
 **Wpływ na dokumentację:** Po akceptacji dopisać do security i standardu
 adapterów filesystem.
 
-**Rekomendacja:** `AKCEPTUJ REGUŁĘ R-002`.
+**Rekomendacja:** zrealizowana w TASK 5; rozszerzenia materializacji muszą
+zachować D-218.
 
 ### REGUŁA R-003: Operacje, transfer i materializacja są osobnymi kolejkami
 

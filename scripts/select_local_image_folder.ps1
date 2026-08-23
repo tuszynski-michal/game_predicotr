@@ -16,7 +16,7 @@ public static class GamePredictorFolderPickerWindow {
 '@
 
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = 'Wybierz folder ze zdjęciami layoutów'
+$dialog.Description = 'Wybierz folder na komputerze'
 $dialog.ShowNewFolderButton = $false
 
 $owner = New-Object System.Windows.Forms.Form

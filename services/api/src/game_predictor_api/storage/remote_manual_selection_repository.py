@@ -131,6 +131,13 @@ class SqlAlchemyRemoteManualSelectionRepository:
         self._persist(record)
         return _collection_from_record(record)
 
+    def get_collection(
+        self,
+        collection_id: UUID,
+    ) -> RemoteManualSelectionCollectionV1 | None:
+        record = self._session.get(RemoteManualSelectionCollectionModel, collection_id)
+        return None if record is None else _collection_from_record(record)
+
     def add_batch(
         self,
         value: RemoteManualSelectionBatchV1,
@@ -493,6 +500,12 @@ class InMemoryRemoteManualSelectionRepository:
                 raise _persistence_conflict()
             self.collections[value.id] = value
             return value
+
+    def get_collection(
+        self,
+        collection_id: UUID,
+    ) -> RemoteManualSelectionCollectionV1 | None:
+        return self.collections.get(collection_id)
 
     def add_batch(
         self,

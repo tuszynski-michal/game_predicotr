@@ -36,6 +36,7 @@ class ApiSettings:
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
+    remote_manual_selection_host_mapping_enabled: bool = True
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -98,6 +99,10 @@ class ApiSettings:
             ),
             variable_name="GAME_PREDICTOR_REVIEW_SOURCE_ROOT",
         )
+        remote_manual_selection_host_mapping_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
+        )
         return cls(
             host=host,
             port=port,
@@ -110,6 +115,9 @@ class ApiSettings:
             image_selection_max_bytes=image_selection_max_bytes,
             review_crop_root=review_crop_root,
             review_source_root=review_source_root,
+            remote_manual_selection_host_mapping_enabled=(
+                remote_manual_selection_host_mapping_enabled
+            ),
         )
 
 
@@ -132,6 +140,15 @@ def _parse_positive_integer(value: str, *, variable_name: str) -> int:
     if parsed < 1:
         raise ConfigurationError(f"{variable_name} must be positive.")
     return parsed
+
+
+def _parse_boolean(value: str, *, variable_name: str) -> bool:
+    candidate = value.strip().lower()
+    if candidate == "true":
+        return True
+    if candidate == "false":
+        return False
+    raise ConfigurationError(f"{variable_name} must be true or false.")
 
 
 def _parse_local_root(value: str, *, variable_name: str) -> Path:

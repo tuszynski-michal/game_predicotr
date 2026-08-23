@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_imports import _geometry_manifest_descriptor
+from game_predictor_api.application import controlled_folder_picker as folder_picker_module
 from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
@@ -20,6 +21,9 @@ from game_predictor_api.application.image_imports import (
 )
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.remote_manual_selection_host import (
+    RemoteManualSelectionHostService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalService,
@@ -65,7 +69,7 @@ def test_native_folder_picker_overrides_hidden_parent_window(
             stderr="",
         )
 
-    monkeypatch.setattr(image_imports_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(folder_picker_module.subprocess, "run", fake_run)
 
     result = WindowsFolderPicker(script).choose()
 
@@ -135,6 +139,31 @@ def test_only_one_native_folder_picker_can_be_open() -> None:
 
         with pytest.raises(JobConflictError) as error:
             service.select()
+
+        assert error.value.code == "IMAGE_FOLDER_PICKER_ALREADY_OPEN"
+        release.set()
+        assert first_selection.result(timeout=1) is None
+
+
+def test_fixed_picker_serializes_image_import_and_remote_host_windows() -> None:
+    entered = Event()
+    release = Event()
+    picker = WindowsFolderPicker(Path("controlled.ps1"))
+
+    def blocking_picker() -> None:
+        entered.set()
+        assert release.wait(timeout=2)
+        return None
+
+    picker._choose_exclusive = blocking_picker  # type: ignore[method-assign]
+    image_service = ImageFolderSelectionService(picker)
+    remote_service = RemoteManualSelectionHostService(picker)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_selection = executor.submit(image_service.select)
+        assert entered.wait(timeout=1)
+
+        with pytest.raises(JobConflictError) as error:
+            remote_service.select_base()
 
         assert error.value.code == "IMAGE_FOLDER_PICKER_ALREADY_OPEN"
         release.set()

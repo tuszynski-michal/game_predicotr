@@ -1,0 +1,529 @@
+"""Host-only base capability and ownership-bound directory provisioning."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from collections.abc import Callable
+from contextlib import suppress
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from secrets import token_urlsafe
+from threading import Lock
+from typing import Protocol
+from uuid import UUID, uuid4
+
+from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
+from game_predictor_api.application.remote_manual_selection_path_safety import (
+    LockedWindowsBase,
+    ValidatedWindowsComponent,
+    WindowsPathGuard,
+    validate_windows_component,
+)
+from game_predictor_api.domain.remote_manual_selections import (
+    RemoteManualSelectionBatchV1,
+    RemoteManualSelectionCollectionV1,
+    RemoteManualSelectionConflictError,
+    RemoteManualSelectionError,
+)
+from game_predictor_api.storage.remote_manual_selection_repository import (
+    RemoteManualSelectionHostBinding,
+)
+
+BASE_CAPABILITY_TTL = timedelta(minutes=5)
+OWNERSHIP_SCHEMA = "remote-manual-selection-ownership-v1"
+OWNERSHIP_DIRECTORY = ".game-predictor"
+OWNERSHIP_VERSION_DIRECTORY = "remote-selection-v1"
+OWNERSHIP_MARKER_NAME = "ownership.json"
+MAX_OWNERSHIP_MARKER_BYTES = 16 * 1024
+
+
+class RemoteManualSelectionHostRepository(Protocol):
+    def get_host_binding_for_update(
+        self,
+        session_id: UUID,
+    ) -> RemoteManualSelectionHostBinding | None: ...
+
+    def get_collection(
+        self,
+        collection_id: UUID,
+    ) -> RemoteManualSelectionCollectionV1 | None: ...
+
+    def add_collection(
+        self,
+        value: RemoteManualSelectionCollectionV1,
+    ) -> RemoteManualSelectionCollectionV1: ...
+
+    def get_batch(self, batch_id: UUID) -> RemoteManualSelectionBatchV1 | None: ...
+
+    def add_batch(
+        self,
+        value: RemoteManualSelectionBatchV1,
+        *,
+        base_binding_id: UUID,
+        normalized_collection_name: str,
+        normalized_batch_name: str,
+        total_file_count: int,
+    ) -> RemoteManualSelectionBatchV1: ...
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionBaseCapability:
+    capability: str
+    display_name: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ConsumedRemoteManualSelectionBase:
+    """Host-internal value consumed by the future session creation service."""
+
+    base_binding_id: UUID
+    host_base_path: Path
+    display_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionBatchMapping:
+    session_id: UUID
+    collection_id: UUID
+    batch_id: UUID
+    collection_name: str
+    batch_name: str
+    created: bool
+    resumed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _StoredBaseCapability:
+    value: RemoteManualSelectionBaseCapability
+    base_binding_id: UUID
+    host_base_path: Path
+
+
+@dataclass(frozen=True, slots=True)
+class _OwnershipMarker:
+    session_id: UUID
+    collection_id: UUID
+    batch_id: UUID
+    base_binding_id: UUID
+    normalized_collection_name: str
+    normalized_batch_name: str
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "baseBindingId": str(self.base_binding_id),
+            "batchId": str(self.batch_id),
+            "collectionId": str(self.collection_id),
+            "normalizedBatchName": self.normalized_batch_name,
+            "normalizedCollectionName": self.normalized_collection_name,
+            "schemaVersion": OWNERSHIP_SCHEMA,
+            "sessionId": str(self.session_id),
+        }
+
+    @property
+    def checksum_sha256(self) -> str:
+        return hashlib.sha256(_canonical_json(self.payload())).hexdigest()
+
+    def encoded(self) -> bytes:
+        return (
+            _canonical_json(
+                {
+                    **self.payload(),
+                    "ownershipChecksumSha256": self.checksum_sha256,
+                }
+            )
+            + b"\n"
+        )
+
+
+class RemoteManualSelectionHostService:
+    """Local-only host filesystem boundary for remote manual selection."""
+
+    def __init__(
+        self,
+        picker: WindowsFolderPicker | Callable[[], Path | None],
+        *,
+        path_guard: WindowsPathGuard | None = None,
+        clock: Callable[[], datetime] | None = None,
+        capability_ttl: timedelta = BASE_CAPABILITY_TTL,
+    ) -> None:
+        self._picker = picker.choose if isinstance(picker, WindowsFolderPicker) else picker
+        self._path_guard = path_guard or WindowsPathGuard()
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._capability_ttl = capability_ttl
+        self._capabilities: dict[str, _StoredBaseCapability] = {}
+        self._lock = Lock()
+        self._picker_lock = Lock()
+        self._mapping_lock = Lock()
+
+    def select_base(self) -> RemoteManualSelectionBaseCapability | None:
+        if not self._picker_lock.acquire(blocking=False):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_BASE_PICKER_ALREADY_OPEN",
+                "A host base selection window is already open.",
+            )
+        try:
+            selected_path = self._picker()
+        finally:
+            self._picker_lock.release()
+        if selected_path is None:
+            return None
+        bound = self._path_guard.inspect_base(selected_path)
+        now = self._clock()
+        capability = RemoteManualSelectionBaseCapability(
+            capability=token_urlsafe(32),
+            display_name=bound.display_name,
+            expires_at=now + self._capability_ttl,
+        )
+        stored = _StoredBaseCapability(
+            value=capability,
+            base_binding_id=uuid4(),
+            host_base_path=bound.final_path,
+        )
+        with self._lock:
+            self._drop_expired(now)
+            self._capabilities[capability.capability] = stored
+        return capability
+
+    def consume_base_capability(self, capability: str) -> ConsumedRemoteManualSelectionBase:
+        now = self._clock()
+        with self._lock:
+            self._drop_expired(now)
+            stored = self._capabilities.pop(capability, None)
+        if stored is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_BASE_CAPABILITY_INVALID",
+                "The host base capability is invalid or expired.",
+            )
+        rebound = self._path_guard.inspect_base(stored.host_base_path)
+        if _path_key(rebound.final_path) != _path_key(stored.host_base_path):
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_PATH_UNSAFE",
+                "The selected host base final path changed.",
+            )
+        return ConsumedRemoteManualSelectionBase(
+            base_binding_id=stored.base_binding_id,
+            host_base_path=rebound.final_path,
+            display_name=stored.value.display_name,
+        )
+
+    def provision_batch_mapping(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        collection: RemoteManualSelectionCollectionV1,
+        batch: RemoteManualSelectionBatchV1,
+        total_file_count: int,
+    ) -> RemoteManualSelectionBatchMapping:
+        with self._mapping_lock:
+            return self._provision_batch_mapping_exclusive(
+                repository,
+                session_id=session_id,
+                collection=collection,
+                batch=batch,
+                total_file_count=total_file_count,
+            )
+
+    def _provision_batch_mapping_exclusive(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        collection: RemoteManualSelectionCollectionV1,
+        batch: RemoteManualSelectionBatchV1,
+        total_file_count: int,
+    ) -> RemoteManualSelectionBatchMapping:
+        if collection.session_id != session_id or batch.session_id != session_id:
+            raise _scope_error()
+        if batch.collection_id != collection.id:
+            raise _scope_error()
+        binding = repository.get_host_binding_for_update(session_id)
+        if binding is None:
+            raise _scope_error()
+
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            if collection.normalized_name != collection_component.normalized_name:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_PATH_NORMALIZATION_MISMATCH",
+                    "The collection normalized name does not match the Windows key.",
+                )
+
+            existing_collection = repository.get_collection(collection.id)
+            if existing_collection is None:
+                try:
+                    repository.add_collection(collection)
+                except RemoteManualSelectionConflictError:
+                    existing_collection = repository.get_collection(collection.id)
+                    if existing_collection != collection:
+                        raise
+            elif existing_collection != collection:
+                raise _scope_error()
+
+            existing_batch = repository.get_batch(batch.id)
+            if existing_batch is None:
+                try:
+                    repository.add_batch(
+                        batch,
+                        base_binding_id=binding.base_binding_id,
+                        normalized_collection_name=collection_component.normalized_name,
+                        normalized_batch_name=batch_component.normalized_name,
+                        total_file_count=total_file_count,
+                    )
+                except RemoteManualSelectionConflictError:
+                    existing_batch = repository.get_batch(batch.id)
+                    if existing_batch is None:
+                        raise
+                    _assert_same_batch_identity(existing_batch, batch)
+            else:
+                _assert_same_batch_identity(existing_batch, batch)
+
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection_component.normalized_name,
+                normalized_batch_name=batch_component.normalized_name,
+            )
+            resumed = self._provision_filesystem(
+                locked,
+                collection_component=collection_component,
+                batch_component=batch_component,
+                marker=marker,
+                database_mapping_exists=existing_batch is not None,
+            )
+        return RemoteManualSelectionBatchMapping(
+            session_id=session_id,
+            collection_id=collection.id,
+            batch_id=batch.id,
+            collection_name=collection_component.display_name,
+            batch_name=batch_component.display_name,
+            created=existing_batch is None,
+            resumed=resumed,
+        )
+
+    def _provision_filesystem(
+        self,
+        locked: LockedWindowsBase,
+        *,
+        collection_component: ValidatedWindowsComponent,
+        batch_component: ValidatedWindowsComponent,
+        marker: _OwnershipMarker,
+        database_mapping_exists: bool,
+    ) -> bool:
+        collection = collection_component
+        batch = batch_component
+        base_path = locked.bound_base.final_path
+        existing_collection_path = locked.open_existing_child(base_path, collection)
+        if database_mapping_exists and existing_collection_path is None:
+            raise _path_conflict("The persisted collection directory is missing.")
+        collection_path, _collection_created = (
+            locked.open_or_create_child(base_path, collection)
+            if existing_collection_path is None
+            else (existing_collection_path, False)
+        )
+        existing_batch_path = locked.open_existing_child(collection_path, batch)
+        if database_mapping_exists and existing_batch_path is None:
+            raise _path_conflict("The persisted batch directory is missing.")
+        batch_path, batch_created = (
+            locked.open_or_create_child(collection_path, batch)
+            if existing_batch_path is None
+            else (existing_batch_path, False)
+        )
+        if batch_created:
+            self._create_marker(locked, batch_path, marker)
+            return False
+        self._verify_marker(locked, batch_path, marker)
+        return True
+
+    def _create_marker(
+        self,
+        locked: LockedWindowsBase,
+        batch_path: Path,
+        expected: _OwnershipMarker,
+    ) -> None:
+        internal_component = validate_windows_component(
+            OWNERSHIP_DIRECTORY,
+            limits=locked.bound_base.limits,
+        )
+        version_component = validate_windows_component(
+            OWNERSHIP_VERSION_DIRECTORY,
+            limits=locked.bound_base.limits,
+        )
+        internal_path, _created = locked.open_or_create_child(batch_path, internal_component)
+        version_path, _created = locked.open_or_create_child(internal_path, version_component)
+        marker_path = version_path / OWNERSHIP_MARKER_NAME
+        if marker_path.exists():
+            self._verify_marker_at_path(locked, marker_path, expected)
+            return
+        temporary_path = version_path / f".{OWNERSHIP_MARKER_NAME}.{uuid4().hex}.tmp"
+        descriptor = -1
+        try:
+            descriptor = os.open(temporary_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb", closefd=True) as stream:
+                descriptor = -1
+                stream.write(expected.encoded())
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                # Windows rename in one directory is atomic and does not replace
+                # an existing destination.  This also works on volumes without
+                # hard-link support.
+                os.rename(temporary_path, marker_path)
+            except FileExistsError:
+                self._verify_marker_at_path(locked, marker_path, expected)
+        except OSError as error:
+            raise _path_conflict("The ownership marker could not be created atomically.") from error
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+            with suppress(OSError):
+                temporary_path.unlink(missing_ok=True)
+
+    def _verify_marker(
+        self,
+        locked: LockedWindowsBase,
+        batch_path: Path,
+        expected: _OwnershipMarker,
+    ) -> None:
+        internal_component = validate_windows_component(
+            OWNERSHIP_DIRECTORY,
+            limits=locked.bound_base.limits,
+        )
+        version_component = validate_windows_component(
+            OWNERSHIP_VERSION_DIRECTORY,
+            limits=locked.bound_base.limits,
+        )
+        internal_path = locked.open_existing_child(batch_path, internal_component)
+        if internal_path is None:
+            raise _path_conflict("The existing batch has no ownership marker.")
+        version_path = locked.open_existing_child(internal_path, version_component)
+        if version_path is None:
+            raise _path_conflict("The existing batch has no ownership marker.")
+        marker_path = version_path / OWNERSHIP_MARKER_NAME
+        if not marker_path.exists():
+            raise _path_conflict("The existing batch has no ownership marker.")
+        self._verify_marker_at_path(locked, marker_path, expected)
+
+    def _verify_marker_at_path(
+        self,
+        locked: LockedWindowsBase,
+        marker_path: Path,
+        expected: _OwnershipMarker,
+    ) -> None:
+        payload = locked.read_regular_file(
+            marker_path,
+            max_bytes=MAX_OWNERSHIP_MARKER_BYTES,
+        )
+        actual = _parse_ownership_marker(payload)
+        if actual != expected:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_OWNERSHIP_CONFLICT",
+                "The existing batch belongs to a different or invalid mapping.",
+            )
+
+    def _drop_expired(self, now: datetime) -> None:
+        expired = [
+            token for token, stored in self._capabilities.items() if stored.value.expires_at <= now
+        ]
+        for token in expired:
+            self._capabilities.pop(token, None)
+
+
+def _parse_ownership_marker(payload: bytes) -> _OwnershipMarker:
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise _path_conflict("The ownership marker is invalid.") from error
+    expected_keys = {
+        "baseBindingId",
+        "batchId",
+        "collectionId",
+        "normalizedBatchName",
+        "normalizedCollectionName",
+        "ownershipChecksumSha256",
+        "schemaVersion",
+        "sessionId",
+    }
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise _path_conflict("The ownership marker is invalid.")
+    if value.get("schemaVersion") != OWNERSHIP_SCHEMA:
+        raise _path_conflict("The ownership marker schema is unsupported.")
+    checksum = value.pop("ownershipChecksumSha256", None)
+    if (
+        not isinstance(checksum, str)
+        or checksum != hashlib.sha256(_canonical_json(value)).hexdigest()
+    ):
+        raise _path_conflict("The ownership marker checksum is invalid.")
+    try:
+        return _OwnershipMarker(
+            session_id=UUID(str(value["sessionId"])),
+            collection_id=UUID(str(value["collectionId"])),
+            batch_id=UUID(str(value["batchId"])),
+            base_binding_id=UUID(str(value["baseBindingId"])),
+            normalized_collection_name=str(value["normalizedCollectionName"]),
+            normalized_batch_name=str(value["normalizedBatchName"]),
+        )
+    except (ValueError, TypeError, KeyError) as error:
+        raise _path_conflict("The ownership marker is invalid.") from error
+
+
+def _assert_same_batch_identity(
+    existing: RemoteManualSelectionBatchV1,
+    requested: RemoteManualSelectionBatchV1,
+) -> None:
+    if (
+        existing.id != requested.id
+        or existing.session_id != requested.session_id
+        or existing.collection_id != requested.collection_id
+        or existing.name != requested.name
+        or existing.source_manifest_checksum_sha256 != requested.source_manifest_checksum_sha256
+        or existing.first_layout != requested.first_layout
+        or existing.direction != requested.direction
+    ):
+        raise _scope_error()
+
+
+def _canonical_json(value: dict[str, object]) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def _path_key(path: Path) -> str:
+    return os.path.normcase(os.path.normpath(os.path.abspath(path)))
+
+
+def _scope_error() -> RemoteManualSelectionError:
+    return RemoteManualSelectionError(
+        "REMOTE_SELECTION_SCOPE_MISMATCH",
+        "The host mapping scope is invalid.",
+    )
+
+
+def _path_conflict(message: str) -> RemoteManualSelectionConflictError:
+    return RemoteManualSelectionConflictError("REMOTE_SELECTION_PATH_COLLISION", message)
+
+
+__all__ = [
+    "BASE_CAPABILITY_TTL",
+    "ConsumedRemoteManualSelectionBase",
+    "RemoteManualSelectionBaseCapability",
+    "RemoteManualSelectionBatchMapping",
+    "RemoteManualSelectionHostService",
+]

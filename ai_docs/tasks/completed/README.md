@@ -43,6 +43,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0253 — Widoczność stagingu importu plansz i nazewnictwo panelu](0253-board-import-staging-visibility-and-terminology.md)
 - [TASK-0272 — Analiza zdalnej ręcznej selekcji zdjęć](0272-remote-manual-image-selection-analysis.md)
 - [TASK-0273 — Browser capability zdalnego źródła](0273-remote-source-browser-capability-spike.md)
+- [TASK-0274 — Wspólny silnik ręcznej selekcji i adapter lokalny](0274-manual-image-selection-shared-core.md)
 
 ## Zawartość
 

@@ -6,23 +6,23 @@ import {
   adjacentManualNavigationStep,
   createManualSelectionState,
   INDEPENDENT_MANUAL_SELECTION_ID,
-  isMissingManualDirectoryHandleError,
-  listManualImages,
   MANUAL_IMAGE_NAVIGATION_STEPS,
+  manualPreviewWindow,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
-  relinkManualSelectionSession,
-  removeManagedManualOutput,
-  writeManualOutputManifest,
-  writeManualTraceManifest,
-  type ManualImageFile,
   type ManualSelectionDecision,
-  type ManualSelectionSessionRecord,
   type ManualSelectionState,
   type ManualSelectionTraceEvent,
-  writeManualOutput,
-} from './manual-image-selection';
+} from '@game-predictor/manual-image-selection-core';
+import {
+  FileSystemManualSelectionOutputAdapter,
+  FileSystemManualSelectionSourceAdapter,
+  isMissingManualDirectoryHandleError,
+  relinkManualSelectionSession,
+  type ManualImageFile,
+  type ManualSelectionSessionRecord,
+} from './manual-image-selection-fsa-adapter';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
 
 interface DirectoryPickerWindow extends Window {
@@ -184,10 +184,13 @@ export function ManualImageSelectionWorkspace() {
     }
 
     const generation = imageCacheGenerationRef.current;
-    const keepFrom = Math.max(0, currentImageIndex - 3);
-    const keepTo = Math.min(images.length - 1, currentImageIndex + 3);
+    const previewIndexes = manualPreviewWindow(
+      currentImageIndex,
+      images.length,
+    );
+    const previewIndexSet = new Set(previewIndexes);
     for (const [index, url] of imageUrlCacheRef.current.entries()) {
-      if (index < keepFrom || index > keepTo) {
+      if (!previewIndexSet.has(index)) {
         URL.revokeObjectURL(url);
         imageUrlCacheRef.current.delete(index);
       }
@@ -214,7 +217,9 @@ export function ManualImageSelectionWorkspace() {
           }
           const latestIndex =
             stateRef.current?.currentIndex ?? currentImageIndex;
-          if (Math.abs(index - latestIndex) > 3) {
+          if (
+            !manualPreviewWindow(latestIndex, images.length).includes(index)
+          ) {
             URL.revokeObjectURL(url);
             throw new Error('STALE_IMAGE_WINDOW');
           }
@@ -226,14 +231,9 @@ export function ManualImageSelectionWorkspace() {
       return load;
     };
 
-    const neighbours = [
-      currentImageIndex + 1,
-      currentImageIndex - 1,
-      currentImageIndex + 2,
-      currentImageIndex - 2,
-      currentImageIndex + 3,
-      currentImageIndex - 3,
-    ].filter((index) => index >= 0 && index < images.length);
+    const neighbours = previewIndexes.filter(
+      (index) => index !== currentImageIndex,
+    );
 
     void loadUrl(currentImageIndex)
       .then((url) => {
@@ -407,7 +407,9 @@ export function ManualImageSelectionWorkspace() {
     setLoading(true);
     try {
       const directory = await pickDirectory('read');
-      const found = await listManualImages(directory);
+      const found = await new FileSystemManualSelectionSourceAdapter(
+        directory,
+      ).listImages();
       if (found.length === 0)
         throw new Error('Wybrany folder nie zawiera plików JPG/JPEG.');
       setSourceDirectory(directory);
@@ -484,7 +486,9 @@ export function ManualImageSelectionWorkspace() {
       let found: ManualImageFile[];
       try {
         await requestPermission(sourceHandle, 'read');
-        found = await listManualImages(sourceHandle);
+        found = await new FileSystemManualSelectionSourceAdapter(
+          sourceHandle,
+        ).listImages();
       } catch (cause) {
         if (isMissingManualDirectoryHandleError(cause)) {
           setResumeRecovery('source');
@@ -583,12 +587,9 @@ export function ManualImageSelectionWorkspace() {
     setError(null);
     const range = rangeForStart(currentState.nextRangeStart);
     try {
-      const output = await writeManualOutput(
+      const output = await new FileSystemManualSelectionOutputAdapter(
         outputDirectory,
-        current,
-        range.start,
-        range.end,
-      );
+      ).writeAcceptedOutput(current, range.start, range.end);
       const decision: ManualSelectionDecision = {
         action: 'accepted',
         imageChecksum: output.checksum,
@@ -603,10 +604,9 @@ export function ManualImageSelectionWorkspace() {
         Math.min(currentState.currentIndex + 1, images.length - 1),
       );
       await persist(nextState);
-      await writeManualOutputManifest(outputDirectory, {
-        ...record,
-        state: nextState,
-      });
+      await new FileSystemManualSelectionOutputAdapter(
+        outputDirectory,
+      ).writeOutputManifest({ ...record, state: nextState });
       await appendDecisionTrace(
         'accepted',
         current,
@@ -653,10 +653,9 @@ export function ManualImageSelectionWorkspace() {
       );
       await persist(nextState);
       if (outputDirectory !== null) {
-        await writeManualOutputManifest(outputDirectory, {
-          ...record,
-          state: nextState,
-        });
+        await new FileSystemManualSelectionOutputAdapter(
+          outputDirectory,
+        ).writeOutputManifest({ ...record, state: nextState });
       }
       await appendDecisionTrace(
         'skipped',
@@ -682,14 +681,15 @@ export function ManualImageSelectionWorkspace() {
     setError(null);
     try {
       if (last.action === 'accepted' && outputDirectory !== null) {
-        await removeManagedManualOutput(outputDirectory, last);
+        await new FileSystemManualSelectionOutputAdapter(
+          outputDirectory,
+        ).removeManagedOutput(last);
       }
       await persist(previous);
       if (outputDirectory !== null) {
-        await writeManualOutputManifest(outputDirectory, {
-          ...record,
-          state: previous,
-        });
+        await new FileSystemManualSelectionOutputAdapter(
+          outputDirectory,
+        ).writeOutputManifest({ ...record, state: previous });
       }
       const traceImage =
         (last.imagePath === null
@@ -750,7 +750,9 @@ export function ManualImageSelectionWorkspace() {
     setError(null);
     try {
       const events = await store.loadTraceEvents(workspaceId, record.key);
-      await writeManualTraceManifest(outputDirectory, record, events);
+      await new FileSystemManualSelectionOutputAdapter(
+        outputDirectory,
+      ).writeTraceManifest(record, events);
     } catch (cause) {
       setError(
         cause instanceof Error

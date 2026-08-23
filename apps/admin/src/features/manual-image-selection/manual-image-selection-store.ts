@@ -1,9 +1,10 @@
 'use client';
 
 import type {
-  ManualSelectionSessionRecord,
+  ManualSelectionSessionPort,
   ManualSelectionTraceEvent,
-} from './manual-image-selection';
+} from '@game-predictor/manual-image-selection-core';
+import type { ManualSelectionSessionRecord } from './manual-image-selection-fsa-adapter.ts';
 
 const DATABASE_NAME = 'game-predictor-manual-image-selection';
 const DATABASE_VERSION = 2;
@@ -44,7 +45,7 @@ export function migrateLegacyManualSelectionSession(
   };
 }
 
-export class ManualImageSelectionStore {
+export class ManualImageSelectionStore implements ManualSelectionSessionPort<ManualSelectionSessionRecord> {
   private readonly factory: IDBFactory | undefined;
 
   constructor(factory: IDBFactory | undefined = globalThis.indexedDB) {

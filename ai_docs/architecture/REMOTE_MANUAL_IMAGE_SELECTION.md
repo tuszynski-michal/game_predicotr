@@ -913,7 +913,7 @@ rozróżnienia możliwości od gwarancji browser API.
 
 ### TASK 2: Wspólny silnik selekcji i adapter lokalny
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.26`
 
 **Cel:** Oddzielić czystą domenę/nawigację od File System Access bez zmiany
 używanego lokalnego zachowania.

@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Wspólny core ręcznej selekcji — v0.7.26
+
+- TASK-0274 wydzielił `@game-predictor/manual-image-selection-core` z czystą
+  maszyną zakresów, decyzjami, naturalnym sortowaniem, polityką bounded preview
+  oraz frontend-internal portami source/output/session.
+- Lokalny Admin korzysta z adapterów File System Access i istniejącego store
+  IndexedDB v2. Zachowano skróty, zoom, scroll, zakresy `+9`, checksum guard i
+  oba manifesty v1; nie dodano API, outboxu, formatu v2 ani zdalnego UI.
+- Core ma 4/4 testy, Admin 245/245. Przeszły typecheck core/Admin, lint Admina
+  i produkcyjny build Admina. TASK 2 ma wymagany checkpoint przed TASK 3.
+
 ### Browser capability zdalnej ręcznej selekcji — v0.7.25
 
 - TASK-0273 kończy TASK 1 planu zdalnej ręcznej selekcji decyzją

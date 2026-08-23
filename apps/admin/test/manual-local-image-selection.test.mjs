@@ -15,6 +15,10 @@ import {
   writeManualOutputManifest,
 } from '../src/features/manual-image-selection/manual-image-selection.ts';
 import {
+  FileSystemManualSelectionOutputAdapter,
+  FileSystemManualSelectionSourceAdapter,
+} from '../src/features/manual-image-selection/manual-image-selection-fsa-adapter.ts';
+import {
   latestLegacyManualSelectionSession,
   migrateLegacyManualSelectionSession,
 } from '../src/features/manual-image-selection/manual-image-selection-store.ts';
@@ -28,7 +32,7 @@ const workspaceSource = await readFile(
 );
 const selectionSource = await readFile(
   new URL(
-    '../src/features/manual-image-selection/manual-image-selection.ts',
+    '../src/features/manual-image-selection/manual-image-selection-fsa-adapter.ts',
     import.meta.url,
   ),
   'utf8',
@@ -283,14 +287,116 @@ test('renders the navigation step selector with a readable dark popup', () => {
 
 test('indexes handles without opening every JPEG and preloads a bounded neighbour window', () => {
   const listing = selectionSource.slice(
-    selectionSource.indexOf('export async function listManualImages'),
-    selectionSource.indexOf('export function naturalCompare'),
+    selectionSource.indexOf('async listImages'),
+    selectionSource.indexOf(
+      '\n}\n\nexport class FileSystemManualSelectionOutputAdapter',
+    ) + 2,
   );
   assert.doesNotMatch(listing, /getFile\(/);
-  assert.match(workspaceSource, /currentImageIndex \+ 3/);
-  assert.match(workspaceSource, /currentImageIndex - 3/);
+  assert.match(workspaceSource, /manualPreviewWindow\(/);
   assert.match(workspaceSource, /preview\.decode\(\)/);
   assert.match(workspaceSource, /saveQueueRef/);
+});
+
+test('keeps source listing read-only and naturally ordered through the source port', async () => {
+  let openedFiles = 0;
+  const file = (name) => ({
+    kind: 'file',
+    name,
+    getFile: async () => {
+      openedFiles += 1;
+      return new File(['jpeg'], name, { type: 'image/jpeg' });
+    },
+  });
+  const folder = (name, entries) => ({
+    kind: 'directory',
+    name,
+    entries: async function* () {
+      yield* entries;
+    },
+  });
+  const directory = folder('root', [
+    ['10.jpg', file('10.jpg')],
+    ['nested', folder('nested', [['2.jpeg', file('2.jpeg')]])],
+    ['ignore.png', file('ignore.png')],
+  ]);
+
+  const images = await new FileSystemManualSelectionSourceAdapter(
+    directory,
+  ).listImages();
+
+  assert.deepEqual(
+    images.map((image) => image.relativePath),
+    ['10.jpg', 'nested/2.jpeg'],
+  );
+  assert.equal(openedFiles, 0);
+});
+
+test('output port preserves v1 manifests and never removes a foreign file', async () => {
+  const saved = new Map();
+  const directory = {
+    getFileHandle: async (name, options) => {
+      if (options?.create !== true && !saved.has(name)) {
+        throw new DOMException('missing', 'NotFoundError');
+      }
+      return {
+        createWritable: async () => ({
+          abort: async () => undefined,
+          close: async () => undefined,
+          write: async (value) => {
+            const content =
+              typeof value === 'string'
+                ? value
+                : await new Response(value).text();
+            saved.set(name, new File([content], name));
+          },
+        }),
+        getFile: async () => saved.get(name),
+      };
+    },
+    removeEntry: async (name) => saved.delete(name),
+  };
+  const adapter = new FileSystemManualSelectionOutputAdapter(directory);
+  const state = nextManualSelectionState(
+    createManualSelectionState(1, 'ascending'),
+    {
+      action: 'accepted',
+      imageChecksum: 'a'.repeat(64),
+      imagePath: '001.jpg',
+      outputName: 'seq_1-9.jpg',
+      rangeEnd: 9,
+      rangeStart: 1,
+    },
+    1,
+  );
+  const record = {
+    gameId: 'local-independent-manual-image-selection',
+    key: 'session-1',
+    sourceDirectoryName: 'source',
+    state,
+  };
+
+  await adapter.writeOutputManifest(record);
+  const manifest = JSON.parse(
+    await saved.get('manual-image-selection-output-v1.json').text(),
+  );
+  assert.equal(manifest.schemaVersion, 1);
+  assert.deepEqual(manifest.items, [
+    {
+      imageChecksum: 'a'.repeat(64),
+      imagePath: '001.jpg',
+      outputName: 'seq_1-9.jpg',
+      rangeEnd: 9,
+      rangeStart: 1,
+    },
+  ]);
+
+  saved.set('seq_1-9.jpg', new File(['foreign'], 'seq_1-9.jpg'));
+  await assert.rejects(
+    adapter.removeManagedOutput(state.decisions[0]),
+    /Nie usuwam obcego pliku/,
+  );
+  assert.equal(saved.has('seq_1-9.jpg'), true);
 });
 
 test('defines durable output and training trace manifests', () => {

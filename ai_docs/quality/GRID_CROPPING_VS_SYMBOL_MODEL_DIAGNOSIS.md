@@ -84,11 +84,16 @@ checksumę i celowo nie przechodzi starej kontroli.
 
 ## Następne kroki
 
-TASK 2 rozszerzy benchmark do 300 stron i zweryfikuje automatyczne v19 na
-różnych stagingach przed jakąkolwiek zmianą pełnego pipeline'u. Trening modelu
+TASK 2 rozszerzył benchmark do 300 stron i zweryfikował automatyczne v19 na
+sześciu stagingach. Jakość trafień przeszła bramki, ale automatyczne pokrycie
+`93,78%` nie osiągnęło wymaganego `98%`, dlatego checkpoint blokuje aktywację i
+TASK 3. Szczegóły zawiera
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`. Trening modelu
 pozostaje poza zakresem do czasu zaliczenia tej bramki.
 
 ## Changelog
 
 - 2026-08-23 — utworzono wersję v1 z immutable A/B i kontrolą tego samego
   snapshotu modelu.
+- 2026-08-23 — TASK 2 zakończył cross-staging shadow benchmark wynikiem
+  `REJECTED_FOR_ROLLOUT` z powodu niewystarczającego pokrycia.

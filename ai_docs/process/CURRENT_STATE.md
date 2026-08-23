@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Cross-staging shadow benchmark geometrii v19 — v0.7.15
+
+- TASK 2 dodał read-only, content-addressed benchmark 300 stron / 2700 plansz:
+  po 50 stron z sześciu przypiętych stagingów, kompletna galeria i challenge 81
+  ręcznie poprawionych plansz odziedziczony z niezmiennego raportu TASK 1.
+- Dwa niezależne zapisy i osobny `--check` odtworzyły manifest
+  `8640084933f74586e2a429120ac29835c7e7fa20d9ac52d91c9c2f271c22473f`.
+  Czasy są celowo przechowywane w osobnych raportach, aby obciążenie komputera
+  nie zmieniało checksumy wyniku jakościowego.
+- Automatyczne trafienia spełniają bramki jakości: zero katastrofalnych
+  przesunięć, `95,61%` accuracy symboli i `73,68%` całych plansz w challenge.
+- Checkpoint ma status `REJECTED_FOR_ROLLOUT`: pokrycie wynosi `93,78%`
+  (`2532/2700`) zamiast wymaganych minimum `98%`; 168 plansz zostało bezpiecznie
+  odroczonych bez częściowych cropów ani inferencji.
+- Produkcyjny estymator, cropper, joby, decyzje, baza i aktywny model nie zostały
+  zmienione. TASK 3 nie może rozpocząć się przed osobną poprawą pokrycia i
+  ponownym zaliczeniem benchmarku.
+- Raport: `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`.
+
 ### Read-only diagnoza cropów v18/v19 — v0.7.14
 
 - TASK 1 przygotował `grid-cropping-vs-symbol-model-diagnosis-v1`: powtarzalny,

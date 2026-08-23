@@ -219,6 +219,17 @@ def test_registered_page_requires_exact_attested_nine_board_range() -> None:
     assert caught.value.code == "BOARD_CELL_GEOMETRY_AUDIT_SEQUENCE_RANGE_INVALID"
 
 
+def test_registered_pages_accept_the_current_auto_anchor_manifest_version() -> None:
+    checksum = "1" * 64
+    manifest = _manifest({checksum: _page_entry("seq_1-9.jpg")})
+    manifest["version"] = "page-geometry-preflight-v2-auto-anchor"
+
+    pages = registered_pages(manifest)
+
+    assert len(pages) == 1
+    assert pages[0].sequence_start == 1
+
+
 def test_registered_page_rejects_unsafe_path() -> None:
     checksum = "1" * 64
     entry = _page_entry("../seq_1-9.jpg")

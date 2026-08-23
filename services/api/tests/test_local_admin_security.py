@@ -265,6 +265,13 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def create_job() -> dict[str, bool]:
         return {"created": True}
 
+    @app.post(
+        "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
+        "board-cell-geometry-pending/{pending_id}/manual-resolution"
+    )
+    def resolve_pending_geometry(pending_id: str) -> dict[str, str]:
+        return {"pendingId": pending_id}
+
     headers = {
         "Origin": "http://127.0.0.1:3001",
         "X-Admin-Intent": "local-owner",
@@ -286,9 +293,16 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "/api/v1/admin/image-review-items/review-item/geometry-preview",
             headers=headers | {"Origin": "https://attacker.example"},
         )
+        accepted_pending_resolution = client.post(
+            "/api/v1/admin/games/game/image-imports/import/"
+            "board-cell-geometry-pending/pending/manual-resolution",
+            headers=headers,
+        )
 
     assert accepted.status_code == 200
     assert accepted.json() == {"itemId": "review-item"}
+    assert accepted_pending_resolution.status_code == 200
+    assert accepted_pending_resolution.json() == {"pendingId": "pending"}
     assert forbidden_admin_mutation.status_code == 403
     assert forbidden_admin_mutation.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
     assert foreign_origin.status_code == 403

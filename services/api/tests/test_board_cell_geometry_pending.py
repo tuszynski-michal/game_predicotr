@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import fields, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import cv2
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.board_cell_geometry_pending import (
+    BoardCellGeometryCorrectionContext,
+    BoardCellGeometryManualResolution,
+    BoardCellGeometryManualResolutionProjection,
     BoardCellGeometryPendingRepository,
     BoardCellGeometryPendingService,
     BoardCellProcessingManifestStore,
     ManagedBoardCellProcessingManifestStore,
 )
+from game_predictor_api.application.reviewer_access import ReviewerAccessError
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryJobCounts,
@@ -22,8 +29,17 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellProcessingManifestV1,
     ImageBoardGeometryPending,
 )
-from game_predictor_api.domain.jobs import JobError
+from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+from game_predictor_api.domain.jobs import JobConflictError, JobError
+from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.manual_board_cell_geometry_preview import (
+    ManualBoardCellGeometryPreviewer,
+)
+from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+    ManualBoardCellSymbolPrediction,
+    ManualBoardCellSymbolPredictionError,
+)
 
 
 class MemoryManifestStore(BoardCellProcessingManifestStore):
@@ -39,6 +55,11 @@ class MemoryPendingRepository(BoardCellGeometryPendingRepository):
     def __init__(self) -> None:
         self.values: list[ImageBoardGeometryPending] = []
         self.human_revision_changed: set[UUID] = set()
+        self.contexts: dict[UUID, BoardCellGeometryCorrectionContext] = {}
+        self.manual_resolutions: dict[
+            tuple[UUID, UUID], tuple[str, BoardCellGeometryManualResolution]
+        ] = {}
+        self.manual_projections: list[BoardCellGeometryManualResolutionProjection] = []
 
     def defer(
         self,
@@ -179,6 +200,97 @@ class MemoryPendingRepository(BoardCellGeometryPendingRepository):
         self.values[self.values.index(value)] = updated
         return updated
 
+    def correction_context(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> BoardCellGeometryCorrectionContext | None:
+        value = self.contexts.get(pending_id)
+        if (
+            value is None
+            or value.pending.game_id != game_id
+            or value.pending.import_job_id != import_job_id
+        ):
+            return None
+        return value
+
+    def materialize_manual_resolution(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        expected_manifest_checksum_sha256: str,
+        projection: BoardCellGeometryManualResolutionProjection,
+        created_at: datetime,
+    ) -> BoardCellGeometryManualResolution | None:
+        del created_at
+        context = self.correction_context(
+            pending_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        if context is None:
+            return None
+        prior = self.manual_resolutions.get((pending_id, projection.idempotency_key))
+        if prior is not None:
+            prior_checksum, resolution = prior
+            if prior_checksum != projection.command_sha256:
+                raise JobConflictError(
+                    "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key already represents another command.",
+                )
+            return replace(resolution, created=False)
+        self.manual_projections.append(projection)
+        review_item_id = uuid4()
+        updated = replace(
+            context.pending,
+            recognized_board_id=uuid4(),
+            review_item_id=review_item_id,
+            status=BoardCellGeometryPendingStatus.RESOLVED,
+            resolved_geometry_revision=context.pending.expected_geometry_revision + 1,
+            updated_at=datetime.now(UTC),
+            resolved_at=datetime.now(UTC),
+        )
+        self.values[self.values.index(context.pending)] = updated
+        self.contexts[pending_id] = replace(context, pending=updated)
+        resolution = BoardCellGeometryManualResolution(
+            pending=updated,
+            review_item_id=review_item_id,
+            geometry_revision=updated.resolved_geometry_revision,
+            created=True,
+        )
+        self.manual_resolutions[(pending_id, projection.idempotency_key)] = (
+            projection.command_sha256,
+            resolution,
+        )
+        return resolution
+
+    def manual_resolution_by_idempotency(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+    ) -> tuple[str, BoardCellGeometryManualResolution] | None:
+        if (
+            self.correction_context(
+                pending_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+            )
+            is None
+        ):
+            return None
+        prior = self.manual_resolutions.get((pending_id, idempotency_key))
+        if prior is None:
+            return None
+        checksum, resolution = prior
+        return checksum, replace(resolution, created=False)
+
 
 def _manifest(
     *,
@@ -188,13 +300,15 @@ def _manifest(
     sequence_number: int = 64,
     position_index: int = 0,
     pipeline: str = "d" * 64,
+    source_checksum_sha256: str = "a" * 64,
+    source_relative_path: str = "seq_64-72.jpg",
 ) -> BoardCellProcessingManifestV1:
     return BoardCellProcessingManifestV1(
         game_id=game_id or uuid4(),
         import_job_id=import_job_id or uuid4(),
         source_image_id=source_image_id or uuid4(),
-        source_checksum_sha256="a" * 64,
-        source_relative_path="seq_64-72.jpg",
+        source_checksum_sha256=source_checksum_sha256,
+        source_relative_path=source_relative_path,
         position_index=position_index,
         sequence_number=sequence_number,
         pipeline_fingerprint_sha256=pipeline,
@@ -377,3 +491,225 @@ def test_api_lists_pages_counts_and_scopes_single_item(tmp_path: Path) -> None:
     assert item.status_code == 200
     assert item.json()["reasonCode"] == "insufficient_centers"
     assert missing_scope.status_code == 404
+
+
+class DeterministicManualPredictor:
+    def __init__(self) -> None:
+        self.snapshots = []
+
+    def predict(self, preview, snapshot):  # type: ignore[no-untyped-def]
+        self.snapshots.append(snapshot)
+        assert len(preview.cells) == 15
+        return ManualBoardCellSymbolPrediction(
+            model_iteration_id=None,
+            model_manifest_checksum_sha256=snapshot.manifest_checksum_sha256,
+            model_version=snapshot.model_version,
+            temperature_applied=max(0.50, snapshot.temperature),
+            cells=tuple(
+                {
+                    "alternatives": [{"confidence": 1.0, "symbolCode": snapshot.class_codes[0]}],
+                    "columnIndex": index % 5,
+                    "confidence": 1.0,
+                    "rowIndex": index // 5,
+                    "symbolCode": snapshot.class_codes[0],
+                }
+                for index in range(15)
+            ),
+        )
+
+
+class ScopedReviewerAccess:
+    def __init__(self, game_id: UUID, import_job_id: UUID) -> None:
+        self._session = type(
+            "ScopedSession",
+            (),
+            {"id": uuid4(), "game_id": game_id, "import_job_id": import_job_id},
+        )()
+
+    def authenticate(self, access_token: str):  # type: ignore[no-untyped-def]
+        if access_token != "scoped-token":
+            raise ReviewerAccessError("REVIEWER_TOKEN_INVALID", "Invalid token.")
+        return self._session
+
+    def authorize_scope(self, session, *, game_id, import_job_id):  # type: ignore[no-untyped-def]
+        if session.game_id != game_id or session.import_job_id != import_job_id:
+            raise ReviewerAccessError("REVIEWER_SCOPE_FORBIDDEN", "Foreign scope.")
+
+
+class FailingManualPredictor:
+    def predict(self, preview, snapshot):  # type: ignore[no-untyped-def]
+        del preview, snapshot
+        raise ManualBoardCellSymbolPredictionError(
+            "IMAGE_SYMBOL_MODEL_TEST_FAILURE",
+            "Pinned model inference failed.",
+        )
+
+
+def test_manual_pending_geometry_api_materializes_once_from_pinned_source_and_model(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    source_relative_path = "originals/manual-source.png"
+    source_path = artifact_root / "data" / source_relative_path
+    source_path.parent.mkdir(parents=True)
+    rgb = np.full((420, 620, 3), 80, dtype=np.uint8)
+    encoded, payload = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    assert encoded
+    source_content = bytes(payload)
+    source_path.write_bytes(source_content)
+    source_checksum = hashlib.sha256(source_content).hexdigest()
+
+    game_id, import_job_id = uuid4(), uuid4()
+    repository = MemoryPendingRepository()
+    pending, _ = BoardCellGeometryPendingService(
+        repository,
+        MemoryManifestStore(),
+    ).defer(
+        manifest=_manifest(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            source_checksum_sha256=source_checksum,
+            source_relative_path=source_relative_path,
+        ),
+        reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE,
+    )
+    symbol_model = bootstrap_symbol_model_snapshot()
+    quad = [
+        {"x": 60.0, "y": 50.0},
+        {"x": 560.0, "y": 50.0},
+        {"x": 560.0, "y": 350.0},
+        {"x": 60.0, "y": 350.0},
+    ]
+    repository.contexts[pending.id] = BoardCellGeometryCorrectionContext(
+        pending=pending,
+        source_order_index=7,
+        source_width=620,
+        source_height=420,
+        board_geometry={"quad": quad, "source": "detected"},
+        board_confidence=0.73,
+        symbol_model=symbol_model,
+    )
+    correction_points = tuple(
+        ImageReviewGeometryPoint(x=round(point["x"]), y=round(point["y"])) for point in quad
+    )
+    failing_service = BoardCellGeometryPendingService(
+        repository,
+        MemoryManifestStore(),
+        artifact_root=artifact_root,
+        previewer=ManualBoardCellGeometryPreviewer(),
+        predictor=FailingManualPredictor(),  # type: ignore[arg-type]
+    )
+    with pytest.raises(JobConflictError) as failed_inference:
+        failing_service.resolve_manual(
+            pending.id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            expected_manifest_checksum_sha256=(pending.processing_manifest_checksum_sha256),
+            idempotency_key=uuid4(),
+            expected_geometry_revision=0,
+            expected_resolution_revision=0,
+            corners=correction_points,
+            corrected_by="local-owner",
+            resolved_at=datetime.now(UTC),
+        )
+    assert failed_inference.value.code == "IMAGE_SYMBOL_MODEL_TEST_FAILURE"
+    assert not (artifact_root / "data" / "image-review-board-cell-geometry-v19").exists()
+
+    predictor = DeterministicManualPredictor()
+    reviewer_access = ScopedReviewerAccess(game_id, import_job_id)
+    service = BoardCellGeometryPendingService(
+        repository,
+        MemoryManifestStore(),
+        artifact_root=artifact_root,
+        previewer=ManualBoardCellGeometryPreviewer(),
+        predictor=predictor,  # type: ignore[arg-type]
+    )
+    app = create_app(
+        ApiSettings.from_environment(
+            {
+                "GAME_PREDICTOR_DATABASE_URL": (
+                    "postgresql+psycopg://unused:unused@localhost:5432/unused"
+                ),
+                "GAME_PREDICTOR_ARTIFACT_ROOT": str(artifact_root),
+            }
+        ),
+        board_cell_geometry_pending_service_dependency=lambda: service,
+        reviewer_access_service_dependency=lambda: reviewer_access,
+    )
+    base = (
+        f"/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
+        f"board-cell-geometry-pending/{pending.id}"
+    )
+    corners = [{"x": round(point["x"]), "y": round(point["y"])} for point in quad]
+    preview_command = {
+        "corners": corners,
+        "expectedGeometryRevision": 0,
+        "expectedManifestChecksumSha256": pending.processing_manifest_checksum_sha256,
+        "expectedResolutionRevision": 0,
+    }
+    idempotency_key = uuid4()
+
+    with TestClient(app) as client:
+        context = client.get(f"{base}/correction-context")
+        source = client.get(f"{base}/source")
+        preview = client.post(f"{base}/geometry-preview", json=preview_command)
+        resolved = client.post(
+            f"{base}/manual-resolution",
+            json={
+                **preview_command,
+                "correctedBy": "local-owner",
+                "idempotencyKey": str(idempotency_key),
+            },
+        )
+        replay = client.post(
+            f"{base}/manual-resolution",
+            json={
+                **preview_command,
+                "correctedBy": "local-owner",
+                "idempotencyKey": str(idempotency_key),
+            },
+        )
+        changed_command = client.post(
+            f"{base}/manual-resolution",
+            json={
+                **preview_command,
+                "corners": [{"x": 61, "y": 50}, *corners[1:]],
+                "correctedBy": "local-owner",
+                "idempotencyKey": str(idempotency_key),
+            },
+        )
+        scoped = client.get(
+            f"{base}/correction-context",
+            headers={"Authorization": "Bearer scoped-token"},
+        )
+        foreign_scope = client.get(
+            f"/api/v1/admin/games/{uuid4()}/image-imports/{import_job_id}/"
+            f"board-cell-geometry-pending/{pending.id}/correction-context",
+            headers={"Authorization": "Bearer scoped-token"},
+        )
+
+    assert context.status_code == 200
+    assert context.json()["suggestedCorners"] == corners
+    assert source.status_code == 200
+    assert source.content == source_content
+    assert source.headers["etag"] == f'"{source_checksum}"'
+    assert preview.status_code == 200
+    assert preview.headers["x-board-cell-count"] == "15"
+    assert resolved.status_code == 200
+    assert resolved.json()["created"] is True
+    assert resolved.json()["geometryRevision"] == 1
+    assert replay.status_code == 200
+    assert replay.json()["created"] is False
+    assert replay.json()["reviewItemId"] == resolved.json()["reviewItemId"]
+    assert changed_command.status_code == 409
+    assert changed_command.json()["code"] == "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT"
+    assert scoped.status_code == 200
+    assert foreign_scope.status_code == 403
+    assert foreign_scope.json()["code"] == "REVIEWER_SCOPE_FORBIDDEN"
+    assert predictor.snapshots == [symbol_model]
+    assert len(repository.manual_projections) == 1
+    assert repository.manual_projections[0].board_confidence == 0.73
+    persisted_cells = list(
+        (artifact_root / "data" / "image-review-board-cell-geometry-v19").rglob("*.png")
+    )
+    assert len(persisted_cells) == 15

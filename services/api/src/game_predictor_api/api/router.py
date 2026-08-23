@@ -139,7 +139,11 @@ def create_api_router(
     )
     router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
     router.include_router(
-        create_board_cell_geometry_pending_router(board_cell_geometry_pending_service_dependency)
+        create_board_cell_geometry_pending_router(
+            board_cell_geometry_pending_service_dependency,
+            reviewer_access_service_dependency,
+            artifact_root,
+        )
     )
     router.include_router(
         create_layout_import_reports_router(layout_import_report_service_dependency)

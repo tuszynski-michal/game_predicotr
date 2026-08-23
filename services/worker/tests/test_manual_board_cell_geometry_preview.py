@@ -260,3 +260,40 @@ def test_manual_v19_preview_fails_closed_for_checksum_and_crossed_lattice(
             lattice_bounds_quad=((60.0, 50.0), (560.0, 350.0), (560.0, 50.0), (60.0, 350.0)),
         )
     assert crossed.value.code == "BOARD_CELL_GEOMETRY_QUAD_INVALID"
+
+
+def test_manual_v19_persistence_isolates_concurrent_pending_commands(
+    tmp_path: Path,
+) -> None:
+    preview, _ = _preview(tmp_path)
+    previewer = ManualBoardCellGeometryPreviewer()
+    managed_root = tmp_path / "managed"
+
+    first = previewer.persist(
+        preview=preview,
+        managed_data_root=managed_root,
+        revision=3,
+        namespace_discriminator="a" * 64,
+    )
+    second = previewer.persist(
+        preview=preview,
+        managed_data_root=managed_root,
+        revision=3,
+        namespace_discriminator="b" * 64,
+    )
+
+    assert len(first.cells) == len(second.cells) == 15
+    assert {cell.checksum_sha256 for cell in first.cells} == {
+        cell.checksum_sha256 for cell in second.cells
+    }
+    assert {cell.relative_path for cell in first.cells}.isdisjoint(
+        {cell.relative_path for cell in second.cells}
+    )
+    with pytest.raises(ManualBoardCellGeometryPreviewError) as invalid:
+        previewer.persist(
+            preview=preview,
+            managed_data_root=managed_root,
+            revision=3,
+            namespace_discriminator="not-a-checksum",
+        )
+    assert invalid.value.code == "BOARD_CELL_GEOMETRY_ARTIFACT_NAMESPACE_INVALID"

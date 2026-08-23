@@ -224,9 +224,15 @@ import type {
   GetPayoutRuleData,
   GetPayoutRuleErrors,
   GetPayoutRuleResponses,
+  GetPendingBoardCellGeometryCorrectionContextData,
+  GetPendingBoardCellGeometryCorrectionContextErrors,
+  GetPendingBoardCellGeometryCorrectionContextResponses,
   GetPendingBoardCellGeometryData,
   GetPendingBoardCellGeometryErrors,
   GetPendingBoardCellGeometryResponses,
+  GetPendingBoardCellGeometrySourceData,
+  GetPendingBoardCellGeometrySourceErrors,
+  GetPendingBoardCellGeometrySourceResponses,
   GetReviewBatchData,
   GetReviewBatchErrors,
   GetReviewBatchResponses,
@@ -405,6 +411,9 @@ import type {
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewPendingBoardCellGeometryCorrectionData,
+  PreviewPendingBoardCellGeometryCorrectionErrors,
+  PreviewPendingBoardCellGeometryCorrectionResponses,
   PreviewPendingGridReinferenceData,
   PreviewPendingGridReinferenceErrors,
   PreviewPendingGridReinferenceResponses,
@@ -453,6 +462,9 @@ import type {
   ResolveOperationalImageReviewItemData,
   ResolveOperationalImageReviewItemErrors,
   ResolveOperationalImageReviewItemResponses,
+  ResolvePendingBoardCellGeometryManuallyData,
+  ResolvePendingBoardCellGeometryManuallyErrors,
+  ResolvePendingBoardCellGeometryManuallyResponses,
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
@@ -941,6 +953,7 @@ export const listPendingBoardCellGeometry = <
     ListPendingBoardCellGeometryErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending',
     ...options,
   });
@@ -962,7 +975,107 @@ export const getPendingBoardCellGeometry = <
     GetPendingBoardCellGeometryErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}',
+    ...options,
+  });
+
+/**
+ * Get checksum-bound manual correction context
+ */
+export const getPendingBoardCellGeometryCorrectionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    GetPendingBoardCellGeometryCorrectionContextData,
+    ThrowOnError
+  >,
+): RequestResult<
+  GetPendingBoardCellGeometryCorrectionContextResponses,
+  GetPendingBoardCellGeometryCorrectionContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometryCorrectionContextResponses,
+    GetPendingBoardCellGeometryCorrectionContextErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/correction-context',
+    ...options,
+  });
+
+/**
+ * Preview 15 manual source-direct crops for a deferred board
+ */
+export const previewPendingBoardCellGeometryCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingBoardCellGeometryCorrectionData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingBoardCellGeometryCorrectionResponses,
+  PreviewPendingBoardCellGeometryCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPendingBoardCellGeometryCorrectionResponses,
+    PreviewPendingBoardCellGeometryCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create one ordinary review item from manual deferred geometry
+ */
+export const resolvePendingBoardCellGeometryManually = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResolvePendingBoardCellGeometryManuallyData, ThrowOnError>,
+): RequestResult<
+  ResolvePendingBoardCellGeometryManuallyResponses,
+  ResolvePendingBoardCellGeometryManuallyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolvePendingBoardCellGeometryManuallyResponses,
+    ResolvePendingBoardCellGeometryManuallyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read checksum-bound source for manual correction
+ */
+export const getPendingBoardCellGeometrySource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPendingBoardCellGeometrySourceData, ThrowOnError>,
+): RequestResult<
+  GetPendingBoardCellGeometrySourceResponses,
+  GetPendingBoardCellGeometrySourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometrySourceResponses,
+    GetPendingBoardCellGeometrySourceErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source',
     ...options,
   });
 

@@ -5,6 +5,8 @@ import { reviewerProxyTarget } from '../src/security/reviewer-proxy-policy.ts';
 
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const itemId = '22222222-2222-4222-8222-222222222222';
+const gameId = '33333333-3333-4333-8333-333333333333';
+const importJobId = '44444444-4444-4444-8444-444444444444';
 
 test('exposes only unlock, scoped context and operational review routes', () => {
   assert.equal(
@@ -32,6 +34,28 @@ test('exposes only unlock, scoped context and operational review routes', () => 
     ),
     `/api/v1/admin/image-review-items/${itemId}/resolution`,
   );
+  for (const [method, suffix] of [
+    ['GET', 'correction-context'],
+    ['GET', 'source'],
+    ['POST', 'geometry-preview'],
+    ['POST', 'manual-resolution'],
+  ]) {
+    const path =
+      `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
+      `board-cell-geometry-pending/${itemId}/${suffix}`;
+    assert.equal(reviewerProxyTarget(method, path), path);
+  }
+  const pendingCollection =
+    `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
+    'board-cell-geometry-pending';
+  assert.equal(
+    reviewerProxyTarget('GET', pendingCollection),
+    pendingCollection,
+  );
+  assert.equal(
+    reviewerProxyTarget('GET', `${pendingCollection}/${itemId}`),
+    `${pendingCollection}/${itemId}`,
+  );
 });
 
 test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
@@ -54,6 +78,11 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
     ['GET', '/api/v1/admin/reviewer-ingress'],
     ['POST', '/api/v1/admin/reviewer-ingress/start'],
     ['POST', '/api/v1/admin/reviewer-ingress/stop'],
+    [
+      'DELETE',
+      `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
+        `board-cell-geometry-pending/${itemId}`,
+    ],
   ]) {
     assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
   }

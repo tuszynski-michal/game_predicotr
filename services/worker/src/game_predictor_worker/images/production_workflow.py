@@ -11,7 +11,6 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
-from uuid import UUID
 
 import cv2
 import numpy as np
@@ -719,7 +718,9 @@ class ProductionImageStageAdapterSuite:
             cells: list[dict[str, object]] = []
             for cell in board.cells:
                 relative = (
-                    root / "cells" / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
+                    root
+                    / "cells"
+                    / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
                 ).as_posix()
                 cells.append(
                     {
@@ -794,9 +795,7 @@ class ProductionImageStageAdapterSuite:
             cells: list[dict[str, object]] = []
             for cell in cropped.cells:
                 relative = (
-                    root
-                    / "cells"
-                    / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
+                    root / "cells" / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
                 ).as_posix()
                 cells.append(
                     {
@@ -1208,45 +1207,21 @@ def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
             "The image import has no pinned symbol model snapshot.",
         )
     try:
-        iteration_value = value.get("iterationId")
-        iteration_id = None if iteration_value is None else UUID(str(iteration_value))
-        storage_root = SymbolModelStorageRoot(_text(value, "storageRoot"))
-        class_values = _sequence(value.get("classCodes"), "symbol_model.classCodes")
-        if not class_values or not all(isinstance(item, str) and item for item in class_values):
-            raise ValueError("Invalid class catalog.")
-        class_codes = tuple(cast(Sequence[str], class_values))
-        if len(set(class_codes)) != len(class_codes):
-            raise ValueError("Duplicate class code.")
-        input_size = _integer(value, "inputSize")
-        temperature_value = value.get("temperature")
-        if (
-            input_size < 16
-            or isinstance(temperature_value, bool)
-            or not isinstance(temperature_value, int | float)
-            or float(temperature_value) <= 0
-        ):
-            raise ValueError("Invalid model runtime values.")
-        snapshot = SymbolModelJobSnapshot(
-            iteration_id=iteration_id,
-            model_version=_text(value, "modelVersion"),
-            manifest_checksum_sha256=_sha_text(value, "manifestChecksumSha256"),
-            onnx_checksum_sha256=_sha_text(value, "onnxChecksumSha256"),
-            onnx_relative_path=_text(value, "onnxRelativePath"),
-            storage_root=storage_root,
-            class_codes=class_codes,
-            input_size=input_size,
-            temperature=float(temperature_value),
+        snapshot = SymbolModelJobSnapshot.from_payload(value)
+    except ValueError as error:
+        code = (
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_DRIFT"
+            if "fingerprint changed" in str(error)
+            else "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID"
         )
-    except (TypeError, ValueError, ImagePipelineExecutionError) as error:
         raise JobHandlerError(
-            "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID",
-            "The pinned symbol model snapshot is invalid.",
+            code,
+            (
+                "The pinned symbol model inference fingerprint changed."
+                if code == "IMAGE_SYMBOL_MODEL_SNAPSHOT_DRIFT"
+                else "The pinned symbol model snapshot is invalid."
+            ),
         ) from error
-    if value.get("inferenceFingerprint") != snapshot.inference_fingerprint:
-        raise JobHandlerError(
-            "IMAGE_SYMBOL_MODEL_SNAPSHOT_DRIFT",
-            "The pinned symbol model inference fingerprint changed.",
-        )
     return snapshot
 
 

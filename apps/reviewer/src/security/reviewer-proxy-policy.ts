@@ -22,6 +22,35 @@ export function reviewerProxyTarget(
   if (method === 'GET' && symbolMatch?.[1] !== undefined) {
     return `/api/v1/reviewer/context/games/${symbolMatch[1]}/symbols`;
   }
+  const pendingGeometryCollectionPattern = new RegExp(
+    `^/api/v1/admin/games/${UUID}/image-imports/${UUID}/board-cell-geometry-pending$`,
+  );
+  const pendingGeometryItemPattern = new RegExp(
+    `${pendingGeometryCollectionPattern.source.slice(0, -1)}/${UUID}$`,
+  );
+  if (
+    method === 'GET' &&
+    (pendingGeometryCollectionPattern.test(path) ||
+      pendingGeometryItemPattern.test(path))
+  ) {
+    return path;
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(
+      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:correction-context|source)$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:geometry-preview|manual-resolution)$`,
+    ).test(path)
+  ) {
+    return path;
+  }
   if (!path.startsWith('/api/v1/admin/image-review-items')) {
     return null;
   }

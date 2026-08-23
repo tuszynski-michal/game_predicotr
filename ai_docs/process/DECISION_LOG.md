@@ -5103,7 +5103,28 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   checkpointy i manifest v18 nie są modyfikowane.
 - **Consequences:** API pozwala jawnie uruchomić v20 i jawnie wrócić do v18.
   Zmiana domyślnego trybu pozostaje zablokowana do osobnego checkpointu z
-  pokryciem co najmniej `98%`. TASK 5 nie został rozpoczęty.
+  pokryciem co najmniej `98%`. TASK 5 dostarczył później wyłącznie ręczne
+  rozwiązanie trwałych wyjątków.
+
+## D-213 — Ręczny deferred materializuje istniejącą kolejkę review
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** ręczna korekta jednego `image_board_geometry_pending` nie
+  tworzy osobnej domeny review. Po uzyskaniu dokładnie 15 source-direct cropów
+  v19 i predykcji modelu przypiętego do importu atomowo materializuje zwykły
+  `recognized_board`, obserwacje, rewizję geometrii i `image_review_item`.
+- **Context:** deferred powstaje przed planszą, więc istniejący edytor rewizji
+  nie miał obiektu docelowego. Kopiowanie logiki kolejki albo inferencja przez
+  bieżący model gry naruszałyby kolejność sekwencji i odtwarzalność importu.
+- **Safety:** komenda jest związana z manifestem, źródłem, modelem i obiema
+  rewizjami. Exact retry jest sprawdzany przed kosztowną pracą i pod blokadą;
+  istniejąca plansza zawsze wygrywa jako `superseded`. Preview niczego nie
+  zapisuje, a błędna geometria/model nie tworzą częściowej projekcji w bazie.
+- **Consequences:** nowy item trafia przez istniejący trigger do tej samej
+  uporządkowanej kolejki. API jest scope-bound dla Reviewera i lokalnego
+  administratora. UI fallbacku, rollout v20, trening i backfill pozostają
+  osobnymi zadaniami.
 
 ## Szablon nowej decyzji
 

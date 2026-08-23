@@ -48,6 +48,43 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BoardCellGeometryCorrectionContextResponse
+ */
+export type BoardCellGeometryCorrectionContextResponse = {
+  /**
+   * Boardquad
+   */
+  boardQuad: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceorderindex
+   */
+  sourceOrderIndex: number;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+  /**
+   * Suggestedcorners
+   */
+  suggestedCorners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+};
+
+/**
  * BoardCellGeometryJobCountsResponse
  */
 export type BoardCellGeometryJobCountsResponse = {
@@ -101,6 +138,87 @@ export type BoardCellGeometryJobProgressResponse = {
    * Total
    */
   total: number;
+};
+
+/**
+ * BoardCellGeometryManualPreviewCommand
+ */
+export type BoardCellGeometryManualPreviewCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+};
+
+/**
+ * BoardCellGeometryManualResolutionCommand
+ */
+export type BoardCellGeometryManualResolutionCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Correctedby
+   */
+  correctedBy: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * BoardCellGeometryManualResolutionResponse
+ */
+export type BoardCellGeometryManualResolutionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision?: number | null;
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
 };
 
 /**
@@ -8019,6 +8137,200 @@ export type GetPendingBoardCellGeometryResponses = {
 
 export type GetPendingBoardCellGeometryResponse =
   GetPendingBoardCellGeometryResponses[keyof GetPendingBoardCellGeometryResponses];
+
+export type GetPendingBoardCellGeometryCorrectionContextData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/correction-context';
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextError =
+  GetPendingBoardCellGeometryCorrectionContextErrors[keyof GetPendingBoardCellGeometryCorrectionContextErrors];
+
+export type GetPendingBoardCellGeometryCorrectionContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryCorrectionContextResponse;
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextResponse =
+  GetPendingBoardCellGeometryCorrectionContextResponses[keyof GetPendingBoardCellGeometryCorrectionContextResponses];
+
+export type PreviewPendingBoardCellGeometryCorrectionData = {
+  body: BoardCellGeometryManualPreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-preview';
+};
+
+export type PreviewPendingBoardCellGeometryCorrectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingBoardCellGeometryCorrectionError =
+  PreviewPendingBoardCellGeometryCorrectionErrors[keyof PreviewPendingBoardCellGeometryCorrectionErrors];
+
+export type PreviewPendingBoardCellGeometryCorrectionResponses = {
+  /**
+   * Five by three contact sheet of manual v19 crops
+   */
+  200: unknown;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyData = {
+  body: BoardCellGeometryManualResolutionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution';
+};
+
+export type ResolvePendingBoardCellGeometryManuallyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyError =
+  ResolvePendingBoardCellGeometryManuallyErrors[keyof ResolvePendingBoardCellGeometryManuallyErrors];
+
+export type ResolvePendingBoardCellGeometryManuallyResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryManualResolutionResponse;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyResponse =
+  ResolvePendingBoardCellGeometryManuallyResponses[keyof ResolvePendingBoardCellGeometryManuallyResponses];
+
+export type GetPendingBoardCellGeometrySourceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source';
+};
+
+export type GetPendingBoardCellGeometrySourceErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPendingBoardCellGeometrySourceError =
+  GetPendingBoardCellGeometrySourceErrors[keyof GetPendingBoardCellGeometrySourceErrors];
+
+export type GetPendingBoardCellGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type OpenLocalReviewerWorkData = {
   body: ReviewerWorkOpenCommand;

@@ -267,6 +267,7 @@ class ManualBoardCellGeometryPreviewer:
         preview: ManualBoardCellGeometryPreview,
         managed_data_root: Path,
         revision: int,
+        namespace_discriminator: str | None = None,
     ) -> ManualBoardCellGeometryArtifacts:
         """Persist the exact validated preview as immutable, revisioned cell files."""
 
@@ -310,12 +311,26 @@ class ManualBoardCellGeometryPreviewer:
                 "BOARD_CELL_GEOMETRY_ARTIFACT_CELLS_INVALID",
                 "A manual board-cell geometry revision requires 15 row-major crops.",
             )
-        review_path_key = hashlib.sha256(preview.review_item_id.encode()).hexdigest()[:16]
-        namespace = PurePosixPath(
+        review_path_material = preview.review_item_id
+        if namespace_discriminator is not None:
+            normalized_discriminator = namespace_discriminator.strip().lower()
+            if len(normalized_discriminator) != 64 or any(
+                character not in _SHA256_CHARS for character in normalized_discriminator
+            ):
+                raise ManualBoardCellGeometryPreviewError(
+                    "BOARD_CELL_GEOMETRY_ARTIFACT_NAMESPACE_INVALID",
+                    "The manual geometry artifact namespace discriminator is invalid.",
+                )
+            review_path_material = f"{review_path_material}:{normalized_discriminator}"
+        # Keep the historical Windows path length unchanged while isolating
+        # competing pending commands in separate immutable namespaces.
+        review_path_key = hashlib.sha256(review_path_material.encode()).hexdigest()[:16]
+        namespace_parts = [
             "image-review-board-cell-geometry-v19",
             review_path_key,
             f"r{revision}",
-        )
+        ]
+        namespace = PurePosixPath(*namespace_parts)
         artifacts: list[ManualBoardCellGeometryCellArtifact] = []
         for cell in preview.cells:
             if hashlib.sha256(cell.png).hexdigest() != cell.checksum_sha256:

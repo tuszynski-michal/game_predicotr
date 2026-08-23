@@ -96,6 +96,28 @@ Oczekujący deferred geometrii należy do granicy `waiting_for_review`. Blokuje
 przedwczesną walidację ciągłości i nie jest interpretowany jako brakująca
 sekwencja.
 
+### Ręczne rozwiązanie deferred komórek
+
+Końcowy fallback nie tworzy równoległej kolejki plansz. Dla jednego
+`image_board_geometry_pending` API odczytuje niezmienny source i detekcję
+planszy oraz snapshot modelu symboli z tego samego importu. Cztery narożniki
+przechodzą przez ten sam source-direct cropper v19 co zwykła korekta. Preview
+pozostaje read-only; zapis jest dozwolony dopiero po uzyskaniu dokładnie 15
+cropów i 15 predykcji w kolejności 3 × 5.
+
+Repozytorium serializuje zapis na rekordzie deferred i w jednej transakcji
+tworzy `recognized_board`, 15 `cell_observations`, `image_review_item` oraz
+`image_board_geometry_revision`. Istniejący trigger kolejki projektuje nowy
+item we właściwe miejsce `sequence_number + position_index`; nie istnieje
+druga implementacja kolejki. Wcześniejsza materializacja planszy kończy próbę
+statusem `superseded`. Klucz idempotencji i checksumę komendy sprawdza się
+przed kosztownym preview/inferencją oraz ponownie pod blokadą zapisu.
+
+Artefakty ręcznych komend używają niezmiennych, command-scoped namespace'ów o
+stałej długości ścieżki zgodnej z Windows. Model ONNX jest ładowany wyłącznie z
+checksum-bound snapshotu źródłowego joba; aktualnie aktywny model gry nie może
+zmienić wyniku historycznego importu.
+
 ## Kohorta i profil geometrii
 
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej

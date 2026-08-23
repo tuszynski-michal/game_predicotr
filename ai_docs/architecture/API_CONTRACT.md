@@ -1519,11 +1519,15 @@ stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
 
-Read-only kontrakt odroczonej geometrii komórek wykorzystuje:
+Kontrakt odroczonej geometrii komórek wykorzystuje:
 
 ```text
 GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending
 GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/correction-context
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/source
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-preview
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/manual-resolution
 ```
 
 Lista ma stabilny keyset cursor po `(sequence_number, position_index, id)`,
@@ -1531,7 +1535,19 @@ opcjonalny filtr `status`, limit maksymalnie 200 oraz liczniki `total`,
 `pending`, `resolved`, `superseded` dla wskazanego joba. Element zwraca reason
 code, scope źródła, opcjonalne identyfikatory planszy/review, checksumę i
 ścieżkę niezmiennego manifestu, fingerprint pipeline'u oraz oczekiwane i
-wynikowe rewizje. TASK-0264 nie wystawia mutacji ani nie aktywuje workera v19.
+wynikowe rewizje. Kontekst zwraca wymiary źródła, pinned quad planszy i te same
+cztery punkty jako początkową sugestię. Source jest checksum-bound i ma
+immutable ETag. Preview przyjmuje manifest checksum, obie oczekiwane rewizje
+oraz dokładnie cztery narożniki i zwraca kontaktowy PNG 5 × 3 bez zapisu.
+
+Manual resolution dodaje UUID idempotencji i aktora. Sukces zwraca ID zwykłego
+itemu review, nową rewizję geometrii oraz `created`. Exact retry zwraca
+`created=false`; ten sam klucz z inną komendą daje
+`IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT`. Zmiana manifestu, źródła,
+modelu lub rewizji jest fail-closed. Endpointy są dostępne dla lokalnego
+administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
+`gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
+Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
 
 `JobProgressResponse.boardCellGeometry` jest opcjonalną projekcją checkpointu
 o statusie `processing | waiting_for_geometry | complete` i licznikach

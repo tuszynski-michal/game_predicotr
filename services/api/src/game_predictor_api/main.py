@@ -13,6 +13,9 @@ from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
 )
+from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+    ManualBoardCellSymbolPredictor,
+)
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
@@ -591,6 +594,11 @@ def create_app(
         or default_page_geometry_override_service_dependency
     )
 
+    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
+        Path(__file__).resolve().parents[4],
+        resolved_settings.artifact_root,
+    )
+
     def default_board_cell_geometry_pending_service_dependency() -> Iterator[
         BoardCellGeometryPendingService
     ]:
@@ -599,6 +607,9 @@ def create_app(
                 yield BoardCellGeometryPendingService(
                     SqlAlchemyBoardCellGeometryPendingRepository(session),
                     ManagedBoardCellProcessingManifestStore(resolved_settings.artifact_root),
+                    artifact_root=resolved_settings.artifact_root,
+                    previewer=ManualBoardCellGeometryPreviewer(),
+                    predictor=manual_board_cell_symbol_predictor,
                 )
                 session.commit()
             except BaseException:

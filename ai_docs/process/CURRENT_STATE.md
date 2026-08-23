@@ -15,6 +15,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Ręczne rozwiązanie deferred geometrii komórek — v0.7.18
+
+- TASK 5 dodaje checksum-bound kontekst, source, preview i zapis dla jednego
+  `image_board_geometry_pending`. Preview czterech narożników używa dokładnie
+  croppera v19 i nie zapisuje danych.
+- Zapis używa modelu symboli przypiętego do źródłowego importu. Dopiero komplet
+  15 cropów i 15 predykcji tworzy w jednej transakcji zwykłą planszę,
+  obserwacje, rewizję oraz `pending` item istniejącej kolejki Reviewera.
+- Exact retry wraca bez ponownego preview/inferencji, zmieniona komenda daje
+  stabilny konflikt, a istniejąca plansza wygrywa i superseduje deferred.
+- API i wygenerowany klient obsługują lokalnego administratora oraz dokładnie
+  scoped bearer sesję Reviewera. Reviewer proxy nadal blokuje pozostałe Admin
+  API. Komponent UI korekty jest poza TASK 5.
+- Domyślny v18, opt-in v20, benchmark `93,78%`, aktywny model i dane kanoniczne
+  nie zostały zmienione.
+
 ### Jawnie przypięty adapter pełnego importu v20 — v0.7.17
 
 - Na jawne polecenie właściciela TASK 4 został wykonany mimo niezaliczonej

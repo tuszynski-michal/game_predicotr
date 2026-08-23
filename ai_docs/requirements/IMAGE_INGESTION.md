@@ -315,6 +315,22 @@ idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Pokrycie TASK 2
 wynosi nadal `93,78%`, dlatego v20 pozostaje wyłącznie opt-in; zmiana domyślnego
 trybu wymaga osobnego checkpointu i osiągnięcia bramki co najmniej `98%`.
 
+Trwały deferred może zostać rozwiązany ręcznie bez ponownego uruchamiania
+pipeline'u. Komenda czterech narożników jest związana z checksumą manifestu,
+źródła, oczekiwanymi rewizjami oraz snapshotem modelu symboli przypiętym do
+źródłowego importu. Podgląd używa croppera v19 i nie zapisuje danych. Zapis
+tworzy atomowo jedną zwykłą planszę, dokładnie 15 obserwacji row-major,
+append-only rewizję geometrii oraz jeden `pending` item istniejącej kolejki
+review. Niepełna geometria albo błąd inferencji nie może utworzyć częściowej
+projekcji.
+
+Exact retry tej samej komendy jest idempotentny i nie wykonuje ponownie
+inferencji ani zapisu cropów. Ponowne użycie klucza dla zmienionej komendy,
+manifestu, źródła, modelu albo rewizji kończy się stabilnym konfliktem.
+Istniejąca plansza lub późniejsza decyzja człowieka zawsze wygrywa, a deferred
+przechodzi do `superseded`. Ręczne rozwiązanie nie zmienia poświadczonego
+numeru `seq_*`, aktywnego modelu, domyślnego v18 ani bramki rollout v20.
+
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
 sprawdza status itemu, rewizję resolution, rewizję i całą geometrię planszy,

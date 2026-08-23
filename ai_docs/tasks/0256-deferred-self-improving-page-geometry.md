@@ -109,4 +109,8 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
   zapisać fail-closed planszę bez syntetycznych cropów i zachować human-wins.
 - TASK-0265 podłączył ten kontrakt do pełnego pipeline'u wyłącznie jako jawny
   opt-in `board-cell-processing-v20-verified-v19-v1`. Domyślny v18 pozostaje
-  bez zmian; TASK 5 oraz domyślna aktywacja są nadal poza zakresem.
+  bez zmian; domyślna aktywacja jest nadal poza zakresem.
+- TASK-0266 domknął backend ręcznej korekty pojedynczego deferred. Checksum-bound
+  preview niczego nie zapisuje, a właściwa komenda materializuje dokładnie 15
+  cropów, predykcje pinned modelu i zwykły item istniejącej kolejki. UI tej
+  korekty pozostaje w następnym zadaniu.

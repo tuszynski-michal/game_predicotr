@@ -41,6 +41,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0251 — Uzgodnienie wyniku tworzenia reguł](0251-rules-creation-response-reconciliation.md)
 - [TASK-0252 — Uproszczenie edytora wzorców](0252-simplify-payline-editor.md)
 - [TASK-0253 — Widoczność stagingu importu plansz i nazewnictwo panelu](0253-board-import-staging-visibility-and-terminology.md)
+- [TASK-0272 — Analiza zdalnej ręcznej selekcji zdjęć](0272-remote-manual-image-selection-analysis.md)
 
 ## Zawartość
 

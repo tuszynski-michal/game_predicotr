@@ -15,6 +15,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Propozycja zdalnej ręcznej selekcji zdjęć — analiza TASK-0272
+
+- Zrekonstruowano lokalny przepływ ręcznej selekcji, IndexedDB v2, zapis
+  `seq_*`, manifest output/trace oraz granice File System Access API.
+- Zaproponowano reuse jednego procesu Reviewer i Quick Tunnel, lecz z osobnym
+  route, cookie, purpose, sesją i zamkniętą allowlistą. Obecna sesja
+  `gameId + importJobId` nie może zostać użyta bez rozszerzenia modelu.
+- Rekomendowany MVP używa hosta jako źródła prawdy, trwałego IndexedDB outboxu,
+  trzech oddzielnych kolejek i jednoplikowego streamowanego uploadu. Protokół
+  chunked pozostaje warunkowy do czasu benchmarku.
+- Plan zawiera 19 osobno weryfikowalnych tasków, bramkę security, etapowy test
+  8–15 tys. operacji oraz propozycje P-001–P-003 i R-001–R-005. Żadna z nich
+  nie jest jeszcze zaakceptowaną decyzją; kod produkcyjny nie został zmieniony.
+- Źródło: `ai_docs/architecture/REMOTE_MANUAL_IMAGE_SELECTION.md`.
+
 ### Zamknięcie rollout'u geometrii v19 i modelu symboli — v0.7.23
 
 - TASK 10 zsynchronizował wymagania, architekturę, decyzje i instrukcję

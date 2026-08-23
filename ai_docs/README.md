@@ -55,6 +55,9 @@ implementacyjnym.
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
 - [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
+- [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
+  — analiza wykonalności, bezpieczeństwa, synchronizacji i breakdown wdrożenia;
+  dokument ma status `proposed`.
 
 ### Dostarczanie
 

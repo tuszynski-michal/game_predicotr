@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-08-21
+last_updated: 2026-08-23
 ---
 
 # Ukończone zadania
@@ -44,6 +44,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0272 — Analiza zdalnej ręcznej selekcji zdjęć](0272-remote-manual-image-selection-analysis.md)
 - [TASK-0273 — Browser capability zdalnego źródła](0273-remote-source-browser-capability-spike.md)
 - [TASK-0274 — Wspólny silnik ręcznej selekcji i adapter lokalny](0274-manual-image-selection-shared-core.md)
+- [TASK-0275 — Kontrakty domenowe zdalnej ręcznej selekcji](0275-remote-manual-selection-domain-contracts.md)
 
 ## Zawartość
 

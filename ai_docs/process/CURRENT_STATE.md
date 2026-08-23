@@ -15,6 +15,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Kontrakty domenowe zdalnej ręcznej selekcji — v0.7.27
+
+- TASK-0275 zamroził wersjonowane kontrakty sesji, kolekcji, partii, pliku,
+  operacji, transferu i akcji hosta bez dodawania ORM, HTTP, filesystemu ani UI.
+- Siedem jawnych maszyn stanów działa fail-closed. Operacje egzekwują scope,
+  monotoniczny `clientSequence`, `serverRevision`, per-file
+  `selectionGeneration` i exact retry po `operationId + checksum`.
+- Starsza generacja kończy się jako `superseded` bez zmiany desired state i
+  rewizji. Projekcje output/trace zachowują istniejące schema v1, w tym undo
+  wskazujące konkretną decyzję.
+- Python i wspólny core TypeScript mają zgodną kanoniczną serializację JSON,
+  SHA-256 oraz `remote-source-manifest-v1`. Test skali objął 15 000 rekordów.
+- Nie powstały route, tabela, migracja ani integracja transportowa. Przed TASK 4
+  obowiązuje checkpoint/review kontraktów.
+
 ### Wspólny core ręcznej selekcji — v0.7.26
 
 - TASK-0274 wydzielił `@game-predictor/manual-image-selection-core` z czystą

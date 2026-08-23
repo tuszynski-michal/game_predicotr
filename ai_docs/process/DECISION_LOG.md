@@ -5169,6 +5169,27 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Supersedes:** domyka wynik D-159 bez zmiany D-160 i monotonicznego rejestru
   aktywacji.
 
+## D-216 — Zdalna selekcja rozdziela rewizję partii od generacji pliku
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** zdalna ręczna selekcja używa monotonicznego `serverRevision`
+  dla kolejności operacji partii oraz niezależnego `selectionGeneration` dla
+  żądanego stanu konkretnego pliku. Exact retry identyfikuje niezmienną
+  operację przez `operationId + canonical command checksum`; starsza generacja
+  kończy się `superseded` bez zmiany desired state ani rewizji.
+- **Context:** zdalny klient może ponawiać, buforować i wysyłać operacje po
+  zmianie połączenia. Jedna rewizja nie rozstrzyga jednocześnie kolejności
+  dziennika i aktualności transferu lub usunięcia konkretnego pliku.
+- **Safety:** obcy scope, luka/regresja `clientSequence`, konflikt rewizji,
+  nieznany typ operacji i ponowne użycie `operationId` z inną treścią są
+  odrzucane fail-closed. Każda maszyna stanów ma zamkniętą macierz przejść.
+- **Consequences:** ORM i endpointy w kolejnych zadaniach muszą zachować te
+  kontrakty. Istniejące output/trace v1 pozostają bez zmian; nie dodano jeszcze
+  tabel, route, filesystemu ani transportu.
+- **Alternatives:** jeden wspólny licznik dla partii i plików odrzucono, bo
+  powodowałby fałszywe konflikty przy równoległym uploadzie i deselect.
+
 ## Szablon nowej decyzji
 
 ```text

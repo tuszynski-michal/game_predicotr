@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 import {
+  buildRemoteSourceManifestV1,
+  canonicalRemoteChecksumSha256,
   createManualSelectionOutputManifest,
   createManualSelectionState,
   manualPreviewWindow,
@@ -10,6 +12,15 @@ import {
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  RemoteManualSelectionContractError,
+  stableRemoteStringify,
+  transitionRemoteBatchStatus,
+  transitionRemoteCollectionStatus,
+  transitionRemoteFileStatus,
+  transitionRemoteHostActionStatus,
+  transitionRemoteOperationStatus,
+  transitionRemoteSessionStatus,
+  transitionRemoteTransferStatus,
 } from '../src/index.ts';
 
 const coreSource = await readFile(
@@ -111,4 +122,127 @@ test('keeps browser-specific dependencies out of the shared core', () => {
   assert.doesNotMatch(coreSource, /from ['\"]react['\"]/i);
   assert.doesNotMatch(coreSource, /indexedDB|IDB[A-Z]/);
   assert.doesNotMatch(coreSource, /FileSystem(?:File|Directory)Handle/);
+});
+
+test('builds a canonical remote source manifest in natural order', async () => {
+  const entries = [
+    ['10.jpg', 10],
+    ['2.jpg', 2],
+    ['1.jpg', 1],
+  ].map(([name, sizeBytes]) => ({
+    relativePath: name,
+    name,
+    sizeBytes,
+    lastModifiedMs: 1_700_000_000_000,
+    mimeType: 'image/jpeg',
+  }));
+  const manifest = await buildRemoteSourceManifestV1(
+    entries,
+    'directory_handle',
+  );
+  const replay = await buildRemoteSourceManifestV1(
+    entries.toReversed(),
+    'directory_handle',
+  );
+
+  assert.deepEqual(
+    manifest.entries.map((entry) => entry.relativePath),
+    ['1.jpg', '2.jpg', '10.jpg'],
+  );
+  assert.equal(manifest.manifestChecksumSha256, replay.manifestChecksumSha256);
+  assert.match(manifest.manifestChecksumSha256, /^[0-9a-f]{64}$/);
+});
+
+test('rejects unsafe or duplicate remote source paths with a stable code', async () => {
+  const entry = {
+    relativePath: '../outside.jpg',
+    name: 'outside.jpg',
+    sizeBytes: 1,
+    lastModifiedMs: 1,
+    mimeType: 'image/jpeg',
+  };
+  await assert.rejects(
+    buildRemoteSourceManifestV1([entry], 'directory_handle'),
+    (error) =>
+      error instanceof RemoteManualSelectionContractError &&
+      error.code === 'REMOTE_SELECTION_SOURCE_MANIFEST_INVALID',
+  );
+  const duplicate = { ...entry, relativePath: '1.jpg', name: '1.jpg' };
+  await assert.rejects(
+    buildRemoteSourceManifestV1([duplicate, duplicate], 'directory_handle'),
+    (error) =>
+      error instanceof RemoteManualSelectionContractError &&
+      error.code === 'REMOTE_SELECTION_SOURCE_MANIFEST_INVALID',
+  );
+});
+
+test('uses deterministic canonical JSON and checksum semantics', async () => {
+  assert.equal(
+    stableRemoteStringify({ z: 1, a: { b: 2, a: 1 } }),
+    '{"a":{"a":1,"b":2},"z":1}',
+  );
+  const checksum = await canonicalRemoteChecksumSha256({ a: 1, b: 2 });
+  assert.equal(checksum, await canonicalRemoteChecksumSha256({ b: 2, a: 1 }));
+  assert.equal(
+    checksum,
+    '43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777',
+  );
+});
+
+test('exposes fail-closed state transitions for every remote state machine', () => {
+  const cases = [
+    [transitionRemoteSessionStatus, 'draft', 'active', 'draft', 'completed'],
+    [
+      transitionRemoteCollectionStatus,
+      'active',
+      'completed',
+      'completed',
+      'active',
+    ],
+    [transitionRemoteBatchStatus, 'active', 'finalizing', 'active', 'draft'],
+    [
+      transitionRemoteFileStatus,
+      'verified',
+      'materialized',
+      'verified',
+      'discovered',
+    ],
+    [
+      transitionRemoteOperationStatus,
+      'sending',
+      'applied',
+      'sending',
+      'queued',
+    ],
+    [
+      transitionRemoteTransferStatus,
+      'stored_temp',
+      'verified',
+      'stored_temp',
+      'queued',
+    ],
+    [
+      transitionRemoteHostActionStatus,
+      'processing',
+      'completed',
+      'processing',
+      'queued',
+    ],
+  ];
+  for (const [
+    transition,
+    current,
+    allowed,
+    forbiddenCurrent,
+    forbiddenTarget,
+  ] of cases) {
+    assert.equal(transition(current, allowed), allowed);
+    assert.equal(transition(current, current), current);
+    assert.throws(
+      () => transition(forbiddenCurrent, forbiddenTarget),
+      (error) =>
+        error instanceof RemoteManualSelectionContractError &&
+        error.code === 'REMOTE_SELECTION_INVALID_TRANSITION',
+    );
+  }
 });

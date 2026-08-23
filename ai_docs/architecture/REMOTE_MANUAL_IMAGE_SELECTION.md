@@ -979,7 +979,7 @@ operacyjnego fallbacku i wymaga rygorystycznej regresji.
 
 ### TASK 3: Kontrakty domenowe, rewizje i kompatybilność manifestów
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.27`
 
 **Cel:** Zamrozić czyste maszyny stanów i wersjonowane kontrakty zdalnego trybu
 przed migracją lub endpointem.

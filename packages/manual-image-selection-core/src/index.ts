@@ -293,3 +293,542 @@ export function createManualSelectionTraceManifest(
     sourceDirectoryName: record.sourceDirectoryName,
   };
 }
+
+export const REMOTE_SOURCE_MANIFEST_SCHEMA =
+  'remote-source-manifest-v1' as const;
+export const REMOTE_SELECTION_MANIFEST_SCHEMA =
+  'remote-manual-image-selection-session-v1' as const;
+export const REMOTE_SELECTION_OPERATION_SCHEMA =
+  'remote-manual-selection-operation-v1' as const;
+
+export type RemoteManualSelectionSessionStatus =
+  'draft' | 'active' | 'completed' | 'expired' | 'revoked';
+export type RemoteManualSelectionCollectionStatus = 'active' | 'completed';
+export type RemoteManualSelectionBatchStatus =
+  | 'draft'
+  | 'indexing'
+  | 'active'
+  | 'finalizing'
+  | 'completed'
+  | 'failed'
+  | 'abandoned';
+export type RemoteManualSelectionFileStatus =
+  | 'discovered'
+  | 'unselected'
+  | 'selection_queued'
+  | 'upload_queued'
+  | 'uploading'
+  | 'stored_temporarily'
+  | 'verified'
+  | 'materialized'
+  | 'synced'
+  | 'deselect_pending'
+  | 'removed'
+  | 'failed'
+  | 'retrying';
+export type RemoteManualSelectionOperationType =
+  'viewed' | 'select' | 'skip' | 'deselect' | 'undo';
+export type RemoteManualSelectionOperationStatus =
+  | 'queued'
+  | 'sending'
+  | 'applied'
+  | 'retry'
+  | 'superseded'
+  | 'conflict'
+  | 'rejected';
+export type RemoteManualSelectionTransferStatus =
+  | 'queued'
+  | 'uploading'
+  | 'stored_temp'
+  | 'verified'
+  | 'materialized'
+  | 'cancelled'
+  | 'failed'
+  | 'retrying';
+export type RemoteManualSelectionHostActionType =
+  'verify' | 'materialize' | 'remove' | 'reconcile';
+export type RemoteManualSelectionHostActionStatus =
+  'queued' | 'processing' | 'completed' | 'retry' | 'failed' | 'superseded';
+export type RemoteManualSelectionDirection = 'ascending' | 'descending';
+export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
+
+export interface RemoteSourceManifestEntryV1 {
+  readonly ordinal: number;
+  readonly relativePath: string;
+  readonly name: string;
+  readonly sizeBytes: number;
+  readonly lastModifiedMs: number;
+  readonly mimeType: string;
+}
+
+export interface RemoteSourceManifestV1 {
+  readonly schemaVersion: typeof REMOTE_SOURCE_MANIFEST_SCHEMA;
+  readonly sourceKind: RemoteSourceKind;
+  readonly fileCount: number;
+  readonly totalBytes: number;
+  readonly entries: readonly RemoteSourceManifestEntryV1[];
+  readonly manifestChecksumSha256: string;
+}
+
+export interface RemoteManualSelectionSessionV1 {
+  readonly schemaVersion: 'remote-manual-selection-session-v1';
+  readonly id: string;
+  readonly status: RemoteManualSelectionSessionStatus;
+  readonly revision: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly expiresAt: string;
+}
+
+export interface RemoteManualSelectionCollectionV1 {
+  readonly schemaVersion: 'remote-manual-selection-collection-v1';
+  readonly id: string;
+  readonly sessionId: string;
+  readonly name: string;
+  readonly normalizedName: string;
+  readonly status: RemoteManualSelectionCollectionStatus;
+  readonly revision: number;
+}
+
+export interface RemoteManualSelectionBatchV1 {
+  readonly schemaVersion: 'remote-manual-selection-batch-v1';
+  readonly id: string;
+  readonly sessionId: string;
+  readonly collectionId: string;
+  readonly name: string;
+  readonly sourceManifestChecksumSha256: string;
+  readonly firstLayout: number;
+  readonly direction: RemoteManualSelectionDirection;
+  readonly cursorIndex: number;
+  readonly status: RemoteManualSelectionBatchStatus;
+  readonly serverRevision: number;
+  readonly lastClientSequence: number;
+}
+
+export interface RemoteManualSelectionFileV1 {
+  readonly schemaVersion: 'remote-manual-selection-file-v1';
+  readonly id: string;
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly sourceIndex: number;
+  readonly relativePath: string;
+  readonly sizeBytes: number;
+  readonly lastModifiedMs: number;
+  readonly mimeType: string;
+  readonly desiredSelected: boolean;
+  readonly selectionGeneration: number;
+  readonly status: RemoteManualSelectionFileStatus;
+  readonly rangeStart: number | null;
+  readonly rangeEnd: number | null;
+  readonly outputName: string | null;
+  readonly hostChecksumSha256: string | null;
+}
+
+export interface RemoteManualSelectionOperationCommandV1 {
+  readonly schemaVersion: typeof REMOTE_SELECTION_OPERATION_SCHEMA;
+  readonly operationId: string;
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly clientInstanceId: string;
+  readonly clientSequence: number;
+  readonly expectedServerRevision: number;
+  readonly operationType: RemoteManualSelectionOperationType;
+  readonly selectionGeneration: number;
+  readonly rangeStart: number;
+  readonly rangeEnd: number;
+  readonly recordedAt: string;
+  readonly fileId: string | null;
+  readonly imagePath: string | null;
+  readonly sourceIndex: number | null;
+  readonly imageChecksumSha256: string | null;
+  readonly outputName: string | null;
+  readonly visibleMilliseconds: number;
+  readonly decoded: boolean;
+  readonly targetOperationId: string | null;
+}
+
+export interface RemoteManualSelectionOperationV1 {
+  readonly schemaVersion: 'remote-manual-selection-operation-result-v1';
+  readonly command: RemoteManualSelectionOperationCommandV1;
+  readonly commandChecksumSha256: string;
+  readonly status: RemoteManualSelectionOperationStatus;
+  readonly appliedServerRevision: number;
+  readonly outcomeCode: string;
+}
+
+export interface RemoteManualSelectionTransferV1 {
+  readonly schemaVersion: 'remote-manual-selection-transfer-v1';
+  readonly id: string;
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly fileId: string;
+  readonly generation: number;
+  readonly attempt: number;
+  readonly declaredBytes: number;
+  readonly receivedBytes: number;
+  readonly status: RemoteManualSelectionTransferStatus;
+  readonly declaredChecksumSha256: string | null;
+  readonly verifiedChecksumSha256: string | null;
+}
+
+export interface RemoteManualSelectionHostActionV1 {
+  readonly schemaVersion: 'remote-manual-selection-host-action-v1';
+  readonly id: string;
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly fileId: string;
+  readonly transferId: string | null;
+  readonly generation: number;
+  readonly actionType: RemoteManualSelectionHostActionType;
+  readonly status: RemoteManualSelectionHostActionStatus;
+  readonly attempt: number;
+}
+
+export interface RemoteManualSelectionManifestV1 {
+  readonly schemaVersion: typeof REMOTE_SELECTION_MANIFEST_SCHEMA;
+  readonly sessionId: string;
+  readonly collectionId: string;
+  readonly batch: RemoteManualSelectionBatchV1;
+  readonly files: readonly RemoteManualSelectionFileV1[];
+  readonly operations: readonly RemoteManualSelectionOperationV1[];
+  readonly transfers: readonly RemoteManualSelectionTransferV1[];
+  readonly hostActions: readonly RemoteManualSelectionHostActionV1[];
+  readonly generatedAt: string;
+}
+
+export class RemoteManualSelectionContractError extends Error {
+  readonly code: string;
+  readonly details: Readonly<Record<string, unknown>>;
+
+  constructor(
+    code: string,
+    message: string,
+    details: Readonly<Record<string, unknown>> = {},
+  ) {
+    super(message);
+    this.name = 'RemoteManualSelectionContractError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export function normalizeRemoteSourcePath(value: string): string {
+  const normalized = value.normalize('NFC');
+  if (
+    normalized.length === 0 ||
+    normalized.includes('\0') ||
+    normalized.includes('\\') ||
+    normalized.startsWith('/') ||
+    normalized.endsWith('/') ||
+    /^[a-zA-Z]:/.test(normalized)
+  ) {
+    throw remoteSourceManifestError(
+      'An absolute or malformed source path is not allowed.',
+    );
+  }
+  const segments = normalized.split('/');
+  if (
+    segments.some(
+      (segment) => segment.length === 0 || segment === '.' || segment === '..',
+    )
+  ) {
+    throw remoteSourceManifestError(
+      'A source path contains a forbidden segment.',
+    );
+  }
+  return normalized;
+}
+
+export async function buildRemoteSourceManifestV1(
+  values: readonly Omit<RemoteSourceManifestEntryV1, 'ordinal'>[],
+  sourceKind: RemoteSourceKind,
+): Promise<RemoteSourceManifestV1> {
+  const entries = values
+    .map((value) => {
+      const relativePath = normalizeRemoteSourcePath(value.relativePath);
+      const name = relativePath.split('/').at(-1);
+      if (
+        name === undefined ||
+        name !== value.name ||
+        !/\.jpe?g$/i.test(name) ||
+        !Number.isSafeInteger(value.sizeBytes) ||
+        value.sizeBytes < 0 ||
+        !Number.isSafeInteger(value.lastModifiedMs) ||
+        value.lastModifiedMs < 0
+      ) {
+        throw remoteSourceManifestError('Source metadata is invalid.');
+      }
+      return { ...value, relativePath };
+    })
+    .sort((left, right) =>
+      naturalCompare(left.relativePath, right.relativePath),
+    )
+    .map((entry, ordinal) => ({ ordinal, ...entry }));
+  const duplicate = entries.find(
+    (entry, index) =>
+      index > 0 && entry.relativePath === entries[index - 1]?.relativePath,
+  );
+  if (duplicate !== undefined) {
+    throw remoteSourceManifestError('Source relative paths must be unique.');
+  }
+  const content = {
+    schemaVersion: REMOTE_SOURCE_MANIFEST_SCHEMA,
+    sourceKind,
+    fileCount: entries.length,
+    totalBytes: entries.reduce((total, entry) => total + entry.sizeBytes, 0),
+    entries,
+  };
+  return {
+    ...content,
+    manifestChecksumSha256: await canonicalRemoteChecksumSha256(content),
+  };
+}
+
+export async function canonicalRemoteChecksumSha256(
+  value: unknown,
+): Promise<string> {
+  const bytes = new TextEncoder().encode(stableRemoteStringify(value));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+}
+
+export function stableRemoteStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableRemoteStringify(item)).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+    return `{${entries
+      .map(
+        ([key, child]) =>
+          `${JSON.stringify(key)}:${stableRemoteStringify(child)}`,
+      )
+      .join(',')}}`;
+  }
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new RemoteManualSelectionContractError(
+      'REMOTE_SELECTION_CONTRACT_INVALID',
+      'The value cannot be represented in canonical JSON.',
+    );
+  }
+  return serialized;
+}
+
+export function transitionRemoteSessionStatus(
+  current: RemoteManualSelectionSessionStatus,
+  target: RemoteManualSelectionSessionStatus,
+): RemoteManualSelectionSessionStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_SESSION_TRANSITIONS,
+    'session',
+  );
+}
+
+export function transitionRemoteBatchStatus(
+  current: RemoteManualSelectionBatchStatus,
+  target: RemoteManualSelectionBatchStatus,
+): RemoteManualSelectionBatchStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_BATCH_TRANSITIONS,
+    'batch',
+  );
+}
+
+export function transitionRemoteCollectionStatus(
+  current: RemoteManualSelectionCollectionStatus,
+  target: RemoteManualSelectionCollectionStatus,
+): RemoteManualSelectionCollectionStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_COLLECTION_TRANSITIONS,
+    'collection',
+  );
+}
+
+export function transitionRemoteFileStatus(
+  current: RemoteManualSelectionFileStatus,
+  target: RemoteManualSelectionFileStatus,
+): RemoteManualSelectionFileStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_FILE_TRANSITIONS,
+    'file',
+  );
+}
+
+export function transitionRemoteOperationStatus(
+  current: RemoteManualSelectionOperationStatus,
+  target: RemoteManualSelectionOperationStatus,
+): RemoteManualSelectionOperationStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_OPERATION_TRANSITIONS,
+    'operation',
+  );
+}
+
+export function transitionRemoteTransferStatus(
+  current: RemoteManualSelectionTransferStatus,
+  target: RemoteManualSelectionTransferStatus,
+): RemoteManualSelectionTransferStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_TRANSFER_TRANSITIONS,
+    'transfer',
+  );
+}
+
+export function transitionRemoteHostActionStatus(
+  current: RemoteManualSelectionHostActionStatus,
+  target: RemoteManualSelectionHostActionStatus,
+): RemoteManualSelectionHostActionStatus {
+  return transitionRemoteStatus(
+    current,
+    target,
+    REMOTE_HOST_ACTION_TRANSITIONS,
+    'hostAction',
+  );
+}
+
+const REMOTE_SESSION_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionSessionStatus,
+      readonly RemoteManualSelectionSessionStatus[]
+    >
+  >
+> = {
+  draft: ['active', 'revoked'],
+  active: ['completed', 'expired', 'revoked'],
+};
+
+const REMOTE_COLLECTION_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionCollectionStatus,
+      readonly RemoteManualSelectionCollectionStatus[]
+    >
+  >
+> = {
+  active: ['completed'],
+};
+
+const REMOTE_BATCH_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionBatchStatus,
+      readonly RemoteManualSelectionBatchStatus[]
+    >
+  >
+> = {
+  draft: ['indexing', 'abandoned'],
+  indexing: ['active', 'failed', 'abandoned'],
+  active: ['finalizing', 'failed', 'abandoned'],
+  finalizing: ['completed', 'failed'],
+  failed: ['indexing', 'active', 'finalizing', 'abandoned'],
+};
+
+const REMOTE_FILE_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionFileStatus,
+      readonly RemoteManualSelectionFileStatus[]
+    >
+  >
+> = {
+  discovered: ['unselected'],
+  unselected: ['selection_queued'],
+  selection_queued: ['upload_queued', 'deselect_pending', 'failed'],
+  upload_queued: ['uploading', 'deselect_pending', 'failed'],
+  uploading: ['stored_temporarily', 'deselect_pending', 'failed'],
+  stored_temporarily: ['verified', 'deselect_pending', 'failed'],
+  verified: ['materialized', 'deselect_pending', 'failed'],
+  materialized: ['synced', 'deselect_pending', 'failed'],
+  synced: ['deselect_pending'],
+  deselect_pending: ['unselected', 'removed', 'selection_queued', 'failed'],
+  removed: ['selection_queued'],
+  failed: ['retrying', 'deselect_pending'],
+  retrying: ['upload_queued', 'unselected', 'deselect_pending'],
+};
+
+const REMOTE_OPERATION_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionOperationStatus,
+      readonly RemoteManualSelectionOperationStatus[]
+    >
+  >
+> = {
+  queued: ['sending'],
+  sending: ['applied', 'retry', 'superseded', 'conflict', 'rejected'],
+  retry: ['sending'],
+  applied: ['superseded'],
+};
+
+const REMOTE_TRANSFER_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionTransferStatus,
+      readonly RemoteManualSelectionTransferStatus[]
+    >
+  >
+> = {
+  queued: ['uploading', 'cancelled'],
+  uploading: ['stored_temp', 'cancelled', 'failed'],
+  stored_temp: ['verified', 'failed'],
+  verified: ['materialized'],
+  failed: ['retrying'],
+  retrying: ['uploading', 'cancelled'],
+};
+
+const REMOTE_HOST_ACTION_TRANSITIONS: Readonly<
+  Partial<
+    Record<
+      RemoteManualSelectionHostActionStatus,
+      readonly RemoteManualSelectionHostActionStatus[]
+    >
+  >
+> = {
+  queued: ['processing', 'superseded'],
+  processing: ['completed', 'retry', 'failed', 'superseded'],
+  retry: ['processing'],
+};
+
+function transitionRemoteStatus<S extends string>(
+  current: S,
+  target: S,
+  transitions: Readonly<Partial<Record<S, readonly S[]>>>,
+  entity: string,
+): S {
+  if (current === target) return current;
+  if (!transitions[current]?.includes(target)) {
+    throw new RemoteManualSelectionContractError(
+      'REMOTE_SELECTION_INVALID_TRANSITION',
+      `The ${entity} transition is not allowed.`,
+      { entity, from: current, to: target },
+    );
+  }
+  return target;
+}
+
+function remoteSourceManifestError(
+  message: string,
+): RemoteManualSelectionContractError {
+  return new RemoteManualSelectionContractError(
+    'REMOTE_SELECTION_SOURCE_MANIFEST_INVALID',
+    message,
+  );
+}

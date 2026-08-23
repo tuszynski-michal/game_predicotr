@@ -455,6 +455,24 @@ natychmiast zastępuje bieżący item projekcją zwróconą przez backend i pobi
 planszę oraz cropy spod adresów wersjonowanych ich checksumami. Nie wolno
 pokazać starego assetu z cache jako wyniku nowej rewizji geometrii.
 
+Odroczona geometria komórek ma osobny, jawny tryb końcowego fallbacku. Admin
+pokazuje jej licznik dla wybranego importu i pozwala otworzyć Reviewer również
+wtedy, gdy zwykła kolejka ma `total = 0`, ale istnieje co najmniej jeden
+`image_board_geometry_pending` w stanie `pending`. Reviewer pobiera najwyżej
+jeden taki wyjątek, a lokalna historia nawigacji nie może materializować całej
+kolejki ani jej obrazów.
+
+Ekran fallbacku pobiera checksum-bound źródło i kontekst przypięty do manifestu
+oraz rewizji. Operator przesuwa dokładnie cztery narożniki perspektywicznej
+siatki 5 × 3 i przed zapisem musi wygenerować aktualny podgląd wszystkich 15
+cropów source-direct. Każda zmiana narożników unieważnia podgląd. Niejednoznaczny
+błąd transportu zachowuje klucz idempotencji niezmienionej komendy, natomiast
+konflikt, superseded albo rozstrzygnięcie przez inną sesję powodują bezpieczne
+przeładowanie bez nadpisania wyniku człowieka. Skuteczny zapis usuwa wyjątek z
+domyślnej kolejki `pending`, przechodzi do następnego wyjątku i tworzy zwykły
+item do zatwierdzenia symboli w istniejącej kolejce; nie powstaje druga trwała
+kolejka plansz.
+
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie
 uruchamia treningu. Nowy model używa niezmiennego eksportu i nie zmienia

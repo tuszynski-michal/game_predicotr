@@ -1761,6 +1761,104 @@ test('generated client previews and persists one scope-bound geometry revision',
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
 });
 
+test('generated client exposes the checksum-bound deferred geometry workflow', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const checksum = 'a'.repeat(64);
+  const previewCommand = {
+    corners: [
+      { x: 10, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: 10, y: 310 },
+    ],
+    expectedGeometryRevision: 0,
+    expectedManifestChecksumSha256: checksum,
+    expectedResolutionRevision: 0,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/source') || path.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        });
+      }
+      if (path.endsWith('/manual-resolution')) {
+        return Response.json({
+          created: true,
+          geometryRevision: 1,
+          item: { id: pendingId, status: 'resolved' },
+          reviewItemId: '44444444-4444-4444-8444-444444444444',
+        });
+      }
+      if (path.endsWith('/correction-context')) {
+        return Response.json({ item: { id: pendingId } });
+      }
+      return Response.json({
+        counts: { pending: 1, resolved: 0, superseded: 0, total: 1 },
+        items: [{ id: pendingId }],
+        nextCursor: null,
+      });
+    },
+  });
+
+  await client.listPendingBoardCellGeometry({
+    ...context,
+    cursor: 'cursor-1',
+    limit: 1,
+    status: 'pending',
+  });
+  await client.getPendingBoardCellGeometryCorrectionContext(pendingId, context);
+  const source = await client.getPendingBoardCellGeometrySource(
+    pendingId,
+    context,
+  );
+  const preview = await client.previewPendingBoardCellGeometryCorrection(
+    pendingId,
+    context,
+    previewCommand,
+  );
+  const resolutionCommand = {
+    ...previewCommand,
+    correctedBy: 'reviewer-operator',
+    idempotencyKey: '55555555-5555-4555-8555-555555555555',
+  };
+  const resolved = await client.resolvePendingBoardCellGeometryManually(
+    pendingId,
+    context,
+    resolutionCommand,
+  );
+
+  assert.equal(source.data instanceof Blob, true);
+  assert.equal(preview.data instanceof Blob, true);
+  assert.equal(resolved.data?.created, true);
+  const collectionPath = `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/board-cell-geometry-pending`;
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      collectionPath,
+      `${collectionPath}/${pendingId}/correction-context`,
+      `${collectionPath}/${pendingId}/source`,
+      `${collectionPath}/${pendingId}/geometry-preview`,
+      `${collectionPath}/${pendingId}/manual-resolution`,
+    ],
+  );
+  const listUrl = new URL(requests[0].url);
+  assert.equal(listUrl.searchParams.get('cursor'), 'cursor-1');
+  assert.equal(listUrl.searchParams.get('limit'), '1');
+  assert.equal(listUrl.searchParams.get('status'), 'pending');
+  assert.deepEqual(await requests[3].clone().json(), previewCommand);
+  assert.deepEqual(await requests[4].clone().json(), resolutionCommand);
+});
+
 test('generated client lists and explicitly freezes verified cohorts in one context', async () => {
   const requests = [];
   const context = {

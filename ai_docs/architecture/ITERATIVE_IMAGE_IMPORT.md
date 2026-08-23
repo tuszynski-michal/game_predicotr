@@ -118,6 +118,20 @@ stałej długości ścieżki zgodnej z Windows. Model ONNX jest ładowany wyłą
 checksum-bound snapshotu źródłowego joba; aktualnie aktywny model gry nie może
 zmienić wyniku historycznego importu.
 
+Reviewer prezentuje trwałe wyjątki jako osobny tryb UI, ale konsumuje istniejące
+scope-bound API zamiast budować drugą projekcję domenową. Lista używa
+`status=pending`, limitu jednego elementu i stabilnego kursora; klient zachowuje
+jedynie bounded historię odwiedzonych stron. Źródło jest wersjonowane checksumą,
+a preview i resolution niosą checksumę manifestu oraz oczekiwane rewizje.
+
+Stan klienta wiąże wygenerowany preview z dokładnym zestawem czterech narożników.
+Zmiana komendy unieważnia podgląd i jej idempotency key. Ten sam klucz pozostaje
+wyłącznie dla ponowienia niezmienionej komendy po niejednoznacznym błędzie
+transportu. Konflikt rewizji, manifestu lub statusu powoduje odczyt kolejki od
+początku. Po materializacji Reviewer odświeża wyjątki, a zwykłą kolejkę pobiera
+ponownie przy powrocie do zatwierdzania symboli, dzięki czemu nowy item przechodzi
+przez istniejący bounded bufor plansz.
+
 ## Kohorta i profil geometrii
 
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej

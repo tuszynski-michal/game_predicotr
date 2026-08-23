@@ -70,7 +70,8 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
 - [x] Odroczone strony pozostają widoczne do ponownego preflightu i końcowej
       korekty ręcznej.
 - [x] Kanoniczne, zaakceptowane numery pozostają chronione.
-- [ ] Testy API, workera i Admina oraz lint, typecheck i OpenAPI przechodzą.
+- [x] Testy API, workera, Admina i Reviewera oraz lint, typecheck i OpenAPI
+      przechodzą dla zrealizowanych pionów.
 
 ## Outcome
 
@@ -113,4 +114,9 @@ fail-closed rozszerzenie wzorców na podstawie najmocniejszych własnych wynikó
 - TASK-0266 domknął backend ręcznej korekty pojedynczego deferred. Checksum-bound
   preview niczego nie zapisuje, a właściwa komenda materializuje dokładnie 15
   cropów, predykcje pinned modelu i zwykły item istniejącej kolejki. UI tej
-  korekty pozostaje w następnym zadaniu.
+  korekty dostarczył następnie TASK-0267.
+- TASK-0267 dodał osobny bounded tryb końcowej korekty w Reviewerze oraz licznik
+  i dostęp deferred-only w launcherze Admina. Aktualny preview jest wymagany do
+  zapisu, exact retry zachowuje idempotency key, a konflikty przeładowują stan
+  bez nadpisania human-wins. Po zapisie plansza trafia do istniejącej zwykłej
+  kolejki review.

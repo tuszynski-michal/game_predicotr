@@ -16,6 +16,18 @@ const geometryEditorPath = new URL(
   '../src/features/operational-reviews/operational-review-geometry-editor.tsx',
   import.meta.url,
 );
+const deferredGeometryPath = new URL(
+  '../src/features/operational-reviews/deferred-board-cell-geometry-queue.tsx',
+  import.meta.url,
+);
+const deferredGeometryEditorPath = new URL(
+  '../src/features/operational-reviews/deferred-board-cell-geometry-editor.tsx',
+  import.meta.url,
+);
+const deferredGeometryActionsPath = new URL(
+  '../src/features/operational-reviews/deferred-board-cell-geometry-actions.ts',
+  import.meta.url,
+);
 
 test('operational workspace compares square cell crops with one cropped board', async () => {
   const source = await readFile(workspacePath, 'utf8');
@@ -23,6 +35,15 @@ test('operational workspace compares square cell crops with one cropped board', 
   const reviewerStyles = await readFile(reviewerStylesPath, 'utf8');
   const actions = await readFile(actionsPath, 'utf8');
   const geometryEditor = await readFile(geometryEditorPath, 'utf8');
+  const deferredGeometry = await readFile(deferredGeometryPath, 'utf8');
+  const deferredGeometryEditor = await readFile(
+    deferredGeometryEditorPath,
+    'utf8',
+  );
+  const deferredGeometryActions = await readFile(
+    deferredGeometryActionsPath,
+    'utf8',
+  );
 
   assert.match(source, /loadOperationalReviewPage/);
   assert.match(actions, /limit: 1/);
@@ -99,6 +120,21 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(geometryEditor, /Zapisz nową rewizję/);
   assert.match(source, /onGeometrySaved=\{handleGeometrySaved\}/);
   assert.match(source, /Plansza wróciła do weryfikacji symboli/);
+  assert.match(source, /DeferredBoardCellGeometryQueue/);
+  assert.match(source, /deferredGeometryOpen/);
+  assert.match(deferredGeometry, /Otwórz korektę siatki/);
+  assert.match(deferredGeometry, /Pomiń na razie/);
+  assert.match(deferredGeometryActions, /status: 'pending'/);
+  assert.match(deferredGeometryActions, /limit: 1/);
+  assert.match(deferredGeometryEditor, /operationalReviewPointInLattice/);
+  assert.match(deferredGeometryEditor, /for \(let column = 0; column <= 5/);
+  assert.match(deferredGeometryEditor, /for \(let row = 0; row <= 3/);
+  assert.match(deferredGeometryEditor, /Array\.from\(\{ length: 15 \}/);
+  assert.match(deferredGeometryEditor, /previewIsCurrent/);
+  assert.match(deferredGeometryEditor, /idempotencyRef/);
+  assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);
+  assert.match(deferredGeometry, /onOrdinaryQueueChanged/);
+  assert.match(reviewerStyles, /\.deferredGeometryQueue\s*\{/);
   assert.match(source, /version: cell\.cropChecksumSha256/);
   assert.match(source, /version: item\.sourceChecksumSha256/);
   assert.match(source, /Zamroź kohortę/);

@@ -13,6 +13,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { DeferredBoardCellGeometryQueue } from '@/features/operational-reviews/deferred-board-cell-geometry-queue';
 import {
   freezeVerifiedCohort,
   loadVerifiedCohortHistory,
@@ -115,6 +116,9 @@ export function OperationalReviewWorkspace({
   const [cohortError, setCohortError] = useState('');
   const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
   const [freezingCohort, setFreezingCohort] = useState(false);
+  const [deferredGeometryScope, setDeferredGeometryScope] = useState<
+    string | null
+  >(null);
   const mounted = useRef(true);
   const gamesRequestId = useRef(0);
   const jobsRequestId = useRef(0);
@@ -332,6 +336,9 @@ export function OperationalReviewWorkspace({
   const page = pageBuffer.current;
   const item = page?.items[0] ?? null;
   const counts = page?.counts ?? EMPTY_COUNTS;
+  const currentDeferredGeometryScope = `${selectedGameId}:${selectedJobId}`;
+  const deferredGeometryOpen =
+    deferredGeometryScope === currentDeferredGeometryScope;
   const bufferedAssetUrls = useMemo(
     () =>
       operationalReviewBufferedAssetUrls(apiBaseUrl, selectedJobId, pageBuffer),
@@ -544,84 +551,109 @@ export function OperationalReviewWorkspace({
               text="Wybrana gra nie ma jeszcze importu typu image_directory."
               title="Brak importów zdjęć"
             />
-          ) : symbolsState === 'loading' ? (
-            <OperationalReviewState
-              text="Pobieram aktywny katalog i mapowanie skrótów."
-              title="Wczytywanie symboli"
-            />
-          ) : symbolsState === 'error' ? (
-            <OperationalReviewState
-              action={() => void refreshSymbols()}
-              error
-              text={symbolsError}
-              title="Nie udało się pobrać symboli"
-            />
-          ) : symbols.length === 0 ? (
-            <OperationalReviewState
-              error
-              text="Wybrana gra nie ma aktywnych symboli. Zapis planszy jest zablokowany."
-              title="Brak aktywnego katalogu symboli"
-            />
-          ) : pageState === 'loading' ? (
-            <OperationalReviewState
-              text="Pobieram jedną planszę i jej 15 komórek."
-              title="Wczytywanie planszy"
-            />
-          ) : pageState === 'error' ? (
-            <OperationalReviewState
-              action={() => void refreshPage()}
-              error
-              text={
-                cursorConflict
-                  ? `${pageError} Kolejka zmieniła się — rozpocznij od aktualnej pozycji.`
-                  : pageError
-              }
-              title={
-                cursorConflict
-                  ? 'Pozycja kolejki jest nieaktualna'
-                  : 'Nie udało się pobrać planszy'
-              }
-            />
-          ) : item === null ? (
-            <OperationalReviewEmpty
-              counts={counts}
-              onReset={() => void refreshPage({ resumeAtFirstPending: true })}
-            />
           ) : (
             <>
-              {pageNotice ? (
-                <p className="operationalReviewNotice" role="status">
-                  {pageNotice}
-                </p>
-              ) : null}
-              <OperationalReviewBoard
+              <DeferredBoardCellGeometryQueue
+                active={deferredGeometryOpen}
                 api={api}
                 apiBaseUrl={apiBaseUrl}
-                counts={counts}
-                game={selectedGame}
+                gameId={selectedGameId}
                 importJobId={selectedJobId}
-                item={item}
-                jumpValue={jumpValue}
-                key={`${item.id}:${item.geometryRevision}:${item.resolutionRevision}`}
-                onJumpChange={setJumpValue}
-                onJumpSubmit={jumpToSequence}
-                onGeometrySaved={handleGeometrySaved}
-                onNext={showNextPage}
-                onPrevious={showPreviousPage}
-                onReload={() => {
-                  setPageNotice(
-                    'Plansza została zmieniona w innym żądaniu. Wczytuję jej aktualną rewizję bez nadpisywania zapisanej decyzji.',
-                  );
-                  const sequenceNumber = operationalReviewSequence(item);
-                  void refreshPage(
-                    sequenceNumber === null ? {} : { sequenceNumber },
-                  );
+                onActivate={() =>
+                  setDeferredGeometryScope(currentDeferredGeometryScope)
+                }
+                onClose={() => {
+                  setDeferredGeometryScope(null);
+                  void refreshPage({ resumeAtFirstPending: true });
                 }}
-                onResolved={handleResolved}
-                symbols={symbols}
-                hasNext={page?.nextCursor !== null}
-                hasPrevious={page?.previousCursor !== null}
+                onOrdinaryQueueChanged={() => {
+                  pageBufferRequestId.current += 1;
+                }}
               />
+              {!deferredGeometryOpen ? (
+                symbolsState === 'loading' ? (
+                  <OperationalReviewState
+                    text="Pobieram aktywny katalog i mapowanie skrótów."
+                    title="Wczytywanie symboli"
+                  />
+                ) : symbolsState === 'error' ? (
+                  <OperationalReviewState
+                    action={() => void refreshSymbols()}
+                    error
+                    text={symbolsError}
+                    title="Nie udało się pobrać symboli"
+                  />
+                ) : symbols.length === 0 ? (
+                  <OperationalReviewState
+                    error
+                    text="Wybrana gra nie ma aktywnych symboli. Zapis planszy jest zablokowany."
+                    title="Brak aktywnego katalogu symboli"
+                  />
+                ) : pageState === 'loading' ? (
+                  <OperationalReviewState
+                    text="Pobieram jedną planszę i jej 15 komórek."
+                    title="Wczytywanie planszy"
+                  />
+                ) : pageState === 'error' ? (
+                  <OperationalReviewState
+                    action={() => void refreshPage()}
+                    error
+                    text={
+                      cursorConflict
+                        ? `${pageError} Kolejka zmieniła się — rozpocznij od aktualnej pozycji.`
+                        : pageError
+                    }
+                    title={
+                      cursorConflict
+                        ? 'Pozycja kolejki jest nieaktualna'
+                        : 'Nie udało się pobrać planszy'
+                    }
+                  />
+                ) : item === null ? (
+                  <OperationalReviewEmpty
+                    counts={counts}
+                    onReset={() =>
+                      void refreshPage({ resumeAtFirstPending: true })
+                    }
+                  />
+                ) : (
+                  <>
+                    {pageNotice ? (
+                      <p className="operationalReviewNotice" role="status">
+                        {pageNotice}
+                      </p>
+                    ) : null}
+                    <OperationalReviewBoard
+                      api={api}
+                      apiBaseUrl={apiBaseUrl}
+                      counts={counts}
+                      game={selectedGame}
+                      importJobId={selectedJobId}
+                      item={item}
+                      jumpValue={jumpValue}
+                      key={`${item.id}:${item.geometryRevision}:${item.resolutionRevision}`}
+                      onJumpChange={setJumpValue}
+                      onJumpSubmit={jumpToSequence}
+                      onGeometrySaved={handleGeometrySaved}
+                      onNext={showNextPage}
+                      onPrevious={showPreviousPage}
+                      onReload={() => {
+                        setPageNotice(
+                          'Plansza została zmieniona w innym żądaniu. Wczytuję jej aktualną rewizję bez nadpisywania zapisanej decyzji.',
+                        );
+                        const sequenceNumber = operationalReviewSequence(item);
+                        void refreshPage(
+                          sequenceNumber === null ? {} : { sequenceNumber },
+                        );
+                      }}
+                      onResolved={handleResolved}
+                      symbols={symbols}
+                      hasNext={page?.nextCursor !== null}
+                      hasPrevious={page?.previousCursor !== null}
+                    />
+                  </>
+                )
+              ) : null}
             </>
           )}
         </>

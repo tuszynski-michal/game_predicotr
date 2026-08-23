@@ -37,6 +37,10 @@ export type OperationalReviewsClient = Pick<
   | 'resolveOperationalImageReviewItem'
   | 'freezeVerifiedImageReviewCohort'
   | 'listVerifiedImageReviewCohorts'
+  | 'getPendingBoardCellGeometryCorrectionContext'
+  | 'listPendingBoardCellGeometry'
+  | 'previewPendingBoardCellGeometryCorrection'
+  | 'resolvePendingBoardCellGeometryManually'
 >;
 
 export interface OperationalReviewGeometryOptions {

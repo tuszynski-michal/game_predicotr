@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  BoardCellGeometryJobCountsResponse,
   BrowserReadySelectionResponse,
   GameResponse,
   JobResponse,
@@ -23,6 +24,7 @@ import {
 } from '@/features/reviewer-access/reviewer-access-actions';
 import {
   hasImageImport,
+  hasReviewerWork,
   isImageImport,
   readyBoardImportStaging,
   reviewableGames,
@@ -70,6 +72,8 @@ export function ReviewerAccessLauncher({
   const [reviewContextLoading, setReviewContextLoading] = useState(false);
   const [reviewCounts, setReviewCounts] =
     useState<OperationalImageReviewCountsResponse | null>(null);
+  const [deferredGeometryCounts, setDeferredGeometryCounts] =
+    useState<BoardCellGeometryJobCountsResponse | null>(null);
   const [opening, setOpening] = useState<'local' | 'online' | null>(null);
   const [closingAssignmentId, setClosingAssignmentId] = useState<string | null>(
     null,
@@ -207,6 +211,7 @@ export function ReviewerAccessLauncher({
     let active = true;
     async function loadReviewContext() {
       setReviewCounts(null);
+      setDeferredGeometryCounts(null);
       if (gameId === '' || jobId === '') {
         setReviewContextLoading(false);
         return;
@@ -214,23 +219,37 @@ export function ReviewerAccessLauncher({
       setReviewContextLoading(true);
       setError('');
       try {
-        const result = await api.listOperationalImageReviewItems({
-          gameId,
-          importJobId: jobId,
-          limit: 1,
-          view: 'all',
-        });
+        const [result, deferredResult] = await Promise.all([
+          api.listOperationalImageReviewItems({
+            gameId,
+            importJobId: jobId,
+            limit: 1,
+            view: 'all',
+          }),
+          api.listPendingBoardCellGeometry({
+            gameId,
+            importJobId: jobId,
+            limit: 1,
+            status: 'pending',
+          }),
+        ]);
         if (!active) return;
-        if (result.error !== undefined || result.data === undefined) {
+        if (
+          result.error !== undefined ||
+          result.data === undefined ||
+          deferredResult.error !== undefined ||
+          deferredResult.data === undefined
+        ) {
           setError(
             apiErrorMessage(
-              result.error,
+              result.error ?? deferredResult.error,
               'Nie udało się sprawdzić plansz wybranego importu.',
             ),
           );
           return;
         }
         setReviewCounts(result.data.counts);
+        setDeferredGeometryCounts(deferredResult.data.counts);
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -249,8 +268,7 @@ export function ReviewerAccessLauncher({
     return (
       gameId !== '' &&
       jobId !== '' &&
-      reviewCounts !== null &&
-      reviewCounts.total > 0 &&
+      hasReviewerWork(reviewCounts, deferredGeometryCounts) &&
       overview !== null &&
       opening === null &&
       closingAssignmentId === null
@@ -389,6 +407,7 @@ export function ReviewerAccessLauncher({
                   setGameId(nextGameId);
                   setJobId(selectReviewImportId(jobs, nextGameId, ''));
                   setReviewCounts(null);
+                  setDeferredGeometryCounts(null);
                   setOneTimeOnlineAccess(null);
                 }}
                 value={gameId}
@@ -410,6 +429,7 @@ export function ReviewerAccessLauncher({
                 onChange={(event) => {
                   setJobId(event.target.value);
                   setReviewCounts(null);
+                  setDeferredGeometryCounts(null);
                   setOneTimeOnlineAccess(null);
                   setCopied(null);
                   setNotice('');
@@ -523,14 +543,15 @@ export function ReviewerAccessLauncher({
 
         {reviewContextLoading ? (
           <p className="mutedText">Sprawdzam plansze wybranego importu…</p>
-        ) : reviewCounts?.total === 0 ? (
+        ) : reviewCounts?.total === 0 &&
+          deferredGeometryCounts?.pending === 0 ? (
           <div className="reviewerPrerequisite" role="status">
             <div>
               <strong>Wybrany import nie zawiera plansz</strong>
               <p>Doładuj zdjęcia lub wybierz inny gotowy import.</p>
             </div>
           </div>
-        ) : reviewCounts ? (
+        ) : reviewCounts && deferredGeometryCounts ? (
           <dl
             className="reviewerReadinessSummary"
             aria-label="Stan plansz importu"
@@ -546,6 +567,10 @@ export function ReviewerAccessLauncher({
             <div>
               <dt>Zakończone</dt>
               <dd>{reviewCounts.completed.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Do korekty siatki</dt>
+              <dd>{deferredGeometryCounts.pending.toLocaleString('pl-PL')}</dd>
             </div>
           </dl>
         ) : null}

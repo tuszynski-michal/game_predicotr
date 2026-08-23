@@ -112,6 +112,131 @@
   height: auto;
 }
 
+.deferredGeometryEntry,
+.deferredGeometryHeader,
+.deferredGeometryNavigation,
+.deferredGeometrySaveBar,
+.deferredGeometrySectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.deferredGeometryEntry {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid rgba(244, 211, 94, 0.26);
+  border-radius: 12px;
+  background: rgba(244, 211, 94, 0.06);
+}
+
+.deferredGeometryEntry strong {
+  display: block;
+  margin: 3px 0 4px;
+  font-size: 18px;
+}
+
+.deferredGeometryEntry p,
+.deferredGeometryHeader p,
+.deferredGeometrySectionHeader p,
+.deferredGeometrySaveBar > span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.deferredGeometryQueue {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.deferredGeometryHeader,
+.deferredGeometryEditor,
+.deferredGeometryComplete {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.deferredGeometryHeader h2,
+.deferredGeometryComplete h3,
+.deferredGeometrySectionHeader h3,
+.deferredGeometrySectionHeader p {
+  margin: 0;
+}
+
+.deferredGeometryMetadata {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.deferredGeometryMetadata > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(2, 7, 12, 0.5);
+}
+
+.deferredGeometryMetadata span,
+.deferredGeometryMetadata strong {
+  display: block;
+}
+
+.deferredGeometryMetadata span {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deferredGeometryMetadata strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deferredGeometryBody {
+  padding: 0;
+}
+
+.deferredGeometryBody > section {
+  min-width: 0;
+}
+
+.deferredGeometrySectionHeader {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.deferredGeometryCanvas {
+  width: 100%;
+  max-height: 68vh;
+  border-radius: 10px;
+  touch-action: none;
+}
+
+.deferredGeometrySaveBar,
+.deferredGeometryNavigation {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.deferredGeometryComplete {
+  text-align: center;
+}
+
+.deferredGeometryComplete .primaryButton {
+  margin-top: 12px;
+}
+
 @media (max-width: 900px) {
   .reviewerShell .operationalReviewVisualComparison {
     grid-template-columns: 1fr;
@@ -119,6 +244,28 @@
 
   .reviewerShell .operationalReviewSymbolsPanel {
     width: min(560px, 100%);
+  }
+
+  .deferredGeometryEntry,
+  .deferredGeometryHeader,
+  .deferredGeometrySaveBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .deferredGeometryMetadata {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .deferredGeometryMetadata {
+    grid-template-columns: 1fr;
+  }
+
+  .deferredGeometryNavigation {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

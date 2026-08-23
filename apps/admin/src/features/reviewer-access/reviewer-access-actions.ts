@@ -22,6 +22,7 @@ export type ReviewerLauncherClient = ReviewerAccessClient &
     | 'listGames'
     | 'listJobs'
     | 'listOperationalImageReviewItems'
+    | 'listPendingBoardCellGeometry'
     | 'listReadyBrowserImageSelections'
   >;
 

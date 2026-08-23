@@ -15,6 +15,30 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Końcowa kolejka korekty geometrii — v0.7.19
+
+- TASK 6 udostępnia w Reviewerze osobny, bounded tryb dla trwałych
+  `image_board_geometry_pending`: pobiera jeden element `pending`, zachowuje
+  lokalną historię opartą na stabilnym kursorze i nie materializuje całego
+  importu ani jego obrazów.
+- Edytor pobiera checksum-bound kontekst i źródło, pozwala przesuwać dokładnie
+  cztery narożniki perspektywicznej siatki 5 × 3 oraz wymaga aktualnego podglądu
+  15 cropów source-direct przed zapisem. Zmiana narożników unieważnia preview.
+- Exact retry niezmienionej komendy zachowuje idempotency key. Konflikt
+  manifestu, rewizji, statusu albo human-wins odświeża kolejkę bez nadpisania
+  rozstrzygnięcia. Udany zapis przechodzi do następnego deferred, a utworzona
+  plansza trafia do dotychczasowej kolejki zatwierdzania symboli.
+- Launcher Admina pokazuje licznik `Do korekty siatki` i pozwala uruchomić
+  lokalnego lub online Reviewera także dla importu z zerową zwykłą kolejką, ale
+  z niezerową liczbą odroczonych plansz.
+- Backend, OpenAPI, baza, domyślny v18, opt-in v20, model symboli i numery
+  `seq_*` nie zostały zmienione. TASK 6 korzysta z kontraktu dostarczonego w
+  TASK 5.
+- Walidacja: klient Admin API `40/40`, Admin `238/238`, Reviewer `40/40`,
+  typecheck i lint wszystkich trzech workspace'ów, buildy Admina i Reviewera
+  oraz kontrola aktualności OpenAPI przeszły. Interaktywny smoke test nie został
+  wykonany, ponieważ lokalny Reviewer na porcie 3001 nie był uruchomiony.
+
 ### Ręczne rozwiązanie deferred geometrii komórek — v0.7.18
 
 - TASK 5 dodaje checksum-bound kontekst, source, preview i zapis dla jednego

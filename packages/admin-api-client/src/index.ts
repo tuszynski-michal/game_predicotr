@@ -74,6 +74,9 @@ import {
   getOperationalImageReviewSourceAsset as getGeneratedOperationalImageReviewSourceAsset,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
+  getPendingBoardCellGeometry as getGeneratedPendingBoardCellGeometry,
+  getPendingBoardCellGeometryCorrectionContext as getGeneratedPendingBoardCellGeometryCorrectionContext,
+  getPendingBoardCellGeometrySource as getGeneratedPendingBoardCellGeometrySource,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
@@ -100,6 +103,7 @@ import {
   listMobileReleases as listGeneratedMobileReleases,
   listOperationalImageReviewItems as listGeneratedOperationalImageReviewItems,
   listOperationalImageReviewResolutionEvents as listGeneratedOperationalImageReviewResolutionEvents,
+  listPendingBoardCellGeometry as listGeneratedPendingBoardCellGeometry,
   listVerifiedImageReviewCohorts as listGeneratedVerifiedImageReviewCohorts,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
@@ -125,6 +129,7 @@ import {
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
+  previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
   startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
@@ -145,6 +150,7 @@ import {
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
+  resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
@@ -168,6 +174,9 @@ import type {
   BrowserImageImportPreflightCreate,
   BrowserImageImportStart,
   BrowserPageGeometryOverrideCreate,
+  BoardCellGeometryManualPreviewCommand,
+  BoardCellGeometryManualResolutionCommand,
+  BoardCellGeometryPendingStatus,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -236,6 +245,15 @@ export type {
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
   BrowserPageGeometryReviewSourcesResponse,
+  BoardCellGeometryCorrectionContextResponse,
+  BoardCellGeometryJobCountsResponse,
+  BoardCellGeometryManualPreviewCommand,
+  BoardCellGeometryManualResolutionCommand,
+  BoardCellGeometryManualResolutionResponse,
+  BoardCellGeometryPendingPageResponse,
+  BoardCellGeometryPendingReason,
+  BoardCellGeometryPendingResponse,
+  BoardCellGeometryPendingStatus,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
   BrowserReadySelectionResponse,
@@ -480,6 +498,12 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly beforeCursor?: string;
   readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface ListPendingBoardCellGeometryOptions extends OperationalImageReviewContext {
+  readonly status?: BoardCellGeometryPendingStatus;
+  readonly cursor?: string;
   readonly limit?: number;
 }
 
@@ -1386,6 +1410,85 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    listPendingBoardCellGeometry: (
+      options: ListPendingBoardCellGeometryOptions,
+    ) =>
+      listGeneratedPendingBoardCellGeometry({
+        client,
+        path: {
+          game_id: options.gameId,
+          import_job_id: options.importJobId,
+        },
+        query: {
+          ...(options.status === undefined ? {} : { status: options.status }),
+          ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getPendingBoardCellGeometry: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometry({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    getPendingBoardCellGeometryCorrectionContext: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometryCorrectionContext({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    getPendingBoardCellGeometrySource: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometrySource({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    previewPendingBoardCellGeometryCorrection: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualPreviewCommand,
+    ) =>
+      previewGeneratedPendingBoardCellGeometryCorrection({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    resolvePendingBoardCellGeometryManually: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualResolutionCommand,
+    ) =>
+      resolveGeneratedPendingBoardCellGeometryManually({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
       }),
     resolveOperationalImageReviewItem: (
       reviewItemId: string,

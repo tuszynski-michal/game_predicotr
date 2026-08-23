@@ -42,6 +42,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0252 — Uproszczenie edytora wzorców](0252-simplify-payline-editor.md)
 - [TASK-0253 — Widoczność stagingu importu plansz i nazewnictwo panelu](0253-board-import-staging-visibility-and-terminology.md)
 - [TASK-0272 — Analiza zdalnej ręcznej selekcji zdjęć](0272-remote-manual-image-selection-analysis.md)
+- [TASK-0273 — Browser capability zdalnego źródła](0273-remote-source-browser-capability-spike.md)
 
 ## Zawartość
 

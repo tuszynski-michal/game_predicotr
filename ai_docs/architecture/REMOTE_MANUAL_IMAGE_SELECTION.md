@@ -845,7 +845,7 @@ checkpointem wskazanym w jego DoD.
 
 ### TASK 1: Browser capability i filesystem feasibility spike
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.25, GO_WITH_CONSTRAINTS`
 
 **Cel:** Wykonać nieprodukcyjny spike potwierdzający wybór, indeksowanie,
 persist/relink i wznowienie jednej partii na wspieranych przeglądarkach.

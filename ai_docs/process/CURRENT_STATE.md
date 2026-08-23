@@ -15,6 +15,27 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Browser capability zdalnej ręcznej selekcji — v0.7.25
+
+- TASK-0273 kończy TASK 1 planu zdalnej ręcznej selekcji decyzją
+  `GO_WITH_CONSTRAINTS` dla browser-only MVP na desktopowym Chrome/Edge.
+- Izolowany fixture potwierdził w Chromium secure context,
+  `showDirectoryPicker`, IndexedDB, OPFS i `webkitdirectory`. Uchwyt OPFS
+  przeszedł zapis/odczyt IndexedDB, reload oraz zamknięcie i ponowne otwarcie
+  karty z permission `granted`.
+- `remote-source-manifest-v1` jest deterministyczny, naturalnie sortowany,
+  checksumowany i zawiera wyłącznie względne metadane. Testy 1/500/1000 nie
+  wykonały decode ani odczytu bajtów JPEG.
+- Permission musi być sprawdzany przy każdym resume. Brak uchwytu, grant lub
+  zmieniony manifest wymagają relinku; `webkitdirectory` jest wyłącznie
+  fallbackiem sesyjnym.
+- Ręczne użycie natywnego pickera, odmowa/regrant i zamknięcie całej docelowej
+  przeglądarki pozostają bramką przed publicznym rolloutem, ale nie blokują
+  wydzielenia wspólnego core w TASK 2.
+- Raport:
+  `ai_docs/quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md`; checksum JSON
+  `f04dc14c...f69cd9e`. Nie dodano route, API, uploadu, bazy ani tunelu.
+
 ### Propozycja zdalnej ręcznej selekcji zdjęć — analiza TASK-0272
 
 - Zrekonstruowano lokalny przepływ ręcznej selekcji, IndexedDB v2, zapis

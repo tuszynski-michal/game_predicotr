@@ -71,6 +71,7 @@ export function RemoteManualSelectionWorkspace({
   const operationQueue = useRef(Promise.resolve());
   const previewUrls = useRef(new Map<number, string>());
   const viewport = useRef<HTMLDivElement>(null);
+  const previewImage = useRef<HTMLImageElement>(null);
   const savedScrollLeft = useRef(initialScrollPosition.left);
   const savedScrollTop = useRef(initialScrollPosition.top);
   const pendingScrollRestore = useRef(
@@ -111,6 +112,26 @@ export function RemoteManualSelectionWorkspace({
       Math.min(3000, Math.max(100, currentPercent + delta)),
     );
   }, []);
+
+  const captureNaturalImageSize = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (
+        image === null ||
+        !image.complete ||
+        image.naturalHeight < 1 ||
+        image.naturalWidth < 1
+      ) {
+        return false;
+      }
+      setNaturalImageSize({
+        height: image.naturalHeight,
+        width: image.naturalWidth,
+      });
+      setDecoded(true);
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
     batchRef.current = batch;
@@ -164,6 +185,25 @@ export function RemoteManualSelectionWorkspace({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (
+      previewUrl === null ||
+      previewOrdinal !== workspace.currentIndex ||
+      captureNaturalImageSize(previewImage.current)
+    ) {
+      return;
+    }
+    const animationFrame = window.requestAnimationFrame(() => {
+      captureNaturalImageSize(previewImage.current);
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [
+    captureNaturalImageSize,
+    previewOrdinal,
+    previewUrl,
+    workspace.currentIndex,
+  ]);
 
   const refreshLocalState = useCallback(async () => {
     const restored = await store.restore(session.sessionId, 100);
@@ -800,14 +840,11 @@ export function RemoteManualSelectionWorkspace({
                   <img
                     alt={`Lokalny podgląd ${current?.name ?? 'JPEG'}`}
                     draggable={false}
+                    ref={previewImage}
                     src={previewUrl}
-                    onLoadCapture={(event) => {
-                      setNaturalImageSize({
-                        height: event.currentTarget.naturalHeight,
-                        width: event.currentTarget.naturalWidth,
-                      });
-                      setDecoded(true);
-                    }}
+                    onLoad={(event) =>
+                      captureNaturalImageSize(event.currentTarget)
+                    }
                   />
                 </div>
               )}

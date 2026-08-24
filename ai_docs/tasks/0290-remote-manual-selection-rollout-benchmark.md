@@ -196,6 +196,15 @@ ani kopiowania JPEG-ów do repozytorium.
   rollout jest wstrzymany. Nowy odbiór powinien mierzyć operator-local zapis na
   drugim komputerze i recovery permission po restarcie.
 
+### v0.7.52 — niezawodny pomiar JPEG-a dla zoomu
+
+- Rzeczywista próba operator-local potwierdziła zapis plików, ale ujawniła, że
+  mobilny Reviewer mógł zmieniać licznik zoomu bez zmiany wymiaru JPEG-a.
+- Zdalny workspace używa teraz zwykłego zdarzenia `onLoad`, tak jak działający
+  selektor lokalny, oraz dodatkowo odczytuje naturalne wymiary już
+  zdekodowanego/cachowanego obrazu po renderze. Zoom nie zależy już od
+  pojedynczego zdarzenia capture.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

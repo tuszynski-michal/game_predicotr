@@ -27,6 +27,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Reviewer nie definiował wysokości viewportu, flex layoutu ani canvasu, dlatego
   wartość zoomu zmieniała się bez widocznego efektu. Scroll i zoom są utrwalane
   per sesja/partia w storage przeglądarki operatora.
+- Mobilny test operator-local wykrył drugi niezależny przypadek niewidocznego
+  zoomu: naturalne wymiary JPEG-a nie zawsze trafiały do stanu przez
+  `onLoadCapture`. Reviewer używa zwykłego `onLoad` zgodnego z lokalnym
+  selektorem i ma fallback dla obrazu już zdekodowanego z cache.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

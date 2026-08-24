@@ -103,6 +103,16 @@ test('remote zoom uses local fit semantics and persists across images and reload
     /Math\.min\(3000, Math\.max\(100, currentPercent \+ delta\)\)/,
   );
   assert.match(workspace, /gp\.remote-manual-selection\.zoom\.v1/);
+  assert.match(workspace, /const previewImage = useRef<HTMLImageElement>/);
+  assert.match(workspace, /image\.complete/);
+  assert.match(workspace, /image\.naturalHeight < 1/);
+  assert.match(workspace, /image\.naturalWidth < 1/);
+  assert.match(workspace, /ref=\{previewImage\}/);
+  assert.match(
+    workspace,
+    /onLoad=\{\(event\) =>[\s\S]*captureNaturalImageSize\(event\.currentTarget\)/,
+  );
+  assert.doesNotMatch(workspace, /onLoadCapture=/);
   assert.doesNotMatch(workspace, /zoomState\.ordinal/);
 });
 

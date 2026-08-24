@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import {
   buildRemoteSourceManifestV1,
+  adjacentManualNavigationStep,
   compareRemoteSourceManifestV1,
   canonicalRemoteChecksumSha256,
   createManualSelectionOutputManifest,
@@ -101,6 +102,15 @@ test('shares exact keyboard semantics without stealing editable controls', () =>
     }),
     null,
   );
+});
+
+test('offers contiguous one-to-ten image navigation steps', () => {
+  assert.equal(adjacentManualNavigationStep(7, 1), 8);
+  assert.equal(adjacentManualNavigationStep(8, 1), 9);
+  assert.equal(adjacentManualNavigationStep(9, 1), 10);
+  assert.equal(adjacentManualNavigationStep(8, -1), 7);
+  assert.equal(adjacentManualNavigationStep(1, -1), 1);
+  assert.equal(adjacentManualNavigationStep(20, 1), 20);
 });
 
 test('shares viewport fitting without resampling or changing the image aspect ratio', () => {

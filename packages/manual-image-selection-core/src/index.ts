@@ -126,7 +126,7 @@ export const INDEPENDENT_MANUAL_SELECTION_ID =
   'local-independent-manual-image-selection';
 
 export const MANUAL_IMAGE_NAVIGATION_STEPS = [
-  1, 2, 3, 4, 5, 6, 7, 10, 15, 20,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20,
 ] as const;
 
 export type ManualSelectionShortcutAction =

@@ -33,7 +33,7 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - Strzałki lewo/prawo zmieniają wyświetlane zdjęcie bez zmiany zakresu ani
   decyzji. Strzałka w dół wybiera następną wartość skoku, a strzałka w górę
   poprzednią; na krańcach lista pozostaje odpowiednio przy `1` albo `20`.
-  Operator wybiera trwały skok `1, 2, 3, 4, 5, 6, 7, 10, 15` albo `20` zdjęć;
+  Operator wybiera trwały skok `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15` albo `20` zdjęć;
   Enter po zapisie nadal przechodzi dokładnie o jedno zdjęcie. Select zachowuje
   czytelne ciemne tło również po rozwinięciu natywnej listy opcji.
 - Podgląd ma natywny tryb pełnoekranowy oraz zoom `100–3000%`; oba dotyczą

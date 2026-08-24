@@ -22,8 +22,10 @@ import {
 } from './remote-selection-store';
 import {
   FetchRemoteSelectionControlTransport,
+  nextRemoteSelectionPollDelay,
   RemoteSelectionControlApiError,
   type RemoteSelectionFinalizePreview,
+  type RemoteSelectionStateDeltaResponse,
   RemoteSelectionOutboxSynchronizer,
 } from './remote-selection-sync';
 import {
@@ -40,7 +42,6 @@ import {
 } from './remote-selection-workspace-model';
 
 const PREVIEW_RADIUS = 3;
-const SYNC_INTERVAL_MS = 2_000;
 
 export function RemoteManualSelectionWorkspace({
   batch: initialBatch,
@@ -85,12 +86,16 @@ export function RemoteManualSelectionWorkspace({
   const [finalizePreview, setFinalizePreview] =
     useState<RemoteSelectionFinalizePreview | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  const [remoteStatus, setRemoteStatus] =
+    useState<RemoteSelectionStateDeltaResponse | null>(null);
   const [transferSnapshot, setTransferSnapshot] = useState({
     active: 0,
     pendingBytes: 0,
     queued: 0,
   });
   const batchRef = useRef(batch);
+  const pendingCountRef = useRef(0);
+  const transferPendingRef = useRef(0);
   const busyRef = useRef(false);
   const resumeTransferAfterOrdinal = useRef(-1);
   const operationQueue = useRef(Promise.resolve());
@@ -180,6 +185,7 @@ export function RemoteManualSelectionWorkspace({
     setItems(nextItems);
     setOutbox(restored.pendingOperations);
     setPendingCount(restored.pendingOperationCount);
+    pendingCountRef.current = restored.pendingOperationCount;
     const restoredWorkspace = remoteSelectionWorkspaceState(restored.batch);
     const restoredCurrent = nextItems.find(
       (item) => item.ordinal === restoredWorkspace.currentIndex,
@@ -284,6 +290,7 @@ export function RemoteManualSelectionWorkspace({
             currentBatch.batchId,
             clientInstanceId,
           );
+          setRemoteStatus(synchronizer.status());
           if (typeof navigator === 'undefined' || navigator.onLine)
             setError('');
         }
@@ -323,7 +330,9 @@ export function RemoteManualSelectionWorkspace({
       } catch (cause) {
         setError(syncErrorMessage(cause));
       } finally {
-        setTransferSnapshot(transferScheduler.snapshot());
+        const snapshot = transferScheduler.snapshot();
+        transferPendingRef.current = snapshot.active + snapshot.queued;
+        setTransferSnapshot(snapshot);
         setSyncing(false);
       }
     })();
@@ -348,12 +357,45 @@ export function RemoteManualSelectionWorkspace({
   }, [refreshLocalState]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => void syncNow(), SYNC_INTERVAL_MS);
-    const online = () => void syncNow();
+    let cancelled = false;
+    let timer = 0;
+    let idlePolls = 0;
+    let polling = false;
+    const poll = async () => {
+      if (cancelled || polling) return;
+      polling = true;
+      const revision = batchRef.current.serverRevision;
+      try {
+        await syncNow();
+      } finally {
+        polling = false;
+        if (cancelled) return;
+        const pending =
+          pendingCountRef.current > 0 || transferPendingRef.current > 0;
+        idlePolls =
+          pending || batchRef.current.serverRevision !== revision
+            ? 0
+            : idlePolls + 1;
+        timer = window.setTimeout(
+          () => void poll(),
+          nextRemoteSelectionPollDelay({
+            idlePolls,
+            online: navigator.onLine,
+            pending,
+          }),
+        );
+      }
+    };
+    const online = () => {
+      idlePolls = 0;
+      window.clearTimeout(timer);
+      void poll();
+    };
     window.addEventListener('online', online);
-    void syncNow();
+    void poll();
     return () => {
-      window.clearInterval(timer);
+      cancelled = true;
+      window.clearTimeout(timer);
       window.removeEventListener('online', online);
     };
   }, [syncNow]);
@@ -984,7 +1026,56 @@ export function RemoteManualSelectionWorkspace({
               <dt>Dane w tle</dt>
               <dd>{formatBytes(transferSnapshot.pendingBytes)}</dd>
             </div>
+            {remoteStatus !== null ? (
+              <>
+                <div>
+                  <dt>Serwer: oczekujące decyzje</dt>
+                  <dd>{remoteStatus.queue.pendingOperationCount}</dd>
+                </div>
+                <div>
+                  <dt>Serwer: upload</dt>
+                  <dd>
+                    {remoteStatus.queue.uploadingTransferCount} /{' '}
+                    {formatBytes(remoteStatus.queue.pendingTransferBytes)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Serwer: materializacja</dt>
+                  <dd>
+                    {remoteStatus.queue.materializingActionCount} /{' '}
+                    {remoteStatus.queue.pendingHostActionCount} akcji
+                  </dd>
+                </div>
+                <div>
+                  <dt>Serwer: zsynchronizowane</dt>
+                  <dd>{remoteStatus.queue.syncedFileCount}</dd>
+                </div>
+                <div>
+                  <dt>Konflikty</dt>
+                  <dd>{remoteStatus.queue.conflictFileCount}</dd>
+                </div>
+                <div>
+                  <dt>Heartbeat writera</dt>
+                  <dd>
+                    {remoteStatus.lastHeartbeatAt === null
+                      ? 'brak aktywnego writera'
+                      : new Date(remoteStatus.lastHeartbeatAt).toLocaleString(
+                          'pl-PL',
+                        )}
+                  </dd>
+                </div>
+              </>
+            ) : null}
           </dl>
+          {remoteStatus?.queue.recoveryFindings.length ? (
+            <ul className="remoteManualRecoveryFindings">
+              {remoteStatus.queue.recoveryFindings.map((finding) => (
+                <li key={finding.code}>
+                  {finding.code}: {finding.count}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <label htmlFor="remote-navigation-step">Przeskok zdjęć</label>
           <select
             id="remote-navigation-step"

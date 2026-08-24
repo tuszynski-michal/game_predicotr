@@ -11,6 +11,7 @@ import {
 } from '../src/features/manual-selection/remote-source-adapter.ts';
 import {
   FetchRemoteSelectionControlTransport,
+  nextRemoteSelectionPollDelay,
   RemoteSelectionControlApiError,
   RemoteSelectionOutboxSynchronizer,
 } from '../src/features/manual-selection/remote-selection-sync.ts';
@@ -18,6 +19,38 @@ import {
 const sessionId = '10000000-0000-4000-8000-000000000001';
 const batchId = '20000000-0000-4000-8000-000000000002';
 const clientInstanceId = '30000000-0000-4000-8000-000000000003';
+
+const emptyQueueStatus = {
+  pendingOperationCount: 0,
+  uploadingTransferCount: 0,
+  pendingTransferBytes: 0,
+  materializingActionCount: 0,
+  pendingHostActionCount: 0,
+  syncedFileCount: 0,
+  conflictFileCount: 0,
+  recoveryFindings: [],
+};
+
+test('delta polling backs off while idle and stays responsive for pending work', () => {
+  assert.equal(
+    nextRemoteSelectionPollDelay({ idlePolls: 0, online: true, pending: true }),
+    1_000,
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3, 10].map((idlePolls) =>
+      nextRemoteSelectionPollDelay({ idlePolls, online: true, pending: false }),
+    ),
+    [2_000, 4_000, 8_000, 15_000, 15_000],
+  );
+  assert.equal(
+    nextRemoteSelectionPollDelay({
+      idlePolls: 0,
+      online: false,
+      pending: true,
+    }),
+    15_000,
+  );
+});
 
 async function fixture() {
   const factory = new IDBFactory();
@@ -154,7 +187,9 @@ test('lost response survives refresh and exact replay removes only confirmed opI
         },
         files: [fileState(sourceItem)],
         hasMore: false,
+        lastHeartbeatAt: null,
         nextRevision: 1,
+        queue: emptyQueueStatus,
       };
     },
   };
@@ -204,7 +239,9 @@ test('controlled conflict reconciles canonical delta but retains exact outbox re
         },
         files: [fileState(sourceItem)],
         hasMore: false,
+        lastHeartbeatAt: null,
         nextRevision: 1,
+        queue: emptyQueueStatus,
       };
     },
   };

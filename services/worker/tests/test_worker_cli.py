@@ -76,6 +76,9 @@ def _replace_dependencies(
             remote_selection_materialization_max_attempts=5,
             remote_selection_materialization_max_actions_per_cycle=4,
             remote_selection_deselect_enabled=True,
+            remote_selection_recovery_enabled=True,
+            remote_selection_upload_timeout_seconds=120,
+            remote_selection_recovery_limit=100,
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
@@ -116,14 +119,19 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert engine.disposed is True
 
 
-def test_remote_host_action_cycle_always_runs_removal_before_materialization() -> None:
+def test_remote_host_action_cycle_runs_recovery_removal_and_materialization_in_order() -> None:
     calls: list[str] = []
+    recovery = SimpleNamespace(run_bounded_cycle=lambda: calls.append("recover"))
     removal = SimpleNamespace(run_bounded_cycle=lambda: calls.append("remove"))
     materialization = SimpleNamespace(run_bounded_cycle=lambda: calls.append("materialize"))
 
-    cli._remote_host_action_cycle(removal, materialization)()  # type: ignore[arg-type]  # noqa: SLF001
+    cli._remote_host_action_cycle(  # type: ignore[arg-type]  # noqa: SLF001
+        recovery,
+        removal,
+        materialization,
+    )()
 
-    assert calls == ["remove", "materialize"]
+    assert calls == ["recover", "remove", "materialize"]
 
 
 def test_cli_runs_image_selection_in_its_dedicated_lane(

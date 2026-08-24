@@ -1,7 +1,9 @@
 """FastAPI application factory for the local Admin API."""
 
 import json
+import logging
 from collections.abc import Callable, Iterator
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
@@ -81,6 +83,10 @@ from game_predictor_api.application.remote_manual_selection_control import (
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
+)
+from game_predictor_api.application.remote_manual_selection_recovery import (
+    RemoteManualSelectionRecoveryRunner,
+    RemoteManualSelectionRecoveryService,
 )
 from game_predictor_api.application.remote_manual_selection_transfer import (
     RemoteManualSelectionTransferGate,
@@ -265,6 +271,8 @@ from game_predictor_api.storage.worker_lane_repository import (
     SqlAlchemyWorkerLaneRepository,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 
 def create_app(
     settings: ApiSettings | None = None,
@@ -301,6 +309,7 @@ def create_app(
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_transfer_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_recovery_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -546,6 +555,31 @@ def create_app(
     resolved_remote_manual_selection_transfer_dependency = (
         remote_manual_selection_transfer_service_dependency
         or default_remote_manual_selection_transfer_service_dependency
+    )
+
+    def default_remote_manual_selection_recovery_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionRecoveryService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionRecoveryService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    host_service,
+                    upload_timeout=timedelta(
+                        seconds=resolved_settings.remote_selection_upload_timeout_seconds
+                    ),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_recovery_dependency = (
+        remote_manual_selection_recovery_service_dependency
+        or default_remote_manual_selection_recovery_service_dependency
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -934,9 +968,37 @@ def create_app(
             resolved_remote_manual_selection_access_dependency,
             resolved_remote_manual_selection_control_dependency,
             resolved_remote_manual_selection_transfer_dependency,
+            resolved_remote_manual_selection_recovery_dependency,
             resolved_settings.artifact_root,
         )
     )
+    if remote_manual_selection_recovery_service_dependency is None:
+        startup_recovery = RemoteManualSelectionRecoveryRunner(
+            session_factory,
+            default_remote_manual_selection_host_service,
+            enabled=resolved_settings.remote_selection_recovery_enabled,
+            upload_timeout=timedelta(
+                seconds=resolved_settings.remote_selection_upload_timeout_seconds
+            ),
+            limit=resolved_settings.remote_selection_recovery_limit,
+        )
+
+        def reconcile_remote_manual_selection_on_startup() -> None:
+            try:
+                application.state.remote_selection_startup_recovery = (
+                    startup_recovery.run_bounded_cycle()
+                )
+            except Exception:  # noqa: BLE001 - startup recovery is best-effort and bounded.
+                application.state.remote_selection_startup_recovery = None
+                LOGGER.warning(
+                    "remote_selection_startup_recovery_failed code=%s",
+                    "REMOTE_SELECTION_RECOVERY_STARTUP_FAILED",
+                )
+
+        application.router.add_event_handler(
+            "startup",
+            reconcile_remote_manual_selection_on_startup,
+        )
 
     @application.exception_handler(CatalogError)
     async def handle_catalog_error(

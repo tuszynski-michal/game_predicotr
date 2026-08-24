@@ -38,6 +38,31 @@ export interface RemoteSelectionStateDeltaResponse {
   readonly files: readonly RemoteSelectionServerFileState[];
   readonly nextRevision: number;
   readonly hasMore: boolean;
+  readonly lastHeartbeatAt: string | null;
+  readonly queue: {
+    readonly pendingOperationCount: number;
+    readonly uploadingTransferCount: number;
+    readonly pendingTransferBytes: number;
+    readonly materializingActionCount: number;
+    readonly pendingHostActionCount: number;
+    readonly syncedFileCount: number;
+    readonly conflictFileCount: number;
+    readonly recoveryFindings: readonly {
+      readonly code: string;
+      readonly count: number;
+    }[];
+  };
+}
+
+export function nextRemoteSelectionPollDelay(input: {
+  readonly idlePolls: number;
+  readonly online: boolean;
+  readonly pending: boolean;
+}): number {
+  if (!input.online) return 15_000;
+  if (input.pending) return 1_000;
+  const exponent = Math.max(0, Math.min(3, Math.floor(input.idlePolls)));
+  return Math.min(15_000, 2_000 * 2 ** exponent);
 }
 
 export interface RemoteSelectionControlTransport {
@@ -311,6 +336,7 @@ export interface RemoteSelectionDrainResult {
 export class RemoteSelectionOutboxSynchronizer {
   private readonly store: RemoteSelectionIndexedDbStore;
   private readonly transport: RemoteSelectionControlTransport;
+  private latestState: RemoteSelectionStateDeltaResponse | null = null;
 
   constructor(
     store: RemoteSelectionIndexedDbStore,
@@ -318,6 +344,10 @@ export class RemoteSelectionOutboxSynchronizer {
   ) {
     this.store = store;
     this.transport = transport;
+  }
+
+  status(): RemoteSelectionStateDeltaResponse | null {
+    return this.latestState;
   }
 
   async reconcile(
@@ -335,6 +365,7 @@ export class RemoteSelectionOutboxSynchronizer {
     for (let page = 0; page < MAX_RECONCILE_PAGES; page += 1) {
       const delta = await this.transport.getStateDelta(batchId, revision);
       validateStateDelta(delta, batchId, revision);
+      this.latestState = delta;
       await this.store.applyServerStateDelta({
         batchId,
         clientInstanceId,
@@ -496,12 +527,29 @@ function validateStateDelta(
   if (
     !isRecord(delta) ||
     !isRecord(delta.batch) ||
+    !isRecord(delta.queue) ||
     !Array.isArray(delta.files) ||
+    !Array.isArray(delta.queue.recoveryFindings) ||
     !isNonNegativeSafeInteger(delta.nextRevision) ||
     typeof delta.hasMore !== 'boolean' ||
     delta.batch.batchId !== batchId ||
     !isNonNegativeSafeInteger(delta.batch.serverRevision) ||
     !isNonNegativeSafeInteger(delta.batch.lastClientSequence) ||
+    !isNonNegativeSafeInteger(delta.queue.pendingOperationCount) ||
+    !isNonNegativeSafeInteger(delta.queue.uploadingTransferCount) ||
+    !isNonNegativeSafeInteger(delta.queue.pendingTransferBytes) ||
+    !isNonNegativeSafeInteger(delta.queue.materializingActionCount) ||
+    !isNonNegativeSafeInteger(delta.queue.pendingHostActionCount) ||
+    !isNonNegativeSafeInteger(delta.queue.syncedFileCount) ||
+    !isNonNegativeSafeInteger(delta.queue.conflictFileCount) ||
+    (delta.lastHeartbeatAt !== null &&
+      typeof delta.lastHeartbeatAt !== 'string') ||
+    delta.queue.recoveryFindings.some(
+      (finding) =>
+        !isRecord(finding) ||
+        typeof finding.code !== 'string' ||
+        !isNonNegativeSafeInteger(finding.count),
+    ) ||
     !['indexing', 'active', 'finalizing', 'completed'].includes(
       delta.batch.status,
     ) ||

@@ -17,6 +17,7 @@ type RemoteSelectionContext = {
   readonly status: 'active';
   readonly writerActive: boolean;
   readonly writerLeaseExpiresAt: string | null;
+  readonly lastHeartbeatAt: string | null;
 };
 
 type ApiError = {

@@ -42,6 +42,7 @@ from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionFileDelta,
     RemoteManualSelectionFinalizationSnapshot,
     RemoteManualSelectionHostBinding,
+    RemoteManualSelectionQueueSnapshot,
     RemoteManualSelectionSourceRegistration,
 )
 
@@ -92,6 +93,14 @@ class RemoteManualSelectionControlRepository(Protocol):
     def list_file_delta_records(
         self, *, batch_id: UUID, after_revision: int, limit: int
     ) -> tuple[RemoteManualSelectionFileDelta, ...]: ...
+
+    def get_batch_queue_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        now: datetime,
+        stale_before: datetime,
+    ) -> RemoteManualSelectionQueueSnapshot: ...
 
     def get_finalization_snapshot(
         self,
@@ -149,6 +158,8 @@ class RemoteManualSelectionStateDelta:
     files: tuple[RemoteManualSelectionFileDelta, ...]
     next_revision: int
     has_more: bool
+    queue: RemoteManualSelectionQueueSnapshot
+    last_heartbeat_at: datetime | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +219,7 @@ class RemoteManualSelectionControlService:
         *,
         rate_limiter: RemoteManualSelectionControlRateLimiter | None = None,
         deselect_enabled: bool = True,
+        recovery_stale_timeout: timedelta = timedelta(seconds=120),
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
@@ -215,6 +227,7 @@ class RemoteManualSelectionControlService:
         self._host = host_service
         self._rate_limiter = rate_limiter or RemoteManualSelectionControlRateLimiter()
         self._deselect_enabled = deselect_enabled
+        self._recovery_stale_timeout = recovery_stale_timeout
         self._now = now or (lambda: datetime.now(UTC))
 
     def create_collection(
@@ -391,7 +404,19 @@ class RemoteManualSelectionControlService:
         has_more = len(page) > limit
         files = page[:limit]
         next_revision = files[-1].server_revision if has_more and files else batch.server_revision
-        return RemoteManualSelectionStateDelta(batch, files, next_revision, has_more)
+        now = self._now()
+        return RemoteManualSelectionStateDelta(
+            batch,
+            files,
+            next_revision,
+            has_more,
+            self._repository.get_batch_queue_snapshot(
+                batch_id=batch_id,
+                now=now,
+                stale_before=now - self._recovery_stale_timeout,
+            ),
+            getattr(context, "last_heartbeat_at", None),
+        )
 
     def apply_operation(
         self,

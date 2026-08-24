@@ -149,6 +149,31 @@ class RemoteManualSelectionPublishedFinalization:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteManualSelectionTransferArtifactInspection:
+    state: str
+    verified_relative_path: str | None
+    size_bytes: int
+    checksum_sha256: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionGcCategory:
+    code: str
+    artifact_count: int
+    total_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionGcPreview:
+    batch_id: UUID
+    deletion_enabled: bool
+    scanned_artifact_count: int
+    scanned_bytes: int
+    categories: tuple[RemoteManualSelectionGcCategory, ...]
+    findings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class _StoredBaseCapability:
     value: RemoteManualSelectionBaseCapability
     base_binding_id: UUID
@@ -447,6 +472,194 @@ class RemoteManualSelectionHostService:
                 path=current,
                 relative_path="/".join(components),
             )
+
+    def inspect_transfer_artifacts(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        transfer_id: UUID,
+        expected_bytes: int,
+        expected_checksum_sha256: str | None,
+    ) -> RemoteManualSelectionTransferArtifactInspection:
+        """Inspect only one ownership-bound transfer identity without accepting partial bytes."""
+
+        with self.open_transfer_directory(
+            repository,
+            session_id=session_id,
+            batch_id=batch_id,
+            file_id=file_id,
+            generation=generation,
+        ) as directory:
+            verified = directory.path / f"{transfer_id}.verified"
+            partial = directory.path / f"{transfer_id}.part"
+            if verified.exists():
+                size = verified.stat().st_size
+                checksum = _sha256_file(verified)
+                if size != expected_bytes or checksum != expected_checksum_sha256:
+                    return RemoteManualSelectionTransferArtifactInspection(
+                        state="conflict",
+                        verified_relative_path=None,
+                        size_bytes=size,
+                        checksum_sha256=None,
+                    )
+                return RemoteManualSelectionTransferArtifactInspection(
+                    state="verified",
+                    verified_relative_path=(
+                        f"{directory.relative_path}/{transfer_id}.verified"
+                    ),
+                    size_bytes=size,
+                    checksum_sha256=checksum,
+                )
+            if partial.exists():
+                metadata = partial.lstat()
+                if not stat.S_ISREG(metadata.st_mode) or bool(
+                    getattr(metadata, "st_file_attributes", 0) & 0x400
+                ):
+                    return RemoteManualSelectionTransferArtifactInspection(
+                        state="conflict",
+                        verified_relative_path=None,
+                        size_bytes=0,
+                        checksum_sha256=None,
+                    )
+                return RemoteManualSelectionTransferArtifactInspection(
+                    state="partial",
+                    verified_relative_path=None,
+                    size_bytes=metadata.st_size,
+                    checksum_sha256=None,
+                )
+            return RemoteManualSelectionTransferArtifactInspection(
+                state="missing",
+                verified_relative_path=None,
+                size_bytes=0,
+                checksum_sha256=None,
+            )
+
+    def preview_gc(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        max_artifacts: int = 100_000,
+    ) -> RemoteManualSelectionGcPreview:
+        """Return an aggregate-only preview; this method never removes an artifact."""
+
+        if max_artifacts < 1:
+            raise ValueError("GC preview limit must be positive.")
+        binding = repository.get_host_binding_for_update(session_id)
+        batch = repository.get_batch(batch_id)
+        if binding is None or batch is None or batch.session_id != session_id:
+            raise _scope_error()
+        collection = repository.get_collection(batch.collection_id)
+        if collection is None or collection.session_id != session_id:
+            raise _scope_error()
+        categories: dict[str, list[int]] = {}
+        findings: set[str] = set()
+        scanned_count = 0
+        scanned_bytes = 0
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            collection_path = locked.open_existing_child(
+                locked.bound_base.final_path,
+                collection_component,
+            )
+            if collection_path is None:
+                raise _path_conflict("The persisted collection directory is missing.")
+            batch_path = locked.open_existing_child(collection_path, batch_component)
+            if batch_path is None:
+                raise _path_conflict("The persisted batch directory is missing.")
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection_component.normalized_name,
+                normalized_batch_name=batch_component.normalized_name,
+            )
+            self._verify_marker(locked, batch_path, marker)
+            internal = locked.open_existing_child(
+                batch_path,
+                validate_windows_component(
+                    OWNERSHIP_DIRECTORY,
+                    limits=locked.bound_base.limits,
+                ),
+            )
+            version = (
+                None
+                if internal is None
+                else locked.open_existing_child(
+                    internal,
+                    validate_windows_component(
+                        OWNERSHIP_VERSION_DIRECTORY,
+                        limits=locked.bound_base.limits,
+                    ),
+                )
+            )
+            if version is None:
+                return RemoteManualSelectionGcPreview(
+                    batch_id=batch_id,
+                    deletion_enabled=False,
+                    scanned_artifact_count=0,
+                    scanned_bytes=0,
+                    categories=(),
+                    findings=(),
+                )
+            stack = [version]
+            while stack and scanned_count < max_artifacts:
+                current = stack.pop()
+                try:
+                    with os.scandir(current) as directory_entries:
+                        entries = tuple(directory_entries)
+                except OSError:
+                    findings.add("REMOTE_SELECTION_GC_SCAN_UNAVAILABLE")
+                    continue
+                for entry in entries:
+                    if scanned_count >= max_artifacts:
+                        findings.add("REMOTE_SELECTION_GC_PREVIEW_TRUNCATED")
+                        break
+                    try:
+                        metadata = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        findings.add("REMOTE_SELECTION_GC_ENTRY_UNREADABLE")
+                        continue
+                    if bool(getattr(metadata, "st_file_attributes", 0) & 0x400):
+                        findings.add("REMOTE_SELECTION_GC_REPARSE_SKIPPED")
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                        continue
+                    if not stat.S_ISREG(metadata.st_mode):
+                        findings.add("REMOTE_SELECTION_GC_NON_REGULAR_SKIPPED")
+                        continue
+                    scanned_count += 1
+                    scanned_bytes += metadata.st_size
+                    code = _gc_category(Path(entry.path), version)
+                    if code is not None:
+                        value = categories.setdefault(code, [0, 0])
+                        value[0] += 1
+                        value[1] += metadata.st_size
+        return RemoteManualSelectionGcPreview(
+            batch_id=batch_id,
+            deletion_enabled=False,
+            scanned_artifact_count=scanned_count,
+            scanned_bytes=scanned_bytes,
+            categories=tuple(
+                RemoteManualSelectionGcCategory(code, value[0], value[1])
+                for code, value in sorted(categories.items())
+            ),
+            findings=tuple(sorted(findings)),
+        )
 
     @contextmanager
     def open_materialization_scope(
@@ -974,6 +1187,20 @@ def _sha256_file(path: Path) -> str:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _gc_category(path: Path, internal_root: Path) -> str | None:
+    relative_parts = tuple(part.casefold() for part in path.relative_to(internal_root).parts)
+    name = path.name.casefold()
+    if name.endswith(".part"):
+        return "REMOTE_SELECTION_GC_INCOMPLETE_TRANSFER"
+    if name.endswith(".materializing") or name.endswith(".tmp"):
+        return "REMOTE_SELECTION_GC_INTERRUPTED_TEMP"
+    if name.endswith(".verified"):
+        return "REMOTE_SELECTION_GC_RETAINED_VERIFIED"
+    if "quarantine" in relative_parts and name.endswith(".jpg"):
+        return "REMOTE_SELECTION_GC_QUARANTINED_OUTPUT"
+    return None
 
 
 def _write_exclusive_or_adopt(path: Path, payload: bytes) -> None:

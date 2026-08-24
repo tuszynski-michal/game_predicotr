@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from threading import RLock
-from typing import cast
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
@@ -144,6 +144,25 @@ class RemoteManualSelectionFinalizationSnapshot:
     transferred_file_count: int
     final_manifest_checksum_sha256: str | None
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionRecoveryTransferCandidate:
+    transfer: RemoteManualSelectionTransferV1
+    file: RemoteManualSelectionFileV1
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionQueueSnapshot:
+    pending_operation_count: int
+    uploading_transfer_count: int
+    pending_transfer_bytes: int
+    materializing_action_count: int
+    pending_host_action_count: int
+    synced_file_count: int
+    conflict_file_count: int
+    recovery_findings: tuple[tuple[str, int], ...]
 
 
 class SqlAlchemyRemoteManualSelectionRepository:
@@ -1073,6 +1092,273 @@ class SqlAlchemyRemoteManualSelectionRepository:
             )
         )
 
+    def list_stale_transfer_candidates(
+        self,
+        *,
+        stale_before: datetime,
+        limit: int,
+    ) -> tuple[RemoteManualSelectionRecoveryTransferCandidate, ...]:
+        _require_page(limit)
+        records = self._session.execute(
+            select(RemoteManualSelectionTransferModel, RemoteManualSelectionFileModel)
+            .join(
+                RemoteManualSelectionFileModel,
+                RemoteManualSelectionFileModel.id
+                == RemoteManualSelectionTransferModel.file_id,
+            )
+            .where(
+                RemoteManualSelectionTransferModel.status.in_(
+                    (
+                        RemoteManualSelectionTransferStatus.QUEUED.value,
+                        RemoteManualSelectionTransferStatus.UPLOADING.value,
+                        RemoteManualSelectionTransferStatus.STORED_TEMP.value,
+                        RemoteManualSelectionTransferStatus.RETRYING.value,
+                    )
+                ),
+                RemoteManualSelectionTransferModel.updated_at <= stale_before,
+            )
+            .order_by(
+                RemoteManualSelectionTransferModel.updated_at,
+                RemoteManualSelectionTransferModel.id,
+            )
+            .limit(limit)
+        )
+        return tuple(
+            RemoteManualSelectionRecoveryTransferCandidate(
+                transfer=_transfer_from_record(transfer),
+                file=_file_from_record(file),
+                updated_at=transfer.updated_at,
+            )
+            for transfer, file in records
+        )
+
+    def recover_verified_transfer(
+        self,
+        candidate: RemoteManualSelectionRecoveryTransferCandidate,
+        *,
+        verified_relative_path: str,
+        checksum_sha256: str,
+        recovered_at: datetime,
+    ) -> bool:
+        transfer = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == candidate.transfer.id)
+            .with_for_update()
+        )
+        file = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == candidate.file.id)
+            .with_for_update()
+        )
+        batch = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == candidate.file.batch_id)
+            .with_for_update()
+        )
+        if transfer is None or file is None or batch is None:
+            return False
+        if transfer.status in {
+            RemoteManualSelectionTransferStatus.VERIFIED.value,
+            RemoteManualSelectionTransferStatus.MATERIALIZED.value,
+        }:
+            return False
+        if (
+            transfer.updated_at != candidate.updated_at
+            or transfer.generation != file.selection_generation
+            or not file.desired_selected
+            or checksum_sha256 != transfer.declared_checksum_sha256
+        ):
+            return False
+        transfer.received_bytes = transfer.declared_bytes
+        transfer.status = RemoteManualSelectionTransferStatus.VERIFIED.value
+        transfer.verified_checksum_sha256 = checksum_sha256
+        transfer.temp_relative_path = verified_relative_path
+        transfer.retry_at = None
+        transfer.updated_at = recovered_at
+        batch.server_revision += 1
+        batch.updated_at = recovered_at
+        file.status = RemoteManualSelectionFileStatus.VERIFIED.value
+        file.temp_relative_path = verified_relative_path
+        file.host_checksum_sha256 = checksum_sha256
+        file.last_server_revision = batch.server_revision
+        file.updated_at = recovered_at
+        self._session.flush()
+        self.ensure_materialization_action(
+            session_id=file.session_id,
+            batch_id=file.batch_id,
+            file_id=file.id,
+            transfer_id=transfer.id,
+            generation=transfer.generation,
+        )
+        return True
+
+    def fail_stale_transfer(
+        self,
+        candidate: RemoteManualSelectionRecoveryTransferCandidate,
+        *,
+        error_code: str,
+        recovered_at: datetime,
+    ) -> bool:
+        transfer = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == candidate.transfer.id)
+            .with_for_update()
+        )
+        file = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == candidate.file.id)
+            .with_for_update()
+        )
+        batch = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == candidate.file.batch_id)
+            .with_for_update()
+        )
+        if transfer is None or file is None or batch is None:
+            return False
+        if (
+            transfer.updated_at != candidate.updated_at
+            or transfer.status
+            not in {
+                RemoteManualSelectionTransferStatus.QUEUED.value,
+                RemoteManualSelectionTransferStatus.UPLOADING.value,
+                RemoteManualSelectionTransferStatus.STORED_TEMP.value,
+                RemoteManualSelectionTransferStatus.RETRYING.value,
+            }
+        ):
+            return False
+        transfer.status = RemoteManualSelectionTransferStatus.FAILED.value
+        transfer.retry_at = None
+        transfer.updated_at = recovered_at
+        if (
+            file.desired_selected
+            and file.selection_generation == transfer.generation
+            and file.status
+            in {
+                RemoteManualSelectionFileStatus.UPLOAD_QUEUED.value,
+                RemoteManualSelectionFileStatus.UPLOADING.value,
+                RemoteManualSelectionFileStatus.STORED_TEMPORARILY.value,
+                RemoteManualSelectionFileStatus.RETRYING.value,
+            }
+        ):
+            batch.server_revision += 1
+            batch.updated_at = recovered_at
+            file.status = RemoteManualSelectionFileStatus.FAILED.value
+            file.last_server_revision = batch.server_revision
+            file.updated_at = recovered_at
+        self.append_audit_event(
+            event_id=uuid4(),
+            session_id=transfer.session_id,
+            batch_id=transfer.batch_id,
+            event_type="transfer_recovery",
+            actor="local-reconciler",
+            outcome_code=error_code,
+            payload={"generation": transfer.generation},
+            created_at=recovered_at,
+        )
+        self._session.flush()
+        return True
+
+    def get_batch_queue_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        now: datetime,
+        stale_before: datetime,
+    ) -> RemoteManualSelectionQueueSnapshot:
+        def count(model: Any, *conditions: Any) -> int:
+            return int(
+                self._session.scalar(select(func.count()).select_from(model).where(*conditions))
+                or 0
+            )
+
+        pending_operation_count = count(
+            RemoteManualSelectionOperationModel,
+            RemoteManualSelectionOperationModel.batch_id == batch_id,
+            RemoteManualSelectionOperationModel.status.in_(("queued", "sending", "retry")),
+        )
+        uploading_statuses = ("queued", "uploading", "stored_temp", "retrying")
+        uploading_transfer_count = count(
+            RemoteManualSelectionTransferModel,
+            RemoteManualSelectionTransferModel.batch_id == batch_id,
+            RemoteManualSelectionTransferModel.status.in_(uploading_statuses),
+        )
+        pending_transfer_bytes = int(
+            self._session.scalar(
+                select(
+                    func.coalesce(
+                        func.sum(
+                            RemoteManualSelectionTransferModel.declared_bytes
+                            - RemoteManualSelectionTransferModel.received_bytes
+                        ),
+                        0,
+                    )
+                ).where(
+                    RemoteManualSelectionTransferModel.batch_id == batch_id,
+                    RemoteManualSelectionTransferModel.status.in_(uploading_statuses),
+                )
+            )
+            or 0
+        )
+        active_action_statuses = ("queued", "processing", "retry")
+        materializing_action_count = count(
+            RemoteManualSelectionHostActionModel,
+            RemoteManualSelectionHostActionModel.batch_id == batch_id,
+            RemoteManualSelectionHostActionModel.action_type == "materialize",
+            RemoteManualSelectionHostActionModel.status.in_(active_action_statuses),
+        )
+        pending_host_action_count = count(
+            RemoteManualSelectionHostActionModel,
+            RemoteManualSelectionHostActionModel.batch_id == batch_id,
+            RemoteManualSelectionHostActionModel.status.in_(active_action_statuses),
+        )
+        synced_file_count = count(
+            RemoteManualSelectionFileModel,
+            RemoteManualSelectionFileModel.batch_id == batch_id,
+            RemoteManualSelectionFileModel.status == "synced",
+        )
+        conflict_file_count = count(
+            RemoteManualSelectionFileModel,
+            RemoteManualSelectionFileModel.batch_id == batch_id,
+            RemoteManualSelectionFileModel.status == "failed",
+        )
+        findings: dict[str, int] = {}
+        stale = count(
+            RemoteManualSelectionTransferModel,
+            RemoteManualSelectionTransferModel.batch_id == batch_id,
+            RemoteManualSelectionTransferModel.status.in_(uploading_statuses),
+            RemoteManualSelectionTransferModel.updated_at <= stale_before,
+        )
+        if stale:
+            findings["REMOTE_SELECTION_STALE_TRANSFER"] = stale
+        expired_actions = count(
+            RemoteManualSelectionHostActionModel,
+            RemoteManualSelectionHostActionModel.batch_id == batch_id,
+            RemoteManualSelectionHostActionModel.status == "processing",
+            RemoteManualSelectionHostActionModel.lease_expires_at <= now,
+        )
+        if expired_actions:
+            findings["REMOTE_SELECTION_EXPIRED_HOST_ACTION_LEASE"] = expired_actions
+        if conflict_file_count:
+            findings["REMOTE_SELECTION_CONFLICT_REQUIRES_ATTENTION"] = conflict_file_count
+        batch_status = self._session.scalar(
+            select(RemoteManualSelectionBatchModel.status).where(
+                RemoteManualSelectionBatchModel.id == batch_id
+            )
+        )
+        if batch_status == RemoteManualSelectionBatchStatus.FINALIZING.value:
+            findings["REMOTE_SELECTION_FINALIZATION_RETRY_REQUIRED"] = 1
+        return RemoteManualSelectionQueueSnapshot(
+            pending_operation_count=pending_operation_count,
+            uploading_transfer_count=uploading_transfer_count,
+            pending_transfer_bytes=pending_transfer_bytes,
+            materializing_action_count=materializing_action_count,
+            pending_host_action_count=pending_host_action_count,
+            synced_file_count=synced_file_count,
+            conflict_file_count=conflict_file_count,
+            recovery_findings=tuple(sorted(findings.items())),
+        )
+
     def list_operations_after_sequence(
         self,
         *,
@@ -1916,6 +2202,7 @@ class InMemoryRemoteManualSelectionRepository:
         self.base_mappings: set[tuple[UUID, str, str]] = set()
         self.transfers: dict[UUID, RemoteManualSelectionTransferV1] = {}
         self.transfer_paths: dict[UUID, str | None] = {}
+        self.transfer_updated_at: dict[UUID, datetime] = {}
         self.host_actions: dict[UUID, RemoteManualSelectionHostActionV1] = {}
         self.host_action_metadata: dict[
             UUID,
@@ -2342,6 +2629,7 @@ class InMemoryRemoteManualSelectionRepository:
                 transition_remote_transfer_status(current.status, value.status)
             self.transfers[value.id] = value
             self.transfer_paths[value.id] = temp_relative_path
+            self.transfer_updated_at[value.id] = datetime.now(UTC)
             return value
 
     def update_file_transfer_status(
@@ -2700,6 +2988,217 @@ class InMemoryRemoteManualSelectionRepository:
             )[:limit]
         )
 
+    def list_stale_transfer_candidates(
+        self,
+        *,
+        stale_before: datetime,
+        limit: int,
+    ) -> tuple[RemoteManualSelectionRecoveryTransferCandidate, ...]:
+        _require_page(limit)
+        active = {
+            RemoteManualSelectionTransferStatus.QUEUED,
+            RemoteManualSelectionTransferStatus.UPLOADING,
+            RemoteManualSelectionTransferStatus.STORED_TEMP,
+            RemoteManualSelectionTransferStatus.RETRYING,
+        }
+        values = sorted(
+            (
+                item
+                for item in self.transfers.values()
+                if item.status in active
+                and self.transfer_updated_at.get(item.id, datetime.min.replace(tzinfo=UTC))
+                <= stale_before
+            ),
+            key=lambda item: (self.transfer_updated_at[item.id], item.id),
+        )[:limit]
+        return tuple(
+            RemoteManualSelectionRecoveryTransferCandidate(
+                transfer=item,
+                file=self.files[item.file_id],
+                updated_at=self.transfer_updated_at[item.id],
+            )
+            for item in values
+        )
+
+    def recover_verified_transfer(
+        self,
+        candidate: RemoteManualSelectionRecoveryTransferCandidate,
+        *,
+        verified_relative_path: str,
+        checksum_sha256: str,
+        recovered_at: datetime,
+    ) -> bool:
+        with self._lock:
+            transfer = self.transfers.get(candidate.transfer.id)
+            file = self.files.get(candidate.file.id)
+            batch = self.batches.get(candidate.file.batch_id)
+            if transfer is None or file is None or batch is None:
+                return False
+            if transfer.status in {
+                RemoteManualSelectionTransferStatus.VERIFIED,
+                RemoteManualSelectionTransferStatus.MATERIALIZED,
+            }:
+                return False
+            if (
+                self.transfer_updated_at.get(transfer.id) != candidate.updated_at
+                or transfer.generation != file.selection_generation
+                or not file.desired_selected
+                or checksum_sha256 != transfer.declared_checksum_sha256
+            ):
+                return False
+            recovered_transfer = replace(
+                transfer,
+                received_bytes=transfer.declared_bytes,
+                status=RemoteManualSelectionTransferStatus.VERIFIED,
+                verified_checksum_sha256=checksum_sha256,
+            )
+            next_revision = batch.server_revision + 1
+            self.transfers[transfer.id] = recovered_transfer
+            self.transfer_paths[transfer.id] = verified_relative_path
+            self.transfer_updated_at[transfer.id] = recovered_at
+            self.files[file.id] = replace(
+                file,
+                status=RemoteManualSelectionFileStatus.VERIFIED,
+                host_checksum_sha256=checksum_sha256,
+            )
+            self.file_revisions[file.id] = next_revision
+            self.batches[batch.id] = replace(batch, server_revision=next_revision)
+            self.ensure_materialization_action(
+                session_id=file.session_id,
+                batch_id=file.batch_id,
+                file_id=file.id,
+                transfer_id=transfer.id,
+                generation=transfer.generation,
+            )
+            return True
+
+    def fail_stale_transfer(
+        self,
+        candidate: RemoteManualSelectionRecoveryTransferCandidate,
+        *,
+        error_code: str,
+        recovered_at: datetime,
+    ) -> bool:
+        del error_code
+        with self._lock:
+            transfer = self.transfers.get(candidate.transfer.id)
+            file = self.files.get(candidate.file.id)
+            batch = self.batches.get(candidate.file.batch_id)
+            if transfer is None or file is None or batch is None:
+                return False
+            if self.transfer_updated_at.get(transfer.id) != candidate.updated_at:
+                return False
+            active = {
+                RemoteManualSelectionTransferStatus.QUEUED,
+                RemoteManualSelectionTransferStatus.UPLOADING,
+                RemoteManualSelectionTransferStatus.STORED_TEMP,
+                RemoteManualSelectionTransferStatus.RETRYING,
+            }
+            if transfer.status not in active:
+                return False
+            self.transfers[transfer.id] = replace(
+                transfer,
+                status=RemoteManualSelectionTransferStatus.FAILED,
+            )
+            self.transfer_updated_at[transfer.id] = recovered_at
+            if file.desired_selected and file.selection_generation == transfer.generation:
+                next_revision = batch.server_revision + 1
+                self.files[file.id] = replace(
+                    file,
+                    status=RemoteManualSelectionFileStatus.FAILED,
+                )
+                self.file_revisions[file.id] = next_revision
+                self.batches[batch.id] = replace(batch, server_revision=next_revision)
+            return True
+
+    def get_batch_queue_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        now: datetime,
+        stale_before: datetime,
+    ) -> RemoteManualSelectionQueueSnapshot:
+        transfers = tuple(item for item in self.transfers.values() if item.batch_id == batch_id)
+        files = tuple(item for item in self.files.values() if item.batch_id == batch_id)
+        actions = tuple(item for item in self.host_actions.values() if item.batch_id == batch_id)
+        operations = tuple(
+            item for item in self.operations.values() if item.command.batch_id == batch_id
+        )
+        active_transfer = {
+            RemoteManualSelectionTransferStatus.QUEUED,
+            RemoteManualSelectionTransferStatus.UPLOADING,
+            RemoteManualSelectionTransferStatus.STORED_TEMP,
+            RemoteManualSelectionTransferStatus.RETRYING,
+        }
+        active_action = {
+            RemoteManualSelectionHostActionStatus.QUEUED,
+            RemoteManualSelectionHostActionStatus.PROCESSING,
+            RemoteManualSelectionHostActionStatus.RETRY,
+        }
+        findings: dict[str, int] = {}
+        stale = sum(
+            1
+            for item in transfers
+            if item.status in active_transfer
+            and self.transfer_updated_at.get(item.id, datetime.min.replace(tzinfo=UTC))
+            <= stale_before
+        )
+        if stale:
+            findings["REMOTE_SELECTION_STALE_TRANSFER"] = stale
+        expired = 0
+        for item in actions:
+            lease_expires_at = self.host_action_metadata.get(
+                item.id,
+                (None, None, None, None, None),
+            )[2]
+            if (
+                item.status is RemoteManualSelectionHostActionStatus.PROCESSING
+                and lease_expires_at is not None
+                and lease_expires_at <= now
+            ):
+                expired += 1
+        if expired:
+            findings["REMOTE_SELECTION_EXPIRED_HOST_ACTION_LEASE"] = expired
+        conflicts = sum(
+            1 for item in files if item.status is RemoteManualSelectionFileStatus.FAILED
+        )
+        if conflicts:
+            findings["REMOTE_SELECTION_CONFLICT_REQUIRES_ATTENTION"] = conflicts
+        if self.batches[batch_id].status is RemoteManualSelectionBatchStatus.FINALIZING:
+            findings["REMOTE_SELECTION_FINALIZATION_RETRY_REQUIRED"] = 1
+        return RemoteManualSelectionQueueSnapshot(
+            pending_operation_count=sum(
+                1
+                for item in operations
+                if item.status
+                in {
+                    RemoteManualSelectionOperationStatus.QUEUED,
+                    RemoteManualSelectionOperationStatus.SENDING,
+                    RemoteManualSelectionOperationStatus.RETRY,
+                }
+            ),
+            uploading_transfer_count=sum(
+                1 for item in transfers if item.status in active_transfer
+            ),
+            pending_transfer_bytes=sum(
+                item.declared_bytes - item.received_bytes
+                for item in transfers
+                if item.status in active_transfer
+            ),
+            materializing_action_count=sum(
+                1
+                for item in actions
+                if item.action_type is RemoteManualSelectionHostActionType.MATERIALIZE
+                and item.status in active_action
+            ),
+            pending_host_action_count=sum(1 for item in actions if item.status in active_action),
+            synced_file_count=sum(
+                1 for item in files if item.status is RemoteManualSelectionFileStatus.SYNCED
+            ),
+            conflict_file_count=conflicts,
+            recovery_findings=tuple(sorted(findings.items())),
+        )
+
     def list_operations_after_sequence(
         self,
         *,
@@ -2748,6 +3247,7 @@ class InMemoryRemoteManualSelectionRepository:
                 raise _persistence_conflict()
             self.transfers[value.id] = value
             self.transfer_paths[value.id] = temp_relative_path
+            self.transfer_updated_at[value.id] = datetime.now(UTC)
             return value
 
     def add_host_action(
@@ -3719,6 +4219,8 @@ __all__ = [
     "RemoteManualSelectionHostActionRecord",
     "RemoteManualSelectionHostBinding",
     "RemoteManualSelectionMaterializationContext",
+    "RemoteManualSelectionQueueSnapshot",
+    "RemoteManualSelectionRecoveryTransferCandidate",
     "RemoteManualSelectionSessionSecrets",
     "RemoteManualSelectionSourceRegistration",
     "RemoteManualSelectionTransferRecord",

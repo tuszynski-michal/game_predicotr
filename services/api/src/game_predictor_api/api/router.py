@@ -78,6 +78,7 @@ def create_api_router(
     remote_manual_selection_access_service_dependency: Callable[..., object],
     remote_manual_selection_control_service_dependency: Callable[..., object],
     remote_manual_selection_transfer_service_dependency: Callable[..., object],
+    remote_manual_selection_recovery_service_dependency: Callable[..., object],
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -99,6 +100,7 @@ def create_api_router(
                 remote_manual_selection_host_service_dependency,
                 remote_manual_selection_access_service_dependency,
                 remote_manual_selection_control_service_dependency,
+                remote_manual_selection_recovery_service_dependency,
                 reviewer_ingress_service_dependency,
             )
         )

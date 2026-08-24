@@ -9398,6 +9398,18 @@
             "title": "Iswriter",
             "type": "boolean"
           },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
           "revision": {
             "title": "Revision",
             "type": "integer"
@@ -9436,7 +9448,8 @@
           "expiresAt",
           "isWriter",
           "writerActive",
-          "writerLeaseExpiresAt"
+          "writerLeaseExpiresAt",
+          "lastHeartbeatAt"
         ],
         "title": "RemoteManualSelectionContextResponse",
         "type": "object"
@@ -9966,6 +9979,18 @@
             "title": "Expiresat",
             "type": "string"
           },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
           "lockedAt": {
             "anyOf": [
               {
@@ -10059,6 +10084,7 @@
           "revokedAt",
           "writerActive",
           "writerLeaseExpiresAt",
+          "lastHeartbeatAt",
           "ready",
           "reviewUrl"
         ],
@@ -10195,16 +10221,33 @@
             "title": "Hasmore",
             "type": "boolean"
           },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
           "nextRevision": {
             "title": "Nextrevision",
             "type": "integer"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/RemoteSelectionQueueStatusResponse"
           }
         },
         "required": [
           "batch",
           "files",
           "nextRevision",
-          "hasMore"
+          "hasMore",
+          "queue",
+          "lastHeartbeatAt"
         ],
         "title": "RemoteManualSelectionStateDeltaResponse",
         "type": "object"
@@ -10454,6 +10497,165 @@
           "exactRetry"
         ],
         "title": "RemoteSelectionFinalizedResponse",
+        "type": "object"
+      },
+      "RemoteSelectionGcCategoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactCount": {
+            "title": "Artifactcount",
+            "type": "integer"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "totalBytes": {
+            "title": "Totalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "artifactCount",
+          "totalBytes"
+        ],
+        "title": "RemoteSelectionGcCategoryResponse",
+        "type": "object"
+      },
+      "RemoteSelectionGcPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSelectionGcCategoryResponse"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "deletionEnabled": {
+            "const": false,
+            "title": "Deletionenabled",
+            "type": "boolean"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "scannedArtifactCount": {
+            "title": "Scannedartifactcount",
+            "type": "integer"
+          },
+          "scannedBytes": {
+            "title": "Scannedbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deletionEnabled",
+          "scannedArtifactCount",
+          "scannedBytes",
+          "categories",
+          "findings"
+        ],
+        "title": "RemoteSelectionGcPreviewResponse",
+        "type": "object"
+      },
+      "RemoteSelectionQueueStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "conflictFileCount": {
+            "title": "Conflictfilecount",
+            "type": "integer"
+          },
+          "materializingActionCount": {
+            "title": "Materializingactioncount",
+            "type": "integer"
+          },
+          "pendingHostActionCount": {
+            "title": "Pendinghostactioncount",
+            "type": "integer"
+          },
+          "pendingOperationCount": {
+            "title": "Pendingoperationcount",
+            "type": "integer"
+          },
+          "pendingTransferBytes": {
+            "title": "Pendingtransferbytes",
+            "type": "integer"
+          },
+          "recoveryFindings": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSelectionRecoveryFindingResponse"
+            },
+            "title": "Recoveryfindings",
+            "type": "array"
+          },
+          "syncedFileCount": {
+            "title": "Syncedfilecount",
+            "type": "integer"
+          },
+          "uploadingTransferCount": {
+            "title": "Uploadingtransfercount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pendingOperationCount",
+          "uploadingTransferCount",
+          "pendingTransferBytes",
+          "materializingActionCount",
+          "pendingHostActionCount",
+          "syncedFileCount",
+          "conflictFileCount",
+          "recoveryFindings"
+        ],
+        "title": "RemoteSelectionQueueStatusResponse",
+        "type": "object"
+      },
+      "RemoteSelectionRecoveryFindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "count"
+        ],
+        "title": "RemoteSelectionRecoveryFindingResponse",
+        "type": "object"
+      },
+      "RemoteSelectionRecoveryStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "gcPreview": {
+            "$ref": "#/components/schemas/RemoteSelectionGcPreviewResponse"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/RemoteSelectionQueueStatusResponse"
+          }
+        },
+        "required": [
+          "batchId",
+          "queue",
+          "gcPreview"
+        ],
+        "title": "RemoteSelectionRecoveryStatusResponse",
         "type": "object"
       },
       "RemoteSelectionReopenCommand": {
@@ -25730,6 +25932,79 @@
           }
         },
         "summary": "Monitor one remote manual selection session without secrets",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/remote-manual-selections/sessions/{session_id}/batches/{batch_id}/recovery": {
+      "get": {
+        "operationId": "getRemoteManualSelectionRecoveryStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSelectionRecoveryStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview recovery findings and non-destructive GC candidates",
         "tags": [
           "remote-manual-selections"
         ]

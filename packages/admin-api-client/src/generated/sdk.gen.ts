@@ -254,6 +254,9 @@ import type {
   GetRemoteManualSelectionFileTransferData,
   GetRemoteManualSelectionFileTransferErrors,
   GetRemoteManualSelectionFileTransferResponses,
+  GetRemoteManualSelectionRecoveryStatusData,
+  GetRemoteManualSelectionRecoveryStatusErrors,
+  GetRemoteManualSelectionRecoveryStatusResponses,
   GetRemoteManualSelectionSessionData,
   GetRemoteManualSelectionSessionErrors,
   GetRemoteManualSelectionSessionResponses,
@@ -3622,6 +3625,27 @@ export const getRemoteManualSelectionSession = <
     ThrowOnError
   >({
     url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}',
+    ...options,
+  });
+
+/**
+ * Preview recovery findings and non-destructive GC candidates
+ */
+export const getRemoteManualSelectionRecoveryStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionRecoveryStatusData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionRecoveryStatusResponses,
+  GetRemoteManualSelectionRecoveryStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionRecoveryStatusResponses,
+    GetRemoteManualSelectionRecoveryStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/batches/{batch_id}/recovery',
     ...options,
   });
 

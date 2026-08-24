@@ -5390,6 +5390,10 @@ export type RemoteManualSelectionContextResponse = {
    */
   isWriter: boolean;
   /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
    * Revision
    */
   revision: number;
@@ -5697,6 +5701,10 @@ export type RemoteManualSelectionSessionResponse = {
    */
   expiresAt: string;
   /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
    * Lockedat
    */
   lockedAt: string | null;
@@ -5820,9 +5828,14 @@ export type RemoteManualSelectionStateDeltaResponse = {
    */
   hasMore: boolean;
   /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
    * Nextrevision
    */
   nextRevision: number;
+  queue: RemoteSelectionQueueStatusResponse;
 };
 
 /**
@@ -5982,6 +5995,114 @@ export type RemoteSelectionFinalizedResponse = {
    * Finalizedat
    */
   finalizedAt: string;
+};
+
+/**
+ * RemoteSelectionGcCategoryResponse
+ */
+export type RemoteSelectionGcCategoryResponse = {
+  /**
+   * Artifactcount
+   */
+  artifactCount: number;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Totalbytes
+   */
+  totalBytes: number;
+};
+
+/**
+ * RemoteSelectionGcPreviewResponse
+ */
+export type RemoteSelectionGcPreviewResponse = {
+  /**
+   * Categories
+   */
+  categories: Array<RemoteSelectionGcCategoryResponse>;
+  /**
+   * Deletionenabled
+   */
+  deletionEnabled: false;
+  /**
+   * Findings
+   */
+  findings: Array<string>;
+  /**
+   * Scannedartifactcount
+   */
+  scannedArtifactCount: number;
+  /**
+   * Scannedbytes
+   */
+  scannedBytes: number;
+};
+
+/**
+ * RemoteSelectionQueueStatusResponse
+ */
+export type RemoteSelectionQueueStatusResponse = {
+  /**
+   * Conflictfilecount
+   */
+  conflictFileCount: number;
+  /**
+   * Materializingactioncount
+   */
+  materializingActionCount: number;
+  /**
+   * Pendinghostactioncount
+   */
+  pendingHostActionCount: number;
+  /**
+   * Pendingoperationcount
+   */
+  pendingOperationCount: number;
+  /**
+   * Pendingtransferbytes
+   */
+  pendingTransferBytes: number;
+  /**
+   * Recoveryfindings
+   */
+  recoveryFindings: Array<RemoteSelectionRecoveryFindingResponse>;
+  /**
+   * Syncedfilecount
+   */
+  syncedFileCount: number;
+  /**
+   * Uploadingtransfercount
+   */
+  uploadingTransferCount: number;
+};
+
+/**
+ * RemoteSelectionRecoveryFindingResponse
+ */
+export type RemoteSelectionRecoveryFindingResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Count
+   */
+  count: number;
+};
+
+/**
+ * RemoteSelectionRecoveryStatusResponse
+ */
+export type RemoteSelectionRecoveryStatusResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  gcPreview: RemoteSelectionGcPreviewResponse;
+  queue: RemoteSelectionQueueStatusResponse;
 };
 
 /**
@@ -14407,6 +14528,50 @@ export type GetRemoteManualSelectionSessionResponses = {
 
 export type GetRemoteManualSelectionSessionResponse =
   GetRemoteManualSelectionSessionResponses[keyof GetRemoteManualSelectionSessionResponses];
+
+export type GetRemoteManualSelectionRecoveryStatusData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/batches/{batch_id}/recovery';
+};
+
+export type GetRemoteManualSelectionRecoveryStatusErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionRecoveryStatusError =
+  GetRemoteManualSelectionRecoveryStatusErrors[keyof GetRemoteManualSelectionRecoveryStatusErrors];
+
+export type GetRemoteManualSelectionRecoveryStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteSelectionRecoveryStatusResponse;
+};
+
+export type GetRemoteManualSelectionRecoveryStatusResponse =
+  GetRemoteManualSelectionRecoveryStatusResponses[keyof GetRemoteManualSelectionRecoveryStatusResponses];
 
 export type ReopenRemoteManualSelectionBatchData = {
   body: RemoteSelectionReopenCommand;

@@ -15,6 +15,34 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Recovery zdalnej ręcznej selekcji — v0.7.40
+
+- TASK-0288 dodaje ograniczony, idempotentny reconciler uruchamiany przy starcie
+  API oraz przed cyklem akcji hosta w general workerze. Zgodny plik `.verified`
+  jest ponownie hashowany i odzyskiwany bez uploadu; `.part`, brak pliku lub
+  konflikt checksummy nigdy nie potwierdzają zapisu i pozostawiają artefakty do
+  jawnej diagnozy.
+- Reconciler uzupełnia brakujące akcje materializacji, używa porównania
+  `updated_at` jako fencing i może zostać wyłączony przez
+  `GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED=false`. Jeden cykl ma limit
+  `1..1000`, domyślnie 100; nie wykonuje automatycznego delete ani GC.
+- State delta zawiera teraz zagregowane liczniki pending/uploading bytes/
+  materializing/synced/conflict i `lastHeartbeatAt`. Reviewer odpytuje stan z
+  backoffem `1–15 s`, nie tworzy równoległych pętli i po odzyskanym `failed`
+  transferze używa nowego identyfikatora próby.
+- Lokalny Admin ma path-free diagnostykę partii oraz agregatowy preview GC.
+  Logi i audyt zawierają wyłącznie stabilne kody/liczniki, bez kodu dostępu,
+  tokenów, lease tokenu i ścieżki hosta.
+- Bramka celowana: 102 testy Reviewera, 248 testów Admina, 41 testów klienta
+  oraz celowane zestawy API/workera (1 test pominięty z powodu braku symlinków
+  Windows), OpenAPI, Ruff i TypeScript typecheck są zielone. Focused mypy zmienionych
+  modułów jest zielony; pełny import graph nadal raportuje dwa wcześniejsze,
+  niezwiązane błędy w `symbol_model_iteration_repository.py`. Pełne repozytoryjne
+  `npm run lint` pozostaje czerwone na ośmiu wcześniejszych błędach Ruff w
+  migracjach 0045/0046 i `test_symbol_confidence.py`, a pełny `format:check` na
+  31 wcześniejszych plikach; wszystkie pliki TASK-0288 przechodzą własną kontrolę
+  Ruff/Prettier.
+
 ### Finalizacja zdalnej ręcznej selekcji — v0.7.39
 
 - TASK-0287 dodaje rewizyjną barierę finalizacji. Preview blokuje zakończenie,

@@ -79,6 +79,10 @@ sesji i kodu.
 | złośliwy lub podmieniony JPEG | zgodność size/mtime z manifestem i checksumy z potwierdzonym SELECT, streaming do `.part`, limity per-file/session/concurrency, magic/format/full decode przed `verified` |
 | zerwanie transferu lub utrata odpowiedzi | `.part` nie jest wynikiem, klient zachowuje transferId i przed retry pyta o status; zgodny artefakt po restarcie jest ponownie hashowany i dekodowany |
 | crash między verified, tempem materializacji, publikacją i commitem | trwała host action z lease/fencing, same-volume temp, fsync, checksumowany journal i bounded reconciliation prowadzą do jednego synced wyniku albo kontrolowanego konfliktu |
+| restart po rename `.verified`, ale przed commitem bazy | reconciler ponownie sprawdza regular file, rozmiar i SHA-256, a CAS po `updated_at` publikuje dokładnie jeden stan i jedną akcję |
+| potraktowanie osieroconego `.part` jako wyniku | `.part` nigdy nie jest adoptowany; próba kończy się kontrolowanym `failed`, bajty pozostają tylko w niedestrukcyjnym preview GC |
+| wyciek danych przez recovery/status | publiczny delta i lokalny recovery detail zawierają wyłącznie liczniki, heartbeat i stabilne findings; logi/audyt redagują credential-like keys oraz pełne ścieżki Windows |
+| przypadkowe usunięcie podczas diagnostyki | GC ma wyłącznie agregatowy preview z `deletionEnabled=false`; brak endpointu i kodu wykonującego delete |
 | nadpisanie obcego lub zmienionego `seq_*` | wyłączne utworzenie finalnej nazwy; adopcja tylko przy zgodnym journalu identity i checksumie, inaczej fail-closed bez replace/delete |
 | stale generation po spóźnionym uploadzie | ponowna blokada pliku/transferu/partii i sprawdzenie desired state, generation i checksumy przed filesystemem oraz przed commitem |
 | reparse/TOCTOU podczas materializacji | pinned final handles bez `FILE_SHARE_DELETE`, dokładna host-internal ścieżka verified, regular-file/reparse checks źródła, tempu, journalu i celu |

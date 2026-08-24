@@ -208,3 +208,19 @@ Po sukcesie Reviewer zachowuje nawigację i podgląd, ale blokuje decyzje. Tylko
 lokalny właściciel może ponownie otworzyć dokładną partię, podając bieżącą
 rewizję oraz checksumę finalnego manifestu. Publiczny proxy nigdy nie
 udostępnia reopen ani zapisu manifestu.
+
+### Recovery i diagnostyka zdalnej partii
+
+Po restarcie API i general workera ograniczony reconciler sprawdza wyłącznie
+aktywne próby starsze od timeoutu. Plik `.verified` może zostać odzyskany tylko
+po zgodności rozmiaru i SHA-256 z deklaracją transferu. `.part`, brak pliku,
+obca zawartość lub niezgodna generacja nigdy nie zmieniają stanu na
+`verified`; próba staje się kontrolowanym `failed`, a lokalny scheduler tworzy
+nowy `transferId` bez utraty decyzji.
+
+State delta pokazuje oddzielnie pending operations, uploady i oczekujące bajty,
+materializacje, wszystkie akcje hosta, zsynchronizowane pliki, konflikty oraz
+ostatni heartbeat writera. Polling działa z ograniczonym backoffem i nie może
+tworzyć równoległych pętli. Lokalny Admin może pobrać zagregowany preview
+osieroconych artefaktów; wynik nie zawiera ścieżek i nie oferuje operacji
+usuwania. Automatyczny GC pozostaje zabroniony.

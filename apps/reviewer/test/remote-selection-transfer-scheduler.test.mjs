@@ -135,6 +135,51 @@ test('refresh restores the stable transfer id from metadata checkpoint', async (
   assert.equal(uploads, 0);
 });
 
+test('failed recovery checkpoint starts a new immutable transfer attempt', async () => {
+  const input = task('a', 1);
+  const observed = [];
+  const checkpoints = [
+    {
+      schemaVersion: 1,
+      sessionId: input.sessionId,
+      batchId: input.batchId,
+      fileId: input.fileId,
+      generation: input.generation,
+      sourceRelativePath: input.sourceRelativePath,
+      expectedSizeBytes: input.expectedSizeBytes,
+      expectedChecksumSha256: input.expectedChecksumSha256,
+      acknowledgedBytes: 0,
+      transferId: ids[3],
+      status: 'failed',
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+  const scheduler = new RemoteSelectionTransferScheduler(
+    {
+      async status(taskValue, transferId) {
+        observed.push(['status', transferId]);
+        return response(taskValue, 'not_started');
+      },
+      async upload(taskValue, transferId) {
+        observed.push(['upload', transferId]);
+        return response(taskValue, 'verified');
+      },
+    },
+    store(checkpoints),
+    { createTransferId: () => ids[0] },
+  );
+
+  await scheduler.enqueue(input);
+  await waitFor(() => scheduler.snapshot().active === 0);
+
+  assert.deepEqual(observed, [
+    ['status', ids[0]],
+    ['upload', ids[0]],
+  ]);
+  assert.equal(checkpoints.at(-1)?.transferId, ids[0]);
+  assert.equal(checkpoints.at(-1)?.status, 'verified');
+});
+
 test('synced status completes locally without loading or uploading the Blob', async () => {
   let loaded = 0;
   let uploaded = 0;
@@ -225,7 +270,9 @@ test('tombstone cancels every older generation and a cancelled checkpoint cannot
         return response(input, 'not_started');
       },
       async upload(_task, _id, _blob, signal) {
-        await new Promise((resolve) => signal.addEventListener('abort', resolve));
+        await new Promise((resolve) =>
+          signal.addEventListener('abort', resolve),
+        );
         throw new DOMException('aborted', 'AbortError');
       },
     },
@@ -239,7 +286,8 @@ test('tombstone cancels every older generation and a cancelled checkpoint cannot
   assert.equal(await scheduler.cancelOlderGenerations(ids[2], 3), 2);
   await waitFor(() => scheduler.snapshot().active === 0);
   assert.equal(
-    checkpoints.filter((checkpoint) => checkpoint.status === 'cancelled').length,
+    checkpoints.filter((checkpoint) => checkpoint.status === 'cancelled')
+      .length,
     2,
   );
 
@@ -249,7 +297,11 @@ test('tombstone cancels every older generation and a cancelled checkpoint cannot
     { createTransferId: () => ids[1] },
   );
   assert.equal(await restored.enqueue(task('a', 1)), false);
-  assert.deepEqual(restored.snapshot(), { active: 0, queued: 0, pendingBytes: 0 });
+  assert.deepEqual(restored.snapshot(), {
+    active: 0,
+    queued: 0,
+    pendingBytes: 0,
+  });
 });
 
 test('500-file concurrency sweep remains bounded without retaining Blob payloads', async () => {

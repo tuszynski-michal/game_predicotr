@@ -5,6 +5,7 @@ import type {
   RemoteManualSelectionSessionCreatedResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
+  RemoteSelectionRecoveryStatusResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -13,6 +14,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   createRemoteManualSelectionAccess,
   loadRemoteManualSelectionMonitor,
+  loadRemoteManualSelectionRecoveryStatus,
   loadRemoteManualSelectionSessions,
   reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
@@ -63,6 +65,9 @@ export function RemoteManualSelectionHostPanel({
     string | null
   >(null);
   const [reopeningBatchId, setReopeningBatchId] = useState<string | null>(null);
+  const [recoveryBatchId, setRecoveryBatchId] = useState<string | null>(null);
+  const [recoveryStatus, setRecoveryStatus] =
+    useState<RemoteSelectionRecoveryStatusResponse | null>(null);
   const [error, setError] = useState('');
   const [monitorError, setMonitorError] = useState('');
   const [notice, setNotice] = useState('');
@@ -288,6 +293,21 @@ export function RemoteManualSelectionHostPanel({
     }
   }
 
+  async function loadRecovery(sessionId: string, batchId: string) {
+    if (recoveryBatchId !== null) return;
+    setRecoveryBatchId(batchId);
+    setRecoveryStatus(null);
+    setMonitorError('');
+    const result = await loadRemoteManualSelectionRecoveryStatus(
+      api,
+      sessionId,
+      batchId,
+    );
+    if (result.ok) setRecoveryStatus(result.data);
+    else setMonitorError(result.error);
+    setRecoveryBatchId(null);
+  }
+
   const currentMonitor =
     monitor?.session.sessionId === selectedSessionId ? monitor : null;
   const selectedSession =
@@ -481,6 +501,14 @@ export function RemoteManualSelectionHostPanel({
                   value={formatBytes(currentMonitor?.diskFreeBytes ?? null)}
                 />
                 <Metric
+                  label="Ostatni heartbeat"
+                  value={
+                    selectedSession.lastHeartbeatAt
+                      ? formatDate(selectedSession.lastHeartbeatAt)
+                      : 'brak'
+                  }
+                />
+                <Metric
                   label="Wygasa"
                   value={formatDate(selectedSession.expiresAt)}
                 />
@@ -565,6 +593,21 @@ export function RemoteManualSelectionHostPanel({
                                 : '0'}
                             </td>
                             <td>
+                              <button
+                                className="textButton"
+                                disabled={recoveryBatchId !== null}
+                                onClick={() =>
+                                  void loadRecovery(
+                                    selectedSession.sessionId,
+                                    batch.batchId,
+                                  )
+                                }
+                                type="button"
+                              >
+                                {recoveryBatchId === batch.batchId
+                                  ? 'Sprawdzam…'
+                                  : 'Diagnostyka'}
+                              </button>
                               {batch.status === 'completed' ? (
                                 <button
                                   className="textButton"
@@ -583,9 +626,7 @@ export function RemoteManualSelectionHostPanel({
                                       ? 'Potwierdź ponowne otwarcie'
                                       : 'Otwórz ponownie'}
                                 </button>
-                              ) : (
-                                '—'
-                              )}
+                              ) : null}
                             </td>
                           </tr>
                         ))}
@@ -593,6 +634,36 @@ export function RemoteManualSelectionHostPanel({
                     </table>
                   </div>
                 )}
+                {recoveryStatus !== null ? (
+                  <div className="remoteManualSelectionRecovery" role="status">
+                    <h5>Diagnostyka partii</h5>
+                    <p>
+                      Upload: {recoveryStatus.queue.uploadingTransferCount} ·
+                      materializacja:{' '}
+                      {recoveryStatus.queue.materializingActionCount} ·
+                      konflikty: {recoveryStatus.queue.conflictFileCount}
+                    </p>
+                    <p>
+                      Preview GC:{' '}
+                      {recoveryStatus.gcPreview.scannedArtifactCount} artefaktów
+                      / {formatBytes(recoveryStatus.gcPreview.scannedBytes)}.
+                      Usuwanie jest wyłączone.
+                    </p>
+                    {recoveryStatus.queue.recoveryFindings.length > 0 ? (
+                      <ul>
+                        {recoveryStatus.queue.recoveryFindings.map(
+                          (finding) => (
+                            <li key={finding.code}>
+                              {finding.code}: {finding.count}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    ) : (
+                      <p>Brak aktywnych findings recovery.</p>
+                    )}
+                  </div>
+                ) : null}
                 {currentMonitor?.hasMoreBatches ? (
                   <p>Widok ograniczono do 100 najnowszych partii.</p>
                 ) : null}
@@ -648,6 +719,7 @@ const emptySession: RemoteManualSelectionSessionResponse = {
   displayName: '',
   expiresAt: '',
   lockedAt: null,
+  lastHeartbeatAt: null,
   ready: false,
   revision: 0,
   reviewUrl: null,

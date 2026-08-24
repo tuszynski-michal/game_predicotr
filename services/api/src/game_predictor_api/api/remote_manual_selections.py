@@ -21,6 +21,9 @@ from game_predictor_api.application.remote_manual_selection_control import (
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
+from game_predictor_api.application.remote_manual_selection_recovery import (
+    RemoteManualSelectionRecoveryService,
+)
 from game_predictor_api.application.remote_manual_selection_transfer import (
     RemoteManualSelectionTransferService,
 )
@@ -56,6 +59,7 @@ from game_predictor_api.schemas.remote_manual_selections import (
     RemoteSelectionFinalizeCommand,
     RemoteSelectionFinalizedResponse,
     RemoteSelectionFinalizePreviewResponse,
+    RemoteSelectionRecoveryStatusResponse,
     RemoteSelectionReopenCommand,
     RemoteSelectionReopenedResponse,
 )
@@ -65,12 +69,14 @@ def create_remote_manual_selections_admin_router(
     host_service_dependency: Callable[..., object],
     access_service_dependency: Callable[..., object],
     control_service_dependency: Callable[..., object],
+    recovery_service_dependency: Callable[..., object],
     ingress_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/remote-manual-selections")
     host_service_parameter = Depends(host_service_dependency)
     access_service_parameter = Depends(access_service_dependency)
     control_service_parameter = Depends(control_service_dependency)
+    recovery_service_parameter = Depends(recovery_service_dependency)
     ingress_service_parameter = Depends(ingress_service_dependency)
 
     @router.post(
@@ -199,6 +205,26 @@ def create_remote_manual_selections_admin_router(
                     payload.expected_final_manifest_checksum_sha256
                 ),
             )
+        )
+
+    @router.get(
+        "/sessions/{session_id}/batches/{batch_id}/recovery",
+        response_model=RemoteSelectionRecoveryStatusResponse,
+        operation_id="getRemoteManualSelectionRecoveryStatus",
+        summary="Preview recovery findings and non-destructive GC candidates",
+        tags=["remote-manual-selections"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def get_recovery_status(
+        session_id: UUID,
+        batch_id: UUID,
+        service: Annotated[
+            RemoteManualSelectionRecoveryService,
+            recovery_service_parameter,
+        ],
+    ) -> RemoteSelectionRecoveryStatusResponse:
+        return RemoteSelectionRecoveryStatusResponse.from_status(
+            service.status(session_id=session_id, batch_id=batch_id)
         )
 
     return router

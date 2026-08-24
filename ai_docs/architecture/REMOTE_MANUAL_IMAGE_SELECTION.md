@@ -1884,7 +1884,7 @@ kompatybilność publicznego artefaktu, więc wymaga rygorystycznych invariantó
 
 ### TASK 16: Recovery, status i obserwowalność
 
-**Status:** `PLANNED`
+**Status:** `COMPLETED` (`v0.7.40`)
 
 **Cel:** Zapewnić wznowienie po restarcie i jednoznaczną diagnostykę bez
 ujawniania ścieżek lub danych wrażliwych.

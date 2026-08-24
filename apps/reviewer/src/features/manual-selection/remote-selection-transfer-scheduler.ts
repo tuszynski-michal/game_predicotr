@@ -68,7 +68,7 @@ export interface RemoteSelectionTransferSchedulerOptions {
 
 interface QueueItem {
   readonly task: RemoteSelectionTransferTask;
-  readonly transferId: string;
+  transferId: string;
   readonly ordinal: number;
   readonly controller: AbortController;
 }
@@ -167,7 +167,9 @@ export class RemoteSelectionTransferScheduler {
     const item = {
       task,
       transferId:
-        restored?.transferId && restored.transferId.length > 0
+        restored?.status !== 'failed' &&
+        restored?.transferId &&
+        restored.transferId.length > 0
           ? restored.transferId
           : this.createTransferId(),
       ordinal: this.ordinal++,
@@ -227,11 +229,16 @@ export class RemoteSelectionTransferScheduler {
     }
     const generations = new Set<number>();
     for (const item of [...this.queue, ...this.active.values()]) {
-      if (item.task.fileId === fileId && item.task.generation < currentGeneration)
+      if (
+        item.task.fileId === fileId &&
+        item.task.generation < currentGeneration
+      )
         generations.add(item.task.generation);
     }
     let cancelled = 0;
-    for (const generation of [...generations].sort((left, right) => left - right)) {
+    for (const generation of [...generations].sort(
+      (left, right) => left - right,
+    )) {
       if (await this.cancel(fileId, generation)) cancelled += 1;
     }
     return cancelled;
@@ -264,29 +271,50 @@ export class RemoteSelectionTransferScheduler {
   }
 
   private async run(item: QueueItem): Promise<void> {
-    const { task, transferId, controller } = item;
+    const { task, controller } = item;
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       if (controller.signal.aborted) return;
       try {
         const status = await this.transport.status(
           task,
-          transferId,
+          item.transferId,
           controller.signal,
         );
         if (status.status === 'verified' || status.status === 'synced') {
           await this.store.saveTransferCheckpoint(
-            checkpoint(task, transferId, task.expectedSizeBytes, 'verified'),
+            checkpoint(
+              task,
+              item.transferId,
+              task.expectedSizeBytes,
+              'verified',
+            ),
           );
           return;
+        }
+        if (status.status === 'failed' || status.status === 'cancelled') {
+          item.transferId = this.createTransferId();
+          await this.store.saveTransferCheckpoint(
+            checkpoint(task, item.transferId, 0, 'queued'),
+          );
+        } else if (
+          status.status === 'uploading' ||
+          status.status === 'stored_temp' ||
+          status.status === 'retrying'
+        ) {
+          throw new RemoteSelectionTransferHttpError(
+            425,
+            'REMOTE_SELECTION_TRANSFER_RECOVERY_PENDING',
+            'The previous transfer attempt is still being reconciled.',
+          );
         }
         const blob = await task.loadBlob();
         assertFreshBlob(task, blob);
         await this.store.saveTransferCheckpoint(
-          checkpoint(task, transferId, 0, 'uploading'),
+          checkpoint(task, item.transferId, 0, 'uploading'),
         );
         const uploaded = await this.transport.upload(
           task,
-          transferId,
+          item.transferId,
           blob,
           controller.signal,
         );
@@ -298,14 +326,14 @@ export class RemoteSelectionTransferScheduler {
           );
         }
         await this.store.saveTransferCheckpoint(
-          checkpoint(task, transferId, task.expectedSizeBytes, 'verified'),
+          checkpoint(task, item.transferId, task.expectedSizeBytes, 'verified'),
         );
         return;
       } catch (cause) {
         if (controller.signal.aborted) return;
         if (!isRetryableTransferError(cause) || attempt === this.maxAttempts) {
           await this.store.saveTransferCheckpoint(
-            checkpoint(task, transferId, 0, 'failed'),
+            checkpoint(task, item.transferId, 0, 'failed'),
           );
           return;
         }

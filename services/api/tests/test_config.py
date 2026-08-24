@@ -101,6 +101,10 @@ def test_defaults_are_loopback_only() -> None:
             "GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED",
         ),
         (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED": "yes"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED",
+        ),
+        (
             {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES": "0"},
             "GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES",
         ),
@@ -131,6 +135,14 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE": "0"},
             "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT": "1001"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
         ),
     ],
 )
@@ -200,6 +212,8 @@ def test_remote_transfer_limits_are_configurable() -> None:
             "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS": "90",
             "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS": "7",
             "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE": "6",
+            "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED": "false",
+            "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT": "25",
         }
     )
 
@@ -211,3 +225,5 @@ def test_remote_transfer_limits_are_configurable() -> None:
     assert settings.remote_selection_materialization_lease_seconds == 90
     assert settings.remote_selection_materialization_max_attempts == 7
     assert settings.remote_selection_materialization_max_actions_per_cycle == 6
+    assert settings.remote_selection_recovery_enabled is False
+    assert settings.remote_selection_recovery_limit == 25

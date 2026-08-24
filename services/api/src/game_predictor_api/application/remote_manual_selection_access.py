@@ -88,6 +88,7 @@ class RemoteManualSelectionAccessView:
     revoked_at: datetime | None
     writer_active: bool
     writer_lease_expires_at: datetime | None
+    last_heartbeat_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +126,7 @@ class RemoteManualSelectionContext:
     is_writer: bool
     writer_active: bool
     writer_lease_expires_at: datetime | None
+    last_heartbeat_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -665,6 +667,11 @@ class RemoteManualSelectionAccessService:
             revoked_at=record.revoked_at,
             writer_active=writer_active,
             writer_lease_expires_at=(record.writer_lease_expires_at if writer_active else None),
+            last_heartbeat_at=(
+                record.session.updated_at
+                if record.writer_client_instance_id is not None
+                else None
+            ),
         )
 
     def _context(
@@ -684,6 +691,11 @@ class RemoteManualSelectionAccessService:
             is_writer=(writer_active and record.writer_client_instance_id == client_instance_id),
             writer_active=writer_active,
             writer_lease_expires_at=(record.writer_lease_expires_at if writer_active else None),
+            last_heartbeat_at=(
+                record.session.updated_at
+                if record.writer_client_instance_id is not None
+                else None
+            ),
         )
 
     def _audit(

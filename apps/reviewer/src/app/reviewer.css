@@ -420,6 +420,14 @@
   margin: 0;
 }
 
+.remoteManualRecoveryFindings {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #f5c2c7;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
 .remoteManualSyncPanel dl > div {
   display: flex;
   justify-content: space-between;

@@ -30,6 +30,9 @@ from game_predictor_api.application.remote_manual_selection_finalization import 
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionBaseCapability,
 )
+from game_predictor_api.application.remote_manual_selection_recovery import (
+    RemoteSelectionRecoveryStatus,
+)
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
     is_ready_online_reviewer_ingress,
@@ -47,6 +50,7 @@ from game_predictor_api.domain.remote_manual_selections import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.storage.remote_manual_selection_repository import (
+    RemoteManualSelectionQueueSnapshot,
     RemoteManualSelectionTransferRecord,
 )
 
@@ -92,6 +96,7 @@ class RemoteManualSelectionSessionResponse(ApiModel):
     revoked_at: datetime | None
     writer_active: bool
     writer_lease_expires_at: datetime | None
+    last_heartbeat_at: datetime | None
     ready: bool
     review_url: str | None
 
@@ -118,6 +123,7 @@ class RemoteManualSelectionSessionResponse(ApiModel):
             revoked_at=value.revoked_at,
             writer_active=value.writer_active,
             writer_lease_expires_at=value.writer_lease_expires_at,
+            last_heartbeat_at=value.last_heartbeat_at,
             ready=ready,
             review_url=(
                 _manual_selection_url(ingress.public_origin, value.session_id)
@@ -232,6 +238,7 @@ class RemoteManualSelectionContextResponse(ApiModel):
     is_writer: bool
     writer_active: bool
     writer_lease_expires_at: datetime | None
+    last_heartbeat_at: datetime | None
 
     @classmethod
     def from_context(
@@ -248,6 +255,7 @@ class RemoteManualSelectionContextResponse(ApiModel):
             is_writer=value.is_writer,
             writer_active=value.writer_active,
             writer_lease_expires_at=value.writer_lease_expires_at,
+            last_heartbeat_at=value.last_heartbeat_at,
         )
 
 
@@ -554,6 +562,8 @@ class RemoteManualSelectionStateDeltaResponse(ApiModel):
     files: list[RemoteManualSelectionFileResponse]
     next_revision: int
     has_more: bool
+    queue: RemoteSelectionQueueStatusResponse
+    last_heartbeat_at: datetime | None
 
     @classmethod
     def from_delta(
@@ -570,6 +580,87 @@ class RemoteManualSelectionStateDeltaResponse(ApiModel):
             ],
             next_revision=value.next_revision,
             has_more=value.has_more,
+            queue=RemoteSelectionQueueStatusResponse.from_snapshot(value.queue),
+            last_heartbeat_at=value.last_heartbeat_at,
+        )
+
+
+class RemoteSelectionRecoveryFindingResponse(ApiModel):
+    code: str
+    count: int
+
+
+class RemoteSelectionQueueStatusResponse(ApiModel):
+    pending_operation_count: int
+    uploading_transfer_count: int
+    pending_transfer_bytes: int
+    materializing_action_count: int
+    pending_host_action_count: int
+    synced_file_count: int
+    conflict_file_count: int
+    recovery_findings: list[RemoteSelectionRecoveryFindingResponse]
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        value: RemoteManualSelectionQueueSnapshot,
+    ) -> RemoteSelectionQueueStatusResponse:
+        return cls(
+            pending_operation_count=value.pending_operation_count,
+            uploading_transfer_count=value.uploading_transfer_count,
+            pending_transfer_bytes=value.pending_transfer_bytes,
+            materializing_action_count=value.materializing_action_count,
+            pending_host_action_count=value.pending_host_action_count,
+            synced_file_count=value.synced_file_count,
+            conflict_file_count=value.conflict_file_count,
+            recovery_findings=[
+                RemoteSelectionRecoveryFindingResponse(code=code, count=count)
+                for code, count in value.recovery_findings
+            ],
+        )
+
+
+class RemoteSelectionGcCategoryResponse(ApiModel):
+    code: str
+    artifact_count: int
+    total_bytes: int
+
+
+class RemoteSelectionGcPreviewResponse(ApiModel):
+    deletion_enabled: Literal[False]
+    scanned_artifact_count: int
+    scanned_bytes: int
+    categories: list[RemoteSelectionGcCategoryResponse]
+    findings: list[str]
+
+
+class RemoteSelectionRecoveryStatusResponse(ApiModel):
+    batch_id: UUID
+    queue: RemoteSelectionQueueStatusResponse
+    gc_preview: RemoteSelectionGcPreviewResponse
+
+    @classmethod
+    def from_status(
+        cls,
+        value: RemoteSelectionRecoveryStatus,
+    ) -> RemoteSelectionRecoveryStatusResponse:
+        return cls(
+            batch_id=value.batch_id,
+            queue=RemoteSelectionQueueStatusResponse.from_snapshot(value.queue),
+            gc_preview=RemoteSelectionGcPreviewResponse(
+                deletion_enabled=False,
+                scanned_artifact_count=value.gc_preview.scanned_artifact_count,
+                scanned_bytes=value.gc_preview.scanned_bytes,
+                categories=[
+                    RemoteSelectionGcCategoryResponse(
+                        code=item.code,
+                        artifact_count=item.artifact_count,
+                        total_bytes=item.total_bytes,
+                    )
+                    for item in value.gc_preview.categories
+                ],
+                findings=list(value.gc_preview.findings),
+            ),
         )
 
 

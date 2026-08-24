@@ -20,6 +20,9 @@ from game_predictor_api.application.remote_manual_selection_materialization impo
     RemoteManualSelectionHostMaterializer,
     RemoteManualSelectionMaterializationLimits,
 )
+from game_predictor_api.application.remote_manual_selection_recovery import (
+    RemoteManualSelectionRecoveryRunner,
+)
 from game_predictor_api.application.remote_manual_selection_removal import (
     RemoteManualSelectionHostRemover,
     RemoteManualSelectionRemovalLimits,
@@ -116,10 +119,13 @@ DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 5
 
 
 def _remote_host_action_cycle(
+    recovery_runner: RemoteManualSelectionRecoveryRunner | None,
     removal_runner: RemoteManualSelectionRemovalRunner | None,
     materialization_runner: RemoteManualSelectionHostActionRunner,
 ) -> Callable[[], None]:
     def run() -> None:
+        if recovery_runner is not None:
+            recovery_runner.run_bounded_cycle()
         if removal_runner is not None:
             removal_runner.run_bounded_cycle()
         materialization_runner.run_bounded_cycle()
@@ -267,6 +273,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     handlers: dict[JobType, JobHandler]
     materialization_runner: RemoteManualSelectionHostActionRunner | None = None
     removal_runner: RemoteManualSelectionRemovalRunner | None = None
+    recovery_runner: RemoteManualSelectionRecoveryRunner | None = None
     if options.lane == IMAGE_SELECTION_LANE:
         # TASK-0194 showed that two Paddle/OpenCV verifier instances contend on
         # the owner's CPU and make the real first-200 profile slower. Keep the
@@ -290,9 +297,19 @@ def main(arguments: Sequence[str] | None = None) -> int:
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
     else:
+        remote_selection_host = RemoteManualSelectionHostService(lambda: None)
+        recovery_runner = RemoteManualSelectionRecoveryRunner(
+            session_factory,
+            remote_selection_host,
+            enabled=settings.remote_selection_recovery_enabled,
+            upload_timeout=timedelta(
+                seconds=settings.remote_selection_upload_timeout_seconds
+            ),
+            limit=settings.remote_selection_recovery_limit,
+        )
         materialization_runner = RemoteManualSelectionHostActionRunner(
             session_factory,
-            RemoteManualSelectionHostMaterializer(RemoteManualSelectionHostService(lambda: None)),
+            RemoteManualSelectionHostMaterializer(remote_selection_host),
             worker_id=f"{options.worker_id}-remote-materialization",
             limits=RemoteManualSelectionMaterializationLimits(
                 lease_duration=timedelta(
@@ -307,7 +324,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         if settings.remote_selection_deselect_enabled:
             removal_runner = RemoteManualSelectionRemovalRunner(
                 session_factory,
-                RemoteManualSelectionHostRemover(RemoteManualSelectionHostService(lambda: None)),
+                RemoteManualSelectionHostRemover(remote_selection_host),
                 worker_id=f"{options.worker_id}-remote-removal",
                 limits=RemoteManualSelectionRemovalLimits(
                     lease_duration=timedelta(
@@ -388,7 +405,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
         execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
         auxiliary_work=(
-            _remote_host_action_cycle(removal_runner, materialization_runner)
+            _remote_host_action_cycle(
+                recovery_runner,
+                removal_runner,
+                materialization_runner,
+            )
             if materialization_runner is not None
             else None
         ),

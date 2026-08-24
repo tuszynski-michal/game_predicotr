@@ -48,6 +48,8 @@ class ApiSettings:
     remote_selection_materialization_lease_seconds: int = 60
     remote_selection_materialization_max_attempts: int = 5
     remote_selection_materialization_max_actions_per_cycle: int = 4
+    remote_selection_recovery_enabled: bool = True
+    remote_selection_recovery_limit: int = 100
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -165,6 +167,18 @@ class ApiSettings:
             ),
             variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE"),
         )
+        remote_selection_recovery_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED",
+        )
+        remote_selection_recovery_limit = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT", "100"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
+        )
+        if remote_selection_recovery_limit > 1_000:
+            raise ConfigurationError(
+                "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT cannot exceed 1000."
+            )
         return cls(
             host=host,
             port=port,
@@ -199,6 +213,8 @@ class ApiSettings:
             remote_selection_materialization_max_actions_per_cycle=(
                 remote_selection_materialization_max_actions_per_cycle
             ),
+            remote_selection_recovery_enabled=remote_selection_recovery_enabled,
+            remote_selection_recovery_limit=remote_selection_recovery_limit,
         )
 
 

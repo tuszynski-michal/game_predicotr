@@ -85,6 +85,7 @@ import {
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getRemoteManualSelectionSession as getGeneratedRemoteManualSelectionSession,
+  getRemoteManualSelectionRecoveryStatus as getGeneratedRemoteManualSelectionRecoveryStatus,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   heartbeatReviewerWorkAssignment as heartbeatGeneratedReviewerWorkAssignment,
   getSymbol as getGeneratedSymbol,
@@ -233,6 +234,7 @@ import type {
   ReviewerWorkOpenCommand,
   RemoteManualSelectionSessionCreate,
   RemoteSelectionReopenCommand,
+  RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -456,6 +458,7 @@ export type {
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
   RemoteSelectionReopenCommand,
+  RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -599,6 +602,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { session_id: sessionId },
         query: { batch_limit: batchLimit },
+      }),
+    getRemoteManualSelectionRecoveryStatus: (
+      sessionId: string,
+      batchId: string,
+    ) =>
+      getGeneratedRemoteManualSelectionRecoveryStatus({
+        client,
+        path: { batch_id: batchId, session_id: sessionId },
       }),
     revokeRemoteManualSelectionSession: (sessionId: string) =>
       revokeGeneratedRemoteManualSelectionSession({

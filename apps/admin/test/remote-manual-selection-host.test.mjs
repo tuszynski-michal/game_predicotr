@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import {
   createRemoteManualSelectionAccess,
+  loadRemoteManualSelectionRecoveryStatus,
   loadRemoteManualSelectionMonitor,
   loadRemoteManualSelectionSessions,
   reopenRemoteManualSelectionBatch,
@@ -80,6 +81,31 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
         },
       };
     },
+    getRemoteManualSelectionRecoveryStatus: async (sessionId, batchId) => {
+      calls.push(['recovery', sessionId, batchId]);
+      return {
+        data: {
+          batchId,
+          queue: {
+            pendingOperationCount: 0,
+            uploadingTransferCount: 1,
+            pendingTransferBytes: 100,
+            materializingActionCount: 0,
+            pendingHostActionCount: 0,
+            syncedFileCount: 0,
+            conflictFileCount: 0,
+            recoveryFindings: [],
+          },
+          gcPreview: {
+            deletionEnabled: false,
+            scannedArtifactCount: 1,
+            scannedBytes: 100,
+            categories: [],
+            findings: [],
+          },
+        },
+      };
+    },
     revokeRemoteManualSelectionSession: async (sessionId) => {
       calls.push(['revoke', sessionId]);
       return { data: { ...current, status: 'revoked' } };
@@ -112,6 +138,16 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     true,
   );
   assert.equal(
+    (
+      await loadRemoteManualSelectionRecoveryStatus(
+        client,
+        current.sessionId,
+        '22222222-2222-4222-8222-222222222222',
+      )
+    ).data.queue.pendingTransferBytes,
+    100,
+  );
+  assert.equal(
     (await revokeRemoteManualSelectionAccess(client, current.sessionId)).ok,
     true,
   );
@@ -138,6 +174,7 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     ],
     ['list', 100],
     ['monitor', current.sessionId, 100],
+    ['recovery', current.sessionId, '22222222-2222-4222-8222-222222222222'],
     ['revoke', current.sessionId],
     [
       'reopen',
@@ -201,4 +238,7 @@ test('panel keeps secret in React memory and uses bounded polling and exact revo
   assert.match(panelSource, /Etykieta sesji/);
   assert.match(panelSource, /expectedFinalManifestChecksumSha256/);
   assert.match(panelSource, /Potwierdź ponowne otwarcie/);
+  assert.match(panelSource, /Diagnostyka partii/);
+  assert.match(panelSource, /Preview GC/);
+  assert.match(panelSource, /Usuwanie jest wyłączone/);
 });

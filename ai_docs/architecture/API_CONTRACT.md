@@ -96,6 +96,7 @@ Po uzyskaniu capability lokalny Admin obsługuje trwałe sesje:
 POST /api/v1/admin/remote-manual-selections/sessions
 GET  /api/v1/admin/remote-manual-selections/sessions?limit=1..100
 GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}?batch_limit=1..100
+GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}/batches/{batchId}/recovery
 POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
 POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/reopen-batch
 ```
@@ -114,6 +115,11 @@ Create, revoke i reopen są operacjami high-impact z exact target lokalnego
 Admina. Reopen przyjmuje `batchId`, `expectedServerRevision` oraz
 `expectedFinalManifestChecksumSha256`; zmienia tylko zgodną zakończoną partię
 na `active`, zwiększa rewizję i nie jest dostępny przez Reviewer proxy.
+
+Recovery detail jest lokalnym, read-only DTO. Zwraca wyłącznie zagregowane
+liczniki kolejek i bajtów, stabilne findings oraz preview kategorii artefaktów z
+`deletionEnabled=false`; nie zwraca host path, nazw plików, checksum, tokenów
+ani danych uwierzytelniających.
 
 Publiczna powierzchnia jest osiągalna z przeglądarki wyłącznie przez osobny
 same-origin proxy Reviewera `/selection-api`. Proxy przepuszcza dokładnie:
@@ -152,6 +158,11 @@ oraz walidowane nagłówki transfer UUID, generacji, source mtime i SHA-256.
 Proxy przekazuje body jako stream i nie buforuje JPEG-a. Route Admina, legacy
 Reviewera, jobów, storage, eksportów i wydań pozostają zabronione. API nie ma
 publicznego CORS i pozostaje na loopback.
+
+State delta zachowuje kursor `sinceRevision` i limit strony, a dodatkowo zwraca
+stałorozmiarowy `queue`, `recoveryFindings` oraz `lastHeartbeatAt`. Pola
+rozróżniają pending operations, upload count/bytes, materializację, pending
+host actions, synced i conflict bez ujawnienia danych hosta.
 
 Status zwraca `not_started` albo metadane próby bez host path. `PUT` jest
 idempotentny względem transferu/generacji/checksumy i zwraca dopiero

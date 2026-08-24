@@ -5,6 +5,7 @@ import type {
   RemoteManualSelectionSessionListResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
+  RemoteSelectionRecoveryStatusResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -13,6 +14,7 @@ export type RemoteManualSelectionHostClient = Pick<
   AdminApiClient,
   | 'createRemoteManualSelectionSession'
   | 'getRemoteManualSelectionSession'
+  | 'getRemoteManualSelectionRecoveryStatus'
   | 'listRemoteManualSelectionSessions'
   | 'revokeRemoteManualSelectionSession'
   | 'reopenRemoteManualSelectionBatch'
@@ -67,6 +69,17 @@ export async function loadRemoteManualSelectionMonitor(
   return call(
     () => client.getRemoteManualSelectionSession(sessionId, 100),
     'Nie udało się odświeżyć stanu zdalnej sesji.',
+  );
+}
+
+export async function loadRemoteManualSelectionRecoveryStatus(
+  client: RemoteManualSelectionHostClient,
+  sessionId: string,
+  batchId: string,
+): Promise<ActionResult<RemoteSelectionRecoveryStatusResponse>> {
+  return call(
+    () => client.getRemoteManualSelectionRecoveryStatus(sessionId, batchId),
+    'Nie udało się odczytać diagnostyki odzyskiwania.',
   );
 }
 

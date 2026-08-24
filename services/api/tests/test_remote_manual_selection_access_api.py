@@ -8,6 +8,7 @@ from game_predictor_api.application.remote_manual_selection_access import (
     REMOTE_SELECTION_PROXY_INTENT,
     RemoteManualSelectionAccessError,
     RemoteManualSelectionAccessService,
+    RemoteManualSelectionBatchMonitorView,
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     ConsumedRemoteManualSelectionBase,
@@ -108,6 +109,19 @@ def _create(client: TestClient) -> dict[str, object]:
     response = client.post(
         "/api/v1/admin/remote-manual-selections/sessions",
         json={"baseCapability": "x" * 32, "lifetimeMinutes": 60},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _create_with_label(client: TestClient, label: str) -> dict[str, object]:
+    response = client.post(
+        "/api/v1/admin/remote-manual-selections/sessions",
+        json={
+            "baseCapability": "x" * 32,
+            "label": label,
+            "lifetimeMinutes": 60,
+        },
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -332,11 +346,51 @@ def test_session_url_tracks_restarted_shared_ingress_without_new_session() -> No
         refreshed = client.get(f"/api/v1/admin/remote-manual-selections/sessions/{session_id}")
 
     assert refreshed.status_code == 200
-    assert refreshed.json()["sessionId"] == session_id
-    assert refreshed.json()["reviewUrl"] == (
+    assert refreshed.json()["session"]["sessionId"] == session_id
+    assert refreshed.json()["session"]["reviewUrl"] == (
         f"{ingress.public_origin}/manual-selection?session={session_id}"
     )
     assert ingress.start_count == 0
+
+
+def test_host_monitor_is_bounded_and_exposes_counts_without_path_or_secret() -> None:
+    app, repository, _ingress = _app()
+    with TestClient(app, base_url="https://testserver") as client:
+        created = _create_with_label(client, "  Nocna   partia  ")
+        session = created["session"]
+        assert isinstance(session, dict)
+        session_id = UUID(str(session["sessionId"]))
+        repository.batch_monitors[session_id] = [
+            RemoteManualSelectionBatchMonitorView(
+                batch_id=UUID(int=index + 1),
+                name=f"Partia {index + 1}",
+                status="active",
+                total_file_count=100,
+                selected_file_count=25,
+                synced_file_count=20,
+                failed_file_count=1,
+                pending_host_action_count=2,
+                last_error_codes=("REMOTE_SELECTION_SYNTHETIC_FAILURE",),
+            )
+            for index in range(3)
+        ]
+
+        monitored = client.get(
+            f"/api/v1/admin/remote-manual-selections/sessions/{session_id}",
+            params={"batch_limit": 2},
+        )
+
+    assert monitored.status_code == 200, monitored.text
+    payload = monitored.json()
+    assert payload["session"]["displayName"] == "Nocna partia"
+    assert payload["hasMoreBatches"] is True
+    assert len(payload["batches"]) == 2
+    assert payload["batches"][0]["syncedFileCount"] == 20
+    assert payload["batches"][0]["lastErrorCodes"] == ["REMOTE_SELECTION_SYNTHETIC_FAILURE"]
+    serialized = repr(payload).casefold()
+    assert created["accessCode"].casefold() not in serialized
+    assert "c:\\private" not in serialized
+    assert "hostbasepath" not in serialized
 
 
 def test_create_reuses_warm_ingress_and_starts_only_a_missing_shared_ingress() -> None:

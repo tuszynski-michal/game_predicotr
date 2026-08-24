@@ -86,6 +86,26 @@ def test_create_consumes_capability_once_and_persists_only_hashes() -> None:
         _created(service, host)
 
 
+def test_create_normalizes_label_and_rejects_it_before_consuming_capability() -> None:
+    service, _repository, host, _clock = _service()
+
+    with pytest.raises(RemoteManualSelectionAccessError) as captured:
+        service.create(
+            base_capability=host.capability,
+            lifetime_minutes=60,
+            label="   ",
+        )
+
+    assert captured.value.code == "REMOTE_SELECTION_SESSION_LABEL_INVALID"
+    assert host.consumed is False
+    created = service.create(
+        base_capability=host.capability,
+        lifetime_minutes=60,
+        label="  Operator   nocny  ",
+    )
+    assert created.session.display_name == "Operator nocny"
+
+
 @pytest.mark.parametrize("lifetime_minutes", [4, 1441])
 def test_create_rejects_lifetime_outside_five_minutes_to_twenty_four_hours(
     lifetime_minutes: int,

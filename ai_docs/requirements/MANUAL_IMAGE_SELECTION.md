@@ -170,3 +170,22 @@ potwierdzenie operacji nigdy nie jest przedstawiane jako zapis finalnego JPEG-a.
 Synchronizacja control plane oraz maksymalnie dwa transfery działają w tle.
 Offline, konflikt, utrata permission i backpressure są jawne, a zamknięcie karty
 z outboxem lub transferem wyświetla ostrzeżenie.
+
+### Panel hosta zdalnej selekcji
+
+Niezależna od gry zakładka Admina pokazuje nad lokalnym narzędziem osobny panel
+hosta. Właściciel wybiera bazę kontrolowanym pickerem, nadaje sesji czytelną
+etykietę i TTL od 5 minut do 24 godzin. Ścieżka bazy nie jest wyświetlana ani
+zwracana przez API. Surowy kod jest dostępny wyłącznie na jednorazowej karcie po
+utworzeniu sesji; reload, ukrycie karty lub revoke usuwa go ze stanu UI.
+
+Lista do 100 sesji odtwarza się po reloadzie bez sekretów. Dla jednej wybranej
+sesji Admin odpytuje ograniczony monitor maksymalnie 100 najnowszych partii i
+pokazuje stan ingressu, writer lease, wolne miejsce, liczniki wybranych i
+zsynchronizowanych plików, oczekujące akcje oraz stabilne kody błędów. URL jest
+dynamiczną projekcją bieżącego wspólnego ingressu, dlatego po restarcie tunelu
+można skopiować nowy link bez tworzenia nowej sesji.
+
+Zatrzymanie jest dwustopniowe i wskazuje dokładny identyfikator sesji. Revoke
+czyści dostęp tej sesji, ale nie zatrzymuje wspólnego tunelu ani innych prac
+Reviewera. Panel nie finalizuje partii i nie edytuje plików.

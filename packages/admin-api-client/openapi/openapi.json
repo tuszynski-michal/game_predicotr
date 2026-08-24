@@ -9164,6 +9164,64 @@
         "title": "RemoteManualSelectionBatchCreatedResponse",
         "type": "object"
       },
+      "RemoteManualSelectionBatchMonitorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "failedFileCount": {
+            "title": "Failedfilecount",
+            "type": "integer"
+          },
+          "lastErrorCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lasterrorcodes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pendingHostActionCount": {
+            "title": "Pendinghostactioncount",
+            "type": "integer"
+          },
+          "selectedFileCount": {
+            "title": "Selectedfilecount",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "syncedFileCount": {
+            "title": "Syncedfilecount",
+            "type": "integer"
+          },
+          "totalFileCount": {
+            "title": "Totalfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batchId",
+          "name",
+          "status",
+          "totalFileCount",
+          "selectedFileCount",
+          "syncedFileCount",
+          "failedFileCount",
+          "pendingHostActionCount",
+          "lastErrorCodes"
+        ],
+        "title": "RemoteManualSelectionBatchMonitorResponse",
+        "type": "object"
+      },
       "RemoteManualSelectionBatchResponse": {
         "additionalProperties": false,
         "properties": {
@@ -9744,6 +9802,19 @@
             "title": "Basecapability",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "lifetimeMinutes": {
             "default": 480,
             "maximum": 1440.0,
@@ -9791,6 +9862,68 @@
           "sessions"
         ],
         "title": "RemoteManualSelectionSessionListResponse",
+        "type": "object"
+      },
+      "RemoteManualSelectionSessionMonitorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteManualSelectionBatchMonitorResponse"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "diskErrorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diskerrorcode"
+          },
+          "diskFreeBytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diskfreebytes"
+          },
+          "diskTotalBytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disktotalbytes"
+          },
+          "hasMoreBatches": {
+            "title": "Hasmorebatches",
+            "type": "boolean"
+          },
+          "session": {
+            "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+          }
+        },
+        "required": [
+          "session",
+          "batches",
+          "hasMoreBatches",
+          "diskTotalBytes",
+          "diskFreeBytes",
+          "diskErrorCode"
+        ],
+        "title": "RemoteManualSelectionSessionMonitorResponse",
         "type": "object"
       },
       "RemoteManualSelectionSessionResponse": {
@@ -25354,6 +25487,18 @@
               "title": "Session Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "batch_limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Batch Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -25361,7 +25506,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RemoteManualSelectionSessionResponse"
+                  "$ref": "#/components/schemas/RemoteManualSelectionSessionMonitorResponse"
                 }
               }
             },
@@ -25388,7 +25533,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Read one remote manual selection session without secrets",
+        "summary": "Monitor one remote manual selection session without secrets",
         "tags": [
           "remote-manual-selections"
         ]

@@ -246,6 +246,56 @@ def _seed(
         session.commit()
 
 
+def test_host_monitor_aggregates_bounded_batch_state_without_paths(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    action_id = uuid4()
+    try:
+        _seed(engine)
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.add_host_action(
+                RemoteManualSelectionHostActionV1(
+                    id=action_id,
+                    session_id=SESSION_ID,
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    transfer_id=None,
+                    generation=1,
+                    action_type=RemoteManualSelectionHostActionType.MATERIALIZE,
+                    status=RemoteManualSelectionHostActionStatus.RETRY,
+                    attempt=1,
+                )
+            )
+            batch = session.get(RemoteManualSelectionBatchModel, BATCH_ID)
+            file = session.get(RemoteManualSelectionFileModel, FILE_ID)
+            action = session.get(RemoteManualSelectionHostActionModel, action_id)
+            assert batch is not None and file is not None and action is not None
+            batch.selected_file_count = 1
+            file.status = RemoteManualSelectionFileStatus.FAILED.value
+            action.last_error_code = "REMOTE_SELECTION_SYNTHETIC_FAILURE"
+            session.commit()
+
+        with session_factory() as session:
+            monitor = SqlAlchemyRemoteManualSelectionAccessRepository(
+                session
+            ).list_batch_monitors(session_id=SESSION_ID, limit=1)
+
+        assert len(monitor) == 1
+        assert monitor[0].selected_file_count == 1
+        assert monitor[0].synced_file_count == 0
+        assert monitor[0].failed_file_count == 1
+        assert monitor[0].pending_host_action_count == 1
+        assert monitor[0].last_error_codes == (
+            "REMOTE_SELECTION_SYNTHETIC_FAILURE",
+        )
+        assert "path" not in repr(monitor[0]).casefold()
+    finally:
+        engine.dispose()
+
+
 def test_sql_repository_roundtrip_and_exact_retry(remote_database: URL) -> None:
     engine = create_engine(remote_database, pool_pre_ping=True)
     session_factory = create_session_factory(engine)

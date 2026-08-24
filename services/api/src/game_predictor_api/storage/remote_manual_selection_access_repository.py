@@ -8,18 +8,24 @@ from datetime import datetime
 from threading import RLock
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.remote_manual_selection_access import (
     RemoteManualSelectionAccessRecord,
     RemoteManualSelectionAccessRepository,
+    RemoteManualSelectionBatchMonitorView,
 )
 from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionSessionStatus,
     RemoteManualSelectionSessionV1,
 )
-from game_predictor_api.storage.models import RemoteManualSelectionSessionModel
+from game_predictor_api.storage.models import (
+    RemoteManualSelectionBatchModel,
+    RemoteManualSelectionFileModel,
+    RemoteManualSelectionHostActionModel,
+    RemoteManualSelectionSessionModel,
+)
 from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionSessionSecrets,
     SqlAlchemyRemoteManualSelectionRepository,
@@ -126,6 +132,85 @@ class SqlAlchemyRemoteManualSelectionAccessRepository(RemoteManualSelectionAcces
             )
         )
 
+    def list_batch_monitors(
+        self,
+        *,
+        session_id: UUID,
+        limit: int,
+    ) -> Sequence[RemoteManualSelectionBatchMonitorView]:
+        batches = tuple(
+            self._session.scalars(
+                select(RemoteManualSelectionBatchModel)
+                .where(RemoteManualSelectionBatchModel.session_id == session_id)
+                .order_by(
+                    RemoteManualSelectionBatchModel.updated_at.desc(),
+                    RemoteManualSelectionBatchModel.id.desc(),
+                )
+                .limit(limit)
+            )
+        )
+        if not batches:
+            return ()
+        batch_ids = tuple(batch.id for batch in batches)
+        failed_by_batch = {
+            batch_id: count
+            for batch_id, count in self._session.execute(
+                select(
+                    RemoteManualSelectionFileModel.batch_id,
+                    func.count(RemoteManualSelectionFileModel.id),
+                )
+                .where(
+                    RemoteManualSelectionFileModel.batch_id.in_(batch_ids),
+                    RemoteManualSelectionFileModel.status == "failed",
+                )
+                .group_by(RemoteManualSelectionFileModel.batch_id)
+            )
+        }
+        pending_actions_by_batch = {
+            batch_id: count
+            for batch_id, count in self._session.execute(
+                select(
+                    RemoteManualSelectionHostActionModel.batch_id,
+                    func.count(RemoteManualSelectionHostActionModel.id),
+                )
+                .where(
+                    RemoteManualSelectionHostActionModel.batch_id.in_(batch_ids),
+                    RemoteManualSelectionHostActionModel.status.in_(
+                        ("queued", "processing", "retry")
+                    ),
+                )
+                .group_by(RemoteManualSelectionHostActionModel.batch_id)
+            )
+        }
+        error_codes_by_batch: dict[UUID, set[str]] = {}
+        for batch_id, error_code in self._session.execute(
+            select(
+                RemoteManualSelectionHostActionModel.batch_id,
+                RemoteManualSelectionHostActionModel.last_error_code,
+            )
+            .where(
+                RemoteManualSelectionHostActionModel.batch_id.in_(batch_ids),
+                RemoteManualSelectionHostActionModel.last_error_code.is_not(None),
+            )
+            .distinct()
+        ):
+            if error_code is not None:
+                error_codes_by_batch.setdefault(batch_id, set()).add(error_code)
+        return tuple(
+            RemoteManualSelectionBatchMonitorView(
+                batch_id=batch.id,
+                name=batch.name,
+                status=batch.status,
+                total_file_count=batch.total_file_count,
+                selected_file_count=batch.selected_file_count,
+                synced_file_count=batch.transferred_file_count,
+                failed_file_count=failed_by_batch.get(batch.id, 0),
+                pending_host_action_count=pending_actions_by_batch.get(batch.id, 0),
+                last_error_codes=tuple(sorted(error_codes_by_batch.get(batch.id, ()))),
+            )
+            for batch in batches
+        )
+
     def append_access_audit(
         self,
         *,
@@ -153,6 +238,7 @@ class InMemoryRemoteManualSelectionAccessRepository(RemoteManualSelectionAccessR
         self._lock = RLock()
         self.records: dict[UUID, RemoteManualSelectionAccessRecord] = {}
         self.audit_events: list[dict[str, object]] = []
+        self.batch_monitors: dict[UUID, list[RemoteManualSelectionBatchMonitorView]] = {}
 
     def add_access_session(
         self,
@@ -213,6 +299,15 @@ class InMemoryRemoteManualSelectionAccessRepository(RemoteManualSelectionAccessR
                     reverse=True,
                 )[:limit]
             )
+
+    def list_batch_monitors(
+        self,
+        *,
+        session_id: UUID,
+        limit: int,
+    ) -> Sequence[RemoteManualSelectionBatchMonitorView]:
+        with self._lock:
+            return tuple(self.batch_monitors.get(session_id, ()))[:limit]
 
     def append_access_audit(
         self,

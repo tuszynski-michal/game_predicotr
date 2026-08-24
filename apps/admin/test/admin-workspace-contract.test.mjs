@@ -29,7 +29,10 @@ test('uses a single controlled game context for dependent sections', () => {
 });
 
 test('keeps local manual image selection independent from game context', () => {
-  assert.match(workspaceSource, /<ManualImageSelectionWorkspace\s*\/>/);
+  assert.match(
+    workspaceSource,
+    /<ManualImageSelectionWorkspace apiBaseUrl=\{apiBaseUrl\} \/>/,
+  );
   assert.doesNotMatch(
     workspaceSource,
     /Ręczna selekcja zapisuje sesję w kontekście wybranej gry/,

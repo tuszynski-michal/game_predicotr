@@ -3596,7 +3596,7 @@ export const createRemoteManualSelectionSession = <
   });
 
 /**
- * Read one remote manual selection session without secrets
+ * Monitor one remote manual selection session without secrets
  */
 export const getRemoteManualSelectionSession = <
   ThrowOnError extends boolean = false,

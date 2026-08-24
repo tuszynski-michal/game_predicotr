@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Panel hosta zdalnej ręcznej selekcji — v0.7.38
+
+- TASK-0286 dodaje do niezależnej zakładki `Ręczna selekcja` panel właściciela:
+  kontrolowany picker bazy, etykietę, TTL, jednorazową kartę kodu/linku oraz
+  odzyskiwalną po reloadzie listę maksymalnie 100 sesji.
+- Wybrana sesja jest monitorowana co 10 sekund, lista co 30 sekund. Detail
+  ogranicza wynik do 100 najnowszych partii i pokazuje total/selected/synced,
+  błędy plików, oczekujące host actions, stabilne kody błędów oraz wyłącznie
+  zagregowane total/free bajty dysku bez host path.
+- URL jest dynamiczną projekcją bieżącego wspólnego ingressu. Dwustopniowy
+  revoke używa exact session target, czyści tylko wskazaną sesję i nie zatrzymuje
+  tunelu ani innych Reviewer assignments.
+- Kod dostępu istnieje wyłącznie w odpowiedzi create i pamięci komponentu; nie
+  trafia do list/detail, IndexedDB, localStorage ani sessionStorage.
+- Bramka: 248 testów Admina, 41 testów klienta, celowane testy API/OpenAPI i
+  izolowany test agregacji PostgreSQL są zielone; Admin lint/typecheck/build,
+  Ruff, focused mypy i kontrola generowanego OpenAPI są zielone. TASK 15 nie
+  został rozpoczęty.
+
 ### Zdalny workspace ręcznej selekcji — v0.7.37
 
 - TASK-0285 łączy lokalny i zdalny tryb wspólnym resolverem skrótów bez zmiany

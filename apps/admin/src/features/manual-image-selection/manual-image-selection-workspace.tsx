@@ -27,6 +27,7 @@ import {
   type ManualSelectionSessionRecord,
 } from './manual-image-selection-fsa-adapter';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
+import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
 
 interface DirectoryPickerWindow extends Window {
   showDirectoryPicker?: (options?: {
@@ -43,7 +44,20 @@ type ResumeRecoveryTarget = 'source' | 'output';
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
 
-export function ManualImageSelectionWorkspace() {
+export function ManualImageSelectionWorkspace({
+  apiBaseUrl,
+}: {
+  readonly apiBaseUrl: string;
+}) {
+  return (
+    <div className="manualImageSelectionWorkspaceStack">
+      <RemoteManualSelectionHostPanel apiBaseUrl={apiBaseUrl} />
+      <LocalManualImageSelectionWorkspace />
+    </div>
+  );
+}
+
+function LocalManualImageSelectionWorkspace() {
   const workspaceId = INDEPENDENT_MANUAL_SELECTION_ID;
   const store = useMemo(() => new ManualImageSelectionStore(), []);
   const busyRef = useRef(false);

@@ -45,6 +45,7 @@ from game_predictor_api.schemas.remote_manual_selections import (
     RemoteManualSelectionSessionCreate,
     RemoteManualSelectionSessionCreatedResponse,
     RemoteManualSelectionSessionListResponse,
+    RemoteManualSelectionSessionMonitorResponse,
     RemoteManualSelectionSessionResponse,
     RemoteManualSelectionSourceItemsCreate,
     RemoteManualSelectionSourceItemsResponse,
@@ -102,6 +103,7 @@ def create_remote_manual_selections_admin_router(
             service.create(
                 base_capability=payload.base_capability,
                 lifetime_minutes=payload.lifetime_minutes,
+                label=payload.label,
             ),
             ingress_status,
         )
@@ -128,9 +130,9 @@ def create_remote_manual_selections_admin_router(
 
     @router.get(
         "/sessions/{session_id}",
-        response_model=RemoteManualSelectionSessionResponse,
+        response_model=RemoteManualSelectionSessionMonitorResponse,
         operation_id="getRemoteManualSelectionSession",
-        summary="Read one remote manual selection session without secrets",
+        summary="Monitor one remote manual selection session without secrets",
         tags=["remote-manual-selections"],
         responses={404: {"model": ErrorResponse}},
     )
@@ -138,9 +140,10 @@ def create_remote_manual_selections_admin_router(
         session_id: UUID,
         service: Annotated[RemoteManualSelectionAccessService, access_service_parameter],
         ingress: Annotated[ReviewerIngressService, ingress_service_parameter],
-    ) -> RemoteManualSelectionSessionResponse:
-        return RemoteManualSelectionSessionResponse.from_view(
-            service.get_session(session_id),
+        batch_limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    ) -> RemoteManualSelectionSessionMonitorResponse:
+        return RemoteManualSelectionSessionMonitorResponse.from_view(
+            service.get_session_monitor(session_id, batch_limit=batch_limit),
             ingress.status(),
         )
 

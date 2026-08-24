@@ -5222,6 +5222,48 @@ export type RemoteManualSelectionBatchCreatedResponse = {
 };
 
 /**
+ * RemoteManualSelectionBatchMonitorResponse
+ */
+export type RemoteManualSelectionBatchMonitorResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Failedfilecount
+   */
+  failedFileCount: number;
+  /**
+   * Lasterrorcodes
+   */
+  lastErrorCodes: Array<string>;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Pendinghostactioncount
+   */
+  pendingHostActionCount: number;
+  /**
+   * Selectedfilecount
+   */
+  selectedFileCount: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Syncedfilecount
+   */
+  syncedFileCount: number;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
  * RemoteManualSelectionBatchResponse
  */
 export type RemoteManualSelectionBatchResponse = {
@@ -5569,6 +5611,10 @@ export type RemoteManualSelectionSessionCreate = {
    */
   baseCapability: string;
   /**
+   * Label
+   */
+  label?: string | null;
+  /**
    * Lifetimeminutes
    */
   lifetimeMinutes?: number;
@@ -5593,6 +5639,33 @@ export type RemoteManualSelectionSessionListResponse = {
    * Sessions
    */
   sessions: Array<RemoteManualSelectionSessionResponse>;
+};
+
+/**
+ * RemoteManualSelectionSessionMonitorResponse
+ */
+export type RemoteManualSelectionSessionMonitorResponse = {
+  /**
+   * Batches
+   */
+  batches: Array<RemoteManualSelectionBatchMonitorResponse>;
+  /**
+   * Diskerrorcode
+   */
+  diskErrorCode: string | null;
+  /**
+   * Diskfreebytes
+   */
+  diskFreeBytes: number | null;
+  /**
+   * Disktotalbytes
+   */
+  diskTotalBytes: number | null;
+  /**
+   * Hasmorebatches
+   */
+  hasMoreBatches: boolean;
+  session: RemoteManualSelectionSessionResponse;
 };
 
 /**
@@ -14172,7 +14245,12 @@ export type GetRemoteManualSelectionSessionData = {
      */
     session_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Batch Limit
+     */
+    batch_limit?: number;
+  };
   url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}';
 };
 
@@ -14194,7 +14272,7 @@ export type GetRemoteManualSelectionSessionResponses = {
   /**
    * Successful Response
    */
-  200: RemoteManualSelectionSessionResponse;
+  200: RemoteManualSelectionSessionMonitorResponse;
 };
 
 export type GetRemoteManualSelectionSessionResponse =

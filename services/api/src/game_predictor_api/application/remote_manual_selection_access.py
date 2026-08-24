@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import shutil
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -90,6 +91,29 @@ class RemoteManualSelectionAccessView:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteManualSelectionBatchMonitorView:
+    batch_id: UUID
+    name: str
+    status: str
+    total_file_count: int
+    selected_file_count: int
+    synced_file_count: int
+    failed_file_count: int
+    pending_host_action_count: int
+    last_error_codes: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionSessionMonitorView:
+    session: RemoteManualSelectionAccessView
+    batches: tuple[RemoteManualSelectionBatchMonitorView, ...]
+    has_more_batches: bool
+    disk_total_bytes: int | None
+    disk_free_bytes: int | None
+    disk_error_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class RemoteManualSelectionContext:
     session_id: UUID
     status: RemoteManualSelectionSessionStatus
@@ -144,6 +168,13 @@ class RemoteManualSelectionAccessRepository(Protocol):
         limit: int,
     ) -> Sequence[RemoteManualSelectionAccessRecord]: ...
 
+    def list_batch_monitors(
+        self,
+        *,
+        session_id: UUID,
+        limit: int,
+    ) -> Sequence[RemoteManualSelectionBatchMonitorView]: ...
+
     def append_access_audit(
         self,
         *,
@@ -172,23 +203,28 @@ class RemoteManualSelectionAccessService:
         host_service: RemoteManualSelectionBaseConsumer,
         *,
         now: Callable[[], datetime] | None = None,
+        disk_usage: Callable[[str], tuple[int, int, int]] | None = None,
     ) -> None:
         self._repository = repository
         self._host_service = host_service
         self._now = now or (lambda: datetime.now(UTC))
+        self._disk_usage = disk_usage or shutil.disk_usage
 
     def create(
         self,
         *,
         base_capability: str,
         lifetime_minutes: int,
+        label: str | None = None,
     ) -> CreatedRemoteManualSelectionAccess:
         if not MIN_SESSION_LIFETIME_MINUTES <= lifetime_minutes <= MAX_SESSION_LIFETIME_MINUTES:
             raise RemoteManualSelectionAccessError(
                 "REMOTE_SELECTION_SESSION_LIFETIME_INVALID",
                 "Remote selection session lifetime must be between 5 minutes and 24 hours.",
             )
+        normalized_label = _normalize_session_label(label)
         bound = self._host_service.consume_base_capability(base_capability)
+        display_name = normalized_label or bound.display_name
         now = self._now()
         code = generate_access_code()
         salt = generate_code_salt()
@@ -205,7 +241,7 @@ class RemoteManualSelectionAccessService:
                 session=session,
                 base_binding_id=bound.base_binding_id,
                 host_base_path=str(bound.host_base_path),
-                display_name=bound.display_name,
+                display_name=display_name,
                 code_salt=salt,
                 code_hash=hash_access_code(code, salt),
                 failed_attempts=0,
@@ -244,6 +280,44 @@ class RemoteManualSelectionAccessService:
         if record is None:
             raise _not_found()
         return self._view(record, self._now())
+
+    def get_session_monitor(
+        self,
+        session_id: UUID,
+        *,
+        batch_limit: int = 100,
+    ) -> RemoteManualSelectionSessionMonitorView:
+        if not 1 <= batch_limit <= 100:
+            raise RemoteManualSelectionAccessError(
+                "REMOTE_SELECTION_BATCH_MONITOR_LIMIT_INVALID",
+                "Remote selection batch monitor limit must be between 1 and 100.",
+            )
+        record = self._repository.get_access_session(session_id)
+        if record is None:
+            raise _not_found()
+        rows = tuple(
+            self._repository.list_batch_monitors(
+                session_id=session_id,
+                limit=batch_limit + 1,
+            )
+        )
+        disk_total_bytes: int | None = None
+        disk_free_bytes: int | None = None
+        disk_error_code: str | None = None
+        try:
+            total, _used, free = self._disk_usage(record.host_base_path)
+            disk_total_bytes = int(total)
+            disk_free_bytes = int(free)
+        except OSError:
+            disk_error_code = "REMOTE_SELECTION_HOST_DISK_UNAVAILABLE"
+        return RemoteManualSelectionSessionMonitorView(
+            session=self._view(record, self._now()),
+            batches=rows[:batch_limit],
+            has_more_batches=len(rows) > batch_limit,
+            disk_total_bytes=disk_total_bytes,
+            disk_free_bytes=disk_free_bytes,
+            disk_error_code=disk_error_code,
+        )
 
     def unlock(
         self,
@@ -640,6 +714,18 @@ def _lease_expiry(now: datetime, session_expires_at: datetime) -> datetime:
     return min(now + WRITER_LEASE_DURATION, session_expires_at)
 
 
+def _normalize_session_label(label: str | None) -> str | None:
+    if label is None:
+        return None
+    normalized = " ".join(label.split())
+    if not 1 <= len(normalized) <= 100:
+        raise RemoteManualSelectionAccessError(
+            "REMOTE_SELECTION_SESSION_LABEL_INVALID",
+            "Remote selection session label must contain between 1 and 100 characters.",
+        )
+    return normalized
+
+
 def _not_found() -> RemoteManualSelectionAccessNotFoundError:
     return RemoteManualSelectionAccessNotFoundError(
         "REMOTE_SELECTION_SESSION_NOT_FOUND",
@@ -661,11 +747,13 @@ __all__ = [
     "RemoteManualSelectionAccessRepository",
     "RemoteManualSelectionAccessService",
     "RemoteManualSelectionAccessView",
+    "RemoteManualSelectionBatchMonitorView",
     "RemoteManualSelectionAuthenticationError",
     "RemoteManualSelectionAuthorizationError",
     "RemoteManualSelectionBaseConsumer",
     "RemoteManualSelectionContext",
     "RemoteManualSelectionLeaseConflictError",
+    "RemoteManualSelectionSessionMonitorView",
     "UnlockedRemoteManualSelectionAccess",
     "WRITER_LEASE_DURATION",
 ]

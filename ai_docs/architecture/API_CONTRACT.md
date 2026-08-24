@@ -95,16 +95,20 @@ Po uzyskaniu capability lokalny Admin obsługuje trwałe sesje:
 ```text
 POST /api/v1/admin/remote-manual-selections/sessions
 GET  /api/v1/admin/remote-manual-selections/sessions?limit=1..100
-GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}
+GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}?batch_limit=1..100
 POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
 ```
 
-Create przyjmuje wyłącznie `baseCapability` i TTL `5..1440` minut. Surowy
+Create przyjmuje `baseCapability`, opcjonalną etykietę do 100 znaków i TTL
+`5..1440` minut. Surowy
 `accessCode` występuje tylko w tej jednej odpowiedzi. Lista i detail pokazują
 status, display name, rewizję, daty, lock/revoke, stan writer lease, `ready`
-oraz dynamiczny `reviewUrl`; nie
-zwracają kodu, tokenu, client/fencing tokenu ani ścieżki hosta. Create i revoke
-są operacjami high-impact z exact target lokalnego Admina.
+oraz dynamiczny `reviewUrl`; nie zwracają kodu, tokenu, client/fencing tokenu
+ani ścieżki hosta. Detail opakowuje sesję w ograniczony monitor: maksymalnie 100
+najnowszych partii, liczniki total/selected/synced/failed, liczbę oczekujących
+host actions, stabilne kody błędów i wyłącznie zagregowane bajty total/free
+dysku. `hasMoreBatches` sygnalizuje obcięcie widoku. Create i revoke są
+operacjami high-impact z exact target lokalnego Admina.
 
 Publiczna powierzchnia jest osiągalna z przeglądarki wyłącznie przez osobny
 same-origin proxy Reviewera `/selection-api`. Proxy przepuszcza dokładnie:

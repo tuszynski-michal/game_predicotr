@@ -12,7 +12,9 @@ from pydantic import Field
 from game_predictor_api.application.remote_manual_selection_access import (
     CreatedRemoteManualSelectionAccess,
     RemoteManualSelectionAccessView,
+    RemoteManualSelectionBatchMonitorView,
     RemoteManualSelectionContext,
+    RemoteManualSelectionSessionMonitorView,
 )
 from game_predictor_api.application.remote_manual_selection_control import (
     CreatedRemoteManualSelectionBatch,
@@ -70,6 +72,7 @@ class RemoteManualSelectionBaseCapabilityResponse(ApiModel):
 class RemoteManualSelectionSessionCreate(ApiModel):
     base_capability: str = Field(min_length=32, max_length=200)
     lifetime_minutes: int = Field(default=480, ge=5, le=1440)
+    label: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class RemoteManualSelectionSessionResponse(ApiModel):
@@ -140,6 +143,65 @@ class RemoteManualSelectionSessionCreatedResponse(ApiModel):
 
 class RemoteManualSelectionSessionListResponse(ApiModel):
     sessions: list[RemoteManualSelectionSessionResponse]
+
+
+class RemoteManualSelectionBatchMonitorResponse(ApiModel):
+    batch_id: UUID
+    name: str
+    status: str
+    total_file_count: int
+    selected_file_count: int
+    synced_file_count: int
+    failed_file_count: int
+    pending_host_action_count: int
+    last_error_codes: list[str]
+
+    @classmethod
+    def from_view(
+        cls,
+        value: RemoteManualSelectionBatchMonitorView,
+    ) -> RemoteManualSelectionBatchMonitorResponse:
+        return cls(
+            batch_id=value.batch_id,
+            name=value.name,
+            status=value.status,
+            total_file_count=value.total_file_count,
+            selected_file_count=value.selected_file_count,
+            synced_file_count=value.synced_file_count,
+            failed_file_count=value.failed_file_count,
+            pending_host_action_count=value.pending_host_action_count,
+            last_error_codes=list(value.last_error_codes),
+        )
+
+
+class RemoteManualSelectionSessionMonitorResponse(ApiModel):
+    session: RemoteManualSelectionSessionResponse
+    batches: list[RemoteManualSelectionBatchMonitorResponse]
+    has_more_batches: bool
+    disk_total_bytes: int | None
+    disk_free_bytes: int | None
+    disk_error_code: str | None
+
+    @classmethod
+    def from_view(
+        cls,
+        value: RemoteManualSelectionSessionMonitorView,
+        ingress: ReviewerIngressStatus | None,
+    ) -> RemoteManualSelectionSessionMonitorResponse:
+        return cls(
+            session=RemoteManualSelectionSessionResponse.from_view(
+                value.session,
+                ingress,
+            ),
+            batches=[
+                RemoteManualSelectionBatchMonitorResponse.from_view(batch)
+                for batch in value.batches
+            ],
+            has_more_batches=value.has_more_batches,
+            disk_total_bytes=value.disk_total_bytes,
+            disk_free_bytes=value.disk_free_bytes,
+            disk_error_code=value.disk_error_code,
+        )
 
 
 class RemoteManualSelectionUnlock(ApiModel):

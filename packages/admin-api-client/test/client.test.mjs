@@ -184,6 +184,89 @@ test('generated client starts only the confirmed local Reviewer target', async (
   assert.equal(captured.headers.get('X-Admin-Target'), 'local-reviewer');
 });
 
+test('generated client scopes remote manual selection create, monitor and revoke', async () => {
+  const requests = [];
+  const sessionId = '11111111-1111-4111-8111-111111111111';
+  const session = {
+    createdAt: '2026-08-24T10:00:00Z',
+    displayName: 'Operator 1',
+    expiresAt: '2026-08-24T18:00:00Z',
+    lockedAt: null,
+    ready: true,
+    revision: 0,
+    reviewUrl: `https://safe.trycloudflare.com/manual-selection?session=${sessionId}`,
+    revokedAt: null,
+    sessionId,
+    status: 'active',
+    updatedAt: '2026-08-24T10:00:00Z',
+    writerActive: false,
+    writerLeaseExpiresAt: null,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (url.pathname.endsWith('/base-capabilities')) {
+        return Response.json({ status: 'cancelled' });
+      }
+      if (request.method === 'GET' && url.pathname.endsWith(sessionId)) {
+        return Response.json({
+          batches: [],
+          diskErrorCode: null,
+          diskFreeBytes: 1,
+          diskTotalBytes: 2,
+          hasMoreBatches: false,
+          session,
+        });
+      }
+      if (request.method === 'GET') {
+        return Response.json({ sessions: [session] });
+      }
+      if (url.pathname.endsWith('/revoke')) {
+        return Response.json({ ...session, status: 'revoked' });
+      }
+      return Response.json(
+        { accessCode: 'ABCD-EFGH', session },
+        { status: 201 },
+      );
+    },
+  });
+
+  await client.selectRemoteManualSelectionHostBase();
+  await client.createRemoteManualSelectionSession({
+    baseCapability: 'x'.repeat(32),
+    label: 'Operator 1',
+    lifetimeMinutes: 480,
+  });
+  await client.listRemoteManualSelectionSessions(100);
+  await client.getRemoteManualSelectionSession(sessionId, 100);
+  await client.revokeRemoteManualSelectionSession(sessionId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/remote-manual-selections/base-capabilities'],
+      ['POST', '/api/v1/admin/remote-manual-selections/sessions'],
+      ['GET', '/api/v1/admin/remote-manual-selections/sessions'],
+      ['GET', `/api/v1/admin/remote-manual-selections/sessions/${sessionId}`],
+      [
+        'POST',
+        `/api/v1/admin/remote-manual-selections/sessions/${sessionId}/revoke`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    'remote-manual-selection-session:new',
+  );
+  assert.equal(
+    requests[4].headers.get('X-Admin-Target'),
+    `remote-manual-selection-session:${sessionId}`,
+  );
+  assert.equal(new URL(requests[3].url).searchParams.get('batch_limit'), '100');
+});
+
 test('generated client uses import-scoped Reviewer work targets', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

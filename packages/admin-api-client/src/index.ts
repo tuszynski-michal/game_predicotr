@@ -42,6 +42,7 @@ import {
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
+  createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
@@ -83,6 +84,7 @@ import {
   getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
+  getRemoteManualSelectionSession as getGeneratedRemoteManualSelectionSession,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   heartbeatReviewerWorkAssignment as heartbeatGeneratedReviewerWorkAssignment,
   getSymbol as getGeneratedSymbol,
@@ -116,6 +118,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
+  listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
@@ -148,10 +151,12 @@ import {
   restoreRejectedImageSelectionGroup as restoreGeneratedRejectedImageSelectionGroup,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
+  revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
+  selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
   resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
@@ -225,6 +230,7 @@ import type {
   ReviewerSessionUnlockResponse,
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
+  RemoteManualSelectionSessionCreate,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -439,7 +445,14 @@ export type {
   ReviewerWorkHeartbeatResponse,
   ReviewerWorkOpenCommand,
   ReviewerWorkOpenedResponse,
+  RemoteManualSelectionSessionCreate,
   ReviewerWorkOverviewResponse,
+  RemoteManualSelectionBaseCapabilityResponse,
+  RemoteManualSelectionBatchMonitorResponse,
+  RemoteManualSelectionSessionCreatedResponse,
+  RemoteManualSelectionSessionListResponse,
+  RemoteManualSelectionSessionMonitorResponse,
+  RemoteManualSelectionSessionResponse,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -561,6 +574,35 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       revokeGeneratedReviewerSession({
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
+        path: { session_id: sessionId },
+      }),
+    selectRemoteManualSelectionHostBase: () =>
+      selectGeneratedRemoteManualSelectionHostBase({ client }),
+    createRemoteManualSelectionSession: (
+      body: RemoteManualSelectionSessionCreate,
+    ) =>
+      createGeneratedRemoteManualSelectionSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('remote-manual-selection-session:new'),
+      }),
+    listRemoteManualSelectionSessions: (limit = 100) =>
+      listGeneratedRemoteManualSelectionSessions({
+        client,
+        query: { limit },
+      }),
+    getRemoteManualSelectionSession: (sessionId: string, batchLimit = 100) =>
+      getGeneratedRemoteManualSelectionSession({
+        client,
+        path: { session_id: sessionId },
+        query: { batch_limit: batchLimit },
+      }),
+    revokeRemoteManualSelectionSession: (sessionId: string) =>
+      revokeGeneratedRemoteManualSelectionSession({
+        client,
+        headers: confirmedTargetHeaders(
+          `remote-manual-selection-session:${sessionId}`,
+        ),
         path: { session_id: sessionId },
       }),
     listReviewerWorkAssignments: (gameId: string) =>

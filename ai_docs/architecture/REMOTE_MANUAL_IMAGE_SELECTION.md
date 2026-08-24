@@ -1738,7 +1738,7 @@ obowiązkowym checkpointem/review.
 
 ### TASK 14: Panel hosta i lifecycle udostępnienia
 
-**Status:** `PLANNED`
+**Status:** `COMPLETED` (`v0.7.38`)
 
 **Cel:** Pozwolić hostowi wybrać bazę, utworzyć/revoke sesję i monitorować
 partie bez ujawniania sekretów po reloadzie.
@@ -1779,7 +1779,9 @@ stop while other online work exists.
 OpenAPI check.
 
 **Definition of Done:** Host może odzyskać aktywną sesję po reload/restart i
-bezpiecznie ją revoke; lista nie zawiera żadnego sekretu ani ścieżki.
+bezpiecznie ją revoke; lista nie zawiera żadnego sekretu ani ścieżki. Panel
+Admina realizuje picker, label/TTL, jednorazowy kod, dynamiczny URL i ograniczony
+monitor 100 partii z dyskiem oraz stabilnymi kodami błędów.
 
 **Rollback:** Ukryć sekcję flagą i revoke remote sessions; istniejący launcher
 Reviewera bez zmian.

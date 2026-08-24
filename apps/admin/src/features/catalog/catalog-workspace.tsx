@@ -419,7 +419,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           )
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
-          <ManualImageSelectionWorkspace />
+          <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
       </div>
     </div>

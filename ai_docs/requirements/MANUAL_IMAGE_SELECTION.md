@@ -117,6 +117,10 @@ samego originu i urządzenia. Host przechowuje wyłącznie kontrolną sesję dos
 hash kodu, TTL, lease i audyt odblokowania; nie otrzymuje źródłowego manifestu,
 decyzji, JPEG-ów ani wynikowego manifestu operatora.
 
+Panel hosta pokazuje wyłącznie sesje dostępu i stan połączenia. Nie pokazuje
+serwerowych partii, ich limitu, transferów ani diagnostyki materializacji,
+ponieważ aktywny tryb operator-local nie tworzy tych danych na hoście.
+
 Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
 okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
 zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;

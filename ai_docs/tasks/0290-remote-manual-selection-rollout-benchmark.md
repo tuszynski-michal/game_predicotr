@@ -205,6 +205,14 @@ ani kopiowania JPEG-ów do repozytorium.
   zdekodowanego/cachowanego obrazu po renderze. Zoom nie zależy już od
   pojedynczego zdarzenia capture.
 
+### v0.7.53 — panel sesji bez historycznych partii hosta
+
+- Usunięto z aktywnego panelu hosta tabelę partii, limit 100 oraz akcje recovery
+  i reopen. W trybie operator-local host nie otrzymuje decyzji ani JPEG-ów i nie
+  tworzy partii, więc sekcja przedstawiała nieaktywny wariant transferowy.
+- Trwałe historyczne API i dane pozostają audytowalne, ale nie są prezentowane
+  jako część bieżącego workflow operatora.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

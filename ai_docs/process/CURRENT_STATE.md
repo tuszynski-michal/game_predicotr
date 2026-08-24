@@ -31,6 +31,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zoomu: naturalne wymiary JPEG-a nie zawsze trafiały do stanu przez
   `onLoadCapture`. Reviewer używa zwykłego `onLoad` zgodnego z lokalnym
   selektorem i ma fallback dla obrazu już zdekodowanego z cache.
+- Panel hosta nie pokazuje już pustej tabeli serwerowych partii, limitu 100 ani
+  historycznych akcji recovery/reopen. Aktywny operator-local workflow utrzymuje
+  wyniki wyłącznie na urządzeniu operatora, więc host zarządza tylko sesją
+  dostępu i stanem połączenia.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

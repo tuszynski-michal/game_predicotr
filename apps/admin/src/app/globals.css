@@ -819,10 +819,9 @@ nav {
 
 .remoteManualSelectionCreate {
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1.2fr) minmax(
-      150px,
-      0.6fr
-    ) auto;
+  grid-template-columns:
+    minmax(180px, 0.8fr) minmax(220px, 1.2fr) minmax(150px, 0.6fr)
+    auto;
   align-items: end;
   gap: 12px;
 }
@@ -886,8 +885,7 @@ nav {
   background: rgba(1, 7, 14, 0.46);
 }
 
-.remoteManualSelectionSessions h3,
-.remoteManualSelectionBatches h4 {
+.remoteManualSelectionSessions h3 {
   margin: 0;
 }
 
@@ -935,29 +933,6 @@ nav {
 .remoteManualSelectionLink {
   justify-content: flex-start;
   flex-wrap: wrap;
-}
-
-.remoteManualSelectionBatches {
-  display: grid;
-  gap: 10px;
-}
-
-.remoteManualSelectionBatches .tableScroll {
-  max-height: 420px;
-  overflow: auto;
-}
-
-.remoteManualSelectionBatches table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.remoteManualSelectionBatches th,
-.remoteManualSelectionBatches td {
-  padding: 8px;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
 }
 
 .formSuccess {

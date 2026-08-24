@@ -225,9 +225,9 @@ test('panel keeps secret in React memory and uses bounded polling and exact revo
     /Twój komputer przechowuje tylko kod i czas dostępu/,
   );
   assert.match(panelSource, /Etykieta sesji/);
-  assert.match(panelSource, /expectedFinalManifestChecksumSha256/);
-  assert.match(panelSource, /Potwierdź ponowne otwarcie/);
-  assert.match(panelSource, /Diagnostyka partii/);
-  assert.match(panelSource, /Preview GC/);
-  assert.match(panelSource, /Usuwanie jest wyłączone/);
+  assert.doesNotMatch(panelSource, /Partie \(maksymalnie 100\)/);
+  assert.doesNotMatch(panelSource, /Operator nie utworzył jeszcze partii/);
+  assert.doesNotMatch(panelSource, /remoteManualSelectionBatches/);
+  assert.doesNotMatch(panelSource, /reopenRemoteManualSelectionBatch/);
+  assert.doesNotMatch(panelSource, /loadRemoteManualSelectionRecoveryStatus/);
 });

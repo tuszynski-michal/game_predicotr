@@ -4,7 +4,6 @@ import type {
   RemoteManualSelectionSessionCreatedResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
-  RemoteSelectionRecoveryStatusResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -13,9 +12,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   createRemoteManualSelectionAccess,
   loadRemoteManualSelectionMonitor,
-  loadRemoteManualSelectionRecoveryStatus,
   loadRemoteManualSelectionSessions,
-  reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
   type RemoteManualSelectionHostClient,
 } from './remote-manual-selection-actions';
@@ -56,13 +53,6 @@ export function RemoteManualSelectionHostPanel({
   const [revokeConfirmationId, setRevokeConfirmationId] = useState<
     string | null
   >(null);
-  const [reopenConfirmationId, setReopenConfirmationId] = useState<
-    string | null
-  >(null);
-  const [reopeningBatchId, setReopeningBatchId] = useState<string | null>(null);
-  const [recoveryBatchId, setRecoveryBatchId] = useState<string | null>(null);
-  const [recoveryStatus, setRecoveryStatus] =
-    useState<RemoteSelectionRecoveryStatusResponse | null>(null);
   const [error, setError] = useState('');
   const [monitorError, setMonitorError] = useState('');
   const [notice, setNotice] = useState('');
@@ -211,59 +201,6 @@ export function RemoteManualSelectionHostPanel({
     } catch {
       setError('Nie udało się skopiować wartości. Zaznacz ją ręcznie.');
     }
-  }
-
-  async function reopenBatch(
-    sessionId: string,
-    batch: RemoteManualSelectionSessionMonitorResponse['batches'][number],
-  ) {
-    if (
-      batch.finalManifestChecksumSha256 === null ||
-      batch.finalManifestChecksumSha256 === undefined
-    ) {
-      setError('Zakończona partia nie ma kontrolnej sumy manifestu.');
-      return;
-    }
-    if (reopenConfirmationId !== batch.batchId) {
-      setReopenConfirmationId(batch.batchId);
-      return;
-    }
-    setReopeningBatchId(batch.batchId);
-    setError('');
-    try {
-      const result = await reopenRemoteManualSelectionBatch(api, {
-        batchId: batch.batchId,
-        expectedFinalManifestChecksumSha256: batch.finalManifestChecksumSha256,
-        expectedServerRevision: batch.serverRevision,
-        sessionId,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setReopenConfirmationId(null);
-      setNotice(
-        `Partia ${batch.name} została ponownie otwarta. Opublikowane manifesty pozostają audytowalne do następnej finalizacji.`,
-      );
-      await refreshMonitor(sessionId, false);
-    } finally {
-      setReopeningBatchId(null);
-    }
-  }
-
-  async function loadRecovery(sessionId: string, batchId: string) {
-    if (recoveryBatchId !== null) return;
-    setRecoveryBatchId(batchId);
-    setRecoveryStatus(null);
-    setMonitorError('');
-    const result = await loadRemoteManualSelectionRecoveryStatus(
-      api,
-      sessionId,
-      batchId,
-    );
-    if (result.ok) setRecoveryStatus(result.data);
-    else setMonitorError(result.error);
-    setRecoveryBatchId(null);
   }
 
   const currentMonitor =
@@ -499,117 +436,6 @@ export function RemoteManualSelectionHostPanel({
                   {monitorError}
                 </p>
               ) : null}
-              <div className="remoteManualSelectionBatches">
-                <h4>Partie (maksymalnie 100)</h4>
-                {currentMonitor === null ? (
-                  <p role="status">Wczytuję liczniki…</p>
-                ) : currentMonitor.batches.length === 0 ? (
-                  <p>Operator nie utworzył jeszcze partii.</p>
-                ) : (
-                  <div className="tableScroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Partia</th>
-                          <th>Status</th>
-                          <th>Wybrane</th>
-                          <th>Zapisane</th>
-                          <th>Oczekujące akcje</th>
-                          <th>Błędy</th>
-                          <th>Akcje</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentMonitor.batches.map((batch) => (
-                          <tr key={batch.batchId}>
-                            <td>{batch.name}</td>
-                            <td>{batch.status}</td>
-                            <td>
-                              {batch.selectedFileCount} / {batch.totalFileCount}
-                            </td>
-                            <td>{batch.syncedFileCount}</td>
-                            <td>{batch.pendingHostActionCount}</td>
-                            <td>
-                              {batch.failedFileCount > 0
-                                ? `${batch.failedFileCount}: ${batch.lastErrorCodes.join(', ') || 'REMOTE_SELECTION_FILE_FAILED'}`
-                                : '0'}
-                            </td>
-                            <td>
-                              <button
-                                className="textButton"
-                                disabled={recoveryBatchId !== null}
-                                onClick={() =>
-                                  void loadRecovery(
-                                    selectedSession.sessionId,
-                                    batch.batchId,
-                                  )
-                                }
-                                type="button"
-                              >
-                                {recoveryBatchId === batch.batchId
-                                  ? 'Sprawdzam…'
-                                  : 'Diagnostyka'}
-                              </button>
-                              {batch.status === 'completed' ? (
-                                <button
-                                  className="textButton"
-                                  disabled={reopeningBatchId !== null}
-                                  onClick={() =>
-                                    void reopenBatch(
-                                      selectedSession.sessionId,
-                                      batch,
-                                    )
-                                  }
-                                  type="button"
-                                >
-                                  {reopeningBatchId === batch.batchId
-                                    ? 'Otwieram…'
-                                    : reopenConfirmationId === batch.batchId
-                                      ? 'Potwierdź ponowne otwarcie'
-                                      : 'Otwórz ponownie'}
-                                </button>
-                              ) : null}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {recoveryStatus !== null ? (
-                  <div className="remoteManualSelectionRecovery" role="status">
-                    <h5>Diagnostyka partii</h5>
-                    <p>
-                      Upload: {recoveryStatus.queue.uploadingTransferCount} ·
-                      materializacja:{' '}
-                      {recoveryStatus.queue.materializingActionCount} ·
-                      konflikty: {recoveryStatus.queue.conflictFileCount}
-                    </p>
-                    <p>
-                      Preview GC:{' '}
-                      {recoveryStatus.gcPreview.scannedArtifactCount} artefaktów
-                      / {formatBytes(recoveryStatus.gcPreview.scannedBytes)}.
-                      Usuwanie jest wyłączone.
-                    </p>
-                    {recoveryStatus.queue.recoveryFindings.length > 0 ? (
-                      <ul>
-                        {recoveryStatus.queue.recoveryFindings.map(
-                          (finding) => (
-                            <li key={finding.code}>
-                              {finding.code}: {finding.count}
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    ) : (
-                      <p>Brak aktywnych findings recovery.</p>
-                    )}
-                  </div>
-                ) : null}
-                {currentMonitor?.hasMoreBatches ? (
-                  <p>Widok ograniczono do 100 najnowszych partii.</p>
-                ) : null}
-              </div>
             </>
           )}
         </div>

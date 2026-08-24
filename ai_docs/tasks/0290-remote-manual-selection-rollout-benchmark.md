@@ -298,6 +298,19 @@ ani kopiowania JPEG-ów do repozytorium.
   `scrollTop=420` przed zapisem, podczas niego i po przejściu na następny JPEG.
   Tymczasowa trasa oraz Reviewer na porcie 3011 zostały usunięte po pomiarze.
 
+### v0.7.61 — bezpieczny restart wyniku operator-local
+
+- Uchwyt katalogu nadrzędnego wyniku jest utrwalany razem z sesją operatora.
+  Usunięty folder `<źródło> wybrane` jest odtwarzany po powrocie do karty, a
+  batch wraca do pierwszego zdjęcia, pierwszego zakresu i pustej listy decyzji.
+- Jawny przycisk `Restart selekcji` wymaga potwierdzenia i zapisuje nowy pusty
+  manifest. Istniejący folder może zostać usunięty wyłącznie po walidacji
+  źródła, kompletności manifestu oraz checksum wszystkich zarządzanych JPEG-ów;
+  obce dane pozostają nietknięte i blokują restart.
+- Celowane testy folderu, IndexedDB i kontraktu UI oraz pełny zestaw Reviewera,
+  typecheck i lint są zielone; lint zachowuje jedno wcześniejsze ostrzeżenie dla
+  source-native elementu `<img>`.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

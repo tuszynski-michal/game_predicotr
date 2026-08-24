@@ -37,6 +37,45 @@ export interface OperatorLocalOutputResult {
   readonly name: string;
 }
 
+export async function resetOperatorLocalOutputDirectory(
+  parentDirectory: FileSystemDirectoryHandle,
+  outputDirectoryName: string,
+  source: {
+    readonly sourceDirectoryName: string;
+    readonly sourceManifestChecksumSha256: string;
+    readonly fileCount: number;
+  },
+): Promise<FileSystemDirectoryHandle> {
+  let existing: FileSystemDirectoryHandle | null = null;
+  try {
+    existing = await parentDirectory.getDirectoryHandle(outputDirectoryName);
+  } catch (cause) {
+    if (!isNotFoundError(cause)) throw cause;
+  }
+
+  if (existing !== null) {
+    const state = await inspectOperatorLocalOutputDirectory(existing);
+    if (state.kind === 'resumable') {
+      assertMatchingSource(state.manifest, source);
+      for (const decision of state.manifest.decisions) {
+        if (decision.action !== 'accepted') continue;
+        await assertOperatorLocalSelectionChecksum(existing, decision);
+      }
+    }
+    try {
+      await parentDirectory.removeEntry(outputDirectoryName, {
+        recursive: true,
+      });
+    } catch (cause) {
+      if (!isNotFoundError(cause)) throw cause;
+    }
+  }
+
+  return parentDirectory.getDirectoryHandle(outputDirectoryName, {
+    create: true,
+  });
+}
+
 export async function writeOperatorLocalSelection(
   outputDirectory: FileSystemDirectoryHandle,
   source: File,
@@ -80,12 +119,7 @@ export async function removeOperatorLocalSelection(
 ): Promise<void> {
   if (decision.outputName === null || decision.imageChecksumSha256 === null)
     return;
-  const handle = await outputDirectory.getFileHandle(decision.outputName);
-  if (
-    (await sha256File(await handle.getFile())) !== decision.imageChecksumSha256
-  ) {
-    throw new Error(`Nie usuwam obcego pliku ${decision.outputName}.`);
-  }
+  await assertOperatorLocalSelectionChecksum(outputDirectory, decision);
   await outputDirectory.removeEntry(decision.outputName);
 }
 
@@ -406,4 +440,22 @@ async function sha256File(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, '0'),
   ).join('');
+}
+
+async function assertOperatorLocalSelectionChecksum(
+  outputDirectory: FileSystemDirectoryHandle,
+  decision: RemoteSelectionWorkspaceDecision,
+): Promise<void> {
+  if (decision.outputName === null || decision.imageChecksumSha256 === null)
+    return;
+  const handle = await outputDirectory.getFileHandle(decision.outputName);
+  if (
+    (await sha256File(await handle.getFile())) !== decision.imageChecksumSha256
+  ) {
+    throw new Error(`Nie usuwam obcego pliku ${decision.outputName}.`);
+  }
+}
+
+function isNotFoundError(cause: unknown): boolean {
+  return cause instanceof DOMException && cause.name === 'NotFoundError';
 }

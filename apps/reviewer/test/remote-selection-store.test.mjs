@@ -11,6 +11,7 @@ import {
   RemoteSelectionStoreError,
   remoteSelectionWorkspaceState,
   requestBestEffortPersistentStorage,
+  restartRemoteSelectionLocalBatch,
 } from '../src/features/manual-selection/remote-selection-store.ts';
 import {
   WebkitDirectoryRemoteSourceAdapter,
@@ -432,6 +433,49 @@ test('operator-local decisions persist without creating a host outbox', async ()
   assert.equal(remoteSelectionWorkspaceState(undone).currentIndex, 0);
   assert.equal(remoteSelectionWorkspaceState(undone).nextRangeStart, 1);
   assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
+});
+
+test('restarts an operator-local batch at the first directional image and first range', async () => {
+  const { store } = await fixture(3);
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  const selected = await store.appendLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    decision: {
+      action: 'accepted',
+      operationId: 'operator-local-reset',
+      fileId: source.fileId,
+      sourceIndex: 0,
+      imagePath: source.relativePath,
+      imageChecksumSha256: 'c'.repeat(64),
+      outputName: 'seq_1-9.jpg',
+      rangeStart: 1,
+      rangeEnd: 9,
+      selectionGeneration: 1,
+    },
+    nextCursorIndex: 1,
+  });
+
+  const ascending = restartRemoteSelectionLocalBatch(
+    selected,
+    '2026-08-24T01:00:00.000Z',
+  );
+  assert.deepEqual(remoteSelectionWorkspaceState(ascending), {
+    currentIndex: 0,
+    decisions: [],
+    navigationStep: 1,
+    nextRangeStart: 1,
+  });
+  assert.equal(ascending.hostRegistered, true);
+  assert.equal(ascending.status, 'active');
+
+  const descending = restartRemoteSelectionLocalBatch({
+    ...selected,
+    direction: 'descending',
+  });
+  assert.equal(descending.cursorIndex, 2);
+  assert.equal(descending.nextRangeStart, 1);
+  assert.deepEqual(descending.decisions, []);
 });
 
 test('loads a bounded seven-image preview window and predicts an operation clock', async () => {

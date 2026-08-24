@@ -966,6 +966,18 @@ function scrollPositionKey(sessionId: string, batchId: string): string {
   return viewStateKey(SCROLL_POSITION_KEY_PREFIX, sessionId, batchId);
 }
 
+export function clearRemoteManualSelectionScroll(
+  sessionId: string,
+  batchId: string,
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(scrollPositionKey(sessionId, batchId));
+  } catch {
+    // A blocked localStorage cannot prevent a safe restart of file decisions.
+  }
+}
+
 function viewStateKey(prefix: string, sessionId: string, batchId: string) {
   return `${prefix}:${sessionId}:${batchId}`;
 }

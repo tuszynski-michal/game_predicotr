@@ -74,6 +74,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Stary produkcyjny Node na porcie 3001 jest bezpiecznie zastępowany przed
   ponownym użyciem ingressu, a stan procesu zapisuje tożsamość rzeczywistego
   listenera zamiast krótkotrwałego wrappera `npm.cmd`.
+- Operator-local przechowuje teraz również uchwyt katalogu nadrzędnego wyniku.
+  Usunięcie `<źródło> wybrane` powoduje jego odtworzenie i bezpieczny reset od
+  pierwszego zdjęcia z pustym manifestem. Jawny `Restart selekcji` czyści tylko
+  zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują operację.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

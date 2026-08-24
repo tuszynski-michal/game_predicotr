@@ -41,6 +41,12 @@ flowchart LR
   manifestu źródła, decyzji ani transferu JPEG-ów dla nowego workspace'u.
 - Powrót po restarcie może wymagać ponownej zgody `read`/`readwrite`, ale nie
   zmienia zachowanego lokalnie postępu.
+- IndexedDB utrwala także uchwyt katalogu nadrzędnego wyniku. Brak potomnego
+  `<source> wybrane` jest jednoznacznym sygnałem rozpoczęcia od nowa: Reviewer
+  tworzy go ponownie, resetuje batch do pierwszego zdjęcia i zapisuje pusty
+  manifest. Jawny restart usuwa istniejący katalog rekurencyjnie wyłącznie po
+  fail-closed walidacji manifestu, źródła i checksum zarządzanych JPEG-ów;
+  obcych danych nigdy nie usuwa.
 - Trwały zapis wymaga przeglądarki z File System Access API. Brak API jest
   kontrolowanym ograniczeniem, nie fallbackiem wysyłającym dane do hosta.
 

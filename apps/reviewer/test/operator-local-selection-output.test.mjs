@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   inspectOperatorLocalOutputDirectory,
   removeOperatorLocalSelection,
+  resetOperatorLocalOutputDirectory,
   resumeOperatorLocalBatch,
   writeOperatorLocalManifest,
   writeOperatorLocalSelection,
@@ -60,6 +61,30 @@ class MemoryDirectoryHandle {
 
   async *entries() {
     yield* this.files.entries();
+  }
+}
+
+class MemoryParentDirectoryHandle {
+  constructor() {
+    this.name = 'parent';
+    this.kind = 'directory';
+    this.directories = new Map();
+  }
+
+  async getDirectoryHandle(name, options = {}) {
+    let handle = this.directories.get(name);
+    if (handle === undefined && options.create === true) {
+      handle = new MemoryDirectoryHandle(name);
+      this.directories.set(name, handle);
+    }
+    if (handle === undefined)
+      throw new DOMException('missing', 'NotFoundError');
+    return handle;
+  }
+
+  async removeEntry(name) {
+    if (!this.directories.delete(name))
+      throw new DOMException('missing', 'NotFoundError');
   }
 }
 
@@ -135,6 +160,79 @@ test('never overwrites or removes a foreign operator file', async () => {
     /Nie usuwam obcego pliku/,
   );
   assert.equal(await (await foreign.getFile()).text(), 'foreign');
+});
+
+test('restart recreates only a verified output directory and removes its progress', async () => {
+  const parent = new MemoryParentDirectoryHandle();
+  const directory = await parent.getDirectoryHandle('1 - 19 wybrane', {
+    create: true,
+  });
+  const source = new File(['selected'], 'photo.jpg', { type: 'image/jpeg' });
+  const output = await writeOperatorLocalSelection(directory, source, 1);
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 1,
+      decisions: [
+        {
+          action: 'accepted',
+          fileId: 'file-1',
+          imageChecksumSha256: output.checksumSha256,
+          imagePath: 'photo.jpg',
+          operationId: 'decision-1',
+          outputName: output.name,
+          rangeEnd: 9,
+          rangeStart: 1,
+          selectionGeneration: 1,
+          sourceIndex: 0,
+        },
+      ],
+      nextRangeStart: 10,
+    }),
+  );
+
+  const restarted = await resetOperatorLocalOutputDirectory(
+    parent,
+    '1 - 19 wybrane',
+    {
+      fileCount: 10,
+      sourceDirectoryName: '1 - 19',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+    },
+  );
+
+  assert.notEqual(restarted, directory);
+  assert.deepEqual(await inspectOperatorLocalOutputDirectory(restarted), {
+    kind: 'empty',
+  });
+});
+
+test('restart creates a deleted output directory but refuses foreign contents', async () => {
+  const parent = new MemoryParentDirectoryHandle();
+  const created = await resetOperatorLocalOutputDirectory(
+    parent,
+    '1 - 19 wybrane',
+    {
+      fileCount: 10,
+      sourceDirectoryName: '1 - 19',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+    },
+  );
+  assert.equal(created.name, '1 - 19 wybrane');
+
+  created.files.set(
+    'notes.txt',
+    new MemoryFileHandle('notes.txt', new TextEncoder().encode('foreign')),
+  );
+  await assert.rejects(
+    resetOperatorLocalOutputDirectory(parent, '1 - 19 wybrane', {
+      fileCount: 10,
+      sourceDirectoryName: '1 - 19',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+    }),
+    /obce dane|nie zawiera danych/,
+  );
+  assert.equal(parent.directories.get('1 - 19 wybrane'), created);
 });
 
 test('materializes a local progress manifest without a host transfer', async () => {

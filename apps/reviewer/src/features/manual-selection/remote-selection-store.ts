@@ -39,6 +39,8 @@ export interface RemoteSelectionLocalSessionRecord {
   readonly sourceHandle: FileSystemDirectoryHandle | null;
   readonly outputDirectoryName?: string | null;
   readonly outputHandle?: FileSystemDirectoryHandle | null;
+  readonly outputParentHandle?: FileSystemDirectoryHandle | null;
+  readonly outputParentPermissionState?: RemoteSourcePermissionState;
   readonly outputPermissionState?: RemoteSourcePermissionState;
   readonly permissionState: RemoteSourcePermissionState;
   readonly persistenceGranted: boolean | null;
@@ -203,6 +205,23 @@ export function remoteSelectionWorkspaceState(
     nextRangeStart:
       batch.nextRangeStart ?? batch.firstLayout + decisions.length * 9,
   };
+}
+
+export function restartRemoteSelectionLocalBatch(
+  batch: RemoteSelectionLocalBatchRecord,
+  updatedAt = new Date().toISOString(),
+): RemoteSelectionLocalBatchRecord {
+  const restarted: RemoteSelectionLocalBatchRecord = {
+    ...batch,
+    cursorIndex: batch.direction === 'ascending' ? 0 : batch.fileCount - 1,
+    decisions: [],
+    hostRegistered: true,
+    nextRangeStart: batch.firstLayout,
+    status: 'active',
+    updatedAt,
+  };
+  validateWorkspaceBatch(restarted);
+  return restarted;
 }
 
 export class RemoteSelectionIndexedDbStore {

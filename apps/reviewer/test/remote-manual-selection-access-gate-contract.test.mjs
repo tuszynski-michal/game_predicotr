@@ -152,3 +152,21 @@ test('operator-local decisions are serialized without host finalization or trans
   assert.doesNotMatch(operationalWorkspace, /countPendingOperations/);
   assert.doesNotMatch(operationalWorkspace, /syncNow/);
 });
+
+test('operator-local restart persists the parent handle and rebuilds deleted output from the first image', async () => {
+  const workspace = await readFile(workspacePath, 'utf8');
+  const operationalWorkspace = await readFile(operationalWorkspacePath, 'utf8');
+
+  assert.match(workspace, /outputParentHandle: parent/);
+  assert.match(workspace, /getDirectoryHandle\([\s\S]*\{ create: true \}/);
+  assert.match(workspace, /restartRemoteSelectionLocalBatch/);
+  assert.match(workspace, /resetOperatorLocalOutputDirectory/);
+  assert.match(workspace, /Restart selekcji/);
+  assert.match(workspace, /window\.confirm/);
+  assert.match(workspace, /clearRemoteManualSelectionScroll/);
+  assert.match(workspace, /writeBatchManifest\(/);
+  assert.match(
+    operationalWorkspace,
+    /export function clearRemoteManualSelectionScroll/,
+  );
+});

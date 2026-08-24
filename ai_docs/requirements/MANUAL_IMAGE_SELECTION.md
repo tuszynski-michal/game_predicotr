@@ -164,6 +164,15 @@ kierunek. Podczas wznowienia przez nowy link losowe identyfikatory plików z
 poprzedniej sesji są bezpiecznie mapowane na bieżący indeks według ordinalu i
 względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.
 
+Reviewer utrwala również uchwyt wskazanego katalogu nadrzędnego. Jeżeli
+utworzony przez aplikację folder `<źródło> wybrane` zostanie później usunięty,
+powrót do karty albo ponowne otwarcie strony odtwarza folder, zeruje decyzje,
+kursor i następny zakres oraz natychmiast zapisuje pusty manifest bieżącej
+sesji. Jawny przycisk `Restart selekcji` wykonuje ten sam reset od pierwszego
+zdjęcia i może wyczyścić istniejący folder dopiero po potwierdzeniu operatora.
+Przed usunięciem Reviewer musi zweryfikować manifest, źródło i checksumy
+wszystkich zarządzanych JPEG-ów; obcy albo zmieniony plik blokuje restart.
+
 Poniższy opis control outboxu, transferu i materializacji na hoście dokumentuje
 historyczny wariant v0.7.27–v0.7.50. Nie jest wykonywany przez obowiązujący
 workspace operator-local. Pozostaje odtwarzalny dla audytu i nie może zostać

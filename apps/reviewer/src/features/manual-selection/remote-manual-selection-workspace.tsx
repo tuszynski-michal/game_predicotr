@@ -280,7 +280,6 @@ export function RemoteManualSelectionWorkspace({
           url: selected,
         };
         setDecoded(false);
-        setNaturalImageSize(null);
         setPreviewOrdinal(workspace.currentIndex);
         setPreviewUrl(selected);
       }
@@ -322,20 +321,35 @@ export function RemoteManualSelectionWorkspace({
   useEffect(() => {
     if (
       pendingScrollRestoreOrdinal.current !== workspace.currentIndex ||
+      !decoded ||
       previewUrl === null ||
       previewOrdinal !== workspace.currentIndex ||
       zoomedImageSize === null
     ) {
       return;
     }
-    const animationFrame = window.requestAnimationFrame(() => {
+    let animationFrame = 0;
+    let attempt = 0;
+    const restore = () => {
       if (viewport.current === null) return;
       viewport.current.scrollLeft = savedScrollLeft.current;
       viewport.current.scrollTop = savedScrollTop.current;
+      attempt += 1;
+      if (attempt < 3) {
+        animationFrame = window.requestAnimationFrame(restore);
+        return;
+      }
       pendingScrollRestoreOrdinal.current = null;
-    });
+    };
+    animationFrame = window.requestAnimationFrame(restore);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [previewOrdinal, previewUrl, workspace.currentIndex, zoomedImageSize]);
+  }, [
+    decoded,
+    previewOrdinal,
+    previewUrl,
+    workspace.currentIndex,
+    zoomedImageSize,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -396,7 +410,10 @@ export function RemoteManualSelectionWorkspace({
     );
   }
 
-  function capturePreviewScroll() {
+  function capturePreviewScroll(): {
+    readonly left: number;
+    readonly top: number;
+  } {
     if (viewport.current !== null) {
       savedScrollLeft.current = viewport.current.scrollLeft;
       savedScrollTop.current = viewport.current.scrollTop;
@@ -407,6 +424,10 @@ export function RemoteManualSelectionWorkspace({
       savedScrollLeft.current,
       savedScrollTop.current,
     );
+    return {
+      left: savedScrollLeft.current,
+      top: savedScrollTop.current,
+    };
   }
 
   function armPreviewScrollRestore(targetOrdinal: number) {
@@ -444,15 +465,26 @@ export function RemoteManualSelectionWorkspace({
   function acceptCurrent() {
     if (!canEdit || hasConflict || current === null || sourceReader === null)
       return;
-    if (previewUrl === null || previewOrdinal !== current.ordinal) {
+    if (previewUrl === null || previewOrdinal !== current.ordinal || !decoded) {
       setNotice('Poczekaj, aż bieżące zdjęcie zostanie w pełni załadowane.');
       return;
     }
     const requestedCurrent = current;
     const requestedRangeStart = workspace.nextRangeStart;
+    const requestedScrollPosition = capturePreviewScroll();
+    const nextCursorIndex =
+      batchRef.current.direction === 'ascending'
+        ? Math.min(requestedCurrent.ordinal + 1, batchRef.current.fileCount - 1)
+        : Math.max(requestedCurrent.ordinal - 1, 0);
+    armPreviewScrollRestore(nextCursorIndex);
     void interactionQueue
       .enqueue(() =>
-        acceptRequestedImage(requestedCurrent, requestedRangeStart),
+        acceptRequestedImage(
+          requestedCurrent,
+          requestedRangeStart,
+          requestedScrollPosition,
+          nextCursorIndex,
+        ),
       )
       .catch((cause) => setError(localErrorMessage(cause)));
   }
@@ -460,6 +492,8 @@ export function RemoteManualSelectionWorkspace({
   async function acceptRequestedImage(
     requestedCurrent: RemoteSelectionSourceItemRecord,
     requestedRangeStart: number,
+    requestedScrollPosition: { readonly left: number; readonly top: number },
+    nextCursorIndex: number,
   ) {
     const requestedWorkspace = remoteSelectionWorkspaceState(batchRef.current);
     if (
@@ -483,6 +517,8 @@ export function RemoteManualSelectionWorkspace({
       );
       return;
     }
+    savedScrollLeft.current = requestedScrollPosition.left;
+    savedScrollTop.current = requestedScrollPosition.top;
     busyRef.current = true;
     setBusy(true);
     setError('');
@@ -511,13 +547,7 @@ export function RemoteManualSelectionWorkspace({
         nextBatch = await store.appendLocalWorkspaceDecision({
           batchId: batchRef.current.batchId,
           decision,
-          nextCursorIndex:
-            batchRef.current.direction === 'ascending'
-              ? Math.min(
-                  requestedCurrent.ordinal + 1,
-                  batchRef.current.fileCount - 1,
-                )
-              : Math.max(requestedCurrent.ordinal - 1, 0),
+          nextCursorIndex,
           sessionId: session.sessionId,
         });
       } catch (cause) {
@@ -528,14 +558,23 @@ export function RemoteManualSelectionWorkspace({
         }
         throw cause;
       }
-      capturePreviewScroll();
-      armPreviewScrollRestore(nextBatch.cursorIndex);
       setBatch(nextBatch);
       batchRef.current = nextBatch;
       await persistOperatorLocalManifest(nextBatch);
       setNotice(`Zapisano ${output.name} na urządzeniu operatora.`);
       await refreshLocalState();
     } catch (cause) {
+      if (
+        batchRef.current.cursorIndex === requestedCurrent.ordinal &&
+        pendingScrollRestoreOrdinal.current === nextCursorIndex
+      ) {
+        pendingScrollRestoreOrdinal.current = null;
+        window.requestAnimationFrame(() => {
+          if (viewport.current === null) return;
+          viewport.current.scrollLeft = requestedScrollPosition.left;
+          viewport.current.scrollTop = requestedScrollPosition.top;
+        });
+      }
       setError(localErrorMessage(cause));
     } finally {
       busyRef.current = false;
@@ -839,8 +878,7 @@ export function RemoteManualSelectionWorkspace({
               }}
               ref={viewport}
             >
-              {previewUrl === null ||
-              previewOrdinal !== workspace.currentIndex ? (
+              {previewUrl === null ? (
                 <p>Ładowanie lokalnego JPEG-a…</p>
               ) : (
                 <div

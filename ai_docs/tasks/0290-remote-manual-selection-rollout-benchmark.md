@@ -264,6 +264,24 @@ ani kopiowania JPEG-ów do repozytorium.
 - Tymczasowy ekran testowy i proces na porcie 3011 zostały usunięte po pomiarze;
   nie stanowią części produktu ani commita.
 
+### v0.7.59 — stabilny canvas podczas zmiany JPEG-a
+
+- Operator potwierdził w Chrome na macOS, że reset dotyczy wewnętrznego
+  `scrollTop` zdjęcia wyłącznie po Enter/F/kliknięciu zatwierdzenia, nie przy
+  zwykłej nawigacji i nie dla dokumentu. Hipoteza scrolla strony została
+  odrzucona i nie weszła do produktu.
+- Pozycja obu osi jest przechwytywana synchronicznie w chwili komendy
+  zatwierdzenia, przed zapisem pliku i przejściem w `busy`. Oczekujące
+  odtworzenie blokuje zdarzeniom scrolla nadpisanie snapshotu.
+- Canvas nie jest już zastępowany tekstem ładowania podczas zmiany ordinalu i
+  nie zeruje wymiarów. Poprzedni podgląd utrzymuje przestrzeń scrolla do chwili
+  zdekodowania następnego JPEG-a.
+- Odtworzenie wymaga teraz równocześnie docelowego ordinalu, URL-a, wymiarów i
+  `decoded=true`; wykonuje trzy kolejne przejścia layoutu. Skrót zatwierdzenia
+  również nie przyjmuje niezdekodowanego zdjęcia.
+- Test regresyjny blokuje ponowne dodanie `setNaturalImageSize(null)` i
+  warunkowe usuwanie canvasu przy samej niezgodności ordinalu.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

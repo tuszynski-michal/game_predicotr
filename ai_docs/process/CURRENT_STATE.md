@@ -56,6 +56,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   ją teraz dokładnie jak lokalny — po trwałym zapisie, bezpośrednio przed
   zmianą stanu React. Test rzeczywistego komponentu przy viewportcie 390×844
   zachował `scrollTop=388,8` po zatwierdzeniu i przejściu na kolejny JPEG.
+- Próba operatorska w Chrome na macOS nadal wykazała reset wewnętrznego scrolla
+  wyłącznie po zatwierdzeniu; zwykła nawigacja zachowywała pozycję. Ścieżka
+  zapisu przechwytuje więc `scrollLeft/scrollTop` synchronicznie przy komendzie
+  Enter/F/klik, zanim rozpocznie zapis pliku i zmieni stan `busy`.
+  Dodatkowym źródłem resetu był stan przejściowy: canvas znikał i `scrollHeight`
+  chwilowo malał, więc Chrome mógł wymusić `scrollTop=0` po wcześniejszym
+  odtworzeniu.
+  Reviewer utrzymuje teraz stary canvas i jego wymiary do `decode` następnego
+  JPEG-a; odtwarzanie czeka jawnie na `decoded` docelowego ordinalu.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

@@ -130,6 +130,14 @@ pozycje są przechwytywane bezpośrednio przed zmianą kursora React, po trwały
 zapisie decyzji, i odtwarzane po załadowaniu docelowego podglądu. Oczekujące
 odtworzenie jest przypięte do docelowego ordinalu; render stanu `busy` na
 poprzednim zdjęciu nie może go skonsumować.
+Ścieżka zatwierdzenia przechwytuje pozycję wewnętrznego viewportu zdjęcia już w
+momencie komendy Enter/F/klik, przed zapisem pliku i stanem `busy`; automatyczny
+scroll wywołany później przez Chrome nie może nadpisać tego snapshotu. Podczas
+zmiany ordinalu canvas nie może zostać zastąpiony krótkotrwałym pustym stanem
+ani utracić poprzednich wymiarów. Poprzedni JPEG pozostaje szkieletem do chwili
+zdekodowania następnego, a scroll jest odtwarzany dopiero dla zdekodowanego
+docelowego obrazu. Dzięki temu `scrollHeight` nie spada do wysokości viewportu i
+nie wymusza `scrollTop=0`.
 Bazowe klasy CSS i funkcja dopasowania obrazu są takie same jak w lokalnym
 selektorze. Licznik nie może wyprzedzić trwałego zapisu:
 interakcje są szeregowane, plik jest weryfikowany checksumą, a dopiero potem

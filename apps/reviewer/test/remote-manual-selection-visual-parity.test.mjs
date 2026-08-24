@@ -34,9 +34,10 @@ test('remote preview scrolls and restores both axes after layout', async () => {
     workspace,
     /pendingScrollRestoreOrdinal\.current !== workspace\.currentIndex/,
   );
+  assert.match(workspace, /pendingScrollRestoreOrdinal[\s\S]*!decoded/);
   assert.match(
     workspace,
-    /const animationFrame = window\.requestAnimationFrame\(\(\) => \{[\s\S]*viewport\.current\.scrollTop = savedScrollTop\.current/,
+    /animationFrame = window\.requestAnimationFrame\(restore\)/,
   );
   assert.match(
     workspace,
@@ -52,11 +53,24 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   );
   assert.match(
     workspace,
-    /await store\.appendLocalWorkspaceDecision[\s\S]*capturePreviewScroll\(\);[\s\S]*armPreviewScrollRestore\(nextBatch\.cursorIndex\);[\s\S]*setBatch\(nextBatch\)/,
+    /const requestedScrollPosition = capturePreviewScroll\(\);[\s\S]*armPreviewScrollRestore\(nextCursorIndex\);[\s\S]*\.enqueue\(\(\) =>[\s\S]*acceptRequestedImage\([\s\S]*requestedScrollPosition[\s\S]*nextCursorIndex/,
+  );
+  assert.match(
+    workspace,
+    /savedScrollLeft\.current = requestedScrollPosition\.left;[\s\S]*savedScrollTop\.current = requestedScrollPosition\.top;[\s\S]*setBusy\(true\)/,
+  );
+  assert.match(
+    workspace,
+    /await store\.appendLocalWorkspaceDecision[\s\S]*setBatch\(nextBatch\)/,
   );
   assert.match(workspace, /gp\.remote-manual-selection\.scroll\.v1/);
   assert.match(workspace, /window\.localStorage\.setItem/);
   assert.match(workspace, /window\.addEventListener\('pagehide'/);
+  assert.doesNotMatch(workspace, /setNaturalImageSize\(null\)/);
+  assert.match(
+    workspace,
+    /\{previewUrl === null \? \([\s\S]*Ładowanie lokalnego JPEG-a/,
+  );
   assert.match(
     css,
     /\.remoteManualPreviewViewport\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?overflow-x:\s*auto;[\s\S]*?overflow-y:\s*auto;[\s\S]*?\}/,
@@ -132,11 +146,11 @@ test('remote acceptance does not drop a visible image while its load event settl
 
   assert.match(
     workspace,
-    /if \(previewUrl === null \|\| previewOrdinal !== current\.ordinal\)/,
+    /if \(previewUrl === null \|\| previewOrdinal !== current\.ordinal \|\| !decoded\)/,
   );
   assert.doesNotMatch(
     workspace,
-    /if \(!decoded \|\| previewOrdinal !== current\.ordinal\)/,
+    /if \(previewUrl === null \|\| previewOrdinal !== current\.ordinal\) \{/,
   );
   assert.doesNotMatch(
     workspace,
@@ -156,6 +170,12 @@ test('remote acceptance does not drop a visible image while its load event settl
   );
   assert.match(
     workspace,
-    /if \(!cancelled && previewChanged\) \{[\s\S]*setDecoded\(false\);[\s\S]*setNaturalImageSize\(null\)/,
+    /if \(!cancelled && previewChanged\) \{[\s\S]*setDecoded\(false\);[\s\S]*setPreviewOrdinal\(workspace\.currentIndex\);[\s\S]*setPreviewUrl\(selected\)/,
+  );
+  assert.doesNotMatch(workspace, /setNaturalImageSize\(null\)/);
+  assert.match(workspace, /\{previewUrl === null \? \(/);
+  assert.doesNotMatch(
+    workspace,
+    /\{previewUrl === null \|\| previewOrdinal !== workspace\.currentIndex \? \(/,
   );
 });

@@ -120,6 +120,28 @@ export function RemoteManualSelectionWorkspaceFoundation({
         repairMissingOutput &&
         restoredSession !== null &&
         restoredBatch !== null &&
+        (restoredSession.permissionState === 'error' ||
+          restoredSession.outputPermissionState === 'error')
+      ) {
+        const relink = await store.resetLocalWorkspaceForDirectoryRelink({
+          batchId: restoredBatch.batchId,
+          sessionId: restoredSession.sessionId,
+        });
+        restoredBatch = relink.batch;
+        restoredSession = relink.session;
+        setSourceReader(null);
+        clearRemoteManualSelectionScroll(
+          restoredSession.sessionId,
+          restoredBatch.batchId,
+        );
+        setNotice(
+          'Zapisany folder zdjęć lub folder wynikowy jest niedostępny. Selekcja została zresetowana — wskaż ponownie oba katalogi.',
+        );
+      }
+      if (
+        repairMissingOutput &&
+        restoredSession !== null &&
+        restoredBatch !== null &&
         restoredSession.outputParentHandle !== null &&
         restoredSession.outputParentHandle !== undefined &&
         restoredSession.outputDirectoryName
@@ -134,6 +156,22 @@ export function RemoteManualSelectionWorkspaceFoundation({
           ...restoredSession,
           outputParentPermissionState: parentPermission,
         };
+        if (parentPermission === 'error') {
+          const relink = await store.resetLocalWorkspaceForDirectoryRelink({
+            batchId: restoredBatch.batchId,
+            sessionId: restoredSession.sessionId,
+          });
+          restoredBatch = relink.batch;
+          restoredSession = relink.session;
+          setSourceReader(null);
+          clearRemoteManualSelectionScroll(
+            restoredSession.sessionId,
+            restoredBatch.batchId,
+          );
+          setNotice(
+            'Katalog nadrzędny wyniku jest niedostępny. Selekcja została zresetowana — wskaż ponownie folder zdjęć i katalog zapisu.',
+          );
+        }
         if (
           parentPermission === 'granted' ||
           parentPermission === 'unsupported'
@@ -146,39 +184,37 @@ export function RemoteManualSelectionWorkspaceFoundation({
           } catch (cause) {
             if (!isNotFoundError(cause)) throw cause;
             outputWasMissing = true;
-            liveOutput = await outputParent.getDirectoryHandle(
-              outputDirectoryName,
-              { create: true },
-            );
           }
           const outputState =
-            await inspectOperatorLocalOutputDirectory(liveOutput);
+            liveOutput === null
+              ? null
+              : await inspectOperatorLocalOutputDirectory(liveOutput);
           const lostProgressFiles =
             outputWasMissing ||
-            (outputState.kind === 'empty' &&
-              remoteSelectionWorkspaceState(restoredBatch).decisions.length >
-                0);
+            (outputState?.kind === 'empty' &&
+              restoredBatch.hostRegistered === true);
           if (lostProgressFiles) {
-            restoredBatch = restartRemoteSelectionLocalBatch(restoredBatch);
-            await writeBatchManifest(
-              liveOutput,
-              restoredSession.sessionId,
-              restoredBatch,
-            );
-            await store.saveBatch(restoredBatch);
+            const relink = await store.resetLocalWorkspaceForDirectoryRelink({
+              batchId: restoredBatch.batchId,
+              sessionId: restoredSession.sessionId,
+            });
+            restoredBatch = relink.batch;
+            restoredSession = relink.session;
+            setSourceReader(null);
             clearRemoteManualSelectionScroll(
               restoredSession.sessionId,
               restoredBatch.batchId,
             );
             setNotice(
-              `Folder wynikowy „${outputDirectoryName}” został usunięty. Utworzono go ponownie i rozpoczęto selekcję od pierwszego zdjęcia.`,
+              `Folder wynikowy „${outputDirectoryName}” jest niedostępny. Selekcja została zresetowana — wskaż ponownie folder zdjęć i katalog zapisu.`,
             );
+          } else if (liveOutput !== null) {
+            restoredSession = {
+              ...restoredSession,
+              outputHandle: liveOutput,
+              outputPermissionState: 'granted',
+            };
           }
-          restoredSession = {
-            ...restoredSession,
-            outputHandle: liveOutput,
-            outputPermissionState: 'granted',
-          };
         }
       }
       if (restoredSession !== restored.session && restoredSession !== null) {
@@ -245,10 +281,39 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const session = snapshot?.session ?? null;
   const batch = snapshot?.batch ?? null;
 
+  const recoverUnavailableDirectories = useCallback(
+    async (cause: unknown): Promise<boolean> => {
+      if (!isDirectoryUnavailableError(cause)) return false;
+      const restored = await store.restore(sessionId);
+      if (restored.session === null || restored.batch === null) return false;
+      const relink = await store.resetLocalWorkspaceForDirectoryRelink({
+        batchId: restored.batch.batchId,
+        sessionId,
+      });
+      setSourceReader(null);
+      clearRemoteManualSelectionScroll(sessionId, relink.batch.batchId);
+      setSnapshot({
+        ...restored,
+        batch: relink.batch,
+        session: relink.session,
+      });
+      setError('');
+      setNotice(
+        'Folder zdjęć lub folder wynikowy jest niedostępny. Selekcja zaczyna się od początku — wskaż ponownie folder zdjęć, a następnie katalog zapisu.',
+      );
+      return true;
+    },
+    [sessionId, store],
+  );
+
   useEffect(() => {
     if (!canWrite) return;
     const repair = () => {
-      void refresh(true).catch((cause) => setError(errorMessage(cause)));
+      void refresh(true).catch((cause) => {
+        void recoverUnavailableDirectories(cause).then((recovered) => {
+          if (!recovered) setError(errorMessage(cause));
+        });
+      });
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') repair();
@@ -260,7 +325,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       window.removeEventListener('focus', repair);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [canWrite, refresh]);
+  }, [canWrite, recoverUnavailableDirectories, refresh]);
 
   async function chooseDirectory() {
     if (!canWrite || busy) return;
@@ -291,7 +356,11 @@ export function RemoteManualSelectionWorkspaceFoundation({
         adapter,
       );
     } catch (cause) {
-      if (!isPickerCancelled(cause)) setError(errorMessage(cause));
+      if (
+        !isPickerCancelled(cause) &&
+        !(await recoverUnavailableDirectories(cause))
+      )
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -306,7 +375,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
       const adapter = new WebkitDirectoryRemoteSourceAdapter([...files]);
       await persistIndexedSource(await adapter.index(), 'unsupported', adapter);
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (!(await recoverUnavailableDirectories(cause)))
+        setError(errorMessage(cause));
     } finally {
       if (fallbackInput.current !== null) fallbackInput.current.value = '';
       setBusy(false);
@@ -473,7 +543,11 @@ export function RemoteManualSelectionWorkspaceFoundation({
         `Folder wynikowy „${outputName}” jest pusty i gotowy do nowej selekcji.`,
       );
     } catch (cause) {
-      if (!isPickerCancelled(cause)) setError(errorMessage(cause));
+      if (
+        !isPickerCancelled(cause) &&
+        !(await recoverUnavailableDirectories(cause))
+      )
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -572,7 +646,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         'Sesja lokalna jest aktywna. Decyzje i JPEG-i nie będą wysyłane na komputer właściciela linku.',
       );
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (!(await recoverUnavailableDirectories(cause)))
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -601,7 +676,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         );
       }
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (!(await recoverUnavailableDirectories(cause)))
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -628,10 +704,20 @@ export function RemoteManualSelectionWorkspaceFoundation({
       });
       await refresh();
       if (permission !== 'granted' && permission !== 'unsupported') {
-        setError('Folder wynikowy nadal wymaga zgody na zapis.');
+        if (permission === 'error') {
+          await recoverUnavailableDirectories(
+            new DOMException(
+              'Output directory is unavailable.',
+              'NotFoundError',
+            ),
+          );
+        } else {
+          setError('Folder wynikowy nadal wymaga zgody na zapis.');
+        }
       }
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (!(await recoverUnavailableDirectories(cause)))
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -701,7 +787,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         `Selekcja została uruchomiona od początku. Folder „${outputName}” zawiera nowy manifest tej sesji.`,
       );
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (!(await recoverUnavailableDirectories(cause)))
+        setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -781,6 +868,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           sourceReader={sourceReader}
           store={store}
           outputDirectory={session.outputHandle}
+          onStorageUnavailable={recoverUnavailableDirectories}
         />
         {error ? (
           <p className="reviewerAccessError" role="alert">
@@ -837,6 +925,22 @@ export function RemoteManualSelectionWorkspaceFoundation({
             {batch.fileCount.toLocaleString('pl-PL')} JPEG ·{' '}
             {formatBytes(batch.totalBytes)}
           </p>
+          {sourceReader === null ? (
+            <>
+              <p>
+                Wskaż ponownie folder zawierający te same zdjęcia. Aplikacja
+                sprawdzi jego manifest przed przywróceniem dostępu.
+              </p>
+              <button
+                className="secondaryButton"
+                disabled={!canWrite || busy || sourceMode === 'unsupported'}
+                onClick={() => void chooseDirectory()}
+                type="button"
+              >
+                {busy ? 'Sprawdzanie…' : 'Wybierz ponownie folder zdjęć'}
+              </button>
+            </>
+          ) : null}
           <label>
             Pierwsza plansza
             <input
@@ -860,7 +964,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           </label>
           <button
             className="secondaryButton"
-            disabled={!canWrite || busy}
+            disabled={!canWrite || busy || sourceReader === null}
             onClick={() => void chooseOutputParent()}
             type="button"
           >
@@ -879,6 +983,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
             disabled={
               !canWrite ||
               busy ||
+              sourceReader === null ||
               session?.outputHandle === null ||
               session?.outputHandle === undefined
             }
@@ -950,6 +1055,21 @@ function isPickerCancelled(cause: unknown): boolean {
 
 function isNotFoundError(cause: unknown): boolean {
   return cause instanceof DOMException && cause.name === 'NotFoundError';
+}
+
+function isDirectoryUnavailableError(cause: unknown): boolean {
+  if (isNotFoundError(cause)) return true;
+  if (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    cause.code === 'REMOTE_SELECTION_SOURCE_FILE_MISSING'
+  )
+    return true;
+  return (
+    cause instanceof Error &&
+    /requested file or directory could not be found/i.test(cause.message)
+  );
 }
 
 function formatBytes(value: number): string {

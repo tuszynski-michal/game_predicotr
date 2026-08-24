@@ -169,10 +169,14 @@ względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.
 
 Reviewer utrwala również uchwyt wskazanego katalogu nadrzędnego. Jeżeli
 utworzony przez aplikację folder `<źródło> wybrane` zostanie później usunięty,
-powrót do karty albo ponowne otwarcie strony odtwarza folder, zeruje decyzje,
-kursor i następny zakres oraz natychmiast zapisuje pusty manifest bieżącej
-sesji. Jawny przycisk `Restart selekcji` wykonuje ten sam reset od pierwszego
-zdjęcia i może wyczyścić istniejący folder dopiero po potwierdzeniu operatora.
+powrót do karty, ponowne otwarcie strony albo pierwsza operacja zakończona
+`NotFoundError` zeruje decyzje, kursor i następny zakres oraz odłącza oba
+nieaktualne uchwyty. Operator musi ponownie wskazać ten sam folder zdjęć, który
+jest sprawdzany względem zachowanego manifestu, a następnie katalog nadrzędny
+wyniku. Dopiero jawne uruchomienie zapisuje nowy pusty manifest i rozpoczyna od
+pierwszego zdjęcia. Jawny przycisk `Restart selekcji` wykonuje ten sam reset od
+pierwszego zdjęcia i może wyczyścić istniejący folder dopiero po potwierdzeniu
+operatora.
 Przed usunięciem Reviewer musi zweryfikować manifest, źródło i checksumy
 wszystkich zarządzanych JPEG-ów; obcy albo zmieniony plik blokuje restart.
 

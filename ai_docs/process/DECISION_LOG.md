@@ -5501,6 +5501,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   czyszczenie folderu i zezwolenie na mieszanie obcych plików odrzucono jako
   podatne na utratę postępu albo nadpisanie danych.
 
+## D-229 — Niedostępny katalog wymaga ponownego podpięcia obu stron workspace'u
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** brak źródłowego JPEG-a albo usunięty folder wynikowy zeruje
+  lokalne decyzje, kursor i następny zakres, odłącza wszystkie uchwyty katalogów
+  oraz wymaga ponownego wskazania źródła i katalogu nadrzędnego wyniku. Indeks i
+  checksum manifestu źródła pozostają wyłącznie do fail-closed walidacji
+  ponownie wybranego folderu. Nowy pusty manifest jest zapisywany dopiero przy
+  jawnym rozpoczęciu selekcji.
+- **Context:** starsze sesje nie zawsze miały utrwalony uchwyt katalogu
+  nadrzędnego. Po zewnętrznym usunięciu folderu wynikowego przeglądarka zwracała
+  `NotFoundError`, a aplikacja pozostawała przy martwym uchwycie i nie mogła
+  wykonać restartu.
+- **Safety:** recovery reaguje wyłącznie na niedostępny uchwyt albo stabilny
+  błąd brakującego pliku źródłowego. Konflikt checksumy, obcy plik i niezgodny
+  manifest nadal blokują operację bez resetowania dowodów.
+- **Consequences:** operator rozpoczyna od pierwszego zdjęcia i ponownie nadaje
+  oba uprawnienia; aplikacja nie próbuje niejawnie odtworzyć usuniętego folderu
+  na podstawie nieaktualnego uchwytu.
+- **Supersedes:** automatyczne odtwarzanie brakującego potomnego folderu opisane
+  pierwotnie przy D-228; pozostałe invarianty D-227 i D-228 obowiązują.
+- **Alternatives:** automatyczna rekonstrukcja wyłącznie z opcjonalnego uchwytu
+  rodzica została odrzucona, ponieważ nie działa dla starszych sesji i nie
+  naprawia równoczesnej utraty dostępu do źródła.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -478,6 +478,77 @@ test('restarts an operator-local batch at the first directional image and first 
   assert.deepEqual(descending.decisions, []);
 });
 
+test('missing local directories atomically reset progress and require strict source and output relink', async () => {
+  const { store } = await fixture(3);
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  await store.appendLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    decision: {
+      action: 'accepted',
+      operationId: 'operator-local-missing-directory',
+      fileId: source.fileId,
+      sourceIndex: 0,
+      imagePath: source.relativePath,
+      imageChecksumSha256: 'd'.repeat(64),
+      outputName: 'seq_1-9.jpg',
+      rangeStart: 1,
+      rangeEnd: 9,
+      selectionGeneration: 1,
+    },
+    nextCursorIndex: 1,
+  });
+  const session = await store.loadSession('session-1');
+  await store.saveSession({
+    ...session,
+    sourceHandle: { kind: 'directory', name: 'batch' },
+    permissionState: 'granted',
+    outputDirectoryName: 'batch wybrane',
+    outputHandle: { kind: 'directory', name: 'batch wybrane' },
+    outputParentHandle: { kind: 'directory', name: 'parent' },
+    outputParentPermissionState: 'granted',
+    outputPermissionState: 'granted',
+  });
+  await store.saveBatch({
+    ...(await store.loadBatch('session-1', 'batch-1')),
+    hostRegistered: true,
+    status: 'active',
+  });
+  const before = await store.restore('session-1');
+
+  const relink = await store.resetLocalWorkspaceForDirectoryRelink({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    updatedAt: '2026-08-24T02:00:00.000Z',
+  });
+  const after = await store.restore('session-1');
+
+  assert.deepEqual(remoteSelectionWorkspaceState(relink.batch), {
+    currentIndex: 0,
+    decisions: [],
+    navigationStep: 1,
+    nextRangeStart: 1,
+  });
+  assert.equal(relink.batch.hostRegistered, false);
+  assert.equal(relink.batch.status, 'indexing');
+  assert.equal(relink.session.sourceHandle, null);
+  assert.equal(relink.session.outputHandle, null);
+  assert.equal(relink.session.outputParentHandle, null);
+  assert.equal(relink.session.outputDirectoryName, null);
+  assert.equal(relink.session.permissionState, 'prompt');
+  assert.equal(relink.session.outputPermissionState, 'prompt');
+  assert.equal(relink.session.outputParentPermissionState, 'prompt');
+  assert.equal(
+    relink.session.sourceManifestChecksumSha256,
+    before.session.sourceManifestChecksumSha256,
+  );
+  assert.deepEqual(
+    after.sourceItems.map((item) => item.relativePath),
+    before.sourceItems.map((item) => item.relativePath),
+  );
+  assert.equal(after.pendingOperationCount, 0);
+});
+
 test('loads a bounded seven-image preview window and predicts an operation clock', async () => {
   const { store } = await fixture(20);
   const window = await store.loadSourceItemsWindow(

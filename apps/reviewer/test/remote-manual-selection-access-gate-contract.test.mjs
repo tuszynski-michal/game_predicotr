@@ -153,18 +153,30 @@ test('operator-local decisions are serialized without host finalization or trans
   assert.doesNotMatch(operationalWorkspace, /syncNow/);
 });
 
-test('operator-local restart persists the parent handle and rebuilds deleted output from the first image', async () => {
+test('operator-local restart persists the parent handle and missing directories require a clean relink', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const operationalWorkspace = await readFile(operationalWorkspacePath, 'utf8');
+  const store = await readFile(remoteStorePath, 'utf8');
 
   assert.match(workspace, /outputParentHandle: parent/);
-  assert.match(workspace, /getDirectoryHandle\([\s\S]*\{ create: true \}/);
+  assert.match(
+    workspace,
+    /getDirectoryHandle\([\s\S]*\{\s*create:\s*true[\s\S]*\}/,
+  );
   assert.match(workspace, /restartRemoteSelectionLocalBatch/);
   assert.match(workspace, /resetOperatorLocalOutputDirectory/);
   assert.match(workspace, /Restart selekcji/);
   assert.match(workspace, /window\.confirm/);
   assert.match(workspace, /clearRemoteManualSelectionScroll/);
   assert.match(workspace, /writeBatchManifest\(/);
+  assert.match(workspace, /resetLocalWorkspaceForDirectoryRelink/);
+  assert.match(workspace, /Wybierz ponownie folder zdjęć/);
+  assert.match(workspace, /sourceReader === null/);
+  assert.match(workspace, /onStorageUnavailable/);
+  assert.match(operationalWorkspace, /onStorageUnavailable/);
+  assert.match(operationalWorkspace, /reportLocalError/);
+  assert.match(store, /outputParentHandle: null/);
+  assert.match(store, /sourceHandle: null/);
   assert.match(
     operationalWorkspace,
     /export function clearRemoteManualSelectionScroll/,

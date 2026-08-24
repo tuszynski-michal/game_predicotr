@@ -43,10 +43,15 @@ flowchart LR
   zmienia zachowanego lokalnie postępu.
 - IndexedDB utrwala także uchwyt katalogu nadrzędnego wyniku. Brak potomnego
   `<source> wybrane` jest jednoznacznym sygnałem rozpoczęcia od nowa: Reviewer
-  tworzy go ponownie, resetuje batch do pierwszego zdjęcia i zapisuje pusty
-  manifest. Jawny restart usuwa istniejący katalog rekurencyjnie wyłącznie po
-  fail-closed walidacji manifestu, źródła i checksum zarządzanych JPEG-ów;
-  obcych danych nigdy nie usuwa.
+  atomowo resetuje batch do pierwszego zdjęcia i pierwszego zakresu, odłącza
+  source/output handles i przechodzi do stanu ponownego podpięcia. Zachowany
+  indeks oraz checksum manifestu służą do fail-closed sprawdzenia ponownie
+  wybranego źródła. Operator wskazuje następnie katalog nadrzędny wyniku, a
+  pusty manifest powstaje dopiero przy jawnym uruchomieniu. Ten sam recovery
+  uruchamia `NotFoundError` z odczytu JPEG-a, zapisu, manifestu lub cofania.
+  Jawny restart usuwa istniejący katalog rekurencyjnie wyłącznie po fail-closed
+  walidacji manifestu, źródła i checksum zarządzanych JPEG-ów; obcych danych
+  nigdy nie usuwa.
 - Trwały zapis wymaga przeglądarki z File System Access API. Brak API jest
   kontrolowanym ograniczeniem, nie fallbackiem wysyłającym dane do hosta.
 

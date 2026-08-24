@@ -37,6 +37,7 @@ export function RemoteManualSelectionWorkspace({
   sourceReader,
   store,
   outputDirectory,
+  onStorageUnavailable,
 }: {
   readonly batch: RemoteSelectionLocalBatchRecord;
   readonly canWrite: boolean;
@@ -44,6 +45,7 @@ export function RemoteManualSelectionWorkspace({
   readonly sourceReader: RemoteSourceFileReader | null;
   readonly store: RemoteSelectionIndexedDbStore;
   readonly outputDirectory: FileSystemDirectoryHandle;
+  readonly onStorageUnavailable: (cause: unknown) => Promise<boolean>;
 }) {
   const initialScrollPosition = readStoredScrollPosition(
     initialBatch.sessionId,
@@ -115,6 +117,15 @@ export function RemoteManualSelectionWorkspace({
       Math.min(3000, Math.max(100, currentPercent + delta)),
     );
   }, []);
+
+  const reportLocalError = useCallback(
+    async (cause: unknown) => {
+      if (!(await onStorageUnavailable(cause))) {
+        setError(localErrorMessage(cause));
+      }
+    },
+    [onStorageUnavailable],
+  );
 
   const captureNaturalImageSize = useCallback(
     (image: HTMLImageElement | null) => {
@@ -228,10 +239,8 @@ export function RemoteManualSelectionWorkspace({
   }, [session.sessionId, store]);
 
   useEffect(() => {
-    void refreshLocalState().catch((cause) =>
-      setError(localErrorMessage(cause)),
-    );
-  }, [refreshLocalState]);
+    void refreshLocalState().catch((cause) => void reportLocalError(cause));
+  }, [refreshLocalState, reportLocalError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,12 +304,12 @@ export function RemoteManualSelectionWorkspace({
         previewUrls.current.set(item.ordinal, URL.createObjectURL(file));
       }
     })().catch((cause) => {
-      if (!cancelled) setError(localErrorMessage(cause));
+      if (!cancelled) void reportLocalError(cause);
     });
     return () => {
       cancelled = true;
     };
-  }, [items, sourceReader, workspace.currentIndex]);
+  }, [items, reportLocalError, sourceReader, workspace.currentIndex]);
 
   useEffect(
     () => () => {
@@ -382,7 +391,7 @@ export function RemoteManualSelectionWorkspace({
     const result = operationQueue.current.catch(() => undefined).then(work);
     operationQueue.current = result.then(
       () => undefined,
-      (cause) => setError(localErrorMessage(cause)),
+      (cause) => void reportLocalError(cause),
     );
     return result;
   }
@@ -486,7 +495,7 @@ export function RemoteManualSelectionWorkspace({
           nextCursorIndex,
         ),
       )
-      .catch((cause) => setError(localErrorMessage(cause)));
+      .catch((cause) => void reportLocalError(cause));
   }
 
   async function acceptRequestedImage(
@@ -575,7 +584,7 @@ export function RemoteManualSelectionWorkspace({
           viewport.current.scrollTop = requestedScrollPosition.top;
         });
       }
-      setError(localErrorMessage(cause));
+      await reportLocalError(cause);
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -588,7 +597,7 @@ export function RemoteManualSelectionWorkspace({
     const requestedRangeStart = workspace.nextRangeStart;
     void interactionQueue
       .enqueue(() => skipRequestedRange(requestedCurrent, requestedRangeStart))
-      .catch((cause) => setError(localErrorMessage(cause)));
+      .catch((cause) => void reportLocalError(cause));
   }
 
   async function skipRequestedRange(
@@ -647,7 +656,7 @@ export function RemoteManualSelectionWorkspace({
       await persistOperatorLocalManifest(nextBatch);
       await refreshLocalState();
     } catch (cause) {
-      setError(localErrorMessage(cause));
+      await reportLocalError(cause);
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -661,7 +670,7 @@ export function RemoteManualSelectionWorkspace({
     if (last === undefined) return;
     void interactionQueue
       .enqueue(() => undoRequestedDecision(last.operationId))
-      .catch((cause) => setError(localErrorMessage(cause)));
+      .catch((cause) => void reportLocalError(cause));
   }
 
   async function undoRequestedDecision(targetOperationId: string) {
@@ -706,7 +715,7 @@ export function RemoteManualSelectionWorkspace({
         await refreshLocalState();
       }
     } catch (cause) {
-      setError(localErrorMessage(cause));
+      await reportLocalError(cause);
     } finally {
       busyRef.current = false;
       setBusy(false);

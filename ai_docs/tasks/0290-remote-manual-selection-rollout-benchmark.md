@@ -322,6 +322,19 @@ ani kopiowania JPEG-ów do repozytorium.
 - Pełne 250 testów Admina, typecheck, lint i produkcyjny build przechodzą; lint
   zachowuje dwa wcześniejsze ostrzeżenia dla source-native `<img>`.
 
+### v0.7.63 — recovery po usunięciu lokalnego katalogu
+
+- `NotFoundError` z odczytu źródła, zapisu JPEG-a, manifestu, cofania albo
+  kontroli po powrocie do karty uruchamia jeden wspólny recovery.
+- IndexedDB atomowo zeruje decyzje, kursor i następny zakres, odłącza source,
+  output oraz output-parent handles i pozostawia zachowany manifest metadanych
+  wyłącznie do ścisłej walidacji ponownie wskazanego źródła.
+- UI nie próbuje pracować na martwym uchwycie. Wymaga ponownego wyboru folderu
+  zdjęć, następnie katalogu zapisu, i dopiero wtedy pozwala utworzyć pusty
+  manifest oraz rozpocząć od pierwszego zdjęcia.
+- Konflikty checksum, obce pliki i niezgodny manifest nadal są fail-closed i nie
+  uruchamiają automatycznego resetu.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

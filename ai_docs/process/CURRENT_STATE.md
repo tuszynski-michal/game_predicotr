@@ -78,9 +78,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   ponownym użyciem ingressu, a stan procesu zapisuje tożsamość rzeczywistego
   listenera zamiast krótkotrwałego wrappera `npm.cmd`.
 - Operator-local przechowuje teraz również uchwyt katalogu nadrzędnego wyniku.
-  Usunięcie `<źródło> wybrane` powoduje jego odtworzenie i bezpieczny reset od
-  pierwszego zdjęcia z pustym manifestem. Jawny `Restart selekcji` czyści tylko
-  zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują operację.
+  Usunięcie `<źródło> wybrane` albo błąd niedostępnego źródła powoduje atomowy
+  reset od pierwszego zdjęcia i odłączenie obu uchwytów. Reviewer wymaga
+  ponownego wskazania zgodnego folderu zdjęć i katalogu zapisu; pusty manifest
+  powstaje dopiero przy jawnym uruchomieniu. Jawny `Restart selekcji` czyści
+  tylko zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują
+  operację.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

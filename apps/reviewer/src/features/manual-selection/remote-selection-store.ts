@@ -179,6 +179,11 @@ export interface RemoteSelectionRestoreSnapshot {
   readonly pendingOperationCount: number;
 }
 
+export interface RemoteSelectionDirectoryRelinkState {
+  readonly batch: RemoteSelectionLocalBatchRecord;
+  readonly session: RemoteSelectionLocalSessionRecord;
+}
+
 export class RemoteSelectionStoreError extends Error {
   readonly code: string;
 
@@ -337,6 +342,71 @@ export class RemoteSelectionIndexedDbStore {
         .objectStore(REMOTE_SELECTION_DATABASE_STORES.batches)
         .put(record);
       await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async resetLocalWorkspaceForDirectoryRelink(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly updatedAt?: string;
+  }): Promise<RemoteSelectionDirectoryRelinkState> {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.sessions,
+          REMOTE_SELECTION_DATABASE_STORES.batches,
+        ],
+        'readwrite',
+      );
+      const sessions = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.sessions,
+      );
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const session = (await requestResult(
+        sessions.get(input.sessionId),
+      )) as RemoteSelectionLocalSessionRecord | null;
+      const batch = (await requestResult(
+        batches.get([input.sessionId, input.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (
+        session === null ||
+        batch === null ||
+        session.activeBatchId !== input.batchId
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_RELINK_SCOPE_NOT_FOUND',
+          'The local session and batch required for directory relink do not exist.',
+        );
+      }
+      const restarted: RemoteSelectionLocalBatchRecord = {
+        ...restartRemoteSelectionLocalBatch(batch, updatedAt),
+        hostRegistered: false,
+        status: 'indexing',
+      };
+      const relinkSession: RemoteSelectionLocalSessionRecord = {
+        ...session,
+        outputDirectoryName: null,
+        outputHandle: null,
+        outputParentHandle: null,
+        outputParentPermissionState: 'prompt',
+        outputPermissionState: 'prompt',
+        permissionState: 'prompt',
+        sourceHandle: null,
+        updatedAt,
+      };
+      validateWorkspaceBatch(restarted);
+      assertMetadataOnly({ batch: restarted, session: relinkSession });
+      batches.put(restarted);
+      sessions.put(relinkSession);
+      await transactionComplete(transaction);
+      return { batch: restarted, session: relinkSession };
     } finally {
       database.close();
     }

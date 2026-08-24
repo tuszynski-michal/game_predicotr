@@ -5355,6 +5355,10 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   checksumowany journal i wyłączną publikację finalnej nazwy. Reconciliation
   może adoptować wyłącznie zgodny własny półstan; obcy lub zmieniony target jest
   konfliktem.
+- **Retry clarification (v0.7.43):** nowa próba ma osobny transfer ID i nie
+  zmienia historii poprzedniej próby. Dopiero gdy nowa próba tego samego pliku i
+  generacji osiągnie `verified`, starsze próby `failed` przechodzą do
+  `cancelled`. Nieodzyskany bieżący `failed` nadal blokuje finalizację.
 - **Consequences:** zasady R-003 i R-005 z planu zdalnej selekcji są przyjęte.
   TASK 12 i TASK 15 muszą używać tej samej kolejki/fault gate dla usuwania oraz
   finalizacji. Mały synchroniczny zapis lokalnego narzędzia może pozostać, jeśli

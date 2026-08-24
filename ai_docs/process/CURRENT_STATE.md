@@ -24,6 +24,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `npm run remote-selection:rollout:check`; obejmuje także stale-generation
   i exact retry przez właściwą maszynę domenową. Nie uruchomiono jeszcze
   etapów 2–5 ani środowiska LAN/publicznego.
+- Lokalna podbramka etapu 2 przeszła 100 JPEG-ów przez rzeczywisty tymczasowy
+  filesystem, produkcyjny streaming, materializację i finalizację. Wykryła i
+  zamknęła regresję: udane ponowienie transferu anuluje starszą próbę `failed`
+  tego samego pliku/generacji, zachowując audyt i twardą bramkę finalizacji.
+  Raport pozostaje świadomie `blocked`, dopóki nie przejdą wymagane próby dwóch
+  profili/UI, LAN, offline host/operator, restart API, revoke i nowy URL tunelu.
 - Etapy 4 i 5, prawdziwy Quick Tunnel oraz testy na zewnętrznej sieci wymagają
   osobnej zgody właściciela i nie zostaną uruchomione przez implementację.
 - TASK 19 pozostaje warunkowy: decyzja o chunkowanym uploadzie może powstać

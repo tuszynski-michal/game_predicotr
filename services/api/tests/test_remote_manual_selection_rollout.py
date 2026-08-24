@@ -17,7 +17,7 @@ from game_predictor_api.application.remote_manual_selection_rollout import (
 def _report(stage: str = "stage-1", **changes: object) -> dict[str, object]:
     expected = {
         "stage-1": (10, ("duplicate_replay", "restart_recovery", "stale_generation")),
-        "stage-2": (500, ("api_5xx_retry", "offline_operator", "revoke")),
+        "stage-2": (100, ("api_5xx_retry", "offline_host", "offline_operator", "revoke")),
         "stage-3": (1_000, ("api_restart", "worker_restart", "refresh_resume")),
         "stage-4": (8_000, ("controlled_restart", "long_session_resume", "network_fault")),
         "stage-5": (15_000, ("operation_scale", "resume_after_fault", "unique_file_scale")),
@@ -60,6 +60,7 @@ def _report(stage: str = "stage-1", **changes: object) -> dict[str, object]:
         "throughput_bytes_per_second_samples": (100.0, 200.0, 300.0),
         "process_cpu_milliseconds": 22.0,
         "peak_process_memory_bytes": 1024 * 1024,
+        "environment_gate_passed": True,
         "prior_stage_checksums": prior,
         "explicit_owner_approval": "owner-approved-2026-08-24"
         if stage in {"stage-4", "stage-5"}
@@ -79,6 +80,18 @@ def test_stage_one_report_is_canonical_content_addressed_and_passes() -> None:
     assert payload == canonical_report_bytes(report)
 
 
+def test_legacy_stage_one_report_remains_verifiable() -> None:
+    report = _report()
+    stage = report["stage"]
+    assert isinstance(stage, dict)
+    stage.pop("minimumOperations")
+    report.pop("environmentGate")
+    report["contentChecksumSha256"] = report_checksum(report)
+
+    validate_rollout_report(report)
+    assert report["decision"] == {"status": "passed"}
+
+
 def test_stage_two_requires_every_earlier_stage_checksum_in_order() -> None:
     with pytest.raises(RemoteSelectionRolloutReportError, match="Prior stages"):
         _report("stage-2", prior_stage_checksums={})
@@ -88,6 +101,13 @@ def test_large_stage_is_blocked_without_explicit_owner_approval() -> None:
     report = _report("stage-4", explicit_owner_approval=None)
 
     assert report["decision"] == {"status": "blocked"}
+
+
+def test_environment_gate_and_stage_operation_range_block_progression() -> None:
+    assert _report("stage-2", environment_gate_passed=False)["decision"] == {"status": "blocked"}
+    assert _report("stage-2", operation_count=99, trace_event_count=99)["decision"] == {
+        "status": "blocked"
+    }
 
 
 @pytest.mark.parametrize("mutation", ("absolute_path", "token", "checksum"))

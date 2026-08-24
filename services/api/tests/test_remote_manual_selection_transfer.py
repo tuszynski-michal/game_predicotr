@@ -180,6 +180,46 @@ def test_interrupted_stream_and_invalid_jpeg_never_publish_verified_file(
     assert repository.files[FILE_ID].status is RemoteManualSelectionFileStatus.FAILED
 
 
+def test_successful_retry_cancels_older_failed_attempt_for_same_generation(
+    tmp_path: Path,
+) -> None:
+    payload = _jpeg()
+    service, repository = _service(tmp_path, payload)
+    failed_transfer_id = uuid4()
+
+    async def interrupted() -> AsyncIterator[bytes]:
+        yield payload[:10]
+        raise ConnectionError("synthetic disconnect")
+
+    with pytest.raises(ConnectionError):
+        asyncio.run(
+            service.upload(
+                **_request(payload, failed_transfer_id),
+                chunks=interrupted(),
+            )
+        )
+
+    retry_transfer_id = uuid4()
+    result = asyncio.run(
+        service.upload(
+            **_request(payload, retry_transfer_id),
+            chunks=_chunks(payload, 17),
+        )
+    )
+
+    assert result.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+    assert result.transfer.attempt == 2
+    assert (
+        repository.transfers[failed_transfer_id].status
+        is RemoteManualSelectionTransferStatus.CANCELLED
+    )
+    assert (
+        repository.transfers[retry_transfer_id].status
+        is RemoteManualSelectionTransferStatus.VERIFIED
+    )
+    assert repository.files[FILE_ID].status is RemoteManualSelectionFileStatus.VERIFIED
+
+
 def test_size_quota_and_concurrency_gate_fail_before_streaming(tmp_path: Path) -> None:
     payload = _jpeg()
     limits = RemoteManualSelectionTransferLimits(

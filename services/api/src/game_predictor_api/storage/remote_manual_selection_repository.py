@@ -670,6 +670,38 @@ class SqlAlchemyRemoteManualSelectionRepository:
         self._session.flush()
         return _transfer_from_record(record)
 
+    def cancel_failed_transfer_attempts(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        except_transfer_id: UUID,
+    ) -> int:
+        records = tuple(
+            self._session.scalars(
+                select(RemoteManualSelectionTransferModel)
+                .where(
+                    RemoteManualSelectionTransferModel.batch_id == batch_id,
+                    RemoteManualSelectionTransferModel.file_id == file_id,
+                    RemoteManualSelectionTransferModel.generation == generation,
+                    RemoteManualSelectionTransferModel.id != except_transfer_id,
+                    RemoteManualSelectionTransferModel.status
+                    == RemoteManualSelectionTransferStatus.FAILED.value,
+                )
+                .with_for_update()
+            )
+        )
+        for record in records:
+            transition_remote_transfer_status(
+                RemoteManualSelectionTransferStatus.FAILED,
+                RemoteManualSelectionTransferStatus.CANCELLED,
+            )
+            record.status = RemoteManualSelectionTransferStatus.CANCELLED.value
+            record.temp_relative_path = None
+        self._session.flush()
+        return len(records)
+
     def update_file_transfer_status(
         self,
         *,
@@ -2631,6 +2663,38 @@ class InMemoryRemoteManualSelectionRepository:
             self.transfer_paths[value.id] = temp_relative_path
             self.transfer_updated_at[value.id] = datetime.now(UTC)
             return value
+
+    def cancel_failed_transfer_attempts(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        except_transfer_id: UUID,
+    ) -> int:
+        with self._lock:
+            matching_ids = tuple(
+                item.id
+                for item in self.transfers.values()
+                if item.batch_id == batch_id
+                and item.file_id == file_id
+                and item.generation == generation
+                and item.id != except_transfer_id
+                and item.status is RemoteManualSelectionTransferStatus.FAILED
+            )
+            for transfer_id in matching_ids:
+                current = self.transfers[transfer_id]
+                transition_remote_transfer_status(
+                    current.status,
+                    RemoteManualSelectionTransferStatus.CANCELLED,
+                )
+                self.transfers[transfer_id] = replace(
+                    current,
+                    status=RemoteManualSelectionTransferStatus.CANCELLED,
+                )
+                self.transfer_paths[transfer_id] = None
+                self.transfer_updated_at[transfer_id] = datetime.now(UTC)
+            return len(matching_ids)
 
     def update_file_transfer_status(
         self,

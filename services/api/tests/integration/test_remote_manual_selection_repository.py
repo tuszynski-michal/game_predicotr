@@ -774,6 +774,109 @@ def test_transfer_state_roundtrip_is_generation_scoped_and_reaches_verified(
         engine.dispose()
 
 
+def test_verified_retry_cancels_only_older_failed_transfer_attempts_in_postgres(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    failed_transfer_id = uuid4()
+    verified_transfer_id = uuid4()
+    try:
+        _seed(engine)
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.apply_operation(_command())
+            failed = RemoteManualSelectionTransferV1(
+                id=failed_transfer_id,
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                attempt=1,
+                declared_bytes=1024,
+                received_bytes=0,
+                status=RemoteManualSelectionTransferStatus.QUEUED,
+                declared_checksum_sha256="b" * 64,
+            )
+            repository.add_transfer(failed)
+            failed = replace(
+                failed,
+                status=RemoteManualSelectionTransferStatus.UPLOADING,
+            )
+            repository.update_transfer(failed, temp_relative_path=None)
+            failed = replace(
+                failed,
+                status=RemoteManualSelectionTransferStatus.FAILED,
+            )
+            repository.update_transfer(failed, temp_relative_path=None)
+
+            verified = replace(
+                failed,
+                id=verified_transfer_id,
+                attempt=2,
+                status=RemoteManualSelectionTransferStatus.QUEUED,
+            )
+            repository.add_transfer(verified)
+            for status in (
+                RemoteManualSelectionTransferStatus.UPLOADING,
+                RemoteManualSelectionTransferStatus.STORED_TEMP,
+                RemoteManualSelectionTransferStatus.VERIFIED,
+            ):
+                verified = replace(
+                    verified,
+                    received_bytes=(
+                        1024 if status is not RemoteManualSelectionTransferStatus.UPLOADING else 0
+                    ),
+                    status=status,
+                    verified_checksum_sha256=(
+                        "b" * 64 if status is RemoteManualSelectionTransferStatus.VERIFIED else None
+                    ),
+                )
+                repository.update_transfer(
+                    verified,
+                    temp_relative_path="internal/retry.verified",
+                )
+
+            assert (
+                repository.cancel_failed_transfer_attempts(
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    generation=1,
+                    except_transfer_id=verified_transfer_id,
+                )
+                == 1
+            )
+            assert (
+                repository.cancel_failed_transfer_attempts(
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    generation=1,
+                    except_transfer_id=verified_transfer_id,
+                )
+                == 0
+            )
+            session.commit()
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            failed_record = repository.get_transfer_record(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                transfer_id=failed_transfer_id,
+            )
+            verified_record = repository.get_transfer_record(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                transfer_id=verified_transfer_id,
+            )
+        assert failed_record is not None
+        assert failed_record.transfer.status is RemoteManualSelectionTransferStatus.CANCELLED
+        assert verified_record is not None
+        assert verified_record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows host path boundary")
 def test_host_binding_marker_recovers_rollback_and_survives_service_restart(
     remote_database: URL,

@@ -21,7 +21,8 @@ RolloutStatus = Literal["passed", "failed", "blocked"]
 @dataclass(frozen=True, slots=True)
 class RemoteSelectionRolloutStage:
     id: RolloutStageId
-    operation_target: int
+    minimum_operations: int
+    maximum_operations: int
     requires_owner_approval: bool
     required_faults: tuple[str, ...]
 
@@ -29,31 +30,36 @@ class RemoteSelectionRolloutStage:
 ROLL_OUT_STAGES: tuple[RemoteSelectionRolloutStage, ...] = (
     RemoteSelectionRolloutStage(
         id="stage-1",
-        operation_target=10,
+        minimum_operations=10,
+        maximum_operations=10,
         requires_owner_approval=False,
         required_faults=("duplicate_replay", "restart_recovery", "stale_generation"),
     ),
     RemoteSelectionRolloutStage(
         id="stage-2",
-        operation_target=500,
+        minimum_operations=100,
+        maximum_operations=500,
         requires_owner_approval=False,
-        required_faults=("api_5xx_retry", "offline_operator", "revoke"),
+        required_faults=("api_5xx_retry", "offline_host", "offline_operator", "revoke"),
     ),
     RemoteSelectionRolloutStage(
         id="stage-3",
-        operation_target=1_000,
+        minimum_operations=1_000,
+        maximum_operations=1_000,
         requires_owner_approval=False,
         required_faults=("api_restart", "worker_restart", "refresh_resume"),
     ),
     RemoteSelectionRolloutStage(
         id="stage-4",
-        operation_target=8_000,
+        minimum_operations=8_000,
+        maximum_operations=8_000,
         requires_owner_approval=True,
         required_faults=("network_fault", "controlled_restart", "long_session_resume"),
     ),
     RemoteSelectionRolloutStage(
         id="stage-5",
-        operation_target=15_000,
+        minimum_operations=15_000,
+        maximum_operations=15_000,
         requires_owner_approval=True,
         required_faults=("unique_file_scale", "operation_scale", "resume_after_fault"),
     ),
@@ -160,6 +166,7 @@ def build_rollout_report(
     throughput_bytes_per_second_samples: Sequence[float],
     process_cpu_milliseconds: float,
     peak_process_memory_bytes: int,
+    environment_gate_passed: bool,
     queue_error_count: int = 0,
     manifest_checksum_mismatch_count: int = 0,
     jpeg_checksum_mismatch_count: int = 0,
@@ -181,10 +188,12 @@ def build_rollout_report(
         "schemaVersion": REMOTE_SELECTION_ROLLOUT_REPORT_SCHEMA,
         "stage": {
             "id": stage.id,
-            "operationTarget": stage.operation_target,
+            "minimumOperations": stage.minimum_operations,
+            "operationTarget": stage.maximum_operations,
             "requiresOwnerApproval": stage.requires_owner_approval,
         },
         "environment": dict(environment),
+        "environmentGate": {"passed": environment_gate_passed},
         "approval": {
             "explicitOwnerApproval": explicit_owner_approval,
             "required": stage.requires_owner_approval,
@@ -258,8 +267,10 @@ def validate_rollout_report(payload: Mapping[str, object]) -> None:
     _reject_sensitive_data(payload)
     stage_payload = _mapping(payload.get("stage"), "stage")
     stage = rollout_stage(_string(stage_payload.get("id"), "stage.id"))
-    if stage_payload.get("operationTarget") != stage.operation_target:
+    if stage_payload.get("operationTarget") != stage.maximum_operations:
         raise RemoteSelectionRolloutReportError("The rollout operation target drifted.")
+    if stage_payload.get("minimumOperations", stage.minimum_operations) != stage.minimum_operations:
+        raise RemoteSelectionRolloutReportError("The rollout operation range drifted.")
     if stage_payload.get("requiresOwnerApproval") is not stage.requires_owner_approval:
         raise RemoteSelectionRolloutReportError("The rollout approval policy drifted.")
     source = _mapping(payload.get("source"), "source")
@@ -272,6 +283,7 @@ def validate_rollout_report(payload: Mapping[str, object]) -> None:
     )
     _validate_metrics(_mapping(payload.get("metrics"), "metrics"))
     _validate_performance(_mapping(payload.get("performance"), "performance"))
+    _environment_gate_passed(payload, stage)
     outcomes = _mapping(payload.get("outcomes"), "outcomes")
     _validate_outcomes(outcomes, source_count)
     _validate_prior_stages(payload.get("priorStages"), stage)
@@ -328,11 +340,38 @@ def _decision_status(payload: Mapping[str, object]) -> RolloutStatus:
     approval_ok = (
         not stage.requires_owner_approval or approval.get("explicitOwnerApproval") is not None
     )
-    if errors == 0 and parity_ok and required_faults_ok and prior_ok and approval_ok:
+    operation_count = _non_negative_int(
+        outcomes.get("operationCount"),
+        "outcomes.operationCount",
+    )
+    operation_range_ok = stage.minimum_operations <= operation_count <= stage.maximum_operations
+    environment_ok = _environment_gate_passed(payload, stage)
+    if (
+        errors == 0
+        and parity_ok
+        and required_faults_ok
+        and prior_ok
+        and approval_ok
+        and operation_range_ok
+        and environment_ok
+    ):
         return "passed"
     if errors > 0 or any(status == "failed" for status in faults.values()):
         return "failed"
     return "blocked"
+
+
+def _environment_gate_passed(
+    payload: Mapping[str, object],
+    stage: RemoteSelectionRolloutStage,
+) -> bool:
+    environment_gate = payload.get("environmentGate")
+    if environment_gate is None:
+        return stage.id == "stage-1"
+    passed = _mapping(environment_gate, "environmentGate").get("passed")
+    if not isinstance(passed, bool):
+        raise RemoteSelectionRolloutReportError("The environment gate must be boolean.")
+    return passed
 
 
 def _validate_outcomes(outcomes: Mapping[str, object], source_count: int) -> None:

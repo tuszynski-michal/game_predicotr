@@ -109,6 +109,15 @@ class RemoteManualSelectionTransferRepository(RemoteManualSelectionHostRepositor
         temp_relative_path: str | None,
     ) -> RemoteManualSelectionTransferV1: ...
 
+    def cancel_failed_transfer_attempts(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        except_transfer_id: UUID,
+    ) -> int: ...
+
     def update_file_transfer_status(
         self,
         *,
@@ -228,6 +237,7 @@ class RemoteManualSelectionTransferService:
                 record is not None
                 and record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
             ):
+                self._cancel_obsolete_failed_attempts(record.transfer)
                 self._ensure_materialization(record.transfer)
             return record
         record = self._repository.get_verified_transfer_record(
@@ -239,6 +249,7 @@ class RemoteManualSelectionTransferService:
             record is not None
             and record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
         ):
+            self._cancel_obsolete_failed_attempts(record.transfer)
             self._ensure_materialization(record.transfer)
         return record
 
@@ -297,6 +308,7 @@ class RemoteManualSelectionTransferService:
                 declared_bytes,
                 declared_checksum_sha256,
             )
+            self._cancel_obsolete_failed_attempts(existing_verified.transfer)
             self._ensure_materialization(existing_verified.transfer)
             return existing_verified
         existing = self._repository.get_transfer_record(
@@ -312,6 +324,7 @@ class RemoteManualSelectionTransferService:
                 RemoteManualSelectionTransferStatus.VERIFIED,
                 RemoteManualSelectionTransferStatus.MATERIALIZED,
             }:
+                self._cancel_obsolete_failed_attempts(existing.transfer)
                 self._ensure_materialization(existing.transfer)
                 return existing
             raise _transfer_conflict("The transfer request ID is already in progress or terminal.")
@@ -418,6 +431,7 @@ class RemoteManualSelectionTransferService:
                         verified_relative_path,
                         checksum,
                     )
+                    self._cancel_obsolete_failed_attempts(transfer)
                     self._ensure_materialization(transfer)
                     return RemoteManualSelectionTransferRecord(
                         transfer,
@@ -465,6 +479,7 @@ class RemoteManualSelectionTransferService:
                     verified_relative_path,
                     checksum,
                 )
+                self._cancel_obsolete_failed_attempts(transfer)
                 self._ensure_materialization(transfer)
                 return RemoteManualSelectionTransferRecord(transfer, verified_relative_path)
         except BaseException:
@@ -685,6 +700,17 @@ class RemoteManualSelectionTransferService:
             file_id=transfer.file_id,
             transfer_id=transfer.id,
             generation=transfer.generation,
+        )
+
+    def _cancel_obsolete_failed_attempts(
+        self,
+        transfer: RemoteManualSelectionTransferV1,
+    ) -> None:
+        self._repository.cancel_failed_transfer_attempts(
+            batch_id=transfer.batch_id,
+            file_id=transfer.file_id,
+            generation=transfer.generation,
+            except_transfer_id=transfer.id,
         )
 
 

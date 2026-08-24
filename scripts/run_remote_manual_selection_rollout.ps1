@@ -2,6 +2,9 @@
 param(
     [switch]$Check,
 
+    [ValidateSet('stage-1', 'stage-2-local')]
+    [string]$Stage = 'stage-1',
+
     [string]$Observation = '',
 
     [string]$Output = '',
@@ -28,7 +31,7 @@ if ([string]::IsNullOrWhiteSpace($Output)) {
     $Output = Join-Path $repositoryRoot 'artifacts\remote-manual-selection-rollout\stage-1.json'
 }
 
-$arguments = @("`"$script`"", '--output', "`"$Output`"")
+$arguments = @("`"$script`"", '--output', "`"$Output`"", '--stage', $Stage)
 if ($Check) {
     $arguments += '--check'
 }

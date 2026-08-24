@@ -2078,6 +2078,14 @@ pełne testy dotkniętych workspace'ów; lint/typecheck/build/OpenAPI/format che
 zduplikowanych finalnych plików, akceptowalny lag UI i zaakceptowany runbook;
 rollout nie postępuje przy niespełnionej bramce.
 
+**Outcome v0.7.43 (częściowy etap 2):** lokalna podbramka 100 JPEG-ów korzysta
+z produkcyjnego control plane, streamingu, materializacji, finalizacji i
+rzeczywistego tymczasowego filesystemu. Udana zweryfikowana próba transferu
+anuluje starsze nieudane próby tego samego pliku i generacji, zachowując ich
+wpisy audytowe; finalizacja nadal blokuje nieodzyskany bieżący `failed`.
+Raport pozostaje `blocked` do czasu osobnej próby dwóch profili/UI, LAN,
+offline host/operator, restartu API, revoke i zmiany URL tunelu.
+
 **Rollback:** Wyłączyć flagę, revoke sesje i wrócić do lokalnej selekcji;
 zachować raporty i stan do diagnozy.
 

@@ -73,6 +73,24 @@ ani kopiowania JPEG-ów do repozytorium.
   parametrów `-AllowLarge` oraz `-OwnerApproval`; skrypt nie uruchamia sesji,
   tunelu ani transferu.
 
+### v0.7.43 — lokalna podbramka etapu 2 i bezpieczne ponowienie transferu
+
+- Etap 2 ma zakres 100–500 operacji i osobną bramkę środowiskową. Lokalny
+  harness przetwarza 100 JPEG-ów przez produkcyjny control plane, streaming,
+  materializację, finalizację i rzeczywisty tymczasowy filesystem.
+- Fault injection obejmuje exact retry operacji, przerwany transfer hosta,
+  rekonstrukcję usługi po pięćdziesiątej decyzji oraz revoke. Wynik zachowuje
+  status `blocked`, ponieważ nie wykonano jeszcze rzeczywistego UI, dwóch
+  profili, LAN, restartu API ani zmiany URL tunelu.
+- Harness wykrył błąd finalizacji po udanym ponowieniu przerwanego transferu.
+  Udana zweryfikowana próba anuluje teraz starsze nieudane próby tego samego
+  pliku i generacji, nie usuwając ich audytowego wpisu ani nie osłabiając
+  rewizyjnej bariery finalizacji.
+- Lokalna podbramka zakończyła 100 operacji, 100 materializacji i zgodność
+  100 plików z output/trace bez utraty, duplikatu i błędu checksummy. Raport:
+  `artifacts/remote-manual-selection-rollout/stage-2-local.json` (lokalny,
+  ignorowany przez Git).
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

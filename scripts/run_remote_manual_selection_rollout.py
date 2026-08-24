@@ -42,9 +42,11 @@ from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionFinalizationSnapshot,
 )
 from PIL import Image
+from remote_manual_selection_rollout_stage_two import build_stage_two_local_report
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "artifacts" / "remote-manual-selection-rollout" / "stage-1.json"
+DEFAULT_STAGE_ONE_REPORT = DEFAULT_OUTPUT
 SESSION_ID = UUID("11111111-1111-4111-8111-111111111111")
 COLLECTION_ID = UUID("22222222-2222-4222-8222-222222222222")
 BATCH_ID = UUID("33333333-3333-4333-8333-333333333333")
@@ -317,6 +319,7 @@ def build_stage_one_report() -> dict[str, object]:
         throughput_bytes_per_second_samples=transfer_throughputs,
         process_cpu_milliseconds=cpu_milliseconds,
         peak_process_memory_bytes=max(peak_memory_bytes, 1),
+        environment_gate_passed=True,
         fault_outcomes={
             "duplicate_replay": duplicate_replay and command_faults_ok["duplicate_replay"],
             "restart_recovery": first == second,
@@ -511,6 +514,10 @@ def build_observation_report(
             observation.get("peakProcessMemoryBytes"),
             "peakProcessMemoryBytes",
         ),
+        environment_gate_passed=_boolean(
+            observation.get("environmentGatePassed"),
+            "environmentGatePassed",
+        ),
         queue_error_count=_integer(observation.get("queueErrorCount", 0), "queueErrorCount"),
         manifest_checksum_mismatch_count=_integer(
             observation.get("manifestChecksumMismatchCount", 0),
@@ -556,6 +563,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--stage", choices=("stage-1", "stage-2-local"), default="stage-1")
+    parser.add_argument("--stage-one-report", type=Path, default=DEFAULT_STAGE_ONE_REPORT)
     parser.add_argument("--observation", type=Path)
     parser.add_argument("--allow-large", action="store_true")
     parser.add_argument("--owner-approval")
@@ -570,21 +579,37 @@ def main() -> int:
             if output.read_bytes() != canonical_report_bytes(payload):
                 raise RemoteSelectionRolloutReportError("Rollout report is not canonical JSON.")
         else:
-            payload = (
-                build_stage_one_report()
-                if arguments.observation is None
-                else build_observation_report(
+            if arguments.observation is not None:
+                payload = build_observation_report(
                     json.loads(arguments.observation.read_text(encoding="utf-8")),
                     allow_large=arguments.allow_large,
                     owner_approval=arguments.owner_approval,
                 )
-            )
+            elif arguments.stage == "stage-2-local":
+                stage_one = json.loads(arguments.stage_one_report.read_text(encoding="utf-8"))
+                if not isinstance(stage_one, dict):
+                    raise RemoteSelectionRolloutReportError(
+                        "The stage-one report must be an object."
+                    )
+                validate_rollout_report(stage_one)
+                if stage_one.get("decision") != {"status": "passed"}:
+                    raise RemoteSelectionRolloutReportError(
+                        "Stage one must pass before the stage-two local sub-gate."
+                    )
+                payload = build_stage_two_local_report(
+                    prior_stage_checksum_sha256=_string(
+                        stage_one.get("contentChecksumSha256"),
+                        "stageOne.contentChecksumSha256",
+                    )
+                )
+            else:
+                payload = build_stage_one_report()
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_bytes(canonical_report_bytes(payload))
         print(f"Remote-selection rollout report: {output}")
         print(f"SHA-256: {hashlib.sha256(output.read_bytes()).hexdigest()}")
         return 0
-    except (OSError, ValueError, RemoteSelectionRolloutReportError) as error:
+    except (OSError, RuntimeError, ValueError, RemoteSelectionRolloutReportError) as error:
         print(f"Remote-selection rollout benchmark failed: {error}")
         return 1
 
@@ -638,6 +663,12 @@ def _bool_mapping(value: object, field: str) -> dict[str, bool]:
             raise RemoteSelectionRolloutReportError(f"{field}.{key} must be boolean.")
         result[key] = item
     return result
+
+
+def _boolean(value: object, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise RemoteSelectionRolloutReportError(f"{field} must be boolean.")
+    return value
 
 
 def _string_mapping(value: object, field: str) -> dict[str, str]:

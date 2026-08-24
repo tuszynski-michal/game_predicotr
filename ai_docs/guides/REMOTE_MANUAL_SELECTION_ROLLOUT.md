@@ -14,7 +14,7 @@ wcześniejszych raportów w kolejności.
 | Etap | Wielkość | Dodatkowa zgoda | Wymagane fault injection |
 | --- | ---: | --- | --- |
 | 1 | 10 operacji | nie | duplicate replay, restart recovery, stale generation |
-| 2 | 100–500 | nie | API 5xx/retry, offline operator, revoke |
+| 2 | 100–500 | nie | API 5xx/retry, offline host/operator, revoke |
 | 3 | około 1 000 | nie | restart API, restart workera, refresh/resume |
 | 4 | około 8 000 | jawna zgoda właściciela | network fault, controlled restart, long-session resume |
 | 5 | do 15 000 | jawna zgoda właściciela | unique-file scale, operation scale, resume after fault |
@@ -68,6 +68,26 @@ Weryfikacja `check` potwierdza checksumę i kanoniczny JSON. W razie błędu
 nie poprawiaj raportu ręcznie: zatrzymaj rollout, napraw przyczynę i utwórz
 raport ponownie.
 
+## Etap 2 — lokalna bramka filesystemu i obserwacja operatorska
+
+Najpierw uruchom powtarzalną podbramkę na 100 syntetycznych JPEG-ach. Używa ona
+produkcyjnego control plane, streamingu, materializacji i finalizacji oraz
+rzeczywistego tymczasowego filesystemu. Wstrzykuje przerwany transfer, dokładne
+ponowienie operacji, rekonstrukcję usługi i revoke:
+
+```powershell
+npm run remote-selection:rollout:stage2:local
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_remote_manual_selection_rollout.ps1 `
+  -Check -Stage stage-2-local `
+  -Output .\artifacts\remote-manual-selection-rollout\stage-2-local.json `
+  -TimeoutSeconds 120
+```
+
+Ten raport ma celowo status `blocked`: dowodzi zgodności warstwy kodowej i
+filesystemu, ale nie zastępuje dwóch izolowanych profili, rzeczywistego UI,
+odcięcia sieci hosta/operatora, restartu API ani LAN. Dopiero oddzielna
+obserwacja operatorska może ustawić `environmentGatePassed: true`.
+
 ## Etapy 2–5 — obserwacja operatorska
 
 Etapy 2 i 3 wykonuje się najpierw lokalnie (dwie karty, następnie dwa profile i
@@ -81,6 +101,7 @@ sekretów i ścieżek. Ma zawierać następujące pola:
 {
   "stageId": "stage-2",
   "environment": { "browser": "Chrome", "network": "LAN" },
+  "environmentGatePassed": true,
   "sourceManifestChecksumSha256": "<64 lowercase hex>",
   "sourceFileCount": 100,
   "sourceSizeBytes": [123456],
@@ -102,6 +123,7 @@ sekretów i ścieżek. Ma zawierać następujące pola:
   "queueErrorCount": 0,
   "faultOutcomes": {
     "api_5xx_retry": true,
+    "offline_host": true,
     "offline_operator": true,
     "revoke": true
   },

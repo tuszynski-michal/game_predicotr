@@ -139,6 +139,20 @@ wrócić jako `prompt`; ponowne wyrażenie zgody nie usuwa lokalnego postępu.
 Przeglądarka bez trwałego File System Access API nie może wykonywać tego trybu
 zapisu i ma pokazać jawny błąd zamiast obiecać synchronizację.
 
+Folder `<źródło> wybrane` jest przyjmowany tylko w jednym z dwóch stanów:
+
+- jest całkowicie pusty i rozpoczyna nową selekcję,
+- zawiera poprawny `manual-image-selection-output-v1.json` oraz dokładnie
+  wskazane przez niego pliki `seq_*`, dzięki czemu Reviewer odtwarza pozycję
+  źródłowego JPEG-a, następny dziewięcioplanowy zakres i wszystkie decyzje.
+
+Folder niepusty bez manifestu, z obcym plikiem, brakującym `seq_*`, inną nazwą
+źródła, liczbą plików albo checksumą manifestu źródłowego blokuje rozpoczęcie.
+Nowy manifest zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy zakres i
+kierunek. Podczas wznowienia przez nowy link losowe identyfikatory plików z
+poprzedniej sesji są bezpiecznie mapowane na bieżący indeks według ordinalu i
+względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.
+
 Poniższy opis control outboxu, transferu i materializacji na hoście dokumentuje
 historyczny wariant v0.7.27–v0.7.50. Nie jest wykonywany przez obowiązujący
 workspace operator-local. Pozostaje odtwarzalny dla audytu i nie może zostać

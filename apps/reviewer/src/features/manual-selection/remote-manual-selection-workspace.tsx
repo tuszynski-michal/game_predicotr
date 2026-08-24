@@ -689,9 +689,13 @@ export function RemoteManualSelectionWorkspace({
       batchId: currentBatch.batchId,
       currentIndex: state.currentIndex,
       decisions: state.decisions,
+      direction: currentBatch.direction,
+      fileCount: currentBatch.fileCount,
+      firstLayout: currentBatch.firstLayout,
       nextRangeStart: state.nextRangeStart,
       sessionId: session.sessionId,
       sourceDirectoryName: currentBatch.sourceDirectoryName,
+      sourceManifestChecksumSha256: currentBatch.sourceManifestChecksumSha256,
     });
   }
 

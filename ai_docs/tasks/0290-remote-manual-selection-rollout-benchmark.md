@@ -228,6 +228,18 @@ ani kopiowania JPEG-ów do repozytorium.
 - Dzięki temu po `Enter`, `F` i przycisku zapisu obie osie są odtwarzane tak samo
   jak po nawigacji strzałkami; zapis pliku i manifestu pozostaje niezmieniony.
 
+### v0.7.56 — bezpieczny folder wynikowy i wznowienie z manifestu
+
+- Folder `<źródło> wybrane` musi być pusty albo zawierać kompletny manifest i
+  dokładnie wskazane w nim JPEG-i. Niepusty folder bez manifestu, obcy plik lub
+  brak wyniku wskazanego przez decyzję blokuje selekcję przed pierwszym zapisem.
+- Manifest operator-local przechowuje checksumę manifestu źródła, liczbę
+  JPEG-ów, pierwszy zakres i kierunek. Poprawny wynik odtwarza kursor, następny
+  zakres i decyzje także po utworzeniu nowego linku; losowe `fileId` są mapowane
+  na ponownie zaindeksowane źródło według ordinalu i ścieżki.
+- Testy obejmują pusty folder, obce dane, kompletny wynik, wznowienie między
+  access sessions i blokadę innego źródła.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

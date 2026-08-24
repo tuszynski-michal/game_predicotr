@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  inspectOperatorLocalOutputDirectory,
   removeOperatorLocalSelection,
+  resumeOperatorLocalBatch,
   writeOperatorLocalManifest,
   writeOperatorLocalSelection,
 } from '../src/features/manual-selection/operator-local-selection-output.ts';
@@ -55,6 +57,28 @@ class MemoryDirectoryHandle {
     if (!this.files.delete(name))
       throw new DOMException('missing', 'NotFoundError');
   }
+
+  async *entries() {
+    yield* this.files.entries();
+  }
+}
+
+const SOURCE_CHECKSUM = 'a'.repeat(64);
+
+function manifestInput(overrides = {}) {
+  return {
+    batchId: 'batch-1',
+    currentIndex: 4,
+    decisions: [],
+    direction: 'ascending',
+    fileCount: 10,
+    firstLayout: 1,
+    nextRangeStart: 1,
+    sessionId: 'session-1',
+    sourceDirectoryName: '1 - 19',
+    sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+    ...overrides,
+  };
 }
 
 test('writes original JPEG bytes idempotently into the operator output folder', async () => {
@@ -115,14 +139,10 @@ test('never overwrites or removes a foreign operator file', async () => {
 
 test('materializes a local progress manifest without a host transfer', async () => {
   const directory = new MemoryDirectoryHandle();
-  await writeOperatorLocalManifest(directory, {
-    batchId: 'batch-1',
-    currentIndex: 4,
-    decisions: [],
-    nextRangeStart: 10,
-    sessionId: 'session-1',
-    sourceDirectoryName: '1 - 19',
-  });
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({ nextRangeStart: 10, firstLayout: 10 }),
+  );
 
   const manifest = JSON.parse(
     await (
@@ -143,26 +163,165 @@ test('never overwrites a manifest owned by another operator session', async () =
     new TextEncoder().encode(
       JSON.stringify({
         batchId: 'batch-foreign',
+        currentIndex: 4,
+        decisions: [],
+        nextRangeStart: 1,
+        schemaVersion: 1,
         sessionId: 'session-foreign',
+        sourceDirectoryName: '1 - 19',
         storageMode: 'operator_local',
+        updatedAt: '2026-08-24T00:00:00.000Z',
       }),
     ),
   );
   directory.files.set(foreign.name, foreign);
 
   await assert.rejects(
-    writeOperatorLocalManifest(directory, {
-      batchId: 'batch-1',
-      currentIndex: 4,
-      decisions: [],
-      nextRangeStart: 10,
-      sessionId: 'session-1',
-      sourceDirectoryName: '1 - 19',
-    }),
+    writeOperatorLocalManifest(directory, manifestInput()),
     /innej sesji/,
   );
   assert.equal(
     JSON.parse(await (await foreign.getFile()).text()).sessionId,
     'session-foreign',
+  );
+});
+
+test('accepts only an empty folder or a complete resumable output', async () => {
+  const empty = new MemoryDirectoryHandle();
+  assert.deepEqual(await inspectOperatorLocalOutputDirectory(empty), {
+    kind: 'empty',
+  });
+
+  const foreign = new MemoryDirectoryHandle();
+  foreign.files.set(
+    'notes.txt',
+    new MemoryFileHandle('notes.txt', new TextEncoder().encode('foreign')),
+  );
+  await assert.rejects(
+    inspectOperatorLocalOutputDirectory(foreign),
+    /nie jest pusty/,
+  );
+
+  const resumable = new MemoryDirectoryHandle();
+  const source = new File(['selected'], 'photo.jpg', { type: 'image/jpeg' });
+  const output = await writeOperatorLocalSelection(resumable, source, 1);
+  const decision = {
+    action: 'accepted',
+    fileId: 'old-file-id',
+    imageChecksumSha256: output.checksumSha256,
+    imagePath: 'photo.jpg',
+    operationId: 'decision-1',
+    outputName: output.name,
+    rangeEnd: 9,
+    rangeStart: 1,
+    selectionGeneration: 1,
+    sourceIndex: 0,
+  };
+  await writeOperatorLocalManifest(
+    resumable,
+    manifestInput({
+      currentIndex: 1,
+      decisions: [decision],
+      nextRangeStart: 10,
+    }),
+  );
+  const state = await inspectOperatorLocalOutputDirectory(resumable);
+  assert.equal(state.kind, 'resumable');
+  assert.equal(state.manifest.nextRangeStart, 10);
+});
+
+test('resumes on the saved source photo and next range across access sessions', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const source = new File(['selected'], 'photo.jpg', { type: 'image/jpeg' });
+  const output = await writeOperatorLocalSelection(directory, source, 1);
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 3,
+      decisions: [
+        {
+          action: 'accepted',
+          fileId: 'old-file-id',
+          imageChecksumSha256: output.checksumSha256,
+          imagePath: 'photo.jpg',
+          operationId: 'decision-1',
+          outputName: output.name,
+          rangeEnd: 9,
+          rangeStart: 1,
+          selectionGeneration: 1,
+          sourceIndex: 0,
+        },
+      ],
+      nextRangeStart: 10,
+    }),
+  );
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  const resumed = await resumeOperatorLocalBatch(
+    state.manifest,
+    {
+      batchId: 'new-batch',
+      cursorIndex: 0,
+      decisions: [],
+      direction: 'ascending',
+      fileCount: 10,
+      firstLayout: 1,
+      navigationStep: 1,
+      nextRangeStart: 1,
+      schemaVersion: 1,
+      sessionId: 'new-session',
+      sourceDirectoryName: '1 - 19',
+      sourceKind: 'directory_handle',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+      totalBytes: 100,
+      updatedAt: '2026-08-24T00:00:00.000Z',
+    },
+    async (ordinal) =>
+      ordinal === 0
+        ? {
+            batchId: 'new-batch',
+            fileId: 'new-file-id',
+            lastModifiedMs: 1,
+            mimeType: 'image/jpeg',
+            name: 'photo.jpg',
+            ordinal: 0,
+            relativePath: 'photo.jpg',
+            schemaVersion: 1,
+            sessionId: 'new-session',
+            sizeBytes: 8,
+          }
+        : null,
+  );
+  assert.equal(resumed.cursorIndex, 3);
+  assert.equal(resumed.nextRangeStart, 10);
+  assert.equal(resumed.decisions[0].fileId, 'new-file-id');
+  assert.equal(resumed.hostRegistered, true);
+});
+
+test('blocks a resumable folder from a different indexed source', async () => {
+  const directory = new MemoryDirectoryHandle();
+  await writeOperatorLocalManifest(directory, manifestInput());
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  await assert.rejects(
+    resumeOperatorLocalBatch(
+      state.manifest,
+      {
+        batchId: 'new-batch',
+        cursorIndex: 0,
+        direction: 'ascending',
+        fileCount: 10,
+        firstLayout: 1,
+        schemaVersion: 1,
+        sessionId: 'new-session',
+        sourceDirectoryName: '1 - 19',
+        sourceKind: 'directory_handle',
+        sourceManifestChecksumSha256: 'b'.repeat(64),
+        totalBytes: 100,
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+      async () => null,
+    ),
+    /zmienił się/,
   );
 });

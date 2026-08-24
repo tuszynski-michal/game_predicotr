@@ -41,6 +41,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Zdalny podgląd nie resetuje już wymiarów tego samego JPEG-a po drugim refreshu
   następującym po zatwierdzeniu. Scroll poziomy i pionowy pozostają zachowane po
   `Enter`, `F` i przycisku zapisu, nie tylko po nawigacji strzałkami.
+- Folder operator-local jest teraz przyjmowany tylko jako pusty albo jako
+  kompletny wynik do wznowienia. Manifest przechowuje checksumę źródła, liczbę
+  JPEG-ów, pierwszy zakres i kierunek; przy nowym linku odtwarza zdjęcie,
+  następny zakres i decyzje, mapując je na świeże identyfikatory IndexedDB.
+  Obce pliki, brak manifestu, brak wskazanego `seq_*` lub inne źródło blokują
+  start przed zapisem.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

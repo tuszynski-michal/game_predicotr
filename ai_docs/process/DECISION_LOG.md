@@ -5478,6 +5478,29 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   stagingu i zapis Blobów w IndexedDB odrzucono jako bardziej złożone, wolniejsze
   albo niebezpieczne dla pamięci i trwałości.
 
+## D-228 — Manifest operatora jest źródłem wznowienia folderu wynikowego
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** folder `<źródło> wybrane` może rozpocząć pracę tylko jako pusty
+  albo jako kompletny wynik operator-local. W drugim przypadku
+  `manual-image-selection-output-v1.json` przechowuje tożsamość źródła, liczbę
+  zdjęć, kierunek, kursor, następny zakres i decyzje. Czasowa access session nie
+  jest właścicielem wyniku; po nowym linku decyzje są wiązane ze świeżymi
+  identyfikatorami IndexedDB według ordinalu i względnej ścieżki.
+- **Context:** wcześniejszy Reviewer bezwarunkowo otwierał lub tworzył folder
+  wynikowy. Nie potrafił odróżnić pustego katalogu od obcych danych ani użyć
+  manifestu do wznowienia po utracie originu poprzedniego Quick Tunnel.
+- **Safety:** niepusty folder bez poprawnego manifestu, dodatkowy plik,
+  brakujący `seq_*`, niezgodna nazwa, liczba zdjęć lub checksum źródła blokują
+  start. Zapis i cofnięcie nadal weryfikują checksumę konkretnego JPEG-a.
+- **Consequences:** ponowne wskazanie zgodnego źródła i katalogu nadrzędnego
+  wystarcza do odtworzenia zdjęcia oraz następnego zakresu, także pod nowym
+  linkiem. Rozszerzenie manifestu v1 jest kompatybilne z istniejącą nazwą pliku.
+- **Alternatives:** wyłączne poleganie na IndexedDB originu, bezwarunkowe
+  czyszczenie folderu i zezwolenie na mieszanie obcych plików odrzucono jako
+  podatne na utratę postępu albo nadpisanie danych.
+
 ## Szablon nowej decyzji
 
 ```text

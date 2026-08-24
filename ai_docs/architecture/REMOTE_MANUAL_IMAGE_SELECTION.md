@@ -25,6 +25,12 @@ flowchart LR
   konieczne, ponieważ File System Access API nie udostępnia rodzica uchwytu.
 - Reviewer tworzy `<sourceDirectoryName> wybrane`, zapisuje oryginalne bajty
   jako `seq_start-end.jpg` i lokalny `manual-image-selection-output-v1.json`.
+- Folder wynikowy przechodzi fail-closed preflight: jest pusty albo zawiera
+  kompletny manifest i wyłącznie odpowiadające mu `seq_*`. Manifest wiąże
+  postęp z checksumą metadanych źródła, a nie z czasowym linkiem dostępu.
+- Poprawny istniejący manifest odtwarza kursor, następny zakres, kierunek i
+  decyzje również pod nową access session. Identyfikatory zdjęć są ponownie
+  mapowane na świeży IndexedDB po ordinalu i względnej ścieżce.
 - Checksum-bound ownership blokuje nadpisanie lub usunięcie obcego pliku.
 - Kursor, zakres i decyzje są transakcyjne w IndexedDB operatora; zoom oraz obie
   osie scrolla są per session+batch w localStorage operatora.

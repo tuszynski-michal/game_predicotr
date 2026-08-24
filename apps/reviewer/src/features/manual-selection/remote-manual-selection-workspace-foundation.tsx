@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { writeOperatorLocalManifest } from './operator-local-selection-output';
+import {
+  inspectOperatorLocalOutputDirectory,
+  resumeOperatorLocalBatch,
+  writeOperatorLocalManifest,
+} from './operator-local-selection-output';
 import { RemoteManualSelectionWorkspace } from './remote-manual-selection-workspace';
 import {
   DirectoryHandleRemoteSourceAdapter,
@@ -300,7 +304,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
   }
 
   async function chooseOutputParent() {
-    if (!canWrite || busy || session === null) return;
+    if (!canWrite || busy || session === null || batch === null) return;
     const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
     if (picker === undefined) {
       setError(
@@ -324,6 +328,16 @@ export function RemoteManualSelectionWorkspaceFoundation({
       const output = await parent.getDirectoryHandle(outputName, {
         create: true,
       });
+      const outputState = await inspectOperatorLocalOutputDirectory(output);
+      const resumed =
+        outputState.kind === 'resumable'
+          ? await resumeOperatorLocalBatch(
+              outputState.manifest,
+              batch,
+              (ordinal) =>
+                store.loadSourceItem(sessionId, batch.batchId, ordinal),
+            )
+          : null;
       const updated: RemoteSelectionLocalSessionRecord = {
         ...session,
         outputDirectoryName: outputName,
@@ -332,9 +346,32 @@ export function RemoteManualSelectionWorkspaceFoundation({
         updatedAt: new Date().toISOString(),
       };
       await store.saveSession(updated);
+      if (resumed !== null) {
+        await writeOperatorLocalManifest(output, {
+          allowSessionAdoption: true,
+          batchId: resumed.batchId,
+          currentIndex: resumed.cursorIndex,
+          decisions: resumed.decisions ?? [],
+          direction: resumed.direction,
+          fileCount: resumed.fileCount,
+          firstLayout: resumed.firstLayout,
+          nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
+          sessionId: resumed.sessionId,
+          sourceDirectoryName: resumed.sourceDirectoryName,
+          sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
+        });
+        await store.saveBatch(resumed);
+        setFirstLayout(String(resumed.firstLayout));
+        setDirection(resumed.direction);
+        await refresh();
+        setNotice(
+          `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
+        );
+        return;
+      }
       await refresh();
       setNotice(
-        `Folder wynikowy „${outputName}” został utworzony na urządzeniu operatora.`,
+        `Folder wynikowy „${outputName}” jest pusty i gotowy do nowej selekcji.`,
       );
     } catch (cause) {
       if (!isPickerCancelled(cause)) setError(errorMessage(cause));
@@ -368,6 +405,37 @@ export function RemoteManualSelectionWorkspaceFoundation({
     setError('');
     setNotice('Przygotowywanie lokalnego folderu i manifestu…');
     try {
+      const outputState = await inspectOperatorLocalOutputDirectory(
+        session.outputHandle,
+      );
+      if (outputState.kind === 'resumable') {
+        const resumed = await resumeOperatorLocalBatch(
+          outputState.manifest,
+          batch,
+          (ordinal) => store.loadSourceItem(sessionId, batch.batchId, ordinal),
+        );
+        await writeOperatorLocalManifest(session.outputHandle, {
+          allowSessionAdoption: true,
+          batchId: resumed.batchId,
+          currentIndex: resumed.cursorIndex,
+          decisions: resumed.decisions ?? [],
+          direction: resumed.direction,
+          fileCount: resumed.fileCount,
+          firstLayout: resumed.firstLayout,
+          nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
+          sessionId: resumed.sessionId,
+          sourceDirectoryName: resumed.sourceDirectoryName,
+          sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
+        });
+        await store.saveBatch(resumed);
+        setFirstLayout(String(resumed.firstLayout));
+        setDirection(resumed.direction);
+        await refresh();
+        setNotice(
+          `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
+        );
+        return;
+      }
       const collectionId = batch.collectionId ?? crypto.randomUUID();
       const configured: RemoteSelectionLocalBatchRecord = {
         ...batch,
@@ -385,9 +453,13 @@ export function RemoteManualSelectionWorkspaceFoundation({
         batchId: configured.batchId,
         currentIndex: configuredWorkspace.currentIndex,
         decisions: configuredWorkspace.decisions,
+        direction: configured.direction,
+        fileCount: configured.fileCount,
+        firstLayout: configured.firstLayout,
         nextRangeStart: configuredWorkspace.nextRangeStart,
         sessionId: session.sessionId,
         sourceDirectoryName: configured.sourceDirectoryName,
+        sourceManifestChecksumSha256: configured.sourceManifestChecksumSha256,
       });
       await store.saveBatch(configured);
       await store.saveBatch({

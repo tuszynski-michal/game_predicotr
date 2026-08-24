@@ -103,6 +103,7 @@ export function RemoteManualSelectionWorkspace({
   const previewUrls = useRef(new Map<number, string>());
   const viewport = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
+  const pendingScrollRestore = useRef(false);
   const viewStartedAt = useRef(performance.now());
   const viewedKey = useRef('');
   const fullscreen = useRef<HTMLDivElement>(null);
@@ -507,9 +508,21 @@ export function RemoteManualSelectionWorkspace({
   ]);
 
   useEffect(() => {
-    if (viewport.current !== null)
+    if (
+      !pendingScrollRestore.current ||
+      previewUrl === null ||
+      previewOrdinal !== workspace.currentIndex ||
+      zoomedImageSize === null
+    ) {
+      return;
+    }
+    const animationFrame = window.requestAnimationFrame(() => {
+      if (viewport.current === null) return;
       viewport.current.scrollTop = savedScrollTop.current;
-  }, [previewOrdinal]);
+      pendingScrollRestore.current = false;
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [previewOrdinal, previewUrl, workspace.currentIndex, zoomedImageSize]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -560,6 +573,7 @@ export function RemoteManualSelectionWorkspace({
   async function persistCursor(nextIndex: number) {
     savedScrollTop.current =
       viewport.current?.scrollTop ?? savedScrollTop.current;
+    pendingScrollRestore.current = true;
     const currentBatch = batchRef.current;
     const next = {
       ...currentBatch,
@@ -888,25 +902,34 @@ export function RemoteManualSelectionWorkspace({
   }
 
   return (
-    <section className="remoteManualWorkspace" aria-live="polite">
-      <header className="remoteManualWorkspaceHeader">
+    <section
+      className="remoteManualWorkspace manualImageSelectionWorkspace manualImageSelectionActive"
+      aria-live="polite"
+    >
+      <header className="remoteManualWorkspaceHeader manualImageSelectionHeader">
         <div>
           <p className="eyebrow">
-            {batch.collectionName} / {batch.batchName}
+            {batch.sourceDirectoryName} · {batch.collectionName} /{' '}
+            {batch.batchName}
           </p>
-          <h2>
-            Zakres {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
-          </h2>
+          <h1>Ręczna selekcja zdjęć</h1>
           <p>
-            {batch.sourceDirectoryName} · zdjęcie {workspace.currentIndex + 1}/
-            {batch.fileCount}
+            Zakres{' '}
+            <strong>
+              {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
+            </strong>{' '}
+            · zdjęcie {workspace.currentIndex + 1} / {batch.fileCount}
           </p>
         </div>
-        <span
-          className={`remoteSyncBadge remoteSyncBadge--${currentStatus.kind}`}
-        >
-          {currentStatus.label}
-        </span>
+        <div className="manualImageSelectionCounters">
+          <span>zatwierdzone: {acceptedCount}</span>
+          <span>decyzje: {workspace.decisions.length}</span>
+          <span
+            className={`remoteSyncBadge remoteSyncBadge--${currentStatus.kind}`}
+          >
+            {currentStatus.label}
+          </span>
+        </div>
       </header>
 
       {typeof navigator !== 'undefined' && !navigator.onLine ? (
@@ -934,70 +957,151 @@ export function RemoteManualSelectionWorkspace({
         </p>
       ) : null}
 
-      <div className="remoteManualWorkspaceGrid">
-        <div className="remoteManualPreview" ref={fullscreen}>
-          <div className="remoteManualFullscreenRange">
-            {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
-          </div>
-          <div
-            className="remoteManualPreviewViewport"
-            onScroll={(event) => {
-              savedScrollTop.current = event.currentTarget.scrollTop;
+      <div className="manualImageSelectionViewerToolbar">
+        <label className="manualImageSelectionStep">
+          Skok strzałki
+          <select
+            id="remote-navigation-step"
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              const next = {
+                ...batchRef.current,
+                navigationStep: value,
+                updatedAt: new Date().toISOString(),
+              };
+              void store.saveBatch(next).then(() => {
+                setBatch(next);
+                batchRef.current = next;
+              });
             }}
-            ref={viewport}
+            value={workspace.navigationStep}
           >
-            {previewUrl === null ||
-            previewOrdinal !== workspace.currentIndex ? (
-              <p>Ładowanie lokalnego JPEG-a…</p>
-            ) : (
-              <img
-                alt={`Lokalny podgląd ${current?.name ?? 'JPEG'}`}
-                draggable={false}
-                src={previewUrl}
-                onLoadCapture={(event) => {
-                  setNaturalImageSize({
-                    height: event.currentTarget.naturalHeight,
-                    width: event.currentTarget.naturalWidth,
-                  });
-                  setDecoded(true);
-                }}
-                style={
-                  zoomedImageSize === null
-                    ? undefined
-                    : {
-                        height: `${zoomedImageSize.height}px`,
-                        width: `${zoomedImageSize.width}px`,
-                      }
+            {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
+              <option key={step} value={step}>
+                co {step}{' '}
+                {step === 1
+                  ? 'zdjęcie'
+                  : step >= 2 && step <= 4
+                    ? 'zdjęcia'
+                    : 'zdjęć'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div
+          className="manualImageSelectionZoom"
+          aria-label="Powiększenie zdjęcia"
+        >
+          <button
+            aria-label="Pomniejsz zdjęcie"
+            className="secondaryButton"
+            disabled={zoom <= 100 || busy}
+            onClick={() => setZoom((value) => Math.max(100, value - 25))}
+            type="button"
+          >
+            −
+          </button>
+          <span>{zoom}%</span>
+          <button
+            aria-label="Powiększ zdjęcie"
+            className="secondaryButton"
+            disabled={zoom >= 3000 || busy}
+            onClick={() => setZoom((value) => Math.min(3000, value + 25))}
+            type="button"
+          >
+            +
+          </button>
+        </div>
+        <button
+          className="secondaryButton"
+          disabled={busy}
+          onClick={() => void toggleFullscreen()}
+          type="button"
+        >
+          Pełny ekran
+        </button>
+      </div>
+
+      <div className="remoteManualWorkspaceGrid">
+        <div
+          className="remoteManualPreview manualImageSelectionViewer"
+          ref={fullscreen}
+        >
+          <div
+            className="manualImageSelectionFullscreenInfo"
+            aria-live="polite"
+          >
+            <strong>
+              Zakres {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
+            </strong>
+            <span>
+              zdjęcie {workspace.currentIndex + 1} / {batch.fileCount}
+            </span>
+            <span>skok strzałki: {workspace.navigationStep}</span>
+            <span>{current?.relativePath ?? 'brak zdjęcia'}</span>
+          </div>
+          <button
+            aria-label="Poprzednie zdjęcie"
+            className="manualImageSelectionNav"
+            disabled={workspace.currentIndex === 0 || busy}
+            onClick={() => void moveImage(-workspace.navigationStep)}
+            type="button"
+          >
+            ←
+          </button>
+          <div className="manualImageSelectionImageFrame">
+            <div
+              className="remoteManualPreviewViewport manualImageSelectionImageViewport"
+              onScroll={(event) => {
+                if (!pendingScrollRestore.current) {
+                  savedScrollTop.current = event.currentTarget.scrollTop;
                 }
-              />
-            )}
-          </div>
-          <div className="remoteManualPreviewControls">
-            <button
-              onClick={() => setZoom((value) => Math.max(10, value - 10))}
-              type="button"
+              }}
+              ref={viewport}
             >
-              −
-            </button>
-            <input
-              aria-label="Powiększenie"
-              max="3000"
-              min="10"
-              onChange={(event) => setZoom(Number(event.target.value))}
-              type="range"
-              value={zoom}
-            />
-            <strong>{zoom}%</strong>
-            <button
-              onClick={() => setZoom((value) => Math.min(3000, value + 10))}
-              type="button"
-            >
-              +
-            </button>
-            <button onClick={() => void toggleFullscreen()} type="button">
-              Pełny ekran
-            </button>
+              {previewUrl === null ||
+              previewOrdinal !== workspace.currentIndex ? (
+                <p>Ładowanie lokalnego JPEG-a…</p>
+              ) : (
+                <div
+                  className="remoteManualPreviewCanvas manualImageSelectionImageCanvas"
+                  style={
+                    zoomedImageSize === null
+                      ? undefined
+                      : {
+                          height: `${zoomedImageSize.height}px`,
+                          width: `${zoomedImageSize.width}px`,
+                        }
+                  }
+                >
+                  <img
+                    alt={`Lokalny podgląd ${current?.name ?? 'JPEG'}`}
+                    draggable={false}
+                    src={previewUrl}
+                    onLoadCapture={(event) => {
+                      setNaturalImageSize({
+                        height: event.currentTarget.naturalHeight,
+                        width: event.currentTarget.naturalWidth,
+                      });
+                      setDecoded(true);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="manualImageSelectionFilename">
+              {current?.relativePath ?? 'brak zdjęcia'}
+            </p>
           </div>
+          <button
+            aria-label="Następne zdjęcie"
+            className="manualImageSelectionNav"
+            disabled={workspace.currentIndex >= batch.fileCount - 1 || busy}
+            onClick={() => void moveImage(workspace.navigationStep)}
+            type="button"
+          >
+            →
+          </button>
         </div>
 
         <aside className="remoteManualSyncPanel">
@@ -1076,30 +1180,8 @@ export function RemoteManualSelectionWorkspace({
               ))}
             </ul>
           ) : null}
-          <label htmlFor="remote-navigation-step">Przeskok zdjęć</label>
-          <select
-            id="remote-navigation-step"
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              const next = {
-                ...batchRef.current,
-                navigationStep: value,
-                updatedAt: new Date().toISOString(),
-              };
-              void store.saveBatch(next).then(() => {
-                setBatch(next);
-                batchRef.current = next;
-              });
-            }}
-            value={workspace.navigationStep}
-          >
-            {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
-              <option key={step} value={step}>
-                {step}
-              </option>
-            ))}
-          </select>
           <button
+            className="secondaryButton"
             disabled={syncing}
             onClick={() => void syncNow()}
             type="button"
@@ -1110,6 +1192,7 @@ export function RemoteManualSelectionWorkspace({
             <div className="remoteManualFinalizePanel">
               <h3>Zakończenie partii</h3>
               <button
+                className="secondaryButton"
                 disabled={!canEdit || syncing || finalizing}
                 onClick={() => void previewFinalization()}
                 type="button"
@@ -1146,44 +1229,32 @@ export function RemoteManualSelectionWorkspace({
         </aside>
       </div>
 
-      <footer className="remoteManualActions">
+      <footer className="remoteManualActions manualImageSelectionActions">
         <button
-          disabled={busy}
-          onClick={() => void moveImage(-workspace.navigationStep)}
-          type="button"
-        >
-          ← Poprzednie
-        </button>
-        <button
-          disabled={!canEdit || busy || hasConflict || sourceReader === null}
-          onClick={() => void acceptCurrent()}
-          type="button"
-          className="primaryButton"
-        >
-          Zatwierdź (Enter/F)
-        </button>
-        <button
-          disabled={!canEdit || busy || hasConflict}
-          onClick={() => void skipCurrent()}
-          type="button"
-        >
-          Pomiń zakres (Tab)
-        </button>
-        <button
-          disabled={busy}
-          onClick={() => void moveImage(workspace.navigationStep)}
-          type="button"
-        >
-          Następne →
-        </button>
-        <button
+          className="secondaryButton"
           disabled={
             !canEdit || busy || hasConflict || workspace.decisions.length === 0
           }
           onClick={() => void undoLast()}
           type="button"
         >
-          Cofnij (A/Ctrl+Z)
+          Cofnij A / Ctrl+Z
+        </button>
+        <button
+          className="secondaryButton"
+          disabled={!canEdit || busy || hasConflict}
+          onClick={() => void skipCurrent()}
+          type="button"
+        >
+          Pomiń Tab
+        </button>
+        <button
+          className="primaryButton"
+          disabled={!canEdit || busy || hasConflict || sourceReader === null}
+          onClick={() => void acceptCurrent()}
+          type="button"
+        >
+          {`Zapisz Enter/F jako seq_${workspace.nextRangeStart}-${workspace.nextRangeStart + 8}.jpg`}
         </button>
       </footer>
       {notice ? <p>{notice}</p> : null}

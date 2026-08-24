@@ -171,6 +171,13 @@ Synchronizacja control plane oraz maksymalnie dwa transfery działają w tle.
 Offline, konflikt, utrata permission i backpressure są jawne, a zamknięcie karty
 z outboxem lub transferem wyświetla ostrzeżenie.
 
+Zdalny workspace używa tego samego systemu wizualnego co lokalna ręczna
+selekcja: nagłówka, toolbaru, przycisków nawigacji, płótna zdjęcia i paska
+decyzji. Viewport nie udostępnia poziomego scrolla; powiększone zdjęcie pozostaje
+wycentrowane i może być przewijane wyłącznie pionowo. Po zmianie zdjęcia pionowa
+pozycja scrolla jest odtwarzana dopiero po załadowaniu obrazu i przeliczeniu jego
+rozmiaru.
+
 ### Panel hosta zdalnej selekcji
 
 Niezależna od gry zakładka Admina pokazuje nad lokalnym narzędziem osobny panel

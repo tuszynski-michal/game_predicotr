@@ -330,8 +330,7 @@
 }
 
 .remoteManualWorkspaceHeader,
-.remoteManualActions,
-.remoteManualPreviewControls {
+.remoteManualActions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -351,7 +350,6 @@
   min-width: 0;
 }
 
-.remoteManualPreview,
 .remoteManualSyncPanel,
 .remoteSelectionSourceRecovery {
   min-width: 0;
@@ -363,55 +361,19 @@
 
 .remoteManualPreview {
   position: relative;
+  min-width: 0;
 }
 
 .remoteManualPreviewViewport {
-  display: flex;
-  height: min(68vh, 760px);
-  justify-content: center;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   background: #02060b;
 }
 
-.remoteManualPreviewViewport img {
-  align-self: flex-start;
-  max-width: none;
-  height: auto;
-  object-fit: contain;
-  transform-origin: top center;
-}
-
-.remoteManualPreviewControls {
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.remoteManualPreviewControls input {
-  width: min(360px, 48vw);
-}
-
-.remoteManualFullscreenRange {
-  position: absolute;
-  z-index: 2;
-  top: 18px;
-  left: 50%;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba(2, 7, 12, 0.88);
-  font-weight: 900;
-  transform: translateX(-50%);
-}
-
-.remoteManualPreview:fullscreen {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  padding: 14px;
-  background: #02060b;
-}
-
-.remoteManualPreview:fullscreen .remoteManualPreviewViewport {
-  height: auto;
+.remoteManualPreviewCanvas {
+  flex: 0 0 auto;
+  margin-block: auto;
 }
 
 .remoteManualSyncPanel dl {

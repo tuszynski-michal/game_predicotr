@@ -42,6 +42,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   transportu jako odbiorcą i Chromium zwracał `Illegal invocation`. Transport
   control plane oraz transfer JPEG wywołują teraz fetch z `globalThis`; dwa
   testy regresyjne chronią oba miejsca przed powrotem błędu.
+- Zdalny workspace ponownie używa klas wizualnych lokalnej selekcji zamiast
+  natywnie wyglądających kontrolek. Poziomy scroll podglądu jest ukryty, obraz
+  pozostaje wycentrowany, a pionowy scroll jest przywracany po gotowym layoucie
+  kolejnego zdjęcia. Dwa testy kontraktu pilnują parytetu UI i scrolla.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

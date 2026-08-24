@@ -114,6 +114,20 @@ ani kopiowania JPEG-ów do repozytorium.
   Pełne 109 testów Reviewera, typecheck i lint przechodzą; wcześniejsze
   ostrzeżenie `no-img-element` pozostaje poza zakresem tej poprawki.
 
+### v0.7.46 — parytet widoku i trwały pionowy scroll
+
+- Zdalny workspace wykorzystuje teraz klasy nagłówka, toolbara, nawigacji,
+  płótna zdjęcia i akcji lokalnej ręcznej selekcji zamiast osobnego zestawu
+  natywnie wyglądających kontrolek.
+- Viewport ukrywa poziomy overflow i centruje powiększone zdjęcie. Pionowy scroll
+  jest zapamiętywany przed zmianą indeksu i odtwarzany przez animation frame
+  dopiero po załadowaniu obrazu oraz obliczeniu nowego rozmiaru.
+- Usunięto natywny suwak zoomu; przyciski `−/+`, select skoku, fullscreen i
+  przyciski decyzji używają tego samego systemu co Admin. Dwa testy kontraktu UI
+  pilnują parytetu klas, braku poziomego scrolla i kolejności restore.
+- Pełne 111 testów Reviewera, typecheck, lint i formatowanie przechodzą;
+  wcześniejsze ostrzeżenie `no-img-element` pozostaje poza zakresem.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

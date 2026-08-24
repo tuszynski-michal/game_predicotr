@@ -93,6 +93,7 @@ def test_stream_upload_verifies_jpeg_and_exact_retry_does_not_read_body(tmp_path
     assert list(tmp_path.glob("*.verified"))
     assert not list(tmp_path.glob("*.part"))
     assert repository.files[FILE_ID].status is RemoteManualSelectionFileStatus.VERIFIED
+    assert len(repository.host_actions) == 1
 
     consumed = False
 
@@ -115,6 +116,34 @@ def test_stream_upload_verifies_jpeg_and_exact_retry_does_not_read_body(tmp_path
     assert retried.transfer.id == first.transfer.id
     assert consumed is False
     assert len(repository.transfers) == 1
+    assert len(repository.host_actions) == 1
+
+
+def test_status_reconciles_verified_transfer_missing_its_host_action(tmp_path: Path) -> None:
+    payload = _jpeg()
+    service, repository = _service(tmp_path, payload)
+    transfer_id = uuid4()
+    asyncio.run(
+        service.upload(
+            **_request(payload, transfer_id),
+            chunks=_chunks(payload, 17),
+        )
+    )
+    repository.host_actions.clear()
+    repository.host_action_metadata.clear()
+
+    record = service.status(
+        batch_id=BATCH_ID,
+        file_id=FILE_ID,
+        generation=1,
+        transfer_id=transfer_id,
+        access_token="token",
+        client_instance_id=CLIENT_ID,
+    )
+
+    assert record is not None
+    assert record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+    assert len(repository.host_actions) == 1
 
 
 def test_interrupted_stream_and_invalid_jpeg_never_publish_verified_file(

@@ -116,6 +116,32 @@ def test_transfer_limit_maps_to_stable_413() -> None:
     assert response.json()["code"] == "REMOTE_SELECTION_TRANSFER_TOO_LARGE"
 
 
+def test_materialized_internal_transfer_is_exposed_as_synced() -> None:
+    service = FakeTransferService()
+    service.record = RemoteManualSelectionTransferRecord(
+        RemoteManualSelectionTransferV1(
+            id=TRANSFER_ID,
+            session_id=SESSION_ID,
+            batch_id=BATCH_ID,
+            file_id=FILE_ID,
+            generation=1,
+            attempt=1,
+            declared_bytes=10,
+            received_bytes=10,
+            status=RemoteManualSelectionTransferStatus.MATERIALIZED,
+            declared_checksum_sha256="a" * 64,
+            verified_checksum_sha256="a" * 64,
+        ),
+        ".game-predictor/private.verified",
+    )
+    with TestClient(_app(service), base_url="https://testserver") as client:
+        response = client.get(_status_url(), headers=_headers())
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "synced"
+    assert "game-predictor" not in response.text
+
+
 def _app(service: FakeTransferService):
     return create_app(
         ApiSettings(

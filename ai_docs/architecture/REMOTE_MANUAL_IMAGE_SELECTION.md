@@ -1514,7 +1514,7 @@ przeglądarkę, Next, FastAPI i filesystem.
 
 ### TASK 11: Host action queue i atomowa materializacja
 
-**Status:** `PLANNED`
+**Status:** `IMPLEMENTED — CHECKPOINT REQUIRED`
 
 **Cel:** Zamienić verified temp upload na należący do partii `seq_*` oraz stan
 DB/manifest odporny na crash w każdej granicy.
@@ -1575,6 +1575,15 @@ wymagają pełnego modelu failure windows.
 **Model do niezależnego review:** `gpt-5.6-sol`, `EXTRA HIGH`
 
 **Przewidywane zużycie kontekstu:** `WYSOKIE`
+
+**Outcome:** TASK-0283 wdrożył osobną trwałą kolejkę materializacji w istniejącym
+general workerze. Verified upload idempotentnie enqueue'uje akcję; status i
+worker odtwarzają brakujące akcje. Claim używa `SKIP LOCKED`, lease/fencing,
+bounded retry/backoff i recheck bieżącej generacji. Host publikuje `seq_*` przez
+same-volume working file, fsync, wyłączne utworzenie celu oraz checksumowany
+journal, a DB przechodzi do `synced` dopiero przy przypiętym zgodnym pliku.
+Foreign/changed target, reparse i stale generation są fail-closed. Reguły R-003
+i R-005 zaakceptowano w D-223. Deselect i finalizacja pozostają poza zakresem.
 
 ### TASK 12: Deselect, undo, tombstone i szybkie generacje
 
@@ -2399,7 +2408,7 @@ zachować D-218.
 
 ### REGUŁA R-003: Operacje, transfer i materializacja są osobnymi kolejkami
 
-**Status:** `DO AKCEPTACJI`
+**Status:** `ACCEPTED — D-223`
 
 **Problem:** Jedna kolejka blokuje nawigację dużym transferem i zaciera granicę
 między intencją, bajtami oraz skutkiem na hoście.
@@ -2423,7 +2432,7 @@ blokuje kolejnej decyzji.
 **Wpływ na dokumentację:** Po akceptacji dopisać jako wzorzec architektoniczny
 dla browser-to-host transferów.
 
-**Rekomendacja:** `AKCEPTUJ REGUŁĘ R-003`.
+**Rekomendacja:** zaakceptowana i wdrożona dla pionu TASK 8–11.
 
 ### REGUŁA R-004: Masowa skala wymaga etapowej bramki
 
@@ -2454,7 +2463,7 @@ przepływów masowych.
 
 ### REGUŁA R-005: Zgodność bazy i filesystemu wymaga fault injection
 
-**Status:** `DO AKCEPTACJI`
+**Status:** `ACCEPTED — D-223`
 
 **Problem:** Happy-path test nie wykrywa crashu pomiędzy tempem, rename,
 manifestem i commitem bazy.
@@ -2477,7 +2486,8 @@ manifestu, tempów i finalnych checksum.
 **Wpływ na dokumentację:** Po akceptacji dopisać do Definition of Done dla
 filesystem-backed workflows.
 
-**Rekomendacja:** `AKCEPTUJ REGUŁĘ R-005`.
+**Rekomendacja:** zaakceptowana; obowiązuje filesystem-backed host actions,
+finalizację, deselect i cleanup.
 
 ## 34. Dziennik decyzji i changelog
 

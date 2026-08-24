@@ -5,12 +5,12 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import RLock
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -41,6 +41,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     apply_remote_manual_selection_operation,
     build_remote_source_manifest,
     transition_remote_file_status,
+    transition_remote_host_action_status,
     transition_remote_transfer_status,
 )
 from game_predictor_api.storage.models import (
@@ -91,6 +92,26 @@ class RemoteManualSelectionSourceRegistration:
 class RemoteManualSelectionTransferRecord:
     transfer: RemoteManualSelectionTransferV1
     temp_relative_path: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionHostActionRecord:
+    action: RemoteManualSelectionHostActionV1
+    lease_owner: str | None
+    lease_token: UUID | None
+    lease_expires_at: datetime | None
+    next_attempt_at: datetime | None
+    last_error_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionMaterializationContext:
+    action: RemoteManualSelectionHostActionV1
+    file: RemoteManualSelectionFileV1
+    transfer: RemoteManualSelectionTransferV1
+    verified_relative_path: str
+    output_name: str
+    checksum_sha256: str
 
 
 class SqlAlchemyRemoteManualSelectionRepository:
@@ -311,8 +332,12 @@ class SqlAlchemyRemoteManualSelectionRepository:
                 RemoteManualSelectionTransferModel.batch_id == batch_id,
                 RemoteManualSelectionTransferModel.file_id == file_id,
                 RemoteManualSelectionTransferModel.generation == generation,
-                RemoteManualSelectionTransferModel.status
-                == RemoteManualSelectionTransferStatus.VERIFIED.value,
+                RemoteManualSelectionTransferModel.status.in_(
+                    (
+                        RemoteManualSelectionTransferStatus.VERIFIED.value,
+                        RemoteManualSelectionTransferStatus.MATERIALIZED.value,
+                    )
+                ),
             )
             .order_by(RemoteManualSelectionTransferModel.attempt.desc())
             .limit(1)
@@ -728,6 +753,438 @@ class SqlAlchemyRemoteManualSelectionRepository:
         self._persist(record)
         return _host_action_from_record(record)
 
+    def ensure_materialization_action(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionHostActionV1:
+        existing = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.session_id == session_id,
+                RemoteManualSelectionHostActionModel.batch_id == batch_id,
+                RemoteManualSelectionHostActionModel.file_id == file_id,
+                RemoteManualSelectionHostActionModel.transfer_id == transfer_id,
+                RemoteManualSelectionHostActionModel.generation == generation,
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+            )
+            .order_by(
+                RemoteManualSelectionHostActionModel.created_at,
+                RemoteManualSelectionHostActionModel.id,
+            )
+            .limit(1)
+        )
+        if existing is not None:
+            return _host_action_from_record(existing)
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(
+                RemoteManualSelectionFileModel.id == file_id,
+                RemoteManualSelectionFileModel.batch_id == batch_id,
+                RemoteManualSelectionFileModel.session_id == session_id,
+            )
+            .with_for_update()
+        )
+        transfer_record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(
+                RemoteManualSelectionTransferModel.id == transfer_id,
+                RemoteManualSelectionTransferModel.file_id == file_id,
+                RemoteManualSelectionTransferModel.batch_id == batch_id,
+                RemoteManualSelectionTransferModel.session_id == session_id,
+            )
+            .with_for_update()
+        )
+        if (
+            file_record is None
+            or transfer_record is None
+            or file_record.selection_generation != generation
+            or not file_record.desired_selected
+            or file_record.status != RemoteManualSelectionFileStatus.VERIFIED.value
+            or transfer_record.generation != generation
+            or transfer_record.status != RemoteManualSelectionTransferStatus.VERIFIED.value
+            or transfer_record.verified_checksum_sha256 is None
+            or transfer_record.temp_relative_path is None
+            or file_record.host_checksum_sha256 != transfer_record.verified_checksum_sha256
+            or file_record.output_name is None
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_MATERIALIZATION_NOT_READY",
+                "Only a verified current selected generation can be queued for materialization.",
+            )
+        action = RemoteManualSelectionHostActionV1(
+            id=uuid4(),
+            session_id=session_id,
+            batch_id=batch_id,
+            file_id=file_id,
+            transfer_id=transfer_id,
+            generation=generation,
+            action_type=RemoteManualSelectionHostActionType.MATERIALIZE,
+            status=RemoteManualSelectionHostActionStatus.QUEUED,
+            attempt=0,
+        )
+        try:
+            return self.add_host_action(action)
+        except RemoteManualSelectionConflictError:
+            existing = self._session.scalar(
+                select(RemoteManualSelectionHostActionModel)
+                .where(
+                    RemoteManualSelectionHostActionModel.file_id == file_id,
+                    RemoteManualSelectionHostActionModel.generation == generation,
+                    RemoteManualSelectionHostActionModel.action_type
+                    == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+                    RemoteManualSelectionHostActionModel.status.in_(
+                        (
+                            RemoteManualSelectionHostActionStatus.QUEUED.value,
+                            RemoteManualSelectionHostActionStatus.PROCESSING.value,
+                            RemoteManualSelectionHostActionStatus.RETRY.value,
+                        )
+                    ),
+                )
+                .limit(1)
+            )
+            if existing is None:
+                raise
+            return _host_action_from_record(existing)
+
+    def enqueue_missing_materialization_actions(self, *, limit: int) -> int:
+        """Recover verified current generations that predate or lost their queue action."""
+
+        if limit < 1:
+            raise ValueError("Materialization reconciliation limit must be positive.")
+        action_exists = (
+            select(RemoteManualSelectionHostActionModel.id)
+            .where(
+                RemoteManualSelectionHostActionModel.file_id == RemoteManualSelectionFileModel.id,
+                RemoteManualSelectionHostActionModel.generation
+                == RemoteManualSelectionFileModel.selection_generation,
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+            )
+            .exists()
+        )
+        files = self._session.scalars(
+            select(RemoteManualSelectionFileModel)
+            .where(
+                RemoteManualSelectionFileModel.desired_selected.is_(True),
+                RemoteManualSelectionFileModel.status
+                == RemoteManualSelectionFileStatus.VERIFIED.value,
+                RemoteManualSelectionFileModel.host_checksum_sha256.is_not(None),
+                ~action_exists,
+            )
+            .order_by(
+                RemoteManualSelectionFileModel.updated_at,
+                RemoteManualSelectionFileModel.batch_id,
+                RemoteManualSelectionFileModel.source_index,
+                RemoteManualSelectionFileModel.id,
+            )
+            .with_for_update(skip_locked=True)
+            .limit(limit)
+        ).all()
+        created = 0
+        for file_record in files:
+            transfer_record = self._session.scalar(
+                select(RemoteManualSelectionTransferModel)
+                .where(
+                    RemoteManualSelectionTransferModel.file_id == file_record.id,
+                    RemoteManualSelectionTransferModel.batch_id == file_record.batch_id,
+                    RemoteManualSelectionTransferModel.session_id == file_record.session_id,
+                    RemoteManualSelectionTransferModel.generation
+                    == file_record.selection_generation,
+                    RemoteManualSelectionTransferModel.status
+                    == RemoteManualSelectionTransferStatus.VERIFIED.value,
+                    RemoteManualSelectionTransferModel.verified_checksum_sha256
+                    == file_record.host_checksum_sha256,
+                    RemoteManualSelectionTransferModel.temp_relative_path.is_not(None),
+                )
+                .order_by(
+                    RemoteManualSelectionTransferModel.attempt.desc(),
+                    RemoteManualSelectionTransferModel.id,
+                )
+                .limit(1)
+            )
+            if transfer_record is None:
+                continue
+            self.ensure_materialization_action(
+                session_id=file_record.session_id,
+                batch_id=file_record.batch_id,
+                file_id=file_record.id,
+                transfer_id=transfer_record.id,
+                generation=file_record.selection_generation,
+            )
+            created += 1
+        return created
+
+    def claim_next_materialization_action(
+        self,
+        *,
+        lease_owner: str,
+        lease_duration: timedelta,
+        claimed_at: datetime,
+    ) -> RemoteManualSelectionHostActionRecord | None:
+        if not lease_owner.strip() or lease_duration.total_seconds() <= 0:
+            raise ValueError("A materialization lease requires an owner and positive duration.")
+        eligible = or_(
+            RemoteManualSelectionHostActionModel.status
+            == RemoteManualSelectionHostActionStatus.QUEUED.value,
+            (
+                (
+                    RemoteManualSelectionHostActionModel.status
+                    == RemoteManualSelectionHostActionStatus.RETRY.value
+                )
+                & or_(
+                    RemoteManualSelectionHostActionModel.next_attempt_at.is_(None),
+                    RemoteManualSelectionHostActionModel.next_attempt_at <= claimed_at,
+                )
+            ),
+            (
+                (
+                    RemoteManualSelectionHostActionModel.status
+                    == RemoteManualSelectionHostActionStatus.PROCESSING.value
+                )
+                & (RemoteManualSelectionHostActionModel.lease_expires_at <= claimed_at)
+            ),
+        )
+        record = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+                eligible,
+            )
+            .order_by(
+                RemoteManualSelectionHostActionModel.next_attempt_at.asc().nulls_first(),
+                RemoteManualSelectionHostActionModel.created_at,
+                RemoteManualSelectionHostActionModel.id,
+            )
+            .with_for_update(skip_locked=True)
+            .limit(1)
+        )
+        if record is None:
+            return None
+        token = uuid4()
+        record.status = RemoteManualSelectionHostActionStatus.PROCESSING.value
+        record.attempt += 1
+        record.lease_owner = lease_owner.strip()
+        record.lease_token = token
+        record.lease_expires_at = claimed_at + lease_duration
+        record.next_attempt_at = None
+        record.updated_at = claimed_at
+        self._session.flush()
+        return _host_action_record_from_record(record)
+
+    def lock_materialization_context(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        locked_at: datetime,
+    ) -> RemoteManualSelectionMaterializationContext | None:
+        action = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(RemoteManualSelectionHostActionModel.id == action_id)
+            .with_for_update()
+        )
+        if (
+            action is None
+            or action.status != RemoteManualSelectionHostActionStatus.PROCESSING.value
+            or action.lease_token != lease_token
+            or action.lease_expires_at is None
+            or action.lease_expires_at <= locked_at
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                "The materialization action lease is no longer owned by this executor.",
+            )
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == action.file_id)
+            .with_for_update()
+        )
+        transfer_record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == action.transfer_id)
+            .with_for_update()
+        )
+        batch_record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == action.batch_id)
+            .with_for_update()
+        )
+        if file_record is None or transfer_record is None or batch_record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The materialization action references unavailable state.",
+            )
+        if (
+            not file_record.desired_selected
+            or file_record.selection_generation != action.generation
+            or transfer_record.generation != action.generation
+        ):
+            transition_remote_host_action_status(
+                RemoteManualSelectionHostActionStatus.PROCESSING,
+                RemoteManualSelectionHostActionStatus.SUPERSEDED,
+            )
+            action.status = RemoteManualSelectionHostActionStatus.SUPERSEDED.value
+            _clear_action_lease(action, updated_at=locked_at)
+            self._session.flush()
+            return None
+        if (
+            file_record.status != RemoteManualSelectionFileStatus.VERIFIED.value
+            or transfer_record.status != RemoteManualSelectionTransferStatus.VERIFIED.value
+            or transfer_record.verified_checksum_sha256 is None
+            or transfer_record.temp_relative_path is None
+            or file_record.output_name is None
+            or file_record.host_checksum_sha256 != transfer_record.verified_checksum_sha256
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_MATERIALIZATION_NOT_READY",
+                "The claimed action no longer has a consistent verified source.",
+            )
+        return RemoteManualSelectionMaterializationContext(
+            action=_host_action_from_record(action),
+            file=_file_from_record(file_record),
+            transfer=_transfer_from_record(transfer_record),
+            verified_relative_path=transfer_record.temp_relative_path,
+            output_name=file_record.output_name,
+            checksum_sha256=transfer_record.verified_checksum_sha256,
+        )
+
+    def complete_materialization_action(
+        self,
+        context: RemoteManualSelectionMaterializationContext,
+        *,
+        lease_token: UUID,
+        final_relative_path: str,
+        completed_at: datetime,
+    ) -> RemoteManualSelectionFileV1:
+        action = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(RemoteManualSelectionHostActionModel.id == context.action.id)
+            .with_for_update()
+        )
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == context.file.id)
+            .with_for_update()
+        )
+        transfer_record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == context.transfer.id)
+            .with_for_update()
+        )
+        batch_record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == context.file.batch_id)
+            .with_for_update()
+        )
+        if (
+            action is None
+            or file_record is None
+            or transfer_record is None
+            or batch_record is None
+            or action.status != RemoteManualSelectionHostActionStatus.PROCESSING.value
+            or action.lease_token != lease_token
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                "The materialization action cannot be completed by this executor.",
+            )
+        if (
+            not file_record.desired_selected
+            or file_record.selection_generation != context.action.generation
+            or transfer_record.generation != context.action.generation
+            or transfer_record.verified_checksum_sha256 != context.checksum_sha256
+            or file_record.host_checksum_sha256 != context.checksum_sha256
+            or file_record.output_name != context.output_name
+            or final_relative_path != context.output_name
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_MATERIALIZATION_GENERATION_CONFLICT",
+                "The selected generation changed before materialization commit.",
+            )
+        was_synced = file_record.status == RemoteManualSelectionFileStatus.SYNCED.value
+        if not was_synced:
+            current_file_status = RemoteManualSelectionFileStatus(file_record.status)
+            transition_remote_file_status(
+                current_file_status,
+                RemoteManualSelectionFileStatus.MATERIALIZED,
+            )
+            transition_remote_file_status(
+                RemoteManualSelectionFileStatus.MATERIALIZED,
+                RemoteManualSelectionFileStatus.SYNCED,
+            )
+            transition_remote_transfer_status(
+                RemoteManualSelectionTransferStatus(transfer_record.status),
+                RemoteManualSelectionTransferStatus.MATERIALIZED,
+            )
+            batch_record.server_revision += 1
+            batch_record.transferred_file_count += 1
+            file_record.status = RemoteManualSelectionFileStatus.SYNCED.value
+            file_record.final_relative_path = final_relative_path
+            file_record.last_server_revision = batch_record.server_revision
+            transfer_record.status = RemoteManualSelectionTransferStatus.MATERIALIZED.value
+            transfer_record.updated_at = completed_at
+        elif (
+            file_record.final_relative_path != final_relative_path
+            or transfer_record.status != RemoteManualSelectionTransferStatus.MATERIALIZED.value
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_MATERIALIZATION_STATE_CONFLICT",
+                "The persisted materialized state differs from the host artifact.",
+            )
+        action.status = RemoteManualSelectionHostActionStatus.COMPLETED.value
+        action.last_error_code = None
+        _clear_action_lease(action, updated_at=completed_at)
+        file_record.updated_at = completed_at
+        batch_record.updated_at = completed_at
+        self._session.flush()
+        return _file_from_record(file_record)
+
+    def finish_materialization_failure(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        error_code: str,
+        failed_at: datetime,
+        retry_at: datetime | None,
+    ) -> RemoteManualSelectionHostActionV1:
+        action = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(RemoteManualSelectionHostActionModel.id == action_id)
+            .with_for_update()
+        )
+        if (
+            action is None
+            or action.status != RemoteManualSelectionHostActionStatus.PROCESSING.value
+            or action.lease_token != lease_token
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                "The failed materialization action lease was already replaced.",
+            )
+        target = (
+            RemoteManualSelectionHostActionStatus.FAILED
+            if retry_at is None
+            else RemoteManualSelectionHostActionStatus.RETRY
+        )
+        transition_remote_host_action_status(
+            RemoteManualSelectionHostActionStatus.PROCESSING,
+            target,
+        )
+        action.status = target.value
+        action.last_error_code = error_code
+        action.next_attempt_at = retry_at
+        _clear_action_lease(action, updated_at=failed_at)
+        self._session.flush()
+        return _host_action_from_record(action)
+
     def append_audit_event(
         self,
         *,
@@ -817,6 +1274,11 @@ class InMemoryRemoteManualSelectionRepository:
         self.transfers: dict[UUID, RemoteManualSelectionTransferV1] = {}
         self.transfer_paths: dict[UUID, str | None] = {}
         self.host_actions: dict[UUID, RemoteManualSelectionHostActionV1] = {}
+        self.host_action_metadata: dict[
+            UUID,
+            tuple[str | None, UUID | None, datetime | None, datetime | None, str | None],
+        ] = {}
+        self.file_final_paths: dict[UUID, str] = {}
         self.audit_event_ids: set[UUID] = set()
 
     def add_session(
@@ -1002,7 +1464,11 @@ class InMemoryRemoteManualSelectionRepository:
             if item.batch_id == batch_id
             and item.file_id == file_id
             and item.generation == generation
-            and item.status is RemoteManualSelectionTransferStatus.VERIFIED
+            and item.status
+            in {
+                RemoteManualSelectionTransferStatus.VERIFIED,
+                RemoteManualSelectionTransferStatus.MATERIALIZED,
+            }
         ]
         if not matches:
             return None
@@ -1343,7 +1809,6 @@ class InMemoryRemoteManualSelectionRepository:
         lease_expires_at: datetime | None = None,
         next_attempt_at: datetime | None = None,
     ) -> RemoteManualSelectionHostActionV1:
-        del lease_owner, lease_token, lease_expires_at, next_attempt_at
         with self._lock:
             file = self.files.get(value.file_id)
             transfer = None if value.transfer_id is None else self.transfers.get(value.transfer_id)
@@ -1382,7 +1847,355 @@ class InMemoryRemoteManualSelectionRepository:
             ):
                 raise _persistence_conflict()
             self.host_actions[value.id] = value
+            self.host_action_metadata[value.id] = (
+                lease_owner,
+                lease_token,
+                lease_expires_at,
+                next_attempt_at,
+                None,
+            )
             return value
+
+    def ensure_materialization_action(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionHostActionV1:
+        with self._lock:
+            existing = next(
+                (
+                    action
+                    for action in self.host_actions.values()
+                    if action.session_id == session_id
+                    and action.batch_id == batch_id
+                    and action.file_id == file_id
+                    and action.transfer_id == transfer_id
+                    and action.generation == generation
+                    and action.action_type is RemoteManualSelectionHostActionType.MATERIALIZE
+                ),
+                None,
+            )
+            if existing is not None:
+                return existing
+            file = self.files.get(file_id)
+            transfer = self.transfers.get(transfer_id)
+            if (
+                file is None
+                or transfer is None
+                or file.session_id != session_id
+                or file.batch_id != batch_id
+                or not file.desired_selected
+                or file.selection_generation != generation
+                or file.status is not RemoteManualSelectionFileStatus.VERIFIED
+                or transfer.generation != generation
+                or transfer.status is not RemoteManualSelectionTransferStatus.VERIFIED
+                or transfer.verified_checksum_sha256 is None
+                or self.transfer_paths.get(transfer.id) is None
+                or file.host_checksum_sha256 != transfer.verified_checksum_sha256
+                or file.output_name is None
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_MATERIALIZATION_NOT_READY",
+                    "Only a verified current selected generation can be queued for "
+                    "materialization.",
+                )
+            action = RemoteManualSelectionHostActionV1(
+                id=uuid4(),
+                session_id=session_id,
+                batch_id=batch_id,
+                file_id=file_id,
+                transfer_id=transfer_id,
+                generation=generation,
+                action_type=RemoteManualSelectionHostActionType.MATERIALIZE,
+                status=RemoteManualSelectionHostActionStatus.QUEUED,
+                attempt=0,
+            )
+            return self.add_host_action(action)
+
+    def enqueue_missing_materialization_actions(self, *, limit: int) -> int:
+        if limit < 1:
+            raise ValueError("Materialization reconciliation limit must be positive.")
+        with self._lock:
+            candidates = sorted(
+                (
+                    file
+                    for file in self.files.values()
+                    if file.desired_selected
+                    and file.status is RemoteManualSelectionFileStatus.VERIFIED
+                    and file.host_checksum_sha256 is not None
+                    and not any(
+                        action.file_id == file.id
+                        and action.generation == file.selection_generation
+                        and action.action_type is RemoteManualSelectionHostActionType.MATERIALIZE
+                        for action in self.host_actions.values()
+                    )
+                ),
+                key=lambda item: (str(item.batch_id), item.source_index, str(item.id)),
+            )[:limit]
+            created = 0
+            for file in candidates:
+                transfers = [
+                    transfer
+                    for transfer in self.transfers.values()
+                    if transfer.file_id == file.id
+                    and transfer.batch_id == file.batch_id
+                    and transfer.session_id == file.session_id
+                    and transfer.generation == file.selection_generation
+                    and transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+                    and transfer.verified_checksum_sha256 == file.host_checksum_sha256
+                    and self.transfer_paths.get(transfer.id) is not None
+                ]
+                if not transfers:
+                    continue
+                transfer = max(transfers, key=lambda item: (item.attempt, str(item.id)))
+                self.ensure_materialization_action(
+                    session_id=file.session_id,
+                    batch_id=file.batch_id,
+                    file_id=file.id,
+                    transfer_id=transfer.id,
+                    generation=file.selection_generation,
+                )
+                created += 1
+            return created
+
+    def claim_next_materialization_action(
+        self,
+        *,
+        lease_owner: str,
+        lease_duration: timedelta,
+        claimed_at: datetime,
+    ) -> RemoteManualSelectionHostActionRecord | None:
+        with self._lock:
+            candidates: list[RemoteManualSelectionHostActionV1] = []
+            for action in self.host_actions.values():
+                owner, token, expires_at, next_attempt_at, error_code = self.host_action_metadata[
+                    action.id
+                ]
+                del owner, token, error_code
+                if action.action_type is not RemoteManualSelectionHostActionType.MATERIALIZE:
+                    continue
+                if (
+                    action.status is RemoteManualSelectionHostActionStatus.QUEUED
+                    or (
+                        action.status is RemoteManualSelectionHostActionStatus.RETRY
+                        and (next_attempt_at is None or next_attempt_at <= claimed_at)
+                    )
+                    or (
+                        action.status is RemoteManualSelectionHostActionStatus.PROCESSING
+                        and expires_at is not None
+                        and expires_at <= claimed_at
+                    )
+                ):
+                    candidates.append(action)
+            if not candidates:
+                return None
+            action = min(candidates, key=lambda item: (item.attempt, str(item.id)))
+            token = uuid4()
+            claimed = replace(
+                action,
+                status=RemoteManualSelectionHostActionStatus.PROCESSING,
+                attempt=action.attempt + 1,
+            )
+            self.host_actions[action.id] = claimed
+            self.host_action_metadata[action.id] = (
+                lease_owner,
+                token,
+                claimed_at + lease_duration,
+                None,
+                self.host_action_metadata[action.id][4],
+            )
+            return RemoteManualSelectionHostActionRecord(
+                action=claimed,
+                lease_owner=lease_owner,
+                lease_token=token,
+                lease_expires_at=claimed_at + lease_duration,
+                next_attempt_at=None,
+                last_error_code=self.host_action_metadata[action.id][4],
+            )
+
+    def lock_materialization_context(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        locked_at: datetime,
+    ) -> RemoteManualSelectionMaterializationContext | None:
+        with self._lock:
+            action = self.host_actions.get(action_id)
+            metadata = self.host_action_metadata.get(action_id)
+            if (
+                action is None
+                or metadata is None
+                or action.status is not RemoteManualSelectionHostActionStatus.PROCESSING
+                or metadata[1] != lease_token
+                or metadata[2] is None
+                or metadata[2] <= locked_at
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                    "The materialization action lease is no longer owned by this executor.",
+                )
+            file = self.files.get(action.file_id)
+            transfer = (
+                None if action.transfer_id is None else self.transfers.get(action.transfer_id)
+            )
+            if file is None or transfer is None:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_SCOPE_MISMATCH",
+                    "The materialization action references unavailable state.",
+                )
+            if (
+                not file.desired_selected
+                or file.selection_generation != action.generation
+                or transfer.generation != action.generation
+            ):
+                transition_remote_host_action_status(
+                    RemoteManualSelectionHostActionStatus.PROCESSING,
+                    RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                self.host_actions[action.id] = replace(
+                    action,
+                    status=RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                self.host_action_metadata[action.id] = (None, None, None, None, metadata[4])
+                return None
+            path = self.transfer_paths.get(transfer.id)
+            if (
+                file.status is not RemoteManualSelectionFileStatus.VERIFIED
+                or transfer.status is not RemoteManualSelectionTransferStatus.VERIFIED
+                or transfer.verified_checksum_sha256 is None
+                or path is None
+                or file.output_name is None
+                or file.host_checksum_sha256 != transfer.verified_checksum_sha256
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_MATERIALIZATION_NOT_READY",
+                    "The claimed action no longer has a consistent verified source.",
+                )
+            return RemoteManualSelectionMaterializationContext(
+                action=action,
+                file=file,
+                transfer=transfer,
+                verified_relative_path=path,
+                output_name=file.output_name,
+                checksum_sha256=transfer.verified_checksum_sha256,
+            )
+
+    def complete_materialization_action(
+        self,
+        context: RemoteManualSelectionMaterializationContext,
+        *,
+        lease_token: UUID,
+        final_relative_path: str,
+        completed_at: datetime,
+    ) -> RemoteManualSelectionFileV1:
+        del completed_at
+        with self._lock:
+            action = self.host_actions.get(context.action.id)
+            metadata = self.host_action_metadata.get(context.action.id)
+            file = self.files.get(context.file.id)
+            transfer = self.transfers.get(context.transfer.id)
+            batch = self.batches.get(context.file.batch_id)
+            if (
+                action is None
+                or metadata is None
+                or file is None
+                or transfer is None
+                or batch is None
+                or action.status is not RemoteManualSelectionHostActionStatus.PROCESSING
+                or metadata[1] != lease_token
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                    "The materialization action cannot be completed by this executor.",
+                )
+            if (
+                not file.desired_selected
+                or file.selection_generation != action.generation
+                or transfer.generation != action.generation
+                or transfer.verified_checksum_sha256 != context.checksum_sha256
+                or file.host_checksum_sha256 != context.checksum_sha256
+                or file.output_name != context.output_name
+                or final_relative_path != context.output_name
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_MATERIALIZATION_GENERATION_CONFLICT",
+                    "The selected generation changed before materialization commit.",
+                )
+            was_synced = file.status is RemoteManualSelectionFileStatus.SYNCED
+            if not was_synced:
+                transition_remote_file_status(
+                    file.status,
+                    RemoteManualSelectionFileStatus.MATERIALIZED,
+                )
+                transition_remote_file_status(
+                    RemoteManualSelectionFileStatus.MATERIALIZED,
+                    RemoteManualSelectionFileStatus.SYNCED,
+                )
+                transition_remote_transfer_status(
+                    transfer.status,
+                    RemoteManualSelectionTransferStatus.MATERIALIZED,
+                )
+                batch = replace(batch, server_revision=batch.server_revision + 1)
+                file = replace(file, status=RemoteManualSelectionFileStatus.SYNCED)
+                transfer = replace(
+                    transfer,
+                    status=RemoteManualSelectionTransferStatus.MATERIALIZED,
+                )
+                self.batches[batch.id] = batch
+                self.files[file.id] = file
+                self.transfers[transfer.id] = transfer
+                self.file_revisions[file.id] = batch.server_revision
+                self.file_final_paths[file.id] = final_relative_path
+            elif self.file_final_paths.get(file.id) != final_relative_path:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_MATERIALIZATION_STATE_CONFLICT",
+                    "The persisted materialized state differs from the host artifact.",
+                )
+            self.host_actions[action.id] = replace(
+                action,
+                status=RemoteManualSelectionHostActionStatus.COMPLETED,
+            )
+            self.host_action_metadata[action.id] = (None, None, None, None, None)
+            return file
+
+    def finish_materialization_failure(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        error_code: str,
+        failed_at: datetime,
+        retry_at: datetime | None,
+    ) -> RemoteManualSelectionHostActionV1:
+        del failed_at
+        with self._lock:
+            action = self.host_actions.get(action_id)
+            metadata = self.host_action_metadata.get(action_id)
+            if (
+                action is None
+                or metadata is None
+                or action.status is not RemoteManualSelectionHostActionStatus.PROCESSING
+                or metadata[1] != lease_token
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                    "The failed materialization action lease was already replaced.",
+                )
+            target = (
+                RemoteManualSelectionHostActionStatus.FAILED
+                if retry_at is None
+                else RemoteManualSelectionHostActionStatus.RETRY
+            )
+            transition_remote_host_action_status(action.status, target)
+            updated = replace(action, status=target)
+            self.host_actions[action_id] = updated
+            self.host_action_metadata[action_id] = (None, None, None, retry_at, error_code)
+            return updated
 
     def append_audit_event(
         self,
@@ -1629,6 +2442,30 @@ def _host_action_from_record(
     )
 
 
+def _host_action_record_from_record(
+    record: RemoteManualSelectionHostActionModel,
+) -> RemoteManualSelectionHostActionRecord:
+    return RemoteManualSelectionHostActionRecord(
+        action=_host_action_from_record(record),
+        lease_owner=record.lease_owner,
+        lease_token=record.lease_token,
+        lease_expires_at=record.lease_expires_at,
+        next_attempt_at=record.next_attempt_at,
+        last_error_code=record.last_error_code,
+    )
+
+
+def _clear_action_lease(
+    record: RemoteManualSelectionHostActionModel,
+    *,
+    updated_at: datetime,
+) -> None:
+    record.lease_owner = None
+    record.lease_token = None
+    record.lease_expires_at = None
+    record.updated_at = updated_at
+
+
 def _map_integrity_error(error: IntegrityError) -> RemoteManualSelectionError:
     constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
     if constraint == "uq_rms_batches_base_mapping":
@@ -1717,7 +2554,9 @@ def _payload_keys(value: object) -> set[str]:
 __all__ = [
     "InMemoryRemoteManualSelectionRepository",
     "RemoteManualSelectionFileDelta",
+    "RemoteManualSelectionHostActionRecord",
     "RemoteManualSelectionHostBinding",
+    "RemoteManualSelectionMaterializationContext",
     "RemoteManualSelectionSessionSecrets",
     "RemoteManualSelectionSourceRegistration",
     "RemoteManualSelectionTransferRecord",

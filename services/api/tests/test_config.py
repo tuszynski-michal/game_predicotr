@@ -27,6 +27,9 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.remote_selection_max_active_session_transfers == 4
     assert settings.remote_selection_max_active_global_transfers == 8
     assert settings.remote_selection_upload_timeout_seconds == 120
+    assert settings.remote_selection_materialization_lease_seconds == 60
+    assert settings.remote_selection_materialization_max_attempts == 5
+    assert settings.remote_selection_materialization_max_actions_per_cycle == 4
 
 
 @pytest.mark.parametrize(
@@ -112,6 +115,18 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS": "0"},
             "GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS",
         ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -169,6 +184,9 @@ def test_remote_transfer_limits_are_configurable() -> None:
             "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS": "2",
             "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS": "3",
             "GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS": "45",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS": "90",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS": "7",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE": "6",
         }
     )
 
@@ -177,3 +195,6 @@ def test_remote_transfer_limits_are_configurable() -> None:
     assert settings.remote_selection_max_active_session_transfers == 2
     assert settings.remote_selection_max_active_global_transfers == 3
     assert settings.remote_selection_upload_timeout_seconds == 45
+    assert settings.remote_selection_materialization_lease_seconds == 90
+    assert settings.remote_selection_materialization_max_attempts == 7
+    assert settings.remote_selection_materialization_max_actions_per_cycle == 6

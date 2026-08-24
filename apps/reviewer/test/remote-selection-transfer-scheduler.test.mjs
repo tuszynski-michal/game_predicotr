@@ -135,6 +135,38 @@ test('refresh restores the stable transfer id from metadata checkpoint', async (
   assert.equal(uploads, 0);
 });
 
+test('synced status completes locally without loading or uploading the Blob', async () => {
+  let loaded = 0;
+  let uploaded = 0;
+  const checkpoints = [];
+  const input = {
+    ...task('a', 1),
+    loadBlob: async () => {
+      loaded += 1;
+      return new Blob(['0123456789'], { type: 'image/jpeg' });
+    },
+  };
+  const scheduler = new RemoteSelectionTransferScheduler(
+    {
+      async status(taskValue) {
+        return response(taskValue, 'synced');
+      },
+      async upload() {
+        uploaded += 1;
+      },
+    },
+    store(checkpoints),
+    { createTransferId: () => ids[0] },
+  );
+
+  await scheduler.enqueue(input);
+  await waitFor(() => scheduler.snapshot().active === 0);
+
+  assert.equal(loaded, 0);
+  assert.equal(uploaded, 0);
+  assert.equal(checkpoints.at(-1)?.status, 'verified');
+});
+
 test('abort, quota, retry classification and jitter are fail-closed', async () => {
   const scheduler = new RemoteSelectionTransferScheduler(
     {
@@ -242,6 +274,7 @@ function task(label, priority) {
 }
 
 function response(input, status) {
+  const finished = status === 'verified' || status === 'synced';
   return {
     transferId: status === 'not_started' ? null : ids[3],
     batchId: input.batchId,
@@ -249,11 +282,10 @@ function response(input, status) {
     generation: input.generation,
     attempt: status === 'not_started' ? 0 : 1,
     declaredBytes: input.expectedSizeBytes,
-    receivedBytes: status === 'verified' ? input.expectedSizeBytes : 0,
+    receivedBytes: finished ? input.expectedSizeBytes : 0,
     status,
     declaredChecksumSha256: input.expectedChecksumSha256,
-    verifiedChecksumSha256:
-      status === 'verified' ? input.expectedChecksumSha256 : null,
+    verifiedChecksumSha256: finished ? input.expectedChecksumSha256 : null,
   };
 }
 

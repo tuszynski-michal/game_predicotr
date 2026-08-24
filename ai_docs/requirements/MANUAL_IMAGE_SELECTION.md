@@ -130,3 +130,18 @@ wysyłany jako jeden strumień `application/octet-stream`. Host zapisuje `.part`
 liczy SHA-256 w locie, sprawdza długość, magic i pełny decode JPEG, a dopiero
 potem atomowo publikuje prywatny artefakt `verified`. Finalna nazwa `seq_*` nie
 powstaje przed osobną materializacją.
+
+TASK-0283 realizuje tę materializację jako trzecią, host-only kolejkę. Dla
+bieżącej potwierdzonej generacji powstaje idempotentna akcja z lease, fencing,
+ograniczonym retry i backoffem. Worker przed zapisem ponownie sprawdza desired
+state, generację i checksumę, a następnie publikuje plik `seq_*` wyłącznie pod
+zweryfikowanym markerem partii. Same-volume plik roboczy, flush i wewnętrzny
+journal pozwalają wznowić każdy półstan po crashu. Istniejący cel bez zgodnego
+journalu własności albo ze zmienioną checksumą nie może zostać nadpisany.
+
+Publiczne potwierdzenie `synced` jest dozwolone dopiero po zgodności finalnego
+pliku i atomowym commicie stanu pliku, transferu, akcji oraz licznika partii.
+Status i odpowiedzi publiczne nadal nie zawierają host path. Reconciliacja przy
+statusie i w general workerze uzupełnia brakującą akcję dla istniejącego
+`verified`; stara generacja zostaje `superseded`. Materializacja nie finalizuje
+manifestu partii i nie usuwa verified temp.

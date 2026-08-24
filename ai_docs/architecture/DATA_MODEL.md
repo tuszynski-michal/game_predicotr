@@ -65,6 +65,23 @@ Indeksy delta obsługują ograniczone strony zmian plików po rewizji i operacji
 po numerze klienta. Aktualizacja lub usunięcie rekordów operations/audit jest
 blokowane triggerem bazy.
 
+TASK 11 aktywuje akcje `materialize` i istniejące pola lease migracji `0056`.
+Claim używa `FOR UPDATE SKIP LOCKED`; `queued`, gotowy `retry` oraz wygasły
+`processing` mogą zostać przejęte z nowym tokenem. `attempt`,
+`next_attempt_at` i `last_error_code` opisują bounded retry, a ukończenie czyści
+lease. Terminalna akcja nie jest automatycznie zastępowana nową akcją tej samej
+generacji.
+
+Spójny commit materializacji ustawia plik na `synced`, transfer na wewnętrzne
+`materialized`, akcję na `completed`, `final_relative_path` oraz zwiększa
+`server_revision` i `transferred_file_count` dokładnie raz. Warunkiem są nadal
+bieżące desired state/generation, zgodna check­suma transferu i finalnego pliku
+oraz ten sam fencing token. Host-internal `temp_relative_path` i
+`final_relative_path` nie są polami publicznego DTO. Brakująca akcja dla
+spójnego rekordu `verified` jest odtwarzana przez bounded reconciliation;
+istniejąca akcja dowolnego statusu zapobiega nieograniczonemu resetowaniu limitu
+prób.
+
 ### games
 
 | Pole | Typ | Uwagi |

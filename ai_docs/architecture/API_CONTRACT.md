@@ -146,7 +146,11 @@ Status zwraca `not_started` albo metadane próby bez host path. `PUT` jest
 idempotentny względem transferu/generacji/checksumy i zwraca dopiero
 `verified`. Stabilne odpowiedzi obejmują `408` timeout, `409` konflikt
 generacji/treści, `413` limit pliku lub sesji, `415` zły content type i `429`
-limit współbieżności. TASK 10 nie zwraca ani nie tworzy finalnego `seq_*`.
+limit współbieżności. Od TASK 11 status może następnie przejść z `verified` do
+`synced`; wewnętrzny transfer `materialized` jest mapowany publicznie na
+`synced`. Odczyt statusu idempotentnie odtwarza brakującą host action dla
+istniejącego `verified`, ale nie wykonuje IO materializacji w requestcie.
+Odpowiedź nigdy nie zawiera temp/final path, lease ani journalu.
 
 Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
 Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać

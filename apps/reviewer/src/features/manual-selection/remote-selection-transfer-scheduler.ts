@@ -11,6 +11,7 @@ export type RemoteSelectionTransferStatus =
   | 'uploading'
   | 'stored_temp'
   | 'verified'
+  | 'synced'
   | 'cancelled'
   | 'failed'
   | 'retrying';
@@ -240,7 +241,7 @@ export class RemoteSelectionTransferScheduler {
           transferId,
           controller.signal,
         );
-        if (status.status === 'verified') {
+        if (status.status === 'verified' || status.status === 'synced') {
           await this.store.saveTransferCheckpoint(
             checkpoint(task, transferId, task.expectedSizeBytes, 'verified'),
           );
@@ -257,7 +258,7 @@ export class RemoteSelectionTransferScheduler {
           blob,
           controller.signal,
         );
-        if (uploaded.status !== 'verified') {
+        if (uploaded.status !== 'verified' && uploaded.status !== 'synced') {
           throw new RemoteSelectionTransferHttpError(
             502,
             'REMOTE_SELECTION_TRANSFER_NOT_VERIFIED',

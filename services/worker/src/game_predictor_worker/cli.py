@@ -12,6 +12,14 @@ from pathlib import Path
 from uuid import UUID
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
+from game_predictor_api.application.remote_manual_selection_host import (
+    RemoteManualSelectionHostService,
+)
+from game_predictor_api.application.remote_manual_selection_materialization import (
+    RemoteManualSelectionHostActionRunner,
+    RemoteManualSelectionHostMaterializer,
+    RemoteManualSelectionMaterializationLimits,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
@@ -240,6 +248,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
+    materialization_runner: RemoteManualSelectionHostActionRunner | None = None
     if options.lane == IMAGE_SELECTION_LANE:
         # TASK-0194 showed that two Paddle/OpenCV verifier instances contend on
         # the owner's CPU and make the real first-200 profile slower. Keep the
@@ -263,6 +272,20 @@ def main(arguments: Sequence[str] | None = None) -> int:
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
     else:
+        materialization_runner = RemoteManualSelectionHostActionRunner(
+            session_factory,
+            RemoteManualSelectionHostMaterializer(RemoteManualSelectionHostService(lambda: None)),
+            worker_id=f"{options.worker_id}-remote-materialization",
+            limits=RemoteManualSelectionMaterializationLimits(
+                lease_duration=timedelta(
+                    seconds=settings.remote_selection_materialization_lease_seconds
+                ),
+                max_attempts=settings.remote_selection_materialization_max_attempts,
+                max_actions_per_cycle=(
+                    settings.remote_selection_materialization_max_actions_per_cycle
+                ),
+            ),
+        )
         payout_store = SqlAlchemyPayoutStore(session_factory)
         payout_handler = PayoutBatchHandler(
             payout_store,
@@ -331,6 +354,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
         worker_version=f"{WORKER_VERSION}-{options.lane}",
         execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
+        auxiliary_work=(
+            materialization_runner.run_bounded_cycle if materialization_runner is not None else None
+        ),
     )
     lane_heartbeat = WorkerLaneHeartbeat(
         SqlAlchemyWorkerLaneRepository(session_factory),

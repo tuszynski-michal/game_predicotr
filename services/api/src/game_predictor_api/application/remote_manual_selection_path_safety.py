@@ -196,6 +196,13 @@ class LockedWindowsBase(AbstractContextManager["LockedWindowsBase"]):
         if not stat.S_ISREG(metadata.st_mode) or _is_reparse_stat(metadata):
             raise _unsafe_path("The ownership marker is not a regular local file.")
 
+    def hold_regular_file(self, path: Path) -> None:
+        """Pin one verified regular file against delete/replace until scope exit."""
+
+        _assert_contained(self.bound_base.final_path, path)
+        handle = _open_verified_regular_file(path)
+        self._handles.append(handle)
+
     def read_regular_file(self, path: Path, *, max_bytes: int) -> bytes:
         _assert_contained(self.bound_base.final_path, path)
         handle = _open_verified_regular_file(path)

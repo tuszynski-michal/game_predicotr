@@ -44,6 +44,9 @@ class ApiSettings:
     remote_selection_max_active_session_transfers: int = 4
     remote_selection_max_active_global_transfers: int = 8
     remote_selection_upload_timeout_seconds: int = 120
+    remote_selection_materialization_lease_seconds: int = 60
+    remote_selection_materialization_max_attempts: int = 5
+    remote_selection_materialization_max_actions_per_cycle: int = 4
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -136,6 +139,27 @@ class ApiSettings:
             source.get("GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS", "120"),
             variable_name="GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS",
         )
+        remote_selection_materialization_lease_seconds = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS",
+                "60",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS"),
+        )
+        remote_selection_materialization_max_attempts = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS",
+                "5",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS"),
+        )
+        remote_selection_materialization_max_actions_per_cycle = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE",
+                "4",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE"),
+        )
         return cls(
             host=host,
             port=port,
@@ -160,6 +184,15 @@ class ApiSettings:
                 remote_selection_max_active_global_transfers
             ),
             remote_selection_upload_timeout_seconds=remote_selection_upload_timeout_seconds,
+            remote_selection_materialization_lease_seconds=(
+                remote_selection_materialization_lease_seconds
+            ),
+            remote_selection_materialization_max_attempts=(
+                remote_selection_materialization_max_attempts
+            ),
+            remote_selection_materialization_max_actions_per_cycle=(
+                remote_selection_materialization_max_actions_per_cycle
+            ),
         )
 
 

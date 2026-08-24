@@ -110,6 +110,18 @@ class RemoteManualSelectionTransferDirectory:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteManualSelectionMaterializationScope:
+    """Pinned owned paths for one atomic host materialization attempt."""
+
+    source_path: Path
+    target_path: Path
+    working_path: Path
+    journal_path: Path
+    final_relative_path: str
+    pin_target: Callable[[], None]
+
+
+@dataclass(frozen=True, slots=True)
 class _StoredBaseCapability:
     value: RemoteManualSelectionBaseCapability
     base_binding_id: UUID
@@ -407,6 +419,115 @@ class RemoteManualSelectionHostService:
             yield RemoteManualSelectionTransferDirectory(
                 path=current,
                 relative_path="/".join(components),
+            )
+
+    @contextmanager
+    def open_materialization_scope(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+        action_id: UUID,
+        generation: int,
+        output_name: str,
+        verified_relative_path: str,
+    ) -> Iterator[RemoteManualSelectionMaterializationScope]:
+        """Resolve only owned transfer and output paths while directory handles stay pinned."""
+
+        if generation < 1:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_GENERATION_INVALID",
+                "The materialization generation must be positive.",
+            )
+        binding = repository.get_host_binding_for_update(session_id)
+        batch = repository.get_batch(batch_id)
+        if binding is None or batch is None or batch.session_id != session_id:
+            raise _scope_error()
+        collection = repository.get_collection(batch.collection_id)
+        if collection is None or collection.session_id != session_id:
+            raise _scope_error()
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            output_component = validate_windows_component(
+                output_name,
+                limits=locked.bound_base.limits,
+            )
+            collection_path = locked.open_existing_child(
+                locked.bound_base.final_path,
+                collection_component,
+            )
+            if collection_path is None:
+                raise _path_conflict("The persisted collection directory is missing.")
+            batch_path = locked.open_existing_child(collection_path, batch_component)
+            if batch_path is None:
+                raise _path_conflict("The persisted batch directory is missing.")
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection_component.normalized_name,
+                normalized_batch_name=batch_component.normalized_name,
+            )
+            self._verify_marker(locked, batch_path, marker)
+            transfer_components = (
+                OWNERSHIP_DIRECTORY,
+                OWNERSHIP_VERSION_DIRECTORY,
+                "transfers",
+                str(file_id),
+                str(generation),
+            )
+            transfer_directory = batch_path
+            for value in transfer_components:
+                child = locked.open_existing_child(
+                    transfer_directory,
+                    validate_windows_component(value, limits=locked.bound_base.limits),
+                )
+                if child is None:
+                    raise _path_conflict("The verified transfer directory is missing.")
+                transfer_directory = child
+            verified_name = f"{transfer_id}.verified"
+            expected_relative_path = "/".join((*transfer_components, verified_name))
+            if verified_relative_path != expected_relative_path:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_TRANSFER_PATH_CONFLICT",
+                    "The verified transfer path does not match its immutable identity.",
+                )
+            source_path = transfer_directory / verified_name
+            locked.hold_regular_file(source_path)
+
+            journal_directory = batch_path
+            for value in (
+                OWNERSHIP_DIRECTORY,
+                OWNERSHIP_VERSION_DIRECTORY,
+                "materializations",
+                str(file_id),
+                str(generation),
+            ):
+                journal_directory, _created = locked.open_or_create_child(
+                    journal_directory,
+                    validate_windows_component(value, limits=locked.bound_base.limits),
+                )
+            target_path = batch_path / output_component.display_name
+            if target_path.exists():
+                locked.hold_regular_file(target_path)
+            yield RemoteManualSelectionMaterializationScope(
+                source_path=source_path,
+                target_path=target_path,
+                working_path=journal_directory / f"{action_id}.materializing",
+                journal_path=journal_directory / f"{action_id}.json",
+                final_relative_path=output_component.display_name,
+                pin_target=lambda: locked.hold_regular_file(target_path),
             )
 
     def _provision_filesystem(

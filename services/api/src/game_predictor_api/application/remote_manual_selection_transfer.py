@@ -28,6 +28,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionError,
     RemoteManualSelectionFileStatus,
     RemoteManualSelectionFileV1,
+    RemoteManualSelectionHostActionV1,
     RemoteManualSelectionOperationV1,
     RemoteManualSelectionTransferStatus,
     RemoteManualSelectionTransferV1,
@@ -118,6 +119,16 @@ class RemoteManualSelectionTransferRepository(RemoteManualSelectionHostRepositor
         temp_relative_path: str | None = None,
         host_checksum_sha256: str | None = None,
     ) -> RemoteManualSelectionFileV1: ...
+
+    def ensure_materialization_action(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionHostActionV1: ...
 
 
 class RemoteManualSelectionTransferGate:
@@ -213,12 +224,23 @@ class RemoteManualSelectionTransferService:
             )
             if record is not None and record.transfer.generation != generation:
                 raise _transfer_conflict("The transfer ID belongs to another generation.")
+            if (
+                record is not None
+                and record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+            ):
+                self._ensure_materialization(record.transfer)
             return record
-        return self._repository.get_verified_transfer_record(
+        record = self._repository.get_verified_transfer_record(
             batch_id=batch_id,
             file_id=file_id,
             generation=generation,
         )
+        if (
+            record is not None
+            and record.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED
+        ):
+            self._ensure_materialization(record.transfer)
+        return record
 
     async def upload(
         self,
@@ -275,6 +297,7 @@ class RemoteManualSelectionTransferService:
                 declared_bytes,
                 declared_checksum_sha256,
             )
+            self._ensure_materialization(existing_verified.transfer)
             return existing_verified
         existing = self._repository.get_transfer_record(
             batch_id=batch_id,
@@ -285,7 +308,11 @@ class RemoteManualSelectionTransferService:
             self._assert_exact_metadata(existing.transfer, declared_bytes, declared_checksum_sha256)
             if existing.transfer.generation != generation:
                 raise _transfer_conflict("The transfer ID belongs to another generation.")
-            if existing.transfer.status is RemoteManualSelectionTransferStatus.VERIFIED:
+            if existing.transfer.status in {
+                RemoteManualSelectionTransferStatus.VERIFIED,
+                RemoteManualSelectionTransferStatus.MATERIALIZED,
+            }:
+                self._ensure_materialization(existing.transfer)
                 return existing
             raise _transfer_conflict("The transfer request ID is already in progress or terminal.")
 
@@ -391,6 +418,7 @@ class RemoteManualSelectionTransferService:
                         verified_relative_path,
                         checksum,
                     )
+                    self._ensure_materialization(transfer)
                     return RemoteManualSelectionTransferRecord(
                         transfer,
                         verified_relative_path,
@@ -437,6 +465,7 @@ class RemoteManualSelectionTransferService:
                     verified_relative_path,
                     checksum,
                 )
+                self._ensure_materialization(transfer)
                 return RemoteManualSelectionTransferRecord(transfer, verified_relative_path)
         except BaseException:
             if part_path is not None:
@@ -647,6 +676,15 @@ class RemoteManualSelectionTransferService:
             status=RemoteManualSelectionFileStatus.VERIFIED,
             temp_relative_path=verified_relative_path,
             host_checksum_sha256=checksum,
+        )
+
+    def _ensure_materialization(self, transfer: RemoteManualSelectionTransferV1) -> None:
+        self._repository.ensure_materialization_action(
+            session_id=transfer.session_id,
+            batch_id=transfer.batch_id,
+            file_id=transfer.file_id,
+            transfer_id=transfer.id,
+            generation=transfer.generation,
         )
 
 

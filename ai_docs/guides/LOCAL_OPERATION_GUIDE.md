@@ -157,7 +157,10 @@ Otwórz `http://127.0.0.1:3000/`. Dokumentacja API jest dostępna lokalnie pod
 `http://127.0.0.1:8000/docs`.
 
 Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
-general workera. `Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
+general workera. Ten sam general worker wykonuje także bounded host actions
+zdalnej ręcznej selekcji przed próbą pobrania zwykłego joba; po restarcie
+reconciliuje istniejące verified uploady i publikuje brakujące `seq_*`.
+`Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
 komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
 
 ```powershell
@@ -231,6 +234,19 @@ npm run worker:image-selection:once
 Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawny
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
+
+Domyślne limity host action materializacji to lease 60 sekund, 5 prób i 4
+akcje w jednym cyklu workera. Można je zmienić trwale w środowisku procesu:
+
+```powershell
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS', '60', 'User')
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS', '5', 'User')
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE', '4', 'User')
+```
+
+Po zmianie otwórz nowy PowerShell i zrestartuj general worker. Zatrzymanie
+executora nie usuwa verified temp ani finalnych plików; kolejny start bezpiecznie
+wznawia akcje queued/retry i wygasłe processing.
 
 ### Uruchomienie dużego runu Selekcji Zdjęć na bieżącym selektorze
 

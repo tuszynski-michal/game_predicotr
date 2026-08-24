@@ -26,11 +26,12 @@ geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
-`reviewer-v1`. Po TASK 10 zamknięta allowlista obejmuje unlock, context,
+`reviewer-v1`. Po TASK 11 zamknięta allowlista obejmuje unlock, context,
 heartbeat, takeover oraz dokładne route tworzenia kolekcji/partii, stronicowanej
 rejestracji metadanych, operacji, state delta, status transferu i jeden
-checksum-bound binarny `PUT` na plik. Nie obejmuje materializacji ani
-finalizacji. Cookie starego Reviewera nie autoryzuje
+checksum-bound binarny `PUT` na plik. Materializacja jest wykonywana wyłącznie
+przez lokalny general worker i nie ma publicznego route; allowlista nadal nie
+obejmuje finalizacji. Cookie starego Reviewera nie autoryzuje
 selekcji, a cookie selekcji nie autoryzuje `/review-api`.
 
 Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
@@ -76,6 +77,10 @@ sesji i kodu.
 | nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, query tylko dla state delta/statusu, brak Authorization, control 128 KiB i jeden binarny PUT do 32 MiB z wymaganymi nagłówkami |
 | złośliwy lub podmieniony JPEG | zgodność size/mtime z manifestem i checksumy z potwierdzonym SELECT, streaming do `.part`, limity per-file/session/concurrency, magic/format/full decode przed `verified` |
 | zerwanie transferu lub utrata odpowiedzi | `.part` nie jest wynikiem, klient zachowuje transferId i przed retry pyta o status; zgodny artefakt po restarcie jest ponownie hashowany i dekodowany |
+| crash między verified, tempem materializacji, publikacją i commitem | trwała host action z lease/fencing, same-volume temp, fsync, checksumowany journal i bounded reconciliation prowadzą do jednego synced wyniku albo kontrolowanego konfliktu |
+| nadpisanie obcego lub zmienionego `seq_*` | wyłączne utworzenie finalnej nazwy; adopcja tylko przy zgodnym journalu identity i checksumie, inaczej fail-closed bez replace/delete |
+| stale generation po spóźnionym uploadzie | ponowna blokada pliku/transferu/partii i sprawdzenie desired state, generation i checksumy przed filesystemem oraz przed commitem |
+| reparse/TOCTOU podczas materializacji | pinned final handles bez `FILE_SHARE_DELETE`, dokładna host-internal ścieżka verified, regular-file/reparse checks źródła, tempu, journalu i celu |
 | awaria ingressu podczas revoke | revoke nie odczytuje ani nie zatrzymuje ingressu; token i lease są czyszczone niezależnie |
 | replay albo utrata odpowiedzi operacji | trwały outbox, dokładne `operationId + checksum`, monotoniczny client sequence/revision/generation i zwrot zapisanego outcome bez ponownej mutacji |
 | wysłanie operacji bez writer lease | autoryzacja writer ownership i mutacja odbywają się w tej samej transakcji; po expiry dozwolony jest wyłącznie exact retry istniejącego outcome |
@@ -89,6 +94,14 @@ uchwyty bez `FILE_SHARE_DELETE`. Reparse point/junction w istniejącym łańcuch
 zmiana final path, case/Unicode collision oraz obcy lub uszkodzony ownership
 marker kończą operację fail-closed. Uchwyt bazy, collection i batch pozostaje
 otwarty przez utworzenie atomowego markera, ograniczając okno TOCTOU.
+
+Materializacja otwiera ten sam zweryfikowany mapping, przypina verified source i
+istniejący albo właśnie opublikowany target bez `FILE_SHARE_DELETE`. Pliki
+robocze i journale znajdują się wyłącznie pod
+`.game-predictor/remote-selection-v1/materializations/<file>/<generation>`.
+Journal wiąże action/session/batch/file/transfer/generation/output/checksum;
+niezgodny lub zbyt duży journal jest konfliktem. Kod nie usuwa obcego targetu,
+nie nadpisuje go i nie usuwa żadnej ścieżki poza własnym working artifactem.
 
 Zdalna ręczna selekcja ma osobny purpose i nie używa scope
 `gameId/importJobId` istniejącego Reviewera. Kod jest pokazany tylko przy

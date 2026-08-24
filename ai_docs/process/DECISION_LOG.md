@@ -5338,6 +5338,34 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   operacja i automatyczne last-write-wins odrzucono jako tworzące drugi porządek
   lub ryzyko utraty decyzji.
 
+## D-223 — Transfer i materializacja mają osobne kolejki oraz fault-injection gate
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** browser control outbox, kolejka transferów i host action queue są
+  odrębnymi mechanizmami ze wspólną tożsamością pliku i generacji. Każdy workflow
+  łączący bazę z filesystemem musi przejść fault injection wszystkich trwałych
+  granic oraz idempotentne reconciliation przed uznaniem go za ukończony.
+- **Context:** jedna kolejka blokowałaby nawigację transferem i mieszała intencję,
+  przesłanie bajtów oraz lokalny skutek. PostgreSQL i NTFS nie tworzą jednej
+  transakcji ACID, więc happy path nie dowodzi braku false success, overwrite ani
+  podwójnej materializacji po crashu.
+- **Safety:** host action używa lease i fencing tokenu, `SKIP LOCKED`, bounded
+  retry/backoff, generation recheck, own marker, same-volume temp, fsync,
+  checksumowany journal i wyłączną publikację finalnej nazwy. Reconciliation
+  może adoptować wyłącznie zgodny własny półstan; obcy lub zmieniony target jest
+  konfliktem.
+- **Consequences:** zasady R-003 i R-005 z planu zdalnej selekcji są przyjęte.
+  TASK 12 i TASK 15 muszą używać tej samej kolejki/fault gate dla usuwania oraz
+  finalizacji. Mały synchroniczny zapis lokalnego narzędzia może pozostać, jeśli
+  nie przekracza tej granicy browser-to-host.
+- **Rollback:** zatrzymać general executor; verified temp, akcje DB, journal i
+  opublikowane own pliki pozostają do bezpiecznego wznowienia. Rollback nie
+  usuwa ani nie nadpisuje finalnych plików.
+- **Alternatives:** wspólna kolejka, bezpośredni zapis w requestcie oraz uznanie
+  DB za synced przed weryfikacją finalnego pliku odrzucono jako blokujące lub
+  podatne na crash windows.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -72,6 +72,9 @@ def _replace_dependencies(
         lambda: SimpleNamespace(
             import_root=Path("imports").resolve(),
             import_max_bytes=1024 * 1024,
+            remote_selection_materialization_lease_seconds=60,
+            remote_selection_materialization_max_attempts=5,
+            remote_selection_materialization_max_actions_per_cycle=4,
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
@@ -105,6 +108,7 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.VALIDATE in FakeWorker.instances[0].handlers
     assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
     assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
+    assert callable(FakeWorker.instances[0].options["auxiliary_work"])
     assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 2
     assert FakeLaneHeartbeat.instances[0].entered
     assert FakeLaneHeartbeat.instances[0].exited
@@ -132,6 +136,7 @@ def test_cli_runs_image_selection_in_its_dedicated_lane(
     worker = FakeWorker.instances[0]
     assert set(worker.handlers) == {JobType.IMAGE_SELECTION}
     assert worker.options["execution_slot"] is JobExecutionSlot.IMAGE_SELECTION
+    assert worker.options["auxiliary_work"] is None
     selection_handler = worker.handlers[JobType.IMAGE_SELECTION]
     assert selection_handler._scan_workers == 4  # noqa: SLF001
     assert selection_handler._verification_workers == 1  # noqa: SLF001

@@ -35,6 +35,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionOperationCommandV1,
     RemoteManualSelectionOperationType,
     RemoteManualSelectionOperationV1,
+    RemoteManualSelectionTransferStatus,
     RemoteSourceKind,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -435,6 +436,11 @@ class RemoteManualSelectionTransferResponse(ApiModel):
         value: RemoteManualSelectionTransferRecord,
     ) -> RemoteManualSelectionTransferResponse:
         transfer = value.transfer
+        public_status = (
+            "synced"
+            if transfer.status is RemoteManualSelectionTransferStatus.MATERIALIZED
+            else transfer.status.value
+        )
         return cls(
             transfer_id=transfer.id,
             batch_id=transfer.batch_id,
@@ -443,7 +449,7 @@ class RemoteManualSelectionTransferResponse(ApiModel):
             attempt=transfer.attempt,
             declared_bytes=transfer.declared_bytes,
             received_bytes=transfer.received_bytes,
-            status=transfer.status.value,
+            status=public_status,
             declared_checksum_sha256=transfer.declared_checksum_sha256,
             verified_checksum_sha256=transfer.verified_checksum_sha256,
         )

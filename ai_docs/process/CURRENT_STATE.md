@@ -15,6 +15,38 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Atomowa materializacja zdalnej selekcji — v0.7.35
+
+- TASK-0283 zamienia checksum-verified host-internal JPEG na należący do partii
+  `seq_*` przez osobną trwałą akcję `materialize`. Upload i odczyt statusu
+  idempotentnie uzupełniają akcję; general worker dodatkowo reconciliuje
+  historyczne rekordy `verified` bez akcji po restarcie.
+- Executor działa w ograniczonych cyklach, używa PostgreSQL `SKIP LOCKED`,
+  czasowego lease z fencing tokenem, maksymalnej liczby prób oraz wykładniczego
+  backoffu. Wygasła akcja `processing` jest odzyskiwana, a bieżąca generacja,
+  desired state, transfer i checksum są ponownie blokowane i sprawdzane przed
+  dostępem do filesystemu.
+- Publikacja używa same-volume pliku roboczego, `fsync`, host-internal
+  checksumowanego journalu i wyłącznego utworzenia finalnej nazwy. Zgodny własny
+  półstan jest adoptowany po crashu; obcy cel, zmieniony własny cel, reparse lub
+  starsza generacja kończą się kontrolowanym konfliktem bez nadpisania.
+- Stan pliku przechodzi do `synced`, a transfer do wewnętrznego `materialized`
+  dopiero po potwierdzeniu checksummy finalnego pliku. Publiczny status mapuje
+  ten stan na `synced` i nie ujawnia ścieżki hosta. Verified temp pozostaje
+  odzyskiwalny; usuwanie i finalizacja partii nadal należą do TASK 12/15.
+- General worker wykonuje host actions przed próbą pobrania zwykłego joba.
+  Limity lease/prób/cyklu mają trwałe ustawienia środowiskowe. Nie dodano
+  Redis/Celery, nowego procesu ani migracji — migracja `0056` zawiera wymagane
+  pola kolejki i ścieżek.
+- Bramka: 131 celowanych testów API zaliczonych i 1 pominięty test
+  symlinku niedostępnego na tym hoście, 92 testy Reviewera oraz izolowany test
+  PostgreSQL dwóch równoległych claimerów zaliczone. 14 celowanych testów
+  lifecycle workera, Ruff zmienionych plików, izolowany mypy 9 modułów,
+  Reviewer lint/typecheck/build oraz OpenAPI są zielone. Pełny Ruff nadal
+  raportuje wcześniejsze formatowanie migracji `0045/0046` i testu symboli, a
+  pełny mypy dependency graph nie zakończył się w limicie 60 sekund.
+- TASK 11 kończy się obowiązkowym checkpointem przed TASK 12.
+
 ### Strumieniowy transfer zdalnej selekcji — v0.7.34
 
 - TASK-0282 dodaje osobne route statusu i binarnego `PUT` dla jednego

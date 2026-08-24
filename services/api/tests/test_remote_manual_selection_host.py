@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.remote_manual_selection_host import (
@@ -180,6 +180,69 @@ def test_transfer_directory_stays_below_verified_host_internal_mapping(tmp_path:
         assert directory.relative_path == (
             f".game-predictor/remote-selection-v1/transfers/{file_id}/1"
         )
+
+
+def test_materialization_scope_pins_exact_verified_source_and_owned_target(
+    tmp_path: Path,
+) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    repository = _repository(base)
+    service = RemoteManualSelectionHostService(lambda: None)
+    service.provision_batch_mapping(
+        repository,
+        session_id=SESSION_ID,
+        collection=_collection(),
+        batch=_batch(),
+        total_file_count=1,
+    )
+    file_id = uuid4()
+    transfer_id = uuid4()
+    action_id = uuid4()
+    with service.open_transfer_directory(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        file_id=file_id,
+        generation=1,
+    ) as directory:
+        source = directory.path / f"{transfer_id}.verified"
+        source.write_bytes(b"verified")
+        verified_relative_path = f"{directory.relative_path}/{transfer_id}.verified"
+
+    with service.open_materialization_scope(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        file_id=file_id,
+        transfer_id=transfer_id,
+        action_id=action_id,
+        generation=1,
+        output_name="seq_1-9.jpg",
+        verified_relative_path=verified_relative_path,
+    ) as scope:
+        assert scope.source_path == source
+        assert scope.source_path.read_bytes() == b"verified"
+        assert scope.target_path == base / "777" / "1-19809" / "seq_1-9.jpg"
+        assert scope.working_path.is_relative_to(base / "777" / "1-19809" / OWNERSHIP_DIRECTORY)
+        assert scope.final_relative_path == "seq_1-9.jpg"
+
+    with (
+        pytest.raises(RemoteManualSelectionConflictError) as mismatch,
+        service.open_materialization_scope(
+            repository,
+            session_id=SESSION_ID,
+            batch_id=BATCH_ID,
+            file_id=file_id,
+            transfer_id=transfer_id,
+            action_id=action_id,
+            generation=1,
+            output_name="seq_1-9.jpg",
+            verified_relative_path="foreign.verified",
+        ),
+    ):
+        pass
+    assert mismatch.value.code == "REMOTE_SELECTION_TRANSFER_PATH_CONFLICT"
 
 
 def test_existing_unmarked_or_foreign_batch_is_blocked(tmp_path: Path) -> None:

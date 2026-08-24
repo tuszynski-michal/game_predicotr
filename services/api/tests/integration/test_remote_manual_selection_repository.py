@@ -51,7 +51,9 @@ from game_predictor_api.domain.remote_manual_selections import (
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.models import (
     RemoteManualSelectionAuditEventModel,
+    RemoteManualSelectionBatchModel,
     RemoteManualSelectionFileModel,
+    RemoteManualSelectionHostActionModel,
     RemoteManualSelectionOperationModel,
     RemoteManualSelectionSessionModel,
 )
@@ -59,6 +61,7 @@ from game_predictor_api.storage.remote_manual_selection_access_repository import
     SqlAlchemyRemoteManualSelectionAccessRepository,
 )
 from game_predictor_api.storage.remote_manual_selection_repository import (
+    RemoteManualSelectionHostActionRecord,
     SqlAlchemyRemoteManualSelectionRepository,
 )
 from sqlalchemy import create_engine, insert, select, text
@@ -291,6 +294,140 @@ def test_sql_repository_roundtrip_and_exact_retry(remote_database: URL) -> None:
         assert public_session == _session()
         assert not hasattr(public_session, "host_base_path")
         assert not hasattr(public_session, "token_hash")
+    finally:
+        engine.dispose()
+
+
+def test_materialization_claim_is_skip_locked_and_completion_is_atomic(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    transfer_id = uuid4()
+    try:
+        _seed(engine)
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.apply_operation(_command())
+            transfer = RemoteManualSelectionTransferV1(
+                id=transfer_id,
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                attempt=1,
+                declared_bytes=1024,
+                received_bytes=0,
+                status=RemoteManualSelectionTransferStatus.QUEUED,
+                declared_checksum_sha256="b" * 64,
+            )
+            repository.add_transfer(transfer)
+            repository.update_transfer(
+                replace(transfer, status=RemoteManualSelectionTransferStatus.UPLOADING),
+                temp_relative_path=None,
+            )
+            repository.update_file_transfer_status(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                status=RemoteManualSelectionFileStatus.UPLOAD_QUEUED,
+            )
+            repository.update_file_transfer_status(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                status=RemoteManualSelectionFileStatus.UPLOADING,
+            )
+            repository.update_transfer(
+                replace(
+                    transfer,
+                    received_bytes=1024,
+                    status=RemoteManualSelectionTransferStatus.STORED_TEMP,
+                ),
+                temp_relative_path="private.part",
+            )
+            repository.update_file_transfer_status(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                status=RemoteManualSelectionFileStatus.STORED_TEMPORARILY,
+                temp_relative_path="private.part",
+            )
+            verified = replace(
+                transfer,
+                received_bytes=1024,
+                status=RemoteManualSelectionTransferStatus.VERIFIED,
+                verified_checksum_sha256="b" * 64,
+            )
+            repository.update_transfer(
+                verified,
+                temp_relative_path="private.verified",
+            )
+            repository.update_file_transfer_status(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                status=RemoteManualSelectionFileStatus.VERIFIED,
+                temp_relative_path="private.verified",
+                host_checksum_sha256="b" * 64,
+            )
+            assert repository.enqueue_missing_materialization_actions(limit=4) == 1
+            assert repository.enqueue_missing_materialization_actions(limit=4) == 0
+            action = repository.ensure_materialization_action(
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                transfer_id=transfer_id,
+                generation=1,
+            )
+            session.commit()
+
+        barrier = Barrier(2)
+
+        def claim(worker: str) -> RemoteManualSelectionHostActionRecord | None:
+            with session_factory() as session:
+                repository = SqlAlchemyRemoteManualSelectionRepository(session)
+                barrier.wait(timeout=5)
+                result = repository.claim_next_materialization_action(
+                    lease_owner=worker,
+                    lease_duration=timedelta(seconds=30),
+                    claimed_at=NOW,
+                )
+                session.commit()
+                return result
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            claims = tuple(executor.map(claim, ("worker-a", "worker-b")))
+        winners = [claim for claim in claims if claim is not None]
+        assert len(winners) == 1
+        winner = winners[0]
+        assert winner.lease_token is not None
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            context = repository.lock_materialization_context(
+                action_id=action.id,
+                lease_token=winner.lease_token,
+                locked_at=NOW,
+            )
+            assert context is not None
+            result = repository.complete_materialization_action(
+                context,
+                lease_token=winner.lease_token,
+                final_relative_path="seq_1-9.jpg",
+                completed_at=NOW,
+            )
+            session.commit()
+            assert result.status is RemoteManualSelectionFileStatus.SYNCED
+
+        with session_factory() as session:
+            action_record = session.get(RemoteManualSelectionHostActionModel, action.id)
+            batch_record = session.get(RemoteManualSelectionBatchModel, BATCH_ID)
+            file_record = session.get(RemoteManualSelectionFileModel, FILE_ID)
+            assert action_record is not None and action_record.status == "completed"
+            assert action_record.lease_token is None
+            assert batch_record is not None and batch_record.transferred_file_count == 1
+            assert file_record is not None and file_record.final_relative_path == "seq_1-9.jpg"
     finally:
         engine.dispose()
 

@@ -135,4 +135,16 @@ test('remote acceptance does not drop a visible image while its load event settl
     workspace,
     /disabled=\{!canEdit \|\| hasConflict \|\| sourceReader === null\}/,
   );
+  assert.match(
+    workspace,
+    /const activePreview = useRef<\{ ordinal: number; url: string \} \| null>/,
+  );
+  assert.match(
+    workspace,
+    /const previewChanged =[\s\S]*activePreview\.current\?\.ordinal !== workspace\.currentIndex[\s\S]*activePreview\.current\.url !== selected/,
+  );
+  assert.match(
+    workspace,
+    /if \(!cancelled && previewChanged\) \{[\s\S]*setDecoded\(false\);[\s\S]*setNaturalImageSize\(null\)/,
+  );
 });

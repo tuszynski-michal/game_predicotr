@@ -70,6 +70,7 @@ export function RemoteManualSelectionWorkspace({
   const busyRef = useRef(false);
   const operationQueue = useRef(Promise.resolve());
   const previewUrls = useRef(new Map<number, string>());
+  const activePreview = useRef<{ ordinal: number; url: string } | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const previewImage = useRef<HTMLImageElement>(null);
   const savedScrollLeft = useRef(initialScrollPosition.left);
@@ -241,7 +242,10 @@ export function RemoteManualSelectionWorkspace({
     }
     if (sourceReader === null) {
       queueMicrotask(() => {
-        if (!cancelled) setPreviewUrl(null);
+        if (!cancelled) {
+          activePreview.current = null;
+          setPreviewUrl(null);
+        }
       });
       return;
     }
@@ -264,7 +268,15 @@ export function RemoteManualSelectionWorkspace({
         );
       }
       const selected = previewUrls.current.get(workspace.currentIndex) ?? null;
-      if (!cancelled) {
+      const previewChanged =
+        selected !== null &&
+        (activePreview.current?.ordinal !== workspace.currentIndex ||
+          activePreview.current.url !== selected);
+      if (!cancelled && previewChanged) {
+        activePreview.current = {
+          ordinal: workspace.currentIndex,
+          url: selected,
+        };
         setDecoded(false);
         setNaturalImageSize(null);
         setPreviewOrdinal(workspace.currentIndex);

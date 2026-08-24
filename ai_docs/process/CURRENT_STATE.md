@@ -38,6 +38,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Lista hosta jest ograniczona do dziesięciu najnowszych sesji w porządku
   malejącym. Starsze wpisy pozostają audytowalne, ale nie rosną bez końca w
   codziennym widoku Admina.
+- Zdalny podgląd nie resetuje już wymiarów tego samego JPEG-a po drugim refreshu
+  następującym po zatwierdzeniu. Scroll poziomy i pionowy pozostają zachowane po
+  `Enter`, `F` i przycisku zapisu, nie tylko po nawigacji strzałkami.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

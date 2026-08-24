@@ -220,6 +220,14 @@ ani kopiowania JPEG-ów do repozytorium.
 - Starsze sesje pozostają w audycie i nie są automatycznie usuwane ani
   unieważniane; ograniczenie dotyczy wyłącznie aktywnego panelu właściciela.
 
+### v0.7.55 — zachowanie scrolla po zatwierdzeniu
+
+- Zatwierdzenie operator-local nie resetuje już wymiarów tego samego podglądu
+  podczas drugiego odświeżenia lokalnego okna danych. Podgląd jest resetowany
+  wyłącznie wtedy, gdy zmienił się ordinal albo Object URL JPEG-a.
+- Dzięki temu po `Enter`, `F` i przycisku zapisu obie osie są odtwarzane tak samo
+  jak po nawigacji strzałkami; zapis pliku i manifestu pozostaje niezmieniony.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

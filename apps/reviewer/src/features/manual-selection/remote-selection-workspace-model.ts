@@ -149,10 +149,13 @@ export function clampRemoteWorkspaceIndex(
 
 export function advanceRemoteTransferScanCursor(input: {
   readonly currentCursor: number;
+  readonly currentGeneration: number;
   readonly scanStartCursor: number;
+  readonly scanStartGeneration: number;
   readonly scannedThroughOrdinal: number;
 }): number {
-  return input.currentCursor === input.scanStartCursor
+  return input.currentCursor === input.scanStartCursor &&
+    input.currentGeneration === input.scanStartGeneration
     ? input.scannedThroughOrdinal
     : input.currentCursor;
 }

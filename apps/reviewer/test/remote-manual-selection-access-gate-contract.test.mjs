@@ -66,9 +66,28 @@ test('mobile access gate bounds network waits and tolerates unavailable storage'
   const clientRuntime = await readFile(clientRuntimePath, 'utf8');
 
   assert.match(gate, /fetchRemoteSelectionWithTimeout/);
+  assert.match(
+    gate,
+    /useState\(\(\) =>\s*typeof window === 'undefined' \? '' : readClientInstance\(\)/,
+  );
+  assert.doesNotMatch(gate, /useSyncExternalStore/);
   assert.match(clientRuntime, /REMOTE_SELECTION_REQUEST_TIMEOUT_MS = 12_000/);
   assert.match(clientRuntime, /controller\.abort\(\)/);
   assert.match(clientRuntime, /Mobile privacy modes may expose sessionStorage/);
+});
+
+test('writer heartbeat survives workspace rerenders and recovers an expired lease', async () => {
+  const gate = await readFile(gatePath, 'utf8');
+
+  assert.match(gate, /const heartbeatLease = useCallback/);
+  assert.match(
+    gate,
+    /\[clientInstanceId, hasContext, heartbeatLease, isWriter, loadContext\]/,
+  );
+  assert.match(
+    gate,
+    /response\.status === 401 \|\| response\.status === 409[\s\S]*await loadContext\(true\)/,
+  );
 });
 
 test('remote selection cookie cannot authorize the legacy Reviewer proxy', async () => {
@@ -78,7 +97,7 @@ test('remote selection cookie cannot authorize the legacy Reviewer proxy', async
   assert.doesNotMatch(legacyProxy, /gp_remote_selection_token/);
 });
 
-test('TASK 13 workspace keeps previews local and exposes durable sync states', async () => {
+test('operator-local workspace keeps previews, decisions and JPEG outputs on the operator device', async () => {
   const gate = await readFile(gatePath, 'utf8');
   const workspace = await readFile(workspacePath, 'utf8');
   const operationalWorkspace = await readFile(operationalWorkspacePath, 'utf8');
@@ -91,36 +110,45 @@ test('TASK 13 workspace keeps previews local and exposes durable sync states', a
     /obrazy nie są kopiowane do IndexedDB ani wysyłane przed\s+wyborem/,
   );
   assert.match(workspace, /RemoteManualSelectionWorkspace/);
+  assert.match(
+    workspace,
+    /REMOTE_OUTPUT_PARENT_PICKER_ID = 'gp-rms-output-parent'/,
+  );
+  assert.match(workspace, /const outputName = `\$\{sourceName\} wybrane`/);
+  assert.match(
+    workspace,
+    /parent\.getDirectoryHandle\(outputName,\s*\{\s*create: true/,
+  );
+  assert.match(workspace, /outputDirectoryName: outputName/);
   assert.doesNotMatch(workspace, /\bfetch\s*\(/);
   assert.match(operationalWorkspace, /URL\.createObjectURL/);
   assert.match(operationalWorkspace, /URL\.revokeObjectURL/);
   assert.match(operationalWorkspace, /PREVIEW_RADIUS = 3/);
   assert.match(workspaceModel, /selected_local/);
-  assert.match(workspaceModel, /confirmed/);
-  assert.match(workspaceModel, /synced/);
-  assert.match(operationalWorkspace, /beforeunload/);
-  assert.match(operationalWorkspace, /finalizePreview/);
-  assert.match(operationalWorkspace, /Zakończ partię i zapisz manifesty/);
-  assert.match(operationalWorkspace, /batch\.status === 'completed'/);
+  assert.match(operationalWorkspace, /writeOperatorLocalSelection/);
+  assert.match(operationalWorkspace, /appendLocalWorkspaceDecision/);
+  assert.match(operationalWorkspace, /writeOperatorLocalManifest/);
+  assert.match(operationalWorkspace, /removeOperatorLocalSelection/);
+  assert.match(operationalWorkspace, /Tryb lokalny operatora/);
+  assert.doesNotMatch(
+    operationalWorkspace,
+    /Zakończ partię i zapisz manifesty/,
+  );
   assert.doesNotMatch(operationalWorkspace, /hostPath|basePath|C:\\\\/);
   assert.match(store, /game-predictor-remote-manual-selection/);
   assert.doesNotMatch(store, /game-predictor-manual-image-selection/);
   assert.doesNotMatch(store, /readonly (?:blob|bytes|jpegData):/i);
 });
 
-test('finalization waits behind interactions and blocks a non-empty local outbox', async () => {
+test('operator-local decisions are serialized without host finalization or transfer', async () => {
   const operationalWorkspace = await readFile(operationalWorkspacePath, 'utf8');
 
   assert.match(
     operationalWorkspace,
-    /interactionQueue\s*\.enqueue\(runFinalizationPreview\)/,
+    /interactionQueue[\s\S]*\.enqueue\(\(\) =>[\s\S]*acceptRequestedImage/,
   );
-  assert.match(
-    operationalWorkspace,
-    /store\.countPendingOperations\([\s\S]*?REMOTE_SELECTION_LOCAL_OUTBOX_PENDING/,
-  );
-  assert.match(
-    operationalWorkspace,
-    /const currentPreview = await controlTransport\.finalizePreview/,
-  );
+  assert.doesNotMatch(operationalWorkspace, /controlTransport/);
+  assert.doesNotMatch(operationalWorkspace, /transferScheduler/);
+  assert.doesNotMatch(operationalWorkspace, /countPendingOperations/);
+  assert.doesNotMatch(operationalWorkspace, /syncNow/);
 });

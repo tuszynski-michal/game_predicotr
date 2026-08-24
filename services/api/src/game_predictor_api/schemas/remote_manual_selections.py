@@ -79,7 +79,7 @@ class RemoteManualSelectionBaseCapabilityResponse(ApiModel):
 
 
 class RemoteManualSelectionSessionCreate(ApiModel):
-    base_capability: str = Field(min_length=32, max_length=200)
+    base_capability: str | None = Field(default=None, min_length=32, max_length=200)
     lifetime_minutes: int = Field(default=480, ge=5, le=1440)
     label: str | None = Field(default=None, min_length=1, max_length=100)
 

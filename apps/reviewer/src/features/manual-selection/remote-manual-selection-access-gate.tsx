@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { RemoteManualSelectionWorkspaceFoundation } from './remote-manual-selection-workspace-foundation';
 import {
   fetchRemoteSelectionWithTimeout,
@@ -35,10 +35,8 @@ export function RemoteManualSelectionAccessGate({
   readonly sessionId: string;
 }) {
   const [accessCode, setAccessCode] = useState('');
-  const clientInstanceId = useSyncExternalStore(
-    subscribeToClientInstance,
-    readClientInstance,
-    emptyClientInstance,
+  const [clientInstanceId] = useState(() =>
+    typeof window === 'undefined' ? '' : readClientInstance(),
   );
   const [context, setContext] = useState<RemoteSelectionContext | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -95,20 +93,46 @@ export function RemoteManualSelectionAccessGate({
     return () => window.clearTimeout(timeout);
   }, [loadContext]);
 
+  const heartbeatLease = useCallback(async () => {
+    if (clientInstanceId === '' || sessionId === '') return;
+    try {
+      const response = await fetchRemoteSelectionWithTimeout(
+        `${API_BASE}/sessions/${sessionId}/writer-lease/heartbeat`,
+        {
+          body: JSON.stringify({ clientInstanceId }),
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      );
+      if (response.status === 401 || response.status === 409) {
+        await loadContext(true);
+        setError(await responseError(response));
+        return;
+      }
+      if (!response.ok) return;
+      setContext((await response.json()) as RemoteSelectionContext);
+    } catch {
+      // A later heartbeat retries. Durable local decisions remain in IndexedDB.
+    }
+  }, [clientInstanceId, loadContext, sessionId]);
+
+  const hasContext = context !== null;
+  const isWriter = context?.isWriter === true;
   useEffect(() => {
-    if (context === null || clientInstanceId === '') return;
+    if (!hasContext || clientInstanceId === '') return;
     const interval = window.setInterval(
       () => {
-        if (context.isWriter) {
-          void updateLease('heartbeat', true);
+        if (isWriter) {
+          void heartbeatLease();
         } else {
           void loadContext(true);
         }
       },
-      context.isWriter ? HEARTBEAT_INTERVAL_MS : CONTEXT_REFRESH_INTERVAL_MS,
+      isWriter ? HEARTBEAT_INTERVAL_MS : CONTEXT_REFRESH_INTERVAL_MS,
     );
     return () => window.clearInterval(interval);
-  });
+  }, [clientInstanceId, hasContext, heartbeatLease, isWriter, loadContext]);
 
   async function unlock() {
     if (
@@ -323,14 +347,6 @@ async function responseError(response: Response): Promise<string> {
     // A stable local fallback is safer than rendering an upstream HTML body.
   }
   return `Żądanie nie powiodło się (${response.status}).`;
-}
-
-function subscribeToClientInstance(): () => void {
-  return () => undefined;
-}
-
-function emptyClientInstance(): string {
-  return '';
 }
 
 function readClientInstance(): string {

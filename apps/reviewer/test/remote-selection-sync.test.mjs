@@ -96,18 +96,35 @@ test('transfer scan cannot overwrite a rewind requested by a new selection', () 
   assert.equal(
     advanceRemoteTransferScanCursor({
       currentCursor: 4,
+      currentGeneration: 1,
       scannedThroughOrdinal: 499,
       scanStartCursor: -1,
+      scanStartGeneration: 0,
     }),
     4,
   );
   assert.equal(
     advanceRemoteTransferScanCursor({
       currentCursor: -1,
+      currentGeneration: 0,
       scannedThroughOrdinal: 499,
       scanStartCursor: -1,
+      scanStartGeneration: 0,
     }),
     499,
+  );
+});
+
+test('transfer scan cannot skip a selection added before its current cursor', () => {
+  assert.equal(
+    advanceRemoteTransferScanCursor({
+      currentCursor: -1,
+      currentGeneration: 1,
+      scannedThroughOrdinal: 282,
+      scanStartCursor: -1,
+      scanStartGeneration: 0,
+    }),
+    -1,
   );
 });
 

@@ -37,6 +37,13 @@ class FakeHostService:
             display_name="Documents",
         )
 
+    def create_operator_local_base(self) -> ConsumedRemoteManualSelectionBase:
+        return ConsumedRemoteManualSelectionBase(
+            base_binding_id=UUID(int=100),
+            host_base_path=Path(r"C:\app\artifacts\remote-access"),
+            display_name="Dane na urządzeniu operatora",
+        )
+
 
 def _service(
     *,
@@ -84,6 +91,20 @@ def test_create_consumes_capability_once_and_persists_only_hashes() -> None:
     assert PBKDF2_SHA256_ITERATIONS == 210_000
     with pytest.raises(RemoteManualSelectionAccessError):
         _created(service, host)
+
+
+def test_create_operator_local_session_without_host_folder_capability() -> None:
+    service, repository, _host, _clock = _service()
+
+    created = service.create(
+        base_capability=None,
+        lifetime_minutes=60,
+        label="Operator lokalny",
+    )
+
+    record = repository.records[created.session.session_id]
+    assert created.session.display_name == "Operator lokalny"
+    assert record.host_base_path == r"C:\app\artifacts\remote-access"
 
 
 def test_create_normalizes_label_and_rejects_it_before_consuming_capability() -> None:

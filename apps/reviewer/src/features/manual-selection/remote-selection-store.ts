@@ -37,6 +37,9 @@ export interface RemoteSelectionLocalSessionRecord {
   readonly sourceKind: RemoteSourceKind | null;
   readonly sourceManifestChecksumSha256: string | null;
   readonly sourceHandle: FileSystemDirectoryHandle | null;
+  readonly outputDirectoryName?: string | null;
+  readonly outputHandle?: FileSystemDirectoryHandle | null;
+  readonly outputPermissionState?: RemoteSourcePermissionState;
   readonly permissionState: RemoteSourcePermissionState;
   readonly persistenceGranted: boolean | null;
   readonly updatedAt: string;
@@ -464,6 +467,118 @@ export class RemoteSelectionIndexedDbStore {
         navigationStep: workspace.navigationStep,
         nextRangeStart: decision.rangeStart + 9,
         updatedAt: queuedAt,
+      };
+      validateWorkspaceBatch(next);
+      batches.put(next);
+      await transactionComplete(transaction);
+      return next;
+    } finally {
+      database.close();
+    }
+  }
+
+  async appendLocalWorkspaceDecision(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly decision: RemoteSelectionWorkspaceDecision;
+    readonly nextCursorIndex: number;
+    readonly updatedAt?: string;
+  }): Promise<RemoteSelectionLocalBatchRecord> {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+        'readwrite',
+      );
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const batch = (await requestResult(
+        batches.get([input.sessionId, input.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (batch === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_BATCH_NOT_FOUND',
+          'Remote selection batch does not exist.',
+        );
+      }
+      const workspace = remoteSelectionWorkspaceState(batch);
+      if (
+        workspace.nextRangeStart !== input.decision.rangeStart ||
+        input.nextCursorIndex < 0 ||
+        input.nextCursorIndex >= batch.fileCount
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_WORKSPACE_STALE',
+          'The local workspace changed before the decision was persisted.',
+        );
+      }
+      const next: RemoteSelectionLocalBatchRecord = {
+        ...batch,
+        cursorIndex: input.nextCursorIndex,
+        decisions: [...workspace.decisions, input.decision],
+        navigationStep: workspace.navigationStep,
+        nextRangeStart: input.decision.rangeStart + 9,
+        updatedAt,
+      };
+      validateWorkspaceBatch(next);
+      batches.put(next);
+      await transactionComplete(transaction);
+      return next;
+    } finally {
+      database.close();
+    }
+  }
+
+  async undoLastLocalWorkspaceDecision(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly expectedOperationId: string;
+    readonly updatedAt?: string;
+  }): Promise<RemoteSelectionLocalBatchRecord | null> {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+        'readwrite',
+      );
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const batch = (await requestResult(
+        batches.get([input.sessionId, input.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (batch === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_BATCH_NOT_FOUND',
+          'Remote selection batch does not exist.',
+        );
+      }
+      const workspace = remoteSelectionWorkspaceState(batch);
+      const last = workspace.decisions.at(-1);
+      if (last === undefined) {
+        await transactionComplete(transaction);
+        return null;
+      }
+      if (last.operationId !== input.expectedOperationId) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_WORKSPACE_STALE',
+          'The last local decision changed before undo was persisted.',
+        );
+      }
+      const next: RemoteSelectionLocalBatchRecord = {
+        ...batch,
+        cursorIndex: last.sourceIndex,
+        decisions: workspace.decisions.slice(0, -1),
+        navigationStep: workspace.navigationStep,
+        nextRangeStart: last.rangeStart,
+        updatedAt,
       };
       validateWorkspaceBatch(next);
       batches.put(next);

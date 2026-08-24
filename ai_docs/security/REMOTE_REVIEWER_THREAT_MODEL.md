@@ -8,6 +8,25 @@ last_updated: 2026-08-24
 
 ## Granica i przepływ
 
+W trybie zdalnej ręcznej selekcji od v0.7.51 publiczny host jest wyłącznie
+bramką dostępu. Folder źródłowy, uchwyt wynikowy, decyzje, zoom, scroll i
+wybrane JPEG-i pozostają na urządzeniu operatora. API tworzy techniczne,
+path-free binding pod artifact root tylko po to, aby zachować istniejący model
+sesji i revoke; binding nie jest katalogiem wyniku i nie przyjmuje danych
+operatora.
+
+Operator jawnie wybiera katalog nadrzędny z prawem `readwrite`; Reviewer tworzy
+`<źródło> wybrane` i weryfikuje własne pliki checksumą. Przeglądarka nie
+udostępnia aplikacji ścieżki absolutnej ani rodzica uchwytu źródłowego. Uchwyt i
+postęp są w IndexedDB operatora, a zoom i scroll w jego localStorage. Po
+restarcie permission może wymagać ponownej zgody. Brak File System Access API
+blokuje zapis fail-closed.
+
+Publiczne endpointy historycznego control plane/transferu pozostają objęte
+allowlistą i testami bezpieczeństwa, ale nowy workspace ich nie wywołuje.
+Usunięcie ich wymaga osobnego zadania migracyjnego; samo ich istnienie nie
+upoważnia klienta do wznowienia transferu JPEG-ów na host.
+
 ```mermaid
 flowchart LR
     U["Zdalny recenzent"] -->|"HTTPS + link bez sekretu"| T["Cloudflare Quick Tunnel"]

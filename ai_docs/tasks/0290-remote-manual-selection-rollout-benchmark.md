@@ -180,6 +180,22 @@ ani kopiowania JPEG-ów do repozytorium.
   synchronizacji i gotowości. Zoom ma jawnie nieograniczone wymiary obrazu,
   a obie osie scrolla wracają po dwóch klatkach layoutu.
 
+### v0.7.51 — operator-local wynik i rzeczywisty parytet viewportu
+
+- Po powtarzających się rozjazdach decyzji i transferów właściciel wybrał
+  prostszy model: link jest bramką dostępu, natomiast JPEG-i, decyzje, kursor,
+  zoom, scroll i manifest pozostają wyłącznie na urządzeniu operatora.
+- Operator wybiera folder źródłowy oraz katalog nadrzędny. Reviewer tworzy
+  `<źródło> wybrane`, zapisuje tam oryginalne bajty `seq_*` i nie uruchamia
+  control outboxu, transfer scheduler ani host finalization.
+- Ujawniono brak bazowych stylów lokalnego selektora w aplikacji Reviewer.
+  Zostały przeniesione reguły viewportu, canvasu, toolbara, nawigacji i
+  fullscreen; dzięki temu wspólna funkcja dopasowania faktycznie zmienia wymiar
+  obrazu, a obie osie scrolla można odtworzyć po zmianie JPEG-a.
+- Historyczne etapy transferowe TASK-0290 pozostają audytowalne, ale ich dalszy
+  rollout jest wstrzymany. Nowy odbiór powinien mierzyć operator-local zapis na
+  drugim komputerze i recovery permission po restarcie.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

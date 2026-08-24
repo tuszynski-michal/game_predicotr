@@ -198,6 +198,8 @@ class RemoteManualSelectionBaseConsumer(Protocol):
         capability: str,
     ) -> ConsumedRemoteManualSelectionBase: ...
 
+    def create_operator_local_base(self) -> ConsumedRemoteManualSelectionBase: ...
+
 
 class RemoteManualSelectionAccessService:
     """Create, unlock, authenticate, lease and revoke one purpose-scoped session."""
@@ -218,7 +220,7 @@ class RemoteManualSelectionAccessService:
     def create(
         self,
         *,
-        base_capability: str,
+        base_capability: str | None,
         lifetime_minutes: int,
         label: str | None = None,
     ) -> CreatedRemoteManualSelectionAccess:
@@ -228,7 +230,11 @@ class RemoteManualSelectionAccessService:
                 "Remote selection session lifetime must be between 5 minutes and 24 hours.",
             )
         normalized_label = _normalize_session_label(label)
-        bound = self._host_service.consume_base_capability(base_capability)
+        bound = (
+            self._host_service.create_operator_local_base()
+            if base_capability is None
+            else self._host_service.consume_base_capability(base_capability)
+        )
         display_name = normalized_label or bound.display_name
         now = self._now()
         code = generate_access_code()
@@ -264,7 +270,10 @@ class RemoteManualSelectionAccessService:
             event_type="created",
             actor="local-owner",
             outcome_code="REMOTE_SELECTION_SESSION_CREATED",
-            payload={"lifetimeMinutes": lifetime_minutes},
+            payload={
+                "lifetimeMinutes": lifetime_minutes,
+                "storageMode": ("operator_local" if base_capability is None else "host_transfer"),
+            },
             now=now,
         )
         return CreatedRemoteManualSelectionAccess(self._view(record, now), code)
@@ -668,9 +677,7 @@ class RemoteManualSelectionAccessService:
             writer_active=writer_active,
             writer_lease_expires_at=(record.writer_lease_expires_at if writer_active else None),
             last_heartbeat_at=(
-                record.session.updated_at
-                if record.writer_client_instance_id is not None
-                else None
+                record.session.updated_at if record.writer_client_instance_id is not None else None
             ),
         )
 
@@ -692,9 +699,7 @@ class RemoteManualSelectionAccessService:
             writer_active=writer_active,
             writer_lease_expires_at=(record.writer_lease_expires_at if writer_active else None),
             last_heartbeat_at=(
-                record.session.updated_at
-                if record.writer_client_instance_id is not None
-                else None
+                record.session.updated_at if record.writer_client_instance_id is not None else None
             ),
         )
 

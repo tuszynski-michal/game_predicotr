@@ -5625,7 +5625,7 @@ export type RemoteManualSelectionSessionCreate = {
   /**
    * Basecapability
    */
-  baseCapability: string;
+  baseCapability?: string | null;
   /**
    * Label
    */

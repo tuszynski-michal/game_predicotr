@@ -448,7 +448,10 @@ def create_app(
         lambda: default_browser_image_selection_service
     )
     default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
-        controlled_folder_picker
+        controlled_folder_picker,
+        operator_local_control_root=(
+            resolved_settings.artifact_root / "remote-manual-selection-access"
+        ),
     )
     resolved_remote_manual_selection_host_dependency = (
         remote_manual_selection_host_service_dependency

@@ -223,6 +223,7 @@ class RemoteManualSelectionHostService:
         self,
         picker: WindowsFolderPicker | Callable[[], Path | None],
         *,
+        operator_local_control_root: Path | None = None,
         path_guard: WindowsPathGuard | None = None,
         clock: Callable[[], datetime] | None = None,
         capability_ttl: timedelta = BASE_CAPABILITY_TTL,
@@ -231,10 +232,26 @@ class RemoteManualSelectionHostService:
         self._path_guard = path_guard or WindowsPathGuard()
         self._clock = clock or (lambda: datetime.now(UTC))
         self._capability_ttl = capability_ttl
+        self._operator_local_control_root = operator_local_control_root
         self._capabilities: dict[str, _StoredBaseCapability] = {}
         self._lock = Lock()
         self._picker_lock = Lock()
         self._mapping_lock = Lock()
+
+    def create_operator_local_base(self) -> ConsumedRemoteManualSelectionBase:
+        """Create an access-only binding for sessions whose files stay on the operator device."""
+        if self._operator_local_control_root is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_OPERATOR_LOCAL_STORAGE_UNAVAILABLE",
+                "Operator-local remote selection storage is not configured.",
+            )
+        self._operator_local_control_root.mkdir(parents=True, exist_ok=True)
+        bound = self._path_guard.inspect_base(self._operator_local_control_root)
+        return ConsumedRemoteManualSelectionBase(
+            base_binding_id=uuid4(),
+            host_base_path=bound.final_path,
+            display_name="Dane na urządzeniu operatora",
+        )
 
     def select_base(self) -> RemoteManualSelectionBaseCapability | None:
         if not self._picker_lock.acquire(blocking=False):
@@ -452,7 +469,7 @@ class RemoteManualSelectionHostService:
                 batch_id=batch.id,
                 base_binding_id=binding.base_binding_id,
                 normalized_collection_name=collection.normalized_name,
-                normalized_batch_name=batch.name.casefold(),
+                normalized_batch_name=batch_component.normalized_name,
             )
             self._verify_marker(locked, batch_path, marker)
             components = (
@@ -508,9 +525,7 @@ class RemoteManualSelectionHostService:
                     )
                 return RemoteManualSelectionTransferArtifactInspection(
                     state="verified",
-                    verified_relative_path=(
-                        f"{directory.relative_path}/{transfer_id}.verified"
-                    ),
+                    verified_relative_path=(f"{directory.relative_path}/{transfer_id}.verified"),
                     size_bytes=size,
                     checksum_sha256=checksum,
                 )

@@ -64,6 +64,10 @@ export interface RemoteSelectionTransferSchedulerOptions {
   readonly random?: () => number;
   readonly sleep?: (milliseconds: number) => Promise<void>;
   readonly createTransferId?: () => string;
+  readonly onFailure?: (
+    task: RemoteSelectionTransferTask,
+    cause: unknown,
+  ) => void;
 }
 
 interface QueueItem {
@@ -93,6 +97,8 @@ export class RemoteSelectionTransferScheduler {
   private readonly random: () => number;
   private readonly sleep: (milliseconds: number) => Promise<void>;
   private readonly createTransferId: () => string;
+  private readonly onFailure:
+    ((task: RemoteSelectionTransferTask, cause: unknown) => void) | undefined;
   private readonly queue: QueueItem[] = [];
   private readonly active = new Map<string, QueueItem>();
   private pendingBytes = 0;
@@ -133,6 +139,7 @@ export class RemoteSelectionTransferScheduler {
     this.sleep = options.sleep ?? delay;
     this.createTransferId =
       options.createTransferId ?? (() => crypto.randomUUID());
+    this.onFailure = options.onFailure;
   }
 
   async enqueue(task: RemoteSelectionTransferTask): Promise<boolean> {
@@ -335,6 +342,11 @@ export class RemoteSelectionTransferScheduler {
           await this.store.saveTransferCheckpoint(
             checkpoint(task, item.transferId, 0, 'failed'),
           );
+          try {
+            this.onFailure?.(task, cause);
+          } catch {
+            // Diagnostics must never change transfer state or retry semantics.
+          }
           return;
         }
         await this.sleep(

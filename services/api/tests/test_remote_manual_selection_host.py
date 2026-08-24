@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -118,6 +119,22 @@ def test_base_capability_is_path_free_single_use_and_expires(tmp_path: Path) -> 
     with pytest.raises(RemoteManualSelectionError) as expired:
         service.consume_base_capability(expiring.capability)
     assert expired.value.code == "REMOTE_SELECTION_BASE_CAPABILITY_INVALID"
+
+
+def test_operator_local_binding_uses_only_the_configured_control_directory(
+    tmp_path: Path,
+) -> None:
+    control = tmp_path / "operator-local-control"
+    service = RemoteManualSelectionHostService(
+        lambda: None,
+        operator_local_control_root=control,
+    )
+
+    bound = service.create_operator_local_base()
+
+    assert bound.host_base_path == control.resolve()
+    assert bound.display_name == "Dane na urządzeniu operatora"
+    assert control.is_dir()
 
 
 def test_mapping_creates_marker_and_resumes_after_service_restart(tmp_path: Path) -> None:
@@ -283,6 +300,43 @@ def test_transfer_directory_stays_below_verified_host_internal_mapping(tmp_path:
         assert directory.relative_path == (
             f".game-predictor/remote-selection-v1/transfers/{file_id}/1"
         )
+
+
+def test_transfer_directory_reuses_canonical_unicode_batch_marker(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    repository = _repository(base)
+    service = RemoteManualSelectionHostService(lambda: None)
+    decomposed_collection_name = unicodedata.normalize("NFD", "Zdjęcia1")
+    decomposed_batch_name = unicodedata.normalize("NFD", "do testów 379927 - 379791")
+    collection = _collection(decomposed_collection_name)
+    collection = RemoteManualSelectionCollectionV1(
+        id=collection.id,
+        session_id=collection.session_id,
+        name=collection.name,
+        normalized_name=unicodedata.normalize("NFC", collection.name).casefold(),
+        status=collection.status,
+        revision=collection.revision,
+    )
+    batch = _batch(decomposed_batch_name)
+    service.provision_batch_mapping(
+        repository,
+        session_id=SESSION_ID,
+        collection=collection,
+        batch=batch,
+        total_file_count=1,
+    )
+    file_id = UUID("40000000-0000-4000-8000-000000000004")
+
+    with service.open_transfer_directory(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        file_id=file_id,
+        generation=1,
+    ) as directory:
+        assert directory.path.is_dir()
+        assert directory.path.is_relative_to(base / "Zdjęcia1" / "do testów 379927 - 379791")
 
 
 def test_materialization_scope_pins_exact_verified_source_and_owned_target(

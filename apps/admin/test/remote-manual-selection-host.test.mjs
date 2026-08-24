@@ -9,7 +9,6 @@ import {
   loadRemoteManualSelectionSessions,
   reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
-  selectRemoteManualSelectionBase,
 } from '../src/features/manual-image-selection/remote-manual-selection-actions.ts';
 import {
   REMOTE_SESSION_LIST_POLL_MS,
@@ -49,17 +48,6 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
   const calls = [];
   const current = session();
   const client = {
-    selectRemoteManualSelectionHostBase: async () => {
-      calls.push(['select']);
-      return {
-        data: {
-          baseCapability: 'x'.repeat(32),
-          displayName: 'Documents',
-          expiresAt: '2026-08-24T10:05:00Z',
-          status: 'selected',
-        },
-      };
-    },
     createRemoteManualSelectionSession: async (body) => {
       calls.push(['create', body]);
       return { data: { accessCode: 'ABCD-EFGH', session: current } };
@@ -121,11 +109,9 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     },
   };
 
-  assert.equal((await selectRemoteManualSelectionBase(client)).ok, true);
   assert.equal(
     (
       await createRemoteManualSelectionAccess(client, {
-        baseCapability: 'x'.repeat(32),
         label: '  Operator 1  ',
         lifetimeMinutes: 480,
       })
@@ -163,11 +149,9 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     true,
   );
   assert.deepEqual(calls, [
-    ['select'],
     [
       'create',
       {
-        baseCapability: 'x'.repeat(32),
         label: 'Operator 1',
         lifetimeMinutes: 480,
       },
@@ -234,7 +218,12 @@ test('panel keeps secret in React memory and uses bounded polling and exact revo
   assert.match(panelSource, /revokeSession\(selectedSession\.sessionId\)/);
   assert.match(panelSource, /Inne sesje i wspólny tunel nie zostały przerwane/);
   assert.match(panelSource, /Kod jednorazowy — nie pojawi się po odświeżeniu/);
-  assert.match(panelSource, /Wybierz folder bazowy/);
+  assert.doesNotMatch(panelSource, /Wybierz folder bazowy/);
+  assert.match(panelSource, /wybrane obrazy pozostają wyłącznie na urządzeniu/);
+  assert.match(
+    panelSource,
+    /Twój komputer przechowuje tylko kod i czas dostępu/,
+  );
   assert.match(panelSource, /Etykieta sesji/);
   assert.match(panelSource, /expectedFinalManifestChecksumSha256/);
   assert.match(panelSource, /Potwierdź ponowne otwarcie/);

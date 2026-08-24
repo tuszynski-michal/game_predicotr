@@ -1,7 +1,6 @@
 'use client';
 
 import type {
-  RemoteManualSelectionBaseCapabilityResponse,
   RemoteManualSelectionSessionCreatedResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
@@ -18,7 +17,6 @@ import {
   loadRemoteManualSelectionSessions,
   reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
-  selectRemoteManualSelectionBase,
   type RemoteManualSelectionHostClient,
 } from './remote-manual-selection-actions';
 import {
@@ -40,8 +38,6 @@ export function RemoteManualSelectionHostPanel({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const [base, setBase] =
-    useState<RemoteManualSelectionBaseCapabilityResponse | null>(null);
   const [label, setLabel] = useState('');
   const [lifetimeMinutes, setLifetimeMinutes] = useState(480);
   const [sessions, setSessions] = useState<
@@ -53,7 +49,6 @@ export function RemoteManualSelectionHostPanel({
   const [oneTimeAccess, setOneTimeAccess] =
     useState<RemoteManualSelectionSessionCreatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pickingBase, setPickingBase] = useState(false);
   const [creating, setCreating] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(
     null,
@@ -154,43 +149,8 @@ export function RemoteManualSelectionHostPanel({
     };
   }, [api, refreshMonitor, selectedSessionId]);
 
-  async function chooseBase() {
-    if (pickingBase || creating) return;
-    setPickingBase(true);
-    setError('');
-    setNotice('');
-    try {
-      const result = await selectRemoteManualSelectionBase(api);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      if (
-        result.data.status === 'cancelled' ||
-        result.data.baseCapability === null ||
-        result.data.baseCapability === undefined
-      ) {
-        setNotice('Wybór folderu został anulowany.');
-        return;
-      }
-      setBase(result.data);
-      setLabel((current) => current || result.data.displayName || '');
-      setNotice(
-        'Baza została wybrana. Ścieżka pozostaje wyłącznie po stronie hosta.',
-      );
-    } finally {
-      setPickingBase(false);
-    }
-  }
-
   async function createSession() {
-    if (
-      creating ||
-      base?.baseCapability === null ||
-      base?.baseCapability === undefined ||
-      label.trim() === ''
-    )
-      return;
+    if (creating || label.trim() === '') return;
     setCreating(true);
     setError('');
     setNotice('');
@@ -198,7 +158,6 @@ export function RemoteManualSelectionHostPanel({
     setCopied(null);
     try {
       const result = await createRemoteManualSelectionAccess(api, {
-        baseCapability: base.baseCapability,
         label,
         lifetimeMinutes,
       });
@@ -206,7 +165,6 @@ export function RemoteManualSelectionHostPanel({
         setError(result.error);
         return;
       }
-      setBase(null);
       setOneTimeAccess(result.data);
       setSelectedSessionId(result.data.session.sessionId);
       setNotice(
@@ -335,7 +293,8 @@ export function RemoteManualSelectionHostPanel({
           </h2>
           <p>
             Utwórz osobną sesję dla operatora. Link nie zawiera kodu, a folder
-            bazowy i obrazy pozostają chronione przez hosta.
+            źródłowy, postęp i wybrane obrazy pozostają wyłącznie na urządzeniu
+            operatora. Twój komputer przechowuje tylko kod i czas dostępu.
           </p>
         </div>
         <button
@@ -349,18 +308,6 @@ export function RemoteManualSelectionHostPanel({
       </header>
 
       <div className="remoteManualSelectionCreate">
-        <button
-          className="secondaryButton"
-          disabled={pickingBase || creating}
-          onClick={() => void chooseBase()}
-          type="button"
-        >
-          {pickingBase
-            ? 'Otwieram wybór folderu…'
-            : base?.displayName
-              ? `Baza: ${base.displayName}`
-              : 'Wybierz folder bazowy'}
-        </button>
         <label>
           Etykieta sesji
           <input
@@ -386,12 +333,7 @@ export function RemoteManualSelectionHostPanel({
         </label>
         <button
           className="primaryButton"
-          disabled={
-            creating ||
-            base?.baseCapability === null ||
-            base?.baseCapability === undefined ||
-            label.trim() === ''
-          }
+          disabled={creating || label.trim() === ''}
           onClick={() => void createSession()}
           type="button"
         >

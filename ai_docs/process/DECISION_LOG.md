@@ -5446,6 +5446,38 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   upload manifestów przez operatora i automatyczny reopen odrzucono jako
   podatne na rozjazd DB–filesystem, podmianę artefaktu lub stale mutation.
 
+## D-227 — Wynik zdalnej ręcznej selekcji pozostaje na urządzeniu operatora
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** link, kod, cookie i writer lease służą wyłącznie do odblokowania
+  strony Reviewera. Operator wybiera lokalne źródło i katalog nadrzędny, a
+  Reviewer tworzy `<źródło> wybrane` i zapisuje w nim oryginalne JPEG-i `seq_*`
+  oraz manifest. Decyzje, kursor i uchwyty pozostają w IndexedDB operatora;
+  zoom i obie osie scrolla w jego localStorage. Nowy workspace nie rejestruje
+  partii na hoście, nie wysyła operacji i nie uruchamia transferu ani host
+  finalization.
+- **Context:** rzeczywiste próby v0.7.47–v0.7.50 wielokrotnie wykazały rozjazd
+  szybkich decyzji, zegara klienta i transferu. Właściciel jawnie wybrał zapis u
+  użytkownika końcowego jako prostszy i bezpośrednio weryfikowalny model.
+  Osobno wykryto, że Reviewer używał klas lokalnego selektora bez odpowiadających
+  im bazowych stylów, więc zoom zmieniał etykietę bez prawidłowego viewportu.
+- **Safety:** plik powstaje przed lokalnym commitem decyzji i jest weryfikowany
+  SHA-256. Idempotentny zapis przyjmuje identyczną zawartość, a konflikt nie
+  nadpisuje ani nie usuwa obcego pliku. Cofnięcie usuwa wyłącznie plik o zgodnej
+  nazwie i checksumie. Interakcje są szeregowane, a brak trwałego File System
+  Access API blokuje zapis jawnie.
+- **Consequences:** host zachowuje tylko access session i audyt; techniczny
+  binding pod artifact root nie jest wynikiem operatora. Operator musi wskazać
+  katalog nadrzędny osobnym pickerem, ponieważ przeglądarka nie ujawnia rodzica
+  źródłowego uchwytu. Historyczne tabele, endpointy, outbox, transfer i
+  materializacja pozostają odtwarzalne, ale nie są wywoływane przez nowy ekran.
+- **Supersedes:** D-221 i D-225 dla obowiązującego workspace'u; D-223, D-224 i
+  D-226 pozostają historycznymi zasadami nieaktywnego wariantu host-transfer.
+- **Alternatives:** dalsze naprawianie synchronizacji do hosta, upload całego
+  stagingu i zapis Blobów w IndexedDB odrzucono jako bardziej złożone, wolniejsze
+  albo niebezpieczne dla pamięci i trwałości.
+
 ## Szablon nowej decyzji
 
 ```text

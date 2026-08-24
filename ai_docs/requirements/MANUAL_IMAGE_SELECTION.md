@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-24
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -100,6 +100,45 @@ Ta zakładka jest narzędziem lokalnym i nie zmienia automatycznego kontraktu
 selekcji zdjęć, stagingu ani importu layoutów.
 
 ## Fundament trybu zdalnego
+
+### Obowiązujący tryb operator-local od v0.7.51
+
+Link i ośmioznakowy kod służą wyłącznie do czasowego odblokowania strony
+Reviewera. Po odblokowaniu komputer właściciela nie jest miejscem zapisu
+decyzji ani wybranych JPEG-ów. Operator wskazuje na swoim urządzeniu folder
+źródłowy oraz katalog nadrzędny z prawem zapisu. Reviewer tworzy w nim folder
+`<nazwa folderu źródłowego> wybrane`, na przykład `1 - 19 wybrane`.
+
+Oryginalne bajty zaakceptowanego JPEG-a są zapisywane bezpośrednio w tym
+folderze jako `seq_<start>-<end>.jpg`. Decyzja, kursor, następny zakres, uchwyty
+folderów oraz konfiguracja sesji są zapisywane w osobnym IndexedDB przeglądarki
+operatora. Zoom i obie pozycje scrolla są przechowywane w localStorage tego
+samego originu i urządzenia. Host przechowuje wyłącznie kontrolną sesję dostępu,
+hash kodu, TTL, lease i audyt odblokowania; nie otrzymuje źródłowego manifestu,
+decyzji, JPEG-ów ani wynikowego manifestu operatora.
+
+Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
+okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
+zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
+pozycje są przechwytywane przed zmianą zdjęcia i odtwarzane po załadowaniu oraz
+dwóch klatkach layoutu. Bazowe klasy CSS i funkcja dopasowania obrazu są takie
+same jak w lokalnym selektorze. Licznik nie może wyprzedzić trwałego zapisu:
+interakcje są szeregowane, plik jest weryfikowany checksumą, a dopiero potem
+decyzja i kursor są atomowo zapisywane lokalnie.
+
+Przeglądarka nie ujawnia uchwytu rodzica wybranego folderu źródłowego. Dlatego
+operator wskazuje katalog nadrzędny drugim pickerem, a Reviewer tworzy w nim
+folder z sufiksem ` wybrane`. Po restarcie uprawnienie do obu uchwytów może
+wrócić jako `prompt`; ponowne wyrażenie zgody nie usuwa lokalnego postępu.
+Przeglądarka bez trwałego File System Access API nie może wykonywać tego trybu
+zapisu i ma pokazać jawny błąd zamiast obiecać synchronizację.
+
+Poniższy opis control outboxu, transferu i materializacji na hoście dokumentuje
+historyczny wariant v0.7.27–v0.7.50. Nie jest wykonywany przez obowiązujący
+workspace operator-local. Pozostaje odtwarzalny dla audytu i nie może zostać
+ponownie włączony bez nowej decyzji architektonicznej.
+
+### Historyczny wariant transferu do hosta
 
 Zdalny Reviewer utrzymuje osobny, wersjonowany IndexedDB i nie współdzieli
 namespace'u ani migracji lokalnego narzędzia Admina. W wersji 1 przechowuje

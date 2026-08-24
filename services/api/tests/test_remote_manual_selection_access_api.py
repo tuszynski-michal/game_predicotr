@@ -41,6 +41,13 @@ class FakeHostService:
             display_name="Documents",
         )
 
+    def create_operator_local_base(self) -> ConsumedRemoteManualSelectionBase:
+        return ConsumedRemoteManualSelectionBase(
+            base_binding_id=UUID(int=100),
+            host_base_path=Path(r"C:\private\control-only"),
+            display_name="Dane na urządzeniu operatora",
+        )
+
 
 class FakeIngress:
     def __init__(self) -> None:
@@ -89,7 +96,9 @@ def _app(ingress: FakeIngress | None = None):
     service = RemoteManualSelectionAccessService(
         repository,
         host,
-        now=lambda: datetime(2026, 8, 24, 10, 0, tzinfo=UTC),
+        # Keep cookie expiry deterministically in the future. A date matching the
+        # real test day makes HTTPX correctly discard the otherwise valid cookie.
+        now=lambda: datetime(2099, 8, 24, 10, 0, tzinfo=UTC),
     )
     ingress = ingress or FakeIngress()
     app = create_app(
@@ -125,6 +134,20 @@ def _create_with_label(client: TestClient, label: str) -> dict[str, object]:
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def test_admin_creates_operator_local_session_without_selecting_host_base() -> None:
+    app, repository, _ingress = _app()
+    with TestClient(app, base_url="https://testserver") as client:
+        response = client.post(
+            "/api/v1/admin/remote-manual-selections/sessions",
+            json={"label": "Operator lokalny", "lifetimeMinutes": 60},
+        )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["session"]["displayName"] == "Operator lokalny"
+    record = next(iter(repository.records.values()))
+    assert record.host_base_path == r"C:\private\control-only"
 
 
 def _unlock(client: TestClient, created: dict[str, object], client_id: UUID):

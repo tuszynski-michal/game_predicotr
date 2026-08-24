@@ -9833,10 +9833,17 @@
         "additionalProperties": false,
         "properties": {
           "baseCapability": {
-            "maxLength": 200,
-            "minLength": 32,
-            "title": "Basecapability",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basecapability"
           },
           "label": {
             "anyOf": [
@@ -9859,9 +9866,6 @@
             "type": "integer"
           }
         },
-        "required": [
-          "baseCapability"
-        ],
         "title": "RemoteManualSelectionSessionCreate",
         "type": "object"
       },

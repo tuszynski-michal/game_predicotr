@@ -394,6 +394,46 @@ test('undoes skip locally and accepted selection through an exact durable tombst
   );
 });
 
+test('operator-local decisions persist without creating a host outbox', async () => {
+  const { store } = await fixture(3);
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  const decision = {
+    action: 'accepted',
+    operationId: 'operator-local-1',
+    fileId: source.fileId,
+    sourceIndex: 0,
+    imagePath: source.relativePath,
+    imageChecksumSha256: 'c'.repeat(64),
+    outputName: 'seq_1-9.jpg',
+    rangeStart: 1,
+    rangeEnd: 9,
+    selectionGeneration: 1,
+  };
+
+  const selected = await store.appendLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    decision,
+    nextCursorIndex: 1,
+  });
+  assert.deepEqual(remoteSelectionWorkspaceState(selected), {
+    currentIndex: 1,
+    decisions: [decision],
+    navigationStep: 1,
+    nextRangeStart: 10,
+  });
+  assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
+
+  const undone = await store.undoLastLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    expectedOperationId: decision.operationId,
+  });
+  assert.equal(remoteSelectionWorkspaceState(undone).currentIndex, 0);
+  assert.equal(remoteSelectionWorkspaceState(undone).nextRangeStart, 1);
+  assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
+});
+
 test('loads a bounded seven-image preview window and predicts an operation clock', async () => {
   const { store } = await fixture(20);
   const window = await store.loadSourceItemsWindow(

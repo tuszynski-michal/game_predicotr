@@ -1,10 +1,46 @@
 ---
 title: Remote manual image selection architecture and implementation plan
-status: proposed
+status: accepted
 last_updated: 2026-08-24
 ---
 
 # Zdalna ręczna selekcja zdjęć
+
+## 0. Obowiązująca architektura operator-local
+
+Od v0.7.51 obowiązuje decyzja D-227. Quick Tunnel, link, kod i purpose-scoped
+cookie tworzą wyłącznie bramkę dostępu do Reviewera. Dane robocze nie
+przekraczają granicy urządzenia operatora:
+
+```mermaid
+flowchart LR
+    H["Host: Admin + API\naccess session only"] -->|"HTTPS page + unlock"| R["Reviewer in operator browser"]
+    S[("Operator source folder\nread-only")] --> R
+    R --> I[("Operator IndexedDB\ndecisions + cursor + handles")]
+    R --> V[("Operator localStorage\nzoom + scroll")]
+    R --> O[("Sibling output folder\n<source> wybrane")]
+```
+
+- Operator wybiera źródło i osobno jego katalog nadrzędny. Drugie wskazanie jest
+  konieczne, ponieważ File System Access API nie udostępnia rodzica uchwytu.
+- Reviewer tworzy `<sourceDirectoryName> wybrane`, zapisuje oryginalne bajty
+  jako `seq_start-end.jpg` i lokalny `manual-image-selection-output-v1.json`.
+- Checksum-bound ownership blokuje nadpisanie lub usunięcie obcego pliku.
+- Kursor, zakres i decyzje są transakcyjne w IndexedDB operatora; zoom oraz obie
+  osie scrolla są per session+batch w localStorage operatora.
+- Interakcje są szeregowane. Zmiana licznika następuje dopiero po zapisie JPEG-a
+  oraz trwałej decyzji, więc sieć i control-plane nie mogą rozsynchroniczować
+  wyborów.
+- Host przechowuje wyłącznie dane bramki dostępu i audyt. Nie rejestruje partii,
+  manifestu źródła, decyzji ani transferu JPEG-ów dla nowego workspace'u.
+- Powrót po restarcie może wymagać ponownej zgody `read`/`readwrite`, ale nie
+  zmienia zachowanego lokalnie postępu.
+- Trwały zapis wymaga przeglądarki z File System Access API. Brak API jest
+  kontrolowanym ograniczeniem, nie fallbackiem wysyłającym dane do hosta.
+
+Sekcje 1–24 poniżej opisują historyczną architekturę transferu do hosta z
+v0.7.27–v0.7.50. Zachowujemy je jako zapis decyzji i mechanizmów odtwarzalnych,
+ale w razie sprzeczności pierwszeństwo ma niniejsza sekcja oraz D-227.
 
 ## 1. Kontekst
 

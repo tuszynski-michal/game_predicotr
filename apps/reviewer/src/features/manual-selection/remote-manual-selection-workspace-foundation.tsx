@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { writeOperatorLocalManifest } from './operator-local-selection-output';
 import { RemoteManualSelectionWorkspace } from './remote-manual-selection-workspace';
 import {
   DirectoryHandleRemoteSourceAdapter,
@@ -17,13 +18,13 @@ import {
 import {
   RemoteSelectionIndexedDbStore,
   RemoteSelectionStoreError,
+  remoteSelectionWorkspaceState,
   requestBestEffortPersistentStorage,
   type RemoteSelectionLocalBatchRecord,
   type RemoteSelectionLocalSessionRecord,
   type RemoteSelectionRestoreSnapshot,
   type RemoteSourcePermissionState,
 } from './remote-selection-store';
-import { FetchRemoteSelectionControlTransport } from './remote-selection-sync';
 import {
   RemoteSelectionTabCoordinator,
   type RemoteSelectionTabState,
@@ -32,9 +33,11 @@ import {
 type DirectoryPickerWindow = Window & {
   showDirectoryPicker?: (options: {
     readonly id: string;
-    readonly mode: 'read';
+    readonly mode: 'read' | 'readwrite';
   }) => Promise<FileSystemDirectoryHandle>;
 };
+
+const REMOTE_OUTPUT_PARENT_PICKER_ID = 'gp-rms-output-parent';
 
 const EMPTY_TAB_STATE: RemoteSelectionTabState = {
   mode: 'read_only',
@@ -52,10 +55,6 @@ export function RemoteManualSelectionWorkspaceFoundation({
   readonly sessionId: string;
 }) {
   const store = useMemo(() => new RemoteSelectionIndexedDbStore(), []);
-  const transport = useMemo(
-    () => new FetchRemoteSelectionControlTransport(clientInstanceId),
-    [clientInstanceId],
-  );
   const [snapshot, setSnapshot] =
     useState<RemoteSelectionRestoreSnapshot | null>(null);
   const [tabState, setTabState] = useState(EMPTY_TAB_STATE);
@@ -76,9 +75,10 @@ export function RemoteManualSelectionWorkspaceFoundation({
 
   const refresh = useCallback(async () => {
     const restored = await store.restore(sessionId);
-    if (restored.session?.sourceHandle !== null && restored.session !== null) {
+    let restoredSession = restored.session;
+    if (restoredSession?.sourceHandle !== null && restoredSession !== null) {
       const adapter = new DirectoryHandleRemoteSourceAdapter(
-        restored.session.sourceHandle as ReadableDirectoryHandle,
+        restoredSession.sourceHandle as ReadableDirectoryHandle,
       );
       const permission = await adapter.permissionState();
       setSourceReader(
@@ -86,14 +86,29 @@ export function RemoteManualSelectionWorkspaceFoundation({
           ? adapter
           : null,
       );
-      if (permission !== restored.session.permissionState) {
-        const session = { ...restored.session, permissionState: permission };
-        await store.saveSession(session);
-        setSnapshot({ ...restored, session });
-        return;
+      if (permission !== restoredSession.permissionState) {
+        restoredSession = { ...restoredSession, permissionState: permission };
       }
     }
-    setSnapshot(restored);
+    if (
+      restoredSession?.outputHandle !== null &&
+      restoredSession?.outputHandle !== undefined
+    ) {
+      const permission = await directoryPermissionState(
+        restoredSession.outputHandle,
+        'readwrite',
+      );
+      if (permission !== restoredSession.outputPermissionState) {
+        restoredSession = {
+          ...restoredSession,
+          outputPermissionState: permission,
+        };
+      }
+    }
+    if (restoredSession !== restored.session && restoredSession !== null) {
+      await store.saveSession(restoredSession);
+    }
+    setSnapshot({ ...restored, session: restoredSession });
     if (restored.batch !== null) {
       setCollectionName(restored.batch.collectionName ?? 'Zdjęcia');
       setBatchName(
@@ -242,6 +257,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
       sourceKind: indexed.manifest.sourceKind,
       sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
       updatedAt: now,
+      outputDirectoryName: null,
+      outputHandle: null,
+      outputPermissionState: 'prompt',
     };
     const localBatch: RemoteSelectionLocalBatchRecord = {
       schemaVersion: 1,
@@ -277,12 +295,63 @@ export function RemoteManualSelectionWorkspaceFoundation({
     setBatchName(indexed.sourceDirectoryName);
     await refresh();
     setNotice(
-      `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów bez kopiowania danych. Uzupełnij nazwy i aktywuj partię.`,
+      `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów bez kopiowania danych. Wybierz katalog, w którym ma powstać sąsiedni folder wynikowy.`,
     );
   }
 
+  async function chooseOutputParent() {
+    if (!canWrite || busy || session === null) return;
+    const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+    if (picker === undefined) {
+      setError(
+        'Ta przeglądarka nie obsługuje trwałego zapisu do lokalnego folderu.',
+      );
+      return;
+    }
+    const sourceName = session.sourceDirectoryName?.trim();
+    if (!sourceName) {
+      setError('Najpierw wybierz folder źródłowy.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const parent = await picker({
+        id: REMOTE_OUTPUT_PARENT_PICKER_ID,
+        mode: 'readwrite',
+      });
+      const outputName = `${sourceName} wybrane`;
+      const output = await parent.getDirectoryHandle(outputName, {
+        create: true,
+      });
+      const updated: RemoteSelectionLocalSessionRecord = {
+        ...session,
+        outputDirectoryName: outputName,
+        outputHandle: output,
+        outputPermissionState: 'granted',
+        updatedAt: new Date().toISOString(),
+      };
+      await store.saveSession(updated);
+      await refresh();
+      setNotice(
+        `Folder wynikowy „${outputName}” został utworzony na urządzeniu operatora.`,
+      );
+    } catch (cause) {
+      if (!isPickerCancelled(cause)) setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function activateBatch() {
-    if (!canWrite || busy || batch === null) return;
+    if (
+      !canWrite ||
+      busy ||
+      batch === null ||
+      session?.outputHandle === null ||
+      session?.outputHandle === undefined
+    )
+      return;
     const parsedFirstLayout = Number.parseInt(firstLayout, 10);
     if (
       collectionName.trim() === '' ||
@@ -297,7 +366,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
     }
     setBusy(true);
     setError('');
-    setNotice('Tworzenie kolekcji i rejestrowanie manifestu źródła…');
+    setNotice('Przygotowywanie lokalnego folderu i manifestu…');
     try {
       const collectionId = batch.collectionId ?? crypto.randomUUID();
       const configured: RemoteSelectionLocalBatchRecord = {
@@ -311,53 +380,26 @@ export function RemoteManualSelectionWorkspaceFoundation({
         nextRangeStart: parsedFirstLayout,
         updatedAt: new Date().toISOString(),
       };
-      await store.saveBatch(configured);
-      await transport.createCollection({
-        collectionId,
-        name: configured.collectionName ?? 'Zdjęcia',
-        sessionId,
-      });
-      await transport.createBatch(collectionId, {
+      const configuredWorkspace = remoteSelectionWorkspaceState(configured);
+      await writeOperatorLocalManifest(session.outputHandle, {
         batchId: configured.batchId,
-        direction: configured.direction,
-        firstLayout: configured.firstLayout,
-        name: configured.batchName ?? configured.sourceDirectoryName,
-        sessionId,
-        sourceManifestChecksumSha256: configured.sourceManifestChecksumSha256,
-        totalFileCount: configured.fileCount,
+        currentIndex: configuredWorkspace.currentIndex,
+        decisions: configuredWorkspace.decisions,
+        nextRangeStart: configuredWorkspace.nextRangeStart,
+        sessionId: session.sessionId,
+        sourceDirectoryName: configured.sourceDirectoryName,
       });
-      const sourceItems = [];
-      for (let after = -1; after < configured.fileCount - 1;) {
-        const page = await store.listSourceItemsPage(
-          sessionId,
-          configured.batchId,
-          after,
-          500,
-        );
-        if (page.length === 0) break;
-        sourceItems.push(...page);
-        after = page.at(-1)?.ordinal ?? after;
-      }
-      if (sourceItems.length !== configured.fileCount) {
-        throw new RemoteSelectionStoreError(
-          'REMOTE_SELECTION_SOURCE_MANIFEST_INCOMPLETE',
-          'Lokalny manifest źródła jest niekompletny.',
-        );
-      }
-      await transport.registerCompleteSourceManifest(
-        sessionId,
-        configured.batchId,
-        configured.sourceKind,
-        sourceItems,
-        500,
-      );
+      await store.saveBatch(configured);
       await store.saveBatch({
         ...configured,
         hostRegistered: true,
+        status: 'active',
         updatedAt: new Date().toISOString(),
       });
       await refresh();
-      setNotice('Partia jest aktywna. Możesz rozpocząć ręczną selekcję.');
+      setNotice(
+        'Sesja lokalna jest aktywna. Decyzje i JPEG-i nie będą wysyłane na komputer właściciela linku.',
+      );
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -394,7 +436,42 @@ export function RemoteManualSelectionWorkspaceFoundation({
     }
   }
 
-  if (batch?.hostRegistered && session !== null) {
+  async function requestStoredOutputPermission() {
+    if (
+      !canWrite ||
+      session?.outputHandle === null ||
+      session?.outputHandle === undefined
+    )
+      return;
+    setBusy(true);
+    setError('');
+    try {
+      const permission = await requestDirectoryPermission(
+        session.outputHandle,
+        'readwrite',
+      );
+      await store.saveSession({
+        ...session,
+        outputPermissionState: permission,
+        updatedAt: new Date().toISOString(),
+      });
+      await refresh();
+      if (permission !== 'granted' && permission !== 'unsupported') {
+        setError('Folder wynikowy nadal wymaga zgody na zapis.');
+      }
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (
+    batch?.hostRegistered &&
+    session !== null &&
+    session.outputHandle !== null &&
+    session.outputHandle !== undefined
+  ) {
     return (
       <>
         {sourceReader === null ? (
@@ -421,13 +498,33 @@ export function RemoteManualSelectionWorkspaceFoundation({
             </button>
           </section>
         ) : null}
+        {session.outputPermissionState !== 'granted' &&
+        session.outputPermissionState !== 'unsupported' ? (
+          <section className="remoteSelectionSourceRecovery">
+            <p>
+              Przywróć prawo zapisu do folderu „{session.outputDirectoryName}”.
+              Postęp i decyzje pozostały zapisane na tym urządzeniu.
+            </p>
+            <button
+              disabled={!canWrite || busy}
+              onClick={() => void requestStoredOutputPermission()}
+              type="button"
+            >
+              Ponów zgodę na zapis
+            </button>
+          </section>
+        ) : null}
         <RemoteManualSelectionWorkspace
           batch={batch}
-          canWrite={canWrite}
-          clientInstanceId={clientInstanceId}
+          canWrite={
+            canWrite &&
+            (session.outputPermissionState === 'granted' ||
+              session.outputPermissionState === 'unsupported')
+          }
           session={session}
           sourceReader={sourceReader}
           store={store}
+          outputDirectory={session.outputHandle}
         />
         {error ? (
           <p className="reviewerAccessError" role="alert">
@@ -485,22 +582,6 @@ export function RemoteManualSelectionWorkspaceFoundation({
             {formatBytes(batch.totalBytes)}
           </p>
           <label>
-            Kolekcja
-            <input
-              maxLength={200}
-              onChange={(event) => setCollectionName(event.target.value)}
-              value={collectionName}
-            />
-          </label>
-          <label>
-            Partia
-            <input
-              maxLength={200}
-              onChange={(event) => setBatchName(event.target.value)}
-              value={batchName}
-            />
-          </label>
-          <label>
             Pierwsza plansza
             <input
               min="1"
@@ -522,12 +603,33 @@ export function RemoteManualSelectionWorkspaceFoundation({
             </select>
           </label>
           <button
-            className="primaryButton"
+            className="secondaryButton"
             disabled={!canWrite || busy}
+            onClick={() => void chooseOutputParent()}
+            type="button"
+          >
+            {session?.outputDirectoryName
+              ? `Wynik: ${session.outputDirectoryName}`
+              : 'Wybierz katalog zawierający folder źródłowy'}
+          </button>
+          <p>
+            Przeglądarka nie udostępnia ścieżki nadrzędnej folderu źródłowego.
+            Wskaż więc katalog, w którym znajduje się „
+            {batch.sourceDirectoryName}”. Aplikacja utworzy obok niego „
+            {batch.sourceDirectoryName} wybrane”.
+          </p>
+          <button
+            className="primaryButton"
+            disabled={
+              !canWrite ||
+              busy ||
+              session?.outputHandle === null ||
+              session?.outputHandle === undefined
+            }
             onClick={() => void activateBatch()}
             type="button"
           >
-            {busy ? 'Rejestrowanie…' : 'Utwórz i aktywuj partię'}
+            {busy ? 'Przygotowywanie…' : 'Rozpocznij lokalną selekcję'}
           </button>
         </div>
       )}
@@ -547,8 +649,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
         </p>
       ) : null}
       <small>
-        Podglądy pozostają lokalne. Host otrzymuje metadane, decyzje oraz
-        wyłącznie JPEG-i jawnie zatwierdzone przez operatora.
+        Podglądy, pozycja, zoom, decyzje i wybrane JPEG-i pozostają na tym
+        urządzeniu. Do właściciela linku nie jest wysyłany żaden obraz ani
+        decyzja.
       </small>
     </section>
   );
@@ -572,4 +675,40 @@ function isPickerCancelled(cause: unknown): boolean {
 function formatBytes(value: number): string {
   if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1024 ** 2).toFixed(1)} MiB`;
+}
+
+async function directoryPermissionState(
+  directory: FileSystemDirectoryHandle,
+  mode: 'read' | 'readwrite',
+): Promise<RemoteSourcePermissionState> {
+  type PermissionDirectory = FileSystemDirectoryHandle & {
+    queryPermission?: (descriptor: {
+      mode: 'read' | 'readwrite';
+    }) => Promise<PermissionState>;
+  };
+  const query = (directory as PermissionDirectory).queryPermission;
+  if (query === undefined) return 'unsupported';
+  try {
+    return await query.call(directory, { mode });
+  } catch {
+    return 'error';
+  }
+}
+
+async function requestDirectoryPermission(
+  directory: FileSystemDirectoryHandle,
+  mode: 'read' | 'readwrite',
+): Promise<RemoteSourcePermissionState> {
+  type PermissionDirectory = FileSystemDirectoryHandle & {
+    requestPermission?: (descriptor: {
+      mode: 'read' | 'readwrite';
+    }) => Promise<PermissionState>;
+  };
+  const request = (directory as PermissionDirectory).requestPermission;
+  if (request === undefined) return 'unsupported';
+  try {
+    return await request.call(directory, { mode });
+  } catch {
+    return 'error';
+  }
 }

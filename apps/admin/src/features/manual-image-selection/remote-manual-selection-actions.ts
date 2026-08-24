@@ -1,6 +1,5 @@
 import type {
   AdminApiClient,
-  RemoteManualSelectionBaseCapabilityResponse,
   RemoteManualSelectionSessionCreatedResponse,
   RemoteManualSelectionSessionListResponse,
   RemoteManualSelectionSessionMonitorResponse,
@@ -18,26 +17,15 @@ export type RemoteManualSelectionHostClient = Pick<
   | 'listRemoteManualSelectionSessions'
   | 'revokeRemoteManualSelectionSession'
   | 'reopenRemoteManualSelectionBatch'
-  | 'selectRemoteManualSelectionHostBase'
 >;
 
 type ActionResult<T> =
   | { readonly data: T; readonly ok: true }
   | { readonly error: string; readonly ok: false };
 
-export async function selectRemoteManualSelectionBase(
-  client: RemoteManualSelectionHostClient,
-): Promise<ActionResult<RemoteManualSelectionBaseCapabilityResponse>> {
-  return call(
-    () => client.selectRemoteManualSelectionHostBase(),
-    'Nie udało się wybrać folderu bazowego zdalnej selekcji.',
-  );
-}
-
 export async function createRemoteManualSelectionAccess(
   client: RemoteManualSelectionHostClient,
   input: {
-    readonly baseCapability: string;
     readonly label: string;
     readonly lifetimeMinutes: number;
   },
@@ -45,7 +33,6 @@ export async function createRemoteManualSelectionAccess(
   return call(
     () =>
       client.createRemoteManualSelectionSession({
-        baseCapability: input.baseCapability,
         label: input.label.trim(),
         lifetimeMinutes: input.lifetimeMinutes,
       }),

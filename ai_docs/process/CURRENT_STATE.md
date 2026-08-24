@@ -17,6 +17,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
+  wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;
+  źródło, decyzje, kursor, zoom, obie osie scrolla, manifest oraz wybrane JPEG-i
+  pozostają na urządzeniu operatora. Reviewer tworzy w wybranym katalogu
+  nadrzędnym folder `<źródło> wybrane`; nie wysyła decyzji ani obrazów na host.
+- Zdalny viewport otrzymał brakujące bazowe reguły CSS lokalnego selektora.
+  Wcześniej komponent używał tych samych nazw klas i obliczał nowy rozmiar, ale
+  Reviewer nie definiował wysokości viewportu, flex layoutu ani canvasu, dlatego
+  wartość zoomu zmieniała się bez widocznego efektu. Scroll i zoom są utrwalane
+  per sesja/partia w storage przeglądarki operatora.
+- Historyczny control outbox, transfer i materializacja pozostają w repozytorium
+  do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
+  transfer do hosta wymagają ponownej decyzji przed kontynuacją.
+
 - Rozpoczęto TASK 18 po zamknięciu bramki bezpieczeństwa v0.7.41. Pierwszy pion
   tworzy deterministyczny etap 1, wersjonowany raport content-addressed oraz
   runbook kolejnych checkpointów 10/500/1000/8000/15000.

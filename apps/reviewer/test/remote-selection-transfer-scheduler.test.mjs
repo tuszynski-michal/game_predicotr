@@ -284,6 +284,40 @@ test('abort, quota, retry classification and jitter are fail-closed', async () =
   );
 });
 
+test('non-retryable transfer failure is persisted and reported to the workspace', async () => {
+  const checkpoints = [];
+  const failures = [];
+  const input = task('a', 1);
+  const failure = new RemoteSelectionTransferHttpError(
+    409,
+    'REMOTE_SELECTION_WRITER_LEASE_CONFLICT',
+    'The writer lease is no longer owned by this client.',
+  );
+  const scheduler = new RemoteSelectionTransferScheduler(
+    {
+      async status(taskValue) {
+        return response(taskValue, 'not_started');
+      },
+      async upload() {
+        throw failure;
+      },
+    },
+    store(checkpoints),
+    {
+      createTransferId: () => ids[0],
+      onFailure: (failedTask, cause) => failures.push([failedTask, cause]),
+    },
+  );
+
+  await scheduler.enqueue(input);
+  await waitFor(() => scheduler.snapshot().active === 0);
+
+  assert.equal(checkpoints.at(-1)?.status, 'failed');
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0]?.[0], input);
+  assert.equal(failures[0]?.[1], failure);
+});
+
 test('tombstone cancels every older generation and a cancelled checkpoint cannot restart', async () => {
   const checkpoints = [];
   const checkpointStore = store(checkpoints);

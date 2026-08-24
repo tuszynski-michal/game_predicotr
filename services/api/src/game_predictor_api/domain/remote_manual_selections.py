@@ -1135,11 +1135,11 @@ def project_manual_selection_output_v1(
             }
         )
     return {
+        "schemaVersion": OUTPUT_MANIFEST_SCHEMA,
         "direction": direction.value,
         "firstLayout": first_layout,
         "gameId": workspace_id,
         "items": items,
-        "schemaVersion": OUTPUT_MANIFEST_SCHEMA,
         "sessionKey": session_key,
         "sourceDirectoryName": source_directory_name,
         "updatedAt": _isoformat(updated_at),
@@ -1167,10 +1167,7 @@ def project_manual_selection_trace_v1(
             str(item.command.operation_id),
         ),
     ):
-        if operation.status not in {
-            RemoteManualSelectionOperationStatus.APPLIED,
-            RemoteManualSelectionOperationStatus.SUPERSEDED,
-        }:
+        if operation.status is not RemoteManualSelectionOperationStatus.APPLIED:
             continue
         command = operation.command
         kind = _trace_kind(command.operation_type)
@@ -1178,13 +1175,17 @@ def project_manual_selection_trace_v1(
             continue
         event: dict[str, object] = {
             "decoded": command.decoded,
+            "decisionOrdinal": None,
             "eventIndex": len(events),
             "gameId": workspace_id,
+            "imageChecksum": None,
             "imagePath": command.image_path,
             "kind": kind,
+            "outputName": None,
             "rangeEnd": command.range_end,
             "rangeStart": command.range_start,
             "recordedAt": _isoformat(command.recorded_at),
+            "revertsDecisionOrdinal": None,
             "sessionKey": session_key,
             "sourceIndex": command.source_index,
             "visibleMilliseconds": command.visible_milliseconds,
@@ -1196,7 +1197,6 @@ def project_manual_selection_trace_v1(
                     "decisionOrdinal": decision_ordinal,
                     "imageChecksum": command.image_checksum_sha256,
                     "outputName": command.output_name,
-                    "revertsDecisionOrdinal": None,
                 }
             )
             decision_ordinal += 1
@@ -1205,18 +1205,12 @@ def project_manual_selection_trace_v1(
             event.update(
                 {
                     "decisionOrdinal": decision_ordinal,
-                    "imageChecksum": None,
-                    "outputName": None,
-                    "revertsDecisionOrdinal": None,
                 }
             )
             decision_ordinal += 1
         elif kind == "undo":
             event.update(
                 {
-                    "decisionOrdinal": None,
-                    "imageChecksum": None,
-                    "outputName": None,
                     "revertsDecisionOrdinal": (
                         decision_ordinals_by_operation.get(command.target_operation_id)
                         if command.target_operation_id is not None
@@ -1226,12 +1220,12 @@ def project_manual_selection_trace_v1(
             )
         events.append(event)
     return {
+        "schemaVersion": TRACE_MANIFEST_SCHEMA,
         "direction": direction.value,
-        "events": events,
         "exportedAt": _isoformat(exported_at),
         "firstLayout": first_layout,
         "gameId": workspace_id,
-        "schemaVersion": TRACE_MANIFEST_SCHEMA,
+        "events": events,
         "sessionKey": session_key,
         "sourceDirectoryName": source_directory_name,
     }

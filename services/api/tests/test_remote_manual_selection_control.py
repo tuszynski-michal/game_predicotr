@@ -19,6 +19,7 @@ from game_predictor_api.application.remote_manual_selection_control import (
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionBatchMapping,
+    RemoteManualSelectionPublishedFinalization,
 )
 from game_predictor_api.application.remote_manual_selection_path_safety import (
     ValidatedWindowsComponent,
@@ -112,6 +113,17 @@ class FakeHost:
             batch_name=batch.name,
             created=existing is None,
             resumed=existing is not None,
+        )
+
+    def publish_finalization_manifests(self, repository, **kwargs):
+        assert repository is not None
+        assert kwargs["session_id"] == SESSION_ID
+        assert kwargs["batch_id"] == BATCH_ID
+        return RemoteManualSelectionPublishedFinalization(
+            final_manifest_checksum_sha256=kwargs["final_manifest_checksum_sha256"],
+            output_checksum_sha256="b" * 64,
+            trace_checksum_sha256="c" * 64,
+            operational_checksum_sha256="d" * 64,
         )
 
 
@@ -563,3 +575,50 @@ def test_loopback_control_http_exact_retry_and_state_delta(tmp_path) -> None:
     serialized = repr({collection.text, batch.text, source.text, first.text, delta.text})
     assert "C:\\private" not in serialized
     assert "access-token" not in serialized
+
+
+def test_finalization_is_revision_bound_idempotent_and_reopen_is_host_only() -> None:
+    repository, _access, service, _files = _provision_active_batch()
+
+    preview = service.finalize_preview(
+        batch_id=BATCH_ID,
+        **_authorize(),
+    )
+    assert preview.ready is True
+    assert preview.server_revision == 0
+
+    finalized = service.finalize_batch(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=0,
+        **_authorize(),
+    )
+    assert finalized.snapshot.batch.status is RemoteManualSelectionBatchStatus.COMPLETED
+    assert finalized.snapshot.batch.server_revision == 1
+    assert finalized.exact_retry is False
+
+    replay = service.finalize_batch(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=0,
+        **_authorize(),
+    )
+    assert replay.exact_retry is True
+    assert replay.artifacts.final_manifest_checksum_sha256 == (
+        finalized.artifacts.final_manifest_checksum_sha256
+    )
+
+    reopened = service.reopen_batch(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=1,
+        expected_final_manifest_checksum_sha256=(
+            finalized.artifacts.final_manifest_checksum_sha256
+        ),
+    )
+    assert reopened.snapshot.batch.status is RemoteManualSelectionBatchStatus.ACTIVE
+    assert reopened.snapshot.batch.server_revision == 2
+    assert (
+        repository.get_finalization_snapshot(batch_id=BATCH_ID).final_manifest_checksum_sha256
+        is None
+    )

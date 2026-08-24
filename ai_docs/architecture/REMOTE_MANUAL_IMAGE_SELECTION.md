@@ -1803,7 +1803,7 @@ zamknięciu ryzykownych usług bazowych.
 
 ### TASK 15: Finalizacja oraz zgodność outputu i śladu
 
-**Status:** `PLANNED`
+**Status:** `COMPLETED` (`v0.7.39`)
 
 **Cel:** Zamykać partię dopiero po trwałym uzgodnieniu operacji i plików oraz
 generować wynik zgodny z lokalnymi manifestami v1.
@@ -1862,6 +1862,14 @@ pozwolić hostowi kontynuować lub wyeksportować raport diagnostyczny.
 **Ryzyko:** `WYSOKIE`
 
 **Checkpoint przed kontynuacją:** `TAK`
+
+**Outcome:** Wdrożono deterministyczny preview, rewizyjną blokadę i
+crash-retry journal publikujący niezmienione output/trace v1 oraz wewnętrzny
+manifest operacyjny. Reviewer utrwala completed i blokuje dalsze decyzje;
+lokalny Admin jako jedyny może wykonać checksum-bound reopen dokładnej partii.
+Publiczna allowlista zawiera finalize-preview/finalize, ale nigdy reopen ani
+zapis dowolnego manifestu. Migracja nie była potrzebna, ponieważ status,
+rewizja, checksum finalizacji i audyt istniały w modelu z TASK 4.
 
 **Model do implementacji:** `gpt-5.6-sol`
 

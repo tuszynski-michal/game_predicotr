@@ -460,3 +460,49 @@ def test_page_limits_are_fail_closed() -> None:
             limit=1001,
         )
     assert error.value.code == "REMOTE_SELECTION_PAGE_LIMIT_INVALID"
+
+
+def test_finalization_state_and_host_reopen_are_revision_and_checksum_bound() -> None:
+    repository = InMemoryRemoteManualSelectionRepository()
+    _seed(repository)
+
+    finalizing = repository.mark_batch_finalizing(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=0,
+        changed_at=NOW + timedelta(minutes=1),
+    )
+    assert finalizing.status is RemoteManualSelectionBatchStatus.FINALIZING
+    assert finalizing.server_revision == 0
+
+    completed = repository.complete_batch_finalization(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=0,
+        final_manifest_checksum_sha256="f" * 64,
+        completed_at=NOW + timedelta(minutes=2),
+        actor="remote-operator:test",
+    )
+    assert completed.batch.status is RemoteManualSelectionBatchStatus.COMPLETED
+    assert completed.batch.server_revision == 1
+    assert completed.final_manifest_checksum_sha256 == "f" * 64
+
+    with pytest.raises(RemoteManualSelectionConflictError):
+        repository.reopen_completed_batch(
+            session_id=SESSION_ID,
+            batch_id=BATCH_ID,
+            expected_server_revision=1,
+            expected_final_manifest_checksum_sha256="e" * 64,
+            reopened_at=NOW + timedelta(minutes=3),
+        )
+
+    reopened = repository.reopen_completed_batch(
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        expected_server_revision=1,
+        expected_final_manifest_checksum_sha256="f" * 64,
+        reopened_at=NOW + timedelta(minutes=3),
+    )
+    assert reopened.batch.status is RemoteManualSelectionBatchStatus.ACTIVE
+    assert reopened.batch.server_revision == 2
+    assert reopened.final_manifest_checksum_sha256 is None

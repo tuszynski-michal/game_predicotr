@@ -152,6 +152,7 @@ import {
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
+  reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
@@ -231,6 +232,7 @@ import type {
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
   RemoteManualSelectionSessionCreate,
+  RemoteSelectionReopenCommand,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -453,6 +455,7 @@ export type {
   RemoteManualSelectionSessionListResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
+  RemoteSelectionReopenCommand,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -602,6 +605,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(
           `remote-manual-selection-session:${sessionId}`,
+        ),
+        path: { session_id: sessionId },
+      }),
+    reopenRemoteManualSelectionBatch: (
+      sessionId: string,
+      body: RemoteSelectionReopenCommand,
+    ) =>
+      reopenGeneratedRemoteManualSelectionBatch({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `remote-manual-selection-batch:${body.batchId}:reopen`,
         ),
         path: { session_id: sessionId },
       }),

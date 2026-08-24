@@ -189,3 +189,22 @@ można skopiować nowy link bez tworzenia nowej sesji.
 Zatrzymanie jest dwustopniowe i wskazuje dokładny identyfikator sesji. Revoke
 czyści dostęp tej sesji, ale nie zatrzymuje wspólnego tunelu ani innych prac
 Reviewera. Panel nie finalizuje partii i nie edytuje plików.
+
+### Finalizacja zdalnej partii
+
+Operator może zakończyć aktywną partię dopiero po jawnym sprawdzeniu gotowości.
+Serwer jest źródłem prawdy dla blokad: outbox musi być uzgodniony, transfery i
+akcje hosta zakończone, a każdy aktualnie wybrany JPEG musi istnieć pod własną
+nazwą `seq_*` z potwierdzoną checksumą. Stan lokalnego UI nie może samodzielnie
+zadeklarować sukcesu.
+
+Finalizacja zapisuje w katalogu partii istniejące, niezmienione semantycznie
+manifesty v1. Output zawiera tylko bieżące materializowane generacje; trace
+zawiera zastosowane zdarzenia w porządku klienta, w tym jawne undo. Manifest
+operacyjny z rewizjami, transferami i ownership pozostaje pod wewnętrznym
+katalogiem hosta i nie jest wejściem importu plansz.
+
+Po sukcesie Reviewer zachowuje nawigację i podgląd, ale blokuje decyzje. Tylko
+lokalny właściciel może ponownie otworzyć dokładną partię, podając bieżącą
+rewizję oraz checksumę finalnego manifestu. Publiczny proxy nigdy nie
+udostępnia reopen ani zapisu manifestu.

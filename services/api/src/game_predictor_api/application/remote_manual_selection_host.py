@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionCollectionV1,
     RemoteManualSelectionConflictError,
     RemoteManualSelectionError,
+    RemoteManualSelectionFileV1,
 )
 from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionHostBinding,
@@ -38,6 +40,11 @@ OWNERSHIP_DIRECTORY = ".game-predictor"
 OWNERSHIP_VERSION_DIRECTORY = "remote-selection-v1"
 OWNERSHIP_MARKER_NAME = "ownership.json"
 MAX_OWNERSHIP_MARKER_BYTES = 16 * 1024
+OUTPUT_MANIFEST_NAME = "manual-image-selection-output-v1.json"
+TRACE_MANIFEST_NAME = "manual-image-selection-trace-v1.json"
+REMOTE_MANIFEST_NAME = "remote-manual-image-selection-session-v1.json"
+FINALIZATION_POINTER_NAME = "finalization-current-v1.json"
+MAX_FINALIZATION_JOURNAL_BYTES = 64 * 1024
 
 
 class RemoteManualSelectionHostRepository(Protocol):
@@ -131,6 +138,14 @@ class RemoteManualSelectionRemovalScope:
     materialization_journal_path: Path
     quarantine_relative_path: str
     quarantine_target: Callable[[str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionPublishedFinalization:
+    final_manifest_checksum_sha256: str
+    output_checksum_sha256: str
+    trace_checksum_sha256: str
+    operational_checksum_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -652,6 +667,166 @@ class RemoteManualSelectionHostService:
                 ),
             )
 
+    def publish_finalization_manifests(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        server_revision: int,
+        selected_files: tuple[RemoteManualSelectionFileV1, ...],
+        output_manifest: dict[str, object],
+        trace_manifest: dict[str, object],
+        operational_manifest: dict[str, object],
+        final_manifest_checksum_sha256: str,
+    ) -> RemoteManualSelectionPublishedFinalization:
+        """Publish three owned manifests with revision-scoped crash adoption."""
+
+        binding = repository.get_host_binding_for_update(session_id)
+        batch = repository.get_batch(batch_id)
+        if binding is None or batch is None or batch.session_id != session_id:
+            raise _scope_error()
+        collection = repository.get_collection(batch.collection_id)
+        if collection is None or collection.session_id != session_id:
+            raise _scope_error()
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            collection_path = locked.open_existing_child(
+                locked.bound_base.final_path,
+                collection_component,
+            )
+            if collection_path is None:
+                raise _path_conflict("The persisted collection directory is missing.")
+            batch_path = locked.open_existing_child(collection_path, batch_component)
+            if batch_path is None:
+                raise _path_conflict("The persisted batch directory is missing.")
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection_component.normalized_name,
+                normalized_batch_name=batch_component.normalized_name,
+            )
+            self._verify_marker(locked, batch_path, marker)
+            for file in selected_files:
+                if (
+                    file.output_name is None
+                    or file.host_checksum_sha256 is None
+                    or file.status.value != "synced"
+                ):
+                    raise RemoteManualSelectionConflictError(
+                        "REMOTE_SELECTION_FINAL_FILE_INCOMPLETE",
+                        "A selected final file is not fully synchronized.",
+                    )
+                component = validate_windows_component(
+                    file.output_name,
+                    limits=locked.bound_base.limits,
+                )
+                target = batch_path / component.display_name
+                locked.hold_regular_file(target)
+                if _sha256_file(target) != file.host_checksum_sha256:
+                    raise RemoteManualSelectionConflictError(
+                        "REMOTE_SELECTION_FINAL_FILE_CHECKSUM_MISMATCH",
+                        "A materialized output changed before finalization.",
+                    )
+
+            internal_path = locked.open_existing_child(
+                batch_path,
+                validate_windows_component(
+                    OWNERSHIP_DIRECTORY,
+                    limits=locked.bound_base.limits,
+                ),
+            )
+            if internal_path is None:
+                raise _path_conflict("The owned internal directory is missing.")
+            version_path = locked.open_existing_child(
+                internal_path,
+                validate_windows_component(
+                    OWNERSHIP_VERSION_DIRECTORY,
+                    limits=locked.bound_base.limits,
+                ),
+            )
+            if version_path is None:
+                raise _path_conflict("The owned internal version directory is missing.")
+            finalizations_path, _created = locked.open_or_create_child(
+                version_path,
+                validate_windows_component("finalizations", limits=locked.bound_base.limits),
+            )
+            revision_path, _created = locked.open_or_create_child(
+                finalizations_path,
+                validate_windows_component(
+                    str(server_revision),
+                    limits=locked.bound_base.limits,
+                ),
+            )
+
+            output_bytes = _compatible_json(output_manifest)
+            trace_bytes = _compatible_json(trace_manifest)
+            operational_bytes = _compatible_json(operational_manifest)
+            desired = {
+                "operationalChecksumSha256": _sha256_bytes(operational_bytes),
+                "outputChecksumSha256": _sha256_bytes(output_bytes),
+                "traceChecksumSha256": _sha256_bytes(trace_bytes),
+            }
+            journal_payload: dict[str, object] = {
+                "batchId": str(batch_id),
+                "finalManifestChecksumSha256": final_manifest_checksum_sha256,
+                **desired,
+                "schemaVersion": "remote-selection-finalization-v1",
+                "serverRevision": server_revision,
+                "sessionId": str(session_id),
+            }
+            journal = {
+                **journal_payload,
+                "journalChecksumSha256": hashlib.sha256(
+                    _canonical_json(journal_payload)
+                ).hexdigest(),
+            }
+            _write_exclusive_or_adopt(
+                revision_path / "finalization.json",
+                _compatible_json(journal),
+            )
+
+            pointer_path = version_path / FINALIZATION_POINTER_NAME
+            previous = _read_finalization_pointer(
+                locked,
+                pointer_path,
+                session_id=session_id,
+                batch_id=batch_id,
+            )
+            _publish_owned_file(
+                batch_path / OUTPUT_MANIFEST_NAME,
+                output_bytes,
+                previous_checksum=(None if previous is None else previous["outputChecksumSha256"]),
+            )
+            _publish_owned_file(
+                batch_path / TRACE_MANIFEST_NAME,
+                trace_bytes,
+                previous_checksum=(None if previous is None else previous["traceChecksumSha256"]),
+            )
+            _publish_owned_file(
+                version_path / REMOTE_MANIFEST_NAME,
+                operational_bytes,
+                previous_checksum=(
+                    None if previous is None else previous["operationalChecksumSha256"]
+                ),
+            )
+            _replace_internal_file(pointer_path, _compatible_json(journal))
+            return RemoteManualSelectionPublishedFinalization(
+                final_manifest_checksum_sha256=final_manifest_checksum_sha256,
+                output_checksum_sha256=str(desired["outputChecksumSha256"]),
+                trace_checksum_sha256=str(desired["traceChecksumSha256"]),
+                operational_checksum_sha256=str(desired["operationalChecksumSha256"]),
+            )
+
     def _provision_filesystem(
         self,
         locked: LockedWindowsBase,
@@ -780,6 +955,151 @@ class RemoteManualSelectionHostService:
             self._capabilities.pop(token, None)
 
 
+def _compatible_json(value: object) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    metadata = path.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or bool(
+        getattr(metadata, "st_file_attributes", 0) & 0x400
+    ):
+        raise _unsafe_file("A finalization artifact is not a regular local file.")
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_exclusive_or_adopt(path: Path, payload: bytes) -> None:
+    if path.exists():
+        if _sha256_file(path) == _sha256_bytes(payload):
+            return
+        raise _path_conflict("A finalization journal conflicts with persisted content.")
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    _write_new_file(temporary, payload)
+    try:
+        try:
+            # Windows rename in one directory is atomic and does not replace an
+            # existing destination. It also works on volumes without hard-link
+            # support, matching the ownership-marker publication contract.
+            os.rename(temporary, path)
+        except FileExistsError:
+            if _sha256_file(path) != _sha256_bytes(payload):
+                raise _path_conflict(
+                    "A finalization artifact appeared with different content."
+                ) from None
+    finally:
+        with suppress(FileNotFoundError):
+            temporary.unlink()
+
+
+def _publish_owned_file(
+    path: Path,
+    payload: bytes,
+    *,
+    previous_checksum: str | None,
+) -> None:
+    desired_checksum = _sha256_bytes(payload)
+    if path.exists():
+        actual_checksum = _sha256_file(path)
+        if actual_checksum == desired_checksum:
+            return
+        if previous_checksum is None or actual_checksum != previous_checksum:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_FINAL_MANIFEST_OWNERSHIP_CONFLICT",
+                "A final manifest is foreign or changed and will not be overwritten.",
+            )
+        _replace_internal_file(path, payload)
+        return
+    _write_exclusive_or_adopt(path, payload)
+
+
+def _replace_internal_file(path: Path, payload: bytes) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    _write_new_file(temporary, payload)
+    try:
+        os.replace(temporary, path)
+    finally:
+        with suppress(FileNotFoundError):
+            temporary.unlink()
+    if _sha256_file(path) != _sha256_bytes(payload):
+        raise _path_conflict("The finalization artifact checksum verification failed.")
+
+
+def _write_new_file(path: Path, payload: bytes) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=True) as stream:
+            descriptor = -1
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _read_finalization_pointer(
+    locked: LockedWindowsBase,
+    path: Path,
+    *,
+    session_id: UUID,
+    batch_id: UUID,
+) -> dict[str, str] | None:
+    if not path.exists():
+        return None
+    payload = locked.read_regular_file(path, max_bytes=MAX_FINALIZATION_JOURNAL_BYTES)
+    try:
+        parsed = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise _path_conflict("The finalization ownership pointer is invalid.") from error
+    if not isinstance(parsed, dict):
+        raise _path_conflict("The finalization ownership pointer is invalid.")
+    required = {
+        "batchId",
+        "journalChecksumSha256",
+        "operationalChecksumSha256",
+        "outputChecksumSha256",
+        "schemaVersion",
+        "serverRevision",
+        "sessionId",
+        "traceChecksumSha256",
+    }
+    if not required.issubset(parsed) or (
+        parsed.get("schemaVersion") != "remote-selection-finalization-v1"
+        or parsed.get("sessionId") != str(session_id)
+        or parsed.get("batchId") != str(batch_id)
+    ):
+        raise _path_conflict("The finalization ownership pointer has a foreign scope.")
+    journal_checksum = parsed.pop("journalChecksumSha256", None)
+    if (
+        not isinstance(journal_checksum, str)
+        or hashlib.sha256(_canonical_json(parsed)).hexdigest() != journal_checksum
+    ):
+        raise _path_conflict("The finalization ownership pointer checksum is invalid.")
+    result: dict[str, str] = {}
+    for key in (
+        "operationalChecksumSha256",
+        "outputChecksumSha256",
+        "traceChecksumSha256",
+    ):
+        value = parsed.get(key)
+        if not isinstance(value, str) or len(value) != 64:
+            raise _path_conflict("The finalization ownership pointer is invalid.")
+        result[key] = value
+    return result
+
+
+def _unsafe_file(message: str) -> RemoteManualSelectionError:
+    return RemoteManualSelectionError("REMOTE_SELECTION_PATH_UNSAFE", message)
+
+
 def _parse_ownership_marker(payload: bytes) -> _OwnershipMarker:
     try:
         value = json.loads(payload.decode("utf-8"))
@@ -863,6 +1183,7 @@ __all__ = [
     "ConsumedRemoteManualSelectionBase",
     "RemoteManualSelectionBaseCapability",
     "RemoteManualSelectionBatchMapping",
+    "RemoteManualSelectionPublishedFinalization",
     "RemoteManualSelectionTransferDirectory",
     "RemoteManualSelectionHostService",
 ]

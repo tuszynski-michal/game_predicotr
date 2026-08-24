@@ -23,6 +23,7 @@ import {
 import {
   FetchRemoteSelectionControlTransport,
   RemoteSelectionControlApiError,
+  type RemoteSelectionFinalizePreview,
   RemoteSelectionOutboxSynchronizer,
 } from './remote-selection-sync';
 import {
@@ -81,6 +82,9 @@ export function RemoteManualSelectionWorkspace({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [backpressure, setBackpressure] = useState(false);
+  const [finalizePreview, setFinalizePreview] =
+    useState<RemoteSelectionFinalizePreview | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
   const [transferSnapshot, setTransferSnapshot] = useState({
     active: 0,
     pendingBytes: 0,
@@ -128,6 +132,8 @@ export function RemoteManualSelectionWorkspace({
   const hasConflict = outbox.some(
     (operation) => operation.state === 'conflict',
   );
+  const completed = batch.status === 'completed';
+  const canEdit = canWrite && !completed;
   const acceptedCount = workspace.decisions.filter(
     (decision) => decision.action === 'accepted',
   ).length;
@@ -562,7 +568,7 @@ export function RemoteManualSelectionWorkspace({
 
   async function acceptCurrent() {
     if (
-      !canWrite ||
+      !canEdit ||
       busyRef.current ||
       hasConflict ||
       current === null ||
@@ -652,7 +658,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function skipCurrent() {
-    if (!canWrite || busyRef.current || hasConflict || current === null) return;
+    if (!canEdit || busyRef.current || hasConflict || current === null) return;
     busyRef.current = true;
     setBusy(true);
     setError('');
@@ -714,7 +720,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function undoLast() {
-    if (!canWrite || busyRef.current || hasConflict) return;
+    if (!canEdit || busyRef.current || hasConflict) return;
     const latest = remoteSelectionWorkspaceState(batchRef.current);
     const last = latest.decisions.at(-1);
     if (last === undefined) return;
@@ -786,6 +792,59 @@ export function RemoteManualSelectionWorkspace({
     }
   }
 
+  async function previewFinalization() {
+    if (!canEdit || finalizing) return;
+    setFinalizing(true);
+    setError('');
+    try {
+      await syncNow();
+      const preview = await controlTransport.finalizePreview(
+        batchRef.current.batchId,
+      );
+      setFinalizePreview(preview);
+      setNotice(
+        preview.ready
+          ? 'Wszystkie decyzje i pliki są uzgodnione. Możesz zakończyć partię.'
+          : 'Partia nie jest jeszcze gotowa. Szczegóły są widoczne poniżej.',
+      );
+    } catch (cause) {
+      setError(syncErrorMessage(cause));
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  async function finalizeBatch() {
+    if (!canEdit || finalizing || finalizePreview?.ready !== true) return;
+    setFinalizing(true);
+    setError('');
+    try {
+      const result = await controlTransport.finalizeBatch({
+        batchId: batchRef.current.batchId,
+        expectedServerRevision: finalizePreview.serverRevision,
+        sessionId: session.sessionId,
+      });
+      const next: RemoteSelectionLocalBatchRecord = {
+        ...batchRef.current,
+        serverRevision: result.batch.serverRevision,
+        status: 'completed',
+        updatedAt: result.finalizedAt,
+      };
+      await store.saveBatch(next);
+      setBatch(next);
+      batchRef.current = next;
+      setFinalizePreview(null);
+      setNotice(
+        `Partia zakończona. Manifest ${result.finalManifestChecksumSha256.slice(0, 12)}… został zapisany na hoście.`,
+      );
+    } catch (cause) {
+      setFinalizePreview(null);
+      setError(syncErrorMessage(cause));
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
   return (
     <section className="remoteManualWorkspace" aria-live="polite">
       <header className="remoteManualWorkspaceHeader">
@@ -824,6 +883,12 @@ export function RemoteManualSelectionWorkspace({
         <p className="remoteWorkspaceBanner">
           JPEG-i są wysyłane w tle. Nawigacja i kolejne decyzje pozostają
           dostępne.
+        </p>
+      ) : null}
+      {completed ? (
+        <p className="remoteWorkspaceBanner">
+          Partia została zakończona. Manifesty i pliki są tylko do odczytu;
+          ponowne otwarcie wymaga działania hosta.
         </p>
       ) : null}
 
@@ -950,6 +1015,39 @@ export function RemoteManualSelectionWorkspace({
           >
             {syncing ? 'Synchronizacja…' : 'Ponów synchronizację'}
           </button>
+          {!completed ? (
+            <div className="remoteManualFinalizePanel">
+              <h3>Zakończenie partii</h3>
+              <button
+                disabled={!canEdit || syncing || finalizing}
+                onClick={() => void previewFinalization()}
+                type="button"
+              >
+                {finalizing ? 'Sprawdzanie…' : 'Sprawdź gotowość'}
+              </button>
+              {finalizePreview !== null ? (
+                finalizePreview.ready ? (
+                  <button
+                    className="primaryButton"
+                    disabled={finalizing}
+                    onClick={() => void finalizeBatch()}
+                    type="button"
+                  >
+                    Zakończ partię i zapisz manifesty
+                  </button>
+                ) : (
+                  <ul>
+                    {finalizePreview.blockers.map((blocker) => (
+                      <li key={blocker.code}>
+                        {finalizationBlockerLabel(blocker.code)}:{' '}
+                        {blocker.count}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </div>
+          ) : null}
           <p className="remoteManualShortcutHelp">
             ←/→ zdjęcie · ↑/↓ skok · Enter/F zatwierdź · Tab pomiń · A/Ctrl+Z
             cofnij
@@ -966,7 +1064,7 @@ export function RemoteManualSelectionWorkspace({
           ← Poprzednie
         </button>
         <button
-          disabled={!canWrite || busy || hasConflict || sourceReader === null}
+          disabled={!canEdit || busy || hasConflict || sourceReader === null}
           onClick={() => void acceptCurrent()}
           type="button"
           className="primaryButton"
@@ -974,7 +1072,7 @@ export function RemoteManualSelectionWorkspace({
           Zatwierdź (Enter/F)
         </button>
         <button
-          disabled={!canWrite || busy || hasConflict}
+          disabled={!canEdit || busy || hasConflict}
           onClick={() => void skipCurrent()}
           type="button"
         >
@@ -989,7 +1087,7 @@ export function RemoteManualSelectionWorkspace({
         </button>
         <button
           disabled={
-            !canWrite || busy || hasConflict || workspace.decisions.length === 0
+            !canEdit || busy || hasConflict || workspace.decisions.length === 0
           }
           onClick={() => void undoLast()}
           type="button"
@@ -1025,4 +1123,15 @@ function formatBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1024 ** 2).toFixed(1)} MiB`;
+}
+
+function finalizationBlockerLabel(code: string): string {
+  const labels: Record<string, string> = {
+    REMOTE_SELECTION_HOST_ACTION_PENDING: 'Operacje plikowe hosta',
+    REMOTE_SELECTION_OPERATION_PENDING: 'Niezsynchronizowane decyzje',
+    REMOTE_SELECTION_REMOVAL_PENDING: 'Pliki oczekujące na usunięcie',
+    REMOTE_SELECTION_SELECTED_FILE_NOT_SYNCED: 'Niezapisane wybrane JPEG-i',
+    REMOTE_SELECTION_TRANSFER_PENDING: 'Transfery JPEG-ów',
+  };
+  return labels[code] ?? code;
 }

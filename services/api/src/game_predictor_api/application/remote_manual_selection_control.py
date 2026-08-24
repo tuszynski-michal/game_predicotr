@@ -12,9 +12,15 @@ from uuid import UUID
 from game_predictor_api.application.remote_manual_selection_access import (
     RemoteManualSelectionAccessService,
 )
+from game_predictor_api.application.remote_manual_selection_finalization import (
+    RemoteSelectionFinalizePreview,
+    build_remote_selection_finalization_payloads,
+    build_remote_selection_finalize_preview,
+)
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionBatchMapping,
     RemoteManualSelectionHostService,
+    RemoteManualSelectionPublishedFinalization,
 )
 from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionBatchStatus,
@@ -34,6 +40,7 @@ from game_predictor_api.domain.remote_manual_selections import (
 )
 from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionFileDelta,
+    RemoteManualSelectionFinalizationSnapshot,
     RemoteManualSelectionHostBinding,
     RemoteManualSelectionSourceRegistration,
 )
@@ -86,6 +93,43 @@ class RemoteManualSelectionControlRepository(Protocol):
         self, *, batch_id: UUID, after_revision: int, limit: int
     ) -> tuple[RemoteManualSelectionFileDelta, ...]: ...
 
+    def get_finalization_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        for_update: bool = False,
+    ) -> RemoteManualSelectionFinalizationSnapshot | None: ...
+
+    def mark_batch_finalizing(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        changed_at: datetime,
+    ) -> RemoteManualSelectionBatchV1: ...
+
+    def complete_batch_finalization(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        final_manifest_checksum_sha256: str,
+        completed_at: datetime,
+        actor: str,
+    ) -> RemoteManualSelectionFinalizationSnapshot: ...
+
+    def reopen_completed_batch(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        expected_final_manifest_checksum_sha256: str,
+        reopened_at: datetime,
+    ) -> RemoteManualSelectionFinalizationSnapshot: ...
+
 
 @dataclass(frozen=True, slots=True)
 class CreatedRemoteManualSelectionCollection:
@@ -105,6 +149,20 @@ class RemoteManualSelectionStateDelta:
     files: tuple[RemoteManualSelectionFileDelta, ...]
     next_revision: int
     has_more: bool
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizedRemoteManualSelectionBatch:
+    snapshot: RemoteManualSelectionFinalizationSnapshot
+    artifacts: RemoteManualSelectionPublishedFinalization
+    finalized_at: datetime
+    exact_retry: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ReopenedRemoteManualSelectionBatch:
+    snapshot: RemoteManualSelectionFinalizationSnapshot
+    reopened_at: datetime
 
 
 class RemoteManualSelectionRateLimitError(RemoteManualSelectionError):
@@ -150,12 +208,14 @@ class RemoteManualSelectionControlService:
         *,
         rate_limiter: RemoteManualSelectionControlRateLimiter | None = None,
         deselect_enabled: bool = True,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._access = access_service
         self._host = host_service
         self._rate_limiter = rate_limiter or RemoteManualSelectionControlRateLimiter()
         self._deselect_enabled = deselect_enabled
+        self._now = now or (lambda: datetime.now(UTC))
 
     def create_collection(
         self,
@@ -368,6 +428,155 @@ class RemoteManualSelectionControlService:
         )
         return self._repository.apply_operation(command)
 
+    def finalize_preview(
+        self,
+        *,
+        batch_id: UUID,
+        access_token: str,
+        client_instance_id: UUID,
+    ) -> RemoteSelectionFinalizePreview:
+        context = self._access.context(
+            access_token=access_token,
+            client_instance_id=client_instance_id,
+        )
+        self._rate_limiter.consume(context.session_id, client_instance_id)
+        snapshot = self._repository.get_finalization_snapshot(batch_id=batch_id)
+        if snapshot is None or snapshot.batch.session_id != context.session_id:
+            raise _scope_mismatch()
+        return build_remote_selection_finalize_preview(snapshot)
+
+    def finalize_batch(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        access_token: str,
+        client_instance_id: UUID,
+    ) -> FinalizedRemoteManualSelectionBatch:
+        self._access.authorize_writer(
+            session_id=session_id,
+            access_token=access_token,
+            client_instance_id=client_instance_id,
+        )
+        self._rate_limiter.consume(session_id, client_instance_id)
+        snapshot = self._repository.get_finalization_snapshot(
+            batch_id=batch_id,
+            for_update=True,
+        )
+        if snapshot is None or snapshot.batch.session_id != session_id:
+            raise _scope_mismatch()
+        if snapshot.batch.status is RemoteManualSelectionBatchStatus.COMPLETED:
+            checksum = snapshot.final_manifest_checksum_sha256
+            if checksum is None or expected_server_revision not in {
+                snapshot.batch.server_revision,
+                snapshot.batch.server_revision - 1,
+            }:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_FINALIZE_PRECONDITION_FAILED",
+                    "The completed finalization does not match this retry.",
+                )
+            artifacts = RemoteManualSelectionPublishedFinalization(
+                final_manifest_checksum_sha256=checksum,
+                output_checksum_sha256="",
+                trace_checksum_sha256="",
+                operational_checksum_sha256="",
+            )
+            return FinalizedRemoteManualSelectionBatch(
+                snapshot=snapshot,
+                artifacts=artifacts,
+                finalized_at=snapshot.updated_at,
+                exact_retry=True,
+            )
+        if snapshot.batch.server_revision != expected_server_revision:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_REVISION_CONFLICT",
+                "The finalization server revision is stale.",
+                details={"serverRevision": snapshot.batch.server_revision},
+            )
+        preview = build_remote_selection_finalize_preview(snapshot)
+        if not preview.ready:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_FINALIZATION_BLOCKED",
+                "The batch still has unresolved operations or files.",
+                details={
+                    "blockers": [
+                        {"code": item.code, "count": item.count} for item in preview.blockers
+                    ],
+                    "serverRevision": preview.server_revision,
+                },
+            )
+        finalized_at = self._now()
+        self._repository.mark_batch_finalizing(
+            session_id=session_id,
+            batch_id=batch_id,
+            expected_server_revision=expected_server_revision,
+            changed_at=finalized_at,
+        )
+        snapshot = self._repository.get_finalization_snapshot(
+            batch_id=batch_id,
+            for_update=True,
+        )
+        assert snapshot is not None
+        payloads = build_remote_selection_finalization_payloads(
+            snapshot,
+            finalized_at=finalized_at,
+        )
+        artifacts = self._host.publish_finalization_manifests(
+            self._repository,
+            session_id=session_id,
+            batch_id=batch_id,
+            server_revision=expected_server_revision,
+            selected_files=tuple(
+                item.file for item in snapshot.files if item.file.desired_selected
+            ),
+            output_manifest=payloads.output_manifest,
+            trace_manifest=payloads.trace_manifest,
+            operational_manifest=payloads.operational_manifest,
+            final_manifest_checksum_sha256=(payloads.final_manifest_checksum_sha256),
+        )
+        completed = self._repository.complete_batch_finalization(
+            session_id=session_id,
+            batch_id=batch_id,
+            expected_server_revision=expected_server_revision,
+            final_manifest_checksum_sha256=(payloads.final_manifest_checksum_sha256),
+            completed_at=finalized_at,
+            actor=f"remote-operator:{client_instance_id}",
+        )
+        return FinalizedRemoteManualSelectionBatch(
+            snapshot=completed,
+            artifacts=artifacts,
+            finalized_at=finalized_at,
+            exact_retry=False,
+        )
+
+    def reopen_batch(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        expected_final_manifest_checksum_sha256: str,
+    ) -> ReopenedRemoteManualSelectionBatch:
+        snapshot = self._repository.get_finalization_snapshot(
+            batch_id=batch_id,
+            for_update=True,
+        )
+        if snapshot is None or snapshot.batch.session_id != session_id:
+            raise _scope_mismatch()
+        reopened_at = self._now()
+        reopened = self._repository.reopen_completed_batch(
+            session_id=session_id,
+            batch_id=batch_id,
+            expected_server_revision=expected_server_revision,
+            expected_final_manifest_checksum_sha256=(expected_final_manifest_checksum_sha256),
+            reopened_at=reopened_at,
+        )
+        return ReopenedRemoteManualSelectionBatch(
+            snapshot=reopened,
+            reopened_at=reopened_at,
+        )
+
     def _authorize_session(
         self, session_id: UUID, access_token: str, client_instance_id: UUID
     ) -> None:
@@ -433,6 +642,8 @@ def _idempotency_conflict(field: str) -> RemoteManualSelectionConflictError:
 __all__ = [
     "CreatedRemoteManualSelectionBatch",
     "CreatedRemoteManualSelectionCollection",
+    "FinalizedRemoteManualSelectionBatch",
+    "ReopenedRemoteManualSelectionBatch",
     "RemoteManualSelectionControlRateLimiter",
     "RemoteManualSelectionControlService",
     "RemoteManualSelectionRateLimitError",

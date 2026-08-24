@@ -5419,6 +5419,29 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   zostały odrzucone jako podatne na utratę, nieograniczoną pamięć lub false
   success.
 
+## D-226 — Finalizacja zdalnej partii jest rewizyjną barierą hosta
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** zdalna partia przechodzi do `completed` dopiero po
+  serwerowym preview i transakcyjnym potwierdzeniu braku aktywnych operacji,
+  transferów i host actions oraz zgodności wszystkich wybranych plików.
+  Manifesty output/trace zachowują lokalny schemat v1; stan operacyjny jest
+  osobnym host-internal manifestem. Reopen jest wyłącznie lokalną operacją
+  właściciela z exact targetem, rewizją i checksumą.
+- **Context:** sam pusty outbox przeglądarki nie dowodzi, że JPEG został
+  materializowany, a crash między zapisem JSON i commitem bazy mógłby stworzyć
+  fałszywy sukces albo drugi wynik przy retry.
+- **Safety:** rewizyjny journal i ownership pointer pozwalają adoptować tylko
+  identyczny półstan. Obcy lub zmieniony manifest nigdy nie jest nadpisywany.
+  Publiczna allowlista nie zawiera reopen ani endpointu zapisu manifestu.
+- **Consequences:** zakończony Reviewer jest tylko do odczytu; import lokalny
+  konsumuje wynik bez nowej gałęzi kontraktu. Ponowne otwarcie zwiększa rewizję
+  i wymaga kolejnej jawnej finalizacji po zmianach.
+- **Alternatives:** finalizacja na podstawie stanu React/IndexedDB, bezpośredni
+  upload manifestów przez operatora i automatyczny reopen odrzucono jako
+  podatne na rozjazd DB–filesystem, podmianę artefaktu lub stale mutation.
+
 ## Szablon nowej decyzji
 
 ```text

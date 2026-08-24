@@ -58,6 +58,8 @@ export interface RemoteSelectionLocalBatchRecord {
   readonly collectionName?: string | null;
   readonly batchName?: string | null;
   readonly hostRegistered?: boolean;
+  readonly serverRevision?: number;
+  readonly status?: 'indexing' | 'active' | 'finalizing' | 'completed';
   readonly nextRangeStart?: number;
   readonly navigationStep?: number;
   readonly decisions?: readonly RemoteSelectionWorkspaceDecision[];
@@ -998,6 +1000,7 @@ export class RemoteSelectionIndexedDbStore {
     readonly clientInstanceId: string;
     readonly files: readonly RemoteSelectionServerFileState[];
     readonly nextRevision: number;
+    readonly status?: 'indexing' | 'active' | 'finalizing' | 'completed';
     readonly updatedAt?: string;
   }): Promise<void> {
     const updatedAt = input.updatedAt ?? new Date().toISOString();
@@ -1005,6 +1008,7 @@ export class RemoteSelectionIndexedDbStore {
     try {
       const transaction = database.transaction(
         [
+          REMOTE_SELECTION_DATABASE_STORES.batches,
           REMOTE_SELECTION_DATABASE_STORES.clientInstances,
           REMOTE_SELECTION_DATABASE_STORES.sourceItems,
         ],
@@ -1043,6 +1047,20 @@ export class RemoteSelectionIndexedDbStore {
         lastKnownServerRevision: input.nextRevision,
         updatedAt,
       });
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const batch = (await requestResult(
+        batches.get([input.sessionId, input.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (batch !== null) {
+        batches.put({
+          ...batch,
+          serverRevision: input.nextRevision,
+          status: input.status ?? batch.status,
+          updatedAt,
+        });
+      }
       await transactionComplete(transaction);
     } finally {
       database.close();
@@ -1397,7 +1415,14 @@ function validateWorkspaceBatch(record: RemoteSelectionLocalBatchRecord): void {
         decision.sourceIndex >= record.fileCount,
     ) ||
     workspace.nextRangeStart !==
-      record.firstLayout + workspace.decisions.length * 9
+      record.firstLayout + workspace.decisions.length * 9 ||
+    (record.serverRevision !== undefined &&
+      (!Number.isSafeInteger(record.serverRevision) ||
+        record.serverRevision < 0)) ||
+    (record.status !== undefined &&
+      !['indexing', 'active', 'finalizing', 'completed'].includes(
+        record.status,
+      ))
   ) {
     throw storeError(
       'REMOTE_SELECTION_WORKSPACE_STATE_INVALID',

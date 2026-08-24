@@ -103,6 +103,11 @@ test('remote selection has a separate closed control-plane allowlist', () => {
       'POST',
       `/api/v1/remote-manual-selections/sessions/${sessionId}/writer-lease/takeover`,
     ],
+    [
+      'GET',
+      `/api/v1/remote-manual-selections/batches/${sessionId}/finalize-preview`,
+    ],
+    ['POST', `/api/v1/remote-manual-selections/batches/${sessionId}/finalize`],
   ]) {
     assert.equal(remoteSelectionProxyTarget(method, path), path);
   }
@@ -134,6 +139,10 @@ test('remote selection rejects Reviewer, Admin, binary and malformed routes', ()
       '/api/v1/remote-manual-selections/sessions/11111111-1111-1111-1111-111111111111/unlock',
     ],
     ['DELETE', '/api/v1/remote-manual-selections/context'],
+    [
+      'POST',
+      `/api/v1/admin/remote-manual-selections/sessions/${sessionId}/reopen-batch`,
+    ],
   ]) {
     assert.equal(
       remoteSelectionProxyTarget(method, path),

@@ -101,6 +101,9 @@ class RemoteManualSelectionBatchMonitorView:
     failed_file_count: int
     pending_host_action_count: int
     last_error_codes: tuple[str, ...]
+    server_revision: int
+    final_manifest_checksum_sha256: str | None
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,6 +15,7 @@ export type RemoteManualSelectionHostClient = Pick<
   | 'getRemoteManualSelectionSession'
   | 'listRemoteManualSelectionSessions'
   | 'revokeRemoteManualSelectionSession'
+  | 'reopenRemoteManualSelectionBatch'
   | 'selectRemoteManualSelectionHostBase'
 >;
 
@@ -76,6 +77,27 @@ export async function revokeRemoteManualSelectionAccess(
   return call(
     () => client.revokeRemoteManualSelectionSession(sessionId),
     'Nie udało się zatrzymać wybranej sesji.',
+  );
+}
+
+export async function reopenRemoteManualSelectionBatch(
+  client: RemoteManualSelectionHostClient,
+  input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly expectedServerRevision: number;
+    readonly expectedFinalManifestChecksumSha256: string;
+  },
+) {
+  return call(
+    () =>
+      client.reopenRemoteManualSelectionBatch(input.sessionId, {
+        batchId: input.batchId,
+        expectedFinalManifestChecksumSha256:
+          input.expectedFinalManifestChecksumSha256,
+        expectedServerRevision: input.expectedServerRevision,
+      }),
+    'Nie udało się ponownie otworzyć zakończonej partii.',
   );
 }
 

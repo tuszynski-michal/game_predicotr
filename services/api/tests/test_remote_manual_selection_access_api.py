@@ -371,6 +371,9 @@ def test_host_monitor_is_bounded_and_exposes_counts_without_path_or_secret() -> 
                 failed_file_count=1,
                 pending_host_action_count=2,
                 last_error_codes=("REMOTE_SELECTION_SYNTHETIC_FAILURE",),
+                server_revision=5,
+                final_manifest_checksum_sha256=None,
+                updated_at=datetime.now(UTC),
             )
             for index in range(3)
         ]

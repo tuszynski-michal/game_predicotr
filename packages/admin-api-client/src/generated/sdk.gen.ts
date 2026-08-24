@@ -141,6 +141,9 @@ import type {
   FinalizeBrowserImageSelectionData,
   FinalizeBrowserImageSelectionErrors,
   FinalizeBrowserImageSelectionResponses,
+  FinalizeRemoteManualSelectionBatchData,
+  FinalizeRemoteManualSelectionBatchErrors,
+  FinalizeRemoteManualSelectionBatchResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -453,6 +456,9 @@ import type {
   PreviewReadyBrowserImageImportData,
   PreviewReadyBrowserImageImportErrors,
   PreviewReadyBrowserImageImportResponses,
+  PreviewRemoteManualSelectionFinalizationData,
+  PreviewRemoteManualSelectionFinalizationErrors,
+  PreviewRemoteManualSelectionFinalizationResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -486,6 +492,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ReopenRemoteManualSelectionBatchData,
+  ReopenRemoteManualSelectionBatchErrors,
+  ReopenRemoteManualSelectionBatchResponses,
   ReprocessManagedImageImportData,
   ReprocessManagedImageImportErrors,
   ReprocessManagedImageImportResponses,
@@ -3617,6 +3626,32 @@ export const getRemoteManualSelectionSession = <
   });
 
 /**
+ * Reopen one completed remote manual selection batch
+ */
+export const reopenRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReopenRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  ReopenRemoteManualSelectionBatchResponses,
+  ReopenRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReopenRemoteManualSelectionBatchResponses,
+    ReopenRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/reopen-batch',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Immediately revoke one remote manual selection session
  */
 export const revokeRemoteManualSelectionSession = <
@@ -4482,6 +4517,52 @@ export const getRemoteManualSelectionFileTransfer = <
     ThrowOnError
   >({
     url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer',
+    ...options,
+  });
+
+/**
+ * Finalize one fully reconciled remote manual selection batch
+ */
+export const finalizeRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FinalizeRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  FinalizeRemoteManualSelectionBatchResponses,
+  FinalizeRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FinalizeRemoteManualSelectionBatchResponses,
+    FinalizeRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the durable finalization barrier for one batch
+ */
+export const previewRemoteManualSelectionFinalization = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewRemoteManualSelectionFinalizationData, ThrowOnError>,
+): RequestResult<
+  PreviewRemoteManualSelectionFinalizationResponses,
+  PreviewRemoteManualSelectionFinalizationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewRemoteManualSelectionFinalizationResponses,
+    PreviewRemoteManualSelectionFinalizationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize-preview',
     ...options,
   });
 

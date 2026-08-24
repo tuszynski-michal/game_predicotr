@@ -6,6 +6,7 @@ import {
   createRemoteManualSelectionAccess,
   loadRemoteManualSelectionMonitor,
   loadRemoteManualSelectionSessions,
+  reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
   selectRemoteManualSelectionBase,
 } from '../src/features/manual-image-selection/remote-manual-selection-actions.ts';
@@ -83,6 +84,15 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
       calls.push(['revoke', sessionId]);
       return { data: { ...current, status: 'revoked' } };
     },
+    reopenRemoteManualSelectionBatch: async (sessionId, body) => {
+      calls.push(['reopen', sessionId, body]);
+      return {
+        data: {
+          batch: { batchId: body.batchId, status: 'active' },
+          reopenedAt: '2026-08-24T12:00:00Z',
+        },
+      };
+    },
   };
 
   assert.equal((await selectRemoteManualSelectionBase(client)).ok, true);
@@ -105,6 +115,17 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     (await revokeRemoteManualSelectionAccess(client, current.sessionId)).ok,
     true,
   );
+  assert.equal(
+    (
+      await reopenRemoteManualSelectionBatch(client, {
+        batchId: '22222222-2222-4222-8222-222222222222',
+        expectedFinalManifestChecksumSha256: 'a'.repeat(64),
+        expectedServerRevision: 4,
+        sessionId: current.sessionId,
+      })
+    ).ok,
+    true,
+  );
   assert.deepEqual(calls, [
     ['select'],
     [
@@ -118,6 +139,15 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
     ['list', 100],
     ['monitor', current.sessionId, 100],
     ['revoke', current.sessionId],
+    [
+      'reopen',
+      current.sessionId,
+      {
+        batchId: '22222222-2222-4222-8222-222222222222',
+        expectedFinalManifestChecksumSha256: 'a'.repeat(64),
+        expectedServerRevision: 4,
+      },
+    ],
   ]);
 });
 
@@ -169,4 +199,6 @@ test('panel keeps secret in React memory and uses bounded polling and exact revo
   assert.match(panelSource, /Kod jednorazowy — nie pojawi się po odświeżeniu/);
   assert.match(panelSource, /Wybierz folder bazowy/);
   assert.match(panelSource, /Etykieta sesji/);
+  assert.match(panelSource, /expectedFinalManifestChecksumSha256/);
+  assert.match(panelSource, /Potwierdź ponowne otwarcie/);
 });

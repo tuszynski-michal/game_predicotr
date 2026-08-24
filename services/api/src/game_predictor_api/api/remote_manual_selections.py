@@ -53,17 +53,24 @@ from game_predictor_api.schemas.remote_manual_selections import (
     RemoteManualSelectionTransferResponse,
     RemoteManualSelectionUnlock,
     RemoteManualSelectionWriterLeaseCommand,
+    RemoteSelectionFinalizeCommand,
+    RemoteSelectionFinalizedResponse,
+    RemoteSelectionFinalizePreviewResponse,
+    RemoteSelectionReopenCommand,
+    RemoteSelectionReopenedResponse,
 )
 
 
 def create_remote_manual_selections_admin_router(
     host_service_dependency: Callable[..., object],
     access_service_dependency: Callable[..., object],
+    control_service_dependency: Callable[..., object],
     ingress_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/remote-manual-selections")
     host_service_parameter = Depends(host_service_dependency)
     access_service_parameter = Depends(access_service_dependency)
+    control_service_parameter = Depends(control_service_dependency)
     ingress_service_parameter = Depends(ingress_service_dependency)
 
     @router.post(
@@ -165,6 +172,33 @@ def create_remote_manual_selections_admin_router(
         return RemoteManualSelectionSessionResponse.from_view(
             service.revoke(session_id),
             None,
+        )
+
+    @router.post(
+        "/sessions/{session_id}/reopen-batch",
+        response_model=RemoteSelectionReopenedResponse,
+        operation_id="reopenRemoteManualSelectionBatch",
+        summary="Reopen one completed remote manual selection batch",
+        tags=["remote-manual-selections"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def reopen_batch(
+        session_id: UUID,
+        payload: RemoteSelectionReopenCommand,
+        service: Annotated[
+            RemoteManualSelectionControlService,
+            control_service_parameter,
+        ],
+    ) -> RemoteSelectionReopenedResponse:
+        return RemoteSelectionReopenedResponse.from_result(
+            service.reopen_batch(
+                session_id=session_id,
+                batch_id=payload.batch_id,
+                expected_server_revision=payload.expected_server_revision,
+                expected_final_manifest_checksum_sha256=(
+                    payload.expected_final_manifest_checksum_sha256
+                ),
+            )
         )
 
     return router
@@ -428,6 +462,73 @@ def create_remote_manual_selections_public_router(
                 batch_id=batch_id,
                 since_revision=since_revision,
                 limit=limit,
+                access_token=_require_cookie(access_token),
+                client_instance_id=client_instance_id,
+            )
+        )
+
+    @router.get(
+        "/batches/{batch_id}/finalize-preview",
+        response_model=RemoteSelectionFinalizePreviewResponse,
+        operation_id="previewRemoteManualSelectionFinalization",
+        summary="Preview the durable finalization barrier for one batch",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def preview_finalization(
+        batch_id: UUID,
+        service: Annotated[
+            RemoteManualSelectionControlService,
+            control_service_parameter,
+        ],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteSelectionFinalizePreviewResponse:
+        return RemoteSelectionFinalizePreviewResponse.from_view(
+            service.finalize_preview(
+                batch_id=batch_id,
+                access_token=_require_cookie(access_token),
+                client_instance_id=client_instance_id,
+            )
+        )
+
+    @router.post(
+        "/batches/{batch_id}/finalize",
+        response_model=RemoteSelectionFinalizedResponse,
+        operation_id="finalizeRemoteManualSelectionBatch",
+        summary="Finalize one fully reconciled remote manual selection batch",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def finalize_batch(
+        batch_id: UUID,
+        payload: RemoteSelectionFinalizeCommand,
+        service: Annotated[
+            RemoteManualSelectionControlService,
+            control_service_parameter,
+        ],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteSelectionFinalizedResponse:
+        return RemoteSelectionFinalizedResponse.from_result(
+            service.finalize_batch(
+                session_id=payload.session_id,
+                batch_id=batch_id,
+                expected_server_revision=payload.expected_server_revision,
                 access_token=_require_cookie(access_token),
                 client_instance_id=client_instance_id,
             )

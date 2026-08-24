@@ -14,6 +14,7 @@ import {
   createRemoteManualSelectionAccess,
   loadRemoteManualSelectionMonitor,
   loadRemoteManualSelectionSessions,
+  reopenRemoteManualSelectionBatch,
   revokeRemoteManualSelectionAccess,
   selectRemoteManualSelectionBase,
   type RemoteManualSelectionHostClient,
@@ -58,6 +59,10 @@ export function RemoteManualSelectionHostPanel({
   const [revokeConfirmationId, setRevokeConfirmationId] = useState<
     string | null
   >(null);
+  const [reopenConfirmationId, setReopenConfirmationId] = useState<
+    string | null
+  >(null);
+  const [reopeningBatchId, setReopeningBatchId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [monitorError, setMonitorError] = useState('');
   const [notice, setNotice] = useState('');
@@ -242,6 +247,44 @@ export function RemoteManualSelectionHostPanel({
       setCopied(kind);
     } catch {
       setError('Nie udało się skopiować wartości. Zaznacz ją ręcznie.');
+    }
+  }
+
+  async function reopenBatch(
+    sessionId: string,
+    batch: RemoteManualSelectionSessionMonitorResponse['batches'][number],
+  ) {
+    if (
+      batch.finalManifestChecksumSha256 === null ||
+      batch.finalManifestChecksumSha256 === undefined
+    ) {
+      setError('Zakończona partia nie ma kontrolnej sumy manifestu.');
+      return;
+    }
+    if (reopenConfirmationId !== batch.batchId) {
+      setReopenConfirmationId(batch.batchId);
+      return;
+    }
+    setReopeningBatchId(batch.batchId);
+    setError('');
+    try {
+      const result = await reopenRemoteManualSelectionBatch(api, {
+        batchId: batch.batchId,
+        expectedFinalManifestChecksumSha256: batch.finalManifestChecksumSha256,
+        expectedServerRevision: batch.serverRevision,
+        sessionId,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setReopenConfirmationId(null);
+      setNotice(
+        `Partia ${batch.name} została ponownie otwarta. Opublikowane manifesty pozostają audytowalne do następnej finalizacji.`,
+      );
+      await refreshMonitor(sessionId, false);
+    } finally {
+      setReopeningBatchId(null);
     }
   }
 
@@ -503,6 +546,7 @@ export function RemoteManualSelectionHostPanel({
                           <th>Zapisane</th>
                           <th>Oczekujące akcje</th>
                           <th>Błędy</th>
+                          <th>Akcje</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -519,6 +563,29 @@ export function RemoteManualSelectionHostPanel({
                               {batch.failedFileCount > 0
                                 ? `${batch.failedFileCount}: ${batch.lastErrorCodes.join(', ') || 'REMOTE_SELECTION_FILE_FAILED'}`
                                 : '0'}
+                            </td>
+                            <td>
+                              {batch.status === 'completed' ? (
+                                <button
+                                  className="textButton"
+                                  disabled={reopeningBatchId !== null}
+                                  onClick={() =>
+                                    void reopenBatch(
+                                      selectedSession.sessionId,
+                                      batch,
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  {reopeningBatchId === batch.batchId
+                                    ? 'Otwieram…'
+                                    : reopenConfirmationId === batch.batchId
+                                      ? 'Potwierdź ponowne otwarcie'
+                                      : 'Otwórz ponownie'}
+                                </button>
+                              ) : (
+                                '—'
+                              )}
                             </td>
                           </tr>
                         ))}

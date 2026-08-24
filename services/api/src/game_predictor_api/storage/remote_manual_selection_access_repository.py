@@ -207,6 +207,9 @@ class SqlAlchemyRemoteManualSelectionAccessRepository(RemoteManualSelectionAcces
                 failed_file_count=failed_by_batch.get(batch.id, 0),
                 pending_host_action_count=pending_actions_by_batch.get(batch.id, 0),
                 last_error_codes=tuple(sorted(error_codes_by_batch.get(batch.id, ()))),
+                server_revision=batch.server_revision,
+                final_manifest_checksum_sha256=(batch.final_manifest_checksum_sha256),
+                updated_at=batch.updated_at,
             )
             for batch in batches
         )

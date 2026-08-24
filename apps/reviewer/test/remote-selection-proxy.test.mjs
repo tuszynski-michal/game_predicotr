@@ -276,6 +276,24 @@ test('control allowlist admits only exact mutation paths and bounded state query
       ),
       { internalApiOrigin: origin },
     );
+    const finalizePreview = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/finalize-preview`,
+        { headers: { Cookie: cookie } },
+      ),
+      { internalApiOrigin: origin },
+    );
+    const finalize = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/finalize`,
+        {
+          body: '{}',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      ),
+      { internalApiOrigin: origin },
+    );
     const forbiddenQuery = await proxyRemoteSelectionRequest(
       publicRequest(
         `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/state?includeHostPath=true`,
@@ -297,12 +315,18 @@ test('control allowlist admits only exact mutation paths and bounded state query
 
     assert.equal(operation.status, 200);
     assert.equal(state.status, 200);
+    assert.equal(finalizePreview.status, 200);
+    assert.equal(finalize.status, 200);
     assert.equal(forbiddenQuery.status, 403);
     assert.equal(upload.status, 403);
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 4);
     assert.equal(
       requests[1].url,
       `/api/v1/remote-manual-selections/batches/${sessionId}/state?sinceRevision=2&limit=100`,
+    );
+    assert.equal(
+      requests[2].url,
+      `/api/v1/remote-manual-selections/batches/${sessionId}/finalize-preview`,
     );
   });
 });

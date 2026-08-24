@@ -125,6 +125,27 @@ class RemoteManualSelectionRemovalContext:
     checksum_sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionFinalFileRecord:
+    file: RemoteManualSelectionFileV1
+    final_relative_path: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionFinalizationSnapshot:
+    batch: RemoteManualSelectionBatchV1
+    collection: RemoteManualSelectionCollectionV1
+    files: tuple[RemoteManualSelectionFinalFileRecord, ...]
+    operations: tuple[RemoteManualSelectionOperationV1, ...]
+    transfers: tuple[RemoteManualSelectionTransferV1, ...]
+    host_actions: tuple[RemoteManualSelectionHostActionV1, ...]
+    total_file_count: int
+    selected_file_count: int
+    transferred_file_count: int
+    final_manifest_checksum_sha256: str | None
+    updated_at: datetime
+
+
 class SqlAlchemyRemoteManualSelectionRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -248,6 +269,228 @@ class SqlAlchemyRemoteManualSelectionRepository:
                 RemoteManualSelectionBatchModel.id == batch_id
             )
         )
+
+    def get_finalization_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        for_update: bool = False,
+    ) -> RemoteManualSelectionFinalizationSnapshot | None:
+        batch_query = select(RemoteManualSelectionBatchModel).where(
+            RemoteManualSelectionBatchModel.id == batch_id
+        )
+        if for_update:
+            batch_query = batch_query.with_for_update()
+        batch_record = self._session.scalar(batch_query)
+        if batch_record is None:
+            return None
+        collection_record = self._session.get(
+            RemoteManualSelectionCollectionModel,
+            batch_record.collection_id,
+        )
+        if collection_record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The finalization collection is unavailable.",
+            )
+        files = tuple(
+            RemoteManualSelectionFinalFileRecord(
+                file=_file_from_record(record),
+                final_relative_path=record.final_relative_path,
+            )
+            for record in self._session.scalars(
+                select(RemoteManualSelectionFileModel)
+                .where(RemoteManualSelectionFileModel.batch_id == batch_id)
+                .order_by(
+                    RemoteManualSelectionFileModel.source_index,
+                    RemoteManualSelectionFileModel.id,
+                )
+            )
+        )
+        operations = tuple(
+            _operation_from_record(record)
+            for record in self._session.scalars(
+                select(RemoteManualSelectionOperationModel)
+                .where(RemoteManualSelectionOperationModel.batch_id == batch_id)
+                .order_by(
+                    RemoteManualSelectionOperationModel.client_sequence,
+                    RemoteManualSelectionOperationModel.id,
+                )
+            )
+        )
+        transfers = tuple(
+            _transfer_from_record(record)
+            for record in self._session.scalars(
+                select(RemoteManualSelectionTransferModel)
+                .where(RemoteManualSelectionTransferModel.batch_id == batch_id)
+                .order_by(
+                    RemoteManualSelectionTransferModel.created_at,
+                    RemoteManualSelectionTransferModel.id,
+                )
+            )
+        )
+        host_actions = tuple(
+            _host_action_from_record(record)
+            for record in self._session.scalars(
+                select(RemoteManualSelectionHostActionModel)
+                .where(RemoteManualSelectionHostActionModel.batch_id == batch_id)
+                .order_by(
+                    RemoteManualSelectionHostActionModel.created_at,
+                    RemoteManualSelectionHostActionModel.id,
+                )
+            )
+        )
+        return RemoteManualSelectionFinalizationSnapshot(
+            batch=_batch_from_record(batch_record),
+            collection=_collection_from_record(collection_record),
+            files=files,
+            operations=operations,
+            transfers=transfers,
+            host_actions=host_actions,
+            total_file_count=batch_record.total_file_count,
+            selected_file_count=batch_record.selected_file_count,
+            transferred_file_count=batch_record.transferred_file_count,
+            final_manifest_checksum_sha256=(batch_record.final_manifest_checksum_sha256),
+            updated_at=batch_record.updated_at,
+        )
+
+    def mark_batch_finalizing(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        changed_at: datetime,
+    ) -> RemoteManualSelectionBatchV1:
+        record = self._locked_batch_for_finalization(
+            session_id=session_id,
+            batch_id=batch_id,
+        )
+        if record.server_revision != expected_server_revision:
+            raise _finalization_revision_conflict(record.server_revision)
+        if record.status == RemoteManualSelectionBatchStatus.ACTIVE.value:
+            record.status = RemoteManualSelectionBatchStatus.FINALIZING.value
+            record.updated_at = changed_at
+            self._session.flush()
+        elif record.status != RemoteManualSelectionBatchStatus.FINALIZING.value:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_BATCH_NOT_FINALIZABLE",
+                "Only an active or finalizing batch can be finalized.",
+            )
+        return _batch_from_record(record)
+
+    def complete_batch_finalization(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        final_manifest_checksum_sha256: str,
+        completed_at: datetime,
+        actor: str,
+    ) -> RemoteManualSelectionFinalizationSnapshot:
+        record = self._locked_batch_for_finalization(
+            session_id=session_id,
+            batch_id=batch_id,
+        )
+        if record.server_revision != expected_server_revision:
+            raise _finalization_revision_conflict(record.server_revision)
+        if record.status != RemoteManualSelectionBatchStatus.FINALIZING.value:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_BATCH_NOT_FINALIZING",
+                "The batch must remain finalizing until every manifest is durable.",
+            )
+        record.status = RemoteManualSelectionBatchStatus.COMPLETED.value
+        record.server_revision += 1
+        record.final_manifest_checksum_sha256 = final_manifest_checksum_sha256
+        record.updated_at = completed_at
+        self._session.add(
+            RemoteManualSelectionAuditEventModel(
+                session_id=session_id,
+                batch_id=batch_id,
+                event_type="batch_finalized",
+                actor=actor,
+                outcome_code="REMOTE_SELECTION_BATCH_FINALIZED",
+                payload={
+                    "finalManifestChecksumSha256": final_manifest_checksum_sha256,
+                    "serverRevision": record.server_revision,
+                },
+                created_at=completed_at,
+            )
+        )
+        self._session.flush()
+        snapshot = self.get_finalization_snapshot(batch_id=batch_id)
+        assert snapshot is not None
+        return snapshot
+
+    def reopen_completed_batch(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        expected_final_manifest_checksum_sha256: str,
+        reopened_at: datetime,
+    ) -> RemoteManualSelectionFinalizationSnapshot:
+        record = self._locked_batch_for_finalization(
+            session_id=session_id,
+            batch_id=batch_id,
+        )
+        if record.server_revision != expected_server_revision:
+            raise _finalization_revision_conflict(record.server_revision)
+        if (
+            record.status != RemoteManualSelectionBatchStatus.COMPLETED.value
+            or record.final_manifest_checksum_sha256 != expected_final_manifest_checksum_sha256
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_REOPEN_PRECONDITION_FAILED",
+                "The completed batch checksum no longer matches the reopen command.",
+            )
+        record.status = RemoteManualSelectionBatchStatus.ACTIVE.value
+        record.server_revision += 1
+        record.final_manifest_checksum_sha256 = None
+        record.updated_at = reopened_at
+        self._session.add(
+            RemoteManualSelectionAuditEventModel(
+                session_id=session_id,
+                batch_id=batch_id,
+                event_type="batch_reopened",
+                actor="local-owner",
+                outcome_code="REMOTE_SELECTION_BATCH_REOPENED",
+                payload={
+                    "previousFinalManifestChecksumSha256": (
+                        expected_final_manifest_checksum_sha256
+                    ),
+                    "serverRevision": record.server_revision,
+                },
+                created_at=reopened_at,
+            )
+        )
+        self._session.flush()
+        snapshot = self.get_finalization_snapshot(batch_id=batch_id)
+        assert snapshot is not None
+        return snapshot
+
+    def _locked_batch_for_finalization(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+    ) -> RemoteManualSelectionBatchModel:
+        record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(
+                RemoteManualSelectionBatchModel.id == batch_id,
+                RemoteManualSelectionBatchModel.session_id == session_id,
+            )
+            .with_for_update()
+        )
+        if record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The batch does not belong to the remote selection session.",
+            )
+        return record
 
     def add_files(
         self,
@@ -1680,6 +1923,8 @@ class InMemoryRemoteManualSelectionRepository:
         ] = {}
         self.file_final_paths: dict[UUID, str] = {}
         self.audit_event_ids: set[UUID] = set()
+        self.batch_final_checksums: dict[UUID, str] = {}
+        self.batch_updated_at: dict[UUID, datetime] = {}
 
     def add_session(
         self,
@@ -1770,6 +2015,9 @@ class InMemoryRemoteManualSelectionRepository:
             self.base_mappings.add(mapping)
             self.batches[value.id] = value
             self.batch_file_counts[value.id] = total_file_count
+            session = self.sessions.get(value.session_id)
+            if session is not None:
+                self.batch_updated_at[value.id] = session.updated_at
             return value
 
     def get_batch(self, batch_id: UUID) -> RemoteManualSelectionBatchV1 | None:
@@ -1777,6 +2025,182 @@ class InMemoryRemoteManualSelectionRepository:
 
     def get_batch_total_file_count(self, batch_id: UUID) -> int | None:
         return self.batch_file_counts.get(batch_id)
+
+    def get_finalization_snapshot(
+        self,
+        *,
+        batch_id: UUID,
+        for_update: bool = False,
+    ) -> RemoteManualSelectionFinalizationSnapshot | None:
+        del for_update
+        with self._lock:
+            batch = self.batches.get(batch_id)
+            if batch is None:
+                return None
+            collection = self.collections.get(batch.collection_id)
+            if collection is None:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_SCOPE_MISMATCH",
+                    "The finalization collection is unavailable.",
+                )
+            files = tuple(
+                RemoteManualSelectionFinalFileRecord(
+                    file=item,
+                    final_relative_path=self.file_final_paths.get(item.id),
+                )
+                for item in sorted(
+                    (item for item in self.files.values() if item.batch_id == batch_id),
+                    key=lambda item: (item.source_index, str(item.id)),
+                )
+            )
+            operations = tuple(
+                sorted(
+                    (
+                        item
+                        for item in self.operations.values()
+                        if item.command.batch_id == batch_id
+                    ),
+                    key=lambda item: (
+                        item.command.client_sequence,
+                        str(item.command.operation_id),
+                    ),
+                )
+            )
+            transfers = tuple(
+                sorted(
+                    (item for item in self.transfers.values() if item.batch_id == batch_id),
+                    key=lambda item: (item.attempt, str(item.id)),
+                )
+            )
+            host_actions = tuple(
+                sorted(
+                    (item for item in self.host_actions.values() if item.batch_id == batch_id),
+                    key=lambda item: (item.attempt, str(item.id)),
+                )
+            )
+            selected = sum(item.file.desired_selected for item in files)
+            transferred = sum(
+                item.file.desired_selected
+                and item.file.status is RemoteManualSelectionFileStatus.SYNCED
+                and item.final_relative_path is not None
+                for item in files
+            )
+            return RemoteManualSelectionFinalizationSnapshot(
+                batch=batch,
+                collection=collection,
+                files=files,
+                operations=operations,
+                transfers=transfers,
+                host_actions=host_actions,
+                total_file_count=self.batch_file_counts[batch_id],
+                selected_file_count=selected,
+                transferred_file_count=transferred,
+                final_manifest_checksum_sha256=self.batch_final_checksums.get(batch_id),
+                updated_at=self.batch_updated_at.get(
+                    batch_id,
+                    self.sessions[batch.session_id].updated_at,
+                ),
+            )
+
+    def mark_batch_finalizing(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        changed_at: datetime,
+    ) -> RemoteManualSelectionBatchV1:
+        with self._lock:
+            batch = self._finalization_batch(session_id, batch_id)
+            if batch.server_revision != expected_server_revision:
+                raise _finalization_revision_conflict(batch.server_revision)
+            if batch.status is RemoteManualSelectionBatchStatus.ACTIVE:
+                batch = replace(batch, status=RemoteManualSelectionBatchStatus.FINALIZING)
+                self.batches[batch_id] = batch
+                self.batch_updated_at[batch_id] = changed_at
+            elif batch.status is not RemoteManualSelectionBatchStatus.FINALIZING:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_BATCH_NOT_FINALIZABLE",
+                    "Only an active or finalizing batch can be finalized.",
+                )
+            return batch
+
+    def complete_batch_finalization(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        final_manifest_checksum_sha256: str,
+        completed_at: datetime,
+        actor: str,
+    ) -> RemoteManualSelectionFinalizationSnapshot:
+        del actor
+        with self._lock:
+            batch = self._finalization_batch(session_id, batch_id)
+            if batch.server_revision != expected_server_revision:
+                raise _finalization_revision_conflict(batch.server_revision)
+            if batch.status is not RemoteManualSelectionBatchStatus.FINALIZING:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_BATCH_NOT_FINALIZING",
+                    "The batch must remain finalizing until every manifest is durable.",
+                )
+            self.batches[batch_id] = replace(
+                batch,
+                status=RemoteManualSelectionBatchStatus.COMPLETED,
+                server_revision=batch.server_revision + 1,
+            )
+            self.batch_final_checksums[batch_id] = final_manifest_checksum_sha256
+            self.batch_updated_at[batch_id] = completed_at
+            snapshot = self.get_finalization_snapshot(batch_id=batch_id)
+            assert snapshot is not None
+            return snapshot
+
+    def reopen_completed_batch(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        expected_server_revision: int,
+        expected_final_manifest_checksum_sha256: str,
+        reopened_at: datetime,
+    ) -> RemoteManualSelectionFinalizationSnapshot:
+        with self._lock:
+            batch = self._finalization_batch(session_id, batch_id)
+            if batch.server_revision != expected_server_revision:
+                raise _finalization_revision_conflict(batch.server_revision)
+            if (
+                batch.status is not RemoteManualSelectionBatchStatus.COMPLETED
+                or self.batch_final_checksums.get(batch_id)
+                != expected_final_manifest_checksum_sha256
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_REOPEN_PRECONDITION_FAILED",
+                    "The completed batch checksum no longer matches the reopen command.",
+                )
+            self.batches[batch_id] = replace(
+                batch,
+                status=RemoteManualSelectionBatchStatus.ACTIVE,
+                server_revision=batch.server_revision + 1,
+            )
+            self.batch_final_checksums.pop(batch_id, None)
+            self.batch_updated_at[batch_id] = reopened_at
+            snapshot = self.get_finalization_snapshot(batch_id=batch_id)
+            assert snapshot is not None
+            return snapshot
+
+    def _finalization_batch(
+        self,
+        session_id: UUID,
+        batch_id: UUID,
+    ) -> RemoteManualSelectionBatchV1:
+        batch = self.batches.get(batch_id)
+        if batch is None or batch.session_id != session_id:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The batch does not belong to the remote selection session.",
+            )
+        return batch
 
     def add_files(
         self,
@@ -3228,6 +3652,16 @@ def _persistence_conflict(*, constraint: str | None = None) -> RemoteManualSelec
     )
 
 
+def _finalization_revision_conflict(
+    server_revision: int,
+) -> RemoteManualSelectionConflictError:
+    return RemoteManualSelectionConflictError(
+        "REMOTE_SELECTION_REVISION_CONFLICT",
+        "The finalization server revision is stale.",
+        details={"serverRevision": server_revision},
+    )
+
+
 def _source_manifest_conflict() -> RemoteManualSelectionConflictError:
     return RemoteManualSelectionConflictError(
         "REMOTE_SELECTION_SOURCE_MANIFEST_CONFLICT",
@@ -3280,6 +3714,8 @@ def _payload_keys(value: object) -> set[str]:
 __all__ = [
     "InMemoryRemoteManualSelectionRepository",
     "RemoteManualSelectionFileDelta",
+    "RemoteManualSelectionFinalFileRecord",
+    "RemoteManualSelectionFinalizationSnapshot",
     "RemoteManualSelectionHostActionRecord",
     "RemoteManualSelectionHostBinding",
     "RemoteManualSelectionMaterializationContext",

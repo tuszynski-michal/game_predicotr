@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -23,6 +25,8 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionConflictError,
     RemoteManualSelectionDirection,
     RemoteManualSelectionError,
+    RemoteManualSelectionFileStatus,
+    RemoteManualSelectionFileV1,
     RemoteManualSelectionSessionStatus,
     RemoteManualSelectionSessionV1,
 )
@@ -152,6 +156,105 @@ def test_mapping_creates_marker_and_resumes_after_service_restart(tmp_path: Path
     assert resumed.created is False and resumed.resumed is True
     assert marker.read_bytes() == marker_bytes
     assert "base" not in {key.lower() for key in asdict(resumed)}
+
+
+def test_finalization_manifests_are_atomic_idempotent_and_foreign_safe(
+    tmp_path: Path,
+) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    repository = _repository(base)
+    repository.add_collection(_collection())
+    service = RemoteManualSelectionHostService(lambda: None)
+    service.provision_batch_mapping(
+        repository,
+        session_id=SESSION_ID,
+        collection=_collection(),
+        batch=_batch(),
+        total_file_count=1,
+    )
+    final_directory = base / "777" / "1-19809"
+    image = b"synthetic-jpeg"
+    image_checksum = hashlib.sha256(image).hexdigest()
+    (final_directory / "seq_1-9.jpg").write_bytes(image)
+    selected = RemoteManualSelectionFileV1(
+        id=UUID("40000000-0000-4000-8000-000000000004"),
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        source_index=0,
+        relative_path="source/1.jpg",
+        size_bytes=len(image),
+        last_modified_ms=1,
+        mime_type="image/jpeg",
+        desired_selected=True,
+        selection_generation=1,
+        status=RemoteManualSelectionFileStatus.SYNCED,
+        range_start=1,
+        range_end=9,
+        output_name="seq_1-9.jpg",
+        host_checksum_sha256=image_checksum,
+    )
+    output = {"schemaVersion": 1, "items": [{"outputName": "seq_1-9.jpg"}]}
+    trace = {"schemaVersion": 1, "events": []}
+    operational = {
+        "schemaVersion": "remote-manual-image-selection-session-v1",
+        "batch": {"status": "completed"},
+    }
+
+    first = service.publish_finalization_manifests(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        server_revision=0,
+        selected_files=(selected,),
+        output_manifest=output,
+        trace_manifest=trace,
+        operational_manifest=operational,
+        final_manifest_checksum_sha256="f" * 64,
+    )
+    retry = service.publish_finalization_manifests(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        server_revision=0,
+        selected_files=(selected,),
+        output_manifest=output,
+        trace_manifest=trace,
+        operational_manifest=operational,
+        final_manifest_checksum_sha256="f" * 64,
+    )
+
+    assert first == retry
+    assert (
+        json.loads(
+            (final_directory / "manual-image-selection-output-v1.json").read_text(encoding="utf-8")
+        )
+        == output
+    )
+    assert (
+        json.loads(
+            (final_directory / "manual-image-selection-trace-v1.json").read_text(encoding="utf-8")
+        )
+        == trace
+    )
+
+    (final_directory / "manual-image-selection-output-v1.json").write_text(
+        "foreign",
+        encoding="utf-8",
+    )
+    with pytest.raises(RemoteManualSelectionError) as conflict:
+        service.publish_finalization_manifests(
+            repository,
+            session_id=SESSION_ID,
+            batch_id=BATCH_ID,
+            server_revision=0,
+            selected_files=(selected,),
+            output_manifest=output,
+            trace_manifest=trace,
+            operational_manifest=operational,
+            final_manifest_checksum_sha256="f" * 64,
+        )
+    assert conflict.value.code == "REMOTE_SELECTION_FINAL_MANIFEST_OWNERSHIP_CONFLICT"
 
 
 def test_transfer_directory_stays_below_verified_host_internal_mapping(tmp_path: Path) -> None:

@@ -441,6 +441,24 @@
   line-height: 1.55;
 }
 
+.remoteManualFinalizePanel {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.remoteManualFinalizePanel h3,
+.remoteManualFinalizePanel ul {
+  margin: 0;
+}
+
+.remoteManualFinalizePanel ul {
+  padding-left: 20px;
+  color: #f4d35e;
+  font-size: 12px;
+}
+
 .remoteManualActions {
   flex-wrap: wrap;
   justify-content: center;

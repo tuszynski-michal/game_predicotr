@@ -19,8 +19,13 @@ from game_predictor_api.application.remote_manual_selection_access import (
 from game_predictor_api.application.remote_manual_selection_control import (
     CreatedRemoteManualSelectionBatch,
     CreatedRemoteManualSelectionCollection,
+    FinalizedRemoteManualSelectionBatch,
     RemoteManualSelectionStateDelta,
+    ReopenedRemoteManualSelectionBatch,
     source_file,
+)
+from game_predictor_api.application.remote_manual_selection_finalization import (
+    RemoteSelectionFinalizePreview,
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionBaseCapability,
@@ -155,6 +160,9 @@ class RemoteManualSelectionBatchMonitorResponse(ApiModel):
     failed_file_count: int
     pending_host_action_count: int
     last_error_codes: list[str]
+    server_revision: int
+    final_manifest_checksum_sha256: str | None
+    updated_at: datetime
 
     @classmethod
     def from_view(
@@ -171,6 +179,9 @@ class RemoteManualSelectionBatchMonitorResponse(ApiModel):
             failed_file_count=value.failed_file_count,
             pending_host_action_count=value.pending_host_action_count,
             last_error_codes=list(value.last_error_codes),
+            server_revision=value.server_revision,
+            final_manifest_checksum_sha256=(value.final_manifest_checksum_sha256),
+            updated_at=value.updated_at,
         )
 
 
@@ -562,6 +573,91 @@ class RemoteManualSelectionStateDeltaResponse(ApiModel):
         )
 
 
+class RemoteSelectionFinalizeBlockerResponse(ApiModel):
+    code: str
+    count: int
+
+
+class RemoteSelectionFinalizePreviewResponse(ApiModel):
+    batch_id: UUID
+    status: str
+    server_revision: int
+    ready: bool
+    total_file_count: int
+    selected_file_count: int
+    synced_file_count: int
+    operation_count: int
+    blockers: list[RemoteSelectionFinalizeBlockerResponse]
+
+    @classmethod
+    def from_view(
+        cls,
+        value: RemoteSelectionFinalizePreview,
+    ) -> RemoteSelectionFinalizePreviewResponse:
+        return cls(
+            batch_id=UUID(value.batch_id),
+            status=value.status,
+            server_revision=value.server_revision,
+            ready=value.ready,
+            total_file_count=value.total_file_count,
+            selected_file_count=value.selected_file_count,
+            synced_file_count=value.synced_file_count,
+            operation_count=value.operation_count,
+            blockers=[
+                RemoteSelectionFinalizeBlockerResponse(
+                    code=item.code,
+                    count=item.count,
+                )
+                for item in value.blockers
+            ],
+        )
+
+
+class RemoteSelectionFinalizeCommand(ApiModel):
+    session_id: UUID
+    expected_server_revision: int = Field(ge=0)
+
+
+class RemoteSelectionFinalizedResponse(ApiModel):
+    batch: RemoteManualSelectionBatchResponse
+    finalized_at: datetime
+    final_manifest_checksum_sha256: str
+    exact_retry: bool
+
+    @classmethod
+    def from_result(
+        cls,
+        value: FinalizedRemoteManualSelectionBatch,
+    ) -> RemoteSelectionFinalizedResponse:
+        return cls(
+            batch=RemoteManualSelectionBatchResponse.from_domain(value.snapshot.batch),
+            finalized_at=value.finalized_at,
+            final_manifest_checksum_sha256=(value.artifacts.final_manifest_checksum_sha256),
+            exact_retry=value.exact_retry,
+        )
+
+
+class RemoteSelectionReopenCommand(ApiModel):
+    batch_id: UUID
+    expected_server_revision: int = Field(ge=0)
+    expected_final_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class RemoteSelectionReopenedResponse(ApiModel):
+    batch: RemoteManualSelectionBatchResponse
+    reopened_at: datetime
+
+    @classmethod
+    def from_result(
+        cls,
+        value: ReopenedRemoteManualSelectionBatch,
+    ) -> RemoteSelectionReopenedResponse:
+        return cls(
+            batch=RemoteManualSelectionBatchResponse.from_domain(value.snapshot.batch),
+            reopened_at=value.reopened_at,
+        )
+
+
 def _manual_selection_url(public_origin: str, session_id: UUID) -> str:
     parsed = urlparse(public_origin)
     return urlunparse(
@@ -594,4 +690,10 @@ __all__ = [
     "RemoteManualSelectionSourceItemsResponse",
     "RemoteManualSelectionStateDeltaResponse",
     "RemoteManualSelectionTransferResponse",
+    "RemoteSelectionFinalizeBlockerResponse",
+    "RemoteSelectionFinalizeCommand",
+    "RemoteSelectionFinalizedResponse",
+    "RemoteSelectionFinalizePreviewResponse",
+    "RemoteSelectionReopenCommand",
+    "RemoteSelectionReopenedResponse",
 ]

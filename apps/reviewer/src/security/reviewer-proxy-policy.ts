@@ -50,7 +50,15 @@ export function remoteSelectionProxyTarget(
   if (
     method === 'GET' &&
     new RegExp(
-      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/state$`,
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/(?:state|finalize-preview)$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/finalize$`,
     ).test(path)
   ) {
     return path;

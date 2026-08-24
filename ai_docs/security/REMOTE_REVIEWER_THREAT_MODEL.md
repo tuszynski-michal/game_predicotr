@@ -30,8 +30,9 @@ osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
 heartbeat, takeover oraz dokładne route tworzenia kolekcji/partii, stronicowanej
 rejestracji metadanych, operacji, state delta, status transferu i jeden
 checksum-bound binarny `PUT` na plik. Materializacja jest wykonywana wyłącznie
-przez lokalny general worker i nie ma publicznego route; allowlista nadal nie
-obejmuje finalizacji. Cookie starego Reviewera nie autoryzuje
+przez lokalny general worker i nie ma publicznego route. TASK 15 dodaje wyłącznie
+GET preview i POST finalize dokładnej partii; allowlista nie obejmuje reopen,
+zapisu manifestu ani dowolnej operacji Admina. Cookie starego Reviewera nie autoryzuje
 selekcji, a cookie selekcji nie autoryzuje `/review-api`.
 
 Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
@@ -90,6 +91,9 @@ sesji i kodu.
 | wysłanie operacji bez writer lease | autoryzacja writer ownership i mutacja odbywają się w tej samej transakcji; po expiry dozwolony jest wyłącznie exact retry istniejącego outcome |
 | zalanie control plane | limit 1200 żądań na minutę per sesja oraz stabilny błąd `REMOTE_SELECTION_CONTROL_RATE_LIMITED`; rotacja client ID nie odnawia budżetu |
 | podmiana źródeł po rozpoczęciu pracy | pełny checksum manifestu jest weryfikowany przed aktywacją; aktywny manifest jest niezmienny |
+| przedwczesna albo powtórzona finalizacja | rewizyjny preview, transakcyjna blokada i kontrola wszystkich operacji/transferów/akcji/pliku; retry adoptuje tylko identyczny journal |
+| podmiana finalnego manifestu | publikacja wymaga host ownership i poprzedniej checksummy; obcy lub zmieniony JSON daje konflikt bez nadpisania |
+| zdalne ponowne otwarcie wyniku | reopen istnieje tylko pod lokalnym Admin API, wymaga exact targetu, rewizji i checksummy; `/selection-api` go odrzuca |
 
 Host base zdalnej selekcji jest wybierany wyłącznie przez stały lokalny picker.
 Publiczny request nie zawiera ścieżki. Każdy komponent collection/batch jest

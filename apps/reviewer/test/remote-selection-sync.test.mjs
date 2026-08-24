@@ -146,7 +146,12 @@ test('lost response survives refresh and exact replay removes only confirmed opI
     },
     async getStateDelta() {
       return {
-        batch: { batchId, lastClientSequence: 1, serverRevision: 1 },
+        batch: {
+          batchId,
+          lastClientSequence: 1,
+          serverRevision: 1,
+          status: 'active',
+        },
         files: [fileState(sourceItem)],
         hasMore: false,
         nextRevision: 1,
@@ -191,7 +196,12 @@ test('controlled conflict reconciles canonical delta but retains exact outbox re
     },
     async getStateDelta() {
       return {
-        batch: { batchId, lastClientSequence: 1, serverRevision: 1 },
+        batch: {
+          batchId,
+          lastClientSequence: 1,
+          serverRevision: 1,
+          status: 'active',
+        },
         files: [fileState(sourceItem)],
         hasMore: false,
         nextRevision: 1,
@@ -330,4 +340,82 @@ test('source bootstrap sends bounded ordered pages and activates only the last p
       request.path.endsWith(`/batches/${batchId}/source-items`),
     ),
   );
+});
+
+test('finalization preview and command use exact batch scope and revision', async () => {
+  const requests = [];
+  const transport = new FetchRemoteSelectionControlTransport(
+    clientInstanceId,
+    async (path, init) => {
+      requests.push({
+        body: init.body === undefined ? null : JSON.parse(init.body),
+        client: new Headers(init.headers).get('X-Remote-Selection-Client'),
+        method: init.method,
+        path: String(path),
+      });
+      return Response.json(
+        init.method === 'GET'
+          ? {
+              batchId,
+              blockers: [],
+              operationCount: 2,
+              ready: true,
+              selectedFileCount: 1,
+              serverRevision: 7,
+              status: 'active',
+              syncedFileCount: 1,
+              totalFileCount: 2,
+            }
+          : {
+              batch: { batchId, serverRevision: 8, status: 'completed' },
+              exactRetry: false,
+              finalManifestChecksumSha256: 'f'.repeat(64),
+              finalizedAt: '2026-08-24T16:00:00.000Z',
+            },
+      );
+    },
+  );
+
+  const preview = await transport.finalizePreview(batchId);
+  const finalized = await transport.finalizeBatch({
+    batchId,
+    expectedServerRevision: preview.serverRevision,
+    sessionId,
+  });
+
+  assert.equal(preview.ready, true);
+  assert.equal(finalized.batch.status, 'completed');
+  assert.deepEqual(requests, [
+    {
+      body: null,
+      client: clientInstanceId,
+      method: 'GET',
+      path: `/selection-api/api/v1/remote-manual-selections/batches/${batchId}/finalize-preview`,
+    },
+    {
+      body: { expectedServerRevision: 7, sessionId },
+      client: clientInstanceId,
+      method: 'POST',
+      path: `/selection-api/api/v1/remote-manual-selections/batches/${batchId}/finalize`,
+    },
+  ]);
+});
+
+test('completed server state survives a fresh IndexedDB store instance', async () => {
+  const { factory, sourceItem, store } = await fixture();
+  await store.appendOutboxOperation(command(1, sourceItem));
+  await store.applyServerStateDelta({
+    batchId,
+    clientInstanceId,
+    files: [],
+    nextRevision: 0,
+    sessionId,
+    status: 'completed',
+  });
+
+  const restored = new RemoteSelectionIndexedDbStore(factory, IDBKeyRange);
+  const batch = await restored.loadBatch(sessionId, batchId);
+
+  assert.equal(batch.status, 'completed');
+  assert.equal(batch.serverRevision, 0);
 });

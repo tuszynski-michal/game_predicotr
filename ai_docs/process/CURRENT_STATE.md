@@ -15,6 +15,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Finalizacja zdalnej ręcznej selekcji — v0.7.39
+
+- TASK-0287 dodaje rewizyjną barierę finalizacji. Preview blokuje zakończenie,
+  dopóki istnieje aktywna operacja, transfer, akcja hosta, oczekujące usunięcie
+  albo wybrany JPEG bez potwierdzonego pliku i checksummy.
+- Host publikuje kompatybilne `manual-image-selection-output-v1.json` i
+  `manual-image-selection-trace-v1.json` oraz wewnętrzny manifest operacyjny.
+  Rewizyjny journal i ownership pointer pozwalają wznowić crash między
+  filesystemem a commitem bazy bez drugiego wyniku lub nadpisania obcego pliku.
+- Zakończona partia jest w Reviewerze tylko do odczytu. Zdalny operator może
+  wykonać jedynie dwuetapową finalizację; reopen nie występuje w publicznej
+  allowliście i wymaga lokalnego Admina, exact targetu, rewizji oraz checksummy
+  finalnego manifestu.
+- Monitor hosta pokazuje rewizję i checksumę finalizacji. Ponowne otwarcie jest
+  dwuetapowe i dotyczy dokładnie jednej partii.
+- Bramka: celowane testy API/repozytorium/filesystemu, 100 testów Reviewera i
+  248 testów Admina są zielone; Ruff, TypeScript typecheck i generowany OpenAPI
+  są zgodne. Nie dodano migracji ani BLOB-ów obrazów.
+
 ### Panel hosta zdalnej ręcznej selekcji — v0.7.38
 
 - TASK-0286 dodaje do niezależnej zakładki `Ręczna selekcja` panel właściciela:
@@ -31,8 +50,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   trafia do list/detail, IndexedDB, localStorage ani sessionStorage.
 - Bramka: 248 testów Admina, 41 testów klienta, celowane testy API/OpenAPI i
   izolowany test agregacji PostgreSQL są zielone; Admin lint/typecheck/build,
-  Ruff, focused mypy i kontrola generowanego OpenAPI są zielone. TASK 15 nie
-  został rozpoczęty.
+  Ruff, focused mypy i kontrola generowanego OpenAPI są zielone.
 
 ### Zdalny workspace ręcznej selekcji — v0.7.37
 

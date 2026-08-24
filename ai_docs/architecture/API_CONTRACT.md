@@ -97,6 +97,7 @@ POST /api/v1/admin/remote-manual-selections/sessions
 GET  /api/v1/admin/remote-manual-selections/sessions?limit=1..100
 GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}?batch_limit=1..100
 POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
+POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/reopen-batch
 ```
 
 Create przyjmuje `baseCapability`, opcjonalną etykietę do 100 znaków i TTL
@@ -107,8 +108,12 @@ oraz dynamiczny `reviewUrl`; nie zwracają kodu, tokenu, client/fencing tokenu
 ani ścieżki hosta. Detail opakowuje sesję w ograniczony monitor: maksymalnie 100
 najnowszych partii, liczniki total/selected/synced/failed, liczbę oczekujących
 host actions, stabilne kody błędów i wyłącznie zagregowane bajty total/free
-dysku. `hasMoreBatches` sygnalizuje obcięcie widoku. Create i revoke są
-operacjami high-impact z exact target lokalnego Admina.
+dysku. Zakończona partia dodatkowo zwraca `serverRevision`, `updatedAt` i
+`finalManifestChecksumSha256`. `hasMoreBatches` sygnalizuje obcięcie widoku.
+Create, revoke i reopen są operacjami high-impact z exact target lokalnego
+Admina. Reopen przyjmuje `batchId`, `expectedServerRevision` oraz
+`expectedFinalManifestChecksumSha256`; zmienia tylko zgodną zakończoną partię
+na `active`, zwiększa rewizję i nie jest dostępny przez Reviewer proxy.
 
 Publiczna powierzchnia jest osiągalna z przeglądarki wyłącznie przez osobny
 same-origin proxy Reviewera `/selection-api`. Proxy przepuszcza dokładnie:
@@ -125,6 +130,8 @@ GET  /api/v1/remote-manual-selections/batches/{batchId}/state?sinceRevision=0&li
 POST /api/v1/remote-manual-selections/batches/{batchId}/operations
 GET  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/transfer?generation=1&transferId=<UUID>
 PUT  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/content
+GET  /api/v1/remote-manual-selections/batches/{batchId}/finalize-preview
+POST /api/v1/remote-manual-selections/batches/{batchId}/finalize
 ```
 
 Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
@@ -155,6 +162,12 @@ limit współbieżności. Od TASK 11 status może następnie przejść z `verifi
 `synced`. Odczyt statusu idempotentnie odtwarza brakującą host action dla
 istniejącego `verified`, ale nie wykonuje IO materializacji w requestcie.
 Odpowiedź nigdy nie zawiera temp/final path, lease ani journalu.
+
+Preview finalizacji zwraca bieżący status i rewizję, liczniki plików/operacji
+oraz uporządkowane blokady z licznością. Finalize wymaga writer lease,
+`sessionId` i dokładnego `expectedServerRevision`. Sukces zwiększa rewizję,
+ustawia `completed` i zwraca `finalizedAt`, checksumę operacyjnego manifestu
+oraz informację o exact retry. Nie przyjmuje treści manifestów ani ścieżek.
 
 Operacja `deselect` albo `undo` musi wskazywać wcześniejszy zastosowany `select`
 tego samego pliku i niższej generacji. Zastosowanie tworzy tombstone, anuluje

@@ -9176,6 +9176,17 @@
             "title": "Failedfilecount",
             "type": "integer"
           },
+          "finalManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finalmanifestchecksumsha256"
+          },
           "lastErrorCodes": {
             "items": {
               "type": "string"
@@ -9195,6 +9206,10 @@
             "title": "Selectedfilecount",
             "type": "integer"
           },
+          "serverRevision": {
+            "title": "Serverrevision",
+            "type": "integer"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -9206,6 +9221,11 @@
           "totalFileCount": {
             "title": "Totalfilecount",
             "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
           }
         },
         "required": [
@@ -9217,7 +9237,10 @@
           "syncedFileCount",
           "failedFileCount",
           "pendingHostActionCount",
-          "lastErrorCodes"
+          "lastErrorCodes",
+          "serverRevision",
+          "finalManifestChecksumSha256",
+          "updatedAt"
         ],
         "title": "RemoteManualSelectionBatchMonitorResponse",
         "type": "object"
@@ -10304,6 +10327,179 @@
           "clientInstanceId"
         ],
         "title": "RemoteManualSelectionWriterLeaseCommand",
+        "type": "object"
+      },
+      "RemoteSelectionFinalizeBlockerResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "count"
+        ],
+        "title": "RemoteSelectionFinalizeBlockerResponse",
+        "type": "object"
+      },
+      "RemoteSelectionFinalizeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedServerRevision": {
+            "minimum": 0.0,
+            "title": "Expectedserverrevision",
+            "type": "integer"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "expectedServerRevision"
+        ],
+        "title": "RemoteSelectionFinalizeCommand",
+        "type": "object"
+      },
+      "RemoteSelectionFinalizePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteSelectionFinalizeBlockerResponse"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "operationCount": {
+            "title": "Operationcount",
+            "type": "integer"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "selectedFileCount": {
+            "title": "Selectedfilecount",
+            "type": "integer"
+          },
+          "serverRevision": {
+            "title": "Serverrevision",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "syncedFileCount": {
+            "title": "Syncedfilecount",
+            "type": "integer"
+          },
+          "totalFileCount": {
+            "title": "Totalfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batchId",
+          "status",
+          "serverRevision",
+          "ready",
+          "totalFileCount",
+          "selectedFileCount",
+          "syncedFileCount",
+          "operationCount",
+          "blockers"
+        ],
+        "title": "RemoteSelectionFinalizePreviewResponse",
+        "type": "object"
+      },
+      "RemoteSelectionFinalizedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/RemoteManualSelectionBatchResponse"
+          },
+          "exactRetry": {
+            "title": "Exactretry",
+            "type": "boolean"
+          },
+          "finalManifestChecksumSha256": {
+            "title": "Finalmanifestchecksumsha256",
+            "type": "string"
+          },
+          "finalizedAt": {
+            "format": "date-time",
+            "title": "Finalizedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch",
+          "finalizedAt",
+          "finalManifestChecksumSha256",
+          "exactRetry"
+        ],
+        "title": "RemoteSelectionFinalizedResponse",
+        "type": "object"
+      },
+      "RemoteSelectionReopenCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "expectedFinalManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedfinalmanifestchecksumsha256",
+            "type": "string"
+          },
+          "expectedServerRevision": {
+            "minimum": 0.0,
+            "title": "Expectedserverrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batchId",
+          "expectedServerRevision",
+          "expectedFinalManifestChecksumSha256"
+        ],
+        "title": "RemoteSelectionReopenCommand",
+        "type": "object"
+      },
+      "RemoteSelectionReopenedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/RemoteManualSelectionBatchResponse"
+          },
+          "reopenedAt": {
+            "format": "date-time",
+            "title": "Reopenedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch",
+          "reopenedAt"
+        ],
+        "title": "RemoteSelectionReopenedResponse",
         "type": "object"
       },
       "RemoteSourceKind": {
@@ -25539,6 +25735,94 @@
         ]
       }
     },
+    "/api/v1/admin/remote-manual-selections/sessions/{session_id}/reopen-batch": {
+      "post": {
+        "operationId": "reopenRemoteManualSelectionBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteSelectionReopenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSelectionReopenedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reopen one completed remote manual selection batch",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
     "/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke": {
       "post": {
         "operationId": "revokeRemoteManualSelectionSession",
@@ -29029,6 +29313,246 @@
           }
         },
         "summary": "Read the resumable status of one selected JPEG transfer",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/batches/{batch_id}/finalize": {
+      "post": {
+        "operationId": "finalizeRemoteManualSelectionBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Client",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Client",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteSelectionFinalizeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSelectionFinalizedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Finalize one fully reconciled remote manual selection batch",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/batches/{batch_id}/finalize-preview": {
+      "get": {
+        "operationId": "previewRemoteManualSelectionFinalization",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Client",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Client",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteSelectionFinalizePreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Preview the durable finalization barrier for one batch",
         "tags": [
           "remote-manual-selections"
         ]

@@ -82,6 +82,9 @@ test('TASK 13 workspace keeps previews local and exposes durable sync states', a
   assert.match(workspaceModel, /confirmed/);
   assert.match(workspaceModel, /synced/);
   assert.match(operationalWorkspace, /beforeunload/);
+  assert.match(operationalWorkspace, /finalizePreview/);
+  assert.match(operationalWorkspace, /Zakończ partię i zapisz manifesty/);
+  assert.match(operationalWorkspace, /batch\.status === 'completed'/);
   assert.doesNotMatch(operationalWorkspace, /hostPath|basePath|C:\\\\/);
   assert.match(store, /game-predictor-remote-manual-selection/);
   assert.doesNotMatch(store, /game-predictor-manual-image-selection/);

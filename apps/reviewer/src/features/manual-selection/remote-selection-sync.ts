@@ -33,6 +33,7 @@ export interface RemoteSelectionStateDeltaResponse {
     readonly batchId: string;
     readonly serverRevision: number;
     readonly lastClientSequence: number;
+    readonly status: 'indexing' | 'active' | 'finalizing' | 'completed';
   };
   readonly files: readonly RemoteSelectionServerFileState[];
   readonly nextRevision: number;
@@ -47,6 +48,32 @@ export interface RemoteSelectionControlTransport {
     batchId: string,
     sinceRevision: number,
   ): Promise<RemoteSelectionStateDeltaResponse>;
+}
+
+export interface RemoteSelectionFinalizePreview {
+  readonly batchId: string;
+  readonly status: 'active' | 'finalizing' | 'completed';
+  readonly serverRevision: number;
+  readonly ready: boolean;
+  readonly totalFileCount: number;
+  readonly selectedFileCount: number;
+  readonly syncedFileCount: number;
+  readonly operationCount: number;
+  readonly blockers: readonly {
+    readonly code: string;
+    readonly count: number;
+  }[];
+}
+
+export interface RemoteSelectionFinalizedResult {
+  readonly batch: {
+    readonly batchId: string;
+    readonly status: 'completed';
+    readonly serverRevision: number;
+  };
+  readonly finalizedAt: string;
+  readonly finalManifestChecksumSha256: string;
+  readonly exactRetry: boolean;
 }
 
 export class RemoteSelectionControlApiError extends Error {
@@ -212,6 +239,32 @@ export class FetchRemoteSelectionControlTransport implements RemoteSelectionCont
     );
   }
 
+  async finalizePreview(
+    batchId: string,
+  ): Promise<RemoteSelectionFinalizePreview> {
+    return this.json<RemoteSelectionFinalizePreview>(
+      `${PUBLIC_CONTROL_PREFIX}/batches/${batchId}/finalize-preview`,
+      { method: 'GET' },
+    );
+  }
+
+  async finalizeBatch(input: {
+    readonly batchId: string;
+    readonly sessionId: string;
+    readonly expectedServerRevision: number;
+  }): Promise<RemoteSelectionFinalizedResult> {
+    return this.json<RemoteSelectionFinalizedResult>(
+      `${PUBLIC_CONTROL_PREFIX}/batches/${input.batchId}/finalize`,
+      {
+        body: JSON.stringify({
+          expectedServerRevision: input.expectedServerRevision,
+          sessionId: input.sessionId,
+        }),
+        method: 'POST',
+      },
+    );
+  }
+
   private async json<T>(path: string, init: RequestInit): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
@@ -288,6 +341,7 @@ export class RemoteSelectionOutboxSynchronizer {
         files: delta.files,
         nextRevision: delta.nextRevision,
         sessionId,
+        status: delta.batch.status,
       });
       revision = delta.nextRevision;
       if (!delta.hasMore) return revision;
@@ -448,6 +502,9 @@ function validateStateDelta(
     delta.batch.batchId !== batchId ||
     !isNonNegativeSafeInteger(delta.batch.serverRevision) ||
     !isNonNegativeSafeInteger(delta.batch.lastClientSequence) ||
+    !['indexing', 'active', 'finalizing', 'completed'].includes(
+      delta.batch.status,
+    ) ||
     delta.nextRevision < previousRevision ||
     delta.nextRevision > delta.batch.serverRevision ||
     delta.files.some((file) => {

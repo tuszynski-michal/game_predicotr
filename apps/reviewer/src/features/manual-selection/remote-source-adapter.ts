@@ -41,6 +41,10 @@ export interface RemoteSourceIndexResult {
   readonly descriptors: readonly RemoteSourceFileDescriptor[];
 }
 
+export interface RemoteSourceFileReader {
+  fileForEntry(entry: RemoteSourceManifestEntryV1): Promise<File> | File;
+}
+
 export type RemoteSourceCapabilityMode =
   'directory_handle' | 'webkitdirectory_reselect' | 'unsupported';
 

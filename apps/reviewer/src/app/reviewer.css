@@ -285,6 +285,224 @@
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
 }
 
+.reviewerAccessCard.remoteSelectionReadyCard {
+  width: min(1440px, 100%);
+}
+
+.remoteSelectionWorkspaceFoundation,
+.remoteSelectionSetup,
+.remoteManualWorkspace,
+.remoteManualSyncPanel,
+.remoteSelectionSourceRecovery {
+  display: grid;
+  gap: 12px;
+}
+
+.remoteSelectionSetup {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.remoteSelectionSetup > p,
+.remoteSelectionSetup > button {
+  grid-column: 1 / -1;
+}
+
+.remoteSelectionSetup label,
+.remoteManualSyncPanel label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.remoteSelectionSetup input,
+.remoteSelectionSetup select,
+.remoteManualSyncPanel select {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #081321;
+  color: var(--text);
+}
+
+.remoteManualWorkspaceHeader,
+.remoteManualActions,
+.remoteManualPreviewControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.remoteManualWorkspaceHeader h2,
+.remoteManualWorkspaceHeader p,
+.remoteManualSyncPanel h3 {
+  margin: 0;
+}
+
+.remoteManualWorkspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 310px);
+  gap: 16px;
+  min-width: 0;
+}
+
+.remoteManualPreview,
+.remoteManualSyncPanel,
+.remoteSelectionSourceRecovery {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteManualPreview {
+  position: relative;
+}
+
+.remoteManualPreviewViewport {
+  display: flex;
+  height: min(68vh, 760px);
+  justify-content: center;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #02060b;
+}
+
+.remoteManualPreviewViewport img {
+  align-self: flex-start;
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+  transform-origin: top center;
+}
+
+.remoteManualPreviewControls {
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.remoteManualPreviewControls input {
+  width: min(360px, 48vw);
+}
+
+.remoteManualFullscreenRange {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  left: 50%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(2, 7, 12, 0.88);
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.remoteManualPreview:fullscreen {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 14px;
+  background: #02060b;
+}
+
+.remoteManualPreview:fullscreen .remoteManualPreviewViewport {
+  height: auto;
+}
+
+.remoteManualSyncPanel dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.remoteManualSyncPanel dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.remoteManualSyncPanel dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 800;
+}
+
+.remoteManualShortcutHelp {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.remoteManualActions {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.remoteSyncBadge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(137, 161, 191, 0.1);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.remoteSyncBadge--selected_local,
+.remoteSyncBadge--pending {
+  border-color: rgba(244, 211, 94, 0.45);
+  color: #f4d35e;
+}
+
+.remoteSyncBadge--confirmed {
+  border-color: rgba(79, 168, 255, 0.45);
+  color: #82c2ff;
+}
+
+.remoteSyncBadge--synced {
+  border-color: rgba(89, 211, 145, 0.45);
+  color: #74e4a8;
+}
+
+.remoteSyncBadge--error {
+  border-color: rgba(255, 139, 139, 0.45);
+  color: var(--danger);
+}
+
+.remoteWorkspaceBanner {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(79, 168, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(79, 168, 255, 0.08);
+}
+
+.remoteWorkspaceBanner--warning {
+  border-color: rgba(244, 211, 94, 0.4);
+  background: rgba(244, 211, 94, 0.08);
+  color: #f4d35e;
+}
+
+@media (max-width: 900px) {
+  .remoteManualWorkspaceGrid,
+  .remoteSelectionSetup {
+    grid-template-columns: 1fr;
+  }
+
+  .remoteManualWorkspaceHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .reviewerAccessCard .brand {
   margin-bottom: 32px;
 }

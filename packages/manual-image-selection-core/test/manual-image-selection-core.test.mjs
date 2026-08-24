@@ -8,11 +8,13 @@ import {
   canonicalRemoteChecksumSha256,
   createManualSelectionOutputManifest,
   createManualSelectionState,
+  fitManualImageToViewport,
   manualPreviewWindow,
   naturalCompare,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  resolveManualSelectionShortcut,
   RemoteManualSelectionContractError,
   stableRemoteStringify,
   transitionRemoteBatchStatus,
@@ -62,6 +64,63 @@ test('preserves natural ordering and a bounded three-image preview policy', () =
   assert.deepEqual(manualPreviewWindow(4, 10), [1, 2, 3, 4, 5, 6, 7]);
   assert.deepEqual(manualPreviewWindow(0, 2), [0, 1]);
   assert.deepEqual(manualPreviewWindow(3, 3), []);
+});
+
+test('shares exact keyboard semantics without stealing editable controls', () => {
+  assert.equal(resolveManualSelectionShortcut({ key: 'Enter' }), 'accept');
+  assert.equal(resolveManualSelectionShortcut({ key: 'f' }), 'accept');
+  assert.equal(resolveManualSelectionShortcut({ key: 'Tab' }), 'skip');
+  assert.equal(resolveManualSelectionShortcut({ key: 'a' }), 'undo');
+  assert.equal(
+    resolveManualSelectionShortcut({ ctrlKey: true, key: 'z' }),
+    'undo',
+  );
+  assert.equal(
+    resolveManualSelectionShortcut({ key: 'ArrowRight' }),
+    'next_image',
+  );
+  assert.equal(
+    resolveManualSelectionShortcut({ key: 'ArrowDown' }),
+    'next_step',
+  );
+  assert.equal(
+    resolveManualSelectionShortcut({ key: 'f', repeat: true }),
+    null,
+  );
+  assert.equal(
+    resolveManualSelectionShortcut({
+      key: 'Enter',
+      target: { tagName: 'input' },
+    }),
+    null,
+  );
+  assert.equal(
+    resolveManualSelectionShortcut({
+      key: 'ArrowDown',
+      target: { tagName: 'select' },
+    }),
+    null,
+  );
+});
+
+test('shares viewport fitting without resampling or changing the image aspect ratio', () => {
+  assert.deepEqual(
+    fitManualImageToViewport(
+      { width: 4000, height: 3000 },
+      { width: 1000, height: 500 },
+      1,
+    ),
+    { width: 667, height: 500 },
+  );
+  assert.deepEqual(
+    fitManualImageToViewport(
+      { width: 4000, height: 3000 },
+      { width: 1000, height: 500 },
+      3,
+    ),
+    { width: 2000, height: 1500 },
+  );
+  assert.equal(fitManualImageToViewport(null, null, 1), null);
 });
 
 test('materializes the existing v1 output schema without skipped decisions', () => {

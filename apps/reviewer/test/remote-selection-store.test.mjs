@@ -9,6 +9,7 @@ import {
   REMOTE_SELECTION_DATABASE_VERSION,
   RemoteSelectionIndexedDbStore,
   RemoteSelectionStoreError,
+  remoteSelectionWorkspaceState,
   requestBestEffortPersistentStorage,
 } from '../src/features/manual-selection/remote-selection-store.ts';
 import {
@@ -198,6 +199,161 @@ test('handle loss never deletes source cursor or pending outbox state', async ()
   assert.equal(restored.session.permissionState, 'denied');
   assert.equal(restored.batch.cursorIndex, 2);
   assert.equal(restored.pendingOperationCount, 1);
+});
+
+test('persists an accepted workspace decision and its outbox command atomically across refresh', async () => {
+  const { factory, store } = await fixture(3);
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  const select = command(1, {
+    operationType: 'select',
+    selectionGeneration: 1,
+    sourceIndex: 0,
+    fileId: source.fileId,
+    imagePath: source.relativePath,
+    imageChecksumSha256: 'a'.repeat(64),
+    outputName: 'seq_1-9.jpg',
+    decoded: true,
+    visibleMilliseconds: 350,
+  });
+  const decision = {
+    action: 'accepted',
+    operationId: select.operationId,
+    fileId: select.fileId,
+    sourceIndex: 0,
+    imagePath: select.imagePath,
+    imageChecksumSha256: select.imageChecksumSha256,
+    outputName: select.outputName,
+    rangeStart: 1,
+    rangeEnd: 9,
+    selectionGeneration: 1,
+  };
+
+  await store.appendWorkspaceDecision({
+    command: select,
+    decision,
+    nextCursorIndex: 1,
+  });
+
+  const afterRefresh = new RemoteSelectionIndexedDbStore(factory, IDBKeyRange);
+  const restored = await afterRefresh.restore('session-1');
+  assert.deepEqual(remoteSelectionWorkspaceState(restored.batch), {
+    currentIndex: 1,
+    decisions: [decision],
+    navigationStep: 1,
+    nextRangeStart: 10,
+  });
+  assert.deepEqual(
+    restored.pendingOperations.map((record) => record.operationId),
+    [select.operationId],
+  );
+});
+
+test('undoes skip locally and accepted selection through an exact durable tombstone', async () => {
+  const { store } = await fixture(3);
+  const skip = command(1, { sourceIndex: 0, selectionGeneration: 0 });
+  await store.appendWorkspaceDecision({
+    command: skip,
+    decision: {
+      action: 'skipped',
+      operationId: skip.operationId,
+      fileId: null,
+      sourceIndex: 0,
+      imagePath: null,
+      imageChecksumSha256: null,
+      outputName: null,
+      rangeStart: 1,
+      rangeEnd: 9,
+      selectionGeneration: 0,
+    },
+    nextCursorIndex: 0,
+  });
+  await store.undoLastWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    command: null,
+  });
+  assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 1);
+  assert.equal(
+    remoteSelectionWorkspaceState(await store.loadBatch('session-1', 'batch-1'))
+      .nextRangeStart,
+    1,
+  );
+
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  const select = command(2, {
+    expectedServerRevision: 1,
+    operationType: 'select',
+    rangeStart: 1,
+    rangeEnd: 9,
+    selectionGeneration: 1,
+    sourceIndex: 0,
+    fileId: source.fileId,
+    imagePath: source.relativePath,
+    imageChecksumSha256: 'b'.repeat(64),
+    outputName: 'seq_1-9.jpg',
+    decoded: true,
+  });
+  await store.appendWorkspaceDecision({
+    command: select,
+    decision: {
+      action: 'accepted',
+      operationId: select.operationId,
+      fileId: select.fileId,
+      sourceIndex: 0,
+      imagePath: select.imagePath,
+      imageChecksumSha256: select.imageChecksumSha256,
+      outputName: select.outputName,
+      rangeStart: 1,
+      rangeEnd: 9,
+      selectionGeneration: 1,
+    },
+    nextCursorIndex: 1,
+  });
+  const undo = command(3, {
+    expectedServerRevision: 2,
+    operationType: 'undo',
+    rangeStart: 1,
+    rangeEnd: 9,
+    selectionGeneration: 2,
+    sourceIndex: 0,
+    fileId: source.fileId,
+    imagePath: source.relativePath,
+    outputName: 'seq_1-9.jpg',
+    targetOperationId: select.operationId,
+  });
+  await store.undoLastWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    command: undo,
+  });
+  const outbox = await store.listOutboxPage('session-1', 'batch-1');
+  assert.deepEqual(
+    outbox.map((record) => record.command.operationType),
+    ['skip', 'select', 'undo'],
+  );
+  assert.equal(outbox.at(-1).command.targetOperationId, select.operationId);
+});
+
+test('loads a bounded seven-image preview window and predicts an operation clock', async () => {
+  const { store } = await fixture(20);
+  const window = await store.loadSourceItemsWindow(
+    'session-1',
+    'batch-1',
+    10,
+    20,
+  );
+  assert.deepEqual(
+    window.map((item) => item.ordinal),
+    [7, 8, 9, 10, 11, 12, 13],
+  );
+  await store.appendOutboxOperation(command(1));
+  assert.deepEqual(
+    await store.operationClock('session-1', 'batch-1', 'client-1'),
+    {
+      clientSequence: 2,
+      expectedServerRevision: 1,
+    },
+  );
 });
 
 test('never accepts persistent Blob data and requests storage persistence best effort', async () => {

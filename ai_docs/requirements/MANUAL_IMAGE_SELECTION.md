@@ -154,3 +154,19 @@ checksummy. Spóźniony upload lub materializacja starszej generacji nie może
 wskrzesić wyniku. Obcy albo zmieniony plik pozostaje nietknięty, a brak dostępu
 kończy się kontrolowanym konfliktem zamiast deklaracji sukcesu. Finalne usuwanie
 z kwarantanny nie jest częścią tego etapu.
+
+TASK-0285 udostępnia właściwy zdalny workspace na tym samym modelu zakresów i
+skrótów co lokalny Admin. Operator najpierw rejestruje logiczną kolekcję i
+partię z naturalnie uporządkowanego manifestu, a potem pracuje wyłącznie na
+lokalnych podglądach z ograniczonego okna bieżący indeks ±3. Object URL-e są
+zwalniane po wyjściu z okna; nazwa folderu jest tylko etykietą i żadna
+absolutna ścieżka ani Blob nie trafia do transportu lub IndexedDB.
+
+Zdalne `Enter/F`, `Tab` i `A/Ctrl+Z` zapisują stan zakresu oraz odpowiadającą mu
+operację atomowo przed zmianą widoku. Nawigacja, przeskok, zoom do 3000%, pełny
+ekran i pionowy scroll pozostają lokalne i nie czekają na sieć. UI rozróżnia
+`selected_local`, pending, potwierdzenie operacji, finalne `synced` i błąd;
+potwierdzenie operacji nigdy nie jest przedstawiane jako zapis finalnego JPEG-a.
+Synchronizacja control plane oraz maksymalnie dwa transfery działają w tle.
+Offline, konflikt, utrata permission i backpressure są jawne, a zamknięcie karty
+z outboxem lub transferem wyświetla ostrzeżenie.

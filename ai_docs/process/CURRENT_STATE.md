@@ -15,6 +15,28 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Zdalny workspace ręcznej selekcji — v0.7.37
+
+- TASK-0285 łączy lokalny i zdalny tryb wspólnym resolverem skrótów bez zmiany
+  zachowania Admina: Enter/F zatwierdza, Tab pomija, A/Ctrl+Z cofa, strzałki
+  nawigują albo zmieniają skok z ochroną kontrolek formularza.
+- Reviewer konfiguruje logiczną kolekcję i partię, rejestruje naturalnie
+  uporządkowany manifest stronami po 500 metadanych i pracuje na lokalnym,
+  ograniczonym cache'u siedmiu Object URL-i. JPEG przed wyborem nie opuszcza
+  komputera operatora, a Blob i ścieżka absolutna nie są utrwalane.
+- Stan decyzji, zakres, kursor i outbox są zapisywane atomowo w IndexedDB.
+  Control plane i ograniczony scheduler transferu działają w tle, zaległości po
+  refreshu są skanowane stronicami, a operator widzi osobne stany local,
+  pending, confirmed, synced i error oraz offline/conflict/permission/
+  backpressure.
+- Zoom 10–3000%, fullscreen, pionowy scroll, kierunek, przeskok i beforeunload
+  zachowują parity lokalnego workflow. Utrata folder handle wymaga relinku do
+  identycznego manifestu i nie usuwa decyzji.
+- Bramka: 98 testów Reviewera, 245 testów Admina i 11 testów wspólnego core są
+  zielone; Reviewer/Admin lint, typecheck i build są zielone (pozostają tylko
+  istniejące ostrzeżenia `no-img-element`). TASK 14 nie został rozpoczęty i
+  wymaga osobnego checkpointu/review TASK 13.
+
 ### Odznaczanie zdalnej selekcji i odwracalna kwarantanna — v0.7.36
 
 - TASK-0284 implementuje `deselect`/`undo` jako generacyjny tombstone wskazujący

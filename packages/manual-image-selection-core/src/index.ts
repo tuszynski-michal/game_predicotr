@@ -129,6 +129,104 @@ export const MANUAL_IMAGE_NAVIGATION_STEPS = [
   1, 2, 3, 4, 5, 6, 7, 10, 15, 20,
 ] as const;
 
+export type ManualSelectionShortcutAction =
+  | 'accept'
+  | 'skip'
+  | 'undo'
+  | 'previous_image'
+  | 'next_image'
+  | 'previous_step'
+  | 'next_step';
+
+export interface ManualSelectionKeyboardInput {
+  readonly key: string;
+  readonly altKey?: boolean;
+  readonly ctrlKey?: boolean;
+  readonly metaKey?: boolean;
+  readonly repeat?: boolean;
+  readonly target?: {
+    readonly tagName?: string;
+    readonly isContentEditable?: boolean;
+  } | null;
+}
+
+export interface ManualImageSize {
+  readonly height: number;
+  readonly width: number;
+}
+
+export function fitManualImageToViewport(
+  naturalSize: ManualImageSize | null,
+  viewportSize: ManualImageSize | null,
+  zoom: number,
+): ManualImageSize | null {
+  if (
+    naturalSize === null ||
+    viewportSize === null ||
+    naturalSize.height < 1 ||
+    naturalSize.width < 1 ||
+    viewportSize.height < 1 ||
+    viewportSize.width < 1 ||
+    !Number.isFinite(zoom) ||
+    zoom <= 0
+  ) {
+    return null;
+  }
+  const fitScale = Math.min(
+    1,
+    viewportSize.width / naturalSize.width,
+    viewportSize.height / naturalSize.height,
+  );
+  return {
+    height: Math.max(1, Math.round(naturalSize.height * fitScale * zoom)),
+    width: Math.max(1, Math.round(naturalSize.width * fitScale * zoom)),
+  };
+}
+
+export function resolveManualSelectionShortcut(
+  input: ManualSelectionKeyboardInput,
+): ManualSelectionShortcutAction | null {
+  const tagName = input.target?.tagName?.toUpperCase();
+  if (
+    input.target?.isContentEditable === true ||
+    tagName === 'BUTTON' ||
+    tagName === 'INPUT' ||
+    tagName === 'SELECT' ||
+    tagName === 'TEXTAREA'
+  ) {
+    return null;
+  }
+  if (input.key === 'ArrowRight') return 'next_image';
+  if (input.key === 'ArrowLeft') return 'previous_image';
+  if (input.key === 'ArrowDown') return 'next_step';
+  if (input.key === 'ArrowUp') return 'previous_step';
+  if (input.key === 'Enter') return 'accept';
+  if (input.key === 'Tab') return 'skip';
+  const key = input.key.toLowerCase();
+  if (
+    key === 'f' &&
+    input.ctrlKey !== true &&
+    input.metaKey !== true &&
+    input.altKey !== true &&
+    input.repeat !== true
+  ) {
+    return 'accept';
+  }
+  if (
+    key === 'a' &&
+    input.ctrlKey !== true &&
+    input.metaKey !== true &&
+    input.altKey !== true &&
+    input.repeat !== true
+  ) {
+    return 'undo';
+  }
+  if ((input.ctrlKey === true || input.metaKey === true) && key === 'z') {
+    return 'undo';
+  }
+  return null;
+}
+
 export function isSupportedManualImage(name: string): boolean {
   const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
   return JPEG_EXTENSIONS.has(extension);

@@ -5,15 +5,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   adjacentManualNavigationStep,
   createManualSelectionState,
+  fitManualImageToViewport,
   INDEPENDENT_MANUAL_SELECTION_ID,
   MANUAL_IMAGE_NAVIGATION_STEPS,
   manualPreviewWindow,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  resolveManualSelectionShortcut,
   type ManualSelectionDecision,
   type ManualSelectionState,
   type ManualSelectionTraceEvent,
+  type ManualImageSize,
 } from '@game-predictor/manual-image-selection-core';
 import {
   FileSystemManualSelectionOutputAdapter,
@@ -31,45 +34,14 @@ interface DirectoryPickerWindow extends Window {
   }) => Promise<FileSystemDirectoryHandle>;
 }
 
-interface ImageSize {
-  readonly height: number;
-  readonly width: number;
-}
-
 interface LoadedImageSize {
-  readonly size: ImageSize;
+  readonly size: ManualImageSize;
   readonly sourceUrl: string;
 }
 
 type ResumeRecoveryTarget = 'source' | 'output';
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
-
-function fitImageToViewport(
-  naturalSize: ImageSize | null,
-  viewportSize: ImageSize | null,
-  zoom: number,
-): ImageSize | null {
-  if (
-    naturalSize === null ||
-    viewportSize === null ||
-    naturalSize.height < 1 ||
-    naturalSize.width < 1 ||
-    viewportSize.height < 1 ||
-    viewportSize.width < 1
-  ) {
-    return null;
-  }
-  const fitScale = Math.min(
-    1,
-    viewportSize.width / naturalSize.width,
-    viewportSize.height / naturalSize.height,
-  );
-  return {
-    height: Math.max(1, Math.round(naturalSize.height * fitScale * zoom)),
-    width: Math.max(1, Math.round(naturalSize.width * fitScale * zoom)),
-  };
-}
 
 export function ManualImageSelectionWorkspace() {
   const workspaceId = INDEPENDENT_MANUAL_SELECTION_ID;
@@ -113,13 +85,12 @@ export function ManualImageSelectionWorkspace() {
   const [zoom, setZoom] = useState(1);
   const [loadedImageSize, setLoadedImageSize] =
     useState<LoadedImageSize | null>(null);
-  const [imageViewportSize, setImageViewportSize] = useState<ImageSize | null>(
-    null,
-  );
+  const [imageViewportSize, setImageViewportSize] =
+    useState<ManualImageSize | null>(null);
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
-  const zoomedImageSize = fitImageToViewport(
+  const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
       ? loadedImageSize.size
       : null,
@@ -834,56 +805,23 @@ export function ManualImageSelectionWorkspace() {
     if (state === null) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (busyRef.current) return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.tagName === 'BUTTON' ||
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'SELECT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
-      )
-        return;
-      const key = event.key.toLowerCase();
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        moveImage(1);
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        moveImage(-1);
-      } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        changeNavigationStepByDirection(1);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        changeNavigationStepByDirection(-1);
-      } else if (event.key === 'Enter') {
-        event.preventDefault();
-        void acceptCurrent();
-      } else if (event.key === 'Tab') {
-        event.preventDefault();
-        void skipCurrent();
-      } else if (
-        key === 'f' &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        void acceptCurrent();
-      } else if (
-        key === 'a' &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        !event.repeat
-      ) {
-        event.preventDefault();
-        void undoLast();
-      } else if ((event.ctrlKey || event.metaKey) && key === 'z') {
-        event.preventDefault();
-        void undoLast();
-      }
+      const action = resolveManualSelectionShortcut({
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        key: event.key,
+        metaKey: event.metaKey,
+        repeat: event.repeat,
+        target: event.target as HTMLElement | null,
+      });
+      if (action === null) return;
+      event.preventDefault();
+      if (action === 'next_image') moveImage(1);
+      else if (action === 'previous_image') moveImage(-1);
+      else if (action === 'next_step') changeNavigationStepByDirection(1);
+      else if (action === 'previous_step') changeNavigationStepByDirection(-1);
+      else if (action === 'accept') void acceptCurrent();
+      else if (action === 'skip') void skipCurrent();
+      else void undoLast();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

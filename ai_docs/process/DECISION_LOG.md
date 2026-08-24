@@ -5394,6 +5394,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   cancel uploadu jako wystarczające oraz last-write-wins bez generacji odrzucono
   jako nieodwracalne albo podatne na TOCTOU i stale resurrection.
 
+## D-225 — Zdalny workspace zapisuje decyzję i outbox atomowo, a podgląd pozostaje lokalny
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** stan zakresu, decyzja operatora i odpowiadająca jej operacja
+  outboxu są jednym zapisem IndexedDB przed zmianą widoku. Podgląd ma ograniczone
+  okno lokalnych Object URL-i; sync control plane i transfer JPEG-a są osobnymi
+  procesami w tle. UI rozróżnia local, pending, confirmed, synced i error.
+- **Context:** zapis decyzji i outboxu w dwóch transakcjach tworzyłby crash window,
+  w którym widok przeszedł dalej bez operacji możliwej do odtworzenia. Trzymanie
+  JPEG-ów albo wszystkich podglądów w React/IndexedDB łamałoby local-first i
+  bounded-memory przy 8–15 tysiącach zdjęć.
+- **Safety:** Blob i absolutna ścieżka są zakazane w stanie trwałym i kontrakcie.
+  Operacja nie czeka na sieć lub upload; potwierdzenie control plane nie jest
+  nazywane synchronizacją pliku. Konflikt blokuje kolejne mutacje zamiast
+  automatycznego rebase, a relink wymaga identycznego manifestu.
+- **Consequences:** lokalny i zdalny ekran współdzielą semantykę skrótów, ale
+  zachowują osobne adaptery trwałości. Refresh może wznowić kursor, outbox i
+  transfer checkpoint bez przechowywania bajtów obrazu. TASK 14 może budować
+  monitor hosta na tych stanach, lecz nie może scalać ich w jeden status.
+- **Alternatives:** optymistyczna zmiana widoku przed zapisem, Blob cache w IDB,
+  blokowanie interakcji do końca uploadu i etykieta „zapisano” po samym SELECT
+  zostały odrzucone jako podatne na utratę, nieograniczoną pamięć lub false
+  success.
+
 ## Szablon nowej decyzji
 
 ```text

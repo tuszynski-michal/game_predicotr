@@ -30,6 +30,13 @@ const workspaceSource = await readFile(
   ),
   'utf8',
 );
+const manualSelectionCoreSource = await readFile(
+  new URL(
+    '../../../packages/manual-image-selection-core/src/index.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const selectionSource = await readFile(
   new URL(
     '../src/features/manual-image-selection/manual-image-selection-fsa-adapter.ts',
@@ -175,9 +182,9 @@ test('up and down arrows move by one configured navigation step', () => {
   assert.equal(adjacentManualNavigationStep(3, -1), 2);
   assert.equal(adjacentManualNavigationStep(1, -1), 1);
   assert.equal(adjacentManualNavigationStep(20, 1), 20);
-  assert.match(workspaceSource, /event\.key === 'ArrowDown'/);
+  assert.match(manualSelectionCoreSource, /input\.key === 'ArrowDown'/);
   assert.match(workspaceSource, /changeNavigationStepByDirection\(1\)/);
-  assert.match(workspaceSource, /event\.key === 'ArrowUp'/);
+  assert.match(manualSelectionCoreSource, /input\.key === 'ArrowUp'/);
   assert.match(workspaceSource, /changeNavigationStepByDirection\(-1\)/);
 });
 
@@ -244,7 +251,7 @@ test('offers fullscreen and bounded zoom controls without changing the source fi
 });
 
 test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
-  assert.match(workspaceSource, /fitImageToViewport/);
+  assert.match(workspaceSource, /fitManualImageToViewport/);
   assert.match(workspaceSource, /manualImageSelectionImageViewport/);
   assert.match(workspaceSource, /manualImageSelectionImageCanvas/);
   assert.match(workspaceSource, /imageViewportRef\.current\?\.scrollTo/);
@@ -409,10 +416,11 @@ test('defines durable output and training trace manifests', () => {
 });
 
 test('supports single-key accept and undo shortcuts without hijacking form fields', () => {
-  assert.match(workspaceSource, /key === 'f'/);
-  assert.match(workspaceSource, /key === 'a'/);
+  assert.match(workspaceSource, /resolveManualSelectionShortcut/);
+  assert.match(manualSelectionCoreSource, /key === 'f'/);
+  assert.match(manualSelectionCoreSource, /key === 'a'/);
   assert.match(workspaceSource, /void acceptCurrent\(\)/);
   assert.match(workspaceSource, /void undoLast\(\)/);
-  assert.match(workspaceSource, /target\?\.tagName === 'INPUT'/);
-  assert.match(workspaceSource, /target\?\.tagName === 'SELECT'/);
+  assert.match(manualSelectionCoreSource, /tagName === 'INPUT'/);
+  assert.match(manualSelectionCoreSource, /tagName === 'SELECT'/);
 });

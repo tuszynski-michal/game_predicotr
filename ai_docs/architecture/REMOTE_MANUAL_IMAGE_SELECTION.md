@@ -1661,7 +1661,7 @@ zakresem; osobna flaga pozwala zatrzymać nowe odznaczenia bez utraty stanu.
 
 ### TASK 13: Zdalny workspace współdzielący lokalny UX
 
-**Status:** `PLANNED`
+**Status:** `DONE`
 
 **Cel:** Udostępnić operatorowi właściwy ekran z lokalnymi podglądami i jawnym
 stanem synchronizacji bez duplikowania silnika.
@@ -1722,6 +1722,19 @@ zaakceptowanymi wcześniej kontraktami.
 **Model do niezależnego review:** `gpt-5.6-sol`, `HIGH`
 
 **Przewidywane zużycie kontekstu:** `WYSOKIE`
+
+**Outcome:** Wspólny core rozpoznaje skróty lokalnego i zdalnego workspace'u z
+jednymi guardami pól edytowalnych. Reviewer konfiguruje kolekcję/partię,
+rejestruje checksumowany naturalny source manifest i otwiera operacyjny ekran z
+bounded local-only preview, zoomem, fullscreenem, zachowaniem scrolla i kursora.
+Decyzja oraz outbox są zapisywane w jednej transakcji IndexedDB; sync i
+jednoplikowy transfer pozostają w tle. Jawny view-model nie utożsamia
+`selected_local`, pending, confirmed, synced i error. Refresh odtwarza decyzje,
+outbox, kursor i checkpointy, a zaległe potwierdzone transfery są wznawiane
+stronicami bez trzymania Blobów lub całego source list w React. Konflikt,
+permission, offline, backpressure i beforeunload mają osobne komunikaty. Nie
+dodano API, migracji backendu ani automatycznej selekcji; TASK 14 pozostaje za
+obowiązkowym checkpointem/review.
 
 ### TASK 14: Panel hosta i lifecycle udostępnienia
 

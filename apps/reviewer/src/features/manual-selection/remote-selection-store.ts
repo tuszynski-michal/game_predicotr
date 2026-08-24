@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  MANUAL_IMAGE_NAVIGATION_STEPS,
   buildRemoteSourceManifestV1,
   canonicalRemoteChecksumSha256,
   normalizeRemoteSourcePath,
@@ -53,7 +54,39 @@ export interface RemoteSelectionLocalBatchRecord {
   readonly cursorIndex: number;
   readonly fileCount: number;
   readonly totalBytes: number;
+  readonly collectionId?: string | null;
+  readonly collectionName?: string | null;
+  readonly batchName?: string | null;
+  readonly hostRegistered?: boolean;
+  readonly nextRangeStart?: number;
+  readonly navigationStep?: number;
+  readonly decisions?: readonly RemoteSelectionWorkspaceDecision[];
   readonly updatedAt: string;
+}
+
+export interface RemoteSelectionWorkspaceDecision {
+  readonly action: 'accepted' | 'skipped';
+  readonly operationId: string;
+  readonly fileId: string | null;
+  readonly sourceIndex: number;
+  readonly imagePath: string | null;
+  readonly imageChecksumSha256: string | null;
+  readonly outputName: string | null;
+  readonly rangeStart: number;
+  readonly rangeEnd: number;
+  readonly selectionGeneration: number;
+}
+
+export interface RemoteSelectionWorkspaceState {
+  readonly currentIndex: number;
+  readonly decisions: readonly RemoteSelectionWorkspaceDecision[];
+  readonly navigationStep: number;
+  readonly nextRangeStart: number;
+}
+
+export interface RemoteSelectionOperationClock {
+  readonly clientSequence: number;
+  readonly expectedServerRevision: number;
 }
 
 export interface RemoteSelectionSourceItemRecord extends RemoteSourceManifestEntryV1 {
@@ -116,7 +149,8 @@ export interface RemoteSelectionTransferCheckpointRecord {
   readonly expectedChecksumSha256: string | null;
   readonly acknowledgedBytes: number;
   readonly transferId?: string;
-  readonly status?: 'queued' | 'uploading' | 'verified' | 'cancelled' | 'failed';
+  readonly status?:
+    'queued' | 'uploading' | 'verified' | 'cancelled' | 'failed';
   readonly updatedAt: string;
 }
 
@@ -146,6 +180,24 @@ export class RemoteSelectionStoreError extends Error {
     this.name = 'RemoteSelectionStoreError';
     this.code = code;
   }
+}
+
+export function remoteSelectionWorkspaceState(
+  batch: RemoteSelectionLocalBatchRecord,
+): RemoteSelectionWorkspaceState {
+  const decisions = batch.decisions ?? [];
+  const navigationStep = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
+    batch.navigationStep as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
+  )
+    ? (batch.navigationStep ?? 1)
+    : 1;
+  return {
+    currentIndex: batch.cursorIndex,
+    decisions,
+    navigationStep,
+    nextRangeStart:
+      batch.nextRangeStart ?? batch.firstLayout + decisions.length * 9,
+  };
 }
 
 export class RemoteSelectionIndexedDbStore {
@@ -243,6 +295,266 @@ export class RemoteSelectionIndexedDbStore {
           .objectStore(REMOTE_SELECTION_DATABASE_STORES.batches)
           .get([sessionId, batchId]),
       )) as RemoteSelectionLocalBatchRecord | null;
+    } finally {
+      database.close();
+    }
+  }
+
+  async saveBatch(record: RemoteSelectionLocalBatchRecord): Promise<void> {
+    validateWorkspaceBatch(record);
+    assertMetadataOnly(record);
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+        'readwrite',
+      );
+      transaction
+        .objectStore(REMOTE_SELECTION_DATABASE_STORES.batches)
+        .put(record);
+      await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async loadSourceItem(
+    sessionId: string,
+    batchId: string,
+    ordinal: number,
+  ): Promise<RemoteSelectionSourceItemRecord | null> {
+    if (!Number.isSafeInteger(ordinal) || ordinal < 0) return null;
+    const database = await this.open();
+    try {
+      return (await requestResult(
+        database
+          .transaction(REMOTE_SELECTION_DATABASE_STORES.sourceItems)
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.sourceItems)
+          .get([sessionId, batchId, ordinal]),
+      )) as RemoteSelectionSourceItemRecord | null;
+    } finally {
+      database.close();
+    }
+  }
+
+  async loadSourceItemsWindow(
+    sessionId: string,
+    batchId: string,
+    currentIndex: number,
+    fileCount: number,
+    radius = 3,
+  ): Promise<RemoteSelectionSourceItemRecord[]> {
+    if (
+      !Number.isSafeInteger(currentIndex) ||
+      currentIndex < 0 ||
+      currentIndex >= fileCount ||
+      !Number.isSafeInteger(radius) ||
+      radius < 0
+    ) {
+      return [];
+    }
+    const first = Math.max(0, currentIndex - radius);
+    const last = Math.min(fileCount - 1, currentIndex + radius);
+    return this.listSourceItemsPage(
+      sessionId,
+      batchId,
+      first - 1,
+      last - first + 1,
+    );
+  }
+
+  async operationClock(
+    sessionId: string,
+    batchId: string,
+    clientInstanceId: string,
+  ): Promise<RemoteSelectionOperationClock> {
+    const [client, pendingCount] = await Promise.all([
+      this.loadClientInstance(sessionId, batchId, clientInstanceId),
+      this.countPendingOperations(sessionId, batchId),
+    ]);
+    return {
+      clientSequence: (client?.lastClientSequence ?? 0) + 1,
+      expectedServerRevision:
+        (client?.lastKnownServerRevision ?? 0) + pendingCount,
+    };
+  }
+
+  async appendWorkspaceDecision(input: {
+    readonly command: RemoteManualSelectionOperationCommandV1;
+    readonly decision: RemoteSelectionWorkspaceDecision;
+    readonly nextCursorIndex: number;
+    readonly queuedAt?: string;
+  }): Promise<RemoteSelectionLocalBatchRecord> {
+    const { command, decision } = input;
+    validateOperationCommand(command);
+    validateWorkspaceDecision(command, decision);
+    const queuedAt = input.queuedAt ?? new Date().toISOString();
+    const commandChecksumSha256 = await canonicalRemoteChecksumSha256(command);
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.batches,
+          REMOTE_SELECTION_DATABASE_STORES.outbox,
+          REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+        ],
+        'readwrite',
+      );
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const batch = (await requestResult(
+        batches.get([command.sessionId, command.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (batch === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_BATCH_NOT_FOUND',
+          'Remote selection batch does not exist.',
+        );
+      }
+      const workspace = remoteSelectionWorkspaceState(batch);
+      const persistedDecision = workspace.decisions.find(
+        (candidate) => candidate.operationId === decision.operationId,
+      );
+      if (persistedDecision !== undefined) {
+        if (
+          JSON.stringify(persistedDecision) !== JSON.stringify(decision) ||
+          workspace.currentIndex !== input.nextCursorIndex
+        ) {
+          transaction.abort();
+          throw storeError(
+            'REMOTE_SELECTION_WORKSPACE_DECISION_CONFLICT',
+            'The operation ID is already bound to a different local decision.',
+          );
+        }
+        await transactionComplete(transaction);
+        return batch;
+      }
+      if (
+        workspace.nextRangeStart !== decision.rangeStart ||
+        input.nextCursorIndex < 0 ||
+        input.nextCursorIndex >= batch.fileCount
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_WORKSPACE_STALE',
+          'The local workspace changed before the decision was persisted.',
+        );
+      }
+      const outbox = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+      );
+      const clients = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+      );
+      await appendOutboxRecord(
+        outbox,
+        clients,
+        command,
+        commandChecksumSha256,
+        queuedAt,
+      );
+      const next: RemoteSelectionLocalBatchRecord = {
+        ...batch,
+        cursorIndex: input.nextCursorIndex,
+        decisions: [...workspace.decisions, decision],
+        navigationStep: workspace.navigationStep,
+        nextRangeStart: decision.rangeStart + 9,
+        updatedAt: queuedAt,
+      };
+      validateWorkspaceBatch(next);
+      batches.put(next);
+      await transactionComplete(transaction);
+      return next;
+    } finally {
+      database.close();
+    }
+  }
+
+  async undoLastWorkspaceDecision(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly command: RemoteManualSelectionOperationCommandV1 | null;
+    readonly queuedAt?: string;
+  }): Promise<RemoteSelectionLocalBatchRecord | null> {
+    const queuedAt = input.queuedAt ?? new Date().toISOString();
+    const commandChecksumSha256 =
+      input.command === null
+        ? null
+        : await canonicalRemoteChecksumSha256(input.command);
+    if (input.command !== null) validateOperationCommand(input.command);
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.batches,
+          REMOTE_SELECTION_DATABASE_STORES.outbox,
+          REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+        ],
+        'readwrite',
+      );
+      const batches = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+      );
+      const batch = (await requestResult(
+        batches.get([input.sessionId, input.batchId]),
+      )) as RemoteSelectionLocalBatchRecord | null;
+      if (batch === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_BATCH_NOT_FOUND',
+          'Remote selection batch does not exist.',
+        );
+      }
+      const workspace = remoteSelectionWorkspaceState(batch);
+      const last = workspace.decisions.at(-1);
+      if (last === undefined) {
+        await transactionComplete(transaction);
+        return null;
+      }
+      if (last.action === 'accepted') {
+        const command = input.command;
+        if (
+          command === null ||
+          command.operationType !== 'undo' ||
+          command.targetOperationId !== last.operationId ||
+          command.fileId !== last.fileId ||
+          commandChecksumSha256 === null
+        ) {
+          transaction.abort();
+          throw storeError(
+            'REMOTE_SELECTION_UNDO_COMMAND_INVALID',
+            'Undo must target the exact accepted selection.',
+          );
+        }
+        await appendOutboxRecord(
+          transaction.objectStore(REMOTE_SELECTION_DATABASE_STORES.outbox),
+          transaction.objectStore(
+            REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+          ),
+          command,
+          commandChecksumSha256,
+          queuedAt,
+        );
+      } else if (input.command !== null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_UNDO_COMMAND_INVALID',
+          'A skipped range is undone locally and must not create a tombstone.',
+        );
+      }
+      const next: RemoteSelectionLocalBatchRecord = {
+        ...batch,
+        decisions: workspace.decisions.slice(0, -1),
+        navigationStep: workspace.navigationStep,
+        nextRangeStart: last.rangeStart,
+        updatedAt: queuedAt,
+      };
+      validateWorkspaceBatch(next);
+      batches.put(next);
+      await transactionComplete(transaction);
+      return next;
     } finally {
       database.close();
     }
@@ -473,6 +785,28 @@ export class RemoteSelectionIndexedDbStore {
           .objectStore(REMOTE_SELECTION_DATABASE_STORES.outbox)
           .count(range),
       )) as number;
+    } finally {
+      database.close();
+    }
+  }
+
+  async loadOutboxOperation(
+    sessionId: string,
+    batchId: string,
+    operationId: string,
+  ): Promise<RemoteSelectionOutboxRecord | null> {
+    const database = await this.open();
+    try {
+      const record = (await requestResult(
+        database
+          .transaction(REMOTE_SELECTION_DATABASE_STORES.outbox)
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.outbox)
+          .index('operationId')
+          .get(operationId),
+      )) as RemoteSelectionOutboxRecord | null;
+      return record?.sessionId === sessionId && record.batchId === batchId
+        ? record
+        : null;
     } finally {
       database.close();
     }
@@ -939,6 +1273,139 @@ export async function requestBestEffortPersistentStorage(
   }
 }
 
+async function appendOutboxRecord(
+  outbox: IDBObjectStore,
+  clients: IDBObjectStore,
+  command: RemoteManualSelectionOperationCommandV1,
+  commandChecksumSha256: string,
+  queuedAt: string,
+): Promise<RemoteSelectionOutboxRecord> {
+  const existing = (await requestResult(
+    outbox.index('operationId').get(command.operationId),
+  )) as RemoteSelectionOutboxRecord | null;
+  if (existing !== null) {
+    if (
+      existing.sessionId !== command.sessionId ||
+      existing.batchId !== command.batchId ||
+      existing.commandChecksumSha256 !== commandChecksumSha256
+    ) {
+      throw storeError(
+        'REMOTE_SELECTION_OUTBOX_OPERATION_CONFLICT',
+        'Operation ID is already bound to different content.',
+      );
+    }
+    return existing;
+  }
+  const clientKey = [
+    command.sessionId,
+    command.batchId,
+    command.clientInstanceId,
+  ];
+  const client = (await requestResult(
+    clients.get(clientKey),
+  )) as RemoteSelectionClientInstanceRecord | null;
+  const expectedSequence = (client?.lastClientSequence ?? 0) + 1;
+  if (command.clientSequence !== expectedSequence) {
+    throw storeError(
+      'REMOTE_SELECTION_OUTBOX_SEQUENCE_INVALID',
+      `Expected client sequence ${expectedSequence}.`,
+    );
+  }
+  const record: RemoteSelectionOutboxRecord = {
+    schemaVersion: 1,
+    attemptCount: 0,
+    batchId: command.batchId,
+    clientInstanceId: command.clientInstanceId,
+    clientSequence: command.clientSequence,
+    command,
+    commandChecksumSha256,
+    lastErrorCode: null,
+    operationId: command.operationId,
+    queuedAt,
+    sessionId: command.sessionId,
+    state: 'pending',
+    updatedAt: queuedAt,
+  };
+  assertMetadataOnly(record);
+  outbox.put(record);
+  clients.put({
+    schemaVersion: 1,
+    batchId: command.batchId,
+    clientInstanceId: command.clientInstanceId,
+    lastClientSequence: command.clientSequence,
+    lastKnownServerRevision:
+      client?.lastKnownServerRevision ?? command.expectedServerRevision,
+    sessionId: command.sessionId,
+    updatedAt: queuedAt,
+  } satisfies RemoteSelectionClientInstanceRecord);
+  return record;
+}
+
+function validateWorkspaceDecision(
+  command: RemoteManualSelectionOperationCommandV1,
+  decision: RemoteSelectionWorkspaceDecision,
+): void {
+  const accepted = decision.action === 'accepted';
+  if (
+    command.operationId !== decision.operationId ||
+    command.rangeStart !== decision.rangeStart ||
+    command.rangeEnd !== decision.rangeEnd ||
+    command.selectionGeneration !== decision.selectionGeneration ||
+    command.sourceIndex !== decision.sourceIndex ||
+    (accepted && command.operationType !== 'select') ||
+    (!accepted && command.operationType !== 'skip') ||
+    (accepted &&
+      (decision.fileId === null ||
+        decision.imagePath === null ||
+        decision.imageChecksumSha256 === null ||
+        decision.outputName === null ||
+        command.fileId !== decision.fileId ||
+        command.imagePath !== decision.imagePath ||
+        command.imageChecksumSha256 !== decision.imageChecksumSha256 ||
+        command.outputName !== decision.outputName)) ||
+    (!accepted &&
+      (decision.fileId !== null ||
+        decision.imagePath !== null ||
+        decision.imageChecksumSha256 !== null ||
+        decision.outputName !== null ||
+        command.fileId !== null)) ||
+    decision.rangeEnd !== decision.rangeStart + 8 ||
+    !Number.isSafeInteger(decision.sourceIndex) ||
+    decision.sourceIndex < 0
+  ) {
+    throw storeError(
+      'REMOTE_SELECTION_WORKSPACE_DECISION_INVALID',
+      'The workspace decision does not match its durable outbox command.',
+    );
+  }
+}
+
+function validateWorkspaceBatch(record: RemoteSelectionLocalBatchRecord): void {
+  const workspace = remoteSelectionWorkspaceState(record);
+  if (
+    !Number.isSafeInteger(workspace.currentIndex) ||
+    workspace.currentIndex < 0 ||
+    workspace.currentIndex >= record.fileCount ||
+    !Number.isSafeInteger(workspace.nextRangeStart) ||
+    workspace.nextRangeStart < 1 ||
+    workspace.decisions.some(
+      (decision, index) =>
+        decision.rangeStart !== record.firstLayout + index * 9 ||
+        decision.rangeEnd !== decision.rangeStart + 8 ||
+        !Number.isSafeInteger(decision.sourceIndex) ||
+        decision.sourceIndex < 0 ||
+        decision.sourceIndex >= record.fileCount,
+    ) ||
+    workspace.nextRangeStart !==
+      record.firstLayout + workspace.decisions.length * 9
+  ) {
+    throw storeError(
+      'REMOTE_SELECTION_WORKSPACE_STATE_INVALID',
+      'The persisted remote workspace state is inconsistent.',
+    );
+  }
+}
+
 function validateIndexedSource(input: {
   readonly session: RemoteSelectionLocalSessionRecord;
   readonly batch: RemoteSelectionLocalBatchRecord;
@@ -963,6 +1430,7 @@ function validateIndexedSource(input: {
       'Indexed source records do not describe one consistent batch.',
     );
   }
+  validateWorkspaceBatch(batch);
   assertMetadataOnly(input);
 }
 

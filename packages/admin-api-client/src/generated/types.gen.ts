@@ -5176,6 +5176,154 @@ export type RemoteManualSelectionBaseCapabilityResponse = {
 };
 
 /**
+ * RemoteManualSelectionBatchCreate
+ */
+export type RemoteManualSelectionBatchCreate = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  direction: RemoteManualSelectionDirection;
+  /**
+   * Firstlayout
+   */
+  firstLayout: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
+ * RemoteManualSelectionBatchCreatedResponse
+ */
+export type RemoteManualSelectionBatchCreatedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Resumed
+   */
+  resumed: boolean;
+};
+
+/**
+ * RemoteManualSelectionBatchResponse
+ */
+export type RemoteManualSelectionBatchResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Cursorindex
+   */
+  cursorIndex: number;
+  /**
+   * Direction
+   */
+  direction: string;
+  /**
+   * Firstlayout
+   */
+  firstLayout: number;
+  /**
+   * Lastclientsequence
+   */
+  lastClientSequence: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Serverrevision
+   */
+  serverRevision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionCollectionCreate
+ */
+export type RemoteManualSelectionCollectionCreate = {
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * RemoteManualSelectionCollectionResponse
+ */
+export type RemoteManualSelectionCollectionResponse = {
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Normalizedname
+   */
+  normalizedName: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
  * RemoteManualSelectionContextResponse
  */
 export type RemoteManualSelectionContextResponse = {
@@ -5208,6 +5356,209 @@ export type RemoteManualSelectionContextResponse = {
    */
   writerLeaseExpiresAt: string | null;
 };
+
+/**
+ * RemoteManualSelectionDirection
+ */
+export type RemoteManualSelectionDirection = 'ascending' | 'descending';
+
+/**
+ * RemoteManualSelectionFileResponse
+ */
+export type RemoteManualSelectionFileResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Desiredselected
+   */
+  desiredSelected: boolean;
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Hostchecksumsha256
+   */
+  hostChecksumSha256: string | null;
+  /**
+   * Lastmodifiedms
+   */
+  lastModifiedMs: number;
+  /**
+   * Lastserverrevision
+   */
+  lastServerRevision?: number | null;
+  /**
+   * Mimetype
+   */
+  mimeType: string;
+  /**
+   * Outputname
+   */
+  outputName: string | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart: number | null;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Selectiongeneration
+   */
+  selectionGeneration: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionOperationAppliedResponse
+ */
+export type RemoteManualSelectionOperationAppliedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Exactretry
+   */
+  exactRetry: boolean;
+  file: RemoteManualSelectionFileResponse | null;
+  operation: RemoteManualSelectionOperationResponse;
+};
+
+/**
+ * RemoteManualSelectionOperationCreate
+ */
+export type RemoteManualSelectionOperationCreate = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+  /**
+   * Clientsequence
+   */
+  clientSequence: number;
+  /**
+   * Decoded
+   */
+  decoded?: boolean;
+  /**
+   * Expectedserverrevision
+   */
+  expectedServerRevision: number;
+  /**
+   * Fileid
+   */
+  fileId?: string | null;
+  /**
+   * Imagechecksumsha256
+   */
+  imageChecksumSha256?: string | null;
+  /**
+   * Imagepath
+   */
+  imagePath?: string | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  operationType: RemoteManualSelectionOperationType;
+  /**
+   * Outputname
+   */
+  outputName?: string | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Recordedat
+   */
+  recordedAt: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 'remote-manual-selection-operation-v1';
+  /**
+   * Selectiongeneration
+   */
+  selectionGeneration: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
+  /**
+   * Targetoperationid
+   */
+  targetOperationId?: string | null;
+  /**
+   * Visiblemilliseconds
+   */
+  visibleMilliseconds?: number;
+};
+
+/**
+ * RemoteManualSelectionOperationResponse
+ */
+export type RemoteManualSelectionOperationResponse = {
+  /**
+   * Appliedserverrevision
+   */
+  appliedServerRevision: number;
+  /**
+   * Commandchecksumsha256
+   */
+  commandChecksumSha256: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Outcomecode
+   */
+  outcomeCode: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionOperationType
+ */
+export type RemoteManualSelectionOperationType =
+  'viewed' | 'select' | 'skip' | 'deselect' | 'undo';
 
 /**
  * RemoteManualSelectionSessionCreate
@@ -5303,6 +5654,93 @@ export type RemoteManualSelectionSessionResponse = {
 };
 
 /**
+ * RemoteManualSelectionSourceItem
+ */
+export type RemoteManualSelectionSourceItem = {
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Lastmodifiedms
+   */
+  lastModifiedMs: number;
+  /**
+   * Mimetype
+   */
+  mimeType: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * RemoteManualSelectionSourceItemsCreate
+ */
+export type RemoteManualSelectionSourceItemsCreate = {
+  /**
+   * Complete
+   */
+  complete?: boolean;
+  /**
+   * Items
+   */
+  items: Array<RemoteManualSelectionSourceItem>;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  sourceKind: RemoteSourceKind;
+};
+
+/**
+ * RemoteManualSelectionSourceItemsResponse
+ */
+export type RemoteManualSelectionSourceItemsResponse = {
+  /**
+   * Acceptedfileids
+   */
+  acceptedFileIds: Array<string>;
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Createdcount
+   */
+  createdCount: number;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
+ * RemoteManualSelectionStateDeltaResponse
+ */
+export type RemoteManualSelectionStateDeltaResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Files
+   */
+  files: Array<RemoteManualSelectionFileResponse>;
+  /**
+   * Hasmore
+   */
+  hasMore: boolean;
+  /**
+   * Nextrevision
+   */
+  nextRevision: number;
+};
+
+/**
  * RemoteManualSelectionUnlock
  */
 export type RemoteManualSelectionUnlock = {
@@ -5325,6 +5763,11 @@ export type RemoteManualSelectionWriterLeaseCommand = {
    */
   clientInstanceId: string;
 };
+
+/**
+ * RemoteSourceKind
+ */
+export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
 
 /**
  * ReviewAlternative
@@ -15437,6 +15880,280 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type ApplyRemoteManualSelectionOperationData = {
+  body: RemoteManualSelectionOperationCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/operations';
+};
+
+export type ApplyRemoteManualSelectionOperationErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type ApplyRemoteManualSelectionOperationError =
+  ApplyRemoteManualSelectionOperationErrors[keyof ApplyRemoteManualSelectionOperationErrors];
+
+export type ApplyRemoteManualSelectionOperationResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionOperationAppliedResponse;
+};
+
+export type ApplyRemoteManualSelectionOperationResponse =
+  ApplyRemoteManualSelectionOperationResponses[keyof ApplyRemoteManualSelectionOperationResponses];
+
+export type RegisterRemoteManualSelectionSourceItemsData = {
+  body: RemoteManualSelectionSourceItemsCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/source-items';
+};
+
+export type RegisterRemoteManualSelectionSourceItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type RegisterRemoteManualSelectionSourceItemsError =
+  RegisterRemoteManualSelectionSourceItemsErrors[keyof RegisterRemoteManualSelectionSourceItemsErrors];
+
+export type RegisterRemoteManualSelectionSourceItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSourceItemsResponse;
+};
+
+export type RegisterRemoteManualSelectionSourceItemsResponse =
+  RegisterRemoteManualSelectionSourceItemsResponses[keyof RegisterRemoteManualSelectionSourceItemsResponses];
+
+export type GetRemoteManualSelectionStateDeltaData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: {
+    /**
+     * Sincerevision
+     */
+    sinceRevision?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/state';
+};
+
+export type GetRemoteManualSelectionStateDeltaErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type GetRemoteManualSelectionStateDeltaError =
+  GetRemoteManualSelectionStateDeltaErrors[keyof GetRemoteManualSelectionStateDeltaErrors];
+
+export type GetRemoteManualSelectionStateDeltaResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionStateDeltaResponse;
+};
+
+export type GetRemoteManualSelectionStateDeltaResponse =
+  GetRemoteManualSelectionStateDeltaResponses[keyof GetRemoteManualSelectionStateDeltaResponses];
+
+export type CreateRemoteManualSelectionCollectionData = {
+  body: RemoteManualSelectionCollectionCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/remote-manual-selections/collections';
+};
+
+export type CreateRemoteManualSelectionCollectionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionCollectionError =
+  CreateRemoteManualSelectionCollectionErrors[keyof CreateRemoteManualSelectionCollectionErrors];
+
+export type CreateRemoteManualSelectionCollectionResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionCollectionResponse;
+};
+
+export type CreateRemoteManualSelectionCollectionResponse =
+  CreateRemoteManualSelectionCollectionResponses[keyof CreateRemoteManualSelectionCollectionResponses];
+
+export type CreateRemoteManualSelectionBatchData = {
+  body: RemoteManualSelectionBatchCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Collection Id
+     */
+    collection_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/collections/{collection_id}/batches';
+};
+
+export type CreateRemoteManualSelectionBatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionBatchError =
+  CreateRemoteManualSelectionBatchErrors[keyof CreateRemoteManualSelectionBatchErrors];
+
+export type CreateRemoteManualSelectionBatchResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionBatchCreatedResponse;
+};
+
+export type CreateRemoteManualSelectionBatchResponse =
+  CreateRemoteManualSelectionBatchResponses[keyof CreateRemoteManualSelectionBatchResponses];
 
 export type GetRemoteManualSelectionContextData = {
   body?: never;

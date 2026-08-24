@@ -114,6 +114,11 @@ POST /api/v1/remote-manual-selections/sessions/{sessionId}/unlock
 GET  /api/v1/remote-manual-selections/context
 POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/heartbeat
 POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/takeover
+POST /api/v1/remote-manual-selections/collections
+POST /api/v1/remote-manual-selections/collections/{collectionId}/batches
+POST /api/v1/remote-manual-selections/batches/{batchId}/source-items
+GET  /api/v1/remote-manual-selections/batches/{batchId}/state?sinceRevision=0&limit=100
+POST /api/v1/remote-manual-selections/batches/{batchId}/operations
 ```
 
 Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
@@ -126,9 +131,11 @@ host-only cookie API `remote_manual_selection_access`. Context wymaga cookie i
 Proxy dodaje stały `X-Remote-Selection-Proxy: reviewer-v1`, którego wymagają
 wszystkie publiczne route FastAPI. Nie przekazuje Authorization, legacy cookie
 Reviewera ani `Set-Cookie` upstreamu. Wymusza same-origin Origin/Fetch Metadata,
-JSON i limit 128 KiB dla requestu oraz odpowiedzi. Zapytania, binarne body,
-route Admina, legacy Reviewera, jobów, storage, eksportów i wydań są zabronione.
-API nie ma publicznego CORS i pozostaje na loopback.
+JSON i limit 128 KiB dla requestu oraz odpowiedzi. Query jest zabronione poza
+dokładnie jednym odczytem state delta, gdzie dozwolone są wyłącznie pojedyncze,
+dziesiętne `sinceRevision` i `limit`. Binarne body, route Admina, legacy
+Reviewera, jobów, storage, eksportów i wydań są zabronione. API nie ma
+publicznego CORS i pozostaje na loopback.
 
 Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
 Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać
@@ -142,6 +149,18 @@ idempotentnie, a takeover jest dozwolony dopiero po expiry. Fencing token
 pozostaje wyłącznie w PostgreSQL. Piąta błędna próba blokuje sesję i usuwa token
 oraz lease; revoke robi to natychmiast. Wszystkie te route znikają razem z flagą
 rollbacku TASK 5.
+
+Control plane TASK 9 używa UUID encji jako trwałych kluczy idempotencji.
+Rejestracja źródeł przyjmuje strony po maksymalnie 500 metadanych, a dopiero
+ostatnia strona z `complete=true` aktywuje partię po przeliczeniu pełnego
+checksumowanego manifestu. Aktywny manifest jest niezmienny. Operacje są
+stosowane według `clientSequence`, `expectedServerRevision` i
+`selectionGeneration`; nowe mutacje wymagają bieżącego writer lease w tej samej
+transakcji. Exact retry znanego `operationId + command checksum` może odczytać
+wcześniejszy wynik po utracie lease, ale nigdy nie wykonuje mutacji ponownie.
+State delta jest ograniczone do 100 rekordów i zwraca monotoniczny
+`nextRevision`. Konflikt pozostaje w outboxie klienta do jawnego uzgodnienia;
+nie stosujemy last-write-wins.
 
 ## Games i symbols
 

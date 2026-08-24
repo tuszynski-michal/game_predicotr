@@ -26,9 +26,11 @@ geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
-`reviewer-v1`. Zamknięta allowlista TASK 7 obejmuje tylko unlock, context,
-heartbeat i takeover. Cookie starego Reviewera nie autoryzuje selekcji, a cookie
-selekcji nie autoryzuje `/review-api`.
+`reviewer-v1`. Po TASK 9 zamknięta allowlista obejmuje unlock, context,
+heartbeat, takeover oraz dokładne route tworzenia kolekcji/partii, stronicowanej
+rejestracji metadanych, operacji i state delta. Nie obejmuje uploadu binarnego,
+materializacji ani finalizacji. Cookie starego Reviewera nie autoryzuje
+selekcji, a cookie selekcji nie autoryzuje `/review-api`.
 
 Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
 Cloudflare ani sesji z kodem, a Reviewer odblokowuje wskazany scope tylko przy
@@ -70,8 +72,12 @@ sesji i kodu.
 | zatrzymanie nowszej instancji przez spóźnione żądanie | wewnętrzny compare-and-stop wymaga zgodnego instance id i pozostawia nowszą instancję bez zmian |
 | blokada wspólnego pliku logu lub wyniku | każda próba startu i każde wywołanie kontrolera API używa unikalnej ścieżki |
 | CSRF z obcego originu | mutacje `/selection-api` wymagają zgodnego `Origin`, `Sec-Fetch-Site: same-origin`, Strict cookie i JSON |
-| nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, brak query i Authorization, limit 128 KiB request/response oraz JSON-only |
+| nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, query tylko dla cyfrowych `sinceRevision/limit` state delta, brak Authorization, limit 128 KiB request/response oraz JSON-only |
 | awaria ingressu podczas revoke | revoke nie odczytuje ani nie zatrzymuje ingressu; token i lease są czyszczone niezależnie |
+| replay albo utrata odpowiedzi operacji | trwały outbox, dokładne `operationId + checksum`, monotoniczny client sequence/revision/generation i zwrot zapisanego outcome bez ponownej mutacji |
+| wysłanie operacji bez writer lease | autoryzacja writer ownership i mutacja odbywają się w tej samej transakcji; po expiry dozwolony jest wyłącznie exact retry istniejącego outcome |
+| zalanie control plane | limit 1200 żądań na minutę per sesja oraz stabilny błąd `REMOTE_SELECTION_CONTROL_RATE_LIMITED`; rotacja client ID nie odnawia budżetu |
+| podmiana źródeł po rozpoczęciu pracy | pełny checksum manifestu jest weryfikowany przed aktywacją; aktywny manifest jest niezmienny |
 
 Host base zdalnej selekcji jest wybierany wyłącznie przez stały lokalny picker.
 Publiczny request nie zawiera ścieżki. Każdy komponent collection/batch jest
@@ -94,6 +100,12 @@ Jedna sesja ma jeden 45-sekundowy writer lease. Klient przesyła wyłącznie
 klienta daje tryb read-only, heartbeat nie przyjmuje fencing tokenu, a takeover
 przed expiry kończy się konfliktem. Audyt zapisuje wynik i licznik prób, ale
 odrzuca kod, token, salt, lease token i ścieżkę hosta.
+
+Control plane nie przyjmuje host base path ani bajtów obrazu. UUID kolekcji,
+partii, pliku i operacji są sprawdzane względem purpose-scoped sesji. Rejestracja
+źródła jest ograniczona do 500 metadanych na request; aktywacja następuje tylko
+po zgodności liczby, indeksów i checksumy pełnego manifestu. State delta ma
+limit 100, a mutacje i rate limit zwracają stabilne kody bez sekretów i ścieżek.
 
 Dedykowany CSP `/manual-selection` i `/selection-api` zezwala na transport tylko
 do własnego originu; nie zawiera loopback FastAPI. Route ogólne Reviewera nadal

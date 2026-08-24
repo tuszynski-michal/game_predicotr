@@ -15,6 +15,9 @@ from game_predictor_api.application.remote_manual_selection_access import (
     RemoteManualSelectionAuthenticationError,
     RemoteManualSelectionAuthorizationError,
 )
+from game_predictor_api.application.remote_manual_selection_control import (
+    RemoteManualSelectionControlService,
+)
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
@@ -22,14 +25,27 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressService,
     ensure_online_reviewer_ingress,
 )
+from game_predictor_api.domain.remote_manual_selections import RemoteManualSelectionError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.remote_manual_selections import (
     RemoteManualSelectionBaseCapabilityResponse,
+    RemoteManualSelectionBatchCreate,
+    RemoteManualSelectionBatchCreatedResponse,
+    RemoteManualSelectionBatchResponse,
+    RemoteManualSelectionCollectionCreate,
+    RemoteManualSelectionCollectionResponse,
     RemoteManualSelectionContextResponse,
+    RemoteManualSelectionFileResponse,
+    RemoteManualSelectionOperationAppliedResponse,
+    RemoteManualSelectionOperationCreate,
+    RemoteManualSelectionOperationResponse,
     RemoteManualSelectionSessionCreate,
     RemoteManualSelectionSessionCreatedResponse,
     RemoteManualSelectionSessionListResponse,
     RemoteManualSelectionSessionResponse,
+    RemoteManualSelectionSourceItemsCreate,
+    RemoteManualSelectionSourceItemsResponse,
+    RemoteManualSelectionStateDeltaResponse,
     RemoteManualSelectionUnlock,
     RemoteManualSelectionWriterLeaseCommand,
 )
@@ -149,12 +165,14 @@ def create_remote_manual_selections_admin_router(
 
 def create_remote_manual_selections_public_router(
     access_service_dependency: Callable[..., object],
+    control_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(
         prefix="/remote-manual-selections",
         dependencies=[Depends(_require_remote_selection_proxy)],
     )
     access_service_parameter = Depends(access_service_dependency)
+    control_service_parameter = Depends(control_service_dependency)
     client_header_parameter = Header(alias="X-Remote-Selection-Client")
 
     @router.post(
@@ -260,6 +278,194 @@ def create_remote_manual_selections_public_router(
                 access_token=_require_cookie(access_token),
                 client_instance_id=payload.client_instance_id,
             )
+        )
+
+    @router.post(
+        "/collections",
+        response_model=RemoteManualSelectionCollectionResponse,
+        status_code=201,
+        operation_id="createRemoteManualSelectionCollection",
+        summary="Create an idempotent remote selection collection",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def create_collection(
+        payload: RemoteManualSelectionCollectionCreate,
+        service: Annotated[RemoteManualSelectionControlService, control_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionCollectionResponse:
+        return RemoteManualSelectionCollectionResponse.from_created(
+            service.create_collection(
+                session_id=payload.session_id,
+                collection_id=payload.collection_id,
+                name=payload.name,
+                access_token=_require_cookie(access_token),
+                client_instance_id=client_instance_id,
+            )
+        )
+
+    @router.post(
+        "/collections/{collection_id}/batches",
+        response_model=RemoteManualSelectionBatchCreatedResponse,
+        status_code=201,
+        operation_id="createRemoteManualSelectionBatch",
+        summary="Create an idempotent remote selection batch mapping",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def create_batch(
+        collection_id: UUID,
+        payload: RemoteManualSelectionBatchCreate,
+        service: Annotated[RemoteManualSelectionControlService, control_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionBatchCreatedResponse:
+        return RemoteManualSelectionBatchCreatedResponse.from_created(
+            service.create_batch(
+                session_id=payload.session_id,
+                collection_id=collection_id,
+                batch_id=payload.batch_id,
+                name=payload.name,
+                source_manifest_checksum_sha256=(payload.source_manifest_checksum_sha256),
+                first_layout=payload.first_layout,
+                direction=payload.direction,
+                total_file_count=payload.total_file_count,
+                access_token=_require_cookie(access_token),
+                client_instance_id=client_instance_id,
+            )
+        )
+
+    @router.post(
+        "/batches/{batch_id}/source-items",
+        response_model=RemoteManualSelectionSourceItemsResponse,
+        operation_id="registerRemoteManualSelectionSourceItems",
+        summary="Register one bounded page of immutable source metadata",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def register_source_items(
+        batch_id: UUID,
+        payload: RemoteManualSelectionSourceItemsCreate,
+        service: Annotated[RemoteManualSelectionControlService, control_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionSourceItemsResponse:
+        result = service.register_source_items(
+            session_id=payload.session_id,
+            batch_id=batch_id,
+            files=tuple(
+                item.to_domain(session_id=payload.session_id, batch_id=batch_id)
+                for item in payload.items
+            ),
+            source_kind=payload.source_kind,
+            complete=payload.complete,
+            access_token=_require_cookie(access_token),
+            client_instance_id=client_instance_id,
+        )
+        return RemoteManualSelectionSourceItemsResponse(
+            batch=RemoteManualSelectionBatchResponse.from_domain(result.batch),
+            accepted_file_ids=[item.id for item in result.files],
+            created_count=result.created_count,
+            total_file_count=result.total_file_count,
+        )
+
+    @router.get(
+        "/batches/{batch_id}/state",
+        response_model=RemoteManualSelectionStateDeltaResponse,
+        operation_id="getRemoteManualSelectionStateDelta",
+        summary="Read one bounded canonical state delta",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def get_state_delta(
+        batch_id: UUID,
+        service: Annotated[RemoteManualSelectionControlService, control_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        since_revision: Annotated[int, Query(alias="sinceRevision", ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100)] = 100,
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionStateDeltaResponse:
+        return RemoteManualSelectionStateDeltaResponse.from_delta(
+            service.state_delta(
+                batch_id=batch_id,
+                since_revision=since_revision,
+                limit=limit,
+                access_token=_require_cookie(access_token),
+                client_instance_id=client_instance_id,
+            )
+        )
+
+    @router.post(
+        "/batches/{batch_id}/operations",
+        response_model=RemoteManualSelectionOperationAppliedResponse,
+        operation_id="applyRemoteManualSelectionOperation",
+        summary="Apply one strictly ordered idempotent selection operation",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def apply_operation(
+        batch_id: UUID,
+        payload: RemoteManualSelectionOperationCreate,
+        service: Annotated[RemoteManualSelectionControlService, control_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionOperationAppliedResponse:
+        command = payload.to_domain()
+        if command.batch_id != batch_id:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The operation does not belong to the requested batch.",
+            )
+        result = service.apply_operation(
+            command=command,
+            access_token=_require_cookie(access_token),
+            client_instance_id=client_instance_id,
+        )
+        return RemoteManualSelectionOperationAppliedResponse(
+            operation=RemoteManualSelectionOperationResponse.from_domain(result.operation),
+            batch=RemoteManualSelectionBatchResponse.from_domain(result.batch),
+            file=(
+                None
+                if result.file is None
+                else RemoteManualSelectionFileResponse.from_domain(result.file)
+            ),
+            exact_retry=result.exact_retry,
         )
 
     return router

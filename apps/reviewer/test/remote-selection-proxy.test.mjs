@@ -254,6 +254,58 @@ test('feature flag and negative route matrix fail closed before the API', async 
   });
 });
 
+test('control allowlist admits only exact mutation paths and bounded state query', async () => {
+  await withFakeApi(async (origin, requests) => {
+    const cookie = `gp_remote_selection_token=${upstreamToken}`;
+    const operation = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/operations`,
+        {
+          body: '{}',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      ),
+      { internalApiOrigin: origin },
+    );
+    const state = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/state?sinceRevision=2&limit=100`,
+        { headers: { Cookie: cookie } },
+      ),
+      { internalApiOrigin: origin },
+    );
+    const forbiddenQuery = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/state?includeHostPath=true`,
+        { headers: { Cookie: cookie } },
+      ),
+      { internalApiOrigin: origin },
+    );
+    const upload = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}/files/${clientId}/content`,
+        {
+          body: '{}',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      ),
+      { internalApiOrigin: origin },
+    );
+
+    assert.equal(operation.status, 200);
+    assert.equal(state.status, 200);
+    assert.equal(forbiddenQuery.status, 403);
+    assert.equal(upload.status, 403);
+    assert.equal(requests.length, 2);
+    assert.equal(
+      requests[1].url,
+      `/api/v1/remote-manual-selections/batches/${sessionId}/state?sinceRevision=2&limit=100`,
+    );
+  });
+});
+
 test('invalid feature flag and oversized upstream response fail closed', async () => {
   assert.equal(isRemoteManualSelectionEnabled('unexpected'), false);
   const response = await proxyRemoteSelectionRequest(

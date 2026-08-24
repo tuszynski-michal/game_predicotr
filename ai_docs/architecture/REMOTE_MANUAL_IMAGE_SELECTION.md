@@ -1378,7 +1378,7 @@ stanów brzegowych oraz wysokie ryzyko utraty pracy.
 
 ### TASK 9: Operacje selekcji, rewizje i idempotencja HTTP
 
-**Status:** `PLANNED`
+**Status:** `DONE — v0.7.33`
 
 **Cel:** Synchronizować małe operacje sterujące w ścisłej kolejności i bez
 duplikatów lub cofnięcia nowszego stanu.

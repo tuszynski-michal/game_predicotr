@@ -44,6 +44,9 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionSessionV1,
     RemoteManualSelectionTransferStatus,
     RemoteManualSelectionTransferV1,
+    RemoteSourceKind,
+    RemoteSourceManifestEntryV1,
+    build_remote_source_manifest,
 )
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.models import (
@@ -288,6 +291,110 @@ def test_sql_repository_roundtrip_and_exact_retry(remote_database: URL) -> None:
         assert public_session == _session()
         assert not hasattr(public_session, "host_base_path")
         assert not hasattr(public_session, "token_hash")
+    finally:
+        engine.dispose()
+
+
+def test_source_manifest_pages_resume_after_restart_and_freeze_on_activation(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    entries = tuple(
+        RemoteSourceManifestEntryV1(
+            ordinal=index,
+            relative_path=f"source/{index + 1}.jpg",
+            name=f"{index + 1}.jpg",
+            size_bytes=100 + index,
+            last_modified_ms=1_700_000_000_000 + index,
+            mime_type="image/jpeg",
+        )
+        for index in range(2)
+    )
+    manifest = build_remote_source_manifest(
+        entries,
+        source_kind=RemoteSourceKind.DIRECTORY_HANDLE,
+    )
+    files = tuple(
+        replace(
+            _file(),
+            id=UUID(int=FILE_ID.int + index),
+            source_index=index,
+            relative_path=entry.relative_path,
+            size_bytes=entry.size_bytes,
+            last_modified_ms=entry.last_modified_ms,
+        )
+        for index, entry in enumerate(entries)
+    )
+    try:
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.add_session(
+                _session(),
+                base_binding_id=BINDING_ID,
+                host_base_path=r"C:\Users\user\Documents",
+                display_name="Documents",
+            )
+            repository.add_collection(_collection())
+            repository.add_batch(
+                replace(
+                    _batch(),
+                    status=RemoteManualSelectionBatchStatus.INDEXING,
+                    source_manifest_checksum_sha256=manifest.manifest_checksum_sha256,
+                ),
+                base_binding_id=BINDING_ID,
+                normalized_collection_name="777",
+                normalized_batch_name="1-19809",
+                total_file_count=2,
+            )
+            first = repository.register_source_files(
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                values=files[:1],
+                source_kind=RemoteSourceKind.DIRECTORY_HANDLE,
+                complete=False,
+            )
+            assert first.batch.status is RemoteManualSelectionBatchStatus.INDEXING
+            session.commit()
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            completed = repository.register_source_files(
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                values=files[1:],
+                source_kind=RemoteSourceKind.DIRECTORY_HANDLE,
+                complete=True,
+            )
+            session.commit()
+            assert completed.batch.status is RemoteManualSelectionBatchStatus.ACTIVE
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            exact_retry = repository.register_source_files(
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                values=files,
+                source_kind=RemoteSourceKind.DIRECTORY_HANDLE,
+                complete=True,
+            )
+            assert exact_retry.created_count == 0
+            with pytest.raises(RemoteManualSelectionConflictError) as immutable:
+                repository.register_source_files(
+                    session_id=SESSION_ID,
+                    batch_id=BATCH_ID,
+                    values=(
+                        replace(
+                            files[0],
+                            id=UUID(int=999),
+                            source_index=2,
+                            relative_path="source/3.jpg",
+                        ),
+                    ),
+                    source_kind=RemoteSourceKind.DIRECTORY_HANDLE,
+                    complete=False,
+                )
+            assert immutable.value.code == "REMOTE_SELECTION_SOURCE_MANIFEST_IMMUTABLE"
     finally:
         engine.dispose()
 

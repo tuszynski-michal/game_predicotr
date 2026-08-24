@@ -74,6 +74,11 @@ from game_predictor_api.application.remote_manual_selection_access import (
     RemoteManualSelectionAuthorizationError,
     RemoteManualSelectionLeaseConflictError,
 )
+from game_predictor_api.application.remote_manual_selection_control import (
+    RemoteManualSelectionControlRateLimiter,
+    RemoteManualSelectionControlService,
+    RemoteManualSelectionRateLimitError,
+)
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
@@ -220,6 +225,9 @@ from game_predictor_api.storage.page_geometry_override_repository import (
 from game_predictor_api.storage.remote_manual_selection_access_repository import (
     SqlAlchemyRemoteManualSelectionAccessRepository,
 )
+from game_predictor_api.storage.remote_manual_selection_repository import (
+    SqlAlchemyRemoteManualSelectionRepository,
+)
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
@@ -283,6 +291,7 @@ def create_app(
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -457,6 +466,34 @@ def create_app(
     resolved_remote_manual_selection_access_dependency = (
         remote_manual_selection_access_service_dependency
         or default_remote_manual_selection_access_service_dependency
+    )
+    remote_manual_selection_control_rate_limiter = RemoteManualSelectionControlRateLimiter()
+
+    def default_remote_manual_selection_control_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionControlService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionControlService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    RemoteManualSelectionAccessService(
+                        SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                        host_service,
+                    ),
+                    host_service,
+                    rate_limiter=remote_manual_selection_control_rate_limiter,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_control_dependency = (
+        remote_manual_selection_control_service_dependency
+        or default_remote_manual_selection_control_service_dependency
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -843,6 +880,7 @@ def create_app(
             resolved_board_cell_geometry_pending_dependency,
             resolved_remote_manual_selection_host_dependency,
             resolved_remote_manual_selection_access_dependency,
+            resolved_remote_manual_selection_control_dependency,
             resolved_settings.artifact_root,
         )
     )
@@ -1011,6 +1049,8 @@ def create_app(
             status_code = 401
         elif isinstance(error, RemoteManualSelectionAuthorizationError):
             status_code = 403
+        elif isinstance(error, RemoteManualSelectionRateLimitError):
+            status_code = 429
         elif isinstance(
             error,
             RemoteManualSelectionConflictError | RemoteManualSelectionLeaseConflictError,

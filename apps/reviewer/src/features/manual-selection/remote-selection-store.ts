@@ -61,6 +61,30 @@ export interface RemoteSelectionSourceItemRecord extends RemoteSourceManifestEnt
   readonly sessionId: string;
   readonly batchId: string;
   readonly fileId: string;
+  readonly desiredSelected?: boolean;
+  readonly selectionGeneration?: number;
+  readonly serverStatus?: string;
+  readonly rangeStart?: number | null;
+  readonly rangeEnd?: number | null;
+  readonly outputName?: string | null;
+  readonly hostChecksumSha256?: string | null;
+  readonly lastServerRevision?: number;
+}
+
+export interface RemoteSelectionServerFileState {
+  readonly fileId: string;
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly sourceIndex: number;
+  readonly relativePath: string;
+  readonly desiredSelected: boolean;
+  readonly selectionGeneration: number;
+  readonly status: string;
+  readonly rangeStart: number | null;
+  readonly rangeEnd: number | null;
+  readonly outputName: string | null;
+  readonly hostChecksumSha256: string | null;
+  readonly lastServerRevision: number | null;
 }
 
 export type RemoteSelectionOutboxState = 'pending' | 'sending' | 'conflict';
@@ -489,6 +513,206 @@ export class RemoteSelectionIndexedDbStore {
     }
   }
 
+  async loadClientInstance(
+    sessionId: string,
+    batchId: string,
+    clientInstanceId: string,
+  ): Promise<RemoteSelectionClientInstanceRecord | null> {
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+        'readonly',
+      );
+      return (await requestResult(
+        transaction
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.clientInstances)
+          .get([sessionId, batchId, clientInstanceId]),
+      )) as RemoteSelectionClientInstanceRecord | null;
+    } finally {
+      database.close();
+    }
+  }
+
+  async markOutboxOperation(
+    sessionId: string,
+    batchId: string,
+    operationId: string,
+    state: RemoteSelectionOutboxState,
+    lastErrorCode: string | null,
+    updatedAt = new Date().toISOString(),
+  ): Promise<RemoteSelectionOutboxRecord> {
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+        'readwrite',
+      );
+      const store = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+      );
+      const current = (await requestResult(
+        store.index('operationId').get(operationId),
+      )) as RemoteSelectionOutboxRecord | null;
+      if (
+        current === null ||
+        current.sessionId !== sessionId ||
+        current.batchId !== batchId
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_OUTBOX_OPERATION_NOT_FOUND',
+          'The outbox operation does not exist in this batch.',
+        );
+      }
+      const next: RemoteSelectionOutboxRecord = {
+        ...current,
+        attemptCount:
+          state === 'sending' ? current.attemptCount + 1 : current.attemptCount,
+        lastErrorCode,
+        state,
+        updatedAt,
+      };
+      store.put(next);
+      await transactionComplete(transaction);
+      return next;
+    } finally {
+      database.close();
+    }
+  }
+
+  async confirmOperation(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly clientInstanceId: string;
+    readonly operationId: string;
+    readonly commandChecksumSha256: string;
+    readonly serverRevision: number;
+    readonly file: RemoteSelectionServerFileState | null;
+    readonly updatedAt?: string;
+  }): Promise<void> {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.outbox,
+          REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+          REMOTE_SELECTION_DATABASE_STORES.sourceItems,
+        ],
+        'readwrite',
+      );
+      const outbox = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+      );
+      const record = (await requestResult(
+        outbox.index('operationId').get(input.operationId),
+      )) as RemoteSelectionOutboxRecord | null;
+      if (
+        record === null ||
+        record.sessionId !== input.sessionId ||
+        record.batchId !== input.batchId ||
+        record.clientInstanceId !== input.clientInstanceId ||
+        record.commandChecksumSha256 !== input.commandChecksumSha256
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_CONFIRMATION_MISMATCH',
+          'The server confirmation does not match the exact outbox operation.',
+        );
+      }
+      if (input.file !== null) {
+        await updateServerFileState(
+          transaction.objectStore(REMOTE_SELECTION_DATABASE_STORES.sourceItems),
+          input.file,
+        );
+      }
+      const clients = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+      );
+      const key = [input.sessionId, input.batchId, input.clientInstanceId];
+      const client = (await requestResult(
+        clients.get(key),
+      )) as RemoteSelectionClientInstanceRecord | null;
+      if (client === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_CLIENT_INSTANCE_NOT_FOUND',
+          'The local client instance does not exist.',
+        );
+      }
+      clients.put({
+        ...client,
+        lastKnownServerRevision: Math.max(
+          client.lastKnownServerRevision,
+          input.serverRevision,
+        ),
+        updatedAt,
+      });
+      outbox.delete([input.sessionId, input.batchId, record.clientSequence]);
+      await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async applyServerStateDelta(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly clientInstanceId: string;
+    readonly files: readonly RemoteSelectionServerFileState[];
+    readonly nextRevision: number;
+    readonly updatedAt?: string;
+  }): Promise<void> {
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+          REMOTE_SELECTION_DATABASE_STORES.sourceItems,
+        ],
+        'readwrite',
+      );
+      const sourceItems = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.sourceItems,
+      );
+      try {
+        for (const file of input.files) {
+          await updateServerFileState(sourceItems, file);
+        }
+      } catch (cause) {
+        transaction.abort();
+        throw cause;
+      }
+      const clients = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+      );
+      const key = [input.sessionId, input.batchId, input.clientInstanceId];
+      const client = (await requestResult(
+        clients.get(key),
+      )) as RemoteSelectionClientInstanceRecord | null;
+      if (
+        client === null ||
+        input.nextRevision < client.lastKnownServerRevision
+      ) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_STATE_REVISION_INVALID',
+          'The server state delta would roll back local canonical state.',
+        );
+      }
+      clients.put({
+        ...client,
+        lastKnownServerRevision: input.nextRevision,
+        updatedAt,
+      });
+      await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
   async saveTransferCheckpoint(
     checkpoint: RemoteSelectionTransferCheckpointRecord,
   ): Promise<void> {
@@ -811,6 +1035,47 @@ function requestResult(request: IDBRequest): Promise<unknown> {
     request.onerror = () =>
       reject(request.error ?? new Error('REMOTE_SELECTION_IDB_READ_FAILED'));
   });
+}
+
+async function updateServerFileState(
+  store: IDBObjectStore,
+  file: RemoteSelectionServerFileState,
+): Promise<void> {
+  const current = (await requestResult(
+    store.get([file.sessionId, file.batchId, file.sourceIndex]),
+  )) as RemoteSelectionSourceItemRecord | null;
+  if (
+    current === null ||
+    current.fileId !== file.fileId ||
+    current.relativePath !== file.relativePath
+  ) {
+    throw storeError(
+      'REMOTE_SELECTION_SERVER_FILE_SCOPE_MISMATCH',
+      'Canonical server file state does not match the indexed source item.',
+    );
+  }
+  const currentRevision = current.lastServerRevision ?? 0;
+  const nextRevision = file.lastServerRevision ?? currentRevision;
+  if (
+    nextRevision < currentRevision ||
+    file.selectionGeneration < (current.selectionGeneration ?? 0)
+  ) {
+    throw storeError(
+      'REMOTE_SELECTION_SERVER_FILE_STALE',
+      'Canonical server file state is older than the persisted state.',
+    );
+  }
+  store.put({
+    ...current,
+    desiredSelected: file.desiredSelected,
+    hostChecksumSha256: file.hostChecksumSha256,
+    lastServerRevision: nextRevision,
+    outputName: file.outputName,
+    rangeEnd: file.rangeEnd,
+    rangeStart: file.rangeStart,
+    selectionGeneration: file.selectionGeneration,
+    serverStatus: file.status,
+  } satisfies RemoteSelectionSourceItemRecord);
 }
 
 function transactionComplete(transaction: IDBTransaction): Promise<void> {

@@ -456,6 +456,17 @@ def test_scope_and_unknown_operation_types_are_rejected() -> None:
     assert type_error.value.code == "REMOTE_SELECTION_OPERATION_TYPE_INVALID"
 
 
+def test_select_rejects_a_source_path_index_or_output_name_from_another_file() -> None:
+    for command in (
+        replace(_command(), image_path="folder/other.jpg"),
+        replace(_command(), source_index=1),
+        replace(_command(), output_name="seq_10-18.jpg"),
+    ):
+        with pytest.raises(RemoteManualSelectionError) as error:
+            apply_remote_manual_selection_operation(_batch(), _file(), command)
+        assert error.value.code == "REMOTE_SELECTION_SCOPE_MISMATCH"
+
+
 def test_source_manifest_is_natural_ordered_canonical_and_path_safe() -> None:
     entries = tuple(
         RemoteSourceManifestEntryV1(

@@ -210,6 +210,19 @@ class RemoteManualSelectionHostService:
             display_name=stored.value.display_name,
         )
 
+    def validate_mapping_component(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        value: str,
+    ) -> ValidatedWindowsComponent:
+        binding = repository.get_host_binding_for_update(session_id)
+        if binding is None:
+            raise _scope_error()
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            return validate_windows_component(value, limits=locked.bound_base.limits)
+
     def provision_batch_mapping(
         self,
         repository: RemoteManualSelectionHostRepository,

@@ -970,6 +970,15 @@ def apply_remote_manual_selection_operation(
     }
     if file_mutation:
         assert file is not None
+        if command.operation_type is RemoteManualSelectionOperationType.SELECT and (
+            command.image_path != file.relative_path
+            or command.source_index != file.source_index
+            or command.output_name != f"seq_{command.range_start}-{command.range_end}.jpg"
+        ):
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The selected source metadata does not match the canonical file and range.",
+            )
         if command.selection_generation <= file.selection_generation:
             operation = _operation_result(
                 command,

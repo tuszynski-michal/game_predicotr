@@ -1,0 +1,333 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
+import { canonicalRemoteChecksumSha256 } from '@game-predictor/manual-image-selection-core';
+
+import { RemoteSelectionIndexedDbStore } from '../src/features/manual-selection/remote-selection-store.ts';
+import {
+  WebkitDirectoryRemoteSourceAdapter,
+  createRemoteSourceItemRecords,
+} from '../src/features/manual-selection/remote-source-adapter.ts';
+import {
+  FetchRemoteSelectionControlTransport,
+  RemoteSelectionControlApiError,
+  RemoteSelectionOutboxSynchronizer,
+} from '../src/features/manual-selection/remote-selection-sync.ts';
+
+const sessionId = '10000000-0000-4000-8000-000000000001';
+const batchId = '20000000-0000-4000-8000-000000000002';
+const clientInstanceId = '30000000-0000-4000-8000-000000000003';
+
+async function fixture() {
+  const factory = new IDBFactory();
+  const store = new RemoteSelectionIndexedDbStore(factory, IDBKeyRange);
+  const file = new File(['jpeg'], '1.jpg', {
+    lastModified: 1_700_000_000_000,
+    type: 'image/jpeg',
+  });
+  Object.defineProperty(file, 'webkitRelativePath', {
+    value: 'batch/1.jpg',
+  });
+  const indexed = await new WebkitDirectoryRemoteSourceAdapter([file]).index();
+  const sourceItems = createRemoteSourceItemRecords(
+    sessionId,
+    batchId,
+    indexed.manifest,
+    () => '40000000-0000-4000-8000-000000000004',
+  );
+  const now = '2026-08-24T00:00:00.000Z';
+  await store.saveIndexedSource({
+    session: {
+      schemaVersion: 1,
+      activeBatchId: batchId,
+      permissionState: 'unsupported',
+      persistenceGranted: false,
+      sessionId,
+      sourceDirectoryName: indexed.sourceDirectoryName,
+      sourceHandle: null,
+      sourceKind: indexed.manifest.sourceKind,
+      sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+      updatedAt: now,
+    },
+    batch: {
+      schemaVersion: 1,
+      batchId,
+      cursorIndex: 0,
+      direction: 'ascending',
+      fileCount: 1,
+      firstLayout: 1,
+      sessionId,
+      sourceDirectoryName: indexed.sourceDirectoryName,
+      sourceKind: indexed.manifest.sourceKind,
+      sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+      totalBytes: indexed.manifest.totalBytes,
+      updatedAt: now,
+    },
+    sourceItems,
+  });
+  return { factory, sourceItem: sourceItems[0], store };
+}
+
+function command(sequence, sourceItem) {
+  return {
+    schemaVersion: 'remote-manual-selection-operation-v1',
+    operationId: `50000000-0000-4000-8000-${String(sequence).padStart(12, '0')}`,
+    sessionId,
+    batchId,
+    clientInstanceId,
+    clientSequence: sequence,
+    expectedServerRevision: sequence - 1,
+    operationType: 'select',
+    selectionGeneration: sequence,
+    rangeStart: sequence * 9 - 8,
+    rangeEnd: sequence * 9,
+    recordedAt: '2026-08-24T00:00:00.000Z',
+    fileId: sourceItem.fileId,
+    imagePath: sourceItem.relativePath,
+    sourceIndex: sourceItem.ordinal,
+    imageChecksumSha256: 'a'.repeat(64),
+    outputName: `seq_${sequence * 9 - 8}-${sequence * 9}.jpg`,
+    visibleMilliseconds: 400,
+    decoded: true,
+    targetOperationId: null,
+  };
+}
+
+function fileState(sourceItem, revision = 1) {
+  return {
+    batchId,
+    desiredSelected: true,
+    fileId: sourceItem.fileId,
+    hostChecksumSha256: null,
+    lastServerRevision: revision,
+    outputName: 'seq_1-9.jpg',
+    rangeEnd: 9,
+    rangeStart: 1,
+    relativePath: sourceItem.relativePath,
+    selectionGeneration: 1,
+    sessionId,
+    sourceIndex: sourceItem.ordinal,
+    status: 'selection_queued',
+  };
+}
+
+async function outcome(commandValue, sourceItem, exactRetry) {
+  return {
+    batch: {
+      batchId,
+      lastClientSequence: 1,
+      serverRevision: 1,
+    },
+    exactRetry,
+    file: { ...fileState(sourceItem), lastServerRevision: null },
+    operation: {
+      appliedServerRevision: 1,
+      commandChecksumSha256: await canonicalRemoteChecksumSha256(commandValue),
+      operationId: commandValue.operationId,
+      outcomeCode: 'applied',
+      status: 'applied',
+    },
+  };
+}
+
+test('lost response survives refresh and exact replay removes only confirmed opId', async () => {
+  const { factory, sourceItem, store } = await fixture();
+  const operation = command(1, sourceItem);
+  await store.appendOutboxOperation(operation);
+  let applied = false;
+  const transport = {
+    async applyOperation(value) {
+      if (!applied) {
+        applied = true;
+        throw new TypeError('connection lost after server commit');
+      }
+      return outcome(value, sourceItem, true);
+    },
+    async getStateDelta() {
+      return {
+        batch: { batchId, lastClientSequence: 1, serverRevision: 1 },
+        files: [fileState(sourceItem)],
+        hasMore: false,
+        nextRevision: 1,
+      };
+    },
+  };
+
+  const interrupted = await new RemoteSelectionOutboxSynchronizer(
+    store,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+  assert.equal(interrupted.confirmedCount, 0);
+  assert.equal(interrupted.pendingCount, 1);
+
+  const restoredStore = new RemoteSelectionIndexedDbStore(factory, IDBKeyRange);
+  const resumed = await new RemoteSelectionOutboxSynchronizer(
+    restoredStore,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+  assert.equal(resumed.confirmedCount, 1);
+  assert.equal(resumed.pendingCount, 0);
+  assert.equal(
+    await restoredStore.countPendingOperations(sessionId, batchId),
+    0,
+  );
+  const persisted = await restoredStore.listSourceItemsPage(sessionId, batchId);
+  assert.equal(persisted[0].desiredSelected, true);
+  assert.equal(persisted[0].selectionGeneration, 1);
+});
+
+test('controlled conflict reconciles canonical delta but retains exact outbox record', async () => {
+  const { sourceItem, store } = await fixture();
+  const operation = command(1, sourceItem);
+  await store.appendOutboxOperation(operation);
+  const transport = {
+    async applyOperation() {
+      throw new RemoteSelectionControlApiError(
+        409,
+        'REMOTE_SELECTION_REVISION_CONFLICT',
+        'stale',
+      );
+    },
+    async getStateDelta() {
+      return {
+        batch: { batchId, lastClientSequence: 1, serverRevision: 1 },
+        files: [fileState(sourceItem)],
+        hasMore: false,
+        nextRevision: 1,
+      };
+    },
+  };
+  const result = await new RemoteSelectionOutboxSynchronizer(
+    store,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+
+  assert.equal(result.conflictOperationId, operation.operationId);
+  assert.equal(result.conflictCode, 'REMOTE_SELECTION_REVISION_CONFLICT');
+  assert.equal(result.pendingCount, 1);
+  const pending = await store.listOutboxPage(sessionId, batchId);
+  assert.equal(pending[0].state, 'conflict');
+  assert.equal(pending[0].operationId, operation.operationId);
+  const client = await store.loadClientInstance(
+    sessionId,
+    batchId,
+    clientInstanceId,
+  );
+  assert.equal(client.lastKnownServerRevision, 1);
+});
+
+test('mismatched confirmation never acknowledges the local operation', async () => {
+  const { sourceItem, store } = await fixture();
+  const operation = command(1, sourceItem);
+  await store.appendOutboxOperation(operation);
+  const transport = {
+    async applyOperation(value) {
+      const response = await outcome(value, sourceItem, false);
+      return {
+        ...response,
+        operation: {
+          ...response.operation,
+          operationId: '90000000-0000-4000-8000-000000000009',
+        },
+      };
+    },
+    async getStateDelta() {
+      throw new Error('not needed');
+    },
+  };
+  const result = await new RemoteSelectionOutboxSynchronizer(
+    store,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+
+  assert.equal(result.pendingCount, 1);
+  assert.equal(result.conflictCode, 'REMOTE_SELECTION_CONFIRMATION_MISMATCH');
+  assert.equal(await store.countPendingOperations(sessionId, batchId), 1);
+});
+
+test('malformed revision outcome never acknowledges the local operation', async () => {
+  const { sourceItem, store } = await fixture();
+  const operation = command(1, sourceItem);
+  await store.appendOutboxOperation(operation);
+  const transport = {
+    async applyOperation(value) {
+      const response = await outcome(value, sourceItem, false);
+      return {
+        ...response,
+        operation: {
+          ...response.operation,
+          appliedServerRevision: response.batch.serverRevision + 1,
+        },
+      };
+    },
+    async getStateDelta() {
+      throw new Error('not needed');
+    },
+  };
+  const result = await new RemoteSelectionOutboxSynchronizer(
+    store,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+
+  assert.equal(result.pendingCount, 1);
+  assert.equal(result.conflictCode, 'REMOTE_SELECTION_CONFIRMATION_MISMATCH');
+  assert.equal(await store.countPendingOperations(sessionId, batchId), 1);
+});
+
+test('source bootstrap sends bounded ordered pages and activates only the last page', async () => {
+  const requests = [];
+  const transport = new FetchRemoteSelectionControlTransport(
+    clientInstanceId,
+    async (path, init) => {
+      const body = JSON.parse(init.body);
+      requests.push({ body, path: String(path) });
+      return Response.json({
+        acceptedFileIds: body.items.map((item) => item.fileId),
+        batch: {
+          batchId,
+          status: body.complete ? 'active' : 'indexing',
+        },
+        createdCount: body.items.length,
+        totalFileCount: requests.reduce(
+          (total, request) => total + request.body.items.length,
+          0,
+        ),
+      });
+    },
+  );
+  const items = Array.from({ length: 5 }, (_, ordinal) => ({
+    schemaVersion: 1,
+    batchId,
+    fileId: `40000000-0000-4000-8000-${String(ordinal).padStart(12, '0')}`,
+    lastModifiedMs: ordinal,
+    mimeType: 'image/jpeg',
+    name: `${ordinal}.jpg`,
+    ordinal,
+    relativePath: `${ordinal}.jpg`,
+    sessionId,
+    sizeBytes: ordinal + 1,
+  }));
+
+  await transport.registerCompleteSourceManifest(
+    sessionId,
+    batchId,
+    'directory_handle',
+    items,
+    2,
+  );
+
+  assert.deepEqual(
+    requests.map((request) => request.body.items.length),
+    [2, 2, 1],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.body.complete),
+    [false, false, true],
+  );
+  assert.ok(
+    requests.every((request) =>
+      request.path.endsWith(`/batches/${batchId}/source-items`),
+    ),
+  );
+});

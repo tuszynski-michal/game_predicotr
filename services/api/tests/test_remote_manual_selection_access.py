@@ -234,6 +234,33 @@ def test_writer_heartbeat_is_idempotent_at_same_clock_and_preserves_fencing_toke
     assert repository.records[created.session.session_id].writer_lease_token == initial_token
 
 
+def test_control_authorization_requires_the_current_unexpired_writer() -> None:
+    service, _repository, host, clock = _service()
+    created = _created(service, host)
+    client_id = uuid4()
+    unlocked = service.unlock(
+        session_id=created.session.session_id,
+        access_code=created.access_code,
+        client_instance_id=client_id,
+    )
+
+    authorized = service.authorize_writer(
+        session_id=created.session.session_id,
+        access_token=unlocked.access_token,
+        client_instance_id=client_id,
+    )
+    assert authorized.is_writer is True
+
+    clock[0] += timedelta(seconds=46)
+    with pytest.raises(RemoteManualSelectionLeaseConflictError) as expired:
+        service.authorize_writer(
+            session_id=created.session.session_id,
+            access_token=unlocked.access_token,
+            client_instance_id=client_id,
+        )
+    assert expired.value.code == "REMOTE_SELECTION_WRITER_LEASE_LOST"
+
+
 def test_revoke_is_immediate_idempotent_and_redacted() -> None:
     service, repository, host, _clock = _service()
     created = _created(service, host)

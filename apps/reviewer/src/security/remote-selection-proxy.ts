@@ -40,12 +40,14 @@ export async function proxyRemoteSelectionRequest(
   }
 
   const requestUrl = new URL(request.url);
-  if (requestUrl.search !== '') {
-    return forbidden();
-  }
   const incomingPath = publicPathToApiPath(requestUrl.pathname);
   const targetPath = remoteSelectionProxyTarget(request.method, incomingPath);
   if (targetPath === null) return forbidden();
+  if (
+    !isAllowedControlQuery(request.method, targetPath, requestUrl.searchParams)
+  ) {
+    return forbidden();
+  }
 
   const originError = validateRequestOrigin(request);
   if (originError !== null) return originError;
@@ -102,7 +104,10 @@ export async function proxyRemoteSelectionRequest(
   let upstream: Response;
   try {
     upstream = await (options.fetchImplementation ?? globalThis.fetch)(
-      new URL(targetPath, internalApiOrigin(options.internalApiOrigin)),
+      new URL(
+        `${targetPath}${requestUrl.search}`,
+        internalApiOrigin(options.internalApiOrigin),
+      ),
       {
         body,
         cache: 'no-store',
@@ -126,6 +131,21 @@ export async function proxyRemoteSelectionRequest(
   const response = await filteredUpstreamResponse(upstream);
   if (upstream.status === 401) clearPublicCookie(response.headers);
   return response;
+}
+
+function isAllowedControlQuery(
+  method: string,
+  path: string,
+  parameters: URLSearchParams,
+): boolean {
+  if (parameters.size === 0) return true;
+  if (method !== 'GET' || !path.endsWith('/state')) return false;
+  const allowed = new Set(['sinceRevision', 'limit']);
+  for (const [key, value] of parameters) {
+    if (!allowed.has(key) || !/^\d{1,16}$/.test(value)) return false;
+    if (parameters.getAll(key).length !== 1) return false;
+  }
+  return true;
 }
 
 function publicPathToApiPath(pathname: string): string {

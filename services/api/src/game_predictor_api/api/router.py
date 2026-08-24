@@ -76,6 +76,7 @@ def create_api_router(
     board_cell_geometry_pending_service_dependency: Callable[..., object],
     remote_manual_selection_host_service_dependency: Callable[..., object],
     remote_manual_selection_access_service_dependency: Callable[..., object],
+    remote_manual_selection_control_service_dependency: Callable[..., object],
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -102,6 +103,7 @@ def create_api_router(
         router.include_router(
             create_remote_manual_selections_public_router(
                 remote_manual_selection_access_service_dependency,
+                remote_manual_selection_control_service_dependency,
             )
         )
     router.include_router(

@@ -15,6 +15,30 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Control plane zdalnej selekcji — v0.7.33
+
+- TASK-0281 dodaje idempotentne tworzenie kolekcji i partii, stronicowaną
+  rejestrację metadanych źródła oraz aktywację dopiero po zgodności kompletnego
+  manifestu. Aktywny manifest nie może być zmieniony.
+- Operacje selekcji są stosowane transakcyjnie w jednej kolejności
+  `clientSequence/serverRevision/selectionGeneration`. Nowa mutacja wymaga
+  aktualnego writer lease, natomiast exact retry identycznego `operationId` i
+  checksumy zwraca zapisany outcome także po utracie lease, bez ponownego
+  zwiększenia rewizji.
+- Reviewer ma zamkniętą allowlistę control plane, cyfrowe query wyłącznie dla
+  bounded state delta i sekwencyjny synchronizator trwałego IndexedDB outboxu.
+  Potwierdzenie usuwa tylko dokładny `operationId`; błąd sieci pozostawia
+  pending, a kontrolowany konflikt zachowuje operację i uzgadnia nowszy stan.
+- Publiczna powierzchnia nadal nie przyjmuje bajtów JPEG, nie materializuje
+  plików i nie finalizuje partii. To pozostaje zakresem TASK 10+.
+- Bramka: 526 top-level testów API i 2 pominięte testy symlinków Windows,
+  13/13 PostgreSQL (w tym indeksowany delta dla 15 000 rekordów), 85/85 testów
+  Reviewera, Ruff, Reviewer lint/typecheck/build, klient API i OpenAPI są
+  zielone. Pełny mypy grafu API nadal zatrzymują dwa wcześniejsze błędy w
+  `symbol_model_iteration_repository.py`; zmienione moduły przechodzą kontrolę
+  izolowaną.
+- TASK 9 wymaga osobnego checkpointu przed TASK 10.
+
 ### Trwałe źródło i outbox zdalnej selekcji — v0.7.32
 
 - TASK-0280 dodaje do Reviewera osobny IndexedDB

@@ -15,6 +15,9 @@ import type {
   ActivateSymbolModelData,
   ActivateSymbolModelErrors,
   ActivateSymbolModelResponses,
+  ApplyRemoteManualSelectionOperationData,
+  ApplyRemoteManualSelectionOperationErrors,
+  ApplyRemoteManualSelectionOperationResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -93,6 +96,12 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreateRemoteManualSelectionBatchData,
+  CreateRemoteManualSelectionBatchErrors,
+  CreateRemoteManualSelectionBatchResponses,
+  CreateRemoteManualSelectionCollectionData,
+  CreateRemoteManualSelectionCollectionErrors,
+  CreateRemoteManualSelectionCollectionResponses,
   CreateRemoteManualSelectionSessionData,
   CreateRemoteManualSelectionSessionErrors,
   CreateRemoteManualSelectionSessionResponses,
@@ -242,6 +251,9 @@ import type {
   GetRemoteManualSelectionSessionData,
   GetRemoteManualSelectionSessionErrors,
   GetRemoteManualSelectionSessionResponses,
+  GetRemoteManualSelectionStateDeltaData,
+  GetRemoteManualSelectionStateDeltaErrors,
+  GetRemoteManualSelectionStateDeltaResponses,
   GetReviewBatchData,
   GetReviewBatchErrors,
   GetReviewBatchResponses,
@@ -459,6 +471,9 @@ import type {
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
+  RegisterRemoteManualSelectionSourceItemsData,
+  RegisterRemoteManualSelectionSourceItemsErrors,
+  RegisterRemoteManualSelectionSourceItemsResponses,
   RejectImageSelectionReviewGroupData,
   RejectImageSelectionReviewGroupErrors,
   RejectImageSelectionReviewGroupResponses,
@@ -4419,6 +4434,127 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
     ...options,
+  });
+
+/**
+ * Apply one strictly ordered idempotent selection operation
+ */
+export const applyRemoteManualSelectionOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApplyRemoteManualSelectionOperationData, ThrowOnError>,
+): RequestResult<
+  ApplyRemoteManualSelectionOperationResponses,
+  ApplyRemoteManualSelectionOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApplyRemoteManualSelectionOperationResponses,
+    ApplyRemoteManualSelectionOperationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/operations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Register one bounded page of immutable source metadata
+ */
+export const registerRemoteManualSelectionSourceItems = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RegisterRemoteManualSelectionSourceItemsData, ThrowOnError>,
+): RequestResult<
+  RegisterRemoteManualSelectionSourceItemsResponses,
+  RegisterRemoteManualSelectionSourceItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterRemoteManualSelectionSourceItemsResponses,
+    RegisterRemoteManualSelectionSourceItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/source-items',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one bounded canonical state delta
+ */
+export const getRemoteManualSelectionStateDelta = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionStateDeltaData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionStateDeltaResponses,
+  GetRemoteManualSelectionStateDeltaErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionStateDeltaResponses,
+    GetRemoteManualSelectionStateDeltaErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/state',
+    ...options,
+  });
+
+/**
+ * Create an idempotent remote selection collection
+ */
+export const createRemoteManualSelectionCollection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionCollectionData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionCollectionResponses,
+  CreateRemoteManualSelectionCollectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionCollectionResponses,
+    CreateRemoteManualSelectionCollectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/collections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create an idempotent remote selection batch mapping
+ */
+export const createRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionBatchResponses,
+  CreateRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionBatchResponses,
+    CreateRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/collections/{collection_id}/batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

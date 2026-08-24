@@ -25,6 +25,36 @@ export function remoteSelectionProxyTarget(
   ) {
     return path;
   }
+  if (
+    method === 'POST' &&
+    path === '/api/v1/remote-manual-selections/collections'
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/collections/${STRICT_UUID}/batches$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/(?:source-items|operations)$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/state$`,
+    ).test(path)
+  ) {
+    return path;
+  }
   return null;
 }
 

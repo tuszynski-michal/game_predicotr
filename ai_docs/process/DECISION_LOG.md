@@ -5314,6 +5314,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** request przed zapisem, pamięć React, localStorage i
   `beforeunload` odrzucono jako nietrwałe lub niewystarczające dla crash replay.
 
+## D-222 — Idempotencja control plane jest związana z encją i trwałym outcome
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** UUID kolekcji, partii, pliku i operacji są kluczami
+  idempotencji odpowiednich mutacji. Dokładny retry `operationId + checksum`
+  zwraca wcześniej zapisany outcome bez zwiększenia rewizji, również po utracie
+  writer lease. Każda nowa mutacja nadal wymaga aktywnego lease sprawdzonego w
+  tej samej transakcji co zapis domenowy.
+- **Context:** odpowiedź hosta może zginąć po trwałym commicie. Wymaganie nowego
+  lease do samego odczytu outcome zablokowałoby bezpieczny replay, natomiast
+  ponowne zastosowanie komendy mogłoby zdublować decyzję albo cofnąć generację.
+- **Safety:** zgodność pełnego checksumy komendy, session/batch/client scope,
+  `clientSequence`, `expectedServerRevision` i `selectionGeneration` jest
+  egzekwowana fail-closed. Konflikt nie jest automatycznie rebase'owany ani
+  rozstrzygany last-write-wins; pozostaje w outboxie do jawnego uzgodnienia.
+- **Consequences:** source manifest aktywuje się dopiero po kompletnej walidacji
+  i staje się immutable. State delta jest stronicowane i monotoniczne. TASK 10
+  musi użyć tej samej tożsamości/generacji, ale nie może rozszerzyć control route
+  o binarny body.
+- **Alternatives:** losowy `Idempotency-Key` niezwiązany z encją, retry jako nowa
+  operacja i automatyczne last-write-wins odrzucono jako tworzące drugi porządek
+  lub ryzyko utraty decyzji.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from threading import RLock
 from typing import cast
@@ -36,7 +36,10 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionSessionV1,
     RemoteManualSelectionTransferStatus,
     RemoteManualSelectionTransferV1,
+    RemoteSourceKind,
+    RemoteSourceManifestEntryV1,
     apply_remote_manual_selection_operation,
+    build_remote_source_manifest,
 )
 from game_predictor_api.storage.models import (
     RemoteManualSelectionAuditEventModel,
@@ -66,6 +69,20 @@ class RemoteManualSelectionSessionSecrets:
     code_hash: bytes | None = None
     token_hash: bytes | None = None
     token_expires_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionFileDelta:
+    file: RemoteManualSelectionFileV1
+    server_revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionSourceRegistration:
+    batch: RemoteManualSelectionBatchV1
+    files: tuple[RemoteManualSelectionFileV1, ...]
+    created_count: int
+    total_file_count: int
 
 
 class SqlAlchemyRemoteManualSelectionRepository:
@@ -178,6 +195,13 @@ class SqlAlchemyRemoteManualSelectionRepository:
         record = self._session.get(RemoteManualSelectionBatchModel, batch_id)
         return None if record is None else _batch_from_record(record)
 
+    def get_batch_total_file_count(self, batch_id: UUID) -> int | None:
+        return self._session.scalar(
+            select(RemoteManualSelectionBatchModel.total_file_count).where(
+                RemoteManualSelectionBatchModel.id == batch_id
+            )
+        )
+
     def add_files(
         self,
         values: Sequence[RemoteManualSelectionFileV1],
@@ -212,6 +236,143 @@ class SqlAlchemyRemoteManualSelectionRepository:
             )
         )
         return None if record is None else _file_from_record(record)
+
+    def get_operation(
+        self,
+        operation_id: UUID,
+    ) -> RemoteManualSelectionOperationV1 | None:
+        record = self._session.get(RemoteManualSelectionOperationModel, operation_id)
+        return None if record is None else _operation_from_record(record)
+
+    def register_source_files(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        values: Sequence[RemoteManualSelectionFileV1],
+        source_kind: RemoteSourceKind,
+        complete: bool,
+    ) -> RemoteManualSelectionSourceRegistration:
+        batch_record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(
+                RemoteManualSelectionBatchModel.id == batch_id,
+                RemoteManualSelectionBatchModel.session_id == session_id,
+            )
+            .with_for_update()
+        )
+        if batch_record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The batch does not belong to the remote selection session.",
+            )
+        existing_records = tuple(
+            self._session.scalars(
+                select(RemoteManualSelectionFileModel)
+                .where(RemoteManualSelectionFileModel.batch_id == batch_id)
+                .order_by(RemoteManualSelectionFileModel.source_index)
+            )
+        )
+        by_id = {record.id: record for record in existing_records}
+        by_index = {record.source_index: record for record in existing_records}
+        by_path = {record.relative_path: record for record in existing_records}
+        accepted: list[RemoteManualSelectionFileV1] = []
+        new_records: list[RemoteManualSelectionFileModel] = []
+        for value in values:
+            if value.session_id != session_id or value.batch_id != batch_id:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_SCOPE_MISMATCH",
+                    "A source item does not belong to the remote selection scope.",
+                )
+            matches = {
+                record.id: record
+                for record in (
+                    by_id.get(value.id),
+                    by_index.get(value.source_index),
+                    by_path.get(value.relative_path),
+                )
+                if record is not None
+            }
+            if matches:
+                if len(matches) != 1:
+                    raise _source_manifest_conflict()
+                existing = _file_from_record(next(iter(matches.values())))
+                if existing != value:
+                    raise _source_manifest_conflict()
+                accepted.append(existing)
+                continue
+            if batch_record.status == RemoteManualSelectionBatchStatus.ACTIVE.value:
+                raise _source_manifest_immutable()
+            record = _file_record_from_domain(value)
+            new_records.append(record)
+            by_id[record.id] = record
+            by_index[record.source_index] = record
+            by_path[record.relative_path] = record
+            accepted.append(value)
+
+        if len(existing_records) + len(new_records) > batch_record.total_file_count:
+            raise _source_manifest_conflict()
+        try:
+            with self._session.begin_nested():
+                self._session.add_all(new_records)
+                self._session.flush()
+        except IntegrityError as error:
+            raise _map_integrity_error(error) from error
+
+        all_records = tuple(
+            self._session.scalars(
+                select(RemoteManualSelectionFileModel)
+                .where(RemoteManualSelectionFileModel.batch_id == batch_id)
+                .order_by(RemoteManualSelectionFileModel.source_index)
+            )
+        )
+        if complete:
+            if len(all_records) != batch_record.total_file_count:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_SOURCE_MANIFEST_INCOMPLETE",
+                    "The source manifest does not contain the declared number of files.",
+                    details={
+                        "actualFileCount": len(all_records),
+                        "expectedFileCount": batch_record.total_file_count,
+                    },
+                )
+            manifest = build_remote_source_manifest(
+                tuple(
+                    RemoteSourceManifestEntryV1(
+                        ordinal=record.source_index,
+                        relative_path=record.relative_path,
+                        name=record.relative_path.rsplit("/", 1)[-1],
+                        size_bytes=record.size_bytes,
+                        last_modified_ms=record.last_modified_ms,
+                        mime_type=record.mime_type,
+                    )
+                    for record in all_records
+                ),
+                source_kind=source_kind,
+            )
+            if manifest.manifest_checksum_sha256 != batch_record.source_manifest_checksum_sha256:
+                raise _source_manifest_conflict()
+            if batch_record.status == RemoteManualSelectionBatchStatus.INDEXING.value:
+                batch_record.status = RemoteManualSelectionBatchStatus.ACTIVE.value
+                batch_record.updated_at = func.now()
+            elif batch_record.status != RemoteManualSelectionBatchStatus.ACTIVE.value:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_BATCH_NOT_INDEXING",
+                    "The batch cannot accept source items in its current state.",
+                )
+        elif batch_record.status != RemoteManualSelectionBatchStatus.INDEXING.value:
+            if not (
+                batch_record.status == RemoteManualSelectionBatchStatus.ACTIVE.value
+                and not new_records
+            ):
+                raise _source_manifest_immutable()
+        self._session.flush()
+        return RemoteManualSelectionSourceRegistration(
+            batch=_batch_from_record(batch_record),
+            files=tuple(accepted),
+            created_count=len(new_records),
+            total_file_count=len(all_records),
+        )
 
     def apply_operation(
         self,
@@ -276,6 +437,34 @@ class SqlAlchemyRemoteManualSelectionRepository:
         _require_page(limit)
         return tuple(
             _file_from_record(record)
+            for record in self._session.scalars(
+                select(RemoteManualSelectionFileModel)
+                .where(
+                    RemoteManualSelectionFileModel.batch_id == batch_id,
+                    RemoteManualSelectionFileModel.last_server_revision > after_revision,
+                )
+                .order_by(
+                    RemoteManualSelectionFileModel.last_server_revision,
+                    RemoteManualSelectionFileModel.source_index,
+                    RemoteManualSelectionFileModel.id,
+                )
+                .limit(limit)
+            )
+        )
+
+    def list_file_delta_records(
+        self,
+        *,
+        batch_id: UUID,
+        after_revision: int,
+        limit: int,
+    ) -> tuple[RemoteManualSelectionFileDelta, ...]:
+        _require_page(limit)
+        return tuple(
+            RemoteManualSelectionFileDelta(
+                file=_file_from_record(record),
+                server_revision=record.last_server_revision,
+            )
             for record in self._session.scalars(
                 select(RemoteManualSelectionFileModel)
                 .where(
@@ -451,6 +640,7 @@ class InMemoryRemoteManualSelectionRepository:
         self.files: dict[UUID, RemoteManualSelectionFileV1] = {}
         self.file_revisions: dict[UUID, int] = {}
         self.operations: dict[UUID, RemoteManualSelectionOperationV1] = {}
+        self.batch_file_counts: dict[UUID, int] = {}
         self.base_mappings: set[tuple[UUID, str, str]] = set()
         self.transfers: dict[UUID, RemoteManualSelectionTransferV1] = {}
         self.host_actions: dict[UUID, RemoteManualSelectionHostActionV1] = {}
@@ -516,7 +706,6 @@ class InMemoryRemoteManualSelectionRepository:
         normalized_batch_name: str,
         total_file_count: int,
     ) -> RemoteManualSelectionBatchV1:
-        del total_file_count
         mapping = (base_binding_id, normalized_collection_name, normalized_batch_name)
         with self._lock:
             collection = self.collections.get(value.collection_id)
@@ -539,10 +728,14 @@ class InMemoryRemoteManualSelectionRepository:
                 )
             self.base_mappings.add(mapping)
             self.batches[value.id] = value
+            self.batch_file_counts[value.id] = total_file_count
             return value
 
     def get_batch(self, batch_id: UUID) -> RemoteManualSelectionBatchV1 | None:
         return self.batches.get(batch_id)
+
+    def get_batch_total_file_count(self, batch_id: UUID) -> int | None:
+        return self.batch_file_counts.get(batch_id)
 
     def add_files(
         self,
@@ -578,6 +771,122 @@ class InMemoryRemoteManualSelectionRepository:
     ) -> RemoteManualSelectionFileV1 | None:
         value = self.files.get(file_id)
         return value if value is not None and value.batch_id == batch_id else None
+
+    def get_operation(
+        self,
+        operation_id: UUID,
+    ) -> RemoteManualSelectionOperationV1 | None:
+        return self.operations.get(operation_id)
+
+    def register_source_files(
+        self,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        values: Sequence[RemoteManualSelectionFileV1],
+        source_kind: RemoteSourceKind,
+        complete: bool,
+    ) -> RemoteManualSelectionSourceRegistration:
+        with self._lock:
+            batch = self.batches.get(batch_id)
+            if batch is None or batch.session_id != session_id:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_SCOPE_MISMATCH",
+                    "The batch does not belong to the remote selection session.",
+                )
+            existing = tuple(
+                sorted(
+                    (item for item in self.files.values() if item.batch_id == batch_id),
+                    key=lambda item: item.source_index,
+                )
+            )
+            by_id = {item.id: item for item in existing}
+            by_index = {item.source_index: item for item in existing}
+            by_path = {item.relative_path: item for item in existing}
+            accepted: list[RemoteManualSelectionFileV1] = []
+            new_values: list[RemoteManualSelectionFileV1] = []
+            for value in values:
+                if value.session_id != session_id or value.batch_id != batch_id:
+                    raise RemoteManualSelectionError(
+                        "REMOTE_SELECTION_SCOPE_MISMATCH",
+                        "A source item does not belong to the remote selection scope.",
+                    )
+                matches = {
+                    item.id: item
+                    for item in (
+                        by_id.get(value.id),
+                        by_index.get(value.source_index),
+                        by_path.get(value.relative_path),
+                    )
+                    if item is not None
+                }
+                if matches:
+                    if len(matches) != 1 or next(iter(matches.values())) != value:
+                        raise _source_manifest_conflict()
+                    accepted.append(next(iter(matches.values())))
+                    continue
+                if batch.status is RemoteManualSelectionBatchStatus.ACTIVE:
+                    raise _source_manifest_immutable()
+                by_id[value.id] = value
+                by_index[value.source_index] = value
+                by_path[value.relative_path] = value
+                accepted.append(value)
+                new_values.append(value)
+            all_files = tuple(
+                sorted(
+                    (*existing, *new_values),
+                    key=lambda item: item.source_index,
+                )
+            )
+            declared_count = self.batch_file_counts[batch_id]
+            if len(all_files) > declared_count:
+                raise _source_manifest_conflict()
+            if complete:
+                if len(all_files) != declared_count:
+                    raise RemoteManualSelectionConflictError(
+                        "REMOTE_SELECTION_SOURCE_MANIFEST_INCOMPLETE",
+                        "The source manifest does not contain the declared number of files.",
+                        details={
+                            "actualFileCount": len(all_files),
+                            "expectedFileCount": declared_count,
+                        },
+                    )
+                manifest = build_remote_source_manifest(
+                    tuple(
+                        RemoteSourceManifestEntryV1(
+                            ordinal=item.source_index,
+                            relative_path=item.relative_path,
+                            name=item.relative_path.rsplit("/", 1)[-1],
+                            size_bytes=item.size_bytes,
+                            last_modified_ms=item.last_modified_ms,
+                            mime_type=item.mime_type,
+                        )
+                        for item in all_files
+                    ),
+                    source_kind=source_kind,
+                )
+                if manifest.manifest_checksum_sha256 != batch.source_manifest_checksum_sha256:
+                    raise _source_manifest_conflict()
+                if batch.status is RemoteManualSelectionBatchStatus.INDEXING:
+                    batch = replace(batch, status=RemoteManualSelectionBatchStatus.ACTIVE)
+                elif batch.status is not RemoteManualSelectionBatchStatus.ACTIVE:
+                    raise RemoteManualSelectionConflictError(
+                        "REMOTE_SELECTION_BATCH_NOT_INDEXING",
+                        "The batch cannot accept source items in its current state.",
+                    )
+            elif batch.status is not RemoteManualSelectionBatchStatus.INDEXING:
+                if not (batch.status is RemoteManualSelectionBatchStatus.ACTIVE and not new_values):
+                    raise _source_manifest_immutable()
+            for value in new_values:
+                self.files[value.id] = value
+                self.file_revisions[value.id] = 0
+            self.batches[batch_id] = batch
+            return RemoteManualSelectionSourceRegistration(
+                batch=batch,
+                files=tuple(accepted),
+                created_count=len(new_values),
+                total_file_count=len(all_files),
+            )
 
     def apply_operation(
         self,
@@ -635,6 +944,33 @@ class InMemoryRemoteManualSelectionRepository:
                     self.file_revisions[value.id],
                     value.source_index,
                     value.id,
+                ),
+            )[:limit]
+        )
+
+    def list_file_delta_records(
+        self,
+        *,
+        batch_id: UUID,
+        after_revision: int,
+        limit: int,
+    ) -> tuple[RemoteManualSelectionFileDelta, ...]:
+        _require_page(limit)
+        return tuple(
+            RemoteManualSelectionFileDelta(
+                file=value,
+                server_revision=self.file_revisions[value.id],
+            )
+            for value in sorted(
+                (
+                    item
+                    for item in self.files.values()
+                    if item.batch_id == batch_id and self.file_revisions[item.id] > after_revision
+                ),
+                key=lambda item: (
+                    self.file_revisions[item.id],
+                    item.source_index,
+                    item.id,
                 ),
             )[:limit]
         )
@@ -1010,6 +1346,20 @@ def _persistence_conflict(*, constraint: str | None = None) -> RemoteManualSelec
     )
 
 
+def _source_manifest_conflict() -> RemoteManualSelectionConflictError:
+    return RemoteManualSelectionConflictError(
+        "REMOTE_SELECTION_SOURCE_MANIFEST_CONFLICT",
+        "Source items do not match the declared immutable manifest.",
+    )
+
+
+def _source_manifest_immutable() -> RemoteManualSelectionConflictError:
+    return RemoteManualSelectionConflictError(
+        "REMOTE_SELECTION_SOURCE_MANIFEST_IMMUTABLE",
+        "The source manifest cannot change after the batch becomes active.",
+    )
+
+
 def _require_page(limit: int) -> None:
     if limit < 1 or limit > 1000:
         raise RemoteManualSelectionError(
@@ -1047,7 +1397,9 @@ def _payload_keys(value: object) -> set[str]:
 
 __all__ = [
     "InMemoryRemoteManualSelectionRepository",
+    "RemoteManualSelectionFileDelta",
     "RemoteManualSelectionHostBinding",
     "RemoteManualSelectionSessionSecrets",
+    "RemoteManualSelectionSourceRegistration",
     "SqlAlchemyRemoteManualSelectionRepository",
 ]

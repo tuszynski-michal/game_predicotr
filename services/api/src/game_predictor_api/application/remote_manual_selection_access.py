@@ -341,6 +341,43 @@ class RemoteManualSelectionAccessService:
         record = self._authenticate(access_token, now=now)
         return self._context(record, client_instance_id, now)
 
+    def authorize_session(
+        self,
+        *,
+        session_id: UUID,
+        access_token: str,
+        client_instance_id: UUID,
+    ) -> RemoteManualSelectionContext:
+        now = self._now()
+        record = self._authenticate(access_token, now=now)
+        if record.session.id != session_id:
+            raise RemoteManualSelectionAuthenticationError(
+                "REMOTE_SELECTION_TOKEN_INVALID",
+                "Remote selection access token is invalid or has expired.",
+            )
+        return self._context(record, client_instance_id, now)
+
+    def authorize_writer(
+        self,
+        *,
+        session_id: UUID,
+        access_token: str,
+        client_instance_id: UUID,
+    ) -> RemoteManualSelectionContext:
+        now = self._now()
+        record = self._authenticated_for_update(session_id, access_token, now)
+        if (
+            record.writer_client_instance_id != client_instance_id
+            or record.writer_lease_token is None
+            or record.writer_lease_expires_at is None
+            or record.writer_lease_expires_at <= now
+        ):
+            raise RemoteManualSelectionLeaseConflictError(
+                "REMOTE_SELECTION_WRITER_LEASE_LOST",
+                "The client no longer owns an active writer lease.",
+            )
+        return self._context(record, client_instance_id, now)
+
     def heartbeat(
         self,
         *,

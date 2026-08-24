@@ -118,10 +118,13 @@ hash kodu, TTL, lease i audyt odblokowania; nie otrzymuje źródłowego manifest
 decyzji, JPEG-ów ani wynikowego manifestu operatora.
 
 Panel hosta pokazuje dziesięć najnowszych sesji dostępu i stan połączenia,
-posortowane malejąco po dacie utworzenia. Starsze sesje pozostają w audycie,
-ale nie zaśmiecają aktywnego widoku. Panel nie pokazuje serwerowych partii, ich
-limitu, transferów ani diagnostyki materializacji, ponieważ aktywny tryb
-operator-local nie tworzy tych danych na hoście.
+posortowane malejąco po dacie utworzenia. Filtr `Aktywne` obejmuje statusy
+`draft` i `active`, a `Zakończone` obejmuje `completed`, `expired` i `revoked`;
+każdy widok pokazuje maksymalnie dziesięć najnowszych pasujących sesji. Starsze
+sesje pozostają w audycie, ale nie zaśmiecają aktywnego widoku. Panel nie
+pokazuje serwerowych partii, ich limitu, transferów ani diagnostyki
+materializacji, ponieważ aktywny tryb operator-local nie tworzy tych danych na
+hoście.
 
 Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
 okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i

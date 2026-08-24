@@ -17,12 +17,15 @@ import {
   type RemoteManualSelectionHostClient,
 } from './remote-manual-selection-actions';
 import {
+  REMOTE_SESSION_FETCH_LIMIT,
   REMOTE_SESSION_LIST_POLL_MS,
   REMOTE_SESSION_MONITOR_POLL_MS,
+  filteredRemoteManualSelectionSessions,
   newestRemoteManualSelectionSessions,
   remoteSessionStatusLabel,
   safeRemoteManualSelectionUrl,
-  selectRemoteManualSelectionSessionId,
+  selectVisibleRemoteManualSelectionSessionId,
+  type RemoteManualSelectionSessionFilter,
 } from './remote-manual-selection-state';
 
 export function RemoteManualSelectionHostPanel({
@@ -42,6 +45,8 @@ export function RemoteManualSelectionHostPanel({
     readonly RemoteManualSelectionSessionResponse[]
   >([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [sessionFilter, setSessionFilter] =
+    useState<RemoteManualSelectionSessionFilter>('active');
   const [monitor, setMonitor] =
     useState<RemoteManualSelectionSessionMonitorResponse | null>(null);
   const [oneTimeAccess, setOneTimeAccess] =
@@ -68,11 +73,9 @@ export function RemoteManualSelectionHostPanel({
       }
       const newestSessions = newestRemoteManualSelectionSessions(
         result.data.sessions,
+        REMOTE_SESSION_FETCH_LIMIT,
       );
       setSessions(newestSessions);
-      setSelectedSessionId((current) =>
-        selectRemoteManualSelectionSessionId(newestSessions, current),
-      );
     },
     [api],
   );
@@ -84,11 +87,9 @@ export function RemoteManualSelectionHostPanel({
       if (result.ok) {
         const newestSessions = newestRemoteManualSelectionSessions(
           result.data.sessions,
+          REMOTE_SESSION_FETCH_LIMIT,
         );
         setSessions(newestSessions);
-        setSelectedSessionId(
-          selectRemoteManualSelectionSessionId(newestSessions, ''),
-        );
       } else {
         setError(result.error);
       }
@@ -102,6 +103,15 @@ export function RemoteManualSelectionHostPanel({
       window.clearInterval(timer);
     };
   }, [api, refreshSessions]);
+
+  const visibleSessions = useMemo(
+    () => filteredRemoteManualSelectionSessions(sessions, sessionFilter),
+    [sessionFilter, sessions],
+  );
+  const visibleSelectedSessionId = selectVisibleRemoteManualSelectionSessionId(
+    visibleSessions,
+    selectedSessionId,
+  );
 
   const refreshMonitor = useCallback(
     async (sessionId: string, showError: boolean) => {
@@ -122,8 +132,8 @@ export function RemoteManualSelectionHostPanel({
 
   useEffect(() => {
     let active = true;
-    if (selectedSessionId !== '') {
-      void loadRemoteManualSelectionMonitor(api, selectedSessionId).then(
+    if (visibleSelectedSessionId !== '') {
+      void loadRemoteManualSelectionMonitor(api, visibleSelectedSessionId).then(
         (result) => {
           if (!active) return;
           if (result.ok) {
@@ -136,15 +146,15 @@ export function RemoteManualSelectionHostPanel({
       );
     }
     const timer = window.setInterval(() => {
-      if (active && selectedSessionId !== '') {
-        void refreshMonitor(selectedSessionId, false);
+      if (active && visibleSelectedSessionId !== '') {
+        void refreshMonitor(visibleSelectedSessionId, false);
       }
     }, REMOTE_SESSION_MONITOR_POLL_MS);
     return () => {
       active = false;
       window.clearInterval(timer);
     };
-  }, [api, refreshMonitor, selectedSessionId]);
+  }, [api, refreshMonitor, visibleSelectedSessionId]);
 
   async function createSession() {
     if (creating || label.trim() === '') return;
@@ -163,6 +173,7 @@ export function RemoteManualSelectionHostPanel({
         return;
       }
       setOneTimeAccess(result.data);
+      setSessionFilter('active');
       setSelectedSessionId(result.data.session.sessionId);
       setNotice(
         'Sesja została utworzona. Kod skopiuj przed zamknięciem karty.',
@@ -211,10 +222,12 @@ export function RemoteManualSelectionHostPanel({
   }
 
   const currentMonitor =
-    monitor?.session.sessionId === selectedSessionId ? monitor : null;
+    monitor?.session.sessionId === visibleSelectedSessionId ? monitor : null;
   const selectedSession =
     currentMonitor?.session ??
-    sessions.find((session) => session.sessionId === selectedSessionId) ??
+    visibleSessions.find(
+      (session) => session.sessionId === visibleSelectedSessionId,
+    ) ??
     null;
   const selectedReviewUrl =
     selectedSession === null
@@ -321,15 +334,36 @@ export function RemoteManualSelectionHostPanel({
 
       <div className="remoteManualSelectionBody">
         <div className="remoteManualSelectionSessions">
-          <h3>Najnowsze sesje</h3>
+          <div className="remoteManualSelectionSessionListHeader">
+            <h3>Najnowsze sesje</h3>
+            <label>
+              Pokaż
+              <select
+                aria-label="Filtr najnowszych sesji"
+                onChange={(event) =>
+                  setSessionFilter(
+                    event.target.value as RemoteManualSelectionSessionFilter,
+                  )
+                }
+                value={sessionFilter}
+              >
+                <option value="active">Aktywne</option>
+                <option value="completed">Zakończone</option>
+              </select>
+            </label>
+          </div>
           {loading ? <p role="status">Wczytuję sesje…</p> : null}
-          {!loading && sessions.length === 0 ? (
-            <p>Nie ma jeszcze żadnej zdalnej sesji.</p>
+          {!loading && visibleSessions.length === 0 ? (
+            <p>
+              {sessionFilter === 'active'
+                ? 'Nie ma aktywnych zdalnych sesji.'
+                : 'Nie ma zakończonych zdalnych sesji.'}
+            </p>
           ) : null}
-          {sessions.map((session) => (
+          {visibleSessions.map((session) => (
             <button
               className={
-                session.sessionId === selectedSessionId
+                session.sessionId === visibleSelectedSessionId
                   ? 'remoteManualSelectionSession remoteManualSelectionSessionActive'
                   : 'remoteManualSelectionSession'
               }

@@ -37,7 +37,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   dostępu i stanem połączenia.
 - Lista hosta jest ograniczona do dziesięciu najnowszych sesji w porządku
   malejącym. Starsze wpisy pozostają audytowalne, ale nie rosną bez końca w
-  codziennym widoku Admina.
+  codziennym widoku Admina. Operator może filtrować tę listę na aktywne
+  (`draft/active`) i zakończone (`completed/expired/revoked`); panel pobiera
+  ograniczone 100 metadanych, aby dziesięć nowych terminalnych wpisów nie
+  ukrywało starszej aktywnej sesji.
 - Zdalny podgląd nie resetuje już wymiarów tego samego JPEG-a po drugim refreshu
   następującym po zatwierdzeniu. Scroll poziomy i pionowy pozostają zachowane po
   `Enter`, `F` i przycisku zapisu, nie tylko po nawigacji strzałkami.

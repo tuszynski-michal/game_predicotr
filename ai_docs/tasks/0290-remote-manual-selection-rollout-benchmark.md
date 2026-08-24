@@ -311,6 +311,17 @@ ani kopiowania JPEG-ów do repozytorium.
   typecheck i lint są zielone; lint zachowuje jedno wcześniejsze ostrzeżenie dla
   source-native elementu `<img>`.
 
+### v0.7.62 — filtr najnowszych sesji hosta
+
+- Lista `Najnowsze sesje` ma dwa jawne widoki: `Aktywne` dla `draft/active`
+  oraz `Zakończone` dla `completed/expired/revoked`. Domyślny jest widok
+  aktywny, a zmiana filtra wybiera pierwszą najnowszą widoczną sesję.
+- Admin pobiera maksymalnie 100 lekkich metadanych i pokazuje najwyżej 10
+  najnowszych wpisów wybranej kategorii, dzięki czemu nowe zakończone rekordy
+  nie wypychają nadal aktywnych sesji.
+- Pełne 250 testów Admina, typecheck, lint i produkcyjny build przechodzą; lint
+  zachowuje dwa wcześniejsze ostrzeżenia dla source-native `<img>`.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

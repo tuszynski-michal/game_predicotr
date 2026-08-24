@@ -3,6 +3,9 @@ import type { RemoteManualSelectionSessionResponse } from '@game-predictor/admin
 export const REMOTE_SESSION_LIST_POLL_MS = 30_000;
 export const REMOTE_SESSION_MONITOR_POLL_MS = 10_000;
 export const REMOTE_SESSION_LIST_LIMIT = 10;
+export const REMOTE_SESSION_FETCH_LIMIT = 100;
+
+export type RemoteManualSelectionSessionFilter = 'active' | 'completed';
 
 export function newestRemoteManualSelectionSessions(
   sessions: readonly RemoteManualSelectionSessionResponse[],
@@ -22,6 +25,30 @@ export function activeRemoteManualSelectionSessions(
   sessions: readonly RemoteManualSelectionSessionResponse[],
 ): readonly RemoteManualSelectionSessionResponse[] {
   return sessions.filter((session) => session.status === 'active');
+}
+
+export function filteredRemoteManualSelectionSessions(
+  sessions: readonly RemoteManualSelectionSessionResponse[],
+  filter: RemoteManualSelectionSessionFilter,
+  limit = REMOTE_SESSION_LIST_LIMIT,
+): readonly RemoteManualSelectionSessionResponse[] {
+  const matching = sessions.filter((session) =>
+    filter === 'active'
+      ? session.status === 'active' || session.status === 'draft'
+      : session.status === 'completed' ||
+        session.status === 'expired' ||
+        session.status === 'revoked',
+  );
+  return newestRemoteManualSelectionSessions(matching, limit);
+}
+
+export function selectVisibleRemoteManualSelectionSessionId(
+  sessions: readonly RemoteManualSelectionSessionResponse[],
+  current: string,
+): string {
+  return sessions.some((session) => session.sessionId === current)
+    ? current
+    : (sessions[0]?.sessionId ?? '');
 }
 
 export function selectRemoteManualSelectionSessionId(

@@ -2027,7 +2027,7 @@ dostępu do procesu zapisującego na filesystem hosta.
 
 ### TASK 18: Benchmark skali, E2E i kontrolowany rollout
 
-**Status:** `PLANNED`
+**Status:** `IN PROGRESS` (`TASK-0290`)
 
 **Cel:** Zmierzyć niezawodność i płynność etapami oraz dopuścić codzienną pracę
 wyłącznie po spełnieniu mierzalnych progów.

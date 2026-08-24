@@ -15,6 +15,24 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
+
+- Rozpoczęto TASK 18 po zamknięciu bramki bezpieczeństwa v0.7.41. Pierwszy pion
+  tworzy deterministyczny etap 1, wersjonowany raport content-addressed oraz
+  runbook kolejnych checkpointów 10/500/1000/8000/15000.
+- Etap 1 przeszedł lokalnie przez `npm run remote-selection:rollout:stage1` i
+  `npm run remote-selection:rollout:check`; obejmuje także stale-generation
+  i exact retry przez właściwą maszynę domenową. Nie uruchomiono jeszcze
+  etapów 2–5 ani środowiska LAN/publicznego.
+- Etapy 4 i 5, prawdziwy Quick Tunnel oraz testy na zewnętrznej sieci wymagają
+  osobnej zgody właściciela i nie zostaną uruchomione przez implementację.
+- TASK 19 pozostaje warunkowy: decyzja o chunkowanym uploadzie może powstać
+  wyłącznie na podstawie raportów TASK-0290.
+- Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
+  plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
+  konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono
+  tej wcześniejszej polityki w ramach benchmarku.
+
 ### Bramka bezpieczeństwa zdalnej ręcznej selekcji — v0.7.41
 
 - TASK-0289 zamyka publiczny zakres zdalnej ręcznej selekcji dokładną,

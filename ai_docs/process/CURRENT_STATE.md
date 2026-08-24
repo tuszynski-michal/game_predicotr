@@ -47,6 +47,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   następny zakres i decyzje, mapując je na świeże identyfikatory IndexedDB.
   Obce pliki, brak manifestu, brak wskazanego `seq_*` lub inne źródło blokują
   start przed zapisem.
+- Odtworzenie scrolla po zatwierdzeniu jest przypięte do ordinalu następnego
+  JPEG-a. Wcześniejsza flaga boolean mogła zostać skonsumowana przez render
+  `busy` jeszcze na starym zdjęciu; teraz dopiero załadowany docelowy podgląd
+  może odtworzyć i wyczyścić oczekiwanie.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

@@ -75,8 +75,10 @@ export function RemoteManualSelectionWorkspace({
   const previewImage = useRef<HTMLImageElement>(null);
   const savedScrollLeft = useRef(initialScrollPosition.left);
   const savedScrollTop = useRef(initialScrollPosition.top);
-  const pendingScrollRestore = useRef(
-    initialScrollPosition.left > 0 || initialScrollPosition.top > 0,
+  const pendingScrollRestoreOrdinal = useRef<number | null>(
+    initialScrollPosition.left > 0 || initialScrollPosition.top > 0
+      ? initialBatch.cursorIndex
+      : null,
   );
   const viewStartedAt = useRef(performance.now());
   const viewedKey = useRef('');
@@ -319,7 +321,7 @@ export function RemoteManualSelectionWorkspace({
 
   useEffect(() => {
     if (
-      !pendingScrollRestore.current ||
+      pendingScrollRestoreOrdinal.current !== workspace.currentIndex ||
       previewUrl === null ||
       previewOrdinal !== workspace.currentIndex ||
       zoomedImageSize === null
@@ -332,7 +334,7 @@ export function RemoteManualSelectionWorkspace({
         if (viewport.current === null) return;
         viewport.current.scrollLeft = savedScrollLeft.current;
         viewport.current.scrollTop = savedScrollTop.current;
-        pendingScrollRestore.current = false;
+        pendingScrollRestoreOrdinal.current = null;
       });
     });
     return () => {
@@ -378,7 +380,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function persistCursor(nextIndex: number) {
-    capturePreviewScrollForTransition();
+    capturePreviewScroll();
     const currentBatch = batchRef.current;
     const next = {
       ...currentBatch,
@@ -386,6 +388,7 @@ export function RemoteManualSelectionWorkspace({
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
+    armPreviewScrollRestore(nextIndex);
     setBatch(next);
     batchRef.current = next;
     setItems(
@@ -399,7 +402,7 @@ export function RemoteManualSelectionWorkspace({
     );
   }
 
-  function capturePreviewScrollForTransition() {
+  function capturePreviewScroll() {
     if (viewport.current !== null) {
       savedScrollLeft.current = viewport.current.scrollLeft;
       savedScrollTop.current = viewport.current.scrollTop;
@@ -410,7 +413,10 @@ export function RemoteManualSelectionWorkspace({
       savedScrollLeft.current,
       savedScrollTop.current,
     );
-    pendingScrollRestore.current = true;
+  }
+
+  function armPreviewScrollRestore(targetOrdinal: number) {
+    pendingScrollRestoreOrdinal.current = targetOrdinal;
   }
 
   async function moveImage(delta: number) {
@@ -486,7 +492,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScrollForTransition();
+    capturePreviewScroll();
     try {
       if (sourceReader === null) return;
       const file = await sourceReader.fileForEntry(requestedCurrent);
@@ -529,6 +535,7 @@ export function RemoteManualSelectionWorkspace({
         }
         throw cause;
       }
+      armPreviewScrollRestore(nextBatch.cursorIndex);
       setBatch(nextBatch);
       batchRef.current = nextBatch;
       await persistOperatorLocalManifest(nextBatch);
@@ -568,7 +575,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScrollForTransition();
+    capturePreviewScroll();
     try {
       const nextBatch = await enqueueOperation(async () => {
         const latest = remoteSelectionWorkspaceState(batchRef.current);
@@ -637,7 +644,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScrollForTransition();
+    capturePreviewScroll();
     try {
       if (last.action === 'accepted' && last.fileId !== null) {
         await removeOperatorLocalSelection(outputDirectory, last);
@@ -659,6 +666,7 @@ export function RemoteManualSelectionWorkspace({
         });
       });
       if (nextBatch !== null) {
+        armPreviewScrollRestore(nextBatch.cursorIndex);
         setBatch(nextBatch);
         batchRef.current = nextBatch;
         setNotice(`Cofnięto zakres ${last.rangeStart}–${last.rangeEnd}.`);
@@ -831,7 +839,7 @@ export function RemoteManualSelectionWorkspace({
             <div
               className="remoteManualPreviewViewport manualImageSelectionImageViewport"
               onScroll={(event) => {
-                if (!pendingScrollRestore.current) {
+                if (pendingScrollRestoreOrdinal.current === null) {
                   savedScrollLeft.current = event.currentTarget.scrollLeft;
                   savedScrollTop.current = event.currentTarget.scrollTop;
                 }

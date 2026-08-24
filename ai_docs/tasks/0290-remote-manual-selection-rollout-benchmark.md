@@ -240,6 +240,17 @@ ani kopiowania JPEG-ów do repozytorium.
 - Testy obejmują pusty folder, obce dane, kompletny wynik, wznowienie między
   access sessions i blokadę innego źródła.
 
+### v0.7.57 — scroll przypięty do docelowego zdjęcia
+
+- Poprzednia flaga oczekującego odtworzenia była ustawiana przed asynchronicznym
+  zapisem JPEG-a. Render `busy` starego podglądu uruchamiał efekt i zerował ją,
+  zanim kursor przeszedł na następne zdjęcie.
+- Odtworzenie przechowuje teraz ordinal docelowego JPEG-a. Jest uzbrajane
+  dopiero po trwałym wyznaczeniu następnego kursora i może zostać skonsumowane
+  wyłącznie przez podgląd tego ordinalu po wyliczeniu jego wymiarów.
+- Test regresyjny pilnuje kolejności `capture → durable decision → arm target →
+  render target` oraz zachowania obu osi.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

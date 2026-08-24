@@ -127,8 +127,10 @@ Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie
 okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
 zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
 pozycje są przechwytywane przed zmianą zdjęcia i odtwarzane po załadowaniu oraz
-dwóch klatkach layoutu. Bazowe klasy CSS i funkcja dopasowania obrazu są takie
-same jak w lokalnym selektorze. Licznik nie może wyprzedzić trwałego zapisu:
+dwóch klatkach layoutu. Oczekujące odtworzenie jest przypięte do docelowego
+ordinalu; render stanu `busy` na poprzednim zdjęciu nie może go skonsumować.
+Bazowe klasy CSS i funkcja dopasowania obrazu są takie same jak w lokalnym
+selektorze. Licznik nie może wyprzedzić trwałego zapisu:
 interakcje są szeregowane, plik jest weryfikowany checksumą, a dopiero potem
 decyzja i kursor są atomowo zapisywane lokalnie.
 

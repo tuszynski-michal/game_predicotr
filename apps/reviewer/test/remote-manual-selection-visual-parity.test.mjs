@@ -26,7 +26,14 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const css = await readFile(reviewerCssPath, 'utf8');
 
-  assert.match(workspace, /pendingScrollRestore\.current = true/);
+  assert.match(
+    workspace,
+    /pendingScrollRestoreOrdinal\.current = targetOrdinal/,
+  );
+  assert.match(
+    workspace,
+    /pendingScrollRestoreOrdinal\.current !== workspace\.currentIndex/,
+  );
   assert.match(
     workspace,
     /window\.requestAnimationFrame\(\(\) => \{[\s\S]*window\.requestAnimationFrame/,
@@ -41,7 +48,11 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   );
   assert.match(
     workspace,
-    /if \(!pendingScrollRestore\.current\)[\s\S]*savedScrollLeft\.current =[\s\S]*savedScrollTop\.current =/,
+    /if \(pendingScrollRestoreOrdinal\.current === null\)[\s\S]*savedScrollLeft\.current =[\s\S]*savedScrollTop\.current =/,
+  );
+  assert.match(
+    workspace,
+    /capturePreviewScroll\(\);[\s\S]*await store\.appendLocalWorkspaceDecision[\s\S]*armPreviewScrollRestore\(nextBatch\.cursorIndex\);[\s\S]*setBatch\(nextBatch\)/,
   );
   assert.match(workspace, /gp\.remote-manual-selection\.scroll\.v1/);
   assert.match(workspace, /window\.localStorage\.setItem/);

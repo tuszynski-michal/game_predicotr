@@ -251,6 +251,19 @@ ani kopiowania JPEG-ów do repozytorium.
 - Test regresyjny pilnuje kolejności `capture → durable decision → arm target →
   render target` oraz zachowania obu osi.
 
+### v0.7.58 — moment przechwycenia zgodny z lokalnym selektorem
+
+- Przechwycenie pozycji zostało przeniesione z początku asynchronicznej operacji
+  na moment po trwałym zapisie decyzji, bezpośrednio przed `setBatch`, dokładnie
+  jak w działającym lokalnym selektorze. `skip` nie uzbraja przejścia, ponieważ
+  nie zmienia zdjęcia.
+- Rzeczywisty komponent przetestowano w przeglądarce na dużym JPEG-u przy zoomie
+  200%. W desktopowym viewportcie `scrollTop=300` pozostał równy 300, a przy
+  viewportcie telefonu 390×844 `scrollTop=388,8` pozostał równy 388,8 po zapisie
+  i przejściu na kolejny obraz.
+- Tymczasowy ekran testowy i proces na porcie 3011 zostały usunięte po pomiarze;
+  nie stanowią części produktu ani commita.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

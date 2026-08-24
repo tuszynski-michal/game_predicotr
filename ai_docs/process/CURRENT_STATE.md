@@ -51,6 +51,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   JPEG-a. Wcześniejsza flaga boolean mogła zostać skonsumowana przez render
   `busy` jeszcze na starym zdjęciu; teraz dopiero załadowany docelowy podgląd
   może odtworzyć i wyczyścić oczekiwanie.
+- Dodatkowa regresja ujawniła różnicę względem lokalnego selektora: pozycja była
+  przechwytywana przed asynchronicznym zapisem JPEG-a. Zdalny ekran przechwytuje
+  ją teraz dokładnie jak lokalny — po trwałym zapisie, bezpośrednio przed
+  zmianą stanu React. Test rzeczywistego komponentu przy viewportcie 390×844
+  zachował `scrollTop=388,8` po zatwierdzeniu i przejściu na kolejny JPEG.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

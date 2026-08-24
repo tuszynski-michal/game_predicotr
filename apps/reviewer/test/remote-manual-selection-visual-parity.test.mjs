@@ -36,7 +36,7 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   );
   assert.match(
     workspace,
-    /window\.requestAnimationFrame\(\(\) => \{[\s\S]*window\.requestAnimationFrame/,
+    /const animationFrame = window\.requestAnimationFrame\(\(\) => \{[\s\S]*viewport\.current\.scrollTop = savedScrollTop\.current/,
   );
   assert.match(
     workspace,
@@ -52,7 +52,7 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   );
   assert.match(
     workspace,
-    /capturePreviewScroll\(\);[\s\S]*await store\.appendLocalWorkspaceDecision[\s\S]*armPreviewScrollRestore\(nextBatch\.cursorIndex\);[\s\S]*setBatch\(nextBatch\)/,
+    /await store\.appendLocalWorkspaceDecision[\s\S]*capturePreviewScroll\(\);[\s\S]*armPreviewScrollRestore\(nextBatch\.cursorIndex\);[\s\S]*setBatch\(nextBatch\)/,
   );
   assert.match(workspace, /gp\.remote-manual-selection\.scroll\.v1/);
   assert.match(workspace, /window\.localStorage\.setItem/);

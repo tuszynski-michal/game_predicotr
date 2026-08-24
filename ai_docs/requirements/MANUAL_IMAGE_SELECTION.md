@@ -126,9 +126,10 @@ operator-local nie tworzy tych danych na hoście.
 Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
 okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
 zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
-pozycje są przechwytywane przed zmianą zdjęcia i odtwarzane po załadowaniu oraz
-dwóch klatkach layoutu. Oczekujące odtworzenie jest przypięte do docelowego
-ordinalu; render stanu `busy` na poprzednim zdjęciu nie może go skonsumować.
+pozycje są przechwytywane bezpośrednio przed zmianą kursora React, po trwałym
+zapisie decyzji, i odtwarzane po załadowaniu docelowego podglądu. Oczekujące
+odtworzenie jest przypięte do docelowego ordinalu; render stanu `busy` na
+poprzednim zdjęciu nie może go skonsumować.
 Bazowe klasy CSS i funkcja dopasowania obrazu są takie same jak w lokalnym
 selektorze. Licznik nie może wyprzedzić trwałego zapisu:
 interakcje są szeregowane, plik jest weryfikowany checksumą, a dopiero potem

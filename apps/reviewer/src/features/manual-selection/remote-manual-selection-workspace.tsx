@@ -328,19 +328,13 @@ export function RemoteManualSelectionWorkspace({
     ) {
       return;
     }
-    let layoutFrame = 0;
     const animationFrame = window.requestAnimationFrame(() => {
-      layoutFrame = window.requestAnimationFrame(() => {
-        if (viewport.current === null) return;
-        viewport.current.scrollLeft = savedScrollLeft.current;
-        viewport.current.scrollTop = savedScrollTop.current;
-        pendingScrollRestoreOrdinal.current = null;
-      });
+      if (viewport.current === null) return;
+      viewport.current.scrollLeft = savedScrollLeft.current;
+      viewport.current.scrollTop = savedScrollTop.current;
+      pendingScrollRestoreOrdinal.current = null;
     });
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.cancelAnimationFrame(layoutFrame);
-    };
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [previewOrdinal, previewUrl, workspace.currentIndex, zoomedImageSize]);
 
   useEffect(() => {
@@ -380,7 +374,6 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function persistCursor(nextIndex: number) {
-    capturePreviewScroll();
     const currentBatch = batchRef.current;
     const next = {
       ...currentBatch,
@@ -388,6 +381,7 @@ export function RemoteManualSelectionWorkspace({
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
+    capturePreviewScroll();
     armPreviewScrollRestore(nextIndex);
     setBatch(next);
     batchRef.current = next;
@@ -492,7 +486,6 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScroll();
     try {
       if (sourceReader === null) return;
       const file = await sourceReader.fileForEntry(requestedCurrent);
@@ -535,6 +528,7 @@ export function RemoteManualSelectionWorkspace({
         }
         throw cause;
       }
+      capturePreviewScroll();
       armPreviewScrollRestore(nextBatch.cursorIndex);
       setBatch(nextBatch);
       batchRef.current = nextBatch;
@@ -575,7 +569,6 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScroll();
     try {
       const nextBatch = await enqueueOperation(async () => {
         const latest = remoteSelectionWorkspaceState(batchRef.current);
@@ -644,7 +637,6 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
-    capturePreviewScroll();
     try {
       if (last.action === 'accepted' && last.fileId !== null) {
         await removeOperatorLocalSelection(outputDirectory, last);
@@ -666,6 +658,7 @@ export function RemoteManualSelectionWorkspace({
         });
       });
       if (nextBatch !== null) {
+        capturePreviewScroll();
         armPreviewScrollRestore(nextBatch.cursorIndex);
         setBatch(nextBatch);
         batchRef.current = nextBatch;

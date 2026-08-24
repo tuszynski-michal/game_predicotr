@@ -920,6 +920,128 @@ export class RemoteSelectionIndexedDbStore {
     }
   }
 
+  async rebaseOutboxAfterClientSequenceReplay(input: {
+    readonly sessionId: string;
+    readonly batchId: string;
+    readonly clientInstanceId: string;
+    readonly serverLastClientSequence: number;
+    readonly serverRevision: number;
+    readonly updatedAt?: string;
+  }): Promise<number> {
+    if (
+      !Number.isSafeInteger(input.serverLastClientSequence) ||
+      input.serverLastClientSequence < 0 ||
+      !Number.isSafeInteger(input.serverRevision) ||
+      input.serverRevision < 0
+    ) {
+      throw storeError(
+        'REMOTE_SELECTION_SERVER_CLOCK_INVALID',
+        'The canonical server clock is invalid.',
+      );
+    }
+    const records = (
+      await this.listOutboxRecords(input.sessionId, input.batchId)
+    )
+      .filter((record) => record.clientInstanceId === input.clientInstanceId)
+      .sort((left, right) => left.clientSequence - right.clientSequence);
+    if (records.length === 0) return 0;
+
+    const updatedAt = input.updatedAt ?? new Date().toISOString();
+    const rebased = await Promise.all(
+      records.map(async (record, index) => {
+        const command: RemoteManualSelectionOperationCommandV1 = {
+          ...record.command,
+          clientSequence: input.serverLastClientSequence + index + 1,
+          expectedServerRevision: input.serverRevision + index,
+        };
+        return {
+          previous: record,
+          next: {
+            ...record,
+            clientSequence: command.clientSequence,
+            command,
+            commandChecksumSha256: await canonicalRemoteChecksumSha256(command),
+            lastErrorCode: null,
+            state: 'pending' as const,
+            updatedAt,
+          },
+        };
+      }),
+    );
+
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        [
+          REMOTE_SELECTION_DATABASE_STORES.outbox,
+          REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+        ],
+        'readwrite',
+      );
+      const outbox = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+      );
+      for (const item of rebased) {
+        const current = (await requestResult(
+          outbox.index('operationId').get(item.previous.operationId),
+        )) as RemoteSelectionOutboxRecord | null;
+        if (
+          current === null ||
+          current.clientSequence !== item.previous.clientSequence ||
+          current.commandChecksumSha256 !==
+            item.previous.commandChecksumSha256 ||
+          current.clientInstanceId !== input.clientInstanceId
+        ) {
+          transaction.abort();
+          throw storeError(
+            'REMOTE_SELECTION_OUTBOX_REBASE_STALE',
+            'The local outbox changed while its server clock was being repaired.',
+          );
+        }
+      }
+      for (const item of rebased) {
+        outbox.delete([
+          input.sessionId,
+          input.batchId,
+          item.previous.clientSequence,
+        ]);
+      }
+      for (const item of rebased) outbox.put(item.next);
+
+      const clients = transaction.objectStore(
+        REMOTE_SELECTION_DATABASE_STORES.clientInstances,
+      );
+      const clientKey = [
+        input.sessionId,
+        input.batchId,
+        input.clientInstanceId,
+      ];
+      const client = (await requestResult(
+        clients.get(clientKey),
+      )) as RemoteSelectionClientInstanceRecord | null;
+      if (client === null) {
+        transaction.abort();
+        throw storeError(
+          'REMOTE_SELECTION_CLIENT_INSTANCE_NOT_FOUND',
+          'The local client instance does not exist.',
+        );
+      }
+      clients.put({
+        schemaVersion: client.schemaVersion,
+        batchId: input.batchId,
+        clientInstanceId: input.clientInstanceId,
+        lastClientSequence: input.serverLastClientSequence + rebased.length,
+        lastKnownServerRevision: input.serverRevision,
+        sessionId: input.sessionId,
+        updatedAt,
+      } satisfies RemoteSelectionClientInstanceRecord);
+      await transactionComplete(transaction);
+      return rebased.length;
+    } finally {
+      database.close();
+    }
+  }
+
   async confirmOperation(input: {
     readonly sessionId: string;
     readonly batchId: string;
@@ -1001,9 +1123,20 @@ export class RemoteSelectionIndexedDbStore {
     readonly clientInstanceId: string;
     readonly files: readonly RemoteSelectionServerFileState[];
     readonly nextRevision: number;
+    readonly serverLastClientSequence?: number;
     readonly status?: 'indexing' | 'active' | 'finalizing' | 'completed';
     readonly updatedAt?: string;
   }): Promise<void> {
+    if (
+      input.serverLastClientSequence !== undefined &&
+      (!Number.isSafeInteger(input.serverLastClientSequence) ||
+        input.serverLastClientSequence < 0)
+    ) {
+      throw storeError(
+        'REMOTE_SELECTION_SERVER_CLOCK_INVALID',
+        'The canonical server client sequence is invalid.',
+      );
+    }
     const updatedAt = input.updatedAt ?? new Date().toISOString();
     const database = await this.open();
     try {
@@ -1045,6 +1178,10 @@ export class RemoteSelectionIndexedDbStore {
       }
       clients.put({
         ...client,
+        lastClientSequence: Math.max(
+          client.lastClientSequence,
+          input.serverLastClientSequence ?? client.lastClientSequence,
+        ),
         lastKnownServerRevision: input.nextRevision,
         updatedAt,
       });
@@ -1175,6 +1312,30 @@ export class RemoteSelectionIndexedDbStore {
       const store = transaction.objectStore(storeName);
       const range = this.boundedRange(lower, upper);
       return await cursorPage<T>(store, range, boundedLimit);
+    } finally {
+      database.close();
+    }
+  }
+
+  private async listOutboxRecords(
+    sessionId: string,
+    batchId: string,
+  ): Promise<RemoteSelectionOutboxRecord[]> {
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.outbox,
+        'readonly',
+      );
+      const range = this.boundedRange(
+        [sessionId, batchId, 0],
+        [sessionId, batchId, Number.MAX_SAFE_INTEGER],
+      );
+      return (await requestResult(
+        transaction
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.outbox)
+          .getAll(range),
+      )) as RemoteSelectionOutboxRecord[];
     } finally {
       database.close();
     }

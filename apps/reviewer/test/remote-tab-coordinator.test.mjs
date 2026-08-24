@@ -33,16 +33,14 @@ test('elects one writer and keeps a second tab read-only', async () => {
     staleMs: 6_000,
     now: () => now,
   };
-  const first = new RemoteSelectionTabCoordinator(
-    'session-1',
-    'client-a',
-    options,
-  );
-  const second = new RemoteSelectionTabCoordinator(
-    'session-1',
-    'client-b',
-    options,
-  );
+  const first = new RemoteSelectionTabCoordinator('session-1', 'client-a', {
+    ...options,
+    tabInstanceId: 'tab-a',
+  });
+  const second = new RemoteSelectionTabCoordinator('session-1', 'client-b', {
+    ...options,
+    tabInstanceId: 'tab-b',
+  });
 
   assert.equal((await first.start()).mode, 'writer');
   now += 1;
@@ -65,17 +63,17 @@ test('keeps the first live claim and isolates separate sessions', async () => {
   const laterLexically = new RemoteSelectionTabCoordinator(
     'session-1',
     'client-z',
-    options,
+    { ...options, tabInstanceId: 'tab-z' },
   );
   const earlierLexically = new RemoteSelectionTabCoordinator(
     'session-1',
     'client-a',
-    options,
+    { ...options, tabInstanceId: 'tab-a' },
   );
   const anotherSession = new RemoteSelectionTabCoordinator(
     'session-2',
     'client-z',
-    options,
+    { ...options, tabInstanceId: 'tab-other-session' },
   );
 
   try {
@@ -89,6 +87,63 @@ test('keeps the first live claim and isolates separate sessions', async () => {
     earlierLexically.close();
     anotherSession.close();
   }
+});
+
+test('copied sessionStorage client id still elects only one writer tab', async () => {
+  const bus = new BroadcastBus();
+  let now = 100;
+  const options = {
+    channelFactory: (name) => bus.create(name),
+    discoveryMs: 0,
+    heartbeatMs: 60_000,
+    staleMs: 6_000,
+    now: () => now,
+  };
+  const first = new RemoteSelectionTabCoordinator(
+    'session-1',
+    'shared-client',
+    { ...options, tabInstanceId: 'tab-a' },
+  );
+  const copied = new RemoteSelectionTabCoordinator(
+    'session-1',
+    'shared-client',
+    { ...options, tabInstanceId: 'tab-b' },
+  );
+
+  assert.equal((await first.start()).mode, 'writer');
+  now += 1;
+  assert.equal((await copied.start()).mode, 'read_only');
+  first.close();
+  assert.equal(copied.claimIfAvailable().mode, 'writer');
+  copied.close();
+});
+
+test('a legacy live tab without a tab id keeps a new same-client tab read-only', async () => {
+  const bus = new BroadcastBus();
+  const legacy = bus.create('game-predictor-remote-selection:session-1');
+  const coordinator = new RemoteSelectionTabCoordinator(
+    'session-1',
+    'shared-client',
+    {
+      channelFactory: (name) => bus.create(name),
+      discoveryMs: 5,
+      heartbeatMs: 60_000,
+      now: () => 200,
+      tabInstanceId: 'new-tab',
+    },
+  );
+
+  const started = coordinator.start();
+  legacy.postMessage({
+    claimedAtMs: 100,
+    kind: 'owner',
+    schemaVersion: 1,
+    senderClientInstanceId: 'shared-client',
+    sessionId: 'session-1',
+  });
+  assert.equal((await started).mode, 'read_only');
+  coordinator.close();
+  legacy.close();
 });
 
 test('falls back to a single-tab writer when BroadcastChannel is unavailable', async () => {

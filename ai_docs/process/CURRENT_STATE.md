@@ -61,6 +61,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `F`. Aktualizacja kursora jest teraz warunkowa, więc starszy skan nie pomija
   świeżych wyborów. Zdalny viewport przywraca też poziomy scroll i zachowuje
   obie osie przy przejściu strzałką, decyzji, pominięciu oraz cofnięciu.
+- Mobilna próba wykryła `REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY` po otwarciu
+  kolejnej karty. Klient uzgadnia teraz globalny zegar sekwencji z odpowiedzią
+  hosta i jednokrotnie, atomowo przenumerowuje wyłącznie niepotwierdzony outbox,
+  zachowując `operationId` oraz decyzje. Koordynacja kart rozróżnia instancję
+  karty od kopiowanego `clientInstanceId`, więc duplikat karty jest read-only.
+  Podgląd ma pełną szerokość, techniczne liczniki usunięto z bocznego panelu,
+  a zoom i przywracanie obu osi są wymuszane po ustabilizowaniu layoutu.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

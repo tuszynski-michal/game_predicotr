@@ -323,6 +323,74 @@ test('controlled conflict reconciles canonical delta but retains exact outbox re
   assert.equal(client.lastKnownServerRevision, 1);
 });
 
+test('client sequence replay rebases the durable outbox to the canonical server clock', async () => {
+  const { sourceItem, store } = await fixture();
+  const operation = command(1, sourceItem);
+  await store.appendOutboxOperation(operation);
+  const sentSequences = [];
+  const transport = {
+    async applyOperation(value) {
+      sentSequences.push(value.clientSequence);
+      if (value.clientSequence === 1) {
+        throw new RemoteSelectionControlApiError(
+          409,
+          'REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY',
+          'consumed by another tab',
+        );
+      }
+      return {
+        batch: {
+          batchId,
+          lastClientSequence: 15,
+          serverRevision: 15,
+        },
+        exactRetry: false,
+        file: { ...fileState(sourceItem, 15), lastServerRevision: null },
+        operation: {
+          appliedServerRevision: 15,
+          commandChecksumSha256: await canonicalRemoteChecksumSha256(value),
+          operationId: value.operationId,
+          outcomeCode: 'applied',
+          status: 'applied',
+        },
+      };
+    },
+    async getStateDelta() {
+      return {
+        batch: {
+          batchId,
+          lastClientSequence: 14,
+          serverRevision: 14,
+          status: 'active',
+        },
+        files: [],
+        hasMore: false,
+        lastHeartbeatAt: null,
+        nextRevision: 14,
+        queue: emptyQueueStatus,
+      };
+    },
+  };
+
+  const result = await new RemoteSelectionOutboxSynchronizer(
+    store,
+    transport,
+  ).drain(sessionId, batchId, clientInstanceId);
+
+  assert.deepEqual(sentSequences, [1, 15]);
+  assert.equal(result.conflictCode, null);
+  assert.equal(result.confirmedCount, 1);
+  assert.equal(result.pendingCount, 0);
+  assert.equal(await store.countPendingOperations(sessionId, batchId), 0);
+  const client = await store.loadClientInstance(
+    sessionId,
+    batchId,
+    clientInstanceId,
+  );
+  assert.equal(client.lastClientSequence, 15);
+  assert.equal(client.lastKnownServerRevision, 15);
+});
+
 test('mismatched confirmation never acknowledges the local operation', async () => {
   const { sourceItem, store } = await fixture();
   const operation = command(1, sourceItem);

@@ -292,7 +292,6 @@
 .remoteSelectionWorkspaceFoundation,
 .remoteSelectionSetup,
 .remoteManualWorkspace,
-.remoteManualSyncPanel,
 .remoteSelectionSourceRecovery {
   display: grid;
   gap: 12px;
@@ -307,8 +306,7 @@
   grid-column: 1 / -1;
 }
 
-.remoteSelectionSetup label,
-.remoteManualSyncPanel label {
+.remoteSelectionSetup label {
   display: grid;
   gap: 5px;
   color: var(--muted);
@@ -319,8 +317,7 @@
 }
 
 .remoteSelectionSetup input,
-.remoteSelectionSetup select,
-.remoteManualSyncPanel select {
+.remoteSelectionSetup select {
   min-height: 42px;
   padding: 0 10px;
   border: 1px solid var(--line-strong);
@@ -338,21 +335,27 @@
 }
 
 .remoteManualWorkspaceHeader h2,
-.remoteManualWorkspaceHeader p,
-.remoteManualSyncPanel h3 {
+.remoteManualWorkspaceHeader p {
   margin: 0;
 }
 
 .remoteManualWorkspaceGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 310px);
-  gap: 16px;
+  display: block;
   min-width: 0;
 }
 
-.remoteManualSyncPanel,
 .remoteSelectionSourceRecovery {
   min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteManualSyncControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -379,57 +382,22 @@
   margin-block: auto;
 }
 
-.remoteManualSyncPanel dl {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-}
-
-.remoteManualRecoveryFindings {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: #f5c2c7;
-  font-size: 0.8rem;
-  overflow-wrap: anywhere;
-}
-
-.remoteManualSyncPanel dl > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-}
-
-.remoteManualSyncPanel dd {
-  margin: 0;
-  text-align: right;
-  font-weight: 800;
+.remoteManualPreviewCanvas > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 
 .remoteManualShortcutHelp {
+  margin: 0;
+  padding: 8px 4px 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.55;
-}
-
-.remoteManualFinalizePanel {
-  display: grid;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.remoteManualFinalizePanel h3,
-.remoteManualFinalizePanel ul {
-  margin: 0;
-}
-
-.remoteManualFinalizePanel ul {
-  padding-left: 20px;
-  color: #f4d35e;
-  font-size: 12px;
+  text-align: center;
 }
 
 .remoteManualActions {
@@ -483,7 +451,6 @@
 }
 
 @media (max-width: 900px) {
-  .remoteManualWorkspaceGrid,
   .remoteSelectionSetup {
     grid-template-columns: 1fr;
   }

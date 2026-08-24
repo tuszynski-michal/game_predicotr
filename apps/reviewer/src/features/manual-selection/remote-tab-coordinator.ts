@@ -10,6 +10,7 @@ type TabMessage = {
   readonly schemaVersion: 1;
   readonly sessionId: string;
   readonly senderClientInstanceId: string;
+  readonly senderTabInstanceId?: string;
   readonly claimedAtMs: number;
   readonly kind: 'hello' | 'owner' | 'heartbeat' | 'release';
 };
@@ -29,6 +30,7 @@ const DISCOVERY_MS = 80;
 export class RemoteSelectionTabCoordinator {
   private readonly sessionId: string;
   private readonly clientInstanceId: string;
+  private readonly tabInstanceId: string;
   private readonly channelFactory: ChannelFactory | null;
   private readonly now: () => number;
   private readonly discoveryMs: number;
@@ -38,6 +40,7 @@ export class RemoteSelectionTabCoordinator {
   private interval: ReturnType<typeof setInterval> | null = null;
   private owner: {
     readonly clientInstanceId: string;
+    readonly tabInstanceId: string;
     readonly claimedAtMs: number;
     readonly seenAtMs: number;
   } | null = null;
@@ -53,6 +56,7 @@ export class RemoteSelectionTabCoordinator {
       readonly heartbeatMs?: number;
       readonly staleMs?: number;
       readonly now?: () => number;
+      readonly tabInstanceId?: string;
     } = {},
   ) {
     this.sessionId = sessionId;
@@ -65,6 +69,7 @@ export class RemoteSelectionTabCoordinator {
     this.discoveryMs = options.discoveryMs ?? DISCOVERY_MS;
     this.heartbeatMs = options.heartbeatMs ?? HEARTBEAT_MS;
     this.staleMs = options.staleMs ?? OWNER_STALE_MS;
+    this.tabInstanceId = options.tabInstanceId ?? createTabInstanceId();
     this.claimedAtMs = this.now();
   }
 
@@ -86,8 +91,7 @@ export class RemoteSelectionTabCoordinator {
     const liveOwner = this.liveOwner();
     return {
       mode:
-        liveOwner === null ||
-        liveOwner.clientInstanceId === this.clientInstanceId
+        liveOwner === null || liveOwner.tabInstanceId === this.tabInstanceId
           ? 'writer'
           : 'read_only',
       ownerClientInstanceId:
@@ -109,6 +113,7 @@ export class RemoteSelectionTabCoordinator {
     this.owner = {
       claimedAtMs: this.claimedAtMs,
       clientInstanceId: this.clientInstanceId,
+      tabInstanceId: this.tabInstanceId,
       seenAtMs: this.now(),
     };
     this.post('owner');
@@ -117,7 +122,7 @@ export class RemoteSelectionTabCoordinator {
   }
 
   close(): void {
-    if (this.owner?.clientInstanceId === this.clientInstanceId) {
+    if (this.owner?.tabInstanceId === this.tabInstanceId) {
       this.post('release');
     }
     if (this.interval !== null) clearInterval(this.interval);
@@ -132,21 +137,26 @@ export class RemoteSelectionTabCoordinator {
   }
 
   private receive(message: TabMessage): void {
+    const senderTabInstanceId =
+      typeof message.senderTabInstanceId === 'string' &&
+      message.senderTabInstanceId !== ''
+        ? message.senderTabInstanceId
+        : `legacy:${message.senderClientInstanceId}`;
     if (
       message.schemaVersion !== 1 ||
       message.sessionId !== this.sessionId ||
-      message.senderClientInstanceId === this.clientInstanceId
+      senderTabInstanceId === this.tabInstanceId
     ) {
       return;
     }
     if (message.kind === 'hello') {
-      if (this.owner?.clientInstanceId === this.clientInstanceId) {
+      if (this.owner?.tabInstanceId === this.tabInstanceId) {
         this.post('owner');
       }
       return;
     }
     if (message.kind === 'release') {
-      if (this.owner?.clientInstanceId === message.senderClientInstanceId) {
+      if (this.owner?.tabInstanceId === senderTabInstanceId) {
         this.owner = null;
         this.emit();
       }
@@ -155,20 +165,21 @@ export class RemoteSelectionTabCoordinator {
     const candidate = {
       claimedAtMs: message.claimedAtMs,
       clientInstanceId: message.senderClientInstanceId,
+      tabInstanceId: senderTabInstanceId,
       seenAtMs: this.now(),
     };
     const current = this.liveOwner();
     if (current === null || compareClaims(candidate, current) < 0) {
       this.owner = candidate;
       this.emit();
-    } else if (current.clientInstanceId === candidate.clientInstanceId) {
+    } else if (current.tabInstanceId === candidate.tabInstanceId) {
       this.owner = candidate;
     }
   }
 
   private tick(): void {
     const owner = this.liveOwner();
-    if (owner?.clientInstanceId === this.clientInstanceId) {
+    if (owner?.tabInstanceId === this.tabInstanceId) {
       this.owner = { ...owner, seenAtMs: this.now() };
       this.post('heartbeat');
       return;
@@ -179,7 +190,7 @@ export class RemoteSelectionTabCoordinator {
   private liveOwner() {
     if (this.owner === null) return null;
     if (
-      this.owner.clientInstanceId !== this.clientInstanceId &&
+      this.owner.tabInstanceId !== this.tabInstanceId &&
       this.now() - this.owner.seenAtMs > this.staleMs
     ) {
       this.owner = null;
@@ -194,6 +205,7 @@ export class RemoteSelectionTabCoordinator {
       claimedAtMs: this.claimedAtMs,
       kind,
       senderClientInstanceId: this.clientInstanceId,
+      senderTabInstanceId: this.tabInstanceId,
       sessionId: this.sessionId,
     });
   }
@@ -205,12 +217,21 @@ export class RemoteSelectionTabCoordinator {
 }
 
 function compareClaims(
-  left: { readonly claimedAtMs: number; readonly clientInstanceId: string },
-  right: { readonly claimedAtMs: number; readonly clientInstanceId: string },
+  left: {
+    readonly claimedAtMs: number;
+    readonly clientInstanceId: string;
+    readonly tabInstanceId: string;
+  },
+  right: {
+    readonly claimedAtMs: number;
+    readonly clientInstanceId: string;
+    readonly tabInstanceId: string;
+  },
 ): number {
   return (
     left.claimedAtMs - right.claimedAtMs ||
-    left.clientInstanceId.localeCompare(right.clientInstanceId)
+    left.clientInstanceId.localeCompare(right.clientInstanceId) ||
+    left.tabInstanceId.localeCompare(right.tabInstanceId)
   );
 }
 
@@ -221,4 +242,18 @@ function defaultChannelFactory(): ChannelFactory | null {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function createTabInstanceId(): string {
+  const webCrypto = globalThis.crypto;
+  if (typeof webCrypto?.randomUUID === 'function')
+    return webCrypto.randomUUID();
+  if (typeof webCrypto?.getRandomValues === 'function') {
+    const values = new Uint32Array(4);
+    webCrypto.getRandomValues(values);
+    return [...values]
+      .map((value) => value.toString(16).padStart(8, '0'))
+      .join('');
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }

@@ -392,6 +392,7 @@ export class RemoteSelectionOutboxSynchronizer {
         clientInstanceId,
         files: delta.files,
         nextRevision: delta.nextRevision,
+        serverLastClientSequence: delta.batch.lastClientSequence,
         sessionId,
         status: delta.batch.status,
       });
@@ -412,6 +413,7 @@ export class RemoteSelectionOutboxSynchronizer {
     pageSize = 25,
   ): Promise<RemoteSelectionDrainResult> {
     let confirmedCount = 0;
+    let sequenceReplayRepaired = false;
     while (true) {
       const page = await this.store.listOutboxPage(
         sessionId,
@@ -427,8 +429,23 @@ export class RemoteSelectionOutboxSynchronizer {
           pendingCount: 0,
         };
       }
+      let restartAfterRepair = false;
       for (const record of page) {
         if (record.state === 'conflict') {
+          if (
+            record.lastErrorCode ===
+              'REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY' &&
+            !sequenceReplayRepaired &&
+            (await this.repairClientSequenceReplay(
+              sessionId,
+              batchId,
+              clientInstanceId,
+            ))
+          ) {
+            sequenceReplayRepaired = true;
+            restartAfterRepair = true;
+            break;
+          }
           return {
             confirmedCount,
             conflictCode: record.lastErrorCode,
@@ -469,13 +486,29 @@ export class RemoteSelectionOutboxSynchronizer {
             conflict ? 'conflict' : 'pending',
             code,
           );
-          if (conflict) {
+          const canRepairReplay =
+            conflict &&
+            code === 'REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY' &&
+            !sequenceReplayRepaired;
+          if (conflict && !canRepairReplay) {
             try {
               await this.reconcile(sessionId, batchId, clientInstanceId);
             } catch {
               // The original conflicting operation remains durable even when
               // the diagnostic delta cannot currently be fetched.
             }
+          }
+          if (
+            canRepairReplay &&
+            (await this.repairClientSequenceReplay(
+              sessionId,
+              batchId,
+              clientInstanceId,
+            ))
+          ) {
+            sequenceReplayRepaired = true;
+            restartAfterRepair = true;
+            break;
           }
           return {
             confirmedCount,
@@ -488,7 +521,27 @@ export class RemoteSelectionOutboxSynchronizer {
           };
         }
       }
+      if (restartAfterRepair) continue;
     }
+  }
+
+  private async repairClientSequenceReplay(
+    sessionId: string,
+    batchId: string,
+    clientInstanceId: string,
+  ): Promise<boolean> {
+    await this.reconcile(sessionId, batchId, clientInstanceId);
+    const state = this.latestState;
+    if (state === null) return false;
+    return (
+      (await this.store.rebaseOutboxAfterClientSequenceReplay({
+        batchId,
+        clientInstanceId,
+        serverLastClientSequence: state.batch.lastClientSequence,
+        serverRevision: state.batch.serverRevision,
+        sessionId,
+      })) > 0
+    );
   }
 }
 

@@ -183,6 +183,61 @@ test('rejects operation ID reuse with different content and sequence gaps', asyn
   );
 });
 
+test('rebases all unsent operations in order after another tab consumed the client clock', async () => {
+  const { store } = await fixture();
+  await store.appendOutboxOperation(command(1));
+  await store.appendOutboxOperation(command(2));
+  await store.markOutboxOperation(
+    'session-1',
+    'batch-1',
+    'operation-1',
+    'conflict',
+    'REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY',
+  );
+
+  assert.equal(
+    await store.rebaseOutboxAfterClientSequenceReplay({
+      batchId: 'batch-1',
+      clientInstanceId: 'client-1',
+      serverLastClientSequence: 14,
+      serverRevision: 22,
+      sessionId: 'session-1',
+    }),
+    2,
+  );
+
+  const rebased = await store.listOutboxPage('session-1', 'batch-1');
+  assert.deepEqual(
+    rebased.map((record) => ({
+      expectedServerRevision: record.command.expectedServerRevision,
+      operationId: record.operationId,
+      sequence: record.clientSequence,
+      state: record.state,
+    })),
+    [
+      {
+        expectedServerRevision: 22,
+        operationId: 'operation-1',
+        sequence: 15,
+        state: 'pending',
+      },
+      {
+        expectedServerRevision: 23,
+        operationId: 'operation-2',
+        sequence: 16,
+        state: 'pending',
+      },
+    ],
+  );
+  const client = await store.loadClientInstance(
+    'session-1',
+    'batch-1',
+    'client-1',
+  );
+  assert.equal(client.lastClientSequence, 16);
+  assert.equal(client.lastKnownServerRevision, 22);
+});
+
 test('handle loss never deletes source cursor or pending outbox state', async () => {
   const { store } = await fixture();
   await store.updateCursor('session-1', 'batch-1', 2);

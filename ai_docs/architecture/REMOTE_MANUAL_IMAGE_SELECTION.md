@@ -511,9 +511,10 @@ Rekomendowany jest wariant B z kontrolowanym wykrywaniem konfliktów:
 **host jest źródłem prawdy, a IndexedDB zachowuje trwały outbox**. Server-wins
 nie może oznaczać wyrzucenia jeszcze niewysłanych decyzji po refreshu.
 
-- Każda karta ma trwały `clientInstanceId`; jedna sesja ma jeden aktywny writer
-  lease. Druga karta/osoba jest read-only i może wykonać jawny takeover po
-  wygaśnięciu lease.
+- Każdy klient ma trwały `clientInstanceId`, a każda karta dodatkowy nietrwały
+  `tabInstanceId`; jedna sesja ma jeden aktywny writer lease. Druga karta/osoba
+  jest read-only i może wykonać jawny takeover po wygaśnięciu lease. Skopiowany
+  przez duplikację karty `sessionStorage` nie utożsamia dwóch kart.
 - Operacja dostaje losowy `operationId`, monotoniczny `clientSequence`,
   `expectedServerRevision` i per-file `selectionGeneration`.
 - Exact retry tego samego `operationId` zwraca zapisany wynik. Luka w
@@ -521,6 +522,9 @@ nie może oznaczać wyrzucenia jeszcze niewysłanych decyzji po refreshu.
 - Host zwiększa `serverRevision` wyłącznie po atomowym zastosowaniu zmiany.
 - Refresh pobiera snapshot/delta od ostatniej rewizji, usuwa z outboxu tylko
   potwierdzone `operationId`, a pozostałe replayuje w kolejności.
+- Delta zawiera kanoniczny globalny `lastClientSequence`. Kontrolowany replay
+  zużytego numeru pozwala jednokrotnie przenumerować cały niepotwierdzony outbox
+  od zegara hosta bez zmiany `operationId`, treści decyzji ani ich kolejności.
 - Konflikt precondition nie jest rozwiązywany last-write-wins według czasu
   urządzenia. Klient pobiera stan, pokazuje rozbieżność i replayuje wyłącznie
   operacje, których zakres/generacja nadal mają sens.

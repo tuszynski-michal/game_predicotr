@@ -27,7 +27,10 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   const css = await readFile(reviewerCssPath, 'utf8');
 
   assert.match(workspace, /pendingScrollRestore\.current = true/);
-  assert.match(workspace, /window\.requestAnimationFrame/);
+  assert.match(
+    workspace,
+    /window\.requestAnimationFrame\(\(\) => \{[\s\S]*window\.requestAnimationFrame/,
+  );
   assert.match(
     workspace,
     /viewport\.current\.scrollLeft = savedScrollLeft\.current/,
@@ -47,5 +50,33 @@ test('remote preview scrolls and restores both axes after layout', async () => {
   assert.match(
     css,
     /\.remoteManualPreviewCanvas\s*\{[\s\S]*?flex:\s*0 0 auto;[\s\S]*?margin-inline:\s*auto;[\s\S]*?margin-block:\s*auto;[\s\S]*?\}/,
+  );
+});
+
+test('remote image is full width with visible zoom and controls above the workspace', async () => {
+  const workspace = await readFile(workspacePath, 'utf8');
+  const css = await readFile(reviewerCssPath, 'utf8');
+
+  assert.ok(
+    workspace.indexOf('remoteManualSyncControls') <
+      workspace.indexOf('remoteManualWorkspaceHeader'),
+  );
+  assert.doesNotMatch(workspace, /remoteManualSyncPanel/);
+  assert.doesNotMatch(workspace, /<dt>|<dd>/);
+  assert.match(
+    workspace,
+    /manualImageSelectionFilename[\s\S]*remoteManualShortcutHelp/,
+  );
+  assert.match(
+    workspace,
+    /onClick=\{\(\) => setZoom\(\(value\) => Math\.min\(3000, value \+ 25\)\)\}/,
+  );
+  assert.match(
+    css,
+    /\.remoteManualWorkspaceGrid\s*\{[\s\S]*?display:\s*block;[\s\S]*?\}/,
+  );
+  assert.match(
+    css,
+    /\.remoteManualPreviewCanvas > img\s*\{[\s\S]*?max-width:\s*none;[\s\S]*?max-height:\s*none;[\s\S]*?\}/,
   );
 });

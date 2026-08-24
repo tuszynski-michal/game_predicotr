@@ -177,7 +177,11 @@ decyzji. Viewport udostępnia poziomy i pionowy scroll dla powiększonego zdjęc
 obraz mieszczący się w widoku pozostaje wycentrowany. Po zmianie zdjęcia obie
 pozycje scrolla są odtwarzane dopiero po załadowaniu obrazu i przeliczeniu jego
 rozmiaru, również gdy przejście wynika z decyzji `Enter/F`, pominięcia albo
-cofnięcia.
+cofnięcia. Odtworzenie następuje po dwóch kolejnych klatkach layoutu, aby
+mobilna przeglądarka nie ograniczyła pozycji do wymiarów poprzedniego obrazu.
+Podgląd zajmuje pełną szerokość bez bocznego panelu; legenda skrótów znajduje
+się pod zdjęciem, a nad workspace'em pozostają jedynie operacyjne przyciski
+synchronizacji i sprawdzenia gotowości.
 
 Polecenia operatora są szeregowane i nie mogą być po cichu odrzucane przez
 trwający lokalny zapis. Cofnięcie wraca do zdjęcia, którego decyzję usuwa.
@@ -187,6 +191,12 @@ powoduje kolejny cykl przed zwolnieniem bariery.
 Skan transferów używa kursora odpornego na równoległe przewinięcie wstecz przez
 nową decyzję. Starszy przebieg nie może przesunąć kursora za świeżo zatwierdzony
 plik; potwierdzony `select` musi rozpocząć transfer JPEG-a i materializację.
+Stan delta zawsze aktualizuje także kanoniczny `lastClientSequence`. Jeżeli
+inna karta zużyła numer, jednorazowa naprawa zachowuje treść i `operationId`
+każdej niepotwierdzonej operacji, nadaje całemu outboxowi kolejne numery od
+zegara hosta i ponawia go w pierwotnej kolejności. Koordynator kart używa
+osobnego, pamięciowego identyfikatora karty, dlatego dwie karty ze skopiowanym
+`sessionStorage` nie mogą równocześnie zostać writerem.
 
 ### Panel hosta zdalnej selekcji
 

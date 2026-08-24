@@ -165,6 +165,21 @@ ani kopiowania JPEG-ów do repozytorium.
 - Poziomy scroll wraca dla powiększonego obrazu. Obie osie są przechwytywane
   przed każdą zmianą zdjęcia i odtwarzane po decode oraz obliczeniu wymiarów.
 
+### v0.7.50 — odzyskanie zegara klienta i uproszczony viewport
+
+- Rzeczywista partia miała na hoście zastosowane sekwencje `1–14`, a karta
+  próbowała wysłać pod zużytym numerem inną operację. Przyczyną było pominięcie
+  `lastClientSequence` podczas reconciliacji oraz utożsamienie dwóch kart o
+  skopiowanym `clientInstanceId`.
+- Delta aktualizuje teraz oba zegary klienta. `CLIENT_SEQUENCE_REPLAY` uruchamia
+  jeden bezpieczny rebase całego niepotwierdzonego outboxu, bez usuwania decyzji
+  i bez zmiany `operationId`. Osobny `tabInstanceId` wymusza jednego lokalnego
+  writera również po skopiowaniu karty.
+- Panel liczników z prawej strony usunięto. Podgląd zajmuje pełną szerokość,
+  legenda jest pod zdjęciem, a pod nagłówkiem dostępu pozostają przyciski
+  synchronizacji i gotowości. Zoom ma jawnie nieograniczone wymiary obrazu,
+  a obie osie scrolla wracają po dwóch klatkach layoutu.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

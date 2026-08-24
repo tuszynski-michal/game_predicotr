@@ -27,7 +27,6 @@ import {
   RemoteSelectionControlApiError,
   RemoteSelectionSyncCoordinator,
   type RemoteSelectionFinalizePreview,
-  type RemoteSelectionStateDeltaResponse,
   RemoteSelectionOutboxSynchronizer,
 } from './remote-selection-sync';
 import {
@@ -89,8 +88,6 @@ export function RemoteManualSelectionWorkspace({
   const [finalizePreview, setFinalizePreview] =
     useState<RemoteSelectionFinalizePreview | null>(null);
   const [finalizing, setFinalizing] = useState(false);
-  const [remoteStatus, setRemoteStatus] =
-    useState<RemoteSelectionStateDeltaResponse | null>(null);
   const [transferSnapshot, setTransferSnapshot] = useState({
     active: 0,
     pendingBytes: 0,
@@ -302,7 +299,6 @@ export function RemoteManualSelectionWorkspace({
           currentBatch.batchId,
           clientInstanceId,
         );
-        setRemoteStatus(synchronizer.status());
         if (typeof navigator === 'undefined' || navigator.onLine) setError('');
       }
       await refreshLocalState();
@@ -532,13 +528,19 @@ export function RemoteManualSelectionWorkspace({
     ) {
       return;
     }
+    let layoutFrame = 0;
     const animationFrame = window.requestAnimationFrame(() => {
-      if (viewport.current === null) return;
-      viewport.current.scrollLeft = savedScrollLeft.current;
-      viewport.current.scrollTop = savedScrollTop.current;
-      pendingScrollRestore.current = false;
+      layoutFrame = window.requestAnimationFrame(() => {
+        if (viewport.current === null) return;
+        viewport.current.scrollLeft = savedScrollLeft.current;
+        viewport.current.scrollTop = savedScrollTop.current;
+        pendingScrollRestore.current = false;
+      });
     });
-    return () => window.cancelAnimationFrame(animationFrame);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(layoutFrame);
+    };
   }, [previewOrdinal, previewUrl, workspace.currentIndex, zoomedImageSize]);
 
   useEffect(() => {
@@ -1038,7 +1040,7 @@ export function RemoteManualSelectionWorkspace({
       setNotice(
         preview.ready
           ? 'Wszystkie decyzje i pliki są uzgodnione. Możesz zakończyć partię.'
-          : 'Partia nie jest jeszcze gotowa. Szczegóły są widoczne poniżej.',
+          : 'Partia nie jest jeszcze gotowa. Ponów synchronizację i sprawdź ponownie.',
       );
     } catch (cause) {
       setError(syncErrorMessage(cause));
@@ -1075,7 +1077,7 @@ export function RemoteManualSelectionWorkspace({
       if (!currentPreview.ready) {
         setFinalizePreview(currentPreview);
         setNotice(
-          'Partia nie jest jeszcze gotowa. Szczegóły są widoczne poniżej.',
+          'Partia nie jest jeszcze gotowa. Ponów synchronizację i sprawdź ponownie.',
         );
         return;
       }
@@ -1112,6 +1114,39 @@ export function RemoteManualSelectionWorkspace({
       className="remoteManualWorkspace manualImageSelectionWorkspace manualImageSelectionActive"
       aria-live="polite"
     >
+      <section
+        aria-label="Synchronizacja z hostem"
+        className="remoteManualSyncControls"
+      >
+        <button
+          className="secondaryButton"
+          disabled={syncing}
+          onClick={() => void syncNow()}
+          type="button"
+        >
+          {syncing ? 'Synchronizacja…' : 'Ponów synchronizację'}
+        </button>
+        {!completed ? (
+          <button
+            className="secondaryButton"
+            disabled={!canEdit || syncing || finalizing}
+            onClick={() => void previewFinalization()}
+            type="button"
+          >
+            {finalizing ? 'Sprawdzanie…' : 'Sprawdź gotowość'}
+          </button>
+        ) : null}
+        {finalizePreview?.ready ? (
+          <button
+            className="primaryButton"
+            disabled={finalizing}
+            onClick={() => void finalizeBatch()}
+            type="button"
+          >
+            Zakończ partię i zapisz manifesty
+          </button>
+        ) : null}
+      </section>
       <header className="remoteManualWorkspaceHeader manualImageSelectionHeader">
         <div>
           <p className="eyebrow">
@@ -1299,6 +1334,10 @@ export function RemoteManualSelectionWorkspace({
             <p className="manualImageSelectionFilename">
               {current?.relativePath ?? 'brak zdjęcia'}
             </p>
+            <p className="remoteManualShortcutHelp">
+              ←/→ zdjęcie · ↑/↓ skok · Enter/F zatwierdź · Tab pomiń · A/Ctrl+Z
+              cofnij
+            </p>
           </div>
           <button
             aria-label="Następne zdjęcie"
@@ -1310,130 +1349,6 @@ export function RemoteManualSelectionWorkspace({
             →
           </button>
         </div>
-
-        <aside className="remoteManualSyncPanel">
-          <h3>Stan pracy</h3>
-          <dl>
-            <div>
-              <dt>Zatwierdzone</dt>
-              <dd>{acceptedCount}</dd>
-            </div>
-            <div>
-              <dt>Decyzje razem</dt>
-              <dd>{workspace.decisions.length}</dd>
-            </div>
-            <div>
-              <dt>Outbox</dt>
-              <dd>{pendingCount}</dd>
-            </div>
-            <div>
-              <dt>Transfery</dt>
-              <dd>
-                {transferSnapshot.active} aktywne / {transferSnapshot.queued} w
-                kolejce
-              </dd>
-            </div>
-            <div>
-              <dt>Dane w tle</dt>
-              <dd>{formatBytes(transferSnapshot.pendingBytes)}</dd>
-            </div>
-            {remoteStatus !== null ? (
-              <>
-                <div>
-                  <dt>Serwer: oczekujące decyzje</dt>
-                  <dd>{remoteStatus.queue.pendingOperationCount}</dd>
-                </div>
-                <div>
-                  <dt>Serwer: upload</dt>
-                  <dd>
-                    {remoteStatus.queue.uploadingTransferCount} /{' '}
-                    {formatBytes(remoteStatus.queue.pendingTransferBytes)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Serwer: materializacja</dt>
-                  <dd>
-                    {remoteStatus.queue.materializingActionCount} /{' '}
-                    {remoteStatus.queue.pendingHostActionCount} akcji
-                  </dd>
-                </div>
-                <div>
-                  <dt>Serwer: zsynchronizowane</dt>
-                  <dd>{remoteStatus.queue.syncedFileCount}</dd>
-                </div>
-                <div>
-                  <dt>Konflikty</dt>
-                  <dd>{remoteStatus.queue.conflictFileCount}</dd>
-                </div>
-                <div>
-                  <dt>Heartbeat writera</dt>
-                  <dd>
-                    {remoteStatus.lastHeartbeatAt === null
-                      ? 'brak aktywnego writera'
-                      : new Date(remoteStatus.lastHeartbeatAt).toLocaleString(
-                          'pl-PL',
-                        )}
-                  </dd>
-                </div>
-              </>
-            ) : null}
-          </dl>
-          {remoteStatus?.queue.recoveryFindings.length ? (
-            <ul className="remoteManualRecoveryFindings">
-              {remoteStatus.queue.recoveryFindings.map((finding) => (
-                <li key={finding.code}>
-                  {finding.code}: {finding.count}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <button
-            className="secondaryButton"
-            disabled={syncing}
-            onClick={() => void syncNow()}
-            type="button"
-          >
-            {syncing ? 'Synchronizacja…' : 'Ponów synchronizację'}
-          </button>
-          {!completed ? (
-            <div className="remoteManualFinalizePanel">
-              <h3>Zakończenie partii</h3>
-              <button
-                className="secondaryButton"
-                disabled={!canEdit || syncing || finalizing}
-                onClick={() => void previewFinalization()}
-                type="button"
-              >
-                {finalizing ? 'Sprawdzanie…' : 'Sprawdź gotowość'}
-              </button>
-              {finalizePreview !== null ? (
-                finalizePreview.ready ? (
-                  <button
-                    className="primaryButton"
-                    disabled={finalizing}
-                    onClick={() => void finalizeBatch()}
-                    type="button"
-                  >
-                    Zakończ partię i zapisz manifesty
-                  </button>
-                ) : (
-                  <ul>
-                    {finalizePreview.blockers.map((blocker) => (
-                      <li key={blocker.code}>
-                        {finalizationBlockerLabel(blocker.code)}:{' '}
-                        {blocker.count}
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : null}
-            </div>
-          ) : null}
-          <p className="remoteManualShortcutHelp">
-            ←/→ zdjęcie · ↑/↓ skok · Enter/F zatwierdź · Tab pomiń · A/Ctrl+Z
-            cofnij
-          </p>
-        </aside>
       </div>
 
       <footer className="remoteManualActions manualImageSelectionActions">
@@ -1486,21 +1401,4 @@ function syncErrorMessage(cause: unknown): string {
   return cause instanceof Error
     ? cause.message
     : 'Nie udało się wykonać operacji.';
-}
-
-function formatBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
-  return `${(value / 1024 ** 2).toFixed(1)} MiB`;
-}
-
-function finalizationBlockerLabel(code: string): string {
-  const labels: Record<string, string> = {
-    REMOTE_SELECTION_HOST_ACTION_PENDING: 'Operacje plikowe hosta',
-    REMOTE_SELECTION_OPERATION_PENDING: 'Niezsynchronizowane decyzje',
-    REMOTE_SELECTION_REMOVAL_PENDING: 'Pliki oczekujące na usunięcie',
-    REMOTE_SELECTION_SELECTED_FILE_NOT_SYNCED: 'Niezapisane wybrane JPEG-i',
-    REMOTE_SELECTION_TRANSFER_PENDING: 'Transfery JPEG-ów',
-  };
-  return labels[code] ?? code;
 }

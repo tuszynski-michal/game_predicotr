@@ -42,6 +42,13 @@ function Test-LocalReviewerReady {
     }
 }
 
+function Test-LocalReviewerCurrent {
+    return (
+        (Test-LocalReviewerReady) -and
+        (Test-ReviewerBuildCurrent -ProjectRoot $projectRoot -ReviewerUrl $reviewerUrl)
+    )
+}
+
 function Write-Result {
     param(
         [Parameter(Mandatory = $true)]
@@ -64,7 +71,7 @@ function Write-Result {
 }
 
 function Invoke-LocalReviewerStart {
-    if (Test-LocalReviewerReady) {
+    if (Test-LocalReviewerCurrent) {
         $existingStartedAt = $null
         $existingInstanceId = $null
         $existingState = Read-ReviewerJsonState -LiteralPath $statePath
@@ -85,6 +92,9 @@ function Invoke-LocalReviewerStart {
             instanceId = $existingInstanceId
             message = "Local Reviewer is already running."
         }
+    }
+    if (Test-LocalReviewerReady) {
+        Stop-StaleReviewerLoopbackListener -Port 3001
     }
 
     $existingState = Read-ReviewerJsonState -LiteralPath $statePath
@@ -118,30 +128,25 @@ function Invoke-LocalReviewerStart {
         -RedirectStandardError $logs.error `
         -PassThru `
         -WindowStyle Hidden
-    try {
-        $processIdentity = New-ReviewerProcessIdentity `
-            -Process $reviewerProcess `
-            -InstanceId $instanceId
-    }
-    catch {
-        if (-not $reviewerProcess.HasExited) {
-            Stop-Process -Id $reviewerProcess.Id
-        }
-        throw
-    }
-
     for ($attempt = 0; $attempt -lt $reviewerStartupAttempts; $attempt++) {
         Start-Sleep -Milliseconds 500
-        if ($reviewerProcess.HasExited -or (Test-LocalReviewerReady)) {
+        if ($reviewerProcess.HasExited -or (Test-LocalReviewerCurrent)) {
             break
         }
     }
-    if (-not (Test-LocalReviewerReady)) {
+    if (-not (Test-LocalReviewerCurrent)) {
         if (-not $reviewerProcess.HasExited) {
             Stop-Process -Id $reviewerProcess.Id
         }
         throw "Reviewer did not become ready within 20 seconds. Check the unique reviewer-lifecycle-logs entry."
     }
+    $reviewerListener = Get-ReviewerLoopbackListenerProcess -Port 3001
+    if ($null -eq $reviewerListener) {
+        throw "Reviewer became ready, but its loopback listener process is unavailable."
+    }
+    $processIdentity = New-ReviewerProcessIdentity `
+        -Process $reviewerListener `
+        -InstanceId $instanceId
     $verifiedIdentity = Test-ReviewerProcessIdentity -State ([pscustomobject]$processIdentity)
     if (-not $verifiedIdentity.isMatch) {
         if (-not $reviewerProcess.HasExited) {

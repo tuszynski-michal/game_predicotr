@@ -65,6 +65,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   odtworzeniu.
   Reviewer utrzymuje teraz stary canvas i jego wymiary do `decode` następnego
   JPEG-a; odtwarzanie czeka jawnie na `decoded` docelowego ordinalu.
+- Kolejna próba ujawniła, że publiczny link nadal serwował proces Reviewera
+  uruchomiony o 17:05, podczas gdy aktualny build powstał o 17:40. Kod poprawek
+  nie był więc obecny w testowanej stronie. Po kontrolowanym restarcie aktualny
+  proces wystartował o 17:56, a ten sam Quick Tunnel pozostał aktywny.
+- Kontrolery lokalnego i zdalnego Reviewera wiążą teraz readiness z aktualnym
+  `.next/BUILD_ID`, który produkcyjny HTML zawiera jako identyfikator builda.
+  Stary produkcyjny Node na porcie 3001 jest bezpiecznie zastępowany przed
+  ponownym użyciem ingressu, a stan procesu zapisuje tożsamość rzeczywistego
+  listenera zamiast krótkotrwałego wrappera `npm.cmd`.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

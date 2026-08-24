@@ -56,6 +56,13 @@ function Test-ReviewerProductionReady {
     }
 }
 
+function Test-ReviewerCurrentProductionReady {
+    return (
+        (Test-ReviewerProductionReady) -and
+        (Test-ReviewerBuildCurrent -ProjectRoot $projectRoot -ReviewerUrl $reviewerUrl)
+    )
+}
+
 function Test-TcpEndpoint {
     param(
         [Parameter(Mandatory = $true)]
@@ -129,7 +136,7 @@ function Convert-LegacyRemoteState {
             $null -eq $process -or
             $process.ProcessName -notlike "cloudflared*" -or
             -not (Test-PublicOriginReady -PublicOrigin ([string]$State.publicOrigin)) -or
-            -not (Test-ReviewerProductionReady)
+            -not (Test-ReviewerCurrentProductionReady)
         ) {
             return $State
         }
@@ -162,6 +169,9 @@ function Invoke-RemoteReviewerStart {
     if ((Test-ReviewerReady) -and -not (Test-ReviewerProductionReady)) {
         throw "Port 3001 is used by a development Reviewer. Stop npm run reviewer:dev before publishing online."
     }
+    if ((Test-ReviewerProductionReady) -and -not (Test-ReviewerCurrentProductionReady)) {
+        Stop-StaleReviewerLoopbackListener -Port 3001
+    }
     if (-not (Test-ReviewerProductionReady)) {
         $npm = Get-Command -Name "npm.cmd" -ErrorAction SilentlyContinue
         if ($null -eq $npm) {
@@ -185,29 +195,25 @@ function Invoke-RemoteReviewerStart {
             -RedirectStandardError $reviewerLogs.error `
             -PassThru `
             -WindowStyle Hidden
-        try {
-            $reviewerManagedProcess = New-ReviewerProcessIdentity `
-                -Process $reviewerProcess `
-                -InstanceId $reviewerInstanceId
-        }
-        catch {
-            if (-not $reviewerProcess.HasExited) {
-                Stop-Process -Id $reviewerProcess.Id
-            }
-            throw
-        }
         for ($attempt = 0; $attempt -lt $reviewerStartupAttempts; $attempt++) {
             Start-Sleep -Milliseconds 500
-            if ($reviewerProcess.HasExited -or (Test-ReviewerProductionReady)) {
+            if ($reviewerProcess.HasExited -or (Test-ReviewerCurrentProductionReady)) {
                 break
             }
         }
-        if (-not (Test-ReviewerProductionReady)) {
+        if (-not (Test-ReviewerCurrentProductionReady)) {
             if (-not $reviewerProcess.HasExited) {
                 Stop-Process -Id $reviewerProcess.Id
             }
             throw "Reviewer did not become ready within 20 seconds. Check the unique reviewer-lifecycle-logs entry."
         }
+        $reviewerListener = Get-ReviewerLoopbackListenerProcess -Port 3001
+        if ($null -eq $reviewerListener) {
+            throw "Reviewer became ready, but its loopback listener process is unavailable."
+        }
+        $reviewerManagedProcess = New-ReviewerProcessIdentity `
+            -Process $reviewerListener `
+            -InstanceId $reviewerInstanceId
     }
 
     $existing = Read-ReviewerJsonState -LiteralPath $statePath
@@ -219,7 +225,7 @@ function Invoke-RemoteReviewerStart {
         if (
             $existingIdentity.isMatch -and
             (Test-PublicOriginReady -PublicOrigin ([string]$existing.publicOrigin)) -and
-            (Test-ReviewerProductionReady)
+            (Test-ReviewerCurrentProductionReady)
         ) {
             return @{
                 state = "running"
@@ -345,7 +351,7 @@ function Invoke-RemoteReviewerStart {
             "$maximumTunnelStarts bounded attempts. Check the unique reviewer-lifecycle-logs entries."
         )
     }
-    if (-not (Test-ReviewerProductionReady)) {
+    if (-not (Test-ReviewerCurrentProductionReady)) {
         Stop-Process -Id $process.Id
         throw "Reviewer lost readiness before tunnel state publication."
     }

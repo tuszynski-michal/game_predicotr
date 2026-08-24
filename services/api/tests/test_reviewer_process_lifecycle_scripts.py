@@ -108,6 +108,60 @@ $secondPaths = New-ReviewerAttemptPaths `
     assert list(tmp_path.glob(".*.tmp")) == []
 
 
+def test_reviewer_readiness_is_bound_to_the_current_production_build(
+    tmp_path: Path,
+) -> None:
+    build_id_path = tmp_path / "apps" / "reviewer" / ".next" / "BUILD_ID"
+    build_id_path.parent.mkdir(parents=True)
+    build_id_path.write_text("current-build-id\n", encoding="utf-8")
+    completed = _run_powershell(
+        """
+. $env:GP_LIFECYCLE_HELPER
+$matching = Test-ReviewerBuildCurrent `
+    -ProjectRoot $env:GP_PROJECT_ROOT `
+    -ReviewerUrl 'http://127.0.0.1:3001' `
+    -Probe {
+        param($uri)
+        [pscustomobject]@{ StatusCode = 200; Content = "payload current-build-id" }
+    }
+$stale = Test-ReviewerBuildCurrent `
+    -ProjectRoot $env:GP_PROJECT_ROOT `
+    -ReviewerUrl 'http://127.0.0.1:3001' `
+    -Probe {
+        param($uri)
+        [pscustomobject]@{ StatusCode = 200; Content = "payload previous-build-id" }
+    }
+@{ matching = $matching; stale = $stale } | ConvertTo-Json -Compress
+""",
+        environment={
+            "GP_LIFECYCLE_HELPER": str(LIFECYCLE_HELPER),
+            "GP_PROJECT_ROOT": str(tmp_path),
+        },
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout.splitlines()[-1]) == {
+        "matching": True,
+        "stale": False,
+    }
+
+
+def test_reviewer_start_controllers_replace_stale_build_and_track_listener() -> None:
+    local_source = (REPOSITORY_ROOT / "scripts" / "start_local_reviewer.ps1").read_text(
+        encoding="utf-8"
+    )
+    remote_source = (
+        REPOSITORY_ROOT / "scripts" / "start_remote_reviewer_tunnel.ps1"
+    ).read_text(encoding="utf-8")
+
+    for source in (local_source, remote_source):
+        assert "Test-ReviewerBuildCurrent" in source
+        assert "Stop-StaleReviewerLoopbackListener -Port 3001" in source
+        assert "Get-ReviewerLoopbackListenerProcess -Port 3001" in source
+    assert "-Process $reviewerListener" in local_source
+    assert "-Process $reviewerListener" in remote_source
+
+
 def test_named_lifecycle_mutex_serializes_independent_powershell_processes(
     tmp_path: Path,
 ) -> None:

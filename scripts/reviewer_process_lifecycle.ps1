@@ -115,6 +115,96 @@ function Read-ReviewerJsonState {
     }
 }
 
+function Test-ReviewerBuildCurrent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$ReviewerUrl,
+        [scriptblock]$Probe = {
+            param($uri)
+            Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 2
+        }
+    )
+
+    $buildIdPath = Join-Path $ProjectRoot "apps\reviewer\.next\BUILD_ID"
+    if (-not (Test-Path -LiteralPath $buildIdPath -PathType Leaf)) {
+        return $false
+    }
+    $expectedBuildId = (Get-Content -LiteralPath $buildIdPath -Raw -Encoding utf8).Trim()
+    if ([string]::IsNullOrWhiteSpace($expectedBuildId)) {
+        return $false
+    }
+    try {
+        $response = & $Probe $ReviewerUrl
+        return (
+            $response.StatusCode -ge 200 -and
+            $response.StatusCode -lt 500 -and
+            ([string]$response.Content).Contains($expectedBuildId)
+        )
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-ReviewerLoopbackListenerProcess {
+    param(
+        [ValidateRange(1, 65535)]
+        [int]$Port = 3001
+    )
+
+    $processIds = @()
+    try {
+        $processIds = @(
+            Get-NetTCPConnection `
+                -LocalAddress "127.0.0.1" `
+                -LocalPort $Port `
+                -State Listen `
+                -ErrorAction Stop |
+                Select-Object -ExpandProperty OwningProcess -Unique
+        )
+    }
+    catch {
+        $processIds = @()
+    }
+    if ($processIds.Count -ne 1) {
+        $pattern = "^\s*TCP\s+127\.0\.0\.1:$Port\s+0\.0\.0\.0:0\s+LISTENING\s+(\d+)\s*$"
+        $processIds = @(
+            netstat -ano |
+                Select-String -Pattern $pattern |
+                ForEach-Object { [int]$_.Matches[0].Groups[1].Value } |
+                Sort-Object -Unique
+        )
+    }
+    if ($processIds.Count -ne 1) {
+        return $null
+    }
+    return Get-Process -Id ([int]$processIds[0]) -ErrorAction SilentlyContinue
+}
+
+function Stop-StaleReviewerLoopbackListener {
+    param(
+        [ValidateRange(1, 65535)]
+        [int]$Port = 3001
+    )
+
+    $process = Get-ReviewerLoopbackListenerProcess -Port $Port
+    if ($null -eq $process -or $process.ProcessName -notlike "node*") {
+        throw "Port $Port serves an outdated Reviewer, but its Node process cannot be identified safely. Stop it manually and retry."
+    }
+    Stop-Process -Id $process.Id
+    try {
+        Wait-Process -Id $process.Id -Timeout 5 -ErrorAction SilentlyContinue
+    }
+    catch {
+        # An already exited process satisfies the stale-build stop operation.
+    }
+    if ($null -ne (Get-ReviewerLoopbackListenerProcess -Port $Port)) {
+        throw "Outdated Reviewer on port $Port did not stop within 5 seconds."
+    }
+}
+
 function New-ReviewerProcessIdentity {
     param(
         [Parameter(Mandatory = $true)]

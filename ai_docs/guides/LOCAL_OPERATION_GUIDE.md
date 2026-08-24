@@ -652,6 +652,12 @@ developerskim, zatrzymaj okno z `reviewer:dev` i kliknij ponownie. Zimny start
 ma twardy limit 60 sekund; zdrowy warm ingress jest używany ponownie bez nowego
 procesu i bez zmiany publicznego originu. Proces uruchomiony przez
 `npm run api:dev` automatycznie przeładowuje zmiany API.
+Po ręcznym `npm run reviewer:build` kontroler porównuje aktualny `.next/BUILD_ID`
+z identyfikatorem serwowanym przez proces na porcie 3001. Starszy produkcyjny
+Reviewer zostaje zastąpiony przed ponownym użyciem linku; sam Quick Tunnel może
+pozostać aktywny. Proces developerski lub listener, którego nie można bezpiecznie
+zidentyfikować jako Node Reviewera, kończy operację jawnym błędem zamiast być
+automatycznie zatrzymywany.
 Awaryjny odpowiednik CLI:
 
 ```powershell

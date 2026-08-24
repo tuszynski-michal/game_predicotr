@@ -282,6 +282,22 @@ ani kopiowania JPEG-ów do repozytorium.
 - Test regresyjny blokuje ponowne dodanie `setNaturalImageSize(null)` i
   warunkowe usuwanie canvasu przy samej niezgodności ordinalu.
 
+### v0.7.60 — aktualny build jako część readiness Reviewera
+
+- Rzeczywisty test wykazał, że port 3001 nadal obsługiwał produkcyjny proces
+  uruchomiony przed buildami `v0.7.57–v0.7.59`. Kontroler uznawał dowolny
+  produkcyjny CSP za gotowość i ponownie używał starego JavaScriptu.
+- Readiness porównuje teraz `.next/BUILD_ID` z identyfikatorem obecnym w HTML
+  działającego Reviewera. Niezgodny produkcyjny listener Node jest zatrzymywany
+  przed uruchomieniem aktualnego builda; proces developerski nadal jest
+  blokowany bez automatycznego zatrzymania.
+- Po starcie stan lifecycle zapisuje rzeczywisty proces nasłuchujący na
+  `127.0.0.1:3001`, nie wrapper `npm.cmd`, dzięki czemu kolejna wymiana może
+  zweryfikować PID, czas startu i executable.
+- Test pełnego komponentu z opóźnionym zapisem pliku i decyzji utrzymał
+  `scrollTop=420` przed zapisem, podczas niego i po przejściu na następny JPEG.
+  Tymczasowa trasa oraz Reviewer na porcie 3011 zostały usunięte po pomiarze.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

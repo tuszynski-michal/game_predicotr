@@ -24,7 +24,8 @@ function Test-ReviewerReady {
         return (
             $response.StatusCode -ge 200 -and
             $response.StatusCode -lt 500 -and
-            $csp -notmatch "'unsafe-eval'"
+            $csp -notmatch "'unsafe-eval'" -and
+            (Test-ReviewerBuildCurrent -ProjectRoot $projectRoot -ReviewerUrl $reviewerUrl)
         )
     }
     catch {

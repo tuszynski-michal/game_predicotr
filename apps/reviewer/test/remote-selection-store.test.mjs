@@ -332,6 +332,11 @@ test('undoes skip locally and accepted selection through an exact durable tombst
     ['skip', 'select', 'undo'],
   );
   assert.equal(outbox.at(-1).command.targetOperationId, select.operationId);
+  assert.equal(
+    remoteSelectionWorkspaceState(await store.loadBatch('session-1', 'batch-1'))
+      .currentIndex,
+    0,
+  );
 });
 
 test('loads a bounded seven-image preview window and predicts an operation clock', async () => {

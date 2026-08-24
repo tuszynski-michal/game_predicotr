@@ -333,6 +333,27 @@ export interface RemoteSelectionDrainResult {
   readonly conflictCode: string | null;
 }
 
+export class RemoteSelectionSyncCoordinator {
+  private active: Promise<void> | null = null;
+  private requestedPass: (() => Promise<void>) | null = null;
+
+  run(pass: () => Promise<void>): Promise<void> {
+    this.requestedPass = pass;
+    if (this.active !== null) return this.active;
+    const work = (async () => {
+      while (this.requestedPass !== null) {
+        const nextPass = this.requestedPass;
+        this.requestedPass = null;
+        await nextPass();
+      }
+    })();
+    this.active = work.finally(() => {
+      this.active = null;
+    });
+    return this.active;
+  }
+}
+
 export class RemoteSelectionOutboxSynchronizer {
   private readonly store: RemoteSelectionIndexedDbStore;
   private readonly transport: RemoteSelectionControlTransport;

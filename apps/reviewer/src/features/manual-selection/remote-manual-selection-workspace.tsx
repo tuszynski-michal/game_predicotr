@@ -9,6 +9,7 @@ import {
 } from '@game-predictor/manual-image-selection-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RemoteSourceFileReader } from './remote-source-adapter';
+import { RemoteSelectionInteractionQueue } from './remote-selection-interaction-queue';
 import {
   RemoteSelectionIndexedDbStore,
   RemoteSelectionStoreError,
@@ -24,6 +25,7 @@ import {
   FetchRemoteSelectionControlTransport,
   nextRemoteSelectionPollDelay,
   RemoteSelectionControlApiError,
+  RemoteSelectionSyncCoordinator,
   type RemoteSelectionFinalizePreview,
   type RemoteSelectionStateDeltaResponse,
   RemoteSelectionOutboxSynchronizer,
@@ -97,9 +99,10 @@ export function RemoteManualSelectionWorkspace({
   const pendingCountRef = useRef(0);
   const transferPendingRef = useRef(0);
   const busyRef = useRef(false);
+  const finalizingRef = useRef(false);
+  const finalizationRequestedRef = useRef(false);
   const resumeTransferAfterOrdinal = useRef(-1);
   const operationQueue = useRef(Promise.resolve());
-  const syncPromise = useRef<Promise<void> | null>(null);
   const previewUrls = useRef(new Map<number, string>());
   const viewport = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
@@ -124,6 +127,14 @@ export function RemoteManualSelectionWorkspace({
       ),
     [clientInstanceId, store],
   );
+  const interactionQueue = useMemo(
+    () => new RemoteSelectionInteractionQueue(),
+    [],
+  );
+  const syncCoordinator = useMemo(
+    () => new RemoteSelectionSyncCoordinator(),
+    [],
+  );
   const workspace = remoteSelectionWorkspaceState(batch);
   const current =
     items.find((item) => item.ordinal === workspace.currentIndex) ?? null;
@@ -139,7 +150,7 @@ export function RemoteManualSelectionWorkspace({
     (operation) => operation.state === 'conflict',
   );
   const completed = batch.status === 'completed';
-  const canEdit = canWrite && !completed;
+  const canEdit = canWrite && !completed && !finalizing;
   const acceptedCount = workspace.decisions.filter(
     (decision) => decision.action === 'accepted',
   ).length;
@@ -272,75 +283,67 @@ export function RemoteManualSelectionWorkspace({
     [session.sessionId, sourceReader, store, transferScheduler],
   );
 
-  const syncNow = useCallback(async () => {
-    if (syncPromise.current !== null) return syncPromise.current;
-    const work = (async () => {
-      setSyncing(true);
-      try {
-        const currentBatch = batchRef.current;
-        const result = await synchronizer.drain(
+  const synchronizePass = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const currentBatch = batchRef.current;
+      const result = await synchronizer.drain(
+        session.sessionId,
+        currentBatch.batchId,
+        clientInstanceId,
+      );
+      if (result.conflictCode !== null) {
+        setError(`Synchronizacja wymaga uwagi: ${result.conflictCode}.`);
+      } else {
+        await synchronizer.reconcile(
           session.sessionId,
           currentBatch.batchId,
           clientInstanceId,
         );
-        if (result.conflictCode !== null) {
-          setError(`Synchronizacja wymaga uwagi: ${result.conflictCode}.`);
-        } else {
-          await synchronizer.reconcile(
-            session.sessionId,
-            currentBatch.batchId,
-            clientInstanceId,
-          );
-          setRemoteStatus(synchronizer.status());
-          if (typeof navigator === 'undefined' || navigator.onLine)
-            setError('');
-        }
-        await refreshLocalState();
-        const latest = await store.loadBatch(
-          session.sessionId,
-          currentBatch.batchId,
-        );
-        if (latest !== null) {
-          const acceptedByFile = new Map(
-            remoteSelectionWorkspaceState(latest)
-              .decisions.filter(
-                (
-                  decision,
-                ): decision is RemoteSelectionWorkspaceDecision & {
-                  readonly fileId: string;
-                } => decision.action === 'accepted' && decision.fileId !== null,
-              )
-              .map((decision) => [decision.fileId, decision]),
-          );
-          const page = await store.listSourceItemsPage(
-            session.sessionId,
-            latest.batchId,
-            resumeTransferAfterOrdinal.current,
-            500,
-          );
-          for (const item of page) {
-            const decision = acceptedByFile.get(item.fileId);
-            if (
-              decision !== undefined &&
-              !(await enqueueConfirmedTransfer(decision))
-            )
-              break;
-            resumeTransferAfterOrdinal.current = item.ordinal;
-          }
-        }
-      } catch (cause) {
-        setError(syncErrorMessage(cause));
-      } finally {
-        const snapshot = transferScheduler.snapshot();
-        transferPendingRef.current = snapshot.active + snapshot.queued;
-        setTransferSnapshot(snapshot);
-        setSyncing(false);
+        setRemoteStatus(synchronizer.status());
+        if (typeof navigator === 'undefined' || navigator.onLine) setError('');
       }
-    })();
-    syncPromise.current = work.finally(() => {
-      syncPromise.current = null;
-    });
-    return syncPromise.current;
+      await refreshLocalState();
+      const latest = await store.loadBatch(
+        session.sessionId,
+        currentBatch.batchId,
+      );
+      if (latest !== null) {
+        const acceptedByFile = new Map(
+          remoteSelectionWorkspaceState(latest)
+            .decisions.filter(
+              (
+                decision,
+              ): decision is RemoteSelectionWorkspaceDecision & {
+                readonly fileId: string;
+              } => decision.action === 'accepted' && decision.fileId !== null,
+            )
+            .map((decision) => [decision.fileId, decision]),
+        );
+        const page = await store.listSourceItemsPage(
+          session.sessionId,
+          latest.batchId,
+          resumeTransferAfterOrdinal.current,
+          500,
+        );
+        for (const item of page) {
+          const decision = acceptedByFile.get(item.fileId);
+          if (
+            decision !== undefined &&
+            !(await enqueueConfirmedTransfer(decision))
+          )
+            break;
+          resumeTransferAfterOrdinal.current = item.ordinal;
+        }
+      }
+    } catch (cause) {
+      setError(syncErrorMessage(cause));
+    } finally {
+      const snapshot = transferScheduler.snapshot();
+      transferPendingRef.current = snapshot.active + snapshot.queued;
+      setTransferSnapshot(snapshot);
+      setSyncing(false);
+    }
   }, [
     clientInstanceId,
     enqueueConfirmedTransfer,
@@ -350,6 +353,10 @@ export function RemoteManualSelectionWorkspace({
     synchronizer,
     transferScheduler,
   ]);
+  const syncNow = useCallback(
+    () => syncCoordinator.run(synchronizePass),
+    [syncCoordinator, synchronizePass],
+  );
 
   useEffect(() => {
     void refreshLocalState().catch((cause) =>
@@ -563,11 +570,13 @@ export function RemoteManualSelectionWorkspace({
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  function enqueueOperation(work: () => Promise<void>) {
-    operationQueue.current = operationQueue.current
-      .catch(() => undefined)
-      .then(work)
-      .catch((cause) => setError(syncErrorMessage(cause)));
+  function enqueueOperation<T>(work: () => Promise<T>): Promise<T> {
+    const result = operationQueue.current.catch(() => undefined).then(work);
+    operationQueue.current = result.then(
+      () => undefined,
+      (cause) => setError(syncErrorMessage(cause)),
+    );
+    return result;
   }
 
   async function persistCursor(nextIndex: number) {
@@ -622,19 +631,50 @@ export function RemoteManualSelectionWorkspace({
     batchRef.current = next;
   }
 
-  async function acceptCurrent() {
+  function acceptCurrent() {
     if (
       !canEdit ||
-      busyRef.current ||
+      finalizingRef.current ||
+      finalizationRequestedRef.current ||
       hasConflict ||
       current === null ||
       sourceReader === null
     )
       return;
+    if (!decoded || previewOrdinal !== current.ordinal) {
+      setNotice('Poczekaj, aż bieżące zdjęcie zostanie w pełni załadowane.');
+      return;
+    }
+    const requestedCurrent = current;
+    const requestedRangeStart = workspace.nextRangeStart;
+    void interactionQueue
+      .enqueue(() =>
+        acceptRequestedImage(requestedCurrent, requestedRangeStart),
+      )
+      .catch((cause) => setError(syncErrorMessage(cause)));
+  }
+
+  async function acceptRequestedImage(
+    requestedCurrent: RemoteSelectionSourceItemRecord,
+    requestedRangeStart: number,
+  ) {
+    const requestedWorkspace = remoteSelectionWorkspaceState(batchRef.current);
     if (
-      workspace.decisions.some(
+      finalizingRef.current ||
+      batchRef.current.status === 'completed' ||
+      requestedWorkspace.currentIndex !== requestedCurrent.ordinal ||
+      requestedWorkspace.nextRangeStart !== requestedRangeStart
+    ) {
+      setNotice(
+        'To polecenie nie zostało zapisane, ponieważ ekran zdążył się zmienić.',
+      );
+      return;
+    }
+    if (
+      requestedWorkspace.decisions.some(
         (decision) =>
-          decision.action === 'accepted' && decision.fileId === current.fileId,
+          decision.action === 'accepted' &&
+          decision.fileId === requestedCurrent.fileId,
       )
     ) {
       setError(
@@ -646,59 +686,76 @@ export function RemoteManualSelectionWorkspace({
     setBusy(true);
     setError('');
     try {
-      const file = await sourceReader.fileForEntry(current);
+      if (sourceReader === null) return;
+      const file = await sourceReader.fileForEntry(requestedCurrent);
       const checksum = await sha256File(file);
-      const latest = remoteSelectionWorkspaceState(batchRef.current);
-      const clock = await store.operationClock(
-        session.sessionId,
-        batchRef.current.batchId,
-        clientInstanceId,
-      );
-      const generation = (current.selectionGeneration ?? 0) + 1;
-      const operationId = crypto.randomUUID();
-      const outputName = remoteOutputName(latest.nextRangeStart);
-      const command = buildRemoteWorkspaceCommand({
-        batchId: batchRef.current.batchId,
-        clientInstanceId,
-        clientSequence: clock.clientSequence,
-        decoded,
-        expectedServerRevision: clock.expectedServerRevision,
-        fileId: current.fileId,
-        imageChecksumSha256: checksum,
-        imagePath: current.relativePath,
-        operationId,
-        operationType: 'select',
-        outputName,
-        rangeStart: latest.nextRangeStart,
-        selectionGeneration: generation,
-        sessionId: session.sessionId,
-        sourceIndex: current.ordinal,
-        visibleMilliseconds: performance.now() - viewStartedAt.current,
-      });
-      const nextBatch = await store.appendWorkspaceDecision({
-        command,
-        decision: {
-          action: 'accepted',
-          fileId: current.fileId,
+      const { nextBatch, outputName } = await enqueueOperation(async () => {
+        const latest = remoteSelectionWorkspaceState(batchRef.current);
+        if (
+          latest.currentIndex !== requestedCurrent.ordinal ||
+          latest.nextRangeStart !== requestedRangeStart
+        ) {
+          throw new RemoteSelectionStoreError(
+            'REMOTE_SELECTION_WORKSPACE_STALE',
+            'The local workspace changed before the requested selection was persisted.',
+          );
+        }
+        const clock = await store.operationClock(
+          session.sessionId,
+          batchRef.current.batchId,
+          clientInstanceId,
+        );
+        const generation = (requestedCurrent.selectionGeneration ?? 0) + 1;
+        const operationId = crypto.randomUUID();
+        const outputName = remoteOutputName(requestedRangeStart);
+        const command = buildRemoteWorkspaceCommand({
+          batchId: batchRef.current.batchId,
+          clientInstanceId,
+          clientSequence: clock.clientSequence,
+          decoded: true,
+          expectedServerRevision: clock.expectedServerRevision,
+          fileId: requestedCurrent.fileId,
           imageChecksumSha256: checksum,
-          imagePath: current.relativePath,
+          imagePath: requestedCurrent.relativePath,
           operationId,
+          operationType: 'select',
           outputName,
-          rangeEnd: latest.nextRangeStart + 8,
-          rangeStart: latest.nextRangeStart,
+          rangeStart: requestedRangeStart,
           selectionGeneration: generation,
-          sourceIndex: current.ordinal,
-        },
-        nextCursorIndex:
-          batchRef.current.direction === 'ascending'
-            ? Math.min(current.ordinal + 1, batchRef.current.fileCount - 1)
-            : Math.max(current.ordinal - 1, 0),
+          sessionId: session.sessionId,
+          sourceIndex: requestedCurrent.ordinal,
+          visibleMilliseconds: performance.now() - viewStartedAt.current,
+        });
+        const nextBatch = await store.appendWorkspaceDecision({
+          command,
+          decision: {
+            action: 'accepted',
+            fileId: requestedCurrent.fileId,
+            imageChecksumSha256: checksum,
+            imagePath: requestedCurrent.relativePath,
+            operationId,
+            outputName,
+            rangeEnd: requestedRangeStart + 8,
+            rangeStart: requestedRangeStart,
+            selectionGeneration: generation,
+            sourceIndex: requestedCurrent.ordinal,
+          },
+          nextCursorIndex:
+            batchRef.current.direction === 'ascending'
+              ? Math.min(
+                  requestedCurrent.ordinal + 1,
+                  batchRef.current.fileCount - 1,
+                )
+              : Math.max(requestedCurrent.ordinal - 1, 0),
+        });
+        return { nextBatch, outputName };
       });
       setBatch(nextBatch);
       batchRef.current = nextBatch;
+      setFinalizePreview(null);
       resumeTransferAfterOrdinal.current = Math.min(
         resumeTransferAfterOrdinal.current,
-        current.ordinal - 1,
+        requestedCurrent.ordinal - 1,
       );
       setNotice(
         `Zapisano lokalnie ${outputName}. Synchronizacja i JPEG idą w tle.`,
@@ -713,57 +770,94 @@ export function RemoteManualSelectionWorkspace({
     }
   }
 
-  async function skipCurrent() {
-    if (!canEdit || busyRef.current || hasConflict || current === null) return;
+  function skipCurrent() {
+    if (!canEdit || finalizingRef.current || hasConflict || current === null)
+      return;
+    if (finalizationRequestedRef.current) return;
+    const requestedCurrent = current;
+    const requestedRangeStart = workspace.nextRangeStart;
+    void interactionQueue
+      .enqueue(() => skipRequestedRange(requestedCurrent, requestedRangeStart))
+      .catch((cause) => setError(syncErrorMessage(cause)));
+  }
+
+  async function skipRequestedRange(
+    requestedCurrent: RemoteSelectionSourceItemRecord,
+    requestedRangeStart: number,
+  ) {
+    const requestedWorkspace = remoteSelectionWorkspaceState(batchRef.current);
+    if (
+      finalizingRef.current ||
+      batchRef.current.status === 'completed' ||
+      requestedWorkspace.currentIndex !== requestedCurrent.ordinal ||
+      requestedWorkspace.nextRangeStart !== requestedRangeStart
+    ) {
+      setNotice(
+        'To pominięcie nie zostało zapisane, ponieważ ekran zdążył się zmienić.',
+      );
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     setError('');
     try {
-      const latest = remoteSelectionWorkspaceState(batchRef.current);
-      const clock = await store.operationClock(
-        session.sessionId,
-        batchRef.current.batchId,
-        clientInstanceId,
-      );
-      const operationId = crypto.randomUUID();
-      const command = buildRemoteWorkspaceCommand({
-        batchId: batchRef.current.batchId,
-        clientInstanceId,
-        clientSequence: clock.clientSequence,
-        decoded,
-        expectedServerRevision: clock.expectedServerRevision,
-        fileId: null,
-        imageChecksumSha256: null,
-        imagePath: null,
-        operationId,
-        operationType: 'skip',
-        outputName: null,
-        rangeStart: latest.nextRangeStart,
-        selectionGeneration: 0,
-        sessionId: session.sessionId,
-        sourceIndex: current.ordinal,
-        visibleMilliseconds: performance.now() - viewStartedAt.current,
-      });
-      const nextBatch = await store.appendWorkspaceDecision({
-        command,
-        decision: {
-          action: 'skipped',
+      const nextBatch = await enqueueOperation(async () => {
+        const latest = remoteSelectionWorkspaceState(batchRef.current);
+        if (
+          latest.currentIndex !== requestedCurrent.ordinal ||
+          latest.nextRangeStart !== requestedRangeStart
+        ) {
+          throw new RemoteSelectionStoreError(
+            'REMOTE_SELECTION_WORKSPACE_STALE',
+            'The local workspace changed before the requested skip was persisted.',
+          );
+        }
+        const clock = await store.operationClock(
+          session.sessionId,
+          batchRef.current.batchId,
+          clientInstanceId,
+        );
+        const operationId = crypto.randomUUID();
+        const command = buildRemoteWorkspaceCommand({
+          batchId: batchRef.current.batchId,
+          clientInstanceId,
+          clientSequence: clock.clientSequence,
+          decoded,
+          expectedServerRevision: clock.expectedServerRevision,
           fileId: null,
           imageChecksumSha256: null,
           imagePath: null,
           operationId,
+          operationType: 'skip',
           outputName: null,
-          rangeEnd: latest.nextRangeStart + 8,
-          rangeStart: latest.nextRangeStart,
+          rangeStart: requestedRangeStart,
           selectionGeneration: 0,
-          sourceIndex: current.ordinal,
-        },
-        nextCursorIndex: current.ordinal,
+          sessionId: session.sessionId,
+          sourceIndex: requestedCurrent.ordinal,
+          visibleMilliseconds: performance.now() - viewStartedAt.current,
+        });
+        return store.appendWorkspaceDecision({
+          command,
+          decision: {
+            action: 'skipped',
+            fileId: null,
+            imageChecksumSha256: null,
+            imagePath: null,
+            operationId,
+            outputName: null,
+            rangeEnd: requestedRangeStart + 8,
+            rangeStart: requestedRangeStart,
+            selectionGeneration: 0,
+            sourceIndex: requestedCurrent.ordinal,
+          },
+          nextCursorIndex: requestedCurrent.ordinal,
+        });
       });
       setBatch(nextBatch);
       batchRef.current = nextBatch;
+      setFinalizePreview(null);
       setNotice(
-        `Pominięto zakres ${latest.nextRangeStart}–${latest.nextRangeStart + 8}.`,
+        `Pominięto zakres ${requestedRangeStart}–${requestedRangeStart + 8}.`,
       );
       await refreshLocalState();
       void syncNow();
@@ -775,11 +869,36 @@ export function RemoteManualSelectionWorkspace({
     }
   }
 
-  async function undoLast() {
-    if (!canEdit || busyRef.current || hasConflict) return;
+  function undoLast() {
+    if (
+      !canEdit ||
+      finalizingRef.current ||
+      finalizationRequestedRef.current ||
+      hasConflict
+    )
+      return;
     const latest = remoteSelectionWorkspaceState(batchRef.current);
     const last = latest.decisions.at(-1);
     if (last === undefined) return;
+    void interactionQueue
+      .enqueue(() => undoRequestedDecision(last.operationId))
+      .catch((cause) => setError(syncErrorMessage(cause)));
+  }
+
+  async function undoRequestedDecision(targetOperationId: string) {
+    const latest = remoteSelectionWorkspaceState(batchRef.current);
+    const last = latest.decisions.at(-1);
+    if (
+      finalizingRef.current ||
+      batchRef.current.status === 'completed' ||
+      last === undefined ||
+      last.operationId !== targetOperationId
+    ) {
+      setNotice(
+        'Cofnięcie nie zostało wykonane, ponieważ ostatnia decyzja zdążyła się zmienić.',
+      );
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     setError('');
@@ -791,43 +910,59 @@ export function RemoteManualSelectionWorkspace({
           batchRef.current.batchId,
           last.sourceIndex,
         );
-        const clock = await store.operationClock(
-          session.sessionId,
-          batchRef.current.batchId,
-          clientInstanceId,
-        );
         const generation =
           Math.max(last.selectionGeneration, source?.selectionGeneration ?? 0) +
           1;
-        command = buildRemoteWorkspaceCommand({
-          batchId: batchRef.current.batchId,
-          clientInstanceId,
-          clientSequence: clock.clientSequence,
-          decoded: true,
-          expectedServerRevision: clock.expectedServerRevision,
-          fileId: last.fileId,
-          imageChecksumSha256: null,
-          imagePath: last.imagePath,
-          operationId: crypto.randomUUID(),
-          operationType: 'undo',
-          outputName: last.outputName,
-          rangeStart: last.rangeStart,
-          selectionGeneration: generation,
-          sessionId: session.sessionId,
-          sourceIndex: last.sourceIndex,
-          targetOperationId: last.operationId,
-          visibleMilliseconds: 0,
-        });
+        command = { generation };
         await transferScheduler.cancelOlderGenerations(last.fileId, generation);
       }
-      const nextBatch = await store.undoLastWorkspaceDecision({
-        batchId: batchRef.current.batchId,
-        command,
-        sessionId: session.sessionId,
+      const nextBatch = await enqueueOperation(async () => {
+        const currentLast = remoteSelectionWorkspaceState(
+          batchRef.current,
+        ).decisions.at(-1);
+        if (currentLast?.operationId !== targetOperationId) {
+          throw new RemoteSelectionStoreError(
+            'REMOTE_SELECTION_WORKSPACE_STALE',
+            'The last decision changed before undo was persisted.',
+          );
+        }
+        let undoCommand = null;
+        if (command !== null && last.fileId !== null) {
+          const clock = await store.operationClock(
+            session.sessionId,
+            batchRef.current.batchId,
+            clientInstanceId,
+          );
+          undoCommand = buildRemoteWorkspaceCommand({
+            batchId: batchRef.current.batchId,
+            clientInstanceId,
+            clientSequence: clock.clientSequence,
+            decoded: true,
+            expectedServerRevision: clock.expectedServerRevision,
+            fileId: last.fileId,
+            imageChecksumSha256: null,
+            imagePath: last.imagePath,
+            operationId: crypto.randomUUID(),
+            operationType: 'undo',
+            outputName: last.outputName,
+            rangeStart: last.rangeStart,
+            selectionGeneration: command.generation,
+            sessionId: session.sessionId,
+            sourceIndex: last.sourceIndex,
+            targetOperationId: last.operationId,
+            visibleMilliseconds: 0,
+          });
+        }
+        return store.undoLastWorkspaceDecision({
+          batchId: batchRef.current.batchId,
+          command: undoCommand,
+          sessionId: session.sessionId,
+        });
       });
       if (nextBatch !== null) {
         setBatch(nextBatch);
         batchRef.current = nextBatch;
+        setFinalizePreview(null);
         setNotice(`Cofnięto zakres ${last.rangeStart}–${last.rangeEnd}.`);
         await refreshLocalState();
         if (command !== null) void syncNow();
@@ -848,12 +983,35 @@ export function RemoteManualSelectionWorkspace({
     }
   }
 
-  async function previewFinalization() {
-    if (!canEdit || finalizing) return;
+  function previewFinalization() {
+    if (!canEdit || finalizing || finalizationRequestedRef.current) return;
+    finalizationRequestedRef.current = true;
+    void interactionQueue
+      .enqueue(runFinalizationPreview)
+      .catch((cause) => setError(syncErrorMessage(cause)));
+  }
+
+  async function synchronizeFinalizationBarrier() {
+    await operationQueue.current;
+    await syncNow();
+    const pending = await store.countPendingOperations(
+      session.sessionId,
+      batchRef.current.batchId,
+    );
+    if (pending > 0) {
+      throw new RemoteSelectionStoreError(
+        'REMOTE_SELECTION_LOCAL_OUTBOX_PENDING',
+        `Finalizacja jest zablokowana: ${pending} lokalnych operacji nadal oczekuje na synchronizację.`,
+      );
+    }
+  }
+
+  async function runFinalizationPreview() {
+    finalizingRef.current = true;
     setFinalizing(true);
     setError('');
     try {
-      await syncNow();
+      await synchronizeFinalizationBarrier();
       const preview = await controlTransport.finalizePreview(
         batchRef.current.batchId,
       );
@@ -866,18 +1024,45 @@ export function RemoteManualSelectionWorkspace({
     } catch (cause) {
       setError(syncErrorMessage(cause));
     } finally {
+      finalizingRef.current = false;
+      finalizationRequestedRef.current = false;
       setFinalizing(false);
     }
   }
 
-  async function finalizeBatch() {
-    if (!canEdit || finalizing || finalizePreview?.ready !== true) return;
+  function finalizeBatch() {
+    if (
+      !canEdit ||
+      finalizing ||
+      finalizationRequestedRef.current ||
+      finalizePreview?.ready !== true
+    )
+      return;
+    finalizationRequestedRef.current = true;
+    void interactionQueue
+      .enqueue(runFinalization)
+      .catch((cause) => setError(syncErrorMessage(cause)));
+  }
+
+  async function runFinalization() {
+    finalizingRef.current = true;
     setFinalizing(true);
     setError('');
     try {
+      await synchronizeFinalizationBarrier();
+      const currentPreview = await controlTransport.finalizePreview(
+        batchRef.current.batchId,
+      );
+      if (!currentPreview.ready) {
+        setFinalizePreview(currentPreview);
+        setNotice(
+          'Partia nie jest jeszcze gotowa. Szczegóły są widoczne poniżej.',
+        );
+        return;
+      }
       const result = await controlTransport.finalizeBatch({
         batchId: batchRef.current.batchId,
-        expectedServerRevision: finalizePreview.serverRevision,
+        expectedServerRevision: currentPreview.serverRevision,
         sessionId: session.sessionId,
       });
       const next: RemoteSelectionLocalBatchRecord = {
@@ -897,6 +1082,8 @@ export function RemoteManualSelectionWorkspace({
       setFinalizePreview(null);
       setError(syncErrorMessage(cause));
     } finally {
+      finalizingRef.current = false;
+      finalizationRequestedRef.current = false;
       setFinalizing(false);
     }
   }

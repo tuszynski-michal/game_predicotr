@@ -46,6 +46,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   natywnie wyglądających kontrolek. Poziomy scroll podglądu jest ukryty, obraz
   pozostaje wycentrowany, a pionowy scroll jest przywracany po gotowym layoucie
   kolejnego zdjęcia. Dwa testy kontraktu pilnują parytetu UI i scrolla.
+- Próba operatorska wykryła utratę szybkich decyzji oraz możliwość finalizacji
+  po cyklu synchronizacji, który nie obejmował operacji dopisanych w jego
+  trakcie. Interakcje są teraz szeregowane, koordynator synchronizacji wykonuje
+  zaległy kolejny przebieg, a finalizacja wymaga pustego lokalnego outboxu.
+  Cofnięcie przywraca również indeks zdjęcia usuwanej decyzji.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

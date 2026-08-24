@@ -178,6 +178,12 @@ wycentrowane i może być przewijane wyłącznie pionowo. Po zmianie zdjęcia pi
 pozycja scrolla jest odtwarzana dopiero po załadowaniu obrazu i przeliczeniu jego
 rozmiaru.
 
+Polecenia operatora są szeregowane i nie mogą być po cichu odrzucane przez
+trwający lokalny zapis. Cofnięcie wraca do zdjęcia, którego decyzję usuwa.
+Finalizacja czeka na wcześniejsze interakcje i jest blokowana, dopóki lokalny
+outbox nie jest pusty; żądanie synchronizacji dopisane podczas aktywnego cyklu
+powoduje kolejny cykl przed zwolnieniem bariery.
+
 ### Panel hosta zdalnej selekcji
 
 Niezależna od gry zakładka Admina pokazuje nad lokalnym narzędziem osobny panel

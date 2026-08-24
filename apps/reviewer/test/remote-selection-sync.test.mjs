@@ -14,7 +14,9 @@ import {
   nextRemoteSelectionPollDelay,
   RemoteSelectionControlApiError,
   RemoteSelectionOutboxSynchronizer,
+  RemoteSelectionSyncCoordinator,
 } from '../src/features/manual-selection/remote-selection-sync.ts';
+import { RemoteSelectionInteractionQueue } from '../src/features/manual-selection/remote-selection-interaction-queue.ts';
 
 const sessionId = '10000000-0000-4000-8000-000000000001';
 const batchId = '20000000-0000-4000-8000-000000000002';
@@ -50,6 +52,43 @@ test('delta polling backs off while idle and stays responsive for pending work',
     }),
     15_000,
   );
+});
+
+test('coalesced sync reruns after a request arrives during an active pass', async () => {
+  const coordinator = new RemoteSelectionSyncCoordinator();
+  let releaseFirst;
+  const firstBlocked = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const calls = [];
+  const first = coordinator.run(async () => {
+    calls.push('first');
+    await firstBlocked;
+  });
+  const second = coordinator.run(async () => {
+    calls.push('second');
+  });
+
+  releaseFirst();
+  await Promise.all([first, second]);
+
+  assert.deepEqual(calls, ['first', 'second']);
+});
+
+test('interaction queue preserves four rapid decisions in request order', async () => {
+  const queue = new RemoteSelectionInteractionQueue();
+  const persisted = [];
+  const requests = Array.from({ length: 4 }, (_, index) =>
+    queue.enqueue(async () => {
+      await Promise.resolve();
+      persisted.push(index + 1);
+    }),
+  );
+
+  await Promise.all(requests);
+  await queue.idle();
+
+  assert.deepEqual(persisted, [1, 2, 3, 4]);
 });
 
 async function fixture() {

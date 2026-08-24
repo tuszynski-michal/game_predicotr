@@ -548,6 +548,7 @@ export class RemoteSelectionIndexedDbStore {
       }
       const next: RemoteSelectionLocalBatchRecord = {
         ...batch,
+        cursorIndex: last.sourceIndex,
         decisions: workspace.decisions.slice(0, -1),
         navigationStep: workspace.navigationStep,
         nextRangeStart: last.rangeStart,

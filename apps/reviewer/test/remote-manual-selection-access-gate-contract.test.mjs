@@ -90,3 +90,20 @@ test('TASK 13 workspace keeps previews local and exposes durable sync states', a
   assert.doesNotMatch(store, /game-predictor-manual-image-selection/);
   assert.doesNotMatch(store, /readonly (?:blob|bytes|jpegData):/i);
 });
+
+test('finalization waits behind interactions and blocks a non-empty local outbox', async () => {
+  const operationalWorkspace = await readFile(operationalWorkspacePath, 'utf8');
+
+  assert.match(
+    operationalWorkspace,
+    /interactionQueue\s*\.enqueue\(runFinalizationPreview\)/,
+  );
+  assert.match(
+    operationalWorkspace,
+    /store\.countPendingOperations\([\s\S]*?REMOTE_SELECTION_LOCAL_OUTBOX_PENDING/,
+  );
+  assert.match(
+    operationalWorkspace,
+    /const currentPreview = await controlTransport\.finalizePreview/,
+  );
+});

@@ -128,6 +128,22 @@ ani kopiowania JPEG-ów do repozytorium.
 - Pełne 111 testów Reviewera, typecheck, lint i formatowanie przechodzą;
   wcześniejsze ostrzeżenie `no-img-element` pozostaje poza zakresem.
 
+### v0.7.47 — brak utraty decyzji i bariera finalizacji
+
+- Rzeczywista partia 100 plików zakończyła się z `2 selected / 2 synced`, choć
+  operator wykonał cztery szybkie zatwierdzenia. PostgreSQL zawierał wyłącznie
+  dwa polecenia `select`, co potwierdziło utratę jeszcze przed transferem.
+- Interaktywne decyzje są szeregowane, a zapis operacji współdzieli kolejkę z
+  telemetrycznym `viewed`, dzięki czemu numery klienta i rewizje nie ścigają
+  się. Polecenie dla nieaktualnego podglądu jest jawnie odrzucane zamiast
+  zastosowania do kolejnego zdjęcia.
+- Żądanie synchronizacji otrzymane podczas aktywnego przebiegu wymusza następny
+  przebieg. Preview i wykonanie finalizacji czekają za kolejką interakcji,
+  sprawdzają pusty lokalny outbox i ponownie pobierają aktualny preview hosta.
+- Cofnięcie przywraca kursor do źródłowego zdjęcia cofanej decyzji, więc skutek
+  jest natychmiast widoczny. Testy obejmują cztery szybkie operacje, coalescing
+  synchronizacji, cursor undo i lokalną barierę finalizacji.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

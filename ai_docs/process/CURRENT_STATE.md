@@ -51,6 +51,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   trakcie. Interakcje są teraz szeregowane, koordynator synchronizacji wykonuje
   zaległy kolejny przebieg, a finalizacja wymaga pustego lokalnego outboxu.
   Cofnięcie przywraca również indeks zdjęcia usuwanej decyzji.
+- Mobilna próba Quick Tunnel wykryła możliwość pozostania na statycznym ekranie
+  `Sprawdzanie sesji…`, gdy przeglądarka odrzuca dostęp do `sessionStorage` albo
+  zapytanie przez ingress nie kończy się. Id klienta ma teraz bezpieczny
+  fallback pamięciowy i UUID v4 bez `randomUUID`, a context, unlock i lease mają
+  wspólny limit 12 sekund zamiast bezterminowego oczekiwania.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

@@ -30,6 +30,10 @@ const workspaceModelPath = new URL(
   '../src/features/manual-selection/remote-selection-workspace-model.ts',
   import.meta.url,
 );
+const clientRuntimePath = new URL(
+  '../src/features/manual-selection/remote-selection-client-runtime.ts',
+  import.meta.url,
+);
 
 test('manual selection shell uses only purpose-scoped same-origin endpoints', async () => {
   const gate = await readFile(gatePath, 'utf8');
@@ -47,11 +51,24 @@ test('manual selection shell uses only purpose-scoped same-origin endpoints', as
 
 test('manual selection shell does not persist access code or bearer token', async () => {
   const gate = await readFile(gatePath, 'utf8');
+  const clientRuntime = await readFile(clientRuntimePath, 'utf8');
 
-  assert.match(gate, /sessionStorage\.setItem\(CLIENT_INSTANCE_KEY/);
+  assert.match(gate, /readOrCreateRemoteSelectionClientInstance/);
+  assert.match(clientRuntime, /storage\.setItem\(key, clientInstanceId\)/);
+  assert.match(clientRuntime, /catch \{/);
   assert.doesNotMatch(gate, /localStorage/);
   assert.doesNotMatch(gate, /setItem\([^\n]*(?:accessCode|token)/i);
   assert.doesNotMatch(gate, /accessToken/);
+});
+
+test('mobile access gate bounds network waits and tolerates unavailable storage', async () => {
+  const gate = await readFile(gatePath, 'utf8');
+  const clientRuntime = await readFile(clientRuntimePath, 'utf8');
+
+  assert.match(gate, /fetchRemoteSelectionWithTimeout/);
+  assert.match(clientRuntime, /REMOTE_SELECTION_REQUEST_TIMEOUT_MS = 12_000/);
+  assert.match(clientRuntime, /controller\.abort\(\)/);
+  assert.match(clientRuntime, /Mobile privacy modes may expose sessionStorage/);
 });
 
 test('remote selection cookie cannot authorize the legacy Reviewer proxy', async () => {

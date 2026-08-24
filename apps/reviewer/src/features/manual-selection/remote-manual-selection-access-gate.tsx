@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { RemoteManualSelectionWorkspaceFoundation } from './remote-manual-selection-workspace-foundation';
+import {
+  fetchRemoteSelectionWithTimeout,
+  readOrCreateRemoteSelectionClientInstance,
+} from './remote-selection-client-runtime';
 
 const CLIENT_INSTANCE_KEY = 'gp.remote-manual-selection.client-instance.v1';
 const API_BASE = '/selection-api/api/v1/remote-manual-selections';
@@ -48,11 +52,14 @@ export function RemoteManualSelectionAccessGate({
         return;
       }
       try {
-        const response = await fetch(`${API_BASE}/context`, {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          headers: { 'X-Remote-Selection-Client': clientInstanceId },
-        });
+        const response = await fetchRemoteSelectionWithTimeout(
+          `${API_BASE}/context`,
+          {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { 'X-Remote-Selection-Client': clientInstanceId },
+          },
+        );
         if (response.status === 401) {
           setContext(null);
           if (!silent) setError('');
@@ -115,15 +122,18 @@ export function RemoteManualSelectionAccessGate({
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE}/sessions/${sessionId}/unlock`, {
-        body: JSON.stringify({
-          accessCode: accessCode.trim().toUpperCase(),
-          clientInstanceId,
-        }),
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
+      const response = await fetchRemoteSelectionWithTimeout(
+        `${API_BASE}/sessions/${sessionId}/unlock`,
+        {
+          body: JSON.stringify({
+            accessCode: accessCode.trim().toUpperCase(),
+            clientInstanceId,
+          }),
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      );
       if (!response.ok) {
         setError(await responseError(response));
         return;
@@ -153,7 +163,7 @@ export function RemoteManualSelectionAccessGate({
       setError('');
     }
     try {
-      const response = await fetch(
+      const response = await fetchRemoteSelectionWithTimeout(
         `${API_BASE}/sessions/${context.sessionId}/writer-lease/${action}`,
         {
           body: JSON.stringify({ clientInstanceId }),
@@ -315,15 +325,6 @@ async function responseError(response: Response): Promise<string> {
   return `Żądanie nie powiodło się (${response.status}).`;
 }
 
-function isUuid(value: string | null): value is string {
-  return (
-    value !== null &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  );
-}
-
 function subscribeToClientInstance(): () => void {
   return () => undefined;
 }
@@ -334,8 +335,10 @@ function emptyClientInstance(): string {
 
 function readClientInstance(): string {
   if (cachedClientInstanceId !== '') return cachedClientInstanceId;
-  const stored = window.sessionStorage.getItem(CLIENT_INSTANCE_KEY);
-  cachedClientInstanceId = isUuid(stored) ? stored : window.crypto.randomUUID();
-  window.sessionStorage.setItem(CLIENT_INSTANCE_KEY, cachedClientInstanceId);
+  cachedClientInstanceId = readOrCreateRemoteSelectionClientInstance(
+    CLIENT_INSTANCE_KEY,
+    window.sessionStorage,
+    window.crypto,
+  );
   return cachedClientInstanceId;
 }

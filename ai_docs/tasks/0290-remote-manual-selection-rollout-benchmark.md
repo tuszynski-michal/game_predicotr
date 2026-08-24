@@ -144,6 +144,16 @@ ani kopiowania JPEG-ów do repozytorium.
   jest natychmiast widoczny. Testy obejmują cztery szybkie operacje, coalescing
   synchronizacji, cursor undo i lokalną barierę finalizacji.
 
+### v0.7.48 — odporny bootstrap mobilny
+
+- Próba na telefonie przez Quick Tunnel zatrzymała się na `Sprawdzanie sesji…`,
+  mimo że publiczny endpoint context odpowiadał. Bootstrap nie zakłada już, że
+  mobilny `sessionStorage` i `crypto.randomUUID` są zawsze dostępne.
+- Id klienta ma session-only fallback w pamięci i ręczne UUID v4 oparte na
+  `getRandomValues`. Wszystkie trzy operacje bramki dostępu używają wspólnego
+  limitu 12 sekund, więc niedziałający ingress kończy się jawnym komunikatem i
+  formularzem zamiast bezterminowego ekranu ładowania.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

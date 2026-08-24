@@ -19,6 +19,7 @@ import {
 import {
   REMOTE_SESSION_LIST_POLL_MS,
   REMOTE_SESSION_MONITOR_POLL_MS,
+  newestRemoteManualSelectionSessions,
   remoteSessionStatusLabel,
   safeRemoteManualSelectionUrl,
   selectRemoteManualSelectionSessionId,
@@ -65,9 +66,12 @@ export function RemoteManualSelectionHostPanel({
         if (showError) setError(result.error);
         return;
       }
-      setSessions(result.data.sessions);
+      const newestSessions = newestRemoteManualSelectionSessions(
+        result.data.sessions,
+      );
+      setSessions(newestSessions);
       setSelectedSessionId((current) =>
-        selectRemoteManualSelectionSessionId(result.data.sessions, current),
+        selectRemoteManualSelectionSessionId(newestSessions, current),
       );
     },
     [api],
@@ -78,9 +82,12 @@ export function RemoteManualSelectionHostPanel({
     void loadRemoteManualSelectionSessions(api).then((result) => {
       if (!active) return;
       if (result.ok) {
-        setSessions(result.data.sessions);
+        const newestSessions = newestRemoteManualSelectionSessions(
+          result.data.sessions,
+        );
+        setSessions(newestSessions);
         setSelectedSessionId(
-          selectRemoteManualSelectionSessionId(result.data.sessions, ''),
+          selectRemoteManualSelectionSessionId(newestSessions, ''),
         );
       } else {
         setError(result.error);
@@ -314,7 +321,7 @@ export function RemoteManualSelectionHostPanel({
 
       <div className="remoteManualSelectionBody">
         <div className="remoteManualSelectionSessions">
-          <h3>Sesje</h3>
+          <h3>Najnowsze sesje</h3>
           {loading ? <p role="status">Wczytuję sesje…</p> : null}
           {!loading && sessions.length === 0 ? (
             <p>Nie ma jeszcze żadnej zdalnej sesji.</p>

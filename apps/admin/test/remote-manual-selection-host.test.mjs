@@ -11,9 +11,11 @@ import {
   revokeRemoteManualSelectionAccess,
 } from '../src/features/manual-image-selection/remote-manual-selection-actions.ts';
 import {
+  REMOTE_SESSION_LIST_LIMIT,
   REMOTE_SESSION_LIST_POLL_MS,
   REMOTE_SESSION_MONITOR_POLL_MS,
   activeRemoteManualSelectionSessions,
+  newestRemoteManualSelectionSessions,
   safeRemoteManualSelectionUrl,
   selectRemoteManualSelectionSessionId,
 } from '../src/features/manual-image-selection/remote-manual-selection-state.ts';
@@ -156,7 +158,7 @@ test('host actions execute the typed lifecycle without persisting a secret', asy
         lifetimeMinutes: 480,
       },
     ],
-    ['list', 100],
+    ['list', 10],
     ['monitor', current.sessionId, 100],
     ['recovery', current.sessionId, '22222222-2222-4222-8222-222222222222'],
     ['revoke', current.sessionId],
@@ -203,9 +205,30 @@ test('selects active sessions and accepts only exact safe tunnel URLs', () => {
   );
 });
 
+test('keeps only the ten newest sessions in deterministic order', () => {
+  const sessions = Array.from({ length: 12 }, (_, index) =>
+    session({
+      createdAt: `2026-08-${String(index + 1).padStart(2, '0')}T10:00:00Z`,
+      sessionId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    }),
+  );
+
+  assert.equal(REMOTE_SESSION_LIST_LIMIT, 10);
+  assert.deepEqual(
+    newestRemoteManualSelectionSessions(sessions).map(
+      (entry) => entry.createdAt,
+    ),
+    sessions
+      .slice(2)
+      .reverse()
+      .map((entry) => entry.createdAt),
+  );
+});
+
 test('panel keeps secret in React memory and uses bounded polling and exact revoke', () => {
   assert.equal(REMOTE_SESSION_LIST_POLL_MS, 30_000);
   assert.equal(REMOTE_SESSION_MONITOR_POLL_MS, 10_000);
+  assert.match(panelSource, /Najnowsze sesje/);
   assert.match(
     panelSource,
     /useState<RemoteManualSelectionSessionCreatedResponse/,

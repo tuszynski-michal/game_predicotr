@@ -213,6 +213,13 @@ ani kopiowania JPEG-ów do repozytorium.
 - Trwałe historyczne API i dane pozostają audytowalne, ale nie są prezentowane
   jako część bieżącego workflow operatora.
 
+### v0.7.54 — ograniczony widok najnowszych sesji
+
+- Admin pobiera i pokazuje wyłącznie dziesięć najnowszych sesji, sortowanych
+  deterministycznie malejąco po dacie utworzenia i identyfikatorze.
+- Starsze sesje pozostają w audycie i nie są automatycznie usuwane ani
+  unieważniane; ograniczenie dotyczy wyłącznie aktywnego panelu właściciela.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

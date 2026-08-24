@@ -8,6 +8,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import { REMOTE_SESSION_LIST_LIMIT } from './remote-manual-selection-state.ts';
 
 export type RemoteManualSelectionHostClient = Pick<
   AdminApiClient,
@@ -44,7 +45,7 @@ export async function loadRemoteManualSelectionSessions(
   client: RemoteManualSelectionHostClient,
 ): Promise<ActionResult<RemoteManualSelectionSessionListResponse>> {
   return call(
-    () => client.listRemoteManualSelectionSessions(100),
+    () => client.listRemoteManualSelectionSessions(REMOTE_SESSION_LIST_LIMIT),
     'Nie udało się odczytać zdalnych sesji.',
   );
 }

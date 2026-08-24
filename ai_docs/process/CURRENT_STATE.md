@@ -35,6 +35,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   historycznych akcji recovery/reopen. Aktywny operator-local workflow utrzymuje
   wyniki wyłącznie na urządzeniu operatora, więc host zarządza tylko sesją
   dostępu i stanem połączenia.
+- Lista hosta jest ograniczona do dziesięciu najnowszych sesji w porządku
+  malejącym. Starsze wpisy pozostają audytowalne, ale nie rosną bez końca w
+  codziennym widoku Admina.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

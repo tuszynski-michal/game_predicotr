@@ -2,6 +2,21 @@ import type { RemoteManualSelectionSessionResponse } from '@game-predictor/admin
 
 export const REMOTE_SESSION_LIST_POLL_MS = 30_000;
 export const REMOTE_SESSION_MONITOR_POLL_MS = 10_000;
+export const REMOTE_SESSION_LIST_LIMIT = 10;
+
+export function newestRemoteManualSelectionSessions(
+  sessions: readonly RemoteManualSelectionSessionResponse[],
+  limit = REMOTE_SESSION_LIST_LIMIT,
+): readonly RemoteManualSelectionSessionResponse[] {
+  return [...sessions]
+    .sort((left, right) => {
+      const byCreatedAt = right.createdAt.localeCompare(left.createdAt);
+      return byCreatedAt !== 0
+        ? byCreatedAt
+        : right.sessionId.localeCompare(left.sessionId);
+    })
+    .slice(0, Math.max(0, limit));
+}
 
 export function activeRemoteManualSelectionSessions(
   sessions: readonly RemoteManualSelectionSessionResponse[],

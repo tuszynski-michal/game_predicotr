@@ -22,7 +22,7 @@ test('remote workspace reuses the local manual-selection visual system', async (
   assert.doesNotMatch(workspace, /type="range"/);
 });
 
-test('remote preview stays horizontally centered and restores vertical scroll after layout', async () => {
+test('remote preview scrolls and restores both axes after layout', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const css = await readFile(reviewerCssPath, 'utf8');
 
@@ -30,18 +30,22 @@ test('remote preview stays horizontally centered and restores vertical scroll af
   assert.match(workspace, /window\.requestAnimationFrame/);
   assert.match(
     workspace,
+    /viewport\.current\.scrollLeft = savedScrollLeft\.current/,
+  );
+  assert.match(
+    workspace,
     /viewport\.current\.scrollTop = savedScrollTop\.current/,
   );
   assert.match(
     workspace,
-    /if \(!pendingScrollRestore\.current\)[\s\S]*savedScrollTop\.current =/,
+    /if \(!pendingScrollRestore\.current\)[\s\S]*savedScrollLeft\.current =[\s\S]*savedScrollTop\.current =/,
   );
   assert.match(
     css,
-    /\.remoteManualPreviewViewport\s*\{[\s\S]*?overflow-x:\s*hidden;[\s\S]*?overflow-y:\s*auto;[\s\S]*?\}/,
+    /\.remoteManualPreviewViewport\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?overflow-x:\s*auto;[\s\S]*?overflow-y:\s*auto;[\s\S]*?\}/,
   );
   assert.match(
     css,
-    /\.remoteManualPreviewCanvas\s*\{[\s\S]*?flex:\s*0 0 auto;[\s\S]*?margin-block:\s*auto;[\s\S]*?\}/,
+    /\.remoteManualPreviewCanvas\s*\{[\s\S]*?flex:\s*0 0 auto;[\s\S]*?margin-inline:\s*auto;[\s\S]*?margin-block:\s*auto;[\s\S]*?\}/,
   );
 });

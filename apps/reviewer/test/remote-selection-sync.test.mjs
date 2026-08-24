@@ -17,6 +17,7 @@ import {
   RemoteSelectionSyncCoordinator,
 } from '../src/features/manual-selection/remote-selection-sync.ts';
 import { RemoteSelectionInteractionQueue } from '../src/features/manual-selection/remote-selection-interaction-queue.ts';
+import { advanceRemoteTransferScanCursor } from '../src/features/manual-selection/remote-selection-workspace-model.ts';
 
 const sessionId = '10000000-0000-4000-8000-000000000001';
 const batchId = '20000000-0000-4000-8000-000000000002';
@@ -89,6 +90,25 @@ test('interaction queue preserves four rapid decisions in request order', async 
   await queue.idle();
 
   assert.deepEqual(persisted, [1, 2, 3, 4]);
+});
+
+test('transfer scan cannot overwrite a rewind requested by a new selection', () => {
+  assert.equal(
+    advanceRemoteTransferScanCursor({
+      currentCursor: 4,
+      scannedThroughOrdinal: 499,
+      scanStartCursor: -1,
+    }),
+    4,
+  );
+  assert.equal(
+    advanceRemoteTransferScanCursor({
+      currentCursor: -1,
+      scannedThroughOrdinal: 499,
+      scanStartCursor: -1,
+    }),
+    499,
+  );
 });
 
 async function fixture() {

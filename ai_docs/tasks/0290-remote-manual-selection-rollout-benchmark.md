@@ -154,6 +154,17 @@ ani kopiowania JPEG-ów do repozytorium.
   limitu 12 sekund, więc niedziałający ingress kończy się jawnym komunikatem i
   formularzem zamiast bezterminowego ekranu ładowania.
 
+### v0.7.49 — transfer po szybkim `F` i obie osie viewportu
+
+- Rzeczywista partia `1b041c96…` miała `9 selected`, ale `0 transferów` i
+  `0 synced`. Aktywny skan transferów mógł po nowej decyzji ponownie ustawić
+  wysoki kursor i bezpowrotnie ominąć wcześniejszy ordinal.
+- Kursor jest aktualizowany compare-and-set względem początku skanu. Przewinięcie
+  wstecz przez nową decyzję wygrywa ze starszym przebiegiem, a ponowne otwarcie
+  workspace'u skanuje od początku i odzyskuje już potwierdzone wybory.
+- Poziomy scroll wraca dla powiększonego obrazu. Obie osie są przechwytywane
+  przed każdą zmianą zdjęcia i odtwarzane po decode oraz obliczeniu wymiarów.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

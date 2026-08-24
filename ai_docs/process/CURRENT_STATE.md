@@ -56,6 +56,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zapytanie przez ingress nie kończy się. Id klienta ma teraz bezpieczny
   fallback pamięciowy i UUID v4 bez `randomUUID`, a context, unlock i lease mają
   wspólny limit 12 sekund zamiast bezterminowego oczekiwania.
+- Kolejna próba wykryła `selected > 0` przy `transfer = synced = 0`: aktywny
+  skan mógł nadpisać przewinięcie kursora transferów wykonane przez nową decyzję
+  `F`. Aktualizacja kursora jest teraz warunkowa, więc starszy skan nie pomija
+  świeżych wyborów. Zdalny viewport przywraca też poziomy scroll i zachowuje
+  obie osie przy przejściu strzałką, decyzji, pominięciu oraz cofnięciu.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

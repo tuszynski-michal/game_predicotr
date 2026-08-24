@@ -36,6 +36,7 @@ import {
   RemoteSelectionTransferScheduler,
 } from './remote-selection-transfer-scheduler';
 import {
+  advanceRemoteTransferScanCursor,
   buildRemoteWorkspaceCommand,
   clampRemoteWorkspaceIndex,
   remoteOutputName,
@@ -105,6 +106,7 @@ export function RemoteManualSelectionWorkspace({
   const operationQueue = useRef(Promise.resolve());
   const previewUrls = useRef(new Map<number, string>());
   const viewport = useRef<HTMLDivElement>(null);
+  const savedScrollLeft = useRef(0);
   const savedScrollTop = useRef(0);
   const pendingScrollRestore = useRef(false);
   const viewStartedAt = useRef(performance.now());
@@ -320,12 +322,14 @@ export function RemoteManualSelectionWorkspace({
             )
             .map((decision) => [decision.fileId, decision]),
         );
+        const scanStartCursor = resumeTransferAfterOrdinal.current;
         const page = await store.listSourceItemsPage(
           session.sessionId,
           latest.batchId,
-          resumeTransferAfterOrdinal.current,
+          scanStartCursor,
           500,
         );
+        let scannedThroughOrdinal = scanStartCursor;
         for (const item of page) {
           const decision = acceptedByFile.get(item.fileId);
           if (
@@ -333,8 +337,13 @@ export function RemoteManualSelectionWorkspace({
             !(await enqueueConfirmedTransfer(decision))
           )
             break;
-          resumeTransferAfterOrdinal.current = item.ordinal;
+          scannedThroughOrdinal = item.ordinal;
         }
+        resumeTransferAfterOrdinal.current = advanceRemoteTransferScanCursor({
+          currentCursor: resumeTransferAfterOrdinal.current,
+          scannedThroughOrdinal,
+          scanStartCursor,
+        });
       }
     } catch (cause) {
       setError(syncErrorMessage(cause));
@@ -525,6 +534,7 @@ export function RemoteManualSelectionWorkspace({
     }
     const animationFrame = window.requestAnimationFrame(() => {
       if (viewport.current === null) return;
+      viewport.current.scrollLeft = savedScrollLeft.current;
       viewport.current.scrollTop = savedScrollTop.current;
       pendingScrollRestore.current = false;
     });
@@ -580,9 +590,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function persistCursor(nextIndex: number) {
-    savedScrollTop.current =
-      viewport.current?.scrollTop ?? savedScrollTop.current;
-    pendingScrollRestore.current = true;
+    capturePreviewScrollForTransition();
     const currentBatch = batchRef.current;
     const next = {
       ...currentBatch,
@@ -601,6 +609,14 @@ export function RemoteManualSelectionWorkspace({
         PREVIEW_RADIUS,
       ),
     );
+  }
+
+  function capturePreviewScrollForTransition() {
+    if (viewport.current !== null) {
+      savedScrollLeft.current = viewport.current.scrollLeft;
+      savedScrollTop.current = viewport.current.scrollTop;
+    }
+    pendingScrollRestore.current = true;
   }
 
   async function moveImage(delta: number) {
@@ -685,6 +701,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
+    capturePreviewScrollForTransition();
     try {
       if (sourceReader === null) return;
       const file = await sourceReader.fileForEntry(requestedCurrent);
@@ -800,6 +817,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
+    capturePreviewScrollForTransition();
     try {
       const nextBatch = await enqueueOperation(async () => {
         const latest = remoteSelectionWorkspaceState(batchRef.current);
@@ -902,6 +920,7 @@ export function RemoteManualSelectionWorkspace({
     busyRef.current = true;
     setBusy(true);
     setError('');
+    capturePreviewScrollForTransition();
     try {
       let command = null;
       if (last.action === 'accepted' && last.fileId !== null) {
@@ -1241,6 +1260,7 @@ export function RemoteManualSelectionWorkspace({
               className="remoteManualPreviewViewport manualImageSelectionImageViewport"
               onScroll={(event) => {
                 if (!pendingScrollRestore.current) {
+                  savedScrollLeft.current = event.currentTarget.scrollLeft;
                   savedScrollTop.current = event.currentTarget.scrollTop;
                 }
               }}

@@ -173,16 +173,20 @@ z outboxem lub transferem wyświetla ostrzeżenie.
 
 Zdalny workspace używa tego samego systemu wizualnego co lokalna ręczna
 selekcja: nagłówka, toolbaru, przycisków nawigacji, płótna zdjęcia i paska
-decyzji. Viewport nie udostępnia poziomego scrolla; powiększone zdjęcie pozostaje
-wycentrowane i może być przewijane wyłącznie pionowo. Po zmianie zdjęcia pionowa
-pozycja scrolla jest odtwarzana dopiero po załadowaniu obrazu i przeliczeniu jego
-rozmiaru.
+decyzji. Viewport udostępnia poziomy i pionowy scroll dla powiększonego zdjęcia;
+obraz mieszczący się w widoku pozostaje wycentrowany. Po zmianie zdjęcia obie
+pozycje scrolla są odtwarzane dopiero po załadowaniu obrazu i przeliczeniu jego
+rozmiaru, również gdy przejście wynika z decyzji `Enter/F`, pominięcia albo
+cofnięcia.
 
 Polecenia operatora są szeregowane i nie mogą być po cichu odrzucane przez
 trwający lokalny zapis. Cofnięcie wraca do zdjęcia, którego decyzję usuwa.
 Finalizacja czeka na wcześniejsze interakcje i jest blokowana, dopóki lokalny
 outbox nie jest pusty; żądanie synchronizacji dopisane podczas aktywnego cyklu
 powoduje kolejny cykl przed zwolnieniem bariery.
+Skan transferów używa kursora odpornego na równoległe przewinięcie wstecz przez
+nową decyzję. Starszy przebieg nie może przesunąć kursora za świeżo zatwierdzony
+plik; potwierdzony `select` musi rozpocząć transfer JPEG-a i materializację.
 
 ### Panel hosta zdalnej selekcji
 

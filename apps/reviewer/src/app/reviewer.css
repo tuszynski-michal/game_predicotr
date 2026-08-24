@@ -365,14 +365,17 @@
 }
 
 .remoteManualPreviewViewport {
-  overflow-x: hidden;
+  justify-content: flex-start;
+  overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
   background: #02060b;
 }
 
 .remoteManualPreviewCanvas {
   flex: 0 0 auto;
+  margin-inline: auto;
   margin-block: auto;
 }
 

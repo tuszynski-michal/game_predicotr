@@ -146,3 +146,13 @@ export function clampRemoteWorkspaceIndex(
 ): number {
   return Math.max(0, Math.min(count - 1, current + delta));
 }
+
+export function advanceRemoteTransferScanCursor(input: {
+  readonly currentCursor: number;
+  readonly scanStartCursor: number;
+  readonly scannedThroughOrdinal: number;
+}): number {
+  return input.currentCursor === input.scanStartCursor
+    ? input.scannedThroughOrdinal
+    : input.currentCursor;
+}

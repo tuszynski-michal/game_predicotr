@@ -15,6 +15,30 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Odznaczanie zdalnej selekcji i odwracalna kwarantanna — v0.7.36
+
+- TASK-0284 implementuje `deselect`/`undo` jako generacyjny tombstone wskazujący
+  wcześniejszy zastosowany `select`. Dokładny retry pozostaje idempotentny, a
+  błędny target jest odrzucany przed zmianą stanu.
+- Operacja sterująca anuluje starsze queued/in-flight transfery, superseduje
+  starsze akcje materializacji i enqueue'uje priorytetową host action `remove`.
+  Claim materializacji jest blokowany, dopóki istnieje gotowa akcja usunięcia,
+  dlatego spóźniona generacja nie może ponownie opublikować odznaczonego pliku.
+- Executor przenosi wyłącznie własny `seq_*` zgodny z journalem i checksumą do
+  wewnętrznej, odwracalnej kwarantanny. Rename odbywa się po przypiętym uchwycie
+  Windows; obcy, zmieniony lub reparse target pozostaje nietknięty. Kwarantanna
+  nie ma jeszcze finalnego GC.
+- Sekwencja select/deselect/reselect zachowuje nowszy desired state, ale najpierw
+  bezpiecznie usuwa starszą materializację. Reviewer trwale oznacza anulowany
+  checkpoint i nie wznawia transferu starszej generacji po odświeżeniu.
+- Rollback ma osobną flagę
+  `GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED`; wyłącza nowe odznaczenia,
+  nie usuwa journalu, kwarantanny ani wcześniej zapisanych operacji.
+- Bramka: 144 celowane testy API (1 symlink pominięty na tym hoście), 16 testów
+  workera, 16 testów PostgreSQL i 93 testy Reviewera; Ruff, izolowany mypy,
+  Reviewer lint/typecheck/build oraz OpenAPI są zielone. TASK 12 kończy się
+  obowiązkowym checkpointem przed TASK 13.
+
 ### Atomowa materializacja zdalnej selekcji — v0.7.35
 
 - TASK-0283 zamienia checksum-verified host-internal JPEG na należący do partii

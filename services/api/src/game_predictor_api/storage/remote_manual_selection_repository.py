@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionBatchStatus,
@@ -110,6 +110,17 @@ class RemoteManualSelectionMaterializationContext:
     file: RemoteManualSelectionFileV1
     transfer: RemoteManualSelectionTransferV1
     verified_relative_path: str
+    output_name: str
+    checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionRemovalContext:
+    action: RemoteManualSelectionHostActionV1
+    file: RemoteManualSelectionFileV1
+    transfer: RemoteManualSelectionTransferV1
+    materialization_action_id: UUID
+    materialized_generation: int
     output_name: str
     checksum_sha256: str
 
@@ -594,11 +605,21 @@ class SqlAlchemyRemoteManualSelectionRepository:
         )
         file_record = self._locked_file(command)
         existing = None if existing_record is None else _operation_from_record(existing_record)
+        target_record = (
+            None
+            if command.target_operation_id is None
+            else self._session.get(
+                RemoteManualSelectionOperationModel,
+                command.target_operation_id,
+            )
+        )
+        target_operation = None if target_record is None else _operation_from_record(target_record)
         application = apply_remote_manual_selection_operation(
             _batch_from_record(batch_record),
             None if file_record is None else _file_from_record(file_record),
             command,
             existing_operation=existing,
+            target_operation=target_operation,
         )
         if application.exact_retry:
             return application
@@ -611,6 +632,7 @@ class SqlAlchemyRemoteManualSelectionRepository:
                 batch_record.updated_at = func.now()
                 if file_record is not None and application.file is not None:
                     was_selected = file_record.desired_selected
+                    was_transferred = file_record.final_relative_path is not None
                     _copy_file_state(file_record, application.file)
                     file_record.last_server_revision = application.batch.server_revision
                     file_record.updated_at = func.now()
@@ -618,11 +640,142 @@ class SqlAlchemyRemoteManualSelectionRepository:
                         batch_record.selected_file_count += (
                             1 if application.file.desired_selected else -1
                         )
+                        if (
+                            was_transferred
+                            and not application.file.desired_selected
+                            and batch_record.transferred_file_count > 0
+                        ):
+                            batch_record.transferred_file_count -= 1
+                    if command.operation_type in {
+                        RemoteManualSelectionOperationType.DESELECT,
+                        RemoteManualSelectionOperationType.UNDO,
+                    }:
+                        self._prepare_deselect(
+                            file_record=file_record,
+                            tombstone_generation=command.selection_generation,
+                            applied_at=command.recorded_at,
+                        )
                 self._session.add(_operation_record_from_domain(application.operation))
                 self._session.flush()
         except IntegrityError as error:
             raise _map_integrity_error(error) from error
+        if file_record is not None and application.file is not None:
+            application = replace(application, file=_file_from_record(file_record))
         return application
+
+    def _prepare_deselect(
+        self,
+        *,
+        file_record: RemoteManualSelectionFileModel,
+        tombstone_generation: int,
+        applied_at: datetime,
+    ) -> None:
+        cancelable = (
+            RemoteManualSelectionTransferStatus.QUEUED.value,
+            RemoteManualSelectionTransferStatus.UPLOADING.value,
+            RemoteManualSelectionTransferStatus.STORED_TEMP.value,
+            RemoteManualSelectionTransferStatus.VERIFIED.value,
+            RemoteManualSelectionTransferStatus.FAILED.value,
+            RemoteManualSelectionTransferStatus.RETRYING.value,
+        )
+        transfers = self._session.scalars(
+            select(RemoteManualSelectionTransferModel)
+            .where(
+                RemoteManualSelectionTransferModel.file_id == file_record.id,
+                RemoteManualSelectionTransferModel.generation < tombstone_generation,
+            )
+            .with_for_update()
+        ).all()
+        for transfer in transfers:
+            if transfer.status in cancelable:
+                transition_remote_transfer_status(
+                    RemoteManualSelectionTransferStatus(transfer.status),
+                    RemoteManualSelectionTransferStatus.CANCELLED,
+                )
+                transfer.status = RemoteManualSelectionTransferStatus.CANCELLED.value
+                transfer.retry_at = None
+                transfer.updated_at = func.now()
+
+        active_statuses = (
+            RemoteManualSelectionHostActionStatus.QUEUED.value,
+            RemoteManualSelectionHostActionStatus.PROCESSING.value,
+            RemoteManualSelectionHostActionStatus.RETRY.value,
+        )
+        materializations = self._session.scalars(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.file_id == file_record.id,
+                RemoteManualSelectionHostActionModel.generation < tombstone_generation,
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+            )
+            .order_by(
+                RemoteManualSelectionHostActionModel.generation.desc(),
+                RemoteManualSelectionHostActionModel.created_at.desc(),
+                RemoteManualSelectionHostActionModel.id,
+            )
+            .with_for_update()
+        ).all()
+        materialization = next(
+            (
+                action
+                for action in materializations
+                if action.transfer_id is not None
+                and next(
+                    (
+                        transfer
+                        for transfer in transfers
+                        if transfer.id == action.transfer_id
+                        and transfer.verified_checksum_sha256 is not None
+                    ),
+                    None,
+                )
+                is not None
+            ),
+            None,
+        )
+        for action in materializations:
+            if action.status in active_statuses:
+                transition_remote_host_action_status(
+                    RemoteManualSelectionHostActionStatus(action.status),
+                    RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                action.status = RemoteManualSelectionHostActionStatus.SUPERSEDED.value
+                _clear_action_lease(action, updated_at=applied_at)
+
+        existing_remove = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.file_id == file_record.id,
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.REMOVE.value,
+                RemoteManualSelectionHostActionModel.status.in_(active_statuses),
+            )
+            .order_by(RemoteManualSelectionHostActionModel.created_at)
+            .limit(1)
+        )
+        if existing_remove is not None:
+            file_record.status = RemoteManualSelectionFileStatus.DESELECT_PENDING.value
+            return
+        if materialization is None:
+            file_record.status = RemoteManualSelectionFileStatus.REMOVED.value
+            file_record.temp_relative_path = None
+            file_record.final_relative_path = None
+            return
+        self._session.add(
+            RemoteManualSelectionHostActionModel(
+                id=uuid4(),
+                session_id=file_record.session_id,
+                batch_id=file_record.batch_id,
+                file_id=file_record.id,
+                transfer_id=materialization.transfer_id,
+                generation=tombstone_generation,
+                action_type=RemoteManualSelectionHostActionType.REMOVE.value,
+                status=RemoteManualSelectionHostActionStatus.QUEUED.value,
+                attempt=0,
+            )
+        )
+        file_record.status = RemoteManualSelectionFileStatus.DESELECT_PENDING.value
 
     def list_file_delta(
         self,
@@ -950,11 +1103,95 @@ class SqlAlchemyRemoteManualSelectionRepository:
                 & (RemoteManualSelectionHostActionModel.lease_expires_at <= claimed_at)
             ),
         )
+        removal_action = aliased(RemoteManualSelectionHostActionModel)
+        pending_removal = (
+            select(removal_action.id)
+            .where(
+                removal_action.action_type == RemoteManualSelectionHostActionType.REMOVE.value,
+                or_(
+                    removal_action.status == RemoteManualSelectionHostActionStatus.QUEUED.value,
+                    (
+                        (removal_action.status == RemoteManualSelectionHostActionStatus.RETRY.value)
+                        & or_(
+                            removal_action.next_attempt_at.is_(None),
+                            removal_action.next_attempt_at <= claimed_at,
+                        )
+                    ),
+                    (
+                        (
+                            removal_action.status
+                            == RemoteManualSelectionHostActionStatus.PROCESSING.value
+                        )
+                        & (removal_action.lease_expires_at <= claimed_at)
+                    ),
+                ),
+            )
+            .exists()
+        )
         record = self._session.scalar(
             select(RemoteManualSelectionHostActionModel)
             .where(
                 RemoteManualSelectionHostActionModel.action_type
                 == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+                eligible,
+                ~pending_removal,
+            )
+            .order_by(
+                RemoteManualSelectionHostActionModel.next_attempt_at.asc().nulls_first(),
+                RemoteManualSelectionHostActionModel.created_at,
+                RemoteManualSelectionHostActionModel.id,
+            )
+            .with_for_update(skip_locked=True)
+            .limit(1)
+        )
+        if record is None:
+            return None
+        token = uuid4()
+        record.status = RemoteManualSelectionHostActionStatus.PROCESSING.value
+        record.attempt += 1
+        record.lease_owner = lease_owner.strip()
+        record.lease_token = token
+        record.lease_expires_at = claimed_at + lease_duration
+        record.next_attempt_at = None
+        record.updated_at = claimed_at
+        self._session.flush()
+        return _host_action_record_from_record(record)
+
+    def claim_next_removal_action(
+        self,
+        *,
+        lease_owner: str,
+        lease_duration: timedelta,
+        claimed_at: datetime,
+    ) -> RemoteManualSelectionHostActionRecord | None:
+        if not lease_owner.strip() or lease_duration.total_seconds() <= 0:
+            raise ValueError("A removal lease requires an owner and positive duration.")
+        eligible = or_(
+            RemoteManualSelectionHostActionModel.status
+            == RemoteManualSelectionHostActionStatus.QUEUED.value,
+            (
+                (
+                    RemoteManualSelectionHostActionModel.status
+                    == RemoteManualSelectionHostActionStatus.RETRY.value
+                )
+                & or_(
+                    RemoteManualSelectionHostActionModel.next_attempt_at.is_(None),
+                    RemoteManualSelectionHostActionModel.next_attempt_at <= claimed_at,
+                )
+            ),
+            (
+                (
+                    RemoteManualSelectionHostActionModel.status
+                    == RemoteManualSelectionHostActionStatus.PROCESSING.value
+                )
+                & (RemoteManualSelectionHostActionModel.lease_expires_at <= claimed_at)
+            ),
+        )
+        record = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.REMOVE.value,
                 eligible,
             )
             .order_by(
@@ -977,6 +1214,169 @@ class SqlAlchemyRemoteManualSelectionRepository:
         record.updated_at = claimed_at
         self._session.flush()
         return _host_action_record_from_record(record)
+
+    def lock_removal_context(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        locked_at: datetime,
+    ) -> RemoteManualSelectionRemovalContext | None:
+        action = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(RemoteManualSelectionHostActionModel.id == action_id)
+            .with_for_update()
+        )
+        if (
+            action is None
+            or action.action_type != RemoteManualSelectionHostActionType.REMOVE.value
+            or action.status != RemoteManualSelectionHostActionStatus.PROCESSING.value
+            or action.lease_token != lease_token
+            or action.lease_expires_at is None
+            or action.lease_expires_at <= locked_at
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                "The removal action lease is no longer owned by this executor.",
+            )
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == action.file_id)
+            .with_for_update()
+        )
+        transfer_record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == action.transfer_id)
+            .with_for_update()
+        )
+        if file_record is None or transfer_record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_SCOPE_MISMATCH",
+                "The removal action references unavailable state.",
+            )
+        if file_record.selection_generation < action.generation or (
+            file_record.selection_generation == action.generation and file_record.desired_selected
+        ):
+            transition_remote_host_action_status(
+                RemoteManualSelectionHostActionStatus.PROCESSING,
+                RemoteManualSelectionHostActionStatus.SUPERSEDED,
+            )
+            action.status = RemoteManualSelectionHostActionStatus.SUPERSEDED.value
+            _clear_action_lease(action, updated_at=locked_at)
+            self._session.flush()
+            return None
+        checksum = transfer_record.verified_checksum_sha256
+        materialization = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(
+                RemoteManualSelectionHostActionModel.file_id == action.file_id,
+                RemoteManualSelectionHostActionModel.transfer_id == transfer_record.id,
+                RemoteManualSelectionHostActionModel.generation == transfer_record.generation,
+                RemoteManualSelectionHostActionModel.action_type
+                == RemoteManualSelectionHostActionType.MATERIALIZE.value,
+            )
+            .order_by(
+                RemoteManualSelectionHostActionModel.created_at.desc(),
+                RemoteManualSelectionHostActionModel.id,
+            )
+            .limit(1)
+        )
+        select_operation = self._session.scalar(
+            select(RemoteManualSelectionOperationModel)
+            .where(
+                RemoteManualSelectionOperationModel.file_id == action.file_id,
+                RemoteManualSelectionOperationModel.selection_generation
+                == transfer_record.generation,
+                RemoteManualSelectionOperationModel.operation_type
+                == RemoteManualSelectionOperationType.SELECT.value,
+                RemoteManualSelectionOperationModel.status
+                == RemoteManualSelectionOperationStatus.APPLIED.value,
+            )
+            .order_by(RemoteManualSelectionOperationModel.created_at.desc())
+            .limit(1)
+        )
+        if (
+            checksum is None
+            or materialization is None
+            or select_operation is None
+            or select_operation.output_name is None
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_REMOVAL_OWNERSHIP_MISSING",
+                "The removal action has no immutable materialization ownership proof.",
+            )
+        return RemoteManualSelectionRemovalContext(
+            action=_host_action_from_record(action),
+            file=_file_from_record(file_record),
+            transfer=_transfer_from_record(transfer_record),
+            materialization_action_id=materialization.id,
+            materialized_generation=transfer_record.generation,
+            output_name=select_operation.output_name,
+            checksum_sha256=checksum,
+        )
+
+    def complete_removal_action(
+        self,
+        context: RemoteManualSelectionRemovalContext,
+        *,
+        lease_token: UUID,
+        completed_at: datetime,
+    ) -> RemoteManualSelectionFileV1:
+        action = self._session.scalar(
+            select(RemoteManualSelectionHostActionModel)
+            .where(RemoteManualSelectionHostActionModel.id == context.action.id)
+            .with_for_update()
+        )
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(RemoteManualSelectionFileModel.id == context.file.id)
+            .with_for_update()
+        )
+        batch_record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == context.file.batch_id)
+            .with_for_update()
+        )
+        if (
+            action is None
+            or file_record is None
+            or batch_record is None
+            or action.status != RemoteManualSelectionHostActionStatus.PROCESSING.value
+            or action.lease_token != lease_token
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                "The removal action cannot be completed by this executor.",
+            )
+        if file_record.selection_generation < action.generation:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_REMOVAL_GENERATION_CONFLICT",
+                "The file generation is older than its removal tombstone.",
+            )
+        projection_changed = False
+        if file_record.final_relative_path == context.output_name:
+            file_record.final_relative_path = None
+            projection_changed = True
+        if not file_record.desired_selected:
+            if file_record.status != RemoteManualSelectionFileStatus.REMOVED.value:
+                transition_remote_file_status(
+                    RemoteManualSelectionFileStatus(file_record.status),
+                    RemoteManualSelectionFileStatus.REMOVED,
+                )
+                file_record.status = RemoteManualSelectionFileStatus.REMOVED.value
+                projection_changed = True
+            file_record.host_checksum_sha256 = None
+            file_record.temp_relative_path = None
+        action.status = RemoteManualSelectionHostActionStatus.COMPLETED.value
+        action.last_error_code = None
+        _clear_action_lease(action, updated_at=completed_at)
+        if projection_changed:
+            batch_record.server_revision += 1
+            file_record.last_server_revision = batch_record.server_revision
+            file_record.updated_at = completed_at
+            batch_record.updated_at = completed_at
+        self._session.flush()
+        return _file_from_record(file_record)
 
     def lock_materialization_context(
         self,
@@ -1680,6 +2080,11 @@ class InMemoryRemoteManualSelectionRepository:
                 file,
                 command,
                 existing_operation=self.operations.get(command.operation_id),
+                target_operation=(
+                    None
+                    if command.target_operation_id is None
+                    else self.operations.get(command.target_operation_id)
+                ),
             )
             if not result.exact_retry:
                 duplicate_sequence = any(
@@ -1697,8 +2102,129 @@ class InMemoryRemoteManualSelectionRepository:
                 if result.file is not None:
                     self.files[result.file.id] = result.file
                     self.file_revisions[result.file.id] = result.batch.server_revision
+                    if command.operation_type in {
+                        RemoteManualSelectionOperationType.DESELECT,
+                        RemoteManualSelectionOperationType.UNDO,
+                    }:
+                        self._prepare_deselect_in_memory(
+                            file_id=result.file.id,
+                            tombstone_generation=command.selection_generation,
+                        )
+                        result = replace(result, file=self.files[result.file.id])
                 self.operations[command.operation_id] = result.operation
             return result
+
+    def _prepare_deselect_in_memory(
+        self,
+        *,
+        file_id: UUID,
+        tombstone_generation: int,
+    ) -> None:
+        transfers = sorted(
+            (
+                transfer
+                for transfer in self.transfers.values()
+                if transfer.file_id == file_id and transfer.generation < tombstone_generation
+            ),
+            key=lambda transfer: (transfer.generation, transfer.attempt, str(transfer.id)),
+            reverse=True,
+        )
+        cancelable = {
+            RemoteManualSelectionTransferStatus.QUEUED,
+            RemoteManualSelectionTransferStatus.UPLOADING,
+            RemoteManualSelectionTransferStatus.STORED_TEMP,
+            RemoteManualSelectionTransferStatus.VERIFIED,
+            RemoteManualSelectionTransferStatus.FAILED,
+            RemoteManualSelectionTransferStatus.RETRYING,
+        }
+        for transfer in transfers:
+            if transfer.status in cancelable:
+                transition_remote_transfer_status(
+                    transfer.status,
+                    RemoteManualSelectionTransferStatus.CANCELLED,
+                )
+                self.transfers[transfer.id] = replace(
+                    transfer,
+                    status=RemoteManualSelectionTransferStatus.CANCELLED,
+                )
+
+        materializations = sorted(
+            (
+                action
+                for action in self.host_actions.values()
+                if action.file_id == file_id
+                and action.generation < tombstone_generation
+                and action.action_type is RemoteManualSelectionHostActionType.MATERIALIZE
+            ),
+            key=lambda action: (action.generation, str(action.id)),
+            reverse=True,
+        )
+        materialization = next(
+            (
+                action
+                for action in materializations
+                if action.transfer_id is not None
+                and self.transfers[action.transfer_id].verified_checksum_sha256 is not None
+            ),
+            None,
+        )
+        active = {
+            RemoteManualSelectionHostActionStatus.QUEUED,
+            RemoteManualSelectionHostActionStatus.PROCESSING,
+            RemoteManualSelectionHostActionStatus.RETRY,
+        }
+        for action in materializations:
+            if action.status in active:
+                transition_remote_host_action_status(
+                    action.status,
+                    RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                self.host_actions[action.id] = replace(
+                    action,
+                    status=RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                self.host_action_metadata[action.id] = (None, None, None, None, None)
+
+        file = self.files[file_id]
+        existing_remove = next(
+            (
+                action
+                for action in self.host_actions.values()
+                if action.file_id == file_id
+                and action.action_type is RemoteManualSelectionHostActionType.REMOVE
+                and action.status in active
+            ),
+            None,
+        )
+        if existing_remove is not None:
+            self.files[file_id] = replace(
+                file,
+                status=RemoteManualSelectionFileStatus.DESELECT_PENDING,
+            )
+            return
+        if materialization is None:
+            self.files[file_id] = replace(
+                file,
+                status=RemoteManualSelectionFileStatus.REMOVED,
+            )
+            self.file_final_paths.pop(file_id, None)
+            return
+        action = RemoteManualSelectionHostActionV1(
+            id=uuid4(),
+            session_id=file.session_id,
+            batch_id=file.batch_id,
+            file_id=file.id,
+            transfer_id=materialization.transfer_id,
+            generation=tombstone_generation,
+            action_type=RemoteManualSelectionHostActionType.REMOVE,
+            status=RemoteManualSelectionHostActionStatus.QUEUED,
+            attempt=0,
+        )
+        self.add_host_action(action)
+        self.files[file_id] = replace(
+            file,
+            status=RemoteManualSelectionFileStatus.DESELECT_PENDING,
+        )
 
     def list_file_delta(
         self,
@@ -1970,6 +2496,21 @@ class InMemoryRemoteManualSelectionRepository:
         claimed_at: datetime,
     ) -> RemoteManualSelectionHostActionRecord | None:
         with self._lock:
+            for pending in self.host_actions.values():
+                metadata = self.host_action_metadata[pending.id]
+                if pending.action_type is RemoteManualSelectionHostActionType.REMOVE and (
+                    pending.status is RemoteManualSelectionHostActionStatus.QUEUED
+                    or (
+                        pending.status is RemoteManualSelectionHostActionStatus.RETRY
+                        and (metadata[3] is None or metadata[3] <= claimed_at)
+                    )
+                    or (
+                        pending.status is RemoteManualSelectionHostActionStatus.PROCESSING
+                        and metadata[2] is not None
+                        and metadata[2] <= claimed_at
+                    )
+                ):
+                    return None
             candidates: list[RemoteManualSelectionHostActionV1] = []
             for action in self.host_actions.values():
                 owner, token, expires_at, next_attempt_at, error_code = self.host_action_metadata[
@@ -2016,6 +2557,191 @@ class InMemoryRemoteManualSelectionRepository:
                 next_attempt_at=None,
                 last_error_code=self.host_action_metadata[action.id][4],
             )
+
+    def claim_next_removal_action(
+        self,
+        *,
+        lease_owner: str,
+        lease_duration: timedelta,
+        claimed_at: datetime,
+    ) -> RemoteManualSelectionHostActionRecord | None:
+        if not lease_owner.strip() or lease_duration.total_seconds() <= 0:
+            raise ValueError("A removal lease requires an owner and positive duration.")
+        with self._lock:
+            candidates: list[RemoteManualSelectionHostActionV1] = []
+            for action in self.host_actions.values():
+                metadata = self.host_action_metadata[action.id]
+                if action.action_type is not RemoteManualSelectionHostActionType.REMOVE:
+                    continue
+                if (
+                    action.status is RemoteManualSelectionHostActionStatus.QUEUED
+                    or (
+                        action.status is RemoteManualSelectionHostActionStatus.RETRY
+                        and (metadata[3] is None or metadata[3] <= claimed_at)
+                    )
+                    or (
+                        action.status is RemoteManualSelectionHostActionStatus.PROCESSING
+                        and metadata[2] is not None
+                        and metadata[2] <= claimed_at
+                    )
+                ):
+                    candidates.append(action)
+            if not candidates:
+                return None
+            action = min(candidates, key=lambda item: (item.attempt, str(item.id)))
+            token = uuid4()
+            claimed = replace(
+                action,
+                status=RemoteManualSelectionHostActionStatus.PROCESSING,
+                attempt=action.attempt + 1,
+            )
+            self.host_actions[action.id] = claimed
+            self.host_action_metadata[action.id] = (
+                lease_owner.strip(),
+                token,
+                claimed_at + lease_duration,
+                None,
+                self.host_action_metadata[action.id][4],
+            )
+            return RemoteManualSelectionHostActionRecord(
+                action=claimed,
+                lease_owner=lease_owner.strip(),
+                lease_token=token,
+                lease_expires_at=claimed_at + lease_duration,
+                next_attempt_at=None,
+                last_error_code=self.host_action_metadata[action.id][4],
+            )
+
+    def lock_removal_context(
+        self,
+        *,
+        action_id: UUID,
+        lease_token: UUID,
+        locked_at: datetime,
+    ) -> RemoteManualSelectionRemovalContext | None:
+        with self._lock:
+            action = self.host_actions.get(action_id)
+            metadata = self.host_action_metadata.get(action_id)
+            if (
+                action is None
+                or metadata is None
+                or action.action_type is not RemoteManualSelectionHostActionType.REMOVE
+                or action.status is not RemoteManualSelectionHostActionStatus.PROCESSING
+                or metadata[1] != lease_token
+                or metadata[2] is None
+                or metadata[2] <= locked_at
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                    "The removal action lease is no longer owned by this executor.",
+                )
+            file = self.files[action.file_id]
+            transfer = None if action.transfer_id is None else self.transfers[action.transfer_id]
+            if transfer is None:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_SCOPE_MISMATCH",
+                    "The removal action references unavailable state.",
+                )
+            if file.selection_generation < action.generation or (
+                file.selection_generation == action.generation and file.desired_selected
+            ):
+                self.host_actions[action.id] = replace(
+                    action,
+                    status=RemoteManualSelectionHostActionStatus.SUPERSEDED,
+                )
+                self.host_action_metadata[action.id] = (None, None, None, None, metadata[4])
+                return None
+            materialization = next(
+                (
+                    item
+                    for item in self.host_actions.values()
+                    if item.file_id == action.file_id
+                    and item.transfer_id == transfer.id
+                    and item.generation == transfer.generation
+                    and item.action_type is RemoteManualSelectionHostActionType.MATERIALIZE
+                ),
+                None,
+            )
+            selected = next(
+                (
+                    operation
+                    for operation in self.operations.values()
+                    if operation.command.file_id == action.file_id
+                    and operation.command.selection_generation == transfer.generation
+                    and operation.command.operation_type
+                    is RemoteManualSelectionOperationType.SELECT
+                    and operation.status is RemoteManualSelectionOperationStatus.APPLIED
+                ),
+                None,
+            )
+            if (
+                materialization is None
+                or selected is None
+                or selected.command.output_name is None
+                or transfer.verified_checksum_sha256 is None
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_REMOVAL_OWNERSHIP_MISSING",
+                    "The removal action has no immutable materialization ownership proof.",
+                )
+            return RemoteManualSelectionRemovalContext(
+                action=action,
+                file=file,
+                transfer=transfer,
+                materialization_action_id=materialization.id,
+                materialized_generation=transfer.generation,
+                output_name=selected.command.output_name,
+                checksum_sha256=transfer.verified_checksum_sha256,
+            )
+
+    def complete_removal_action(
+        self,
+        context: RemoteManualSelectionRemovalContext,
+        *,
+        lease_token: UUID,
+        completed_at: datetime,
+    ) -> RemoteManualSelectionFileV1:
+        del completed_at
+        with self._lock:
+            action = self.host_actions.get(context.action.id)
+            metadata = self.host_action_metadata.get(context.action.id)
+            file = self.files.get(context.file.id)
+            if (
+                action is None
+                or metadata is None
+                or file is None
+                or action.status is not RemoteManualSelectionHostActionStatus.PROCESSING
+                or metadata[1] != lease_token
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_HOST_ACTION_LEASE_LOST",
+                    "The removal action cannot be completed by this executor.",
+                )
+            if file.selection_generation < action.generation:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_REMOVAL_GENERATION_CONFLICT",
+                    "The file generation is older than its removal tombstone.",
+                )
+            if self.file_final_paths.get(file.id) == context.output_name:
+                self.file_final_paths.pop(file.id, None)
+            if not file.desired_selected:
+                if file.status is not RemoteManualSelectionFileStatus.REMOVED:
+                    transition_remote_file_status(
+                        file.status,
+                        RemoteManualSelectionFileStatus.REMOVED,
+                    )
+                file = replace(
+                    file,
+                    status=RemoteManualSelectionFileStatus.REMOVED,
+                    host_checksum_sha256=None,
+                )
+                self.files[file.id] = file
+            self.host_actions[action.id] = replace(
+                action,
+                status=RemoteManualSelectionHostActionStatus.COMPLETED,
+            )
+            self.host_action_metadata[action.id] = (None, None, None, None, None)
+            return file
 
     def lock_materialization_context(
         self,

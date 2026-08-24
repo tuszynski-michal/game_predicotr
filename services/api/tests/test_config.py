@@ -22,6 +22,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_root.name == "imports"
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.remote_manual_selection_host_mapping_enabled is True
+    assert settings.remote_selection_deselect_enabled is True
     assert settings.remote_selection_max_file_bytes == 32 * 1024 * 1024
     assert settings.remote_selection_max_session_bytes == 20 * 1024 * 1024 * 1024
     assert settings.remote_selection_max_active_session_transfers == 4
@@ -94,6 +95,10 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "yes"},
             "GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED": "yes"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED",
         ),
         (
             {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES": "0"},
@@ -174,6 +179,14 @@ def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:
     )
 
     assert settings.remote_manual_selection_host_mapping_enabled is False
+
+
+def test_remote_deselect_can_be_disabled_for_rollback() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED": "false"}
+    )
+
+    assert settings.remote_selection_deselect_enabled is False
 
 
 def test_remote_transfer_limits_are_configurable() -> None:

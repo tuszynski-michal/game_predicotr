@@ -432,6 +432,106 @@ def test_materialization_claim_is_skip_locked_and_completion_is_atomic(
         engine.dispose()
 
 
+def test_deselect_tombstone_cancels_stale_work_and_removal_claim_is_skip_locked(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    transfer_id = uuid4()
+    materialization_id = uuid4()
+    try:
+        _seed(engine)
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.apply_operation(_command())
+            repository.add_transfer(
+                RemoteManualSelectionTransferV1(
+                    id=transfer_id,
+                    session_id=SESSION_ID,
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    generation=1,
+                    attempt=1,
+                    declared_bytes=1024,
+                    received_bytes=1024,
+                    status=RemoteManualSelectionTransferStatus.MATERIALIZED,
+                    declared_checksum_sha256="b" * 64,
+                    verified_checksum_sha256="b" * 64,
+                ),
+                temp_relative_path="private.verified",
+            )
+            repository.add_host_action(
+                RemoteManualSelectionHostActionV1(
+                    id=materialization_id,
+                    session_id=SESSION_ID,
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    transfer_id=transfer_id,
+                    generation=1,
+                    action_type=RemoteManualSelectionHostActionType.MATERIALIZE,
+                    status=RemoteManualSelectionHostActionStatus.COMPLETED,
+                    attempt=1,
+                )
+            )
+            file_record = session.get(RemoteManualSelectionFileModel, FILE_ID)
+            batch_record = session.get(RemoteManualSelectionBatchModel, BATCH_ID)
+            assert file_record is not None and batch_record is not None
+            file_record.status = RemoteManualSelectionFileStatus.SYNCED.value
+            file_record.host_checksum_sha256 = "b" * 64
+            file_record.final_relative_path = "seq_1-9.jpg"
+            batch_record.transferred_file_count = 1
+            deselect = replace(
+                _command(
+                    operation_id=uuid4(),
+                    client_sequence=2,
+                    expected_revision=1,
+                ),
+                operation_type=RemoteManualSelectionOperationType.DESELECT,
+                selection_generation=2,
+                image_path=None,
+                source_index=None,
+                output_name=None,
+                target_operation_id=OPERATION_ID,
+            )
+            applied = repository.apply_operation(deselect)
+            session.commit()
+            assert applied.file is not None
+            assert applied.file.status is RemoteManualSelectionFileStatus.DESELECT_PENDING
+
+        barrier = Barrier(2)
+
+        def claim(worker: str) -> RemoteManualSelectionHostActionRecord | None:
+            with session_factory() as session:
+                repository = SqlAlchemyRemoteManualSelectionRepository(session)
+                barrier.wait(timeout=5)
+                result = repository.claim_next_removal_action(
+                    lease_owner=worker,
+                    lease_duration=timedelta(seconds=30),
+                    claimed_at=NOW,
+                )
+                session.commit()
+                return result
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            claims = tuple(executor.map(claim, ("remover-a", "remover-b")))
+        winners = [claim for claim in claims if claim is not None]
+        assert len(winners) == 1
+        assert winners[0].lease_token is not None
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            assert (
+                repository.claim_next_materialization_action(
+                    lease_owner="materializer",
+                    lease_duration=timedelta(seconds=30),
+                    claimed_at=NOW,
+                )
+                is None
+            )
+    finally:
+        engine.dispose()
+
+
 def test_source_manifest_pages_resume_after_restart_and_freeze_on_activation(
     remote_database: URL,
 ) -> None:

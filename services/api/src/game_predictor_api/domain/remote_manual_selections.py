@@ -772,14 +772,21 @@ _TRANSFER_TRANSITIONS = {
     RemoteManualSelectionTransferStatus.STORED_TEMP: frozenset(
         {
             RemoteManualSelectionTransferStatus.VERIFIED,
+            RemoteManualSelectionTransferStatus.CANCELLED,
             RemoteManualSelectionTransferStatus.FAILED,
         }
     ),
     RemoteManualSelectionTransferStatus.VERIFIED: frozenset(
-        {RemoteManualSelectionTransferStatus.MATERIALIZED}
+        {
+            RemoteManualSelectionTransferStatus.MATERIALIZED,
+            RemoteManualSelectionTransferStatus.CANCELLED,
+        }
     ),
     RemoteManualSelectionTransferStatus.FAILED: frozenset(
-        {RemoteManualSelectionTransferStatus.RETRYING}
+        {
+            RemoteManualSelectionTransferStatus.RETRYING,
+            RemoteManualSelectionTransferStatus.CANCELLED,
+        }
     ),
     RemoteManualSelectionTransferStatus.RETRYING: frozenset(
         {
@@ -804,7 +811,10 @@ _HOST_ACTION_TRANSITIONS = {
         }
     ),
     RemoteManualSelectionHostActionStatus.RETRY: frozenset(
-        {RemoteManualSelectionHostActionStatus.PROCESSING}
+        {
+            RemoteManualSelectionHostActionStatus.PROCESSING,
+            RemoteManualSelectionHostActionStatus.SUPERSEDED,
+        }
     ),
 }
 
@@ -898,6 +908,7 @@ def apply_remote_manual_selection_operation(
     command: RemoteManualSelectionOperationCommandV1,
     *,
     existing_operation: RemoteManualSelectionOperationV1 | None = None,
+    target_operation: RemoteManualSelectionOperationV1 | None = None,
 ) -> RemoteManualSelectionOperationApplication:
     _require_scope(
         batch.session_id,
@@ -933,6 +944,24 @@ def apply_remote_manual_selection_operation(
             file=file,
             operation=existing_operation,
             exact_retry=True,
+        )
+
+    if command.operation_type in {
+        RemoteManualSelectionOperationType.DESELECT,
+        RemoteManualSelectionOperationType.UNDO,
+    } and (
+        target_operation is None
+        or target_operation.command.operation_id != command.target_operation_id
+        or target_operation.command.session_id != command.session_id
+        or target_operation.command.batch_id != command.batch_id
+        or target_operation.command.file_id != command.file_id
+        or target_operation.command.operation_type is not RemoteManualSelectionOperationType.SELECT
+        or target_operation.status is not RemoteManualSelectionOperationStatus.APPLIED
+        or target_operation.command.selection_generation >= command.selection_generation
+    ):
+        raise RemoteManualSelectionConflictError(
+            "REMOTE_SELECTION_DESELECT_TARGET_INVALID",
+            "Deselect and undo must target an applied earlier select for the same file.",
         )
 
     if batch.status is not RemoteManualSelectionBatchStatus.ACTIVE:
@@ -1027,11 +1056,20 @@ def apply_remote_manual_selection_operation(
             command.source_index if command.source_index is not None else batch.cursor_index,
         ),
     )
+    outcome = (
+        "tombstone_applied"
+        if command.operation_type
+        in {
+            RemoteManualSelectionOperationType.DESELECT,
+            RemoteManualSelectionOperationType.UNDO,
+        }
+        else "applied"
+    )
     operation = _operation_result(
         command,
         status=RemoteManualSelectionOperationStatus.APPLIED,
         revision=next_revision,
-        outcome="applied",
+        outcome=outcome,
     )
     return RemoteManualSelectionOperationApplication(
         batch=next_batch,

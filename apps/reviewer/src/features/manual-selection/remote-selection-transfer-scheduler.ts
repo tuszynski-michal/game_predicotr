@@ -157,6 +157,7 @@ export class RemoteSelectionTransferScheduler {
       task.fileId,
       task.generation,
     );
+    if (restored?.status === 'cancelled') return false;
     if (
       this.active.has(key) ||
       this.queue.some((item) => transferKey(item.task) === key)
@@ -187,14 +188,19 @@ export class RemoteSelectionTransferScheduler {
     return true;
   }
 
-  cancel(fileId: string, generation: number): boolean {
+  async cancel(fileId: string, generation: number): Promise<boolean> {
     const keySuffix = `:${fileId}:${generation}`;
     const queueIndex = this.queue.findIndex((item) =>
       transferKey(item.task).endsWith(keySuffix),
     );
     if (queueIndex >= 0) {
       const [item] = this.queue.splice(queueIndex, 1);
-      if (item !== undefined) this.pendingBytes -= item.task.expectedSizeBytes;
+      if (item !== undefined) {
+        this.pendingBytes -= item.task.expectedSizeBytes;
+        await this.store.saveTransferCheckpoint(
+          checkpoint(item.task, item.transferId, 0, 'cancelled'),
+        );
+      }
       return true;
     }
     const active = [...this.active.entries()].find(([key]) =>
@@ -202,7 +208,33 @@ export class RemoteSelectionTransferScheduler {
     );
     if (active === undefined) return false;
     active[1].controller.abort();
+    await this.store.saveTransferCheckpoint(
+      checkpoint(active[1].task, active[1].transferId, 0, 'cancelled'),
+    );
     return true;
+  }
+
+  async cancelOlderGenerations(
+    fileId: string,
+    currentGeneration: number,
+  ): Promise<number> {
+    if (!Number.isSafeInteger(currentGeneration) || currentGeneration < 1) {
+      throw new RemoteSelectionTransferHttpError(
+        422,
+        'REMOTE_SELECTION_GENERATION_INVALID',
+        'The tombstone generation is invalid.',
+      );
+    }
+    const generations = new Set<number>();
+    for (const item of [...this.queue, ...this.active.values()]) {
+      if (item.task.fileId === fileId && item.task.generation < currentGeneration)
+        generations.add(item.task.generation);
+    }
+    let cancelled = 0;
+    for (const generation of [...generations].sort((left, right) => left - right)) {
+      if (await this.cancel(fileId, generation)) cancelled += 1;
+    }
+    return cancelled;
   }
 
   snapshot(): {
@@ -403,7 +435,7 @@ function checkpoint(
   task: RemoteSelectionTransferTask,
   transferId: string,
   acknowledgedBytes: number,
-  status: 'queued' | 'uploading' | 'verified' | 'failed',
+  status: 'queued' | 'uploading' | 'verified' | 'cancelled' | 'failed',
 ) {
   return {
     schemaVersion: 1 as const,

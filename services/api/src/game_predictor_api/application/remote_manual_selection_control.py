@@ -28,6 +28,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionFileV1,
     RemoteManualSelectionOperationApplication,
     RemoteManualSelectionOperationCommandV1,
+    RemoteManualSelectionOperationType,
     RemoteManualSelectionOperationV1,
     RemoteSourceKind,
 )
@@ -39,9 +40,7 @@ from game_predictor_api.storage.remote_manual_selection_repository import (
 
 
 class RemoteManualSelectionControlRepository(Protocol):
-    def get_host_binding(
-        self, session_id: UUID
-    ) -> RemoteManualSelectionHostBinding | None: ...
+    def get_host_binding(self, session_id: UUID) -> RemoteManualSelectionHostBinding | None: ...
 
     def get_host_binding_for_update(
         self, session_id: UUID
@@ -150,11 +149,13 @@ class RemoteManualSelectionControlService:
         host_service: RemoteManualSelectionHostService,
         *,
         rate_limiter: RemoteManualSelectionControlRateLimiter | None = None,
+        deselect_enabled: bool = True,
     ) -> None:
         self._repository = repository
         self._access = access_service
         self._host = host_service
         self._rate_limiter = rate_limiter or RemoteManualSelectionControlRateLimiter()
+        self._deselect_enabled = deselect_enabled
 
     def create_collection(
         self,
@@ -339,6 +340,14 @@ class RemoteManualSelectionControlService:
         access_token: str,
         client_instance_id: UUID,
     ) -> RemoteManualSelectionOperationApplication:
+        if not self._deselect_enabled and command.operation_type in {
+            RemoteManualSelectionOperationType.DESELECT,
+            RemoteManualSelectionOperationType.UNDO,
+        }:
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_DESELECT_DISABLED",
+                "Remote deselect is disabled; keep the session paused until recovery.",
+            )
         if command.client_instance_id != client_instance_id:
             raise RemoteManualSelectionError(
                 "REMOTE_SELECTION_SCOPE_MISMATCH",

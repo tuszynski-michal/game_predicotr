@@ -298,9 +298,9 @@ def test_each_state_machine_rejects_an_illegal_transition(transition, current, t
             {
                 "queued": {"uploading", "cancelled"},
                 "uploading": {"stored_temp", "cancelled", "failed"},
-                "stored_temp": {"verified", "failed"},
-                "verified": {"materialized"},
-                "failed": {"retrying"},
+                "stored_temp": {"verified", "cancelled", "failed"},
+                "verified": {"materialized", "cancelled"},
+                "failed": {"retrying", "cancelled"},
                 "retrying": {"uploading", "cancelled"},
             },
         ),
@@ -310,7 +310,7 @@ def test_each_state_machine_rejects_an_illegal_transition(transition, current, t
             {
                 "queued": {"processing", "superseded"},
                 "processing": {"completed", "retry", "failed", "superseded"},
-                "retry": {"processing"},
+                "retry": {"processing", "superseded"},
             },
         ),
     ],
@@ -363,6 +363,46 @@ def test_operation_id_cannot_be_reused_for_different_content() -> None:
             existing_operation=applied.operation,
         )
     assert error.value.code == "REMOTE_SELECTION_OPERATION_IDEMPOTENCY_CONFLICT"
+
+
+def test_deselect_requires_exact_applied_select_target_and_exact_retry_is_neutral() -> None:
+    selected = apply_remote_manual_selection_operation(_batch(), _file(), _command())
+    assert selected.file is not None
+    deselect = _command(
+        operation_id=UUID(int=700),
+        operation_type=RemoteManualSelectionOperationType.DESELECT,
+        client_sequence=2,
+        expected_revision=1,
+        generation=2,
+    )
+
+    applied = apply_remote_manual_selection_operation(
+        selected.batch,
+        selected.file,
+        deselect,
+        target_operation=selected.operation,
+    )
+    replay = apply_remote_manual_selection_operation(
+        applied.batch,
+        applied.file,
+        deselect,
+        existing_operation=applied.operation,
+    )
+
+    assert applied.file is not None and not applied.file.desired_selected
+    assert applied.file.status is RemoteManualSelectionFileStatus.DESELECT_PENDING
+    assert applied.operation.outcome_code == "tombstone_applied"
+    assert replay.exact_retry is True
+    assert replay.batch.server_revision == 2
+
+    with pytest.raises(RemoteManualSelectionConflictError) as invalid:
+        apply_remote_manual_selection_operation(
+            selected.batch,
+            selected.file,
+            deselect,
+            target_operation=None,
+        )
+    assert invalid.value.code == "REMOTE_SELECTION_DESELECT_TARGET_INVALID"
 
 
 def test_unknown_contract_version_and_tampered_command_checksum_are_rejected() -> None:
@@ -763,3 +803,50 @@ def test_output_projection_handles_fifteen_thousand_records_deterministically(
     assert len(projection["items"]) == 15_000
     assert projection["items"][0]["rangeStart"] == 1
     assert projection["items"][-1]["rangeEnd"] == 135_000
+
+
+def test_fifteen_thousand_fast_generations_never_resurrect_an_older_selection(
+    record_property,
+) -> None:
+    batch = _batch()
+    file = _file()
+    latest_select = None
+    started_at = perf_counter()
+    for generation in range(1, 15_001):
+        selecting = generation % 2 == 1
+        command = _command(
+            operation_id=UUID(int=300_000 + generation),
+            operation_type=(
+                RemoteManualSelectionOperationType.SELECT
+                if selecting
+                else RemoteManualSelectionOperationType.DESELECT
+            ),
+            client_sequence=generation,
+            expected_revision=generation - 1,
+            generation=generation,
+        )
+        if not selecting:
+            assert latest_select is not None
+            command = replace(
+                command,
+                target_operation_id=latest_select.command.operation_id,
+            )
+        applied = apply_remote_manual_selection_operation(
+            batch,
+            file,
+            command,
+            target_operation=None if selecting else latest_select,
+        )
+        batch = applied.batch
+        assert applied.file is not None
+        file = applied.file
+        if selecting:
+            latest_select = applied.operation
+    elapsed = perf_counter() - started_at
+    record_property("rapid_generation_seconds", elapsed)
+
+    assert batch.server_revision == 15_000
+    assert file.selection_generation == 15_000
+    assert file.desired_selected is False
+    assert file.status is RemoteManualSelectionFileStatus.DESELECT_PENDING
+    assert elapsed < 5.0

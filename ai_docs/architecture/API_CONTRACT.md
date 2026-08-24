@@ -152,6 +152,15 @@ limit współbieżności. Od TASK 11 status może następnie przejść z `verifi
 istniejącego `verified`, ale nie wykonuje IO materializacji w requestcie.
 Odpowiedź nigdy nie zawiera temp/final path, lease ani journalu.
 
+Operacja `deselect` albo `undo` musi wskazywać wcześniejszy zastosowany `select`
+tego samego pliku i niższej generacji. Zastosowanie tworzy tombstone, anuluje
+starszy transfer i zwraca trwały outcome `tombstone_applied`; dokładny retry
+tego samego operation ID zwraca wcześniejszy outcome bez nowej generacji.
+Publiczny status nie ujawnia akcji `remove` ani ścieżki kwarantanny. Po usunięciu
+własnego wyniku przechodzi do stanu niesynchronizowanego/odznaczonego zgodnego z
+najnowszym desired state. Nowe odznaczenia mogą zostać fail-closed wyłączone
+flagą rollbacku, bez zmiany zachowania `select` i exact retry.
+
 Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
 Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać
 `https://<origin>/manual-selection?session=<UUID>` i przy restarcie tunelu

@@ -310,6 +310,56 @@ def test_operation_retry_survives_lease_loss_and_state_delta_is_ordered() -> Non
     assert delta.files[0].file.id == files[0].id
 
 
+def test_remote_deselect_rollback_flag_blocks_new_tombstone_but_not_select() -> None:
+    repository, access, service, files = _provision_active_batch()
+    select_command = RemoteManualSelectionOperationCommandV1(
+        operation_id=UUID(int=650),
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        client_instance_id=CLIENT_ID,
+        client_sequence=1,
+        expected_server_revision=0,
+        operation_type=RemoteManualSelectionOperationType.SELECT,
+        selection_generation=1,
+        range_start=1,
+        range_end=9,
+        recorded_at=NOW,
+        file_id=files[0].id,
+        image_path=files[0].relative_path,
+        source_index=0,
+        image_checksum_sha256="a" * 64,
+        output_name="seq_1-9.jpg",
+    )
+    service.apply_operation(command=select_command, **_authorize())
+    disabled = RemoteManualSelectionControlService(
+        repository,
+        access,  # type: ignore[arg-type]
+        FakeHost(),  # type: ignore[arg-type]
+        deselect_enabled=False,
+    )
+    deselect = RemoteManualSelectionOperationCommandV1(
+        operation_id=UUID(int=651),
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        client_instance_id=CLIENT_ID,
+        client_sequence=2,
+        expected_server_revision=1,
+        operation_type=RemoteManualSelectionOperationType.DESELECT,
+        selection_generation=2,
+        range_start=1,
+        range_end=9,
+        recorded_at=NOW,
+        file_id=files[0].id,
+        target_operation_id=select_command.operation_id,
+    )
+
+    with pytest.raises(RemoteManualSelectionConflictError) as error:
+        disabled.apply_operation(command=deselect, **_authorize())
+
+    assert error.value.code == "REMOTE_SELECTION_DESELECT_DISABLED"
+    assert repository.get_file(batch_id=BATCH_ID, file_id=files[0].id).desired_selected
+
+
 def test_new_operation_without_writer_and_forged_revision_fail_closed() -> None:
     _repository, access, service, files = _provision_active_batch()
     access.writer = False

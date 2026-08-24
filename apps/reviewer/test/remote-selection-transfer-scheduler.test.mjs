@@ -185,7 +185,7 @@ test('abort, quota, retry classification and jitter are fail-closed', async () =
   );
   await scheduler.enqueue(task('a', 1));
   await settle();
-  assert.equal(scheduler.cancel(ids[2], 1), true);
+  assert.equal(await scheduler.cancel(ids[2], 1), true);
   await waitFor(() => scheduler.snapshot().active === 0);
 
   const limited = new RemoteSelectionTransferScheduler(
@@ -214,6 +214,42 @@ test('abort, quota, retry classification and jitter are fail-closed', async () =
     retryDelayMs(2, 100, () => 1),
     250,
   );
+});
+
+test('tombstone cancels every older generation and a cancelled checkpoint cannot restart', async () => {
+  const checkpoints = [];
+  const checkpointStore = store(checkpoints);
+  const scheduler = new RemoteSelectionTransferScheduler(
+    {
+      async status(input) {
+        return response(input, 'not_started');
+      },
+      async upload(_task, _id, _blob, signal) {
+        await new Promise((resolve) => signal.addEventListener('abort', resolve));
+        throw new DOMException('aborted', 'AbortError');
+      },
+    },
+    checkpointStore,
+    { createTransferId: () => ids[0], maxConcurrency: 2 },
+  );
+  await scheduler.enqueue(task('a', 1));
+  await scheduler.enqueue({ ...task('a', 2), generation: 2 });
+  await settle();
+
+  assert.equal(await scheduler.cancelOlderGenerations(ids[2], 3), 2);
+  await waitFor(() => scheduler.snapshot().active === 0);
+  assert.equal(
+    checkpoints.filter((checkpoint) => checkpoint.status === 'cancelled').length,
+    2,
+  );
+
+  const restored = new RemoteSelectionTransferScheduler(
+    { status: async () => {}, upload: async () => {} },
+    checkpointStore,
+    { createTransferId: () => ids[1] },
+  );
+  assert.equal(await restored.enqueue(task('a', 1)), false);
+  assert.deepEqual(restored.snapshot(), { active: 0, queued: 0, pendingBytes: 0 });
 });
 
 test('500-file concurrency sweep remains bounded without retaining Blob payloads', async () => {
@@ -300,7 +336,14 @@ async function settle() {
 
 function store(checkpoints = []) {
   return {
-    loadTransferCheckpoint: async () => null,
+    loadTransferCheckpoint: async (sessionId, batchId, fileId, generation) =>
+      checkpoints.findLast(
+        (value) =>
+          value.sessionId === sessionId &&
+          value.batchId === batchId &&
+          value.fileId === fileId &&
+          value.generation === generation,
+      ) ?? null,
     saveTransferCheckpoint: async (value) => checkpoints.push(value),
   };
 }

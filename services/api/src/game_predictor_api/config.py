@@ -39,6 +39,7 @@ class ApiSettings:
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
     remote_manual_selection_host_mapping_enabled: bool = True
+    remote_selection_deselect_enabled: bool = True
     remote_selection_max_file_bytes: int = _DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES
     remote_selection_max_session_bytes: int = _DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES
     remote_selection_max_active_session_transfers: int = 4
@@ -113,6 +114,10 @@ class ApiSettings:
             source.get("GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED", "true"),
             variable_name="GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
         )
+        remote_selection_deselect_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED",
+        )
         remote_selection_max_file_bytes = _parse_positive_integer(
             source.get(
                 "GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES",
@@ -175,6 +180,7 @@ class ApiSettings:
             remote_manual_selection_host_mapping_enabled=(
                 remote_manual_selection_host_mapping_enabled
             ),
+            remote_selection_deselect_enabled=remote_selection_deselect_enabled,
             remote_selection_max_file_bytes=remote_selection_max_file_bytes,
             remote_selection_max_session_bytes=remote_selection_max_session_bytes,
             remote_selection_max_active_session_transfers=(

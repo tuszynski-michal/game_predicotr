@@ -1587,7 +1587,7 @@ i R-005 zaakceptowano w D-223. Deselect i finalizacja pozostają poza zakresem.
 
 ### TASK 12: Deselect, undo, tombstone i szybkie generacje
 
-**Status:** `PLANNED`
+**Status:** `COMPLETED` — TASK-0284 / v0.7.36
 
 **Cel:** Zachować semantykę cofania i bezpiecznie usuwać finalnie odznaczony own
 plik bez możliwości wskrzeszenia przez spóźniony upload.
@@ -1647,6 +1647,17 @@ kolejkach i wielu momentach anulowania.
 **Model do niezależnego review:** `gpt-5.6-sol`, `EXTRA HIGH`
 
 **Przewidywane zużycie kontekstu:** `WYSOKIE`
+
+**Outcome:** `deselect` i `undo` są generacyjnymi tombstone'ami związanymi z
+wcześniejszym zastosowanym `select`. Repozytorium atomowo anuluje starsze
+transfery, superseduje materializację i tworzy priorytetową akcję `remove`.
+General worker wykonuje ją przed materializacją, z lease/fencing i bounded
+retry. Własny, checksumowo zgodny plik jest przenoszony przypiętym uchwytem do
+odwracalnej kwarantanny opisanej checksumowanym journalem; brak, crash po rename
+i exact retry są odzyskiwalne, a foreign/changed/reparse target jest fail-closed.
+Rapid generation zachowuje najnowszy desired state i nie dopuszcza stale
+resurrection. Finalny GC kwarantanny oraz pełny remote workspace pozostają poza
+zakresem; osobna flaga pozwala zatrzymać nowe odznaczenia bez utraty stanu.
 
 ### TASK 13: Zdalny workspace współdzielący lokalny UX
 

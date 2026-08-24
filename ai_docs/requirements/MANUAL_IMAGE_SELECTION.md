@@ -145,3 +145,12 @@ Status i odpowiedzi publiczne nadal nie zawierają host path. Reconciliacja przy
 statusie i w general workerze uzupełnia brakującą akcję dla istniejącego
 `verified`; stara generacja zostaje `superseded`. Materializacja nie finalizuje
 manifestu partii i nie usuwa verified temp.
+
+TASK-0284 zachowuje zdalne cofanie po materializacji. `Deselect` i `undo` są
+trwałymi operacjami nowej generacji, które wskazują wcześniejszy potwierdzony
+wybór. Starsze transfery są anulowane, a istniejący własny plik może zostać
+wyłącznie przeniesiony do odwracalnej kwarantanny po zgodności journalu i
+checksummy. Spóźniony upload lub materializacja starszej generacji nie może
+wskrzesić wyniku. Obcy albo zmieniony plik pozostaje nietknięty, a brak dostępu
+kończy się kontrolowanym konfliktem zamiast deklaracji sukcesu. Finalne usuwanie
+z kwarantanny nie jest częścią tego etapu.

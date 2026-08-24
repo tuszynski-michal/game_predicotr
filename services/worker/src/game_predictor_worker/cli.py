@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import socket
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -19,6 +19,11 @@ from game_predictor_api.application.remote_manual_selection_materialization impo
     RemoteManualSelectionHostActionRunner,
     RemoteManualSelectionHostMaterializer,
     RemoteManualSelectionMaterializationLimits,
+)
+from game_predictor_api.application.remote_manual_selection_removal import (
+    RemoteManualSelectionHostRemover,
+    RemoteManualSelectionRemovalLimits,
+    RemoteManualSelectionRemovalRunner,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
@@ -108,6 +113,18 @@ GENERAL_LANE = "general"
 IMAGE_SELECTION_LANE = "image-selection"
 DEFAULT_GENERAL_THREAD_BUDGET = 2
 DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 5
+
+
+def _remote_host_action_cycle(
+    removal_runner: RemoteManualSelectionRemovalRunner | None,
+    materialization_runner: RemoteManualSelectionHostActionRunner,
+) -> Callable[[], None]:
+    def run() -> None:
+        if removal_runner is not None:
+            removal_runner.run_bounded_cycle()
+        materialization_runner.run_bounded_cycle()
+
+    return run
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -249,6 +266,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
     materialization_runner: RemoteManualSelectionHostActionRunner | None = None
+    removal_runner: RemoteManualSelectionRemovalRunner | None = None
     if options.lane == IMAGE_SELECTION_LANE:
         # TASK-0194 showed that two Paddle/OpenCV verifier instances contend on
         # the owner's CPU and make the real first-200 profile slower. Keep the
@@ -286,6 +304,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 ),
             ),
         )
+        if settings.remote_selection_deselect_enabled:
+            removal_runner = RemoteManualSelectionRemovalRunner(
+                session_factory,
+                RemoteManualSelectionHostRemover(RemoteManualSelectionHostService(lambda: None)),
+                worker_id=f"{options.worker_id}-remote-removal",
+                limits=RemoteManualSelectionRemovalLimits(
+                    lease_duration=timedelta(
+                        seconds=settings.remote_selection_materialization_lease_seconds
+                    ),
+                    max_attempts=settings.remote_selection_materialization_max_attempts,
+                    max_actions_per_cycle=(
+                        settings.remote_selection_materialization_max_actions_per_cycle
+                    ),
+                ),
+            )
         payout_store = SqlAlchemyPayoutStore(session_factory)
         payout_handler = PayoutBatchHandler(
             payout_store,
@@ -355,7 +388,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
         execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
         auxiliary_work=(
-            materialization_runner.run_bounded_cycle if materialization_runner is not None else None
+            _remote_host_action_cycle(removal_runner, materialization_runner)
+            if materialization_runner is not None
+            else None
         ),
     )
     lane_heartbeat = WorkerLaneHeartbeat(

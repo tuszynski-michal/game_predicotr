@@ -116,7 +116,7 @@ export interface RemoteSelectionTransferCheckpointRecord {
   readonly expectedChecksumSha256: string | null;
   readonly acknowledgedBytes: number;
   readonly transferId?: string;
-  readonly status?: 'queued' | 'uploading' | 'verified' | 'failed';
+  readonly status?: 'queued' | 'uploading' | 'verified' | 'cancelled' | 'failed';
   readonly updatedAt: string;
 }
 
@@ -733,7 +733,7 @@ export class RemoteSelectionIndexedDbStore {
           checkpoint.transferId,
         )) ||
       (checkpoint.status !== undefined &&
-        !['queued', 'uploading', 'verified', 'failed'].includes(
+        !['queued', 'uploading', 'verified', 'cancelled', 'failed'].includes(
           checkpoint.status,
         ))
     ) {

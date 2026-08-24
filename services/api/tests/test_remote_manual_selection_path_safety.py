@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ctypes
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -170,3 +172,75 @@ def test_path_guard_rejects_reparse_swap_between_create_and_final_open(
             )
 
     assert failure.value.code == "REMOTE_SELECTION_PATH_UNSAFE"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Win32 final-handle policy")
+def test_path_guard_quarantines_only_the_checksum_verified_pinned_file(
+    tmp_path: Path,
+) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    source = base / "seq_1-9.jpg"
+    target = base / ".owned-quarantine.jpg"
+    payload = b"owned-output"
+    source.write_bytes(payload)
+
+    with WindowsPathGuard().lock_base(base) as locked:
+        locked.quarantine_regular_file(
+            source,
+            target,
+            expected_checksum_sha256=hashlib.sha256(payload).hexdigest(),
+        )
+
+    assert not source.exists()
+    assert target.read_bytes() == payload
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Win32 final-handle policy")
+def test_path_guard_never_moves_a_changed_or_foreign_file(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    source = base / "seq_1-9.jpg"
+    target = base / ".owned-quarantine.jpg"
+    source.write_bytes(b"changed")
+
+    with (
+        WindowsPathGuard().lock_base(base) as locked,
+        pytest.raises(RemoteManualSelectionConflictError) as failure,
+    ):
+        locked.quarantine_regular_file(
+            source,
+            target,
+            expected_checksum_sha256=hashlib.sha256(b"expected").hexdigest(),
+        )
+
+    assert failure.value.code == "REMOTE_SELECTION_REMOVAL_TARGET_CHANGED"
+    assert source.read_bytes() == b"changed"
+    assert not target.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Win32 final-handle policy")
+def test_quarantine_rename_retries_only_transient_windows_sharing_conflicts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    attempts = 0
+    delays: list[float] = []
+
+    class FakeKernel32:
+        def SetFileInformationByHandle(self, *_args: object) -> bool:
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                ctypes.set_last_error(32)
+                return False
+            return True
+
+    monkeypatch.setattr(path_safety_module, "_kernel32", lambda: FakeKernel32())
+    monkeypatch.setattr(path_safety_module.msvcrt, "get_osfhandle", lambda _fd: 123)
+    monkeypatch.setattr(path_safety_module.time, "sleep", delays.append)
+
+    path_safety_module._rename_file_handle(5, tmp_path / "quarantine.jpg")
+
+    assert attempts == 3
+    assert delays == [0.01, 0.05]

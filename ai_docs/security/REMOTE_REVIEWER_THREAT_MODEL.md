@@ -81,6 +81,10 @@ sesji i kodu.
 | nadpisanie obcego lub zmienionego `seq_*` | wyłączne utworzenie finalnej nazwy; adopcja tylko przy zgodnym journalu identity i checksumie, inaczej fail-closed bez replace/delete |
 | stale generation po spóźnionym uploadzie | ponowna blokada pliku/transferu/partii i sprawdzenie desired state, generation i checksumy przed filesystemem oraz przed commitem |
 | reparse/TOCTOU podczas materializacji | pinned final handles bez `FILE_SHARE_DELETE`, dokładna host-internal ścieżka verified, regular-file/reparse checks źródła, tempu, journalu i celu |
+| odznaczenie po publikacji własnego pliku | generacyjny tombstone anuluje starsze transfery, superseduje materializację i uruchamia priorytetową akcję `remove` przed kolejną materializacją |
+| usunięcie obcego albo zmienionego `seq_*` | usunięcie wymaga zgodnego materialization journalu i checksumy; pinned-handle rename przenosi tylko zweryfikowany własny plik do host-internal kwarantanny |
+| crash podczas odznaczania | checksumowany removal journal rozróżnia prepared/quarantined, a retry adoptuje tylko zgodny półstan; kwarantanna pozostaje odwracalna i bez GC |
+| spóźniona generacja po deselect/reselect | lease fencing, blokada wiersza, generation recheck i priorytet `remove` uniemożliwiają materializację N po zastosowaniu N+1 |
 | awaria ingressu podczas revoke | revoke nie odczytuje ani nie zatrzymuje ingressu; token i lease są czyszczone niezależnie |
 | replay albo utrata odpowiedzi operacji | trwały outbox, dokładne `operationId + checksum`, monotoniczny client sequence/revision/generation i zwrot zapisanego outcome bez ponownej mutacji |
 | wysłanie operacji bez writer lease | autoryzacja writer ownership i mutacja odbywają się w tej samej transakcji; po expiry dozwolony jest wyłącznie exact retry istniejącego outcome |
@@ -102,6 +106,14 @@ robocze i journale znajdują się wyłącznie pod
 Journal wiąże action/session/batch/file/transfer/generation/output/checksum;
 niezgodny lub zbyt duży journal jest konfliktem. Kod nie usuwa obcego targetu,
 nie nadpisuje go i nie usuwa żadnej ścieżki poza własnym working artifactem.
+
+Odznaczenie używa osobnego journalu pod
+`.game-predictor/remote-selection-v1/quarantine/<file>/<generation>/<action>`.
+Executor blokuje immutable mapping partii, weryfikuje tożsamość wcześniejszej
+materializacji i jej checksumę, a następnie zmienia nazwę przez przypięty uchwyt
+Windows. Przejściowy konflikt antywirusa/indeksera ma krótki, ograniczony retry
+na tym samym uchwycie; każdy inny błąd pozostaje fail-closed. Kwarantanna nie
+jest czyszczona przed rozstrzygnięciem polityki retencji.
 
 Zdalna ręczna selekcja ma osobny purpose i nie używa scope
 `gameId/importJobId` istniejącego Reviewera. Kod jest pokazany tylko przy

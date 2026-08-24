@@ -122,6 +122,18 @@ class RemoteManualSelectionMaterializationScope:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteManualSelectionRemovalScope:
+    """Pinned owned paths for one checksum-guarded quarantine attempt."""
+
+    target_path: Path
+    quarantine_path: Path
+    removal_journal_path: Path
+    materialization_journal_path: Path
+    quarantine_relative_path: str
+    quarantine_target: Callable[[str], None]
+
+
+@dataclass(frozen=True, slots=True)
 class _StoredBaseCapability:
     value: RemoteManualSelectionBaseCapability
     base_binding_id: UUID
@@ -528,6 +540,116 @@ class RemoteManualSelectionHostService:
                 journal_path=journal_directory / f"{action_id}.json",
                 final_relative_path=output_component.display_name,
                 pin_target=lambda: locked.hold_regular_file(target_path),
+            )
+
+    @contextmanager
+    def open_removal_scope(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+        materialization_action_id: UUID,
+        removal_action_id: UUID,
+        materialized_generation: int,
+        tombstone_generation: int,
+        output_name: str,
+    ) -> Iterator[RemoteManualSelectionRemovalScope]:
+        """Resolve an owned final target and its internal reversible quarantine."""
+
+        if materialized_generation < 1 or tombstone_generation <= materialized_generation:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_GENERATION_INVALID",
+                "A removal tombstone must be newer than its materialized generation.",
+            )
+        binding = repository.get_host_binding_for_update(session_id)
+        batch = repository.get_batch(batch_id)
+        if binding is None or batch is None or batch.session_id != session_id:
+            raise _scope_error()
+        collection = repository.get_collection(batch.collection_id)
+        if collection is None or collection.session_id != session_id:
+            raise _scope_error()
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            output_component = validate_windows_component(
+                output_name,
+                limits=locked.bound_base.limits,
+            )
+            collection_path = locked.open_existing_child(
+                locked.bound_base.final_path,
+                collection_component,
+            )
+            if collection_path is None:
+                raise _path_conflict("The persisted collection directory is missing.")
+            batch_path = locked.open_existing_child(collection_path, batch_component)
+            if batch_path is None:
+                raise _path_conflict("The persisted batch directory is missing.")
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection_component.normalized_name,
+                normalized_batch_name=batch_component.normalized_name,
+            )
+            self._verify_marker(locked, batch_path, marker)
+
+            materialization_directory = batch_path
+            for value in (
+                OWNERSHIP_DIRECTORY,
+                OWNERSHIP_VERSION_DIRECTORY,
+                "materializations",
+                str(file_id),
+                str(materialized_generation),
+            ):
+                child = locked.open_existing_child(
+                    materialization_directory,
+                    validate_windows_component(value, limits=locked.bound_base.limits),
+                )
+                if child is None:
+                    raise _path_conflict("The materialization ownership directory is missing.")
+                materialization_directory = child
+
+            quarantine_components = (
+                OWNERSHIP_DIRECTORY,
+                OWNERSHIP_VERSION_DIRECTORY,
+                "quarantine",
+                str(file_id),
+                str(tombstone_generation),
+            )
+            quarantine_directory = batch_path
+            for value in quarantine_components:
+                quarantine_directory, _created = locked.open_or_create_child(
+                    quarantine_directory,
+                    validate_windows_component(value, limits=locked.bound_base.limits),
+                )
+            quarantine_name = f"{removal_action_id}.jpg"
+            quarantine_path = quarantine_directory / quarantine_name
+            target_path = batch_path / output_component.display_name
+            if quarantine_path.exists():
+                locked.hold_regular_file(quarantine_path)
+            yield RemoteManualSelectionRemovalScope(
+                target_path=target_path,
+                quarantine_path=quarantine_path,
+                removal_journal_path=quarantine_directory / f"{removal_action_id}.json",
+                materialization_journal_path=(
+                    materialization_directory / f"{materialization_action_id}.json"
+                ),
+                quarantine_relative_path="/".join((*quarantine_components, quarantine_name)),
+                quarantine_target=lambda checksum: locked.quarantine_regular_file(
+                    target_path,
+                    quarantine_path,
+                    expected_checksum_sha256=checksum,
+                ),
             )
 
     def _provision_filesystem(

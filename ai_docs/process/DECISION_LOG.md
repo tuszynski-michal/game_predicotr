@@ -5366,6 +5366,34 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   DB za synced przed weryfikacją finalnego pliku odrzucono jako blokujące lub
   podatne na crash windows.
 
+## D-224 — Zdalne odznaczenie używa generacyjnego tombstone'u i odwracalnej kwarantanny
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** `deselect` i `undo` wskazują wcześniejszy zastosowany `select` i
+  tworzą nową generację desired state. W tej samej transakcji starsze transfery
+  są anulowane, akcje materializacji supersedowane, a dla istniejącego własnego
+  wyniku powstaje priorytetowa akcja `remove`. Plik nie jest kasowany: po
+  zgodności materialization journalu i checksummy zostaje przeniesiony
+  przypiętym uchwytem do host-internal, checksumowanej kwarantanny.
+- **Context:** upload, control outbox i host action są asynchroniczne. Bez
+  generacyjnego fence spóźniona materializacja mogłaby wskrzesić odznaczony plik,
+  a bez journalu crash między NTFS i PostgreSQL mógłby dać false success lub
+  próbę usunięcia obcego celu.
+- **Safety:** akcja `remove` ma pierwszeństwo przed nową materializacją, używa
+  lease/fencing, bounded retry oraz ponownego sprawdzenia generacji. Rename jest
+  dozwolony wyłącznie dla własnego, regularnego i nadal checksumowo zgodnego
+  pliku. Foreign/changed/reparse target pozostaje nietknięty. Exact retry nie
+  zwiększa rewizji ani generacji.
+- **Consequences:** kwarantanna pozostaje odwracalna i nie ma finalnego GC do
+  czasu rozstrzygnięcia `OPEN-5`. Osobna flaga rollbacku może zablokować nowe
+  `deselect`/`undo`, zachowując trwałe operacje, journale i artefakty do
+  bezpiecznego wznowienia. TASK 13 może budować UI na tym stanie, ale nie zmienia
+  protokołu usuwania.
+- **Alternatives:** bezpośrednie `unlink`, usuwanie po samej nazwie, traktowanie
+  cancel uploadu jako wystarczające oraz last-write-wins bez generacji odrzucono
+  jako nieodwracalne albo podatne na TOCTOU i stale resurrection.
+
 ## Szablon nowej decyzji
 
 ```text

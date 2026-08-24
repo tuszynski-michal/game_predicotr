@@ -82,6 +82,16 @@ spójnego rekordu `verified` jest odtwarzana przez bounded reconciliation;
 istniejąca akcja dowolnego statusu zapobiega nieograniczonemu resetowaniu limitu
 prób.
 
+TASK 12 wykorzystuje ten sam dziennik operacji i kolejkę host actions dla
+generacyjnego tombstone'u. `deselect`/`undo` wskazuje wcześniejszy zastosowany
+`select`; repozytorium w jednej transakcji anuluje starsze transfery, superseduje
+starsze materializacje i tworzy akcję `remove`. Projekcja pliku może zachować
+nowszy desired state podczas usuwania starszej generacji. Po bezpiecznej
+kwarantannie stara finalna ścieżka jest czyszczona, ale artefakt i checksumowany
+journal pozostają poza tabelami domenowymi do czasu osobnej decyzji o retencji.
+Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
+`0056`.
+
 ### games
 
 | Pole | Typ | Uwagi |

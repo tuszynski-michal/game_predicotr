@@ -494,6 +494,7 @@ def create_app(
                     ),
                     host_service,
                     rate_limiter=remote_manual_selection_control_rate_limiter,
+                    deselect_enabled=resolved_settings.remote_selection_deselect_enabled,
                 )
                 session.commit()
             except BaseException:

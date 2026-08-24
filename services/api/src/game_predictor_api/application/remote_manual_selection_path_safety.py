@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import os
 import stat
+import time
 import unicodedata
 from contextlib import AbstractContextManager
 from ctypes import wintypes
@@ -37,6 +39,7 @@ _RESERVED_NAMES: Final[frozenset[str]] = frozenset(
 
 _FILE_READ_ATTRIBUTES = 0x0080
 _GENERIC_READ = 0x80000000
+_DELETE = 0x00010000
 _FILE_SHARE_READ = 0x00000001
 _FILE_SHARE_WRITE = 0x00000002
 _OPEN_EXISTING = 3
@@ -44,8 +47,11 @@ _FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
 _FILE_FLAG_BACKUP_SEMANTICS = 0x02000000
 _FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
 _FILE_ATTRIBUTE_TAG_INFO_CLASS = 9
+_FILE_RENAME_INFO_CLASS = 3
 _FILE_NAME_NORMALIZED = 0
 _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+_TRANSIENT_RENAME_ERRORS: Final[frozenset[int]] = frozenset({5, 32})
+_RENAME_RETRY_DELAYS_SECONDS: Final[tuple[float, ...]] = (0.01, 0.05, 0.1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +77,15 @@ class _FileAttributeTagInfo(ctypes.Structure):
     _fields_ = [
         ("file_attributes", wintypes.DWORD),
         ("reparse_tag", wintypes.DWORD),
+    ]
+
+
+class _FileRenameInfo(ctypes.Structure):
+    _fields_ = [
+        ("replace_if_exists", wintypes.BOOL),
+        ("root_directory", wintypes.HANDLE),
+        ("file_name_length", wintypes.DWORD),
+        ("file_name", wintypes.WCHAR * 1),
     ]
 
 
@@ -202,6 +217,36 @@ class LockedWindowsBase(AbstractContextManager["LockedWindowsBase"]):
         _assert_contained(self.bound_base.final_path, path)
         handle = _open_verified_regular_file(path)
         self._handles.append(handle)
+
+    def quarantine_regular_file(
+        self,
+        source: Path,
+        target: Path,
+        *,
+        expected_checksum_sha256: str,
+    ) -> None:
+        """Rename the checksum-verified source by its pinned Windows handle."""
+
+        _assert_contained(self.bound_base.final_path, source)
+        _assert_contained(self.bound_base.final_path, target)
+        _assert_path_length(target, self.bound_base.limits)
+        if target.exists():
+            raise _path_conflict("The quarantine target is already occupied.")
+        descriptor = _open_regular_file_for_rename(source)
+        try:
+            duplicate = os.dup(descriptor)
+            with os.fdopen(duplicate, "rb", closefd=True) as stream:
+                digest = hashlib.sha256()
+                while chunk := stream.read(1024 * 1024):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected_checksum_sha256:
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_REMOVAL_TARGET_CHANGED",
+                    "The owned final output no longer matches its recorded checksum.",
+                )
+            _rename_file_handle(descriptor, target)
+        finally:
+            os.close(descriptor)
 
     def read_regular_file(self, path: Path, *, max_bytes: int) -> bytes:
         _assert_contained(self.bound_base.final_path, path)
@@ -355,6 +400,66 @@ def _open_verified_regular_file(path: Path) -> int:
         raise
 
 
+def _open_regular_file_for_rename(path: Path) -> int:
+    kernel32 = _kernel32()
+    raw_handle = kernel32.CreateFileW(
+        str(path),
+        _GENERIC_READ | _FILE_READ_ATTRIBUTES | _DELETE,
+        _FILE_SHARE_READ | _FILE_SHARE_WRITE,
+        None,
+        _OPEN_EXISTING,
+        _FILE_FLAG_OPEN_REPARSE_POINT,
+        None,
+    )
+    handle = int(raw_handle) if raw_handle is not None else 0
+    if handle == 0 or handle == _INVALID_HANDLE_VALUE:
+        raise _path_conflict("The owned final output cannot be pinned for quarantine.")
+    try:
+        attributes = _FileAttributeTagInfo()
+        if not kernel32.GetFileInformationByHandleEx(
+            wintypes.HANDLE(handle),
+            _FILE_ATTRIBUTE_TAG_INFO_CLASS,
+            ctypes.byref(attributes),
+            ctypes.sizeof(attributes),
+        ):
+            raise _unsafe_path("The owned final output cannot be inspected safely.")
+        if attributes.file_attributes & _FILE_ATTRIBUTE_REPARSE_POINT:
+            raise _unsafe_path("The owned final output is a reparse point.")
+        return msvcrt.open_osfhandle(handle, os.O_RDONLY)
+    except BaseException:
+        _close_handle(handle)
+        raise
+
+
+def _rename_file_handle(descriptor: int, target: Path) -> None:
+    encoded = str(target).encode("utf-16-le")
+    file_name_offset = _FileRenameInfo.file_name.offset
+    buffer = ctypes.create_string_buffer(
+        file_name_offset + len(encoded) + ctypes.sizeof(wintypes.WCHAR)
+    )
+    header = _FileRenameInfo.from_buffer(buffer)
+    header.replace_if_exists = False
+    header.root_directory = None
+    header.file_name_length = len(encoded)
+    ctypes.memmove(ctypes.addressof(buffer) + file_name_offset, encoded, len(encoded))
+    handle = msvcrt.get_osfhandle(descriptor)
+    kernel32 = _kernel32()
+    for delay_seconds in (*_RENAME_RETRY_DELAYS_SECONDS, None):
+        if kernel32.SetFileInformationByHandle(
+            wintypes.HANDLE(handle),
+            _FILE_RENAME_INFO_CLASS,
+            ctypes.byref(buffer),
+            len(buffer),
+        ):
+            return
+        error_code = ctypes.get_last_error()
+        if delay_seconds is None or error_code not in _TRANSIENT_RENAME_ERRORS:
+            raise _path_conflict(
+                f"The owned final output could not be moved to quarantine (WinError {error_code})."
+            )
+        time.sleep(delay_seconds)
+
+
 def _final_path_for_handle(handle: int) -> Path:
     kernel32 = _kernel32()
     size = 512
@@ -393,6 +498,13 @@ def _kernel32() -> ctypes.WinDLL:
         wintypes.DWORD,
     ]
     kernel32.GetFileInformationByHandleEx.restype = wintypes.BOOL
+    kernel32.SetFileInformationByHandle.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    ]
+    kernel32.SetFileInformationByHandle.restype = wintypes.BOOL
     kernel32.GetFinalPathNameByHandleW.argtypes = [
         wintypes.HANDLE,
         wintypes.LPWSTR,

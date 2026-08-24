@@ -15,6 +15,34 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Bramka bezpieczeństwa zdalnej ręcznej selekcji — v0.7.41
+
+- TASK-0289 zamyka publiczny zakres zdalnej ręcznej selekcji dokładną,
+  domyślnie blokującą allowlistą route/method powiązaną z OpenAPI. Mutacje
+  wymagają zgodnego `Origin`, `Host` i `Sec-Fetch-Site: same-origin`; nagłówki
+  forwarded nie mogą zmienić granicy zaufania.
+- Identyfikatory klienta i transferu są walidowane jako UUID v4. Publiczne
+  odpowiedzi są rekurencyjnie filtrowane z sekretów i absolutnych ścieżek
+  Windows, a wspólna walidacja audit payloadów obejmuje repozytoria SQL i
+  in-memory.
+- Dokładny replay nadal jest idempotentny, ale zużywa sesyjny budżet operacji.
+  Quota transferu i bajtów pozostaje fail-closed; rotacja client ID nie resetuje
+  limitu sesji.
+- Zapisano content-addressed raport
+  `remote-manual-selection-security-gate-v1` o SHA-256
+  `8386c3676422ecb3d98994c854bb7c447f5c5452592990485f7bd9af3e4b4360`.
+  Osiem kontroli przeszło i nie ma otwartego findingu `critical`/`high`.
+- Bramka: 106 testów Reviewera oraz 183 celowane testy API/filesystemu są
+  zielone; jeden test symlinka jest pominięty, ponieważ host Windows nie pozwala
+  utworzyć symlinka. Pięć celowanych testów PostgreSQL przeszło. Zielone są też
+  Reviewer lint/typecheck/build, Ruff zmienionych plików, Prettier, OpenAPI i
+  weryfikator raportu. Selektywny mypy nadal wchodzi w wcześniejszy problem
+  repozytoryjny: pakiet workera nie publikuje `py.typed` i pełny graf API zgłasza
+  31 błędów poza zmienionymi modułami.
+- Prawdziwy test Quick Tunnel, zewnętrzny pentest oraz rollout i benchmark skali
+  pozostają zakresem kolejnego checkpointu TASK 18. Feature flagi nie zostały
+  włączone przez TASK-0289.
+
 ### Recovery zdalnej ręcznej selekcji — v0.7.40
 
 - TASK-0288 dodaje ograniczony, idempotentny reconciler uruchamiany przy starcie

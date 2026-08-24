@@ -11,6 +11,28 @@ const DEFAULT_INTERNAL_API = 'http://127.0.0.1:8000';
 const PUBLIC_PREFIX = '/selection-api';
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const TOKEN = /^[A-Za-z0-9_-]{32,256}$/;
+const STRICT_UUID =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const WINDOWS_ABSOLUTE_PATH = /(?:^|[\s"'])(?:[a-zA-Z]:[\\/]|[\\/]{2})[^\s"']+/;
+const FORBIDDEN_PUBLIC_RESPONSE_KEYS = new Set([
+  'accesscode',
+  'accesstoken',
+  'absolutepath',
+  'authorization',
+  'basepath',
+  'codehash',
+  'codesalt',
+  'cookie',
+  'hostbasepath',
+  'hostpath',
+  'leasetoken',
+  'secret',
+  'temppath',
+  'token',
+  'tokenhash',
+  'verifiedrelativepath',
+  'verifiedpath',
+]);
 
 type RemoteSelectionProxyOptions = {
   readonly fetchImplementation?: typeof globalThis.fetch;
@@ -111,6 +133,13 @@ export async function proxyRemoteSelectionRequest(
   });
   const clientInstanceId = request.headers.get('x-remote-selection-client');
   if (clientInstanceId !== null) {
+    if (!STRICT_UUID.test(clientInstanceId)) {
+      return errorResponse(
+        422,
+        'REMOTE_SELECTION_CLIENT_INVALID',
+        'The remote selection client identifier is invalid.',
+      );
+    }
     headers.set('X-Remote-Selection-Client', clientInstanceId);
   }
   if (body !== undefined) {
@@ -201,7 +230,7 @@ function isAllowedControlQuery(
   for (const [key, value] of parameters) {
     if (!allowed.has(key)) return false;
     if (key === 'transferId') {
-      if (!/^[0-9a-fA-F-]{36}$/.test(value)) return false;
+      if (!STRICT_UUID.test(value)) return false;
     } else if (!/^\d{1,16}$/.test(value)) return false;
     if (parameters.getAll(key).length !== 1) return false;
   }
@@ -218,14 +247,18 @@ function publicPathToApiPath(pathname: string): string {
 
 function validateRequestOrigin(request: Request): Response | null {
   const fetchSite = request.headers.get('sec-fetch-site');
-  if (fetchSite !== null && fetchSite !== 'same-origin') {
+  const mutation = request.method !== 'GET';
+  if (
+    (mutation && fetchSite !== 'same-origin') ||
+    (!mutation && fetchSite !== null && fetchSite !== 'same-origin')
+  ) {
     return originForbidden();
   }
   const origin = request.headers.get('origin');
-  if (request.method !== 'GET' && origin === null) return originForbidden();
+  if (mutation && origin === null) return originForbidden();
   if (origin === null) return null;
   try {
-    if (new URL(origin).origin !== expectedPublicOrigin(request)) {
+    if (!originMatchesRequestHost(origin, request)) {
       return originForbidden();
     }
   } catch {
@@ -234,32 +267,19 @@ function validateRequestOrigin(request: Request): Response | null {
   return null;
 }
 
-function expectedPublicOrigin(request: Request): string {
-  const requestUrl = new URL(request.url);
-  const forwardedHost = firstForwardedValue(
-    request.headers.get('x-forwarded-host'),
-  );
-  const host = forwardedHost ?? request.headers.get('host') ?? requestUrl.host;
-  const forwardedProtocol = firstForwardedValue(
-    request.headers.get('x-forwarded-proto'),
-  );
-  const protocol = forwardedProtocol ?? requestUrl.protocol.replace(':', '');
-  if (!/^[A-Za-z0-9.:[\]-]+(?::\d{1,5})?$/.test(host)) {
-    throw new Error('Invalid public host.');
+function originMatchesRequestHost(origin: string, request: Request): boolean {
+  const parsedOrigin = new URL(origin);
+  const requestHost = (request.headers.get('host') ?? new URL(request.url).host)
+    .trim()
+    .toLowerCase();
+  if (requestHost === '' || parsedOrigin.host.toLowerCase() !== requestHost) {
+    return false;
   }
-  const hostname = new URL(`${protocol}://${host}`).hostname;
-  if (
-    protocol !== 'https' &&
-    !(protocol === 'http' && LOOPBACK_HOSTS.has(hostname))
-  ) {
-    throw new Error('Remote selection requires HTTPS or HTTP loopback.');
-  }
-  return `${protocol}://${host}`;
-}
-
-function firstForwardedValue(value: string | null): string | null {
-  const first = value?.split(',', 1)[0]?.trim();
-  return first === undefined || first === '' ? null : first;
+  if (parsedOrigin.protocol === 'https:') return true;
+  return (
+    parsedOrigin.protocol === 'http:' &&
+    LOOPBACK_HOSTS.has(parsedOrigin.hostname)
+  );
 }
 
 function internalApiOrigin(configured: string | undefined): string {
@@ -279,7 +299,7 @@ async function unlockedResponse(upstream: Response): Promise<Response> {
   } catch {
     return invalidUpstream();
   }
-  if (!isRecord(payload) || containsPublicSecretField(payload)) {
+  if (!isRecord(payload) || containsSensitivePublicData(payload)) {
     return invalidUpstream();
   }
   const token = upstreamCookie(upstream.headers.get('set-cookie'));
@@ -315,6 +335,12 @@ function upstreamCookie(value: string | null): string | null {
 async function filteredUpstreamResponse(upstream: Response): Promise<Response> {
   const body = await boundedUpstreamBody(upstream);
   if (body === null || !isJsonResponse(upstream)) return invalidUpstream();
+  try {
+    const payload: unknown = JSON.parse(new TextDecoder().decode(body));
+    if (containsSensitivePublicData(payload)) return invalidUpstream();
+  } catch {
+    return invalidUpstream();
+  }
   const headers = new Headers({ 'Cache-Control': 'no-store' });
   for (const name of ['content-type', 'etag']) {
     const value = upstream.headers.get(name);
@@ -389,14 +415,19 @@ function readCookie(header: string | null, name: string): string | null {
   return null;
 }
 
-function containsPublicSecretField(payload: Record<string, unknown>): boolean {
-  return [
-    'accessToken',
-    'access_token',
-    'token',
-    'hostBasePath',
-    'host_base_path',
-  ].some((key) => key in payload);
+function containsSensitivePublicData(payload: unknown): boolean {
+  if (typeof payload === 'string') return WINDOWS_ABSOLUTE_PATH.test(payload);
+  if (Array.isArray(payload)) return payload.some(containsSensitivePublicData);
+  if (!isRecord(payload)) return false;
+  for (const [key, value] of Object.entries(payload)) {
+    const normalized = key
+      .replaceAll('_', '')
+      .replaceAll('-', '')
+      .toLowerCase();
+    if (FORBIDDEN_PUBLIC_RESPONSE_KEYS.has(normalized)) return true;
+    if (containsSensitivePublicData(value)) return true;
+  }
+  return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

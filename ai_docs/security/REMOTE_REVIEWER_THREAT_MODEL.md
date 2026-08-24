@@ -171,6 +171,22 @@ lokalnego high-impact targetu, a heartbeat nie przyjmuje lease tokenu od
 przeglądarki. Legacy globalne endpointy ingressu nie są używane przez zwykły
 przepływ sekcji zatwierdzania.
 
+## Bramka bezpieczeństwa TASK-0289
+
+Formalna bramka ma osiem obowiązkowych kontroli: zamkniętą allowlistę zgodną z
+OpenAPI, izolację purpose/sesji, cookie i CSRF, rate/quota, bezpieczeństwo
+Windows/reparse/TOCTOU, redakcję, stabilne błędy HTTP oraz lokalny production
+build z izolowanym stanem klientów. Maszynowy raport znajduje się w
+`ai_docs/quality/remote-manual-selection-security-gate-v1.json`; jego kanoniczna
+treść ma SHA-256
+`8386c3676422ecb3d98994c854bb7c447f5c5452592990485f7bd9af3e4b4360`.
+
+Audyt TASK-0289 zamknął cztery findings: brak obowiązkowego Fetch Metadata dla
+mutacji, zaufanie do caller-controlled forwarded host, brak rekurencyjnej
+kontroli publicznego JSON/audytu oraz ominięcie rate limitu przez exact replay.
+Nie pozostał otwarty finding `critical` ani `high`. Publiczny Quick Tunnel,
+pentest strony trzeciej i rollout skali są nadal poza bramką i należą do TASK 18.
+
 ## Retencja i prywatność
 
 Sesja ma TTL od 5 minut do 24 godzin. Administrator przekazuje link i kod

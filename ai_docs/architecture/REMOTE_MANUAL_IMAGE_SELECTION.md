@@ -1955,7 +1955,7 @@ trwałych stanach i powtarzalnych przejściach.
 
 ### TASK 17: Bramka bezpieczeństwa zdalnej selekcji
 
-**Status:** `PLANNED`
+**Status:** `COMPLETED` (`v0.7.41`, `TASK-0289`)
 
 **Cel:** Udowodnić przed rolloutem, że nowy publiczny scope nie rozszerza
 dostępu do Admina, gier, importów ani dowolnych ścieżek hosta.

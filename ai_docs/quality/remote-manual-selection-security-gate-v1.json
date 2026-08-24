@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "remote-manual-selection-security-gate-v1",
+  "gateVersion": "v0.7.41",
+  "baseCommit": "1c5401d",
+  "decision": "passed",
+  "openCriticalHighCount": 0,
+  "controls": [
+    {
+      "id": "SG-01",
+      "name": "Closed public route and method allowlist",
+      "status": "passed",
+      "evidence": [
+        "apps/reviewer/src/security/reviewer-proxy-policy.ts",
+        "apps/reviewer/test/reviewer-proxy-policy.test.mjs"
+      ]
+    },
+    {
+      "id": "SG-02",
+      "name": "Purpose, token and cross-session isolation",
+      "status": "passed",
+      "evidence": [
+        "services/api/tests/test_remote_manual_selection_access.py",
+        "services/api/tests/test_remote_manual_selection_access_api.py",
+        "services/api/tests/integration/test_remote_manual_selection_repository.py"
+      ]
+    },
+    {
+      "id": "SG-03",
+      "name": "Cookie, origin, CSRF and proxy header isolation",
+      "status": "passed",
+      "evidence": [
+        "apps/reviewer/src/security/remote-selection-proxy.ts",
+        "apps/reviewer/test/remote-selection-proxy.test.mjs",
+        "apps/reviewer/test/reviewer-security-config.test.mjs"
+      ]
+    },
+    {
+      "id": "SG-04",
+      "name": "Operation rate and transfer byte quotas",
+      "status": "passed",
+      "evidence": [
+        "services/api/src/game_predictor_api/application/remote_manual_selection_control.py",
+        "services/api/src/game_predictor_api/application/remote_manual_selection_transfer.py",
+        "services/api/tests/test_remote_manual_selection_control.py",
+        "services/api/tests/test_remote_manual_selection_transfer.py",
+        "services/api/tests/test_remote_manual_selection_security_gate.py"
+      ]
+    },
+    {
+      "id": "SG-05",
+      "name": "Windows containment, reparse, TOCTOU and foreign-file safety",
+      "status": "passed",
+      "evidence": [
+        "services/api/src/game_predictor_api/application/remote_manual_selection_path_safety.py",
+        "services/api/tests/test_remote_manual_selection_path_safety.py",
+        "services/api/tests/test_remote_manual_selection_materialization.py",
+        "services/api/tests/test_remote_manual_selection_removal.py"
+      ]
+    },
+    {
+      "id": "SG-06",
+      "name": "Audit and public response redaction",
+      "status": "passed",
+      "evidence": [
+        "services/api/src/game_predictor_api/storage/remote_manual_selection_repository.py",
+        "services/api/tests/test_remote_manual_selection_repository.py",
+        "services/api/tests/test_remote_manual_selection_recovery.py",
+        "apps/reviewer/test/remote-selection-proxy.test.mjs"
+      ]
+    },
+    {
+      "id": "SG-07",
+      "name": "Stable fail-closed HTTP errors",
+      "status": "passed",
+      "evidence": [
+        "services/api/src/game_predictor_api/main.py",
+        "services/api/tests/test_remote_manual_selection_access_api.py",
+        "services/api/tests/test_remote_manual_selection_transfer_api.py",
+        "services/api/tests/test_remote_manual_selection_control.py",
+        "services/api/tests/test_remote_manual_selection_security_gate.py"
+      ]
+    },
+    {
+      "id": "SG-08",
+      "name": "Local production Reviewer boundary and isolated client state",
+      "status": "passed",
+      "evidence": [
+        "apps/reviewer/next.config.ts",
+        "apps/reviewer/test/remote-manual-selection-access-gate-contract.test.mjs",
+        "apps/reviewer/test/remote-selection-store.test.mjs",
+        "apps/reviewer/test/remote-tab-coordinator.test.mjs"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "high",
+      "status": "resolved",
+      "summary": "Mutations accepted requests without mandatory same-origin fetch metadata."
+    },
+    {
+      "id": "F-002",
+      "severity": "high",
+      "status": "resolved",
+      "summary": "Origin validation trusted a caller-provided forwarded host."
+    },
+    {
+      "id": "F-003",
+      "severity": "high",
+      "status": "resolved",
+      "summary": "Nested upstream payloads and audit values could carry host paths or secrets."
+    },
+    {
+      "id": "F-004",
+      "severity": "medium",
+      "status": "resolved",
+      "summary": "Exact operation replay did not consume the session rate budget."
+    }
+  ],
+  "excluded": [
+    "Public Quick Tunnel test",
+    "Third-party penetration test",
+    "TASK 18 scale rollout"
+  ],
+  "contentChecksumSha256": "8386c3676422ecb3d98994c854bb7c447f5c5452592990485f7bd9af3e4b4360"
+}

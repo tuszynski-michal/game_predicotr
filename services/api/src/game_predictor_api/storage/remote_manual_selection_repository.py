@@ -2126,7 +2126,7 @@ class SqlAlchemyRemoteManualSelectionRepository:
         payload: dict[str, object],
         created_at: datetime,
     ) -> UUID:
-        _reject_sensitive_audit_keys(payload)
+        validate_remote_selection_audit_payload(payload)
         record = RemoteManualSelectionAuditEventModel(
             id=event_id,
             session_id=session_id,
@@ -3860,7 +3860,7 @@ class InMemoryRemoteManualSelectionRepository:
         created_at: datetime,
     ) -> UUID:
         del event_type, actor, outcome_code, created_at
-        _reject_sensitive_audit_keys(payload)
+        validate_remote_selection_audit_payload(payload)
         with self._lock:
             if session_id not in self.sessions or (
                 batch_id is not None
@@ -4184,17 +4184,22 @@ def _require_page(limit: int) -> None:
         )
 
 
-def _reject_sensitive_audit_keys(payload: dict[str, object]) -> None:
-    forbidden = {
-        "basepath",
-        "hostbasepath",
-        "temppath",
-        "codesalt",
-        "codehash",
-        "tokenhash",
-        "leasetoken",
+def validate_remote_selection_audit_payload(payload: dict[str, object]) -> None:
+    """Reject credential-like fields and absolute host paths at any depth."""
+
+    forbidden_fragments = {
+        "authorization",
+        "cookie",
+        "path",
+        "salt",
+        "secret",
+        "token",
     }
-    if _payload_keys(payload) & forbidden:
+    keys = _payload_keys(payload)
+    unsafe_key = bool(keys & {"accesscode", "codehash"}) or any(
+        fragment in key for key in keys for fragment in forbidden_fragments
+    )
+    if unsafe_key or _payload_contains_absolute_windows_path(payload):
         raise RemoteManualSelectionError(
             "REMOTE_SELECTION_AUDIT_PAYLOAD_SENSITIVE",
             "Audit payload cannot contain secrets or host paths.",
@@ -4209,6 +4214,19 @@ def _payload_keys(value: object) -> set[str]:
     if isinstance(value, list):
         return {nested for child in value for nested in _payload_keys(child)}
     return set()
+
+
+def _payload_contains_absolute_windows_path(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(_payload_contains_absolute_windows_path(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_payload_contains_absolute_windows_path(item) for item in value)
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().replace("/", "\\")
+    return (
+        len(normalized) >= 3 and normalized[0].isalpha() and normalized[1:3] == ":\\"
+    ) or normalized.startswith("\\\\")
 
 
 __all__ = [

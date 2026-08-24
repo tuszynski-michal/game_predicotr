@@ -417,6 +417,42 @@ def test_control_rate_limit_has_stable_error() -> None:
     assert error.value.code == "REMOTE_SELECTION_CONTROL_RATE_LIMITED"
 
 
+def test_exact_operation_replay_cannot_bypass_the_session_rate_budget() -> None:
+    repository, access, _service, files = _provision_active_batch()
+    service = RemoteManualSelectionControlService(
+        repository,
+        access,  # type: ignore[arg-type]
+        FakeHost(),  # type: ignore[arg-type]
+        rate_limiter=RemoteManualSelectionControlRateLimiter(limit=1, now=lambda: NOW),
+    )
+    command = RemoteManualSelectionOperationCommandV1(
+        operation_id=UUID(int=699),
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        client_instance_id=CLIENT_ID,
+        client_sequence=1,
+        expected_server_revision=0,
+        operation_type=RemoteManualSelectionOperationType.SELECT,
+        selection_generation=1,
+        range_start=1,
+        range_end=9,
+        recorded_at=NOW,
+        file_id=files[0].id,
+        image_path=files[0].relative_path,
+        source_index=0,
+        image_checksum_sha256="a" * 64,
+        output_name="seq_1-9.jpg",
+        visible_milliseconds=400,
+        decoded=True,
+    )
+
+    service.apply_operation(command=command, **_authorize())
+    with pytest.raises(RemoteManualSelectionRateLimitError) as error:
+        service.apply_operation(command=command, **_authorize())
+
+    assert error.value.code == "REMOTE_SELECTION_CONTROL_RATE_LIMITED"
+
+
 def test_loopback_control_http_exact_retry_and_state_delta(tmp_path) -> None:
     _repository, access, service, entries, manifest = _fixture()
     app = create_app(

@@ -229,6 +229,72 @@ test('proxy rejects cross-origin, missing-origin, query and oversized control re
   });
 });
 
+test('mutations require same-origin fetch metadata and ignore spoofed forwarded hosts', async () => {
+  await withFakeApi(async (origin, requests) => {
+    const path = `/selection-api/api/v1/remote-manual-selections/sessions/${sessionId}/unlock`;
+    const missingFetchMetadata = await proxyRemoteSelectionRequest(
+      new Request(`https://selection.example${path}`, {
+        body: '{}',
+        headers: {
+          Host: 'selection.example',
+          Origin: 'https://selection.example',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      }),
+      { internalApiOrigin: origin },
+    );
+    const spoofedForwardedHost = await proxyRemoteSelectionRequest(
+      publicRequest(path, {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://evil.example',
+          'X-Forwarded-Host': 'evil.example',
+          'X-Forwarded-Proto': 'https',
+        },
+        method: 'POST',
+      }),
+      { internalApiOrigin: origin },
+    );
+
+    assert.equal(missingFetchMetadata.status, 403);
+    assert.equal(spoofedForwardedHost.status, 403);
+    assert.equal(requests.length, 0);
+  });
+});
+
+test('proxy rejects malformed client and transfer query identifiers before the API', async () => {
+  await withFakeApi(async (origin, requests) => {
+    const cookie = `gp_remote_selection_token=${upstreamToken}`;
+    const malformedClient = await proxyRemoteSelectionRequest(
+      publicRequest('/selection-api/api/v1/remote-manual-selections/context', {
+        headers: {
+          Cookie: cookie,
+          'X-Remote-Selection-Client': 'not-a-client',
+        },
+      }),
+      { internalApiOrigin: origin },
+    );
+    const malformedTransfer = await proxyRemoteSelectionRequest(
+      publicRequest(
+        `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}` +
+          `/files/${clientId}/transfer?generation=1&transferId=${'1'.repeat(36)}`,
+        { headers: { Cookie: cookie } },
+      ),
+      { internalApiOrigin: origin },
+    );
+
+    assert.equal(malformedClient.status, 422);
+    assert.equal(
+      (await malformedClient.json()).code,
+      'REMOTE_SELECTION_CLIENT_INVALID',
+    );
+    assert.equal(malformedTransfer.status, 403);
+    assert.equal(requests.length, 0);
+  });
+});
+
 test('feature flag and negative route matrix fail closed before the API', async () => {
   await withFakeApi(async (origin, requests) => {
     const disabled = await proxyRemoteSelectionRequest(
@@ -401,4 +467,31 @@ test('invalid feature flag and oversized upstream response fail closed', async (
     (await response.json()).code,
     'REMOTE_SELECTION_UPSTREAM_INVALID',
   );
+});
+
+test('nested credentials and absolute host paths never cross the public proxy', async () => {
+  for (const payload of [
+    { nested: { accessToken: upstreamToken } },
+    { nested: [{ value: String.raw`C:\private\selection\seq_1-9.jpg` }] },
+    { nested: { host_base_path: String.raw`D:\results` } },
+  ]) {
+    const response = await proxyRemoteSelectionRequest(
+      publicRequest('/selection-api/api/v1/remote-manual-selections/context', {
+        headers: { Cookie: `gp_remote_selection_token=${upstreamToken}` },
+      }),
+      {
+        fetchImplementation: async () =>
+          new Response(JSON.stringify(payload), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+      },
+    );
+
+    assert.equal(response.status, 502);
+    assert.equal(
+      (await response.json()).code,
+      'REMOTE_SELECTION_UPSTREAM_INVALID',
+    );
+  }
 });

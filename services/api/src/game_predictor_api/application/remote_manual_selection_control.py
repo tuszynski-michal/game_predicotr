@@ -443,9 +443,9 @@ class RemoteManualSelectionControlService:
             access_token=access_token,
             client_instance_id=client_instance_id,
         )
+        self._rate_limiter.consume(command.session_id, client_instance_id)
         if self._repository.get_operation(command.operation_id) is not None:
             return self._repository.apply_operation(command)
-        self._rate_limiter.consume(command.session_id, client_instance_id)
         self._access.authorize_writer(
             session_id=command.session_id,
             access_token=access_token,

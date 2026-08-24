@@ -29,6 +29,7 @@ from game_predictor_api.storage.models import (
 from game_predictor_api.storage.remote_manual_selection_repository import (
     RemoteManualSelectionSessionSecrets,
     SqlAlchemyRemoteManualSelectionRepository,
+    validate_remote_selection_audit_payload,
 )
 
 
@@ -322,9 +323,7 @@ class InMemoryRemoteManualSelectionAccessRepository(RemoteManualSelectionAccessR
         payload: dict[str, object],
         created_at: datetime,
     ) -> None:
-        forbidden = {"code", "token", "path", "salt", "secret", "leaseToken"}
-        if any(fragment.casefold() in str(payload).casefold() for fragment in forbidden):
-            raise RuntimeError("Sensitive access audit payload.")
+        validate_remote_selection_audit_payload(payload)
         with self._lock:
             self.audit_events.append(
                 {

@@ -48,7 +48,13 @@ def _create_directory_reparse(target: Path, link: Path) -> None:
         "folder/child",
         r"folder\child",
         r"C:\folder",
+        r"C:folder",
+        r"\\?\C:\folder",
+        r"\??\C:\folder",
         r"\\server\share",
+        r"file.jpg::$DATA",
+        r"folder\..\outside",
+        "folder/../outside",
         "bad:name",
         "bad*name",
         "bad\x00name",
@@ -59,6 +65,7 @@ def _create_directory_reparse(target: Path, link: Path) -> None:
         "COM1.jpg",
         "LPT9",
         "COM¹.txt",
+        "NUL.txt ",
     ],
 )
 def test_windows_component_rejects_unsafe_and_reserved_names(value: str) -> None:

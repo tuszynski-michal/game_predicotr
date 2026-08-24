@@ -224,3 +224,27 @@ ostatni heartbeat writera. Polling działa z ograniczonym backoffem i nie może
 tworzyć równoległych pętli. Lokalny Admin może pobrać zagregowany preview
 osieroconych artefaktów; wynik nie zawiera ścieżek i nie oferuje operacji
 usuwania. Automatyczny GC pozostaje zabroniony.
+
+### Bramka bezpieczeństwa trybu zdalnego
+
+Publiczny proxy jest default-deny, a jego dokładna macierz metod i ścieżek musi
+odpowiadać publicznym operacjom z OpenAPI. Dodanie nowej operacji backendu bez
+jawnej aktualizacji allowlisty i testu ma blokować bramkę. Admin, legacy
+Reviewer, joby, importy, storage i dowolne ścieżki hosta nie są osiągalne przez
+`/selection-api`.
+
+Każda mutacja wymaga zgodnego `Origin` oraz
+`Sec-Fetch-Site: same-origin`. Nagłówki `X-Forwarded-*` nie mogą zmieniać hosta,
+z którym porównywany jest Origin. Cookie selekcji nie autoryzuje Reviewera i
+odwrotnie; token jednej sesji nie może odczytać ani zmienić drugiej sesji.
+
+Publiczne odpowiedzi oraz audit payloady są sprawdzane rekurencyjnie. Sekret,
+credential-like key lub absolutna ścieżka Windows/UNC powoduje kontrolowany
+błąd zamiast publikacji danych. Rate limit jest liczony per sesja także dla
+exact replay, a zmiana `clientInstanceId` nie odnawia budżetu. Limity pliku,
+łącznych bajtów tymczasowych i współbieżności pozostają fail-closed.
+
+Bramkę potwierdza content-addressed raport
+`remote-manual-selection-security-gate-v1`. Raport nie może mieć otwartego
+findingu `critical` lub `high`. Test przez publiczny Quick Tunnel i etapowy
+rollout pozostają osobnym TASK 18.

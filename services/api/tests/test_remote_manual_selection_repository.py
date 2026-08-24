@@ -235,7 +235,18 @@ def test_public_session_projection_does_not_expose_host_or_secret_values() -> No
     assert host_binding.host_base_path == r"C:\Users\user\Documents"
 
 
-def test_audit_payload_rejects_sensitive_keys_at_any_depth() -> None:
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"details": {"leaseToken": "secret"}},
+        {"details": [{"accessCode": "ABCD-2345"}]},
+        {"outputPath": r"C:\private\seq_1-9.jpg"},
+        {"details": {"value": r"\\server\share\seq_1-9.jpg"}},
+    ],
+)
+def test_audit_payload_rejects_sensitive_keys_and_paths_at_any_depth(
+    payload: dict[str, object],
+) -> None:
     repository = InMemoryRemoteManualSelectionRepository()
     _seed(repository)
 
@@ -247,7 +258,7 @@ def test_audit_payload_rejects_sensitive_keys_at_any_depth() -> None:
             event_type="security_reject",
             actor="local-owner",
             outcome_code="rejected",
-            payload={"details": {"leaseToken": "secret"}},
+            payload=payload,
             created_at=NOW,
         )
     assert error.value.code == "REMOTE_SELECTION_AUDIT_PAYLOAD_SENSITIVE"

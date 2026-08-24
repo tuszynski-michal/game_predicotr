@@ -159,6 +159,16 @@ Proxy przekazuje body jako stream i nie buforuje JPEG-a. Route Admina, legacy
 Reviewera, jobów, storage, eksportów i wydań pozostają zabronione. API nie ma
 publicznego CORS i pozostaje na loopback.
 
+Dla mutacji oba dowody są obowiązkowe: `Origin` musi odpowiadać bezpośredniemu
+`Host` requestu, a `Sec-Fetch-Site` musi mieć wartość `same-origin`. Proxy nie
+ufa `X-Forwarded-Host` dostarczonemu przez klienta. Identyfikatory klienta i
+transferu muszą być ścisłymi UUID v4. Każda odpowiedź JSON jest przed
+zwróceniem skanowana rekurencyjnie; credential-like field lub absolutna ścieżka
+Windows/UNC daje `502 REMOTE_SELECTION_UPSTREAM_INVALID`.
+
+Exact replay operacji zachowuje idempotencję, ale zużywa ten sam per-session
+budżet co nowa operacja. Obrót `clientInstanceId` nie resetuje limitu.
+
 State delta zachowuje kursor `sinceRevision` i limit strony, a dodatkowo zwraca
 stałorozmiarowy `queue`, `recoveryFindings` oraz `lastHeartbeatAt`. Pola
 rozróżniają pending operations, upload count/bytes, materializację, pending

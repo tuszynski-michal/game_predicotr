@@ -379,6 +379,30 @@ test('source bootstrap sends bounded ordered pages and activates only the last p
   );
 });
 
+test('control transport invokes browser fetch with the global receiver', async () => {
+  let receiverIsGlobalThis = false;
+  const transport = new FetchRemoteSelectionControlTransport(
+    clientInstanceId,
+    function fetchWithBrowserBrand() {
+      receiverIsGlobalThis = this === globalThis;
+      return Promise.resolve(
+        Response.json({
+          collectionId: '50000000-0000-4000-8000-000000000000',
+          created: true,
+        }),
+      );
+    },
+  );
+
+  await transport.createCollection({
+    collectionId: '50000000-0000-4000-8000-000000000000',
+    name: 'Stage 2',
+    sessionId,
+  });
+
+  assert.equal(receiverIsGlobalThis, true);
+});
+
 test('finalization preview and command use exact batch scope and revision', async () => {
   const requests = [];
   const transport = new FetchRemoteSelectionControlTransport(

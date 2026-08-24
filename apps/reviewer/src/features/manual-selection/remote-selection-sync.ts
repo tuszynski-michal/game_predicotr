@@ -296,7 +296,7 @@ export class FetchRemoteSelectionControlTransport implements RemoteSelectionCont
     headers.set('X-Remote-Selection-Client', this.clientInstanceId);
     if (init.body !== undefined)
       headers.set('Content-Type', 'application/json');
-    const response = await this.fetchImplementation(path, {
+    const response = await this.fetchImplementation.call(globalThis, path, {
       ...init,
       cache: 'no-store',
       credentials: 'same-origin',

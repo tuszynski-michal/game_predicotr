@@ -103,6 +103,17 @@ ani kopiowania JPEG-ów do repozytorium.
   testy Reviewera, lint oraz typecheck pozostają zielone; istniejące ostrzeżenie
   `no-img-element` nie dotyczy tej zmiany.
 
+### v0.7.45 — poprawne wywołanie natywnego fetch w Chromium
+
+- Próba po wybraniu źródła wykryła `Illegal invocation`: natywny
+  `window.fetch` był przechowywany w klasie transportu i wywoływany z instancją
+  transportu jako odbiorcą zamiast z globalnym obiektem przeglądarki.
+- Zarówno control plane tworzenia kolekcji/partii, jak i transport wybranych
+  JPEG-ów wiążą teraz wywołanie z `globalThis`.
+- Osobne testy regresyjne wymuszają właściwy receiver dla obu transportów.
+  Pełne 109 testów Reviewera, typecheck i lint przechodzą; wcześniejsze
+  ostrzeżenie `no-img-element` pozostaje poza zakresem tej poprawki.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

@@ -38,6 +38,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pickera folderu źródłowego przekraczał limit 32 znaków Chromium. Reviewer używa
   teraz stabilnego `gp-remote-source-v1`, a test regresyjny pilnuje limitu i
   dozwolonego alfabetu identyfikatora.
+- Kolejna próba UI wykryła, że natywny `window.fetch` był wywoływany z obiektem
+  transportu jako odbiorcą i Chromium zwracał `Illegal invocation`. Transport
+  control plane oraz transfer JPEG wywołują teraz fetch z `globalThis`; dwa
+  testy regresyjne chronią oba miejsca przed powrotem błędu.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

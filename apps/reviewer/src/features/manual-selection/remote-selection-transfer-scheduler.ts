@@ -417,7 +417,7 @@ export class FetchRemoteSelectionTransferTransport implements RemoteSelectionTra
     url: string,
     init: RequestInit,
   ): Promise<RemoteSelectionTransferResponse> {
-    const response = await this.fetchImplementation(url, init);
+    const response = await this.fetchImplementation.call(globalThis, url, init);
     const payload = (await response.json()) as Record<string, unknown>;
     if (!response.ok) {
       throw new RemoteSelectionTransferHttpError(

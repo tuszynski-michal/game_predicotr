@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  FetchRemoteSelectionTransferTransport,
   RemoteSelectionTransferHttpError,
   RemoteSelectionTransferScheduler,
   isRetryableTransferError,
@@ -14,6 +15,28 @@ const ids = [
   '33333333-3333-4333-8333-333333333333',
   '44444444-4444-4444-8444-444444444444',
 ];
+
+test('transfer transport invokes browser fetch with the global receiver', async () => {
+  let receiverIsGlobalThis = false;
+  const transferId = ids[0];
+  const source = task('brand-check', 1);
+  const transport = new FetchRemoteSelectionTransferTransport(
+    '50000000-0000-4000-8000-000000000001',
+    function fetchWithBrowserBrand() {
+      receiverIsGlobalThis = this === globalThis;
+      return Promise.resolve(
+        Response.json({
+          ...response(source, 'not_started'),
+          transferId,
+        }),
+      );
+    },
+  );
+
+  await transport.status(source, transferId, new AbortController().signal);
+
+  assert.equal(receiverIsGlobalThis, true);
+});
 
 test('scheduler bounds concurrency, preserves priority and keeps only metadata', async () => {
   const started = [];

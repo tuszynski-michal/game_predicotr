@@ -91,6 +91,18 @@ ani kopiowania JPEG-ów do repozytorium.
   `artifacts/remote-manual-selection-rollout/stage-2-local.json` (lokalny,
   ignorowany przez Git).
 
+### v0.7.44 — poprawka pickera źródła ujawniona przez próbę UI
+
+- Rzeczywista próba operatorska wykryła, że identyfikator przekazany do
+  `showDirectoryPicker()` przekraczał limit 32 znaków Chromium i blokował wybór
+  folderu przed indeksowaniem.
+- Reviewer używa teraz krótkiego, stabilnego identyfikatora
+  `gp-remote-source-v1`, dzięki czemu zachowuje pamięć ostatniego folderu i nie
+  narusza limitu API.
+- Test regresyjny sprawdza długość, stabilną wartość i dozwolony alfabet. Pełne
+  testy Reviewera, lint oraz typecheck pozostają zielone; istniejące ostrzeżenie
+  `no-img-element` nie dotyczy tej zmiany.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

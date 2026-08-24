@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RemoteManualSelectionWorkspace } from './remote-manual-selection-workspace';
 import {
   DirectoryHandleRemoteSourceAdapter,
+  REMOTE_SOURCE_DIRECTORY_PICKER_ID,
   RemoteSourceAdapterError,
   WebkitDirectoryRemoteSourceAdapter,
   createRemoteSourceItemRecords,
@@ -159,7 +160,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
     setNotice('Indeksowanie metadanych JPEG…');
     try {
       const handle = (await picker({
-        id: 'game-predictor-remote-selection-source',
+        id: REMOTE_SOURCE_DIRECTORY_PICKER_ID,
         mode: 'read',
       })) as ReadableDirectoryHandle;
       const adapter = new DirectoryHandleRemoteSourceAdapter(handle);

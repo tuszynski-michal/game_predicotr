@@ -16,6 +16,9 @@ import type {
 
 export const REMOTE_SOURCE_DEFAULT_PAGE_SIZE = 250;
 export const REMOTE_SOURCE_MAX_PAGE_SIZE = 500;
+// File System Access API limits picker IDs to at most 32 characters.
+// Keep this value stable so Chromium can remember the last source directory.
+export const REMOTE_SOURCE_DIRECTORY_PICKER_ID = 'gp-remote-source-v1';
 
 type PermissionDescriptor = { readonly mode: 'read' };
 

@@ -34,6 +34,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   osobnej zgody właściciela i nie zostaną uruchomione przez implementację.
 - TASK 19 pozostaje warunkowy: decyzja o chunkowanym uploadzie może powstać
   wyłącznie na podstawie raportów TASK-0290.
+- Próba UI etapu 2 wykryła blokujący błąd File System Access API: identyfikator
+  pickera folderu źródłowego przekraczał limit 32 znaków Chromium. Reviewer używa
+  teraz stabilnego `gp-remote-source-v1`, a test regresyjny pilnuje limitu i
+  dozwolonego alfabetu identyfikatora.
 - Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
   plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
   konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono

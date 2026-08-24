@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   DirectoryHandleRemoteSourceAdapter,
+  REMOTE_SOURCE_DIRECTORY_PICKER_ID,
   RemoteSourceAdapterError,
   WebkitDirectoryRemoteSourceAdapter,
   createRemoteSourceItemRecords,
@@ -10,6 +11,12 @@ import {
   pagedRemoteSourceDescriptors,
   validateRemoteSourceRelink,
 } from '../src/features/manual-selection/remote-source-adapter.ts';
+
+test('uses a stable File System Access picker id accepted by Chromium', () => {
+  assert.equal(REMOTE_SOURCE_DIRECTORY_PICKER_ID, 'gp-remote-source-v1');
+  assert.ok(REMOTE_SOURCE_DIRECTORY_PICKER_ID.length <= 32);
+  assert.match(REMOTE_SOURCE_DIRECTORY_PICKER_ID, /^[A-Za-z0-9_-]+$/);
+});
 
 function jpeg(name, size = 100, lastModified = 1_700_000_000_000) {
   const file = new File([new Uint8Array(size)], name, {

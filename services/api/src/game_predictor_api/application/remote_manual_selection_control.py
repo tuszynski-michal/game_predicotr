@@ -39,6 +39,10 @@ from game_predictor_api.storage.remote_manual_selection_repository import (
 
 
 class RemoteManualSelectionControlRepository(Protocol):
+    def get_host_binding(
+        self, session_id: UUID
+    ) -> RemoteManualSelectionHostBinding | None: ...
+
     def get_host_binding_for_update(
         self, session_id: UUID
     ) -> RemoteManualSelectionHostBinding | None: ...

@@ -5741,6 +5741,52 @@ export type RemoteManualSelectionStateDeltaResponse = {
 };
 
 /**
+ * RemoteManualSelectionTransferResponse
+ */
+export type RemoteManualSelectionTransferResponse = {
+  /**
+   * Attempt
+   */
+  attempt: number;
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Declaredbytes
+   */
+  declaredBytes: number;
+  /**
+   * Declaredchecksumsha256
+   */
+  declaredChecksumSha256: string | null;
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Generation
+   */
+  generation: number;
+  /**
+   * Receivedbytes
+   */
+  receivedBytes: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Transferid
+   */
+  transferId: string | null;
+  /**
+   * Verifiedchecksumsha256
+   */
+  verifiedChecksumSha256: string | null;
+};
+
+/**
  * RemoteManualSelectionUnlock
  */
 export type RemoteManualSelectionUnlock = {
@@ -15880,6 +15926,159 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type PutRemoteManualSelectionFileContentData = {
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Transfer-Id
+     */
+    'X-Remote-Selection-Transfer-Id': string;
+    /**
+     * X-Remote-Selection-Generation
+     */
+    'X-Remote-Selection-Generation': number;
+    /**
+     * X-Remote-Selection-Source-Mtime
+     */
+    'X-Remote-Selection-Source-Mtime': number;
+    /**
+     * X-Remote-Selection-Checksum-Sha256
+     */
+    'X-Remote-Selection-Checksum-Sha256': string;
+    /**
+     * Content-Length
+     */
+    'Content-Length': number;
+    /**
+     * Content-Type
+     */
+    'Content-Type': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * File Id
+     */
+    file_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content';
+};
+
+export type PutRemoteManualSelectionFileContentErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Request Entity Too Large
+   */
+  413: ErrorResponse;
+  /**
+   * Unsupported Media Type
+   */
+  415: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type PutRemoteManualSelectionFileContentError =
+  PutRemoteManualSelectionFileContentErrors[keyof PutRemoteManualSelectionFileContentErrors];
+
+export type PutRemoteManualSelectionFileContentResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionTransferResponse;
+};
+
+export type PutRemoteManualSelectionFileContentResponse =
+  PutRemoteManualSelectionFileContentResponses[keyof PutRemoteManualSelectionFileContentResponses];
+
+export type GetRemoteManualSelectionFileTransferData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * File Id
+     */
+    file_id: string;
+  };
+  query: {
+    /**
+     * Generation
+     */
+    generation: number;
+    /**
+     * Transferid
+     */
+    transferId?: string | null;
+  };
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer';
+};
+
+export type GetRemoteManualSelectionFileTransferErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionFileTransferError =
+  GetRemoteManualSelectionFileTransferErrors[keyof GetRemoteManualSelectionFileTransferErrors];
+
+export type GetRemoteManualSelectionFileTransferResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionTransferResponse;
+};
+
+export type GetRemoteManualSelectionFileTransferResponse =
+  GetRemoteManualSelectionFileTransferResponses[keyof GetRemoteManualSelectionFileTransferResponses];
 
 export type ApplyRemoteManualSelectionOperationData = {
   body: RemoteManualSelectionOperationCreate;

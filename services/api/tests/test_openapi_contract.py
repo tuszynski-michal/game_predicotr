@@ -607,6 +607,36 @@ def test_remote_manual_selection_routes_can_be_disabled() -> None:
     assert "/api/v1/remote-manual-selections/context" not in paths
 
 
+def test_remote_manual_selection_transfer_openapi_is_binary_and_path_free() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    status_path = "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer"
+    content_path = "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content"
+    status = schema["paths"][status_path]["get"]
+    upload = schema["paths"][content_path]["put"]
+
+    assert status["operationId"] == "getRemoteManualSelectionFileTransfer"
+    assert upload["operationId"] == "putRemoteManualSelectionFileContent"
+    body = upload["requestBody"]["content"]["application/octet-stream"]["schema"]
+    assert body == {"format": "binary", "type": "string"}
+    headers = {
+        parameter["name"] for parameter in upload["parameters"] if parameter["in"] == "header"
+    }
+    assert {
+        "Content-Length",
+        "Content-Type",
+        "X-Remote-Selection-Checksum-Sha256",
+        "X-Remote-Selection-Client",
+        "X-Remote-Selection-Generation",
+        "X-Remote-Selection-Proxy",
+        "X-Remote-Selection-Source-Mtime",
+        "X-Remote-Selection-Transfer-Id",
+    } <= headers
+    response = schema["components"]["schemas"]["RemoteManualSelectionTransferResponse"]
+    serialized = json.dumps(response).lower()
+    assert "path" not in serialized
+    assert "token" not in serialized
+
+
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"

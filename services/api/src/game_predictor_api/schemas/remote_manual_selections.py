@@ -38,6 +38,9 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteSourceKind,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.storage.remote_manual_selection_repository import (
+    RemoteManualSelectionTransferRecord,
+)
 
 
 class RemoteManualSelectionBaseCapabilityResponse(ApiModel):
@@ -414,6 +417,59 @@ class RemoteManualSelectionOperationAppliedResponse(ApiModel):
     exact_retry: bool
 
 
+class RemoteManualSelectionTransferResponse(ApiModel):
+    transfer_id: UUID | None
+    batch_id: UUID
+    file_id: UUID
+    generation: int
+    attempt: int
+    declared_bytes: int
+    received_bytes: int
+    status: str
+    declared_checksum_sha256: str | None
+    verified_checksum_sha256: str | None
+
+    @classmethod
+    def from_record(
+        cls,
+        value: RemoteManualSelectionTransferRecord,
+    ) -> RemoteManualSelectionTransferResponse:
+        transfer = value.transfer
+        return cls(
+            transfer_id=transfer.id,
+            batch_id=transfer.batch_id,
+            file_id=transfer.file_id,
+            generation=transfer.generation,
+            attempt=transfer.attempt,
+            declared_bytes=transfer.declared_bytes,
+            received_bytes=transfer.received_bytes,
+            status=transfer.status.value,
+            declared_checksum_sha256=transfer.declared_checksum_sha256,
+            verified_checksum_sha256=transfer.verified_checksum_sha256,
+        )
+
+    @classmethod
+    def not_started(
+        cls,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionTransferResponse:
+        return cls(
+            transfer_id=None,
+            batch_id=batch_id,
+            file_id=file_id,
+            generation=generation,
+            attempt=0,
+            declared_bytes=0,
+            received_bytes=0,
+            status="not_started",
+            declared_checksum_sha256=None,
+            verified_checksum_sha256=None,
+        )
+
+
 class RemoteManualSelectionStateDeltaResponse(ApiModel):
     batch: RemoteManualSelectionBatchResponse
     files: list[RemoteManualSelectionFileResponse]
@@ -469,4 +525,5 @@ __all__ = [
     "RemoteManualSelectionSourceItemsCreate",
     "RemoteManualSelectionSourceItemsResponse",
     "RemoteManualSelectionStateDeltaResponse",
+    "RemoteManualSelectionTransferResponse",
 ]

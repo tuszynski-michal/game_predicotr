@@ -82,6 +82,14 @@ from game_predictor_api.application.remote_manual_selection_control import (
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
+from game_predictor_api.application.remote_manual_selection_transfer import (
+    RemoteManualSelectionTransferGate,
+    RemoteManualSelectionTransferLimitError,
+    RemoteManualSelectionTransferLimits,
+    RemoteManualSelectionTransferRateLimitError,
+    RemoteManualSelectionTransferService,
+    RemoteManualSelectionTransferTimeoutError,
+)
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
     ReviewerAccessService,
@@ -292,6 +300,7 @@ def create_app(
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_transfer_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -494,6 +503,48 @@ def create_app(
     resolved_remote_manual_selection_control_dependency = (
         remote_manual_selection_control_service_dependency
         or default_remote_manual_selection_control_service_dependency
+    )
+    remote_manual_selection_transfer_limits = RemoteManualSelectionTransferLimits(
+        max_file_bytes=resolved_settings.remote_selection_max_file_bytes,
+        max_session_bytes=resolved_settings.remote_selection_max_session_bytes,
+        max_active_session_transfers=(
+            resolved_settings.remote_selection_max_active_session_transfers
+        ),
+        max_active_global_transfers=(
+            resolved_settings.remote_selection_max_active_global_transfers
+        ),
+        upload_timeout_seconds=resolved_settings.remote_selection_upload_timeout_seconds,
+    )
+    remote_manual_selection_transfer_gate = RemoteManualSelectionTransferGate(
+        remote_manual_selection_transfer_limits
+    )
+
+    def default_remote_manual_selection_transfer_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionTransferService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionTransferService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    RemoteManualSelectionAccessService(
+                        SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                        host_service,
+                    ),
+                    host_service,
+                    limits=remote_manual_selection_transfer_limits,
+                    gate=remote_manual_selection_transfer_gate,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_transfer_dependency = (
+        remote_manual_selection_transfer_service_dependency
+        or default_remote_manual_selection_transfer_service_dependency
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -881,6 +932,7 @@ def create_app(
             resolved_remote_manual_selection_host_dependency,
             resolved_remote_manual_selection_access_dependency,
             resolved_remote_manual_selection_control_dependency,
+            resolved_remote_manual_selection_transfer_dependency,
             resolved_settings.artifact_root,
         )
     )
@@ -1049,8 +1101,17 @@ def create_app(
             status_code = 401
         elif isinstance(error, RemoteManualSelectionAuthorizationError):
             status_code = 403
-        elif isinstance(error, RemoteManualSelectionRateLimitError):
+        elif isinstance(
+            error,
+            RemoteManualSelectionRateLimitError | RemoteManualSelectionTransferRateLimitError,
+        ):
             status_code = 429
+        elif isinstance(error, RemoteManualSelectionTransferLimitError):
+            status_code = 413
+        elif isinstance(error, RemoteManualSelectionTransferTimeoutError):
+            status_code = 408
+        elif error.code == "REMOTE_SELECTION_TRANSFER_CONTENT_TYPE_INVALID":
+            status_code = 415
         elif isinstance(
             error,
             RemoteManualSelectionConflictError | RemoteManualSelectionLeaseConflictError,

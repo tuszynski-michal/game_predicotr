@@ -34,7 +34,9 @@ Stan protokołu zdalnej ręcznej selekcji jest przechowywany w ośmiu tabelach:
   wyników, unikalny po `operationId` oraz
   `batch + clientInstance + clientSequence`;
 - `remote_manual_selection_transfers` — metadane prób transferu, bez zawartości
-  obrazu;
+  obrazu; TASK 10 wykorzystuje istniejące pola attempt/generation, deklarowane i
+  odebrane bajty, checksumy, status oraz wyłącznie host-internal
+  `temp_relative_path`, dlatego nie wymaga nowej migracji;
 - `remote_manual_selection_host_actions` — kolejka host-only weryfikacji,
   materializacji, usunięcia i reconciliacji; aktywna akcja jest unikalna dla
   `file + generation + action type`;

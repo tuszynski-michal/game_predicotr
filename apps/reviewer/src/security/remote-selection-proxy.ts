@@ -4,6 +4,7 @@ export const REMOTE_SELECTION_PUBLIC_COOKIE = 'gp_remote_selection_token';
 export const REMOTE_SELECTION_PUBLIC_COOKIE_PATH = '/selection-api';
 export const REMOTE_SELECTION_PROXY_INTENT = 'reviewer-v1';
 export const REMOTE_SELECTION_MAX_CONTROL_BYTES = 128 * 1024;
+export const REMOTE_SELECTION_MAX_BINARY_BYTES = 32 * 1024 * 1024;
 
 const INTERNAL_COOKIE = 'remote_manual_selection_access';
 const DEFAULT_INTERNAL_API = 'http://127.0.0.1:8000';
@@ -52,11 +53,18 @@ export async function proxyRemoteSelectionRequest(
   const originError = validateRequestOrigin(request);
   if (originError !== null) return originError;
 
+  const isBinaryTransfer =
+    request.method === 'PUT' && targetPath.endsWith('/content');
+
   const declaredLength = Number(request.headers.get('content-length') ?? '0');
   if (
     !Number.isFinite(declaredLength) ||
     declaredLength < 0 ||
-    declaredLength > REMOTE_SELECTION_MAX_CONTROL_BYTES
+    declaredLength >
+      (isBinaryTransfer
+        ? REMOTE_SELECTION_MAX_BINARY_BYTES
+        : REMOTE_SELECTION_MAX_CONTROL_BYTES) ||
+    (isBinaryTransfer && declaredLength < 1)
   ) {
     return tooLarge();
   }
@@ -74,18 +82,27 @@ export async function proxyRemoteSelectionRequest(
     );
   }
 
-  let body: ArrayBuffer | undefined;
+  let body: ArrayBuffer | ReadableStream<Uint8Array> | undefined;
   if (request.method !== 'GET') {
     const contentType = request.headers.get('content-type')?.split(';', 1)[0];
-    if (contentType?.trim().toLowerCase() !== 'application/json') {
+    const expectedContentType = isBinaryTransfer
+      ? 'application/octet-stream'
+      : 'application/json';
+    if (contentType?.trim().toLowerCase() !== expectedContentType) {
       return errorResponse(
         415,
         'REMOTE_SELECTION_CONTENT_TYPE_INVALID',
-        'Remote selection control requests must use application/json.',
+        `Remote selection requests must use ${expectedContentType}.`,
       );
     }
-    body = await request.arrayBuffer();
-    if (body.byteLength > REMOTE_SELECTION_MAX_CONTROL_BYTES) return tooLarge();
+    if (isBinaryTransfer) {
+      if (request.body === null) return tooLarge();
+      body = request.body;
+    } else {
+      body = await request.arrayBuffer();
+      if (body.byteLength > REMOTE_SELECTION_MAX_CONTROL_BYTES)
+        return tooLarge();
+    }
   }
 
   const headers = new Headers({
@@ -96,7 +113,39 @@ export async function proxyRemoteSelectionRequest(
   if (clientInstanceId !== null) {
     headers.set('X-Remote-Selection-Client', clientInstanceId);
   }
-  if (body !== undefined) headers.set('Content-Type', 'application/json');
+  if (body !== undefined) {
+    headers.set(
+      'Content-Type',
+      isBinaryTransfer ? 'application/octet-stream' : 'application/json',
+    );
+  }
+  if (isBinaryTransfer) {
+    headers.set('Content-Length', String(declaredLength));
+    const transferHeaders = [
+      'x-remote-selection-transfer-id',
+      'x-remote-selection-generation',
+      'x-remote-selection-source-mtime',
+      'x-remote-selection-checksum-sha256',
+    ] as const;
+    const patterns: Record<(typeof transferHeaders)[number], RegExp> = {
+      'x-remote-selection-transfer-id':
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/,
+      'x-remote-selection-generation': /^[1-9]\d{0,15}$/,
+      'x-remote-selection-source-mtime': /^\d{1,16}$/,
+      'x-remote-selection-checksum-sha256': /^[0-9a-f]{64}$/,
+    };
+    for (const name of transferHeaders) {
+      const value = request.headers.get(name);
+      if (value === null || !patterns[name].test(value)) {
+        return errorResponse(
+          422,
+          'REMOTE_SELECTION_TRANSFER_HEADER_INVALID',
+          `The ${name} header is missing or invalid.`,
+        );
+      }
+      headers.set(name, value);
+    }
+  }
   if (!isUnlock && publicToken !== null) {
     headers.set('Cookie', `${INTERNAL_COOKIE}=${publicToken}`);
   }
@@ -114,6 +163,7 @@ export async function proxyRemoteSelectionRequest(
         headers,
         method: request.method,
         redirect: 'error',
+        ...(isBinaryTransfer ? { duplex: 'half' } : {}),
       },
     );
   } catch {
@@ -138,12 +188,25 @@ function isAllowedControlQuery(
   path: string,
   parameters: URLSearchParams,
 ): boolean {
-  if (parameters.size === 0) return true;
-  if (method !== 'GET' || !path.endsWith('/state')) return false;
-  const allowed = new Set(['sinceRevision', 'limit']);
+  if (parameters.size === 0) {
+    return !(method === 'GET' && path.endsWith('/transfer'));
+  }
+  if (method !== 'GET') return false;
+  const allowed = path.endsWith('/state')
+    ? new Set(['sinceRevision', 'limit'])
+    : path.endsWith('/transfer')
+      ? new Set(['generation', 'transferId'])
+      : new Set<string>();
+  if (allowed.size === 0) return false;
   for (const [key, value] of parameters) {
-    if (!allowed.has(key) || !/^\d{1,16}$/.test(value)) return false;
+    if (!allowed.has(key)) return false;
+    if (key === 'transferId') {
+      if (!/^[0-9a-fA-F-]{36}$/.test(value)) return false;
+    } else if (!/^\d{1,16}$/.test(value)) return false;
     if (parameters.getAll(key).length !== 1) return false;
+  }
+  if (path.endsWith('/transfer') && parameters.get('generation') === null) {
+    return false;
   }
   return true;
 }

@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -41,6 +41,11 @@ MAX_OWNERSHIP_MARKER_BYTES = 16 * 1024
 
 
 class RemoteManualSelectionHostRepository(Protocol):
+    def get_host_binding(
+        self,
+        session_id: UUID,
+    ) -> RemoteManualSelectionHostBinding | None: ...
+
     def get_host_binding_for_update(
         self,
         session_id: UUID,
@@ -94,6 +99,14 @@ class RemoteManualSelectionBatchMapping:
     batch_name: str
     created: bool
     resumed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionTransferDirectory:
+    """Host-internal transfer directory kept below a verified batch mapping."""
+
+    path: Path
+    relative_path: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,7 +230,7 @@ class RemoteManualSelectionHostService:
         session_id: UUID,
         value: str,
     ) -> ValidatedWindowsComponent:
-        binding = repository.get_host_binding_for_update(session_id)
+        binding = repository.get_host_binding(session_id)
         if binding is None:
             raise _scope_error()
         with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
@@ -326,6 +339,75 @@ class RemoteManualSelectionHostService:
             created=existing_batch is None,
             resumed=resumed,
         )
+
+    @contextmanager
+    def open_transfer_directory(
+        self,
+        repository: RemoteManualSelectionHostRepository,
+        *,
+        session_id: UUID,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> Iterator[RemoteManualSelectionTransferDirectory]:
+        """Open a non-reparse host-internal directory for one file generation."""
+
+        if generation < 1:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_GENERATION_INVALID",
+                "The transfer generation must be positive.",
+            )
+        binding = repository.get_host_binding_for_update(session_id)
+        batch = repository.get_batch(batch_id)
+        if binding is None or batch is None or batch.session_id != session_id:
+            raise _scope_error()
+        collection = repository.get_collection(batch.collection_id)
+        if collection is None or collection.session_id != session_id:
+            raise _scope_error()
+        with self._path_guard.lock_base(Path(binding.host_base_path)) as locked:
+            collection_component = validate_windows_component(
+                collection.name,
+                limits=locked.bound_base.limits,
+            )
+            batch_component = validate_windows_component(
+                batch.name,
+                limits=locked.bound_base.limits,
+            )
+            collection_path = locked.open_existing_child(
+                locked.bound_base.final_path,
+                collection_component,
+            )
+            if collection_path is None:
+                raise _path_conflict("The persisted collection directory is missing.")
+            batch_path = locked.open_existing_child(collection_path, batch_component)
+            if batch_path is None:
+                raise _path_conflict("The persisted batch directory is missing.")
+            marker = _OwnershipMarker(
+                session_id=session_id,
+                collection_id=collection.id,
+                batch_id=batch.id,
+                base_binding_id=binding.base_binding_id,
+                normalized_collection_name=collection.normalized_name,
+                normalized_batch_name=batch.name.casefold(),
+            )
+            self._verify_marker(locked, batch_path, marker)
+            components = (
+                OWNERSHIP_DIRECTORY,
+                OWNERSHIP_VERSION_DIRECTORY,
+                "transfers",
+                str(file_id),
+                str(generation),
+            )
+            current = batch_path
+            for value in components:
+                current, _created = locked.open_or_create_child(
+                    current,
+                    validate_windows_component(value, limits=locked.bound_base.limits),
+                )
+            yield RemoteManualSelectionTransferDirectory(
+                path=current,
+                relative_path="/".join(components),
+            )
 
     def _provision_filesystem(
         self,
@@ -538,5 +620,6 @@ __all__ = [
     "ConsumedRemoteManualSelectionBase",
     "RemoteManualSelectionBaseCapability",
     "RemoteManualSelectionBatchMapping",
+    "RemoteManualSelectionTransferDirectory",
     "RemoteManualSelectionHostService",
 ]

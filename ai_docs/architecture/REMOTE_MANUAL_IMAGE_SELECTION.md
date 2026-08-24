@@ -1440,7 +1440,7 @@ conflict resolution.
 
 ### TASK 10: Strumieniowy transfer jednego pliku
 
-**Status:** `PLANNED`
+**Status:** `IMPLEMENTED — CHECKPOINT REQUIRED`
 
 **Cel:** Przesyłać wyłącznie wybrane JPEG-i bez blokowania UI i bez trzymania
 requestu w całości w pamięci hosta.
@@ -1484,6 +1484,15 @@ Ruff/mypy, OpenAPI check.
 
 **Definition of Done:** Pojedynczy interrupted upload nigdy nie tworzy finalnego
 pliku, a verified retry nie wysyła pliku drugi raz; UI pozostaje interaktywne.
+
+**Outcome v0.7.34:** Publiczne status/PUT używają stałego transfer UUID,
+`Request.stream()` i host-internal `.part -> .verified`. Source size/mtime oraz
+checksum potwierdzonego `SELECT` są sprawdzane przed zapisem, a magic/format i
+pełny decode JPEG po zapisie. Limity są konfigurowalne przez środowisko; proxy
+ma odrębny binary limit i nie materializuje body. Scheduler ma domyślną
+współbieżność 2, pending-byte backpressure, priorytet, AbortController,
+wykładniczy backoff z jitterem oraz odtwarzanie `transferId` z IndexedDB.
+Materializacja, deselect i finalizacja pozostają wyłącznie w TASK 11+.
 
 **Rollback:** Usunąć binary route z allowlisty i scheduler flag; temp GC nie
 dotyka finalnych plików.

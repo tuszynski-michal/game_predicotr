@@ -55,6 +55,22 @@ export function remoteSelectionProxyTarget(
   ) {
     return path;
   }
+  if (
+    method === 'GET' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/files/${STRICT_UUID}/transfer$`,
+    ).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'PUT' &&
+    new RegExp(
+      `^/api/v1/remote-manual-selections/batches/${STRICT_UUID}/files/${STRICT_UUID}/content$`,
+    ).test(path)
+  ) {
+    return path;
+  }
   return null;
 }
 

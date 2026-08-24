@@ -10053,6 +10053,89 @@
         "title": "RemoteManualSelectionStateDeltaResponse",
         "type": "object"
       },
+      "RemoteManualSelectionTransferResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "declaredBytes": {
+            "title": "Declaredbytes",
+            "type": "integer"
+          },
+          "declaredChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declaredchecksumsha256"
+          },
+          "fileId": {
+            "format": "uuid",
+            "title": "Fileid",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "receivedBytes": {
+            "title": "Receivedbytes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "transferId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transferid"
+          },
+          "verifiedChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifiedchecksumsha256"
+          }
+        },
+        "required": [
+          "transferId",
+          "batchId",
+          "fileId",
+          "generation",
+          "attempt",
+          "declaredBytes",
+          "receivedBytes",
+          "status",
+          "declaredChecksumSha256",
+          "verifiedChecksumSha256"
+        ],
+        "title": "RemoteManualSelectionTransferResponse",
+        "type": "object"
+      },
       "RemoteManualSelectionUnlock": {
         "additionalProperties": false,
         "properties": {
@@ -28446,6 +28529,363 @@
         "summary": "Get API health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content": {
+      "put": {
+        "operationId": "putRemoteManualSelectionFileContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "File Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Client",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Client",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Transfer-Id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Transfer-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Generation",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "X-Remote-Selection-Generation",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Source-Mtime",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "title": "X-Remote-Selection-Source-Mtime",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Checksum-Sha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "X-Remote-Selection-Checksum-Sha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Content-Length",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Content-Length",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Content-Type",
+            "required": true,
+            "schema": {
+              "title": "Content-Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionTransferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Stream one checksum-bound selected JPEG to host temporary storage",
+        "tags": [
+          "remote-manual-selections"
+        ]
+      }
+    },
+    "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer": {
+      "get": {
+        "operationId": "getRemoteManualSelectionFileTransfer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "File Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "generation",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Generation",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "transferId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Transferid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Client",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "X-Remote-Selection-Client",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Remote-Selection-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Remote-Selection-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "remote_manual_selection_access",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote Manual Selection Access"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteManualSelectionTransferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read the resumable status of one selected JPEG transfer",
+        "tags": [
+          "remote-manual-selections"
         ]
       }
     },

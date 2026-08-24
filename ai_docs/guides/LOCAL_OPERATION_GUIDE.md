@@ -722,6 +722,23 @@ nieważne; cookie aktywnej sesji pozostaje ważne do TTL, rotacji lub revoke,
 ponieważ binding, hash-only credentials, stan lease i audyt są trwałe w
 PostgreSQL.
 
+TASK-0282 dodaje binarny transfer wybranego JPEG-a. Domyślne, trwałe limity
+procesu API można zmienić przed jego uruchomieniem:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES = '33554432'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES = '21474836480'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS = '4'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS = '8'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS = '120'
+npm run api:dev
+```
+
+Zmiana limitu pliku w API powyżej 32 MiB wymaga osobnej zgodnej zmiany limitu
+proxy Reviewera; obecna wersja celowo blokuje większe publiczne body wcześniej.
+Transfer kończy się na prywatnym stanie `verified`. Brak finalnego `seq_*` jest
+oczekiwany do czasu TASK 11.
+
 Od TASK-0279 utworzenie purpose-scoped sesji zdalnej selekcji automatycznie
 wykorzystuje ten sam produkcyjny Reviewer i Quick Tunnel. Publiczny link ma
 postać `/manual-selection?session=<UUID>` i nie zawiera kodu ani tokenu. Po

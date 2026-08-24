@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import test from 'node:test';
 
 import {
+  REMOTE_SELECTION_MAX_BINARY_BYTES,
   REMOTE_SELECTION_MAX_CONTROL_BYTES,
   REMOTE_SELECTION_PROXY_INTENT,
   isRemoteManualSelectionEnabled,
@@ -303,6 +304,57 @@ test('control allowlist admits only exact mutation paths and bounded state query
       requests[1].url,
       `/api/v1/remote-manual-selections/batches/${sessionId}/state?sinceRevision=2&limit=100`,
     );
+  });
+});
+
+test('binary JPEG transfer is streamed through the exact allowlist with bounded headers', async () => {
+  await withFakeApi(async (origin, requests) => {
+    const body = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const path =
+      `/selection-api/api/v1/remote-manual-selections/batches/${sessionId}` +
+      `/files/${clientId}/content`;
+    const response = await proxyRemoteSelectionRequest(
+      publicRequest(path, {
+        body,
+        headers: {
+          Cookie: `gp_remote_selection_token=${upstreamToken}`,
+          'Content-Length': String(body.length),
+          'Content-Type': 'application/octet-stream',
+          'X-Remote-Selection-Checksum-Sha256': 'a'.repeat(64),
+          'X-Remote-Selection-Client': clientId,
+          'X-Remote-Selection-Generation': '1',
+          'X-Remote-Selection-Source-Mtime': '123',
+          'X-Remote-Selection-Transfer-Id': sessionId,
+        },
+        method: 'PUT',
+      }),
+      { internalApiOrigin: origin },
+    );
+    assert.equal(response.status, 200);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].method, 'PUT');
+    assert.equal(requests[0].body, body.toString('utf8'));
+    assert.equal(requests[0].headers['content-length'], String(body.length));
+    assert.equal(
+      requests[0].headers['x-remote-selection-checksum-sha256'],
+      'a'.repeat(64),
+    );
+
+    const missingHeader = await proxyRemoteSelectionRequest(
+      publicRequest(path, {
+        body,
+        headers: {
+          Cookie: `gp_remote_selection_token=${upstreamToken}`,
+          'Content-Length': String(body.length),
+          'Content-Type': 'application/octet-stream',
+        },
+        method: 'PUT',
+      }),
+      { internalApiOrigin: origin },
+    );
+    assert.equal(missingHeader.status, 422);
+    assert.equal(requests.length, 1);
+    assert.ok(REMOTE_SELECTION_MAX_BINARY_BYTES > body.length);
   });
 });
 

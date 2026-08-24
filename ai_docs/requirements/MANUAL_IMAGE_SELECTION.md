@@ -118,5 +118,15 @@ Każda przyszła zdalna mutacja wpływająca na wynik musi najpierw zostać trwa
 dopisana do outboxu. Lokalna decyzja pozostaje `pending`, dopóki host nie
 potwierdzi dokładnego `operationId`; ack nie może usuwać innych operacji.
 Odświeżenie albo utrata procesu odtwarza ten sam kursor i pełny zbiór pending ID.
-TASK-0280 przygotowuje tę trwałość, ale nie wykonuje jeszcze operacji HTTP ani
-transferu JPEG.
+TASK-0280 przygotował tę trwałość, TASK-0281 uruchomił operacje HTTP, a
+TASK-0282 dodaje jednoplikowy transfer JPEG. Blob nadal nie trafia do IndexedDB:
+checkpoint przechowuje tylko stały `transferId`, generację, oczekiwany rozmiar i
+checksumę, liczbę potwierdzonych bajtów oraz stan.
+
+Transfer może wystartować wyłącznie po potwierdzonym `SELECT` bieżącej
+generacji. Klient najpierw odczytuje status; istniejący stan `verified` kończy
+retry bez ponownego wysyłania. Nowy upload jest ograniczony schedulerem i
+wysyłany jako jeden strumień `application/octet-stream`. Host zapisuje `.part`,
+liczy SHA-256 w locie, sprawdza długość, magic i pełny decode JPEG, a dopiero
+potem atomowo publikuje prywatny artefakt `verified`. Finalna nazwa `seq_*` nie
+powstaje przed osobną materializacją.

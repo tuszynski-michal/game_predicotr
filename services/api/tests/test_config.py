@@ -22,6 +22,11 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_root.name == "imports"
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.remote_manual_selection_host_mapping_enabled is True
+    assert settings.remote_selection_max_file_bytes == 32 * 1024 * 1024
+    assert settings.remote_selection_max_session_bytes == 20 * 1024 * 1024 * 1024
+    assert settings.remote_selection_max_active_session_transfers == 4
+    assert settings.remote_selection_max_active_global_transfers == 8
+    assert settings.remote_selection_upload_timeout_seconds == 120
 
 
 @pytest.mark.parametrize(
@@ -87,6 +92,26 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "yes"},
             "GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
         ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES": "invalid"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS",
+        ),
+        (
+            {"GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS": "0"},
+            "GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -134,3 +159,21 @@ def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:
     )
 
     assert settings.remote_manual_selection_host_mapping_enabled is False
+
+
+def test_remote_transfer_limits_are_configurable() -> None:
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES": "1000",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES": "2000",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS": "2",
+            "GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS": "3",
+            "GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS": "45",
+        }
+    )
+
+    assert settings.remote_selection_max_file_bytes == 1000
+    assert settings.remote_selection_max_session_bytes == 2000
+    assert settings.remote_selection_max_active_session_transfers == 2
+    assert settings.remote_selection_max_active_global_transfers == 3
+    assert settings.remote_selection_upload_timeout_seconds == 45

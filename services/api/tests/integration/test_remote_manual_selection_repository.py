@@ -399,6 +399,94 @@ def test_source_manifest_pages_resume_after_restart_and_freeze_on_activation(
         engine.dispose()
 
 
+def test_transfer_state_roundtrip_is_generation_scoped_and_reaches_verified(
+    remote_database: URL,
+) -> None:
+    engine = create_engine(remote_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    transfer_id = uuid4()
+    try:
+        _seed(engine)
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            repository.apply_operation(_command())
+            transfer = RemoteManualSelectionTransferV1(
+                id=transfer_id,
+                session_id=SESSION_ID,
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+                attempt=repository.next_transfer_attempt(file_id=FILE_ID, generation=1),
+                declared_bytes=1024,
+                received_bytes=0,
+                status=RemoteManualSelectionTransferStatus.QUEUED,
+                declared_checksum_sha256="b" * 64,
+            )
+            repository.add_transfer(transfer)
+            for status in (
+                RemoteManualSelectionTransferStatus.UPLOADING,
+                RemoteManualSelectionTransferStatus.STORED_TEMP,
+                RemoteManualSelectionTransferStatus.VERIFIED,
+            ):
+                transfer = replace(
+                    transfer,
+                    received_bytes=(
+                        1024 if status is not RemoteManualSelectionTransferStatus.UPLOADING else 0
+                    ),
+                    status=status,
+                    verified_checksum_sha256=(
+                        "b" * 64 if status is RemoteManualSelectionTransferStatus.VERIFIED else None
+                    ),
+                )
+                repository.update_transfer(
+                    transfer,
+                    temp_relative_path="internal/file.verified",
+                )
+            for status in (
+                RemoteManualSelectionFileStatus.UPLOAD_QUEUED,
+                RemoteManualSelectionFileStatus.UPLOADING,
+                RemoteManualSelectionFileStatus.STORED_TEMPORARILY,
+                RemoteManualSelectionFileStatus.VERIFIED,
+            ):
+                repository.update_file_transfer_status(
+                    batch_id=BATCH_ID,
+                    file_id=FILE_ID,
+                    generation=1,
+                    status=status,
+                    temp_relative_path="internal/file.verified",
+                    host_checksum_sha256=(
+                        "b" * 64 if status is RemoteManualSelectionFileStatus.VERIFIED else None
+                    ),
+                )
+            session.commit()
+
+        with session_factory() as session:
+            repository = SqlAlchemyRemoteManualSelectionRepository(session)
+            record = repository.get_transfer_record(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                transfer_id=transfer_id,
+            )
+            verified = repository.get_verified_transfer_record(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+            )
+            selected = repository.get_applied_select_operation(
+                batch_id=BATCH_ID,
+                file_id=FILE_ID,
+                generation=1,
+            )
+            file = repository.get_file(batch_id=BATCH_ID, file_id=FILE_ID)
+        assert record is not None and record.temp_relative_path == "internal/file.verified"
+        assert verified == record
+        assert selected is not None and selected.command.image_checksum_sha256 == "b" * 64
+        assert file is not None and file.status is RemoteManualSelectionFileStatus.VERIFIED
+        assert file.host_checksum_sha256 == "b" * 64
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows host path boundary")
 def test_host_binding_marker_recovers_rollback_and_survives_service_restart(
     remote_database: URL,

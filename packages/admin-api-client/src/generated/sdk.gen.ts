@@ -248,6 +248,9 @@ import type {
   GetRemoteManualSelectionContextData,
   GetRemoteManualSelectionContextErrors,
   GetRemoteManualSelectionContextResponses,
+  GetRemoteManualSelectionFileTransferData,
+  GetRemoteManualSelectionFileTransferErrors,
+  GetRemoteManualSelectionFileTransferResponses,
   GetRemoteManualSelectionSessionData,
   GetRemoteManualSelectionSessionErrors,
   GetRemoteManualSelectionSessionResponses,
@@ -465,6 +468,9 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  PutRemoteManualSelectionFileContentData,
+  PutRemoteManualSelectionFileContentErrors,
+  PutRemoteManualSelectionFileContentResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
@@ -4433,6 +4439,49 @@ export const getHealth = <ThrowOnError extends boolean = false>(
 ): RequestResult<GetHealthResponses, unknown, ThrowOnError> =>
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
+    ...options,
+  });
+
+/**
+ * Stream one checksum-bound selected JPEG to host temporary storage
+ */
+export const putRemoteManualSelectionFileContent = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PutRemoteManualSelectionFileContentData, ThrowOnError>,
+): RequestResult<
+  PutRemoteManualSelectionFileContentResponses,
+  PutRemoteManualSelectionFileContentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    PutRemoteManualSelectionFileContentResponses,
+    PutRemoteManualSelectionFileContentErrors,
+    ThrowOnError
+  >({
+    bodySerializer: null,
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content',
+    ...options,
+  });
+
+/**
+ * Read the resumable status of one selected JPEG transfer
+ */
+export const getRemoteManualSelectionFileTransfer = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionFileTransferData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionFileTransferResponses,
+  GetRemoteManualSelectionFileTransferErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionFileTransferResponses,
+    GetRemoteManualSelectionFileTransferErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer',
     ...options,
   });
 

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, Query, Response
+from fastapi import APIRouter, Cookie, Depends, Header, Query, Request, Response
 
 from game_predictor_api.application.remote_manual_selection_access import (
     REMOTE_SELECTION_COOKIE_NAME,
@@ -20,6 +20,9 @@ from game_predictor_api.application.remote_manual_selection_control import (
 )
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
+)
+from game_predictor_api.application.remote_manual_selection_transfer import (
+    RemoteManualSelectionTransferService,
 )
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressService,
@@ -46,6 +49,7 @@ from game_predictor_api.schemas.remote_manual_selections import (
     RemoteManualSelectionSourceItemsCreate,
     RemoteManualSelectionSourceItemsResponse,
     RemoteManualSelectionStateDeltaResponse,
+    RemoteManualSelectionTransferResponse,
     RemoteManualSelectionUnlock,
     RemoteManualSelectionWriterLeaseCommand,
 )
@@ -166,6 +170,7 @@ def create_remote_manual_selections_admin_router(
 def create_remote_manual_selections_public_router(
     access_service_dependency: Callable[..., object],
     control_service_dependency: Callable[..., object],
+    transfer_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(
         prefix="/remote-manual-selections",
@@ -173,6 +178,7 @@ def create_remote_manual_selections_public_router(
     )
     access_service_parameter = Depends(access_service_dependency)
     control_service_parameter = Depends(control_service_dependency)
+    transfer_service_parameter = Depends(transfer_service_dependency)
     client_header_parameter = Header(alias="X-Remote-Selection-Client")
 
     @router.post(
@@ -467,6 +473,107 @@ def create_remote_manual_selections_public_router(
             ),
             exact_retry=result.exact_retry,
         )
+
+    @router.get(
+        "/batches/{batch_id}/files/{file_id}/transfer",
+        response_model=RemoteManualSelectionTransferResponse,
+        operation_id="getRemoteManualSelectionFileTransfer",
+        summary="Read the resumable status of one selected JPEG transfer",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+        },
+    )
+    def get_file_transfer(
+        batch_id: UUID,
+        file_id: UUID,
+        service: Annotated[RemoteManualSelectionTransferService, transfer_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        generation: Annotated[int, Query(ge=1)],
+        transfer_id: Annotated[UUID | None, Query(alias="transferId")] = None,
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionTransferResponse:
+        record = service.status(
+            batch_id=batch_id,
+            file_id=file_id,
+            generation=generation,
+            transfer_id=transfer_id,
+            access_token=_require_cookie(access_token),
+            client_instance_id=client_instance_id,
+        )
+        return (
+            RemoteManualSelectionTransferResponse.not_started(
+                batch_id=batch_id,
+                file_id=file_id,
+                generation=generation,
+            )
+            if record is None
+            else RemoteManualSelectionTransferResponse.from_record(record)
+        )
+
+    @router.put(
+        "/batches/{batch_id}/files/{file_id}/content",
+        response_model=RemoteManualSelectionTransferResponse,
+        operation_id="putRemoteManualSelectionFileContent",
+        summary="Stream one checksum-bound selected JPEG to host temporary storage",
+        tags=["remote-manual-selections"],
+        responses={
+            401: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            413: {"model": ErrorResponse},
+            415: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+                },
+            }
+        },
+    )
+    async def put_file_content(
+        batch_id: UUID,
+        file_id: UUID,
+        request: Request,
+        service: Annotated[RemoteManualSelectionTransferService, transfer_service_parameter],
+        client_instance_id: Annotated[UUID, client_header_parameter],
+        transfer_id: Annotated[UUID, Header(alias="X-Remote-Selection-Transfer-Id")],
+        generation: Annotated[int, Header(alias="X-Remote-Selection-Generation", ge=1)],
+        source_last_modified_ms: Annotated[
+            int,
+            Header(alias="X-Remote-Selection-Source-Mtime", ge=0),
+        ],
+        checksum_sha256: Annotated[
+            str,
+            Header(alias="X-Remote-Selection-Checksum-Sha256", pattern=r"^[0-9a-f]{64}$"),
+        ],
+        content_length: Annotated[int, Header(alias="Content-Length", ge=1)],
+        content_type: Annotated[str, Header(alias="Content-Type")],
+        access_token: Annotated[
+            str | None,
+            Cookie(alias=REMOTE_SELECTION_COOKIE_NAME),
+        ] = None,
+    ) -> RemoteManualSelectionTransferResponse:
+        result = await service.upload(
+            batch_id=batch_id,
+            file_id=file_id,
+            generation=generation,
+            transfer_id=transfer_id,
+            declared_bytes=content_length,
+            declared_last_modified_ms=source_last_modified_ms,
+            declared_checksum_sha256=checksum_sha256,
+            content_type=content_type,
+            chunks=request.stream(),
+            access_token=_require_cookie(access_token),
+            client_instance_id=client_instance_id,
+        )
+        return RemoteManualSelectionTransferResponse.from_record(result)
 
     return router
 

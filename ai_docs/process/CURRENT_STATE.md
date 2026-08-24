@@ -15,6 +15,29 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.7 implementation: board import and review operations`
 
+### Strumieniowy transfer zdalnej selekcji — v0.7.34
+
+- TASK-0282 dodaje osobne route statusu i binarnego `PUT` dla jednego
+  checksum-bound JPEG-a. FastAPI konsumuje `Request.stream()` porcjami do 1 MiB,
+  zapisuje `.part` pod zweryfikowanym host mappingiem i kończy najwyżej na
+  host-internal artefakcie `verified`; nie tworzy jeszcze pliku `seq_*`.
+- Rozmiar i mtime muszą odpowiadać niezmiennemu source manifestowi, a checksum
+  potwierdzonemu `SELECT` tej samej generacji. Serwer sprawdza długość, SHA-256,
+  JPEG magic/format/decode oraz limity per plik, sesję i współbieżność.
+- Przerwany lub błędny stream usuwa `.part`. Status-before-retry i trwały
+  `transferId` w checkpointcie odzyskują utraconą odpowiedź bez drugiego uploadu;
+  po restarcie zgodny osierocony artefakt `verified` jest adoptowany po ponownej
+  walidacji.
+- Reviewer proxy ma oddzielną dokładną allowlistę oraz limit 32 MiB dla
+  binarnego streamu. Scheduler domyślnie dopuszcza dwa transfery, ma limit
+  pending bytes, priorytet, AbortController i retry wyłącznie dla błędów
+  przejściowych.
+- Bramka: 54 celowane testy API, 14 testów PostgreSQL i 91 testów Reviewera;
+  Ruff, Reviewer lint/typecheck/build, OpenAPI i wygenerowany klient są zielone.
+  Pełna regresja API wykonana wcześniej w rozłącznych grupach dała 534 testy
+  zaliczone i 2 pominięte, a późniejsze zmiany ponownie pokryła celowana bramka.
+- TASK 10 kończy się na checkpointcie przed materializacją TASK 11.
+
 ### Control plane zdalnej selekcji — v0.7.33
 
 - TASK-0281 dodaje idempotentne tworzenie kolekcji i partii, stronicowaną
@@ -29,8 +52,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   bounded state delta i sekwencyjny synchronizator trwałego IndexedDB outboxu.
   Potwierdzenie usuwa tylko dokładny `operationId`; błąd sieci pozostawia
   pending, a kontrolowany konflikt zachowuje operację i uzgadnia nowszy stan.
-- Publiczna powierzchnia nadal nie przyjmuje bajtów JPEG, nie materializuje
-  plików i nie finalizuje partii. To pozostaje zakresem TASK 10+.
+- Historycznie publiczna powierzchnia nie przyjmowała bajtów JPEG. Od TASK 10
+  przyjmuje wyłącznie dokładnie ograniczony transfer do host-internal
+  `verified`; materializacja i finalizacja pozostają zakresem TASK 11+.
 - Bramka: 526 top-level testów API i 2 pominięte testy symlinków Windows,
   13/13 PostgreSQL (w tym indeksowany delta dla 15 000 rekordów), 85/85 testów
   Reviewera, Ruff, Reviewer lint/typecheck/build, klient API i OpenAPI są

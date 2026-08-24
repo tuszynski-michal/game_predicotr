@@ -115,6 +115,8 @@ export interface RemoteSelectionTransferCheckpointRecord {
   readonly expectedSizeBytes: number;
   readonly expectedChecksumSha256: string | null;
   readonly acknowledgedBytes: number;
+  readonly transferId?: string;
+  readonly status?: 'queued' | 'uploading' | 'verified' | 'failed';
   readonly updatedAt: string;
 }
 
@@ -725,7 +727,15 @@ export class RemoteSelectionIndexedDbStore {
       checkpoint.expectedSizeBytes < 0 ||
       !Number.isSafeInteger(checkpoint.acknowledgedBytes) ||
       checkpoint.acknowledgedBytes < 0 ||
-      checkpoint.acknowledgedBytes > checkpoint.expectedSizeBytes
+      checkpoint.acknowledgedBytes > checkpoint.expectedSizeBytes ||
+      (checkpoint.transferId !== undefined &&
+        !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+          checkpoint.transferId,
+        )) ||
+      (checkpoint.status !== undefined &&
+        !['queued', 'uploading', 'verified', 'failed'].includes(
+          checkpoint.status,
+        ))
     ) {
       throw storeError(
         'REMOTE_SELECTION_TRANSFER_CHECKPOINT_INVALID',
@@ -743,6 +753,26 @@ export class RemoteSelectionIndexedDbStore {
         .objectStore(REMOTE_SELECTION_DATABASE_STORES.transferCheckpoints)
         .put(checkpoint);
       await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
+  async loadTransferCheckpoint(
+    sessionId: string,
+    batchId: string,
+    fileId: string,
+    generation: number,
+  ): Promise<RemoteSelectionTransferCheckpointRecord | null> {
+    const database = await this.open();
+    try {
+      const value = (await requestResult(
+        database
+          .transaction(REMOTE_SELECTION_DATABASE_STORES.transferCheckpoints)
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.transferCheckpoints)
+          .get([sessionId, batchId, fileId, generation]),
+      )) as RemoteSelectionTransferCheckpointRecord | undefined;
+      return value ?? null;
     } finally {
       database.close();
     }

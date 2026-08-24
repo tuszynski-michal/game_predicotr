@@ -40,6 +40,8 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteSourceManifestEntryV1,
     apply_remote_manual_selection_operation,
     build_remote_source_manifest,
+    transition_remote_file_status,
+    transition_remote_transfer_status,
 )
 from game_predictor_api.storage.models import (
     RemoteManualSelectionAuditEventModel,
@@ -83,6 +85,12 @@ class RemoteManualSelectionSourceRegistration:
     files: tuple[RemoteManualSelectionFileV1, ...]
     created_count: int
     total_file_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteManualSelectionTransferRecord:
+    transfer: RemoteManualSelectionTransferV1
+    temp_relative_path: str | None
 
 
 class SqlAlchemyRemoteManualSelectionRepository:
@@ -131,6 +139,13 @@ class SqlAlchemyRemoteManualSelectionRepository:
             .where(RemoteManualSelectionSessionModel.id == session_id)
             .with_for_update()
         )
+        return None if record is None else _host_binding_from_record(record)
+
+    def get_host_binding(
+        self,
+        session_id: UUID,
+    ) -> RemoteManualSelectionHostBinding | None:
+        record = self._session.get(RemoteManualSelectionSessionModel, session_id)
         return None if record is None else _host_binding_from_record(record)
 
     def add_collection(
@@ -243,6 +258,163 @@ class SqlAlchemyRemoteManualSelectionRepository:
     ) -> RemoteManualSelectionOperationV1 | None:
         record = self._session.get(RemoteManualSelectionOperationModel, operation_id)
         return None if record is None else _operation_from_record(record)
+
+    def get_applied_select_operation(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionOperationV1 | None:
+        record = self._session.scalar(
+            select(RemoteManualSelectionOperationModel)
+            .where(
+                RemoteManualSelectionOperationModel.batch_id == batch_id,
+                RemoteManualSelectionOperationModel.file_id == file_id,
+                RemoteManualSelectionOperationModel.selection_generation == generation,
+                RemoteManualSelectionOperationModel.operation_type
+                == RemoteManualSelectionOperationType.SELECT.value,
+                RemoteManualSelectionOperationModel.status
+                == RemoteManualSelectionOperationStatus.APPLIED.value,
+            )
+            .order_by(RemoteManualSelectionOperationModel.created_at.desc())
+            .limit(1)
+        )
+        return None if record is None else _operation_from_record(record)
+
+    def get_transfer_record(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+    ) -> RemoteManualSelectionTransferRecord | None:
+        record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel).where(
+                RemoteManualSelectionTransferModel.id == transfer_id,
+                RemoteManualSelectionTransferModel.batch_id == batch_id,
+                RemoteManualSelectionTransferModel.file_id == file_id,
+            )
+        )
+        return None if record is None else _transfer_record_from_record(record)
+
+    def get_verified_transfer_record(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionTransferRecord | None:
+        record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(
+                RemoteManualSelectionTransferModel.batch_id == batch_id,
+                RemoteManualSelectionTransferModel.file_id == file_id,
+                RemoteManualSelectionTransferModel.generation == generation,
+                RemoteManualSelectionTransferModel.status
+                == RemoteManualSelectionTransferStatus.VERIFIED.value,
+            )
+            .order_by(RemoteManualSelectionTransferModel.attempt.desc())
+            .limit(1)
+        )
+        return None if record is None else _transfer_record_from_record(record)
+
+    def next_transfer_attempt(self, *, file_id: UUID, generation: int) -> int:
+        current = self._session.scalar(
+            select(func.max(RemoteManualSelectionTransferModel.attempt)).where(
+                RemoteManualSelectionTransferModel.file_id == file_id,
+                RemoteManualSelectionTransferModel.generation == generation,
+            )
+        )
+        return int(current or 0) + 1
+
+    def session_reserved_transfer_bytes(self, session_id: UUID) -> int:
+        value = self._session.scalar(
+            select(
+                func.coalesce(func.sum(RemoteManualSelectionTransferModel.declared_bytes), 0)
+            ).where(
+                RemoteManualSelectionTransferModel.session_id == session_id,
+                RemoteManualSelectionTransferModel.status.in_(
+                    (
+                        RemoteManualSelectionTransferStatus.UPLOADING.value,
+                        RemoteManualSelectionTransferStatus.STORED_TEMP.value,
+                        RemoteManualSelectionTransferStatus.VERIFIED.value,
+                    )
+                ),
+            )
+        )
+        return int(value or 0)
+
+    def update_transfer(
+        self,
+        value: RemoteManualSelectionTransferV1,
+        *,
+        temp_relative_path: str | None,
+    ) -> RemoteManualSelectionTransferV1:
+        record = self._session.scalar(
+            select(RemoteManualSelectionTransferModel)
+            .where(RemoteManualSelectionTransferModel.id == value.id)
+            .with_for_update()
+        )
+        if record is None:
+            raise RemoteManualSelectionError(
+                "REMOTE_SELECTION_TRANSFER_NOT_FOUND",
+                "The remote selection transfer does not exist.",
+            )
+        current = RemoteManualSelectionTransferStatus(record.status)
+        if current is not value.status:
+            transition_remote_transfer_status(current, value.status)
+        record.received_bytes = value.received_bytes
+        record.status = value.status.value
+        record.declared_checksum_sha256 = value.declared_checksum_sha256
+        record.verified_checksum_sha256 = value.verified_checksum_sha256
+        record.temp_relative_path = temp_relative_path
+        self._session.flush()
+        return _transfer_from_record(record)
+
+    def update_file_transfer_status(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        status: RemoteManualSelectionFileStatus,
+        temp_relative_path: str | None = None,
+        host_checksum_sha256: str | None = None,
+    ) -> RemoteManualSelectionFileV1:
+        file_record = self._session.scalar(
+            select(RemoteManualSelectionFileModel)
+            .where(
+                RemoteManualSelectionFileModel.batch_id == batch_id,
+                RemoteManualSelectionFileModel.id == file_id,
+            )
+            .with_for_update()
+        )
+        batch_record = self._session.scalar(
+            select(RemoteManualSelectionBatchModel)
+            .where(RemoteManualSelectionBatchModel.id == batch_id)
+            .with_for_update()
+        )
+        if (
+            file_record is None
+            or batch_record is None
+            or not file_record.desired_selected
+            or file_record.selection_generation != generation
+        ):
+            raise RemoteManualSelectionConflictError(
+                "REMOTE_SELECTION_TRANSFER_GENERATION_CONFLICT",
+                "The selected file generation changed during transfer.",
+            )
+        current = RemoteManualSelectionFileStatus(file_record.status)
+        if current is not status:
+            transition_remote_file_status(current, status)
+        batch_record.server_revision += 1
+        file_record.status = status.value
+        file_record.temp_relative_path = temp_relative_path
+        file_record.host_checksum_sha256 = host_checksum_sha256
+        file_record.last_server_revision = batch_record.server_revision
+        self._session.flush()
+        return _file_from_record(file_record)
 
     def register_source_files(
         self,
@@ -643,6 +815,7 @@ class InMemoryRemoteManualSelectionRepository:
         self.batch_file_counts: dict[UUID, int] = {}
         self.base_mappings: set[tuple[UUID, str, str]] = set()
         self.transfers: dict[UUID, RemoteManualSelectionTransferV1] = {}
+        self.transfer_paths: dict[UUID, str | None] = {}
         self.host_actions: dict[UUID, RemoteManualSelectionHostActionV1] = {}
         self.audit_event_ids: set[UUID] = set()
 
@@ -672,6 +845,12 @@ class InMemoryRemoteManualSelectionRepository:
         return self.sessions.get(session_id)
 
     def get_host_binding_for_update(
+        self,
+        session_id: UUID,
+    ) -> RemoteManualSelectionHostBinding | None:
+        return self.bindings.get(session_id)
+
+    def get_host_binding(
         self,
         session_id: UUID,
     ) -> RemoteManualSelectionHostBinding | None:
@@ -777,6 +956,136 @@ class InMemoryRemoteManualSelectionRepository:
         operation_id: UUID,
     ) -> RemoteManualSelectionOperationV1 | None:
         return self.operations.get(operation_id)
+
+    def get_applied_select_operation(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionOperationV1 | None:
+        return next(
+            (
+                item
+                for item in self.operations.values()
+                if item.command.batch_id == batch_id
+                and item.command.file_id == file_id
+                and item.command.selection_generation == generation
+                and item.command.operation_type is RemoteManualSelectionOperationType.SELECT
+                and item.status is RemoteManualSelectionOperationStatus.APPLIED
+            ),
+            None,
+        )
+
+    def get_transfer_record(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        transfer_id: UUID,
+    ) -> RemoteManualSelectionTransferRecord | None:
+        value = self.transfers.get(transfer_id)
+        if value is None or value.batch_id != batch_id or value.file_id != file_id:
+            return None
+        return RemoteManualSelectionTransferRecord(value, self.transfer_paths.get(value.id))
+
+    def get_verified_transfer_record(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+    ) -> RemoteManualSelectionTransferRecord | None:
+        matches = [
+            item
+            for item in self.transfers.values()
+            if item.batch_id == batch_id
+            and item.file_id == file_id
+            and item.generation == generation
+            and item.status is RemoteManualSelectionTransferStatus.VERIFIED
+        ]
+        if not matches:
+            return None
+        value = max(matches, key=lambda item: item.attempt)
+        return RemoteManualSelectionTransferRecord(value, self.transfer_paths.get(value.id))
+
+    def next_transfer_attempt(self, *, file_id: UUID, generation: int) -> int:
+        return (
+            max(
+                (
+                    item.attempt
+                    for item in self.transfers.values()
+                    if item.file_id == file_id and item.generation == generation
+                ),
+                default=0,
+            )
+            + 1
+        )
+
+    def session_reserved_transfer_bytes(self, session_id: UUID) -> int:
+        return sum(
+            item.declared_bytes
+            for item in self.transfers.values()
+            if item.session_id == session_id
+            and item.status
+            in {
+                RemoteManualSelectionTransferStatus.UPLOADING,
+                RemoteManualSelectionTransferStatus.STORED_TEMP,
+                RemoteManualSelectionTransferStatus.VERIFIED,
+            }
+        )
+
+    def update_transfer(
+        self,
+        value: RemoteManualSelectionTransferV1,
+        *,
+        temp_relative_path: str | None,
+    ) -> RemoteManualSelectionTransferV1:
+        with self._lock:
+            current = self.transfers.get(value.id)
+            if current is None:
+                raise RemoteManualSelectionError(
+                    "REMOTE_SELECTION_TRANSFER_NOT_FOUND",
+                    "The remote selection transfer does not exist.",
+                )
+            if current.status is not value.status:
+                transition_remote_transfer_status(current.status, value.status)
+            self.transfers[value.id] = value
+            self.transfer_paths[value.id] = temp_relative_path
+            return value
+
+    def update_file_transfer_status(
+        self,
+        *,
+        batch_id: UUID,
+        file_id: UUID,
+        generation: int,
+        status: RemoteManualSelectionFileStatus,
+        temp_relative_path: str | None = None,
+        host_checksum_sha256: str | None = None,
+    ) -> RemoteManualSelectionFileV1:
+        del temp_relative_path
+        with self._lock:
+            file = self.files.get(file_id)
+            batch = self.batches.get(batch_id)
+            if (
+                file is None
+                or batch is None
+                or not file.desired_selected
+                or file.selection_generation != generation
+            ):
+                raise RemoteManualSelectionConflictError(
+                    "REMOTE_SELECTION_TRANSFER_GENERATION_CONFLICT",
+                    "The selected file generation changed during transfer.",
+                )
+            if file.status is not status:
+                transition_remote_file_status(file.status, status)
+            batch = replace(batch, server_revision=batch.server_revision + 1)
+            file = replace(file, status=status, host_checksum_sha256=host_checksum_sha256)
+            self.batches[batch_id] = batch
+            self.files[file_id] = file
+            self.file_revisions[file_id] = batch.server_revision
+            return file
 
     def register_source_files(
         self,
@@ -1002,7 +1311,7 @@ class InMemoryRemoteManualSelectionRepository:
         temp_relative_path: str | None = None,
         retry_at: datetime | None = None,
     ) -> RemoteManualSelectionTransferV1:
-        del temp_relative_path, retry_at
+        del retry_at
         with self._lock:
             file = self.files.get(value.file_id)
             if (
@@ -1022,6 +1331,7 @@ class InMemoryRemoteManualSelectionRepository:
             ):
                 raise _persistence_conflict()
             self.transfers[value.id] = value
+            self.transfer_paths[value.id] = temp_relative_path
             return value
 
     def add_host_action(
@@ -1294,6 +1604,15 @@ def _transfer_from_record(
     )
 
 
+def _transfer_record_from_record(
+    record: RemoteManualSelectionTransferModel,
+) -> RemoteManualSelectionTransferRecord:
+    return RemoteManualSelectionTransferRecord(
+        transfer=_transfer_from_record(record),
+        temp_relative_path=record.temp_relative_path,
+    )
+
+
 def _host_action_from_record(
     record: RemoteManualSelectionHostActionModel,
 ) -> RemoteManualSelectionHostActionV1:
@@ -1401,5 +1720,6 @@ __all__ = [
     "RemoteManualSelectionHostBinding",
     "RemoteManualSelectionSessionSecrets",
     "RemoteManualSelectionSourceRegistration",
+    "RemoteManualSelectionTransferRecord",
     "SqlAlchemyRemoteManualSelectionRepository",
 ]

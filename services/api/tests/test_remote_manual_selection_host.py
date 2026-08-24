@@ -154,6 +154,34 @@ def test_mapping_creates_marker_and_resumes_after_service_restart(tmp_path: Path
     assert "base" not in {key.lower() for key in asdict(resumed)}
 
 
+def test_transfer_directory_stays_below_verified_host_internal_mapping(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    base.mkdir()
+    repository = _repository(base)
+    service = RemoteManualSelectionHostService(lambda: None)
+    service.provision_batch_mapping(
+        repository,
+        session_id=SESSION_ID,
+        collection=_collection(),
+        batch=_batch(),
+        total_file_count=1,
+    )
+    file_id = UUID("40000000-0000-4000-8000-000000000004")
+
+    with service.open_transfer_directory(
+        repository,
+        session_id=SESSION_ID,
+        batch_id=BATCH_ID,
+        file_id=file_id,
+        generation=1,
+    ) as directory:
+        assert directory.path.is_dir()
+        assert directory.path.is_relative_to(base / "777" / "1-19809")
+        assert directory.relative_path == (
+            f".game-predictor/remote-selection-v1/transfers/{file_id}/1"
+        )
+
+
 def test_existing_unmarked_or_foreign_batch_is_blocked(tmp_path: Path) -> None:
     base = tmp_path / "base"
     batch_path = base / "777" / "1-19809"

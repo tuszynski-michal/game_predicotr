@@ -119,6 +119,8 @@ POST /api/v1/remote-manual-selections/collections/{collectionId}/batches
 POST /api/v1/remote-manual-selections/batches/{batchId}/source-items
 GET  /api/v1/remote-manual-selections/batches/{batchId}/state?sinceRevision=0&limit=100
 POST /api/v1/remote-manual-selections/batches/{batchId}/operations
+GET  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/transfer?generation=1&transferId=<UUID>
+PUT  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/content
 ```
 
 Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
@@ -131,11 +133,20 @@ host-only cookie API `remote_manual_selection_access`. Context wymaga cookie i
 Proxy dodaje stały `X-Remote-Selection-Proxy: reviewer-v1`, którego wymagają
 wszystkie publiczne route FastAPI. Nie przekazuje Authorization, legacy cookie
 Reviewera ani `Set-Cookie` upstreamu. Wymusza same-origin Origin/Fetch Metadata,
-JSON i limit 128 KiB dla requestu oraz odpowiedzi. Query jest zabronione poza
-dokładnie jednym odczytem state delta, gdzie dozwolone są wyłącznie pojedyncze,
-dziesiętne `sinceRevision` i `limit`. Binarne body, route Admina, legacy
-Reviewera, jobów, storage, eksportów i wydań są zabronione. API nie ma
+JSON i limit 128 KiB dla control requestu oraz każdej odpowiedzi. Query jest
+zabronione poza state delta (`sinceRevision`, `limit`) i statusem transferu
+(`generation`, opcjonalny `transferId`). Jedyny binarny wyjątek to dokładny
+`PUT .../content`: `application/octet-stream`, znany `Content-Length` do 32 MiB
+oraz walidowane nagłówki transfer UUID, generacji, source mtime i SHA-256.
+Proxy przekazuje body jako stream i nie buforuje JPEG-a. Route Admina, legacy
+Reviewera, jobów, storage, eksportów i wydań pozostają zabronione. API nie ma
 publicznego CORS i pozostaje na loopback.
+
+Status zwraca `not_started` albo metadane próby bez host path. `PUT` jest
+idempotentny względem transferu/generacji/checksumy i zwraca dopiero
+`verified`. Stabilne odpowiedzi obejmują `408` timeout, `409` konflikt
+generacji/treści, `413` limit pliku lub sesji, `415` zły content type i `429`
+limit współbieżności. TASK 10 nie zwraca ani nie tworzy finalnego `seq_*`.
 
 Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
 Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać

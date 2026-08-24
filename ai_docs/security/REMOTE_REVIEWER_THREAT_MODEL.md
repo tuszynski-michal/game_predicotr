@@ -26,10 +26,11 @@ geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
-`reviewer-v1`. Po TASK 9 zamknięta allowlista obejmuje unlock, context,
+`reviewer-v1`. Po TASK 10 zamknięta allowlista obejmuje unlock, context,
 heartbeat, takeover oraz dokładne route tworzenia kolekcji/partii, stronicowanej
-rejestracji metadanych, operacji i state delta. Nie obejmuje uploadu binarnego,
-materializacji ani finalizacji. Cookie starego Reviewera nie autoryzuje
+rejestracji metadanych, operacji, state delta, status transferu i jeden
+checksum-bound binarny `PUT` na plik. Nie obejmuje materializacji ani
+finalizacji. Cookie starego Reviewera nie autoryzuje
 selekcji, a cookie selekcji nie autoryzuje `/review-api`.
 
 Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
@@ -72,7 +73,9 @@ sesji i kodu.
 | zatrzymanie nowszej instancji przez spóźnione żądanie | wewnętrzny compare-and-stop wymaga zgodnego instance id i pozostawia nowszą instancję bez zmian |
 | blokada wspólnego pliku logu lub wyniku | każda próba startu i każde wywołanie kontrolera API używa unikalnej ścieżki |
 | CSRF z obcego originu | mutacje `/selection-api` wymagają zgodnego `Origin`, `Sec-Fetch-Site: same-origin`, Strict cookie i JSON |
-| nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, query tylko dla cyfrowych `sinceRevision/limit` state delta, brak Authorization, limit 128 KiB request/response oraz JSON-only |
+| nadużycie proxy jako ogólnego transportu | dokładna metoda/path allowlista, query tylko dla state delta/statusu, brak Authorization, control 128 KiB i jeden binarny PUT do 32 MiB z wymaganymi nagłówkami |
+| złośliwy lub podmieniony JPEG | zgodność size/mtime z manifestem i checksumy z potwierdzonym SELECT, streaming do `.part`, limity per-file/session/concurrency, magic/format/full decode przed `verified` |
+| zerwanie transferu lub utrata odpowiedzi | `.part` nie jest wynikiem, klient zachowuje transferId i przed retry pyta o status; zgodny artefakt po restarcie jest ponownie hashowany i dekodowany |
 | awaria ingressu podczas revoke | revoke nie odczytuje ani nie zatrzymuje ingressu; token i lease są czyszczone niezależnie |
 | replay albo utrata odpowiedzi operacji | trwały outbox, dokładne `operationId + checksum`, monotoniczny client sequence/revision/generation i zwrot zapisanego outcome bez ponownej mutacji |
 | wysłanie operacji bez writer lease | autoryzacja writer ownership i mutacja odbywają się w tej samej transakcji; po expiry dozwolony jest wyłącznie exact retry istniejącego outcome |

@@ -84,6 +84,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   powstaje dopiero przy jawnym uruchomieniu. Jawny `Restart selekcji` czyści
   tylko zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują
   operację.
+- Bieżącym aktywnym modelem symboli gry `777` jest iteracja `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`. Weryfikacja bazy 2026-08-24
+  potwierdziła status `candidate_ready` oraz aktywację z 2026-08-19; ponowna
+  aktywacja zwraca poprawnie `SYMBOL_MODEL_ALREADY_ACTIVE`. Historyczna
+  iteracja v19 z błędem `lemon → orange` pozostaje odrzuconym artefaktem i nie
+  jest tym aktywnym modelem.
 - Historyczny control outbox, transfer i materializacja pozostają w repozytorium
   do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
   transfer do hosta wymagają ponownej decyzji przed kontynuacją.

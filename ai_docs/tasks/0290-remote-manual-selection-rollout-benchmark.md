@@ -335,6 +335,15 @@ ani kopiowania JPEG-ów do repozytorium.
 - Konflikty checksum, obce pliki i niezgodny manifest nadal są fail-closed i nie
   uruchamiają automatycznego resetu.
 
+### v0.7.64 — potwierdzenie aktywnego modelu symboli
+
+- Odczyt lokalnego rejestru potwierdził, że najnowsza iteracja `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056` ma status `candidate_ready` i jest
+  już aktywna od 2026-08-19.
+- Nie utworzono drugiego zdarzenia aktywacji: API prawidłowo zwraca
+  `SYMBOL_MODEL_ALREADY_ACTIVE`. Historyczny odrzucony kandydat v19 pozostaje
+  oddzielnym artefaktem audytowym.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

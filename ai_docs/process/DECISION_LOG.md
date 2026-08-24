@@ -5527,6 +5527,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   rodzica została odrzucona, ponieważ nie działa dla starszych sesji i nie
   naprawia równoczesnej utraty dostępu do źródła.
 
+## D-230 — Aktywna iteracja symboli pozostaje najnowszym kandydatem gotowym do użycia
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** aktywna dla gry `777` pozostaje iteracja symboli `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`, aktywowana 2026-08-19 po statusie
+  `candidate_ready`. Nowe importy i przeliczenia przypinają jej snapshot; nie
+  tworzymy ponownego zdarzenia aktywacji dla identycznego modelu.
+- **Context:** opis historycznego kandydata v19 odrzuconego po błędzie
+  `lemon → orange` był mylony z późniejszą iteracją #3. Odczyt rejestru modelu
+  potwierdził, że #3 jest już aktywna, a API zwraca
+  `SYMBOL_MODEL_ALREADY_ACTIVE` dla drugiej próby.
+- **Safety:** odrzucony kandydat pozostaje audytowalny i nie może wrócić do
+  produkcji. Aktywacja kolejnej iteracji nadal wymaga `candidate_ready`,
+  aktualnego manifestu, oczekiwanego aktywnego modelu i jawnej komendy
+  idempotentnej.
+- **Consequences:** nie uruchamiamy treningu ani migracji tylko po to, aby
+  ponownie aktywować model już aktywny. Dokumentacja rozróżnia historyczny
+  wynik od bieżącego snapshotu.
+- **Supersedes:** doprecyzowuje zakres historycznej D-215; nie zmienia jej
+  decyzji o odrzuceniu konkretnego wcześniejszego kandydata.
+- **Alternatives:** wymuszenie nowej aktywacji lub ręczna zmiana wskaźnika w
+  bazie zostały odrzucone jako zbędne i mniej audytowalne.
+
 ## Szablon nowej decyzji
 
 ```text

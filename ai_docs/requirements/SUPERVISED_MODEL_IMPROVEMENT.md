@@ -106,7 +106,7 @@ draft -> training -> evaluating -> candidate_ready -> active
   bieżącym modelem,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
 
-### Wynik kandydata wytrenowanego na cropach v19
+### Historyczny kandydat v19 i bieżący aktywny model
 
 Kohorta v19 obejmuje 321 kompletnych plansz, 4815 cropów, 41 rodzin źródeł i
 sześć stagingów. Wytrenowany od początku kandydat poprawił accuracy całych
@@ -115,10 +115,17 @@ ale audyt 100 plansz wykrył jeden błąd `lemon -> orange` z confidence
 `0,99999698`.
 
 Ponieważ zaakceptowana bramka wymaga zera błędów o confidence co najmniej
-`0,99`, kandydat ma status `rejected`. Nie wolno go aktywować ani użyć do
-nowych importów. Aktywny snapshot i jego fingerprint pozostają niezmienione;
-kolejna iteracja wymaga osobnego, jawnego zadania oraz nowego niezmiennego
-raportu. Odrzucenie jest wynikiem jakościowym, a nie technicznym `failed`.
+`0,99`, ten historyczny kandydat ma status `rejected`. Nie wolno go aktywować
+ani użyć do nowych importów. Odrzucenie jest wynikiem jakościowym, a nie
+technicznym `failed`.
+
+Nie jest to jednak bieżący aktywny snapshot gry. Późniejsza iteracja `#3`
+`47b6aa0d-2cea-4765-97f0-ee1f86cfc056`, wytrenowana po stabilizacji splitu
+`source-family-balanced-split-v2`, uzyskała `candidate_ready` i została
+aktywowana 2026-08-19 jako aktywny model dla nowych jobów. Kolejna aktywacja
+tego samego modelu jest idempotentnie odrzucana kodem
+`SYMBOL_MODEL_ALREADY_ACTIVE`; aktywacja nowej iteracji nadal wymaga jawnej
+decyzji i nowego niezmiennego raportu.
 
 ## Użycie nowego modelu
 

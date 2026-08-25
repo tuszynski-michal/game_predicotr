@@ -107,7 +107,7 @@ test('operator-local workspace keeps previews, decisions and JPEG outputs on the
   assert.match(gate, /RemoteManualSelectionWorkspaceFoundation/);
   assert.match(
     workspace,
-    /obrazy nie są kopiowane do IndexedDB ani wysyłane przed\s+wyborem/,
+    /Podglądy, pozycja, zoom, decyzje i wybrane JPEG-i pozostają na tym/,
   );
   assert.match(workspace, /RemoteManualSelectionWorkspace/);
   assert.match(
@@ -166,11 +166,19 @@ test('operator-local restart persists the parent handle and missing directories 
   assert.match(workspace, /restartRemoteSelectionLocalBatch/);
   assert.match(workspace, /resetOperatorLocalOutputDirectory/);
   assert.match(workspace, /Restart selekcji/);
-  assert.match(workspace, /window\.confirm/);
+  assert.match(workspace, /remoteSelectionResetDialogBackdrop/);
+  assert.match(workspace, /Usuń wybory i zacznij od początku/);
+  assert.doesNotMatch(workspace, /window\.confirm/);
+  assert.match(workspace, /interactionPaused=\{resetDialogOpen\}/);
+  assert.match(operationalWorkspace, /interactionPaused/);
+  assert.match(workspace, /Wybierz katalog ze zdjęciami/);
+  assert.match(workspace, /Wybierz katalog do zapisu/);
+  assert.match(workspace, /connectOutputParent/);
+  assert.match(workspace, /activeBatchId: null/);
   assert.match(workspace, /clearRemoteManualSelectionScroll/);
   assert.match(workspace, /writeBatchManifest\(/);
   assert.match(workspace, /resetLocalWorkspaceForDirectoryRelink/);
-  assert.match(workspace, /Wybierz ponownie folder zdjęć/);
+  assert.match(workspace, /Wybierz ponownie katalog ze zdjęciami/);
   assert.match(workspace, /sourceReader === null/);
   assert.match(workspace, /onStorageUnavailable/);
   assert.match(operationalWorkspace, /onStorageUnavailable/);

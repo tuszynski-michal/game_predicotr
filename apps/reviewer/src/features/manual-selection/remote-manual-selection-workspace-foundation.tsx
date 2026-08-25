@@ -5,6 +5,7 @@ import {
   inspectOperatorLocalOutputDirectory,
   resetOperatorLocalOutputDirectory,
   resumeOperatorLocalBatch,
+  verifyOperatorLocalOutputDirectory,
   writeOperatorLocalManifest,
 } from './operator-local-selection-output';
 import {
@@ -70,6 +71,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [collectionName, setCollectionName] = useState('Zdjęcia');
   const [batchName, setBatchName] = useState('');
   const [firstLayout, setFirstLayout] = useState('1');
@@ -281,6 +283,17 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const session = snapshot?.session ?? null;
   const batch = snapshot?.batch ?? null;
 
+  useEffect(() => {
+    if (!resetDialogOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setResetDialogOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [resetDialogOpen]);
+
   const recoverUnavailableDirectories = useCallback(
     async (cause: unknown): Promise<boolean> => {
       if (!isDirectoryUnavailableError(cause)) return false;
@@ -415,6 +428,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
     const now = new Date().toISOString();
     const batchId = crypto.randomUUID();
     const parsedFirstLayout = Number.parseInt(firstLayout, 10) || 1;
+    const savedOutputParent = session?.outputParentHandle ?? null;
+    const savedOutputParentPermission =
+      session?.outputParentPermissionState ?? 'prompt';
     const localSession: RemoteSelectionLocalSessionRecord = {
       schemaVersion: 1,
       activeBatchId: batchId,
@@ -428,8 +444,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
       updatedAt: now,
       outputDirectoryName: null,
       outputHandle: null,
-      outputParentHandle: null,
-      outputParentPermissionState: 'prompt',
+      outputParentHandle: savedOutputParent,
+      outputParentPermissionState: savedOutputParentPermission,
       outputPermissionState: 'prompt',
     };
     const localBatch: RemoteSelectionLocalBatchRecord = {
@@ -464,24 +480,102 @@ export function RemoteManualSelectionWorkspaceFoundation({
     });
     setSourceReader(reader);
     setBatchName(indexed.sourceDirectoryName);
+    if (savedOutputParent !== null) {
+      const connection = await connectOutputParent(
+        savedOutputParent,
+        localSession,
+        localBatch,
+      );
+      if (connection.resumed) {
+        setFirstLayout(String(connection.batch.firstLayout));
+        setDirection(connection.batch.direction);
+        setNotice(
+          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+        );
+      } else {
+        setNotice(
+          `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów. Folder wynikowy „${connection.session.outputDirectoryName}” jest gotowy do nowej selekcji.`,
+        );
+      }
+    } else {
+      setNotice(
+        `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów. Wybierz katalog do zapisu.`,
+      );
+    }
     await refresh();
-    setNotice(
-      `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów bez kopiowania danych. Wybierz katalog, w którym ma powstać sąsiedni folder wynikowy.`,
-    );
+  }
+
+  async function connectOutputParent(
+    parent: FileSystemDirectoryHandle,
+    currentSession: RemoteSelectionLocalSessionRecord,
+    currentBatch: RemoteSelectionLocalBatchRecord,
+  ): Promise<{
+    readonly batch: RemoteSelectionLocalBatchRecord;
+    readonly resumed: boolean;
+    readonly session: RemoteSelectionLocalSessionRecord;
+  }> {
+    const sourceName = currentSession.sourceDirectoryName?.trim();
+    if (!sourceName) {
+      throw new RemoteSelectionStoreError(
+        'REMOTE_SELECTION_SOURCE_NOT_CONFIGURED',
+        'Najpierw wybierz folder zdjęć.',
+      );
+    }
+    const outputName = `${sourceName} wybrane`;
+    const output = await parent.getDirectoryHandle(outputName, {
+      create: true,
+    });
+    const outputState = await verifyOperatorLocalOutputDirectory(output);
+    const resumed =
+      outputState.kind === 'resumable'
+        ? await resumeOperatorLocalBatch(
+            outputState.manifest,
+            currentBatch,
+            (ordinal) =>
+              store.loadSourceItem(
+                currentSession.sessionId,
+                currentBatch.batchId,
+                ordinal,
+              ),
+          )
+        : null;
+    const updatedSession: RemoteSelectionLocalSessionRecord = {
+      ...currentSession,
+      outputDirectoryName: outputName,
+      outputHandle: output,
+      outputParentHandle: parent,
+      outputParentPermissionState: 'granted',
+      outputPermissionState: 'granted',
+      updatedAt: new Date().toISOString(),
+    };
+    await store.saveSession(updatedSession);
+    if (resumed !== null) {
+      await writeOperatorLocalManifest(output, {
+        allowSessionAdoption: true,
+        batchId: resumed.batchId,
+        currentIndex: resumed.cursorIndex,
+        decisions: resumed.decisions ?? [],
+        direction: resumed.direction,
+        fileCount: resumed.fileCount,
+        firstLayout: resumed.firstLayout,
+        nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
+        sessionId: resumed.sessionId,
+        sourceDirectoryName: resumed.sourceDirectoryName,
+        sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
+      });
+      await store.saveBatch(resumed);
+      return { batch: resumed, resumed: true, session: updatedSession };
+    }
+    return { batch: currentBatch, resumed: false, session: updatedSession };
   }
 
   async function chooseOutputParent() {
-    if (!canWrite || busy || session === null || batch === null) return;
+    if (!canWrite || busy) return;
     const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
     if (picker === undefined) {
       setError(
         'Ta przeglądarka nie obsługuje trwałego zapisu do lokalnego folderu.',
       );
-      return;
-    }
-    const sourceName = session.sourceDirectoryName?.trim();
-    if (!sourceName) {
-      setError('Najpierw wybierz folder źródłowy.');
       return;
     }
     setBusy(true);
@@ -491,57 +585,43 @@ export function RemoteManualSelectionWorkspaceFoundation({
         id: REMOTE_OUTPUT_PARENT_PICKER_ID,
         mode: 'readwrite',
       });
-      const outputName = `${sourceName} wybrane`;
-      const output = await parent.getDirectoryHandle(outputName, {
-        create: true,
-      });
-      const outputState = await inspectOperatorLocalOutputDirectory(output);
-      const resumed =
-        outputState.kind === 'resumable'
-          ? await resumeOperatorLocalBatch(
-              outputState.manifest,
-              batch,
-              (ordinal) =>
-                store.loadSourceItem(sessionId, batch.batchId, ordinal),
-            )
-          : null;
-      const updated: RemoteSelectionLocalSessionRecord = {
-        ...session,
-        outputDirectoryName: outputName,
-        outputHandle: output,
-        outputParentHandle: parent,
-        outputParentPermissionState: 'granted',
-        outputPermissionState: 'granted',
-        updatedAt: new Date().toISOString(),
-      };
-      await store.saveSession(updated);
-      if (resumed !== null) {
-        await writeOperatorLocalManifest(output, {
-          allowSessionAdoption: true,
-          batchId: resumed.batchId,
-          currentIndex: resumed.cursorIndex,
-          decisions: resumed.decisions ?? [],
-          direction: resumed.direction,
-          fileCount: resumed.fileCount,
-          firstLayout: resumed.firstLayout,
-          nextRangeStart: resumed.nextRangeStart ?? resumed.firstLayout,
-          sessionId: resumed.sessionId,
-          sourceDirectoryName: resumed.sourceDirectoryName,
-          sourceManifestChecksumSha256: resumed.sourceManifestChecksumSha256,
+      if (session === null || batch === null) {
+        await store.saveSession({
+          schemaVersion: 1,
+          activeBatchId: null,
+          permissionState: 'prompt',
+          persistenceGranted: null,
+          sessionId,
+          sourceDirectoryName: null,
+          sourceHandle: null,
+          sourceKind: null,
+          sourceManifestChecksumSha256: null,
+          outputDirectoryName: null,
+          outputHandle: null,
+          outputParentHandle: parent,
+          outputParentPermissionState: 'granted',
+          outputPermissionState: 'prompt',
+          updatedAt: new Date().toISOString(),
         });
-        await store.saveBatch(resumed);
-        setFirstLayout(String(resumed.firstLayout));
-        setDirection(resumed.direction);
         await refresh();
         setNotice(
-          `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
+          'Katalog do zapisu został wybrany. Folder wynikowy powstanie po wyborze zdjęć.',
         );
         return;
       }
+      const connection = await connectOutputParent(parent, session, batch);
+      if (connection.resumed) {
+        setFirstLayout(String(connection.batch.firstLayout));
+        setDirection(connection.batch.direction);
+        setNotice(
+          `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+        );
+      } else {
+        setNotice(
+          `Folder wynikowy „${connection.session.outputDirectoryName}” jest pusty i gotowy do nowej selekcji.`,
+        );
+      }
       await refresh();
-      setNotice(
-        `Folder wynikowy „${outputName}” jest pusty i gotowy do nowej selekcji.`,
-      );
     } catch (cause) {
       if (
         !isPickerCancelled(cause) &&
@@ -723,14 +803,14 @@ export function RemoteManualSelectionWorkspaceFoundation({
     }
   }
 
+  function requestSelectionRestart() {
+    if (!canWrite || busy || session === null || batch === null) return;
+    setError('');
+    setResetDialogOpen(true);
+  }
+
   async function restartSelection() {
     if (!canWrite || busy || session === null || batch === null) return;
-    if (
-      !window.confirm(
-        'Restart usunie wybrane JPEG-i i zapisany postęp tej selekcji. Rozpocząć od pierwszego zdjęcia?',
-      )
-    )
-      return;
     const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
     let parent = session.outputParentHandle ?? null;
     if (parent === null) {
@@ -783,6 +863,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       });
       clearRemoteManualSelectionScroll(session.sessionId, batch.batchId);
       await refresh();
+      setResetDialogOpen(false);
       setNotice(
         `Selekcja została uruchomiona od początku. Folder „${outputName}” zawiera nowy manifest tej sesji.`,
       );
@@ -850,7 +931,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           <button
             className="secondaryButton"
             disabled={!canWrite || busy}
-            onClick={() => void restartSelection()}
+            onClick={requestSelectionRestart}
             type="button"
           >
             {busy ? 'Restartowanie…' : 'Restart selekcji'}
@@ -868,6 +949,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           sourceReader={sourceReader}
           store={store}
           outputDirectory={session.outputHandle}
+          interactionPaused={resetDialogOpen}
           onStorageUnavailable={recoverUnavailableDirectories}
         />
         {error ? (
@@ -875,13 +957,61 @@ export function RemoteManualSelectionWorkspaceFoundation({
             {error}
           </p>
         ) : null}
+        {resetDialogOpen ? (
+          <div
+            aria-labelledby="remote-selection-reset-title"
+            aria-modal="true"
+            className="remoteSelectionResetDialogBackdrop"
+            role="dialog"
+          >
+            <div className="remoteSelectionResetDialog">
+              <p className="eyebrow">Nieodwracalny restart</p>
+              <h2 id="remote-selection-reset-title">
+                Usunąć wybory i zacząć od początku?
+              </h2>
+              <p>
+                Zostanie usuniętych{' '}
+                {
+                  (batch.decisions ?? []).filter(
+                    (decision) => decision.action === 'accepted',
+                  ).length
+                }{' '}
+                zapisanych zdjęć oraz cały postęp tej selekcji.
+              </p>
+              <p>
+                Nie można tego cofnąć. Oryginalne zdjęcia w katalogu źródłowym
+                pozostaną bez zmian.
+              </p>
+              <div className="buttonRow">
+                <button
+                  className="secondaryButton"
+                  disabled={busy}
+                  onClick={() => setResetDialogOpen(false)}
+                  type="button"
+                >
+                  Anuluj
+                </button>
+                <button
+                  className="dangerButton"
+                  disabled={busy}
+                  onClick={() => void restartSelection()}
+                  type="button"
+                >
+                  {busy
+                    ? 'Usuwanie wyborów…'
+                    : 'Usuń wybory i zacznij od początku'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </>
     );
   }
 
   return (
     <section className="remoteSelectionWorkspaceFoundation" aria-live="polite">
-      <h2>Źródło zdjęć</h2>
+      <h2>Przygotuj ręczną selekcję</h2>
       {!serverWriter ? (
         <p>Host przyznał tej karcie wyłącznie odczyt.</p>
       ) : !localWriter ? (
@@ -896,29 +1026,63 @@ export function RemoteManualSelectionWorkspaceFoundation({
           równocześnie w drugiej karcie.
         </p>
       ) : null}
-      {batch === null ? (
-        <>
-          <p>
-            Wybierz lokalny folder JPEG. Zapisywane są wyłącznie uchwyt i
-            metadane; obrazy nie są kopiowane do IndexedDB ani wysyłane przed
-            wyborem.
-          </p>
+      <div className="remoteSelectionDirectoryCards">
+        <article className="remoteSelectionDirectoryCard">
+          <h3>Zdjęcia źródłowe</h3>
+          {batch === null ? (
+            <p>Nie wybrano katalogu JPEG.</p>
+          ) : sourceReader === null ? (
+            <p>Folder został zapamiętany, ale wymaga ponownego dostępu.</p>
+          ) : (
+            <p>
+              <strong>{batch.sourceDirectoryName}</strong> ·{' '}
+              {batch.fileCount.toLocaleString('pl-PL')} JPEG
+            </p>
+          )}
           <button
             className="primaryButton"
             disabled={!canWrite || busy || sourceMode === 'unsupported'}
             onClick={() => void chooseDirectory()}
             type="button"
           >
-            {busy ? 'Indeksowanie…' : 'Wybierz folder źródłowy'}
+            {busy
+              ? 'Indeksowanie…'
+              : batch === null
+                ? 'Wybierz katalog ze zdjęciami'
+                : 'Wybierz ponownie katalog ze zdjęciami'}
           </button>
-          {sourceMode === 'webkitdirectory_reselect' ? (
+        </article>
+        <article className="remoteSelectionDirectoryCard">
+          <h3>Katalog do zapisu</h3>
+          {session?.outputDirectoryName ? (
             <p>
-              Tryb zgodności wymaga ponownego wyboru tego folderu po ponownym
-              otwarciu przeglądarki.
+              Folder wynikowy: <strong>{session.outputDirectoryName}</strong>
             </p>
-          ) : null}
-        </>
-      ) : (
+          ) : session?.outputParentHandle ? (
+            <p>
+              Katalog nadrzędny wybrany. Folder wynikowy powstanie po wyborze
+              zdjęć.
+            </p>
+          ) : (
+            <p>Nie wybrano katalogu nadrzędnego dla wyniku.</p>
+          )}
+          <button
+            className="secondaryButton"
+            disabled={!canWrite || busy}
+            onClick={() => void chooseOutputParent()}
+            type="button"
+          >
+            {busy ? 'Przygotowywanie…' : 'Wybierz katalog do zapisu'}
+          </button>
+        </article>
+      </div>
+      {sourceMode === 'webkitdirectory_reselect' ? (
+        <p>
+          Tryb zgodności wymaga ponownego wyboru folderu zdjęć po ponownym
+          otwarciu przeglądarki.
+        </p>
+      ) : null}
+      {batch !== null ? (
         <div className="remoteSelectionSetup">
           <p>
             <strong>{batch.sourceDirectoryName}</strong> ·{' '}
@@ -926,20 +1090,10 @@ export function RemoteManualSelectionWorkspaceFoundation({
             {formatBytes(batch.totalBytes)}
           </p>
           {sourceReader === null ? (
-            <>
-              <p>
-                Wskaż ponownie folder zawierający te same zdjęcia. Aplikacja
-                sprawdzi jego manifest przed przywróceniem dostępu.
-              </p>
-              <button
-                className="secondaryButton"
-                disabled={!canWrite || busy || sourceMode === 'unsupported'}
-                onClick={() => void chooseDirectory()}
-                type="button"
-              >
-                {busy ? 'Sprawdzanie…' : 'Wybierz ponownie folder zdjęć'}
-              </button>
-            </>
+            <p>
+              Wskaż ponownie ten sam folder zdjęć. Aplikacja sprawdzi jego
+              manifest przed przywróceniem dostępu.
+            </p>
           ) : null}
           <label>
             Pierwsza plansza
@@ -962,21 +1116,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
               <option value="descending">Malejąco</option>
             </select>
           </label>
-          <button
-            className="secondaryButton"
-            disabled={!canWrite || busy || sourceReader === null}
-            onClick={() => void chooseOutputParent()}
-            type="button"
-          >
-            {session?.outputDirectoryName
-              ? `Wynik: ${session.outputDirectoryName}`
-              : 'Wybierz katalog zawierający folder źródłowy'}
-          </button>
           <p>
-            Przeglądarka nie udostępnia ścieżki nadrzędnej folderu źródłowego.
-            Wskaż więc katalog, w którym znajduje się „
-            {batch.sourceDirectoryName}”. Aplikacja utworzy obok niego „
-            {batch.sourceDirectoryName} wybrane”.
+            Wynik jest zapisywany w folderze „{batch.sourceDirectoryName}{' '}
+            wybrane”, tworzonym w wybranym katalogu do zapisu.
           </p>
           <button
             className="primaryButton"
@@ -990,10 +1132,10 @@ export function RemoteManualSelectionWorkspaceFoundation({
             onClick={() => void activateBatch()}
             type="button"
           >
-            {busy ? 'Przygotowywanie…' : 'Rozpocznij lokalną selekcję'}
+            {busy ? 'Przygotowywanie…' : 'Rozpocznij selekcję'}
           </button>
         </div>
-      )}
+      ) : null}
       <input
         accept="image/jpeg,.jpg,.jpeg"
         aria-label="Wybierz folder JPEG w trybie zgodności"

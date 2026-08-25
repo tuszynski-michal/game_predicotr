@@ -17,6 +17,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
+  pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać
+  przed źródłem; po indeksowaniu powstaje `<źródło> wybrane`. Poprawny wynik
+  wznawia zapisany kursor i zakres, a nowy modal resetu jawnie ostrzega przed
+  usunięciem i blokuje skróty oraz nawigację do czasu decyzji.
+
 - Wspólny dla lokalnej i zdalnej ręcznej selekcji wybór skoku strzałek obejmuje
   teraz również `8` oraz `9`; kolejność klawiaturowa `↑/↓` pozostaje ciągła.
 

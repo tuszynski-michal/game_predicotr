@@ -534,6 +534,87 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.remoteSelectionDirectoryCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.remoteSelectionDirectoryCard {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteSelectionDirectoryCard h3,
+.remoteSelectionDirectoryCard p {
+  margin: 0;
+}
+
+.remoteSelectionDirectoryCard p {
+  min-height: 42px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.remoteSelectionResetDialogBackdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(1, 7, 14, 0.78);
+}
+
+.remoteSelectionResetDialog {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(255, 139, 139, 0.55);
+  border-radius: 16px;
+  background: #0d1b2b;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.remoteSelectionResetDialog h2,
+.remoteSelectionResetDialog p {
+  margin: 0;
+}
+
+.remoteSelectionResetDialog .buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dangerButton {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 139, 139, 0.66);
+  border-radius: 8px;
+  background: rgba(151, 36, 36, 0.7);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: rgba(190, 45, 45, 0.9);
+}
+
+.dangerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .remoteSelectionSetup > p,
 .remoteSelectionSetup > button {
   grid-column: 1 / -1;
@@ -684,6 +765,10 @@
 }
 
 @media (max-width: 900px) {
+  .remoteSelectionDirectoryCards {
+    grid-template-columns: 1fr;
+  }
+
   .remoteSelectionSetup {
     grid-template-columns: 1fr;
   }

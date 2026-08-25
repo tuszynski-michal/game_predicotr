@@ -241,6 +241,23 @@ export async function inspectOperatorLocalOutputDirectory(
   return { kind: 'resumable', manifest };
 }
 
+/**
+ * Validate a resumable result before it is adopted by another access link.
+ * The light-weight inspection above is used while writing; resume additionally
+ * proves that every managed JPEG still has the checksum recorded in its manifest.
+ */
+export async function verifyOperatorLocalOutputDirectory(
+  outputDirectory: FileSystemDirectoryHandle,
+): Promise<OperatorLocalOutputDirectoryState> {
+  const state = await inspectOperatorLocalOutputDirectory(outputDirectory);
+  if (state.kind === 'empty') return state;
+  for (const decision of state.manifest.decisions) {
+    if (decision.action !== 'accepted') continue;
+    await assertOperatorLocalSelectionChecksum(outputDirectory, decision);
+  }
+  return state;
+}
+
 export async function resumeOperatorLocalBatch(
   manifest: OperatorLocalOutputManifestV1,
   batch: RemoteSelectionLocalBatchRecord,

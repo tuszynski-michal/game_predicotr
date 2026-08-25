@@ -117,6 +117,13 @@ decyzji ani wybranych JPEG-ów. Operator wskazuje na swoim urządzeniu folder
 źródłowy oraz katalog nadrzędny z prawem zapisu. Reviewer tworzy w nim folder
 `<nazwa folderu źródłowego> wybrane`, na przykład `1 - 19 wybrane`.
 
+Ekran przygotowania od początku pokazuje `Wybierz katalog ze zdjęciami` i
+`Wybierz katalog do zapisu`. Katalog nadrzędny może zostać wskazany przed
+źródłem; jego uchwyt jest trwały w IndexedDB, a folder wynikowy powstaje po
+poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy i
+kierunku, a kompletny manifest automatycznie wznawia zapisane zdjęcie i następny
+zakres.
+
 Oryginalne bajty zaakceptowanego JPEG-a są zapisywane bezpośrednio w tym
 folderze jako `seq_<start>-<end>.jpg`. Decyzja, kursor, następny zakres, uchwyty
 folderów oraz konfiguracja sesji są zapisywane w osobnym IndexedDB przeglądarki
@@ -187,6 +194,9 @@ pierwszego zdjęcia i może wyczyścić istniejący folder dopiero po potwierdze
 operatora.
 Przed usunięciem Reviewer musi zweryfikować manifest, źródło i checksumy
 wszystkich zarządzanych JPEG-ów; obcy albo zmieniony plik blokuje restart.
+Potwierdzenie resetu jest własnym modalem z liczbą usuwanych zdjęć, informacją o
+nieodwracalności i gwarancją, że katalog źródłowy pozostaje nienaruszony.
+Podczas wyświetlania modala skróty oraz akcje workspace'u są zablokowane.
 
 Poniższy opis control outboxu, transferu i materializacji na hoście dokumentuje
 historyczny wariant v0.7.27–v0.7.50. Nie jest wykonywany przez obowiązujący

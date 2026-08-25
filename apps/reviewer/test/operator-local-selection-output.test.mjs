@@ -6,6 +6,7 @@ import {
   removeOperatorLocalSelection,
   resetOperatorLocalOutputDirectory,
   resumeOperatorLocalBatch,
+  verifyOperatorLocalOutputDirectory,
   writeOperatorLocalManifest,
   writeOperatorLocalSelection,
 } from '../src/features/manual-selection/operator-local-selection-output.ts';
@@ -326,6 +327,42 @@ test('accepts only an empty folder or a complete resumable output', async () => 
   const state = await inspectOperatorLocalOutputDirectory(resumable);
   assert.equal(state.kind, 'resumable');
   assert.equal(state.manifest.nextRangeStart, 10);
+});
+
+test('rejects a resumable output whose managed JPEG no longer matches its manifest checksum', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const output = await writeOperatorLocalSelection(
+    directory,
+    new File(['selected'], 'photo.jpg', { type: 'image/jpeg' }),
+    1,
+  );
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 1,
+      decisions: [
+        {
+          action: 'accepted',
+          fileId: 'old-file-id',
+          imageChecksumSha256: output.checksumSha256,
+          imagePath: 'photo.jpg',
+          operationId: 'decision-1',
+          outputName: output.name,
+          rangeEnd: 9,
+          rangeStart: 1,
+          selectionGeneration: 1,
+          sourceIndex: 0,
+        },
+      ],
+      nextRangeStart: 10,
+    }),
+  );
+  directory.files.get(output.name).value = new TextEncoder().encode('changed');
+
+  await assert.rejects(
+    verifyOperatorLocalOutputDirectory(directory),
+    /Nie usuwam obcego pliku/,
+  );
 });
 
 test('resumes on the saved source photo and next range across access sessions', async () => {

@@ -38,6 +38,7 @@ export function RemoteManualSelectionWorkspace({
   store,
   outputDirectory,
   onStorageUnavailable,
+  interactionPaused = false,
 }: {
   readonly batch: RemoteSelectionLocalBatchRecord;
   readonly canWrite: boolean;
@@ -46,6 +47,8 @@ export function RemoteManualSelectionWorkspace({
   readonly store: RemoteSelectionIndexedDbStore;
   readonly outputDirectory: FileSystemDirectoryHandle;
   readonly onStorageUnavailable: (cause: unknown) => Promise<boolean>;
+  /** A parent confirmation dialog is open; do not let workspace shortcuts leak through it. */
+  readonly interactionPaused?: boolean;
 }) {
   const initialScrollPosition = readStoredScrollPosition(
     initialBatch.sessionId,
@@ -102,7 +105,7 @@ export function RemoteManualSelectionWorkspace({
       : { kind: 'unselected' as const, label: 'Niewybrane' }
     : { kind: 'unselected' as const, label: 'Ładowanie podglądu' };
   const hasConflict = false;
-  const canEdit = canWrite;
+  const canEdit = canWrite && !interactionPaused;
   const acceptedCount = workspace.decisions.filter(
     (decision) => decision.action === 'accepted',
   ).length;
@@ -362,6 +365,7 @@ export function RemoteManualSelectionWorkspace({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (interactionPaused) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       const action = resolveManualSelectionShortcut({
         altKey: event.altKey,
@@ -444,7 +448,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function moveImage(delta: number) {
-    if (busy || batch.fileCount === 0) return;
+    if (interactionPaused || busy || batch.fileCount === 0) return;
     const sourceDelta =
       batchRef.current.direction === 'ascending' ? delta : -delta;
     await persistCursor(
@@ -457,6 +461,7 @@ export function RemoteManualSelectionWorkspace({
   }
 
   async function changeStep(direction: -1 | 1) {
+    if (interactionPaused || busy) return;
     const currentBatch = batchRef.current;
     const next = {
       ...currentBatch,
@@ -789,6 +794,7 @@ export function RemoteManualSelectionWorkspace({
           Skok strzałki
           <select
             id="remote-navigation-step"
+            disabled={busy || interactionPaused}
             onChange={(event) => {
               const value = Number(event.target.value);
               const next = {
@@ -822,7 +828,7 @@ export function RemoteManualSelectionWorkspace({
           <button
             aria-label="Pomniejsz zdjęcie"
             className="secondaryButton"
-            disabled={zoom <= 100 || busy}
+            disabled={zoom <= 100 || busy || interactionPaused}
             onClick={() => changeZoom(-25)}
             type="button"
           >
@@ -832,7 +838,7 @@ export function RemoteManualSelectionWorkspace({
           <button
             aria-label="Powiększ zdjęcie"
             className="secondaryButton"
-            disabled={zoom >= 3000 || busy}
+            disabled={zoom >= 3000 || busy || interactionPaused}
             onClick={() => changeZoom(25)}
             type="button"
           >
@@ -841,7 +847,7 @@ export function RemoteManualSelectionWorkspace({
         </div>
         <button
           className="secondaryButton"
-          disabled={busy}
+          disabled={busy || interactionPaused}
           onClick={() => void toggleFullscreen()}
           type="button"
         >
@@ -870,7 +876,7 @@ export function RemoteManualSelectionWorkspace({
           <button
             aria-label="Poprzednie zdjęcie"
             className="manualImageSelectionNav"
-            disabled={workspace.currentIndex === 0 || busy}
+            disabled={workspace.currentIndex === 0 || busy || interactionPaused}
             onClick={() => void moveImage(-workspace.navigationStep)}
             type="button"
           >
@@ -924,7 +930,11 @@ export function RemoteManualSelectionWorkspace({
           <button
             aria-label="Następne zdjęcie"
             className="manualImageSelectionNav"
-            disabled={workspace.currentIndex >= batch.fileCount - 1 || busy}
+            disabled={
+              workspace.currentIndex >= batch.fileCount - 1 ||
+              busy ||
+              interactionPaused
+            }
             onClick={() => void moveImage(workspace.navigationStep)}
             type="button"
           >

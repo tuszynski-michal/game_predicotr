@@ -23,6 +23,9 @@ flowchart LR
 
 - Operator wybiera źródło i osobno jego katalog nadrzędny. Drugie wskazanie jest
   konieczne, ponieważ File System Access API nie udostępnia rodzica uchwytu.
+- Oba pickery są widoczne od początku i mogą być użyte w dowolnej kolejności.
+  Uchwyt katalogu nadrzędnego może istnieć w lokalnej sesji przed indeksem
+  źródła; po indeksowaniu Reviewer tworzy lub waliduje właściwy folder wyniku.
 - Reviewer tworzy `<sourceDirectoryName> wybrane`, zapisuje oryginalne bajty
   jako `seq_start-end.jpg` i lokalny `manual-image-selection-output-v1.json`.
 - Folder wynikowy przechodzi fail-closed preflight: jest pusty albo zawiera
@@ -51,7 +54,8 @@ flowchart LR
   uruchamia `NotFoundError` z odczytu JPEG-a, zapisu, manifestu lub cofania.
   Jawny restart usuwa istniejący katalog rekurencyjnie wyłącznie po fail-closed
   walidacji manifestu, źródła i checksum zarządzanych JPEG-ów; obcych danych
-  nigdy nie usuwa.
+  nigdy nie usuwa. Własny modal resetu blokuje skróty i nawigację workspace'u
+  do czasu anulowania albo ukończenia operacji.
 - Trwały zapis wymaga przeglądarki z File System Access API. Brak API jest
   kontrolowanym ograniczeniem, nie fallbackiem wysyłającym dane do hosta.
 

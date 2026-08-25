@@ -344,6 +344,17 @@ ani kopiowania JPEG-ów do repozytorium.
   `SYMBOL_MODEL_ALREADY_ACTIVE`. Historyczny odrzucony kandydat v19 pozostaje
   oddzielnym artefaktem audytowym.
 
+### v0.7.71 — prosty konfigurator i modal bezpiecznego resetu
+
+- Zdalny ekran operator-local pokazuje od początku osobne akcje wyboru zdjęć i
+  katalogu zapisu. Katalog nadrzędny można wskazać przed źródłem; po jego
+  indeksowaniu Reviewer tworzy albo waliduje `<źródło> wybrane`.
+- Poprawny manifest z checksumami wynikowych JPEG-ów jest weryfikowany przed
+  adopcją przez nowy link, po czym odtwarzane są zdjęcie, zakres i decyzje.
+- Restart używa własnego modala z liczbą usuwanych zdjęć. Modal blokuje skróty
+  oraz nawigację; zatwierdzony reset nadal usuwa tylko zweryfikowany własny
+  wynik i zapisuje nowy pusty manifest.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do
@@ -355,4 +366,5 @@ procesie API i Reviewera.
 
 ## Outcome
 
-Do uzupełnienia po zamknięciu wszystkich etapów i checkpointu rolloutowego.
+TASK pozostaje otwarty dla benchmarku i checkpointów rolloutowych. Zmiana v0.7.71
+nie uruchamia Quick Tunnel, transferu ani dodatkowych etapów benchmarku.

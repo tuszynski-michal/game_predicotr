@@ -96,6 +96,11 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   wygenerowany klient Admina. Endpoint wykorzystuje wyłącznie gotową projekcję,
   sprawdza kody względem aktywnego katalogu gry i nie traktuje alternatyw stale
   zapisanych przy `accepted/corrected` jako dowodu.
+- `v0.8.5` dodaje sekcję gry `Wyszukaj plansze` z responsywną paletą aktywnych
+  symboli i lokalnym edytorem częściowego wzoru 3 × 5. Edycja łączy wskazanie
+  konkretnej komórki z sekwencyjnym przejściem do kolejnego pustego pola;
+  `Cofnij`, `Resetuj` i przełączenie scope nie wykonują requestu. Jedynie jawne
+  `Szukaj plansz` wywołuje read-only API.
 
 ### Verification results
 
@@ -110,13 +115,15 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 - `services/api/tests/test_board_search_api.py` i rozszerzona kontrola OpenAPI
   weryfikują parser powtarzalnego `cell`, scope, stabilne błędy oraz kontrakt
   odpowiedzi; klient Admina weryfikuje serializację zapytania.
+- `apps/admin/test/board-search-editor-state.test.mjs` sprawdza edycję
+  sekwencyjną, nadpisanie wskazanej komórki, cofnięcie i reset; test nawigacji
+  potwierdza trwały adres sekcji `board-search` w kontekście gry.
 
 ### Not completed
 
-- Widok Admina, karuzela assetów, prefetch oraz benchmark pozostają do
-  wykonania. Historyczny backfill gry `777` zakończył się stanem `ready` dla
-  `212251` kandydatów i `125431` dokumentów; endpoint nie uznaje stanu
-  `rebuilding` za pusty wynik.
+- Karuzela assetów, prefetch oraz benchmark pozostają do wykonania. Historyczny
+  backfill gry `777` zakończył się stanem `ready` dla `212251` kandydatów i
+  `125431` dokumentów; endpoint nie uznaje stanu `rebuilding` za pusty wynik.
 
 ### Documentation updates
 
@@ -124,4 +131,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 5: edytor częściowej planszy i nawigacja Admina.
+- Moduł 6: karuzela wyników, asset cropu i prefetch sąsiadów.

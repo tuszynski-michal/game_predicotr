@@ -67,6 +67,17 @@ test('restores the model quality section only inside a selected game', () => {
   );
 });
 
+test('restores board search only inside the selected game context', () => {
+  assert.deepEqual(
+    parseAdminNavigation('?game=game-123&section=board-search'),
+    {
+      workspace: 'games',
+      gameId: 'game-123',
+      section: 'board-search',
+    },
+  );
+});
+
 test('rejects removed Dataset and Manual Review section URLs', () => {
   for (const section of ['datasets', 'manual-review']) {
     assert.deepEqual(

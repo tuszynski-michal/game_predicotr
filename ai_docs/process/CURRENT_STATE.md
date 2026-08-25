@@ -52,6 +52,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   100. Prowadzi przez backendową walidację aktywnego katalogu symboli, nie
   zwraca obrazów binarnych i blokuje odczyt, dopóki projekcja gry nie ma stanu
   `ready`. Wygenerowany klient Admina udostępnia typowane `searchGameBoards`.
+- Od `v0.8.5` zakładka wybranej gry zawiera `Wyszukaj plansze`. Lokalne
+  budowanie wzoru 3 × 5 nie wysyła requestu po każdej zmianie: operator może
+  wskazać komórkę albo uzupełniać sekwencyjnie z pięciokolumnowej palety,
+  bezpiecznie cofnąć każdą zmianę i wyzerować wzór. Jedno jawne `Szukaj plansz`
+  przekazuje wybrany scope i wyłącznie znane pozycje przez typowany klient.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

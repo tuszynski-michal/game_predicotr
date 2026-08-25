@@ -16,6 +16,7 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
+import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
@@ -84,6 +85,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'symbols',
     title: 'Symbole',
     description: 'Katalog symboli używany przez reguły i mobile.',
+  },
+  {
+    id: 'board-search',
+    title: 'Wyszukaj plansze',
+    description: 'Znajdź plansze na podstawie częściowego układu symboli.',
   },
   {
     id: 'rules',
@@ -333,6 +339,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             gamesRevision={gamesRevision}
+                          />
+                        ) : null}
+                        {expanded && section.id === 'board-search' ? (
+                          <BoardSearchWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
                           />
                         ) : null}
                         {expanded && section.id === 'rules' ? (

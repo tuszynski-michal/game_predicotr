@@ -26,6 +26,9 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
 )
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryPendingModel,
@@ -601,6 +604,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         source.status = "waiting_for_review"
         source.processed_at = created_at
         self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(review.id)
         return BoardCellGeometryManualResolution(
             pending=_to_domain(row),
             review_item_id=review.id,

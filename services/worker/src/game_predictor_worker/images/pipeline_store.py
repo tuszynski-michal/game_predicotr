@@ -10,6 +10,9 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.jobs import require_active_job_lease
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -218,6 +221,7 @@ class SqlAlchemyImagePipelineStore:
                     "The image import job has no game projection.",
                 )
             projected_positions = 0
+            changed_review_item_ids: set[UUID] = set()
             for position in sorted(detection):
                 detected = detection[position]
                 cropped = crops[position]
@@ -291,6 +295,7 @@ class SqlAlchemyImagePipelineStore:
                                 ImageLayoutStagingRowModel.review_item_id == pending_duplicate.id
                             )
                         )
+                        changed_review_item_ids.add(pending_duplicate.id)
                     if (
                         canonical.source_checksum_sha256 != source.checksum_sha256
                         or canonical.import_job_id != job_id
@@ -382,7 +387,7 @@ class SqlAlchemyImagePipelineStore:
                         cropper_version=cropper_version,
                         created_at=executed_at,
                     )
-                _upsert_review_item(
+                review_item = _upsert_review_item(
                     session,
                     board,
                     source,
@@ -392,6 +397,7 @@ class SqlAlchemyImagePipelineStore:
                     prediction,
                     created_at=executed_at,
                 )
+                changed_review_item_ids.add(review_item.id)
                 projected_positions += 1
             deferred_positions = _pending_board_geometry_count(
                 session,
@@ -399,12 +405,13 @@ class SqlAlchemyImagePipelineStore:
                 source_image_id=source.id,
             )
             source.status = (
-                "waiting_for_review"
-                if projected_positions or deferred_positions
-                else "completed"
+                "waiting_for_review" if projected_positions or deferred_positions else "completed"
             )
             source.processed_at = executed_at
             session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(session).sync_review_items(
+                tuple(changed_review_item_ids)
+            )
 
     def pending_review_count(self, candidate: ImageBatchCandidate) -> int:
         job_id = _job_id(candidate)
@@ -1052,7 +1059,7 @@ def _upsert_review_item(
     prediction: Mapping[str, object],
     *,
     created_at: datetime,
-) -> None:
+) -> ImageReviewItemModel:
     snapshot = {
         "boardChecksumSha256": cropped["boardChecksumSha256"],
         "boardRelativePath": cropped["boardRelativePath"],
@@ -1070,21 +1077,22 @@ def _upsert_review_item(
         .with_for_update()
     )
     if item is None:
-        session.add(
-            ImageReviewItemModel(
-                recognized_board_id=board.id,
-                status="pending",
-                snapshot=snapshot,
-                resolution_revision=0,
-                created_at=created_at,
-            )
+        item = ImageReviewItemModel(
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot=snapshot,
+            resolution_revision=0,
+            created_at=created_at,
         )
-        return
+        session.add(item)
+        session.flush()
+        return item
     if canonical_json_bytes(item.snapshot) != canonical_json_bytes(snapshot):
         raise ImagePipelineStoreError(
             "IMAGE_REVIEW_SNAPSHOT_CONFLICT",
             "The immutable image review snapshot already has different content.",
         )
+    return item
 
 
 def _require_active_symbol_codes(

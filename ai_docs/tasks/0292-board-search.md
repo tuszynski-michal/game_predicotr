@@ -1,7 +1,7 @@
 ---
 title: TASK-0292 — Wyszukiwanie plansz częściowym układem
 status: in_progress
-last_updated: 2026-08-25
+last_updated: 2026-08-26
 ---
 
 # TASK-0292 — Wyszukiwanie plansz częściowym układem
@@ -87,19 +87,28 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   symboli oraz jeden dokument widoczny dla pary `game + sequence`. GIN indeksy
   tokenów ograniczają zbiór kandydatów, a backfill w porcjach nie przenosi
   obrazów ani nie modyfikuje istniejącego review.
+- `v0.8.3` dodaje synchronizację w tych samych transakcjach co tworzenie planszy,
+  rewizja symboli, korekta geometrii i decyzje review. Migracja `0058` zapisuje
+  stan `rebuilding/ready/failed` per gra; skrypt operatorski buduje historyczną
+  projekcję stronicami po ID i materializuje dokumenty SQL-em, bez skanowania
+  obrazów i bez ponownego uruchamiania importu.
 
 ### Verification results
 
-- `services/api/tests/test_board_search_domain.py`: 8 passed.
+- `services/api/tests/test_board_search_domain.py`: 10 passed.
 - `services/api/tests/test_board_search_projection_repository.py`: 3 passed.
-- `services/api/tests/test_migration_baseline.py`: 40 passed.
+- `services/api/tests/test_migration_baseline.py`: 41 passed.
+- `services/api/tests/test_operational_image_reviews.py`,
+  `services/worker/tests/test_image_pipeline_execution.py` i
+  `services/worker/tests/test_pending_grid_reinference.py`: 32 passed;
+  6 izolowanych testów PostgreSQL pozostaje opt-in.
 - Ruff i sprawdzenie formatowania nowych plików: passed.
 
 ### Not completed
 
-- Automatyczna synchronizacja projekcji, HTTP API i Admin pozostają do
-  wykonania. Backfill zostanie uruchomiony po podłączeniu wspólnego writer'a,
-  aby importy w toku nie mogły odtworzyć starego stanu.
+- HTTP API i Admin pozostają do wykonania. Aktualny backfill gry `777` jest
+  kontrolowany przez `scripts/rebuild_board_search_projection.py`; endpoint nie
+  będzie uznawał projekcji `rebuilding` za pusty wynik.
 
 ### Documentation updates
 
@@ -107,4 +116,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 3: synchronizacja projekcji w ścieżkach importu i review.
+- Moduł 4: read-only API, OpenAPI i wygenerowany klient Admina.

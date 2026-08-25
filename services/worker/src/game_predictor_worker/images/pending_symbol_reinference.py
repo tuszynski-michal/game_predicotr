@@ -20,6 +20,9 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryRevisionModel,
@@ -114,6 +117,8 @@ class PendingSymbolReinferenceHandler:
                                 predictions=predictions,
                             )
                         )
+                        session.flush()
+                        SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
                     processed += 1
             context.checkpoint(
                 checkpoint_payload=_checkpoint_payload(processed=processed, skipped=skipped),

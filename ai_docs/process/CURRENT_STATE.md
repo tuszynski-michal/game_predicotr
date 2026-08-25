@@ -40,6 +40,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   przechowuje wyłącznie kody 15 komórek, rankowane alternatywy, statusy,
   identyfikatory, checksumy i metryki jakości. Tokeny pozycji (`cell:symbol`)
   mają osobne indeksy GIN; full board crop pozostaje assetem filesystemu.
+- Od `v0.8.3` migracja `0058_board_search_projection_state` wprowadza jawny
+  stan gotowości projekcji per gra. Wszystkie bieżące ścieżki write synchronizują
+  candidate/document w swojej transakcji, a
+  `scripts/rebuild_board_search_projection.py` odbudowuje historyczne rekordy
+  stronicami po review ID. Nie dotyka obrazów, cropów, jobów ani decyzji review;
+  status `rebuilding/failed` ma później blokować mylące puste wyniki API.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

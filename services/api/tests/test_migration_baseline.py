@@ -67,6 +67,7 @@ IMAGE_BOARD_GEOMETRY_PENDING_REVISION = "0054_image_board_geometry_pending"
 BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION = "0055_board_cell_geometry_pipeline_stage"
 REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION = "0056_remote_manual_selection_persistence"
 BOARD_SEARCH_PROJECTION_REVISION = "0057_board_search_projection"
+BOARD_SEARCH_PROJECTION_STATE_REVISION = "0058_board_search_projection_state"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -149,7 +150,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
     )
     board_search_projection = script.get_revision(BOARD_SEARCH_PROJECTION_REVISION)
-    assert script.get_heads() == [BOARD_SEARCH_PROJECTION_REVISION]
+    board_search_projection_state = script.get_revision(BOARD_SEARCH_PROJECTION_STATE_REVISION)
+    assert script.get_heads() == [BOARD_SEARCH_PROJECTION_STATE_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -273,6 +275,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert remote_manual_selection_persistence is not None
     assert board_search_projection is not None
     assert board_search_projection.down_revision == REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
+    assert board_search_projection_state is not None
+    assert board_search_projection_state.down_revision == BOARD_SEARCH_PROJECTION_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -329,6 +333,24 @@ def test_board_cell_geometry_pipeline_stage_migration_is_scoped_and_reversible()
 
     assert "'board_cell_geometry'" in upgrade_output.getvalue().lower()
     assert "'board_cell_geometry'" not in downgrade_output.getvalue().lower()
+
+
+def test_board_search_projection_state_migration_is_additive_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_PROJECTION_REVISION}:{BOARD_SEARCH_PROJECTION_STATE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_SEARCH_PROJECTION_STATE_REVISION}:{BOARD_SEARCH_PROJECTION_REVISION}",
+        sql=True,
+    )
+
+    assert "create table image_board_search_projection_states" in upgrade_output.getvalue().lower()
+    assert "drop table image_board_search_projection_states" in downgrade_output.getvalue().lower()
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

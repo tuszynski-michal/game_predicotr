@@ -24,6 +24,9 @@ from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.models import JobModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -187,6 +190,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
             return updated
 
     def fail(
@@ -218,6 +222,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
             return updated
 
     def pause_for_review(
@@ -245,6 +250,10 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             session.flush()
+            projection = SqlAlchemyBoardSearchProjectionRepository(session)
+            projection.reconcile_import_job(job_id)
+            if updated.status is JobStatus.WAITING_FOR_REVIEW and updated.game_id is not None:
+                projection.mark_live_projection_ready(updated.game_id)
             return updated
 
     def recover_expired(

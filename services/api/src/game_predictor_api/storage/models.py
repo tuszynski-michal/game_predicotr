@@ -3514,12 +3514,8 @@ class ImageBoardSearchCandidateModel(Base):
     sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     source_pixel_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     primary_symbol_codes: Mapped[list[str | None]] = mapped_column(JSONB, nullable=False)
-    alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(
-        JSONB, nullable=False
-    )
-    primary_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
+    alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(JSONB, nullable=False)
+    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
     alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
         ARRAY(String(80)), nullable=False
     )
@@ -3576,6 +3572,40 @@ class ImageBoardSearchDocumentModel(Base):
         nullable=False,
     )
     selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchProjectionStateModel(Base):
+    """Readiness marker for a game's compact board-search projection."""
+
+    __tablename__ = "image_board_search_projection_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('rebuilding', 'ready', 'failed')",
+            name="ck_image_board_search_projection_states_status",
+        ),
+        CheckConstraint(
+            "candidate_count >= 0 AND document_count >= 0 AND skipped_review_item_count >= 0",
+            name="ck_image_board_search_projection_states_counts",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    candidate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    document_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    skipped_review_item_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

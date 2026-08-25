@@ -19,6 +19,9 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import numpy as np
 from game_predictor_api.domain.jobs import Job, JobStatus
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
@@ -244,6 +247,8 @@ class PendingGridReinferenceHandler:
                         locked_board.board_geometry = geometry
                         locked_board.board_relative_path = board_path
                         locked_board.board_checksum_sha256 = board_checksum
+                        session.flush()
+                        SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
                     processed += 1
             context.checkpoint(
                 checkpoint_payload={

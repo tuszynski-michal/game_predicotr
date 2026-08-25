@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchDocumentModel,
+    ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
     ImageSymbolPredictionRevisionModel,
@@ -42,6 +43,16 @@ class BoardSearchProjectionRebuildResult:
     skipped_review_item_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class BoardSearchProjectionState:
+    game_id: UUID
+    status: str
+    candidate_count: int
+    document_count: int
+    skipped_review_item_count: int
+    failure_message: str | None
+
+
 ReviewProjectionRow = tuple[
     ImageReviewItemModel,
     RecognizedBoardModel,
@@ -57,13 +68,18 @@ class SqlAlchemyBoardSearchProjectionRepository:
         self._session = session
 
     def upsert_candidate(self, payload: BoardSearchProjectionPayload) -> None:
-        values = _candidate_values(payload)
-        insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(**values)
+        self.upsert_candidates((payload,))
+
+    def upsert_candidates(self, payloads: Sequence[BoardSearchProjectionPayload]) -> None:
+        if not payloads:
+            return
+        values = [_candidate_values(payload) for payload in payloads]
+        insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(values)
         update_statement = insert_statement.on_conflict_do_update(
             index_elements=[ImageBoardSearchCandidateModel.review_item_id],
             set_={
-                key: value
-                for key, value in values.items()
+                key: getattr(insert_statement.excluded, key)
+                for key in values[0]
                 if key not in {"review_item_id", "created_at"}
             }
             | {"updated_at": func.now()},
@@ -75,6 +91,136 @@ class SqlAlchemyBoardSearchProjectionRepository:
             delete(ImageBoardSearchCandidateModel).where(
                 ImageBoardSearchCandidateModel.review_item_id == review_item_id
             )
+        )
+
+    def sync_review_item(self, review_item_id: UUID) -> None:
+        """Synchronize one changed review item and every affected document.
+
+        The old candidate is read before mutation so a rejection or geometry
+        correction removes its former search document as well.
+        """
+
+        previous = self._session.get(ImageBoardSearchCandidateModel, review_item_id)
+        affected_sequences: set[tuple[UUID, int]] = set()
+        if previous is not None:
+            affected_sequences.add((previous.game_id, int(previous.sequence_number)))
+        row = self._session.execute(
+            select(
+                ImageReviewItemModel,
+                RecognizedBoardModel,
+                SourceImageModel,
+                JobModel,
+            )
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(ImageReviewItemModel.id == review_item_id)
+        ).one_or_none()
+        if row is None:
+            self.remove_candidate(review_item_id)
+        else:
+            payloads = _payloads_from_rows(
+                self._session,
+                (cast(ReviewProjectionRow, row),),
+            )
+            if not payloads:
+                self.remove_candidate(review_item_id)
+            else:
+                payload = payloads[0]
+                self.upsert_candidate(payload)
+                affected_sequences.add((payload.game_id, payload.candidate.sequence_number))
+        self._session.flush()
+        for game_id, sequence_number in sorted(affected_sequences, key=_sequence_sort_key):
+            self.reconcile_sequence(game_id, sequence_number)
+
+    def sync_review_items(self, review_item_ids: Sequence[UUID]) -> None:
+        for review_item_id in sorted(set(review_item_ids), key=str):
+            self.sync_review_item(review_item_id)
+
+    def sync_sequence_candidates(self, game_id: UUID, sequence_number: int) -> None:
+        """Refresh every current candidate that could own one sequence document."""
+
+        review_item_ids = self._session.scalars(
+            select(ImageBoardSearchCandidateModel.review_item_id).where(
+                ImageBoardSearchCandidateModel.game_id == game_id,
+                ImageBoardSearchCandidateModel.sequence_number == sequence_number,
+            )
+        ).all()
+        self.sync_review_items(tuple(review_item_ids))
+        self.reconcile_sequence(game_id, sequence_number)
+
+    def reconcile_import_job(self, import_job_id: UUID) -> None:
+        """Refresh documents after the job's review visibility changes."""
+
+        rows = self._session.execute(
+            select(
+                ImageBoardSearchCandidateModel.game_id,
+                ImageBoardSearchCandidateModel.sequence_number,
+            )
+            .where(ImageBoardSearchCandidateModel.import_job_id == import_job_id)
+            .distinct()
+        ).all()
+        for game_id, sequence_number in sorted(
+            rows,
+            key=lambda row: _sequence_sort_key((cast(UUID, row[0]), int(row[1]))),
+        ):
+            self.reconcile_sequence(cast(UUID, game_id), int(sequence_number))
+
+    def start_rebuild(self, game_id: UUID) -> None:
+        values = {
+            "game_id": game_id,
+            "status": "rebuilding",
+            "candidate_count": 0,
+            "document_count": 0,
+            "skipped_review_item_count": 0,
+            "failure_message": None,
+        }
+        statement = postgresql_insert(ImageBoardSearchProjectionStateModel).values(**values)
+        self._session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[ImageBoardSearchProjectionStateModel.game_id],
+                set_={
+                    **{key: value for key, value in values.items() if key != "game_id"},
+                    "updated_at": func.now(),
+                },
+            )
+        )
+
+    def mark_rebuild_failed(self, game_id: UUID, failure_message: str) -> None:
+        message = failure_message.strip()[:500] or "Board-search projection rebuild failed."
+        values = {
+            "game_id": game_id,
+            "status": "failed",
+            "candidate_count": 0,
+            "document_count": 0,
+            "skipped_review_item_count": 0,
+            "failure_message": message,
+        }
+        statement = postgresql_insert(ImageBoardSearchProjectionStateModel).values(**values)
+        self._session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[ImageBoardSearchProjectionStateModel.game_id],
+                set_={
+                    **{key: value for key, value in values.items() if key != "game_id"},
+                    "updated_at": func.now(),
+                },
+            )
+        )
+
+    def state_for_game(self, game_id: UUID) -> BoardSearchProjectionState | None:
+        record = self._session.get(ImageBoardSearchProjectionStateModel, game_id)
+        if record is None:
+            return None
+        return BoardSearchProjectionState(
+            game_id=record.game_id,
+            status=record.status,
+            candidate_count=int(record.candidate_count),
+            document_count=int(record.document_count),
+            skipped_review_item_count=int(record.skipped_review_item_count),
+            failure_message=record.failure_message,
         )
 
     def reconcile_review_item(self, review_item_id: UUID) -> None:
@@ -162,35 +308,54 @@ class SqlAlchemyBoardSearchProjectionRepository:
 
         candidate_count = 0
         skipped_count = 0
-        sequences: set[int] = set()
-        rows_result = self._session.execute(
-            select(
-                ImageReviewItemModel,
-                RecognizedBoardModel,
-                SourceImageModel,
-                JobModel,
-            )
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-            )
-            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-            .where(JobModel.game_id == game_id)
-            .order_by(ImageReviewItemModel.id)
-        )
-        for rows in rows_result.partitions(_REBUILD_BATCH_SIZE):
+        last_review_item_id: UUID | None = None
+        while True:
+            review_item_ids = self._session.scalars(
+                select(ImageReviewItemModel.id)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                .where(
+                    JobModel.game_id == game_id,
+                    *(
+                        ()
+                        if last_review_item_id is None
+                        else (ImageReviewItemModel.id > last_review_item_id,)
+                    ),
+                )
+                .order_by(ImageReviewItemModel.id)
+                .limit(_REBUILD_BATCH_SIZE)
+            ).all()
+            if not review_item_ids:
+                break
+            last_review_item_id = review_item_ids[-1]
+            rows = self._session.execute(
+                select(
+                    ImageReviewItemModel,
+                    RecognizedBoardModel,
+                    SourceImageModel,
+                    JobModel,
+                )
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                .where(ImageReviewItemModel.id.in_(review_item_ids))
+                .order_by(ImageReviewItemModel.id)
+            ).all()
             batch = tuple(cast(ReviewProjectionRow, row) for row in rows)
             payloads = _payloads_from_rows(self._session, batch)
             candidate_count += len(payloads)
             skipped_count += len(batch) - len(payloads)
-            for payload in payloads:
-                self.upsert_candidate(payload)
-                sequences.add(payload.candidate.sequence_number)
+            self.upsert_candidates(payloads)
             self._session.flush()
 
-        for sequence_number in sorted(sequences):
-            self.reconcile_sequence(game_id, sequence_number)
+        self._rebuild_documents(game_id)
         self._session.flush()
         document_count = int(
             self._session.scalar(
@@ -200,11 +365,112 @@ class SqlAlchemyBoardSearchProjectionRepository:
             )
             or 0
         )
-        return BoardSearchProjectionRebuildResult(
+        result = BoardSearchProjectionRebuildResult(
             candidate_count=candidate_count,
             document_count=document_count,
             skipped_review_item_count=skipped_count,
         )
+        self._mark_ready(game_id, result)
+        return result
+
+    def mark_live_projection_ready(self, game_id: UUID) -> None:
+        """Mark a new game ready after its complete import becomes reviewable."""
+
+        state = self._session.get(ImageBoardSearchProjectionStateModel, game_id)
+        if state is None:
+            self._session.add(
+                ImageBoardSearchProjectionStateModel(
+                    game_id=game_id,
+                    status="ready",
+                    candidate_count=0,
+                    document_count=0,
+                    skipped_review_item_count=0,
+                    failure_message=None,
+                )
+            )
+        elif state.status != "rebuilding":
+            state.status = "ready"
+            state.failure_message = None
+
+    def _mark_ready(self, game_id: UUID, result: BoardSearchProjectionRebuildResult) -> None:
+        values = {
+            "game_id": game_id,
+            "status": "ready",
+            "candidate_count": result.candidate_count,
+            "document_count": result.document_count,
+            "skipped_review_item_count": result.skipped_review_item_count,
+            "failure_message": None,
+        }
+        statement = postgresql_insert(ImageBoardSearchProjectionStateModel).values(**values)
+        self._session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[ImageBoardSearchProjectionStateModel.game_id],
+                set_={
+                    **{key: value for key, value in values.items() if key != "game_id"},
+                    "updated_at": func.now(),
+                },
+            )
+        )
+
+    def _rebuild_documents(self, game_id: UUID) -> None:
+        canonical = ImageSequenceCanonicalModel
+        candidate = ImageBoardSearchCandidateModel
+        eligibility = case(
+            (candidate.review_item_id == canonical.review_item_id, 2),
+            (
+                (candidate.status == "pending") & (JobModel.status == JobStatus.WAITING_FOR_REVIEW),
+                1,
+            ),
+            else_=0,
+        )
+        ranked = (
+            select(
+                candidate.game_id.label("game_id"),
+                candidate.sequence_number.label("sequence_number"),
+                candidate.review_item_id.label("review_item_id"),
+                case(
+                    (candidate.review_item_id == canonical.review_item_id, "canonical"),
+                    else_="pending",
+                ).label("selection_kind"),
+                func.row_number()
+                .over(
+                    partition_by=(candidate.game_id, candidate.sequence_number),
+                    order_by=(
+                        eligibility.desc(),
+                        candidate.board_confidence.desc(),
+                        candidate.sequence_confidence.desc(),
+                        candidate.source_pixel_count.desc(),
+                        candidate.review_item_id.asc(),
+                    ),
+                )
+                .label("selection_rank"),
+                eligibility.label("eligibility"),
+            )
+            .join(JobModel, JobModel.id == candidate.import_job_id)
+            .outerjoin(
+                canonical,
+                (canonical.game_id == candidate.game_id)
+                & (canonical.sequence_number == candidate.sequence_number),
+            )
+            .where(candidate.game_id == game_id)
+            .subquery()
+        )
+        selected = select(
+            ranked.c.game_id,
+            ranked.c.sequence_number,
+            ranked.c.review_item_id,
+            ranked.c.selection_kind,
+        ).where(ranked.c.eligibility > 0, ranked.c.selection_rank == 1)
+        statement = postgresql_insert(ImageBoardSearchDocumentModel).from_select(
+            [
+                ImageBoardSearchDocumentModel.game_id,
+                ImageBoardSearchDocumentModel.sequence_number,
+                ImageBoardSearchDocumentModel.review_item_id,
+                ImageBoardSearchDocumentModel.selection_kind,
+            ],
+            selected,
+        )
+        self._session.execute(statement)
 
 
 def _payloads_from_rows(
@@ -400,7 +666,12 @@ def _payload_from_candidate(
     )
 
 
+def _sequence_sort_key(value: tuple[UUID, int]) -> tuple[str, int]:
+    return str(value[0]), value[1]
+
+
 __all__ = [
     "BoardSearchProjectionRebuildResult",
+    "BoardSearchProjectionState",
     "SqlAlchemyBoardSearchProjectionRepository",
 ]

@@ -49,6 +49,9 @@ from game_predictor_api.domain.verified_training_cohorts import (
     VerifiedTrainingReviewState,
     require_pending_model_prediction_target,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -948,6 +951,12 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         self._session.flush()
         self._refresh_source_states(affected_source_ids, processed_at=resolved_at)
         self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        if isinstance(resolution.sequence_number, int) and not isinstance(
+            resolution.sequence_number, bool
+        ):
+            projection.sync_sequence_candidates(game_id, resolution.sequence_number)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1103,6 +1112,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
         self._refresh_source_states({source.id}, processed_at=resolved_at)
         self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(item.id)
         updated = self.get_item(
             item.id,
             game_id=game_id,
@@ -1515,6 +1525,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             source.status = "waiting_for_review"
             source.processed_at = created_at
         self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        if isinstance(previous_sequence, int) and not isinstance(previous_sequence, bool):
+            projection.sync_sequence_candidates(game_id, previous_sequence)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,

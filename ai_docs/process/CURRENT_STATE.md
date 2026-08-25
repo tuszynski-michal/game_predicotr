@@ -33,6 +33,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zakres z nazwy stagingu, np. `Zakres 19810–45162`. Nazwa stagingu jest
   metadataną prezentacyjną i nie zmienia idempotencji preflightu.
 
+- Zamiast technicznych etykiet `Import` i `Walidacja` monitor jobów pokazuje
+  opis aktualnej pracy: ładowanie zdjęć, wyznaczanie siatki i cięcie plansz,
+  rozpoznawanie symboli albo tworzenie geometrii siatek.
+
 - Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
   wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;
   źródło, decyzje, kursor, zoom, obie osie scrolla, manifest oraz wybrane JPEG-i

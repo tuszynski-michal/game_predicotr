@@ -46,6 +46,47 @@ export function jobTypeLabel(jobType: JobType): string {
   return JOB_TYPE_LABELS[jobType];
 }
 
+export function jobWorkflowLabel(job: JobResponse): string {
+  if (isImageImportJob(job)) {
+    const stage = job.progress.stage;
+    if (stage?.startsWith('image_source:') === true) {
+      return 'Ładowanie zdjęć';
+    }
+    if (
+      stage?.endsWith('board_detection') === true ||
+      stage?.endsWith('board_cell_geometry') === true ||
+      stage?.endsWith('board_crops') === true
+    ) {
+      return 'Wyznaczanie siatki i cięcie plansz';
+    }
+    if (stage?.endsWith('symbol_inference') === true) {
+      return 'Rozpoznawanie symboli';
+    }
+    if (stage?.endsWith('sequence_ocr') === true) {
+      return 'Przypisywanie numerów plansz';
+    }
+    if (stage?.endsWith('manual_review') === true) {
+      return 'Przygotowanie plansz do zatwierdzenia';
+    }
+    return 'Tworzenie plansz i symboli';
+  }
+  if (
+    job.jobType === 'validate' &&
+    'validationKind' in job.inputPayload &&
+    job.inputPayload.validationKind === 'page_geometry_preflight'
+  ) {
+    return 'Tworzenie geometrii siatek';
+  }
+  if (job.jobType === 'image_grid_reinference') {
+    return 'Ponowne cięcie plansz';
+  }
+  if (job.jobType === 'image_symbol_reinference') {
+    return 'Ponowne rozpoznawanie symboli';
+  }
+  if (job.jobType === 'image_selection') return 'Wybór zdjęć';
+  return jobTypeLabel(job.jobType);
+}
+
 export function jobContextLabel(job: JobResponse): string {
   if (job.gameId !== null) return `Gra ${job.gameId}`;
   if ('mobileReleaseId' in job.inputPayload) {

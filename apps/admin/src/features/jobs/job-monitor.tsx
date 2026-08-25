@@ -46,6 +46,7 @@ import {
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
+  jobWorkflowLabel,
   replaceJob,
 } from '@/features/jobs/job-state';
 
@@ -182,7 +183,7 @@ export function JobMonitor({
     }
     setJobs((current) => replaceJob(current, result.job));
     setFeedback(
-      `Zadanie ${jobTypeLabel(result.job.jobType)} wróciło do kolejki bez duplikowania wejścia.`,
+      `Zadanie „${jobWorkflowLabel(result.job)}” wróciło do kolejki bez duplikowania wejścia.`,
     );
   }
 
@@ -426,7 +427,7 @@ function JobCard({
           {job.jobType.slice(0, 2).toUpperCase()}
         </span>
         <span className="jobSummaryIdentity">
-          <strong>{jobTypeLabel(job.jobType)}</strong>
+          <strong>{jobWorkflowLabel(job)}</strong>
           <code title={job.id}>{job.id}</code>
           <small title={sourceRange ?? jobContextLabel(job)}>
             {sourceRange ?? jobContextLabel(job)}

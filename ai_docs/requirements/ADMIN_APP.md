@@ -211,6 +211,10 @@ Administrator widzi zadania typu:
 Dla zadania widzi:
 
 - status,
+- opis pracy zamiast samego technicznego typu, np. `Ładowanie zdjęć`,
+  `Wyznaczanie siatki i cięcie plansz`, `Rozpoznawanie symboli` albo
+  `Tworzenie geometrii siatek`; opis odzwierciedla bieżący etap, a nie zmienia
+  typu ani semantyki joba,
 - dla importu katalogowego oraz walidacji geometrii: zakres źródłowy z nazwy
   stagingu, np. `19810–45162`, zamiast technicznego identyfikatora gry w
   kompaktowym podsumowaniu; gdy źródło nie ma poprawnej nazwy zakresu, panel

@@ -21,6 +21,7 @@ import {
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
+  jobWorkflowLabel,
   replaceJob,
 } from '../src/features/jobs/job-state.ts';
 
@@ -103,6 +104,53 @@ test('labels image import and geometry preflight jobs with their source range', 
     'Zakres 70363–93861',
   );
   assert.equal(jobSourceRangeLabel(job()), null);
+});
+
+test('uses descriptive workflow labels instead of technical import and validation types', () => {
+  const imageImport = job({
+    inputPayload: {
+      importKind: 'image_directory',
+      schemaVersion: 5,
+    },
+    jobType: 'import',
+    progress: {
+      ...job().progress,
+      stage: 'image_source:image_originals_copied',
+    },
+  });
+  const boardDetection = job({
+    ...imageImport,
+    progress: {
+      ...imageImport.progress,
+      stage: 'image_pipeline:board_detection',
+    },
+  });
+  const symbols = job({
+    ...imageImport,
+    progress: {
+      ...imageImport.progress,
+      stage: 'image_pipeline:symbol_inference',
+    },
+  });
+  const geometry = job({
+    inputPayload: {
+      schemaVersion: 2,
+      validationKind: 'page_geometry_preflight',
+    },
+    jobType: 'validate',
+  });
+
+  assert.equal(jobWorkflowLabel(imageImport), 'Ładowanie zdjęć');
+  assert.equal(
+    jobWorkflowLabel(boardDetection),
+    'Wyznaczanie siatki i cięcie plansz',
+  );
+  assert.equal(jobWorkflowLabel(symbols), 'Rozpoznawanie symboli');
+  assert.equal(jobWorkflowLabel(geometry), 'Tworzenie geometrii siatek');
+  assert.equal(
+    jobWorkflowLabel(job({ jobType: 'image_symbol_reinference' })),
+    'Ponowne rozpoznawanie symboli',
+  );
 });
 
 test('derives active polling, cancel and retry actions from lifecycle', () => {

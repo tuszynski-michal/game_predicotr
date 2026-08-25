@@ -355,6 +355,12 @@ ani kopiowania JPEG-ów do repozytorium.
   oraz nawigację; zatwierdzony reset nadal usuwa tylko zweryfikowany własny
   wynik i zapisuje nowy pusty manifest.
 
+### v0.7.72 — nie-destrykcyjny powrót do konfiguratora
+
+- Aktywny operator-local workspace ma obok restartu `Ekran startowy`. Przycisk
+  wraca do obu pickerów katalogów bez kasowania batcha, manifestu, decyzji,
+  kursora ani numeracji; jawne `Wróć do selekcji` otwiera ten sam workspace.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

@@ -17,6 +17,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.7.72` aktywny workspace ma przycisk `Ekran startowy` obok restartu.
+  Jest to nie-destrykcyjny powrót do dwóch pickerów; `Wróć do selekcji` otwiera
+  bieżący kursor i zakres bez usuwania wyniku.
+
 - Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
   pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać
   przed źródłem; po indeksowaniu powstaje `<źródło> wybrane`. Poprawny wynik

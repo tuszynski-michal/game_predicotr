@@ -26,6 +26,9 @@ flowchart LR
 - Oba pickery są widoczne od początku i mogą być użyte w dowolnej kolejności.
   Uchwyt katalogu nadrzędnego może istnieć w lokalnej sesji przed indeksem
   źródła; po indeksowaniu Reviewer tworzy lub waliduje właściwy folder wyniku.
+- `Ekran startowy` jest wyłącznie lokalną nawigacją do tych pickerów. Nie
+  zmienia trwałego batcha ani outputu; ponowne otwarcie workspace'u zachowuje
+  zapisane decyzje, kursor i zakres.
 - Reviewer tworzy `<sourceDirectoryName> wybrane`, zapisuje oryginalne bajty
   jako `seq_start-end.jpg` i lokalny `manual-image-selection-output-v1.json`.
 - Folder wynikowy przechodzi fail-closed preflight: jest pusty albo zawiera

@@ -72,6 +72,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [showStartScreen, setShowStartScreen] = useState(false);
   const [collectionName, setCollectionName] = useState('Zdjęcia');
   const [batchName, setBatchName] = useState('');
   const [firstLayout, setFirstLayout] = useState('1');
@@ -875,11 +876,20 @@ export function RemoteManualSelectionWorkspaceFoundation({
     }
   }
 
+  function returnToSelection() {
+    if (batch?.hostRegistered !== true) {
+      void activateBatch();
+      return;
+    }
+    setShowStartScreen(false);
+  }
+
   if (
     batch?.hostRegistered &&
     session !== null &&
     session.outputHandle !== null &&
-    session.outputHandle !== undefined
+    session.outputHandle !== undefined &&
+    !showStartScreen
   ) {
     return (
       <>
@@ -935,6 +945,14 @@ export function RemoteManualSelectionWorkspaceFoundation({
             type="button"
           >
             {busy ? 'Restartowanie…' : 'Restart selekcji'}
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => setShowStartScreen(true)}
+            type="button"
+          >
+            Ekran startowy
           </button>
         </section>
         <RemoteManualSelectionWorkspace
@@ -1024,6 +1042,12 @@ export function RemoteManualSelectionWorkspaceFoundation({
         <p>
           Ta przeglądarka nie obsługuje koordynacji kart. Nie otwieraj tej sesji
           równocześnie w drugiej karcie.
+        </p>
+      ) : null}
+      {showStartScreen && batch?.hostRegistered ? (
+        <p>
+          Możesz ponownie wskazać katalog zdjęć lub katalog do zapisu. Powrót do
+          ekranu startowego nie usuwa obecnych wyborów ani postępu.
         </p>
       ) : null}
       <div className="remoteSelectionDirectoryCards">
@@ -1129,10 +1153,14 @@ export function RemoteManualSelectionWorkspaceFoundation({
               session?.outputHandle === null ||
               session?.outputHandle === undefined
             }
-            onClick={() => void activateBatch()}
+            onClick={returnToSelection}
             type="button"
           >
-            {busy ? 'Przygotowywanie…' : 'Rozpocznij selekcję'}
+            {busy
+              ? 'Przygotowywanie…'
+              : batch.hostRegistered
+                ? 'Wróć do selekcji'
+                : 'Rozpocznij selekcję'}
           </button>
         </div>
       ) : null}

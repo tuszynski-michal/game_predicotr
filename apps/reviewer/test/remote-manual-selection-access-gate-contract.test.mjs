@@ -166,6 +166,9 @@ test('operator-local restart persists the parent handle and missing directories 
   assert.match(workspace, /restartRemoteSelectionLocalBatch/);
   assert.match(workspace, /resetOperatorLocalOutputDirectory/);
   assert.match(workspace, /Restart selekcji/);
+  assert.match(workspace, /Ekran startowy/);
+  assert.match(workspace, /showStartScreen/);
+  assert.match(workspace, /Wróć do selekcji/);
   assert.match(workspace, /remoteSelectionResetDialogBackdrop/);
   assert.match(workspace, /Usuń wybory i zacznij od początku/);
   assert.doesNotMatch(workspace, /window\.confirm/);

@@ -124,6 +124,11 @@ poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy
 kierunku, a kompletny manifest automatycznie wznawia zapisane zdjęcie i następny
 zakres.
 
+Po rozpoczęciu selekcji przycisk `Ekran startowy` wraca do tego konfiguratora,
+aby operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
+manifestu, decyzji ani zapisanych JPEG-ów; `Wróć do selekcji` otwiera bieżący
+workspace bez zmiany kursora i zakresu.
+
 Oryginalne bajty zaakceptowanego JPEG-a są zapisywane bezpośrednio w tym
 folderze jako `seq_<start>-<end>.jpg`. Decyzja, kursor, następny zakres, uchwyty
 folderów oraz konfiguracja sesji są zapisywane w osobnym IndexedDB przeglądarki

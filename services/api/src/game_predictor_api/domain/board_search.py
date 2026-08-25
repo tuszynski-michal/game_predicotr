@@ -140,6 +140,26 @@ class BoardSearchProjectionPayload:
             if rank < len(alternatives) and _is_known_symbol(alternatives[rank])
         )
 
+    @property
+    def known_evidence_positions(self) -> tuple[str, ...]:
+        """Return cells with any permissible evidence for mismatch accounting.
+
+        The read path needs to distinguish a known contradictory value from
+        ``?`` without evaluating JSON for every ranked candidate.  Pending
+        alternatives are evidence; resolved boards deliberately use only the
+        human primary value, matching the ranking invariant.
+        """
+
+        positions: list[str] = []
+        accepts_alternatives = self.candidate.status == "pending"
+        for index, primary in enumerate(self.candidate.primary_symbol_codes):
+            alternatives = (
+                self.candidate.alternative_symbol_codes[index] if accepts_alternatives else ()
+            )
+            if any(_is_known_symbol(symbol) for symbol in (primary, *alternatives)):
+                positions.append(str(index))
+        return tuple(positions)
+
 
 @dataclass(frozen=True, slots=True)
 class BoardSearchDocumentSelection:

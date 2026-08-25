@@ -92,6 +92,12 @@ Niespójny wzór zwraca `422` (`BOARD_SEARCH_QUERY_EMPTY`,
 `BOARD_SEARCH_SYMBOL_INVALID`); nieistniejąca gra `404 GAME_NOT_FOUND`, a
 niedokończona projekcja `409 BOARD_SEARCH_PROJECTION_INCOMPLETE`.
 
+Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
+`game_id + sequence_number`; nie skanuje JPEG-ów, surowych obserwacji ani nie
+zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
+endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
+których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
 ### Host base zdalnej ręcznej selekcji
 
 Lokalny Admin może otworzyć wyłącznie stały systemowy picker:

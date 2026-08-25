@@ -1,0 +1,27 @@
+{
+  "contract": "board-search-warm-benchmark-v1",
+  "recordedAt": "2026-08-26",
+  "gameId": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+  "projectionDocumentCount": 125431,
+  "scope": "all_searchable",
+  "limit": 100,
+  "query": [
+    { "cellIndex": 0, "symbolCode": "orange" },
+    { "cellIndex": 1, "symbolCode": "seven" },
+    { "cellIndex": 2, "symbolCode": "orange" }
+  ],
+  "runCount": 20,
+  "warmupResultCount": 100,
+  "measurementsMs": {
+    "min": 356.5477,
+    "p50": 387.7358,
+    "p95": 432.1078,
+    "max": 441.5558
+  },
+  "budgetsMs": {
+    "p95": 500.0,
+    "max": 2000.0
+  },
+  "accepted": true,
+  "notes": "Read-only benchmark after migration 0062 using the narrow current-document projection."
+}

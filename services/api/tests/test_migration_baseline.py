@@ -68,6 +68,10 @@ BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION = "0055_board_cell_geometry_pipeline
 REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION = "0056_remote_manual_selection_persistence"
 BOARD_SEARCH_PROJECTION_REVISION = "0057_board_search_projection"
 BOARD_SEARCH_PROJECTION_STATE_REVISION = "0058_board_search_projection_state"
+BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION = "0059_board_search_known_evidence_positions"
+BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION = "0060_board_search_mobile_code_projection"
+BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION = "0061_board_search_document_evidence"
+BOARD_SEARCH_FAST_DOCUMENTS_REVISION = "0062_board_search_fast_documents"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -151,7 +155,15 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     board_search_projection = script.get_revision(BOARD_SEARCH_PROJECTION_REVISION)
     board_search_projection_state = script.get_revision(BOARD_SEARCH_PROJECTION_STATE_REVISION)
-    assert script.get_heads() == [BOARD_SEARCH_PROJECTION_STATE_REVISION]
+    board_search_known_evidence_positions = script.get_revision(
+        BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION
+    )
+    board_search_mobile_code_projection = script.get_revision(
+        BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION
+    )
+    board_search_document_evidence = script.get_revision(BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION)
+    board_search_fast_documents = script.get_revision(BOARD_SEARCH_FAST_DOCUMENTS_REVISION)
+    assert script.get_heads() == [BOARD_SEARCH_FAST_DOCUMENTS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -277,6 +289,22 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert board_search_projection.down_revision == REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
     assert board_search_projection_state is not None
     assert board_search_projection_state.down_revision == BOARD_SEARCH_PROJECTION_REVISION
+    assert board_search_known_evidence_positions is not None
+    assert (
+        board_search_known_evidence_positions.down_revision
+        == BOARD_SEARCH_PROJECTION_STATE_REVISION
+    )
+    assert board_search_mobile_code_projection is not None
+    assert (
+        board_search_mobile_code_projection.down_revision
+        == BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION
+    )
+    assert board_search_document_evidence is not None
+    assert (
+        board_search_document_evidence.down_revision == BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION
+    )
+    assert board_search_fast_documents is not None
+    assert board_search_fast_documents.down_revision == BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -351,6 +379,103 @@ def test_board_search_projection_state_migration_is_additive_and_reversible() ->
 
     assert "create table image_board_search_projection_states" in upgrade_output.getvalue().lower()
     assert "drop table image_board_search_projection_states" in downgrade_output.getvalue().lower()
+
+
+def test_board_search_known_evidence_positions_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_PROJECTION_STATE_REVISION}:"
+        f"{BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION}:"
+        f"{BOARD_SEARCH_PROJECTION_STATE_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "known_evidence_positions" in upgrade_sql
+    assert "update image_board_search_candidates" in upgrade_sql
+    assert "ix_ibsc_known_evidence_positions_gin" in upgrade_sql
+    assert "drop index ix_ibsc_known_evidence_positions_gin" in downgrade_sql
+    assert "drop column known_evidence_positions" in downgrade_sql
+
+
+def test_board_search_mobile_code_projection_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION}:"
+        f"{BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION}:"
+        f"{BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    for column_name in (
+        "primary_symbol_mobile_codes",
+        "alternative_rank_1_mobile_codes",
+        "alternative_rank_4_mobile_codes",
+    ):
+        assert column_name in upgrade_sql
+        assert f"drop column {column_name}" in downgrade_sql
+
+
+def test_board_search_document_evidence_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION}:{BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION}:{BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "update image_board_search_documents" in upgrade_sql
+    assert "ix_ibsd_primary_tokens_gin" in upgrade_sql
+    assert "ix_ibsd_alt4_tokens_gin" in upgrade_sql
+    assert "drop index ix_ibsd_primary_tokens_gin" in downgrade_sql
+    assert "drop column primary_symbol_mobile_codes" in downgrade_sql
+
+
+def test_board_search_fast_documents_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION}:{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}:{BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "create table image_board_search_fast_documents" in upgrade_sql
+    assert "insert into image_board_search_fast_documents" in upgrade_sql
+    assert "primary_symbol_mobile_codes" in upgrade_sql
+    assert "drop table image_board_search_fast_documents" in downgrade_sql
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

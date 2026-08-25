@@ -1552,6 +1552,28 @@ możliwa była zmiana tekstu na BLOB po pomiarach.
 
 Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć ponad 100 milionów wierszy bez potrzeby dla obecnych zapytań. Zwarta tablica plus sygnatura upraszczają import, wyszukiwanie i snapshot.
 
+## Projekcja wyszukiwania plansz częściowym układem
+
+Wyszukiwanie Admina nie skanuje surowych obserwacji komórek ani obrazów. Trwała
+projekcja kandydatów zachowuje dowód symboli dla wszystkich pozycji review, a
+`image_board_search_documents` wybiera deterministycznie jednego właściciela
+dla `game_id + sequence_number`. Obie projekcje są aktualizowane w tej samej
+transakcji co import, nowa predykcja, korekta geometrii lub decyzja review.
+
+`image_board_search_fast_documents` jest wąskim, fizycznym read modelem
+wyłącznie aktualnie wybranego dokumentu. Zachowuje identyfikatory planszy,
+status, checksumę, znane pozycje oraz pięć tablic kodów mobilnych 3 × 5
+(primary i cztery alternatywy). Nie zawiera tokenów tekstowych, JSON, cropów
+ani innych danych binarnych. Dzięki temu ranking częściowego wzoru wykonuje
+deterministyczny odczyt tylko niezbędnych kolumn także wtedy, gdy dodatni wzór
+jest zbyt częsty, aby indeks tokenów skutecznie zawężał zbiór.
+
+Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
+`review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.
+Migracja najpierw kopiuje istniejące dokumenty, a synchronizator zapisuje oba
+read modele atomowo. Obrazy nadal są assetami filesystemu powiązanymi przez
+`review_item_id` i checksumę; żadna z tych tabel nie przechowuje JPEG-a.
+
 ## Mock data M1
 
 - 3 gry,

@@ -63,6 +63,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   bez zawijania. Klient prefetchuje wyłącznie bezpośrednich sąsiadów przez
   istniejący, scope-bound asset API. Niedostępny crop daje widoczny fallback,
   a nie usuwa poprawnego wyniku z rankingu.
+- Od `v0.8.7` migracja `0062_board_search_fast_documents` dodaje wąski read
+  model jednego aktualnego wyniku per `game + sequence`. Jest kopiowany ze
+  zweryfikowanej projekcji podczas migracji oraz synchronizowany atomowo przy
+  każdej późniejszej zmianie. Endpoint zachowuje ten sam ranking i OpenAPI, ale
+  czyta wyłącznie kody mobilne, znane pozycje i metadane niezbędne do wyniku.
+  Ciepły benchmark na `125431` dokumentach, 20 odczytach i wzorze trzech
+  symboli osiągnął p50 `387,74 ms`, p95 `432,11 ms` i maksimum `441,56 ms`
+  przy bramkach odpowiednio `500 ms` i `2 s`; raport:
+  `ai_docs/quality/board-search-warm-benchmark-v08.json`. TASK-0292 jest
+  ukończony.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

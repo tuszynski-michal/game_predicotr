@@ -1,6 +1,6 @@
 ---
 title: TASK-0292 — Wyszukiwanie plansz częściowym układem
-status: in_progress
+status: done
 last_updated: 2026-08-26
 ---
 
@@ -128,17 +128,38 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   klient Admina sprawdza scope-bound URL pełnego cropu. Testy Admina,
   typecheck i produkcyjny build przechodzą; lint nie zgłasza błędów i pozostają
   wyłącznie trzy wcześniejsze ostrzeżenia w niepowiązanych modułach.
+- `v0.8.7`: `64 passed` dla API (ranking, projekcja, benchmark i migracje),
+  `263 passed` dla Admina, `tsc --noEmit` Admina oraz kontrola OpenAPI klienta
+  przechodzą. Ruff i formatowanie zmienionych modułów przechodzą. Ograniczony
+  mypy nie zgłasza nowych problemów; pozostaje `31` wcześniejszych błędów w
+  niepowiązanych importach workerowych i jednym historycznym `unused-ignore`.
 
-### Not completed
+### Completed in v0.8.7
 
-- Benchmark i odbiór wydajnościowy pozostają do wykonania. Historyczny backfill
-  gry `777` zakończył się stanem `ready` dla `212251` kandydatów i `125431`
-  dokumentów; endpoint nie uznaje stanu `rebuilding` za pusty wynik.
+- Migracja `0062_board_search_fast_documents` dodaje wąski, wyłącznie
+  odczytowy model aktualnej planszy per `game + sequence`. Jest jednorazowo
+  zasilany z dokumentów historii i następnie aktualizowany w tej samej
+  transakcji co istniejąca projekcja. Nie zapisuje obrazów, nie zmienia ranking
+  domenowy, OpenAPI ani wyboru logicznego właściciela.
+- Ciepły, read-only benchmark na historycznej grze `777` (`125431` dokumentów,
+  20 przebiegów, trzy pozycje wzoru, limit 100) przeszedł obie bramki: p50
+  `387,74 ms`, p95 `432,11 ms`, maksimum `441,56 ms`; limity wynoszą p95
+  `500 ms` i maksimum `2 s`. Zapis odbioru:
+  `ai_docs/quality/board-search-warm-benchmark-v08.json`.
+
+### Remaining external dependency
+
+- TASK-0291 pozostaje poza zakresem i nadal jest właścicielem trwałego
+  zapobiegania powielonym pozycjom pending. Wyszukiwarka nadal reprezentuje
+  każdy numer sekwencji najwyżej jednym deterministycznym wynikiem.
 
 ### Documentation updates
 
-- Utworzono zadanie i jego niezmienne inwarianty.
+- Zaktualizowano `DATA_MODEL.md`, `API_CONTRACT.md` i `CURRENT_STATE.md` o
+  wąski read model oraz wynik odbioru wydajnościowego.
 
 ### Recommended next task
 
-- Moduł 7: benchmark, testy przekrojowe, dokumentacja i odbiór.
+- TASK-0291: usunąć źródłową przyczynę duplikatów pending podczas ponownego
+  importu, niezależnie od deterministycznego wyboru pojedynczego wyniku przez
+  tę wyszukiwarkę.

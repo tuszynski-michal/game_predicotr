@@ -32,6 +32,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchDocumentModel,
+    ImageBoardSearchFastDocumentModel,
     ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
@@ -83,7 +84,11 @@ class SqlAlchemyBoardSearchProjectionRepository:
     def upsert_candidates(self, payloads: Sequence[BoardSearchProjectionPayload]) -> None:
         if not payloads:
             return
-        values = [_candidate_values(payload) for payload in payloads]
+        mobile_codes_by_game = _symbol_mobile_codes_by_game(self._session, payloads)
+        values = [
+            _candidate_values(payload, mobile_codes_by_game[payload.game_id])
+            for payload in payloads
+        ]
         insert_statement = postgresql_insert(ImageBoardSearchCandidateModel).values(values)
         update_statement = insert_statement.on_conflict_do_update(
             index_elements=[ImageBoardSearchCandidateModel.review_item_id],
@@ -249,34 +254,34 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 "BOARD_SEARCH_PROJECTION_INCOMPLETE",
                 "The board-search projection is not ready for this game.",
             )
-        active_codes = set(
-            self._session.scalars(
-                select(SymbolModel.code).where(
+        active_mobile_codes: dict[str, int] = {
+            code: int(mobile_code)
+            for code, mobile_code in self._session.execute(
+                select(SymbolModel.code, SymbolModel.mobile_code).where(
                     SymbolModel.game_id == game_id,
                     SymbolModel.status == SymbolStatus.ACTIVE,
                 )
-            ).all()
-        )
-        if any(cell.symbol_code not in active_codes for cell in query):
+            ).tuples()
+        }
+        if any(cell.symbol_code not in active_mobile_codes for cell in query):
             raise BoardSearchError(
                 "BOARD_SEARCH_SYMBOL_INVALID",
                 "Every board-search symbol must be active in the selected game.",
             )
 
-        candidate = ImageBoardSearchCandidateModel
-        document = ImageBoardSearchDocumentModel
-        query_tokens = tuple(f"{cell.cell_index}:{cell.symbol_code}" for cell in query)
-        token_filter = or_(
-            candidate.primary_match_tokens.overlap(query_tokens),
-            and_(
-                candidate.status == "pending",
-                or_(
-                    candidate.alternative_rank_1_match_tokens.overlap(query_tokens),
-                    candidate.alternative_rank_2_match_tokens.overlap(query_tokens),
-                    candidate.alternative_rank_3_match_tokens.overlap(query_tokens),
-                    candidate.alternative_rank_4_match_tokens.overlap(query_tokens),
-                ),
-            ),
+        document = ImageBoardSearchFastDocumentModel
+        mobile_codes_by_cell = {
+            cell.cell_index: int(active_mobile_codes[cell.symbol_code]) for cell in query
+        }
+        positive_evidence = _positive_evidence_expression(
+            document,
+            query,
+            mobile_codes_by_cell=mobile_codes_by_cell,
+        )
+        scope_filter = (
+            document.status.in_(("accepted", "corrected"))
+            if scope is BoardSearchScope.APPROVED_ONLY
+            else literal(True)
         )
         (
             score_expression,
@@ -285,19 +290,23 @@ class SqlAlchemyBoardSearchProjectionRepository:
             weighted_alternative,
             mismatch,
             unknown,
-        ) = _search_score_expressions(candidate, query)
+        ) = _search_score_expressions(
+            document,
+            query,
+            mobile_codes_by_cell=mobile_codes_by_cell,
+        )
         status_priority = case(
-            (candidate.status.in_(("accepted", "corrected")), 0),
+            (document.status.in_(("accepted", "corrected")), 0),
             else_=1,
         )
         statement = (
             select(
-                candidate.review_item_id,
-                candidate.recognized_board_id,
-                candidate.import_job_id,
-                candidate.sequence_number,
-                candidate.status,
-                candidate.board_checksum_sha256,
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
+                document.sequence_number,
+                document.status,
+                document.board_checksum_sha256,
                 score_expression.label("score"),
                 exact_expression.label("exact_match_count"),
                 alternative_expression.label("alternative_match_count"),
@@ -305,21 +314,18 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch.label("mismatch_count"),
                 unknown.label("unknown_count"),
             )
-            .join(document, document.review_item_id == candidate.review_item_id)
-            .where(candidate.game_id == game_id, token_filter)
+            .where(document.game_id == game_id, positive_evidence, scope_filter)
             .order_by(
                 score_expression.desc(),
                 exact_expression.desc(),
                 weighted_alternative.desc(),
                 mismatch.asc(),
                 status_priority.asc(),
-                candidate.sequence_number.asc(),
-                candidate.review_item_id.asc(),
+                document.sequence_number.asc(),
+                document.review_item_id.asc(),
             )
             .limit(limit)
         )
-        if scope is BoardSearchScope.APPROVED_ONLY:
-            statement = statement.where(candidate.status.in_(("accepted", "corrected")))
         return tuple(
             BoardSearchResult(
                 review_item_id=review_item_id,
@@ -393,13 +399,19 @@ class SqlAlchemyBoardSearchProjectionRepository:
                     ImageBoardSearchDocumentModel.sequence_number == sequence_number,
                 )
             )
+            self._session.execute(
+                delete(ImageBoardSearchFastDocumentModel).where(
+                    ImageBoardSearchFastDocumentModel.game_id == game_id,
+                    ImageBoardSearchFastDocumentModel.sequence_number == sequence_number,
+                )
+            )
             return
-        values = {
-            "game_id": game_id,
-            "sequence_number": sequence_number,
-            "review_item_id": selection.review_item_id,
-            "selection_kind": selection.selection_kind,
-        }
+        selected_candidate = next(
+            candidate
+            for candidate, _job in rows
+            if candidate.review_item_id == selection.review_item_id
+        )
+        values = _document_values(selected_candidate, selection_kind=selection.selection_kind)
         self._session.execute(
             delete(ImageBoardSearchDocumentModel).where(
                 ImageBoardSearchDocumentModel.review_item_id == selection.review_item_id,
@@ -414,8 +426,35 @@ class SqlAlchemyBoardSearchProjectionRepository:
                     ImageBoardSearchDocumentModel.sequence_number,
                 ],
                 set_={
-                    "review_item_id": selection.review_item_id,
-                    "selection_kind": selection.selection_kind,
+                    **{
+                        key: value
+                        for key, value in values.items()
+                        if key not in {"game_id", "sequence_number"}
+                    },
+                    "updated_at": func.now(),
+                },
+            )
+        )
+        fast_values = _fast_document_values(selected_candidate)
+        self._session.execute(
+            delete(ImageBoardSearchFastDocumentModel).where(
+                ImageBoardSearchFastDocumentModel.review_item_id == selection.review_item_id,
+                ImageBoardSearchFastDocumentModel.sequence_number != sequence_number,
+            )
+        )
+        fast_statement = postgresql_insert(ImageBoardSearchFastDocumentModel).values(**fast_values)
+        self._session.execute(
+            fast_statement.on_conflict_do_update(
+                index_elements=[
+                    ImageBoardSearchFastDocumentModel.game_id,
+                    ImageBoardSearchFastDocumentModel.sequence_number,
+                ],
+                set_={
+                    **{
+                        key: value
+                        for key, value in fast_values.items()
+                        if key not in {"game_id", "sequence_number"}
+                    },
                     "updated_at": func.now(),
                 },
             )
@@ -424,6 +463,11 @@ class SqlAlchemyBoardSearchProjectionRepository:
     def rebuild_game(self, game_id: UUID) -> BoardSearchProjectionRebuildResult:
         """Rebuild one game atomically from review records in bounded batches."""
 
+        self._session.execute(
+            delete(ImageBoardSearchFastDocumentModel).where(
+                ImageBoardSearchFastDocumentModel.game_id == game_id
+            )
+        )
         self._session.execute(
             delete(ImageBoardSearchDocumentModel).where(
                 ImageBoardSearchDocumentModel.game_id == game_id
@@ -486,6 +530,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             self._session.flush()
 
         self._rebuild_documents(game_id)
+        self._rebuild_fast_documents(game_id)
         self._session.flush()
         document_count = int(
             self._session.scalar(
@@ -558,6 +603,21 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 candidate.game_id.label("game_id"),
                 candidate.sequence_number.label("sequence_number"),
                 candidate.review_item_id.label("review_item_id"),
+                candidate.recognized_board_id.label("recognized_board_id"),
+                candidate.import_job_id.label("import_job_id"),
+                candidate.status.label("status"),
+                candidate.board_checksum_sha256.label("board_checksum_sha256"),
+                candidate.primary_match_tokens.label("primary_match_tokens"),
+                candidate.alternative_rank_1_match_tokens.label("alternative_rank_1_match_tokens"),
+                candidate.alternative_rank_2_match_tokens.label("alternative_rank_2_match_tokens"),
+                candidate.alternative_rank_3_match_tokens.label("alternative_rank_3_match_tokens"),
+                candidate.alternative_rank_4_match_tokens.label("alternative_rank_4_match_tokens"),
+                candidate.known_evidence_positions.label("known_evidence_positions"),
+                candidate.primary_symbol_mobile_codes.label("primary_symbol_mobile_codes"),
+                candidate.alternative_rank_1_mobile_codes.label("alternative_rank_1_mobile_codes"),
+                candidate.alternative_rank_2_mobile_codes.label("alternative_rank_2_mobile_codes"),
+                candidate.alternative_rank_3_mobile_codes.label("alternative_rank_3_mobile_codes"),
+                candidate.alternative_rank_4_mobile_codes.label("alternative_rank_4_mobile_codes"),
                 case(
                     (candidate.review_item_id == canonical.review_item_id, "canonical"),
                     else_="pending",
@@ -590,6 +650,21 @@ class SqlAlchemyBoardSearchProjectionRepository:
             ranked.c.sequence_number,
             ranked.c.review_item_id,
             ranked.c.selection_kind,
+            ranked.c.recognized_board_id,
+            ranked.c.import_job_id,
+            ranked.c.status,
+            ranked.c.board_checksum_sha256,
+            ranked.c.primary_match_tokens,
+            ranked.c.alternative_rank_1_match_tokens,
+            ranked.c.alternative_rank_2_match_tokens,
+            ranked.c.alternative_rank_3_match_tokens,
+            ranked.c.alternative_rank_4_match_tokens,
+            ranked.c.known_evidence_positions,
+            ranked.c.primary_symbol_mobile_codes,
+            ranked.c.alternative_rank_1_mobile_codes,
+            ranked.c.alternative_rank_2_mobile_codes,
+            ranked.c.alternative_rank_3_mobile_codes,
+            ranked.c.alternative_rank_4_mobile_codes,
         ).where(ranked.c.eligibility > 0, ranked.c.selection_rank == 1)
         statement = postgresql_insert(ImageBoardSearchDocumentModel).from_select(
             [
@@ -597,6 +672,58 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 ImageBoardSearchDocumentModel.sequence_number,
                 ImageBoardSearchDocumentModel.review_item_id,
                 ImageBoardSearchDocumentModel.selection_kind,
+                ImageBoardSearchDocumentModel.recognized_board_id,
+                ImageBoardSearchDocumentModel.import_job_id,
+                ImageBoardSearchDocumentModel.status,
+                ImageBoardSearchDocumentModel.board_checksum_sha256,
+                ImageBoardSearchDocumentModel.primary_match_tokens,
+                ImageBoardSearchDocumentModel.alternative_rank_1_match_tokens,
+                ImageBoardSearchDocumentModel.alternative_rank_2_match_tokens,
+                ImageBoardSearchDocumentModel.alternative_rank_3_match_tokens,
+                ImageBoardSearchDocumentModel.alternative_rank_4_match_tokens,
+                ImageBoardSearchDocumentModel.known_evidence_positions,
+                ImageBoardSearchDocumentModel.primary_symbol_mobile_codes,
+                ImageBoardSearchDocumentModel.alternative_rank_1_mobile_codes,
+                ImageBoardSearchDocumentModel.alternative_rank_2_mobile_codes,
+                ImageBoardSearchDocumentModel.alternative_rank_3_mobile_codes,
+                ImageBoardSearchDocumentModel.alternative_rank_4_mobile_codes,
+            ],
+            selected,
+        )
+        self._session.execute(statement)
+
+    def _rebuild_fast_documents(self, game_id: UUID) -> None:
+        document = ImageBoardSearchDocumentModel
+        selected = select(
+            document.game_id,
+            document.sequence_number,
+            document.review_item_id,
+            document.recognized_board_id,
+            document.import_job_id,
+            document.status,
+            document.board_checksum_sha256,
+            document.known_evidence_positions,
+            document.primary_symbol_mobile_codes,
+            document.alternative_rank_1_mobile_codes,
+            document.alternative_rank_2_mobile_codes,
+            document.alternative_rank_3_mobile_codes,
+            document.alternative_rank_4_mobile_codes,
+        ).where(document.game_id == game_id)
+        statement = postgresql_insert(ImageBoardSearchFastDocumentModel).from_select(
+            [
+                ImageBoardSearchFastDocumentModel.game_id,
+                ImageBoardSearchFastDocumentModel.sequence_number,
+                ImageBoardSearchFastDocumentModel.review_item_id,
+                ImageBoardSearchFastDocumentModel.recognized_board_id,
+                ImageBoardSearchFastDocumentModel.import_job_id,
+                ImageBoardSearchFastDocumentModel.status,
+                ImageBoardSearchFastDocumentModel.board_checksum_sha256,
+                ImageBoardSearchFastDocumentModel.known_evidence_positions,
+                ImageBoardSearchFastDocumentModel.primary_symbol_mobile_codes,
+                ImageBoardSearchFastDocumentModel.alternative_rank_1_mobile_codes,
+                ImageBoardSearchFastDocumentModel.alternative_rank_2_mobile_codes,
+                ImageBoardSearchFastDocumentModel.alternative_rank_3_mobile_codes,
+                ImageBoardSearchFastDocumentModel.alternative_rank_4_mobile_codes,
             ],
             selected,
         )
@@ -749,7 +876,25 @@ def _is_complete_symbol_codes(value: object) -> bool:
     )
 
 
-def _candidate_values(payload: BoardSearchProjectionPayload) -> dict[str, object]:
+def _symbol_mobile_codes_by_game(
+    session: Session,
+    payloads: Sequence[BoardSearchProjectionPayload],
+) -> dict[UUID, dict[str, int]]:
+    game_ids = tuple(sorted({payload.game_id for payload in payloads}, key=str))
+    mobile_codes_by_game: dict[UUID, dict[str, int]] = defaultdict(dict)
+    for game_id, code, mobile_code in session.execute(
+        select(SymbolModel.game_id, SymbolModel.code, SymbolModel.mobile_code).where(
+            SymbolModel.game_id.in_(game_ids)
+        )
+    ):
+        mobile_codes_by_game[game_id][code] = int(mobile_code)
+    return mobile_codes_by_game
+
+
+def _candidate_values(
+    payload: BoardSearchProjectionPayload,
+    symbol_mobile_codes: Mapping[str, int],
+) -> dict[str, object]:
     return {
         "review_item_id": payload.candidate.review_item_id,
         "game_id": payload.game_id,
@@ -770,7 +915,102 @@ def _candidate_values(payload: BoardSearchProjectionPayload) -> dict[str, object
         "alternative_rank_2_match_tokens": list(payload.alternative_match_tokens(1)),
         "alternative_rank_3_match_tokens": list(payload.alternative_match_tokens(2)),
         "alternative_rank_4_match_tokens": list(payload.alternative_match_tokens(3)),
+        "known_evidence_positions": list(payload.known_evidence_positions),
+        "primary_symbol_mobile_codes": _mobile_codes(
+            payload.candidate.primary_symbol_codes,
+            symbol_mobile_codes,
+        ),
+        "alternative_rank_1_mobile_codes": _alternative_mobile_codes(
+            payload,
+            rank=0,
+            symbol_mobile_codes=symbol_mobile_codes,
+        ),
+        "alternative_rank_2_mobile_codes": _alternative_mobile_codes(
+            payload,
+            rank=1,
+            symbol_mobile_codes=symbol_mobile_codes,
+        ),
+        "alternative_rank_3_mobile_codes": _alternative_mobile_codes(
+            payload,
+            rank=2,
+            symbol_mobile_codes=symbol_mobile_codes,
+        ),
+        "alternative_rank_4_mobile_codes": _alternative_mobile_codes(
+            payload,
+            rank=3,
+            symbol_mobile_codes=symbol_mobile_codes,
+        ),
     }
+
+
+def _document_values(
+    candidate: ImageBoardSearchCandidateModel,
+    *,
+    selection_kind: str,
+) -> dict[str, object]:
+    """Copy compact evidence from the selected candidate into one logical row."""
+
+    return {
+        "game_id": candidate.game_id,
+        "sequence_number": int(candidate.sequence_number),
+        "review_item_id": candidate.review_item_id,
+        "selection_kind": selection_kind,
+        "recognized_board_id": candidate.recognized_board_id,
+        "import_job_id": candidate.import_job_id,
+        "status": candidate.status,
+        "board_checksum_sha256": candidate.board_checksum_sha256,
+        "primary_match_tokens": candidate.primary_match_tokens,
+        "alternative_rank_1_match_tokens": candidate.alternative_rank_1_match_tokens,
+        "alternative_rank_2_match_tokens": candidate.alternative_rank_2_match_tokens,
+        "alternative_rank_3_match_tokens": candidate.alternative_rank_3_match_tokens,
+        "alternative_rank_4_match_tokens": candidate.alternative_rank_4_match_tokens,
+        "known_evidence_positions": candidate.known_evidence_positions,
+        "primary_symbol_mobile_codes": candidate.primary_symbol_mobile_codes,
+        "alternative_rank_1_mobile_codes": candidate.alternative_rank_1_mobile_codes,
+        "alternative_rank_2_mobile_codes": candidate.alternative_rank_2_mobile_codes,
+        "alternative_rank_3_mobile_codes": candidate.alternative_rank_3_mobile_codes,
+        "alternative_rank_4_mobile_codes": candidate.alternative_rank_4_mobile_codes,
+    }
+
+
+def _fast_document_values(candidate: ImageBoardSearchCandidateModel) -> dict[str, object]:
+    return {
+        "game_id": candidate.game_id,
+        "sequence_number": int(candidate.sequence_number),
+        "review_item_id": candidate.review_item_id,
+        "recognized_board_id": candidate.recognized_board_id,
+        "import_job_id": candidate.import_job_id,
+        "status": candidate.status,
+        "board_checksum_sha256": candidate.board_checksum_sha256,
+        "known_evidence_positions": candidate.known_evidence_positions,
+        "primary_symbol_mobile_codes": candidate.primary_symbol_mobile_codes,
+        "alternative_rank_1_mobile_codes": candidate.alternative_rank_1_mobile_codes,
+        "alternative_rank_2_mobile_codes": candidate.alternative_rank_2_mobile_codes,
+        "alternative_rank_3_mobile_codes": candidate.alternative_rank_3_mobile_codes,
+        "alternative_rank_4_mobile_codes": candidate.alternative_rank_4_mobile_codes,
+    }
+
+
+def _mobile_codes(
+    symbol_codes: Sequence[str | None],
+    symbol_mobile_codes: Mapping[str, int],
+) -> list[int | None]:
+    return [None if code is None else symbol_mobile_codes.get(code) for code in symbol_codes]
+
+
+def _alternative_mobile_codes(
+    payload: BoardSearchProjectionPayload,
+    *,
+    rank: int,
+    symbol_mobile_codes: Mapping[str, int],
+) -> list[int | None]:
+    return _mobile_codes(
+        tuple(
+            alternatives[rank] if rank < len(alternatives) else None
+            for alternatives in payload.candidate.alternative_symbol_codes
+        ),
+        symbol_mobile_codes,
+    )
 
 
 def _payload_from_candidate(
@@ -797,8 +1037,14 @@ def _payload_from_candidate(
 
 
 def _search_score_expressions(
-    candidate: type[ImageBoardSearchCandidateModel],
+    candidate: (
+        type[ImageBoardSearchCandidateModel]
+        | type[ImageBoardSearchDocumentModel]
+        | type[ImageBoardSearchFastDocumentModel]
+    ),
     query: Sequence[BoardSearchQueryCell],
+    *,
+    mobile_codes_by_cell: Mapping[int, int],
 ) -> tuple[
     ColumnElement[Any],
     ColumnElement[Any],
@@ -814,50 +1060,30 @@ def _search_score_expressions(
     mismatch_count: ColumnElement[Any] = literal(0)
     unknown_count: ColumnElement[Any] = literal(0)
     for cell in query:
-        token = f"{cell.cell_index}:{cell.symbol_code}"
-        primary_matches = candidate.primary_match_tokens.contains([token])
+        mobile_code = mobile_codes_by_cell[cell.cell_index]
+        postgres_index = cell.cell_index + 1
+        primary_matches = candidate.primary_symbol_mobile_codes[postgres_index] == mobile_code
         has_pending_status = candidate.status == "pending"
         alternative_matches = (
             and_(
                 has_pending_status,
-                candidate.alternative_rank_1_match_tokens.contains([token]),
+                candidate.alternative_rank_1_mobile_codes[postgres_index] == mobile_code,
             ),
             and_(
                 has_pending_status,
-                candidate.alternative_rank_2_match_tokens.contains([token]),
+                candidate.alternative_rank_2_mobile_codes[postgres_index] == mobile_code,
             ),
             and_(
                 has_pending_status,
-                candidate.alternative_rank_3_match_tokens.contains([token]),
+                candidate.alternative_rank_3_mobile_codes[postgres_index] == mobile_code,
             ),
             and_(
                 has_pending_status,
-                candidate.alternative_rank_4_match_tokens.contains([token]),
+                candidate.alternative_rank_4_mobile_codes[postgres_index] == mobile_code,
             ),
-        )
-        primary_code = func.jsonb_extract_path_text(
-            candidate.primary_symbol_codes,
-            str(cell.cell_index),
-        )
-        alternative_codes = tuple(
-            func.jsonb_extract_path_text(
-                candidate.alternative_symbol_codes,
-                str(cell.cell_index),
-                str(rank),
-            )
-            for rank in range(4)
         )
         matched = or_(primary_matches, *alternative_matches)
-        has_known_evidence = or_(
-            (primary_code.is_not(None)) & (primary_code != "?"),
-            *(
-                and_(
-                    has_pending_status,
-                    (alternative_code.is_not(None)) & (alternative_code != "?"),
-                )
-                for alternative_code in alternative_codes
-            ),
-        )
+        has_known_evidence = candidate.known_evidence_positions.contains([str(cell.cell_index)])
         alternative_weight = case(
             (primary_matches, 0.0),
             *(
@@ -903,6 +1129,40 @@ def _search_score_expressions(
         mismatch_count,
         unknown_count,
     )
+
+
+def _positive_evidence_expression(
+    document: type[ImageBoardSearchFastDocumentModel],
+    query: Sequence[BoardSearchQueryCell],
+    *,
+    mobile_codes_by_cell: Mapping[int, int],
+) -> ColumnElement[bool]:
+    matches: list[ColumnElement[bool]] = []
+    for cell in query:
+        mobile_code = mobile_codes_by_cell[cell.cell_index]
+        postgres_index = cell.cell_index + 1
+        matches.extend(
+            (
+                document.primary_symbol_mobile_codes[postgres_index] == mobile_code,
+                and_(
+                    document.status == "pending",
+                    document.alternative_rank_1_mobile_codes[postgres_index] == mobile_code,
+                ),
+                and_(
+                    document.status == "pending",
+                    document.alternative_rank_2_mobile_codes[postgres_index] == mobile_code,
+                ),
+                and_(
+                    document.status == "pending",
+                    document.alternative_rank_3_mobile_codes[postgres_index] == mobile_code,
+                ),
+                and_(
+                    document.status == "pending",
+                    document.alternative_rank_4_mobile_codes[postgres_index] == mobile_code,
+                ),
+            )
+        )
+    return or_(*matches)
 
 
 def _sequence_sort_key(value: tuple[UUID, int]) -> tuple[str, int]:

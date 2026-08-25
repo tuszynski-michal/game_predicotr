@@ -3528,6 +3528,22 @@ class ImageBoardSearchCandidateModel(Base):
     alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
         ARRAY(String(80)), nullable=False
     )
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -3552,6 +3568,10 @@ class ImageBoardSearchDocumentModel(Base):
             "selection_kind IN ('canonical', 'pending')",
             name="ck_image_board_search_documents_selection_kind",
         ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_documents_status",
+        ),
         UniqueConstraint(
             "review_item_id",
             name="uq_image_board_search_documents_review_item",
@@ -3572,6 +3592,97 @@ class ImageBoardSearchDocumentModel(Base):
         nullable=False,
     )
     selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
+    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchFastDocumentModel(Base):
+    """Narrow read model containing one selected board per game sequence."""
+
+    __tablename__ = "image_board_search_fast_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_fast_documents_sequence_positive",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_fast_documents_status",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            name="uq_image_board_search_fast_documents_review_item",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

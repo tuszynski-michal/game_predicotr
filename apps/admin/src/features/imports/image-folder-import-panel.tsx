@@ -26,6 +26,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import {
+  boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
   canStartBoardCellProcessingMode,
   DEFAULT_BOARD_CELL_PROCESSING_MODE,
@@ -1279,6 +1280,9 @@ export function ImageFolderImportPanel({
                   <span>
                     {job.status} · {job.progress.current}/
                     {job.progress.total ?? '—'}
+                  </span>
+                  <span>
+                    Silnik cięcia plansz: {boardCellProcessingJobLabel(job)}
                   </span>
                   {outcome === null ? null : (
                     <span>

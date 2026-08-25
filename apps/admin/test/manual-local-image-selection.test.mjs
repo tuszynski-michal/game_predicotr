@@ -169,7 +169,7 @@ test('offers the requested persisted arrow navigation steps', () => {
   assert.match(workspaceSource, /MANUAL_IMAGE_NAVIGATION_STEPS\.map/);
   assert.deepEqual(
     MANUAL_IMAGE_NAVIGATION_STEPS,
-    [1, 2, 3, 4, 5, 6, 7, 10, 15, 20],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20],
   );
   assert.match(workspaceSource, /delta \* navigationStep/);
   assert.match(workspaceSource, /navigationStep,/);
@@ -178,7 +178,9 @@ test('offers the requested persisted arrow navigation steps', () => {
 test('up and down arrows move by one configured navigation step', () => {
   assert.equal(adjacentManualNavigationStep(2, 1), 3);
   assert.equal(adjacentManualNavigationStep(5, 1), 6);
-  assert.equal(adjacentManualNavigationStep(7, 1), 10);
+  assert.equal(adjacentManualNavigationStep(7, 1), 8);
+  assert.equal(adjacentManualNavigationStep(8, 1), 9);
+  assert.equal(adjacentManualNavigationStep(9, 1), 10);
   assert.equal(adjacentManualNavigationStep(3, -1), 2);
   assert.equal(adjacentManualNavigationStep(1, -1), 1);
   assert.equal(adjacentManualNavigationStep(20, 1), 20);

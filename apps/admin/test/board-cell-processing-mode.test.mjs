@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
   boardCellProcessingModeRequiresConfirmation,
   canStartBoardCellProcessingMode,
@@ -43,6 +44,22 @@ test('requires an explicit confirmation before starting verified v19', () => {
   assert.equal(canStartBoardCellProcessingMode('verified_v19', false), false);
   assert.equal(canStartBoardCellProcessingMode('verified_v19', true), true);
   assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
+});
+
+test('labels each persisted import with its pinned board processing engine', () => {
+  const historical = imageImportJob(undefined);
+  const verified = imageImportJob({
+    activationVersion: VERIFIED_V19_ACTIVATION_VERSION,
+  });
+
+  assert.equal(
+    boardCellProcessingJobLabel(historical),
+    'v18 — tryb historyczny',
+  );
+  assert.equal(
+    boardCellProcessingJobLabel(verified),
+    'v20 — geometria i cropy v19',
+  );
 });
 
 test('rejects a returned job whose immutable snapshot differs from the selected mode', () => {

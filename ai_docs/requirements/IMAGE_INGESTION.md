@@ -324,6 +324,11 @@ idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
 snapshot joba odpowiada temu wyborowi. Nie zmienia to wartości domyślnej API ani
 bramki automatycznego rollout.
 
+Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
+`v18 — tryb historyczny` albo `v20 — geometria i cropy v19`. Etykieta pochodzi
+wyłącznie z niezmiennego snapshotu joba; nie zgaduje wersji selektora zdjęć,
+jeżeli nie została ona zapisana w payloadzie importu.
+
 Trwały deferred może zostać rozwiązany ręcznie bez ponownego uruchamiania
 pipeline'u. Komenda czterech narożników jest związana z checksumą manifestu,
 źródła, oczekiwanymi rewizjami oraz snapshotem modelu symboli przypiętym do

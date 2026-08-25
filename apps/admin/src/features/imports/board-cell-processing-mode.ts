@@ -31,6 +31,18 @@ export function boardCellProcessingModeLabel(
     : 'v18 — tryb historyczny';
 }
 
+export function boardCellProcessingJobLabel(job: JobResponse): string {
+  const payload = job.inputPayload;
+  if (!('importKind' in payload) || payload.importKind !== 'image_directory') {
+    return 'brak danych o silniku';
+  }
+  const snapshot =
+    'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
+  return snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION
+    ? 'v20 — geometria i cropy v19'
+    : 'v18 — tryb historyczny';
+}
+
 export function jobMatchesBoardCellProcessingMode(
   job: JobResponse,
   mode: BoardCellProcessingMode,

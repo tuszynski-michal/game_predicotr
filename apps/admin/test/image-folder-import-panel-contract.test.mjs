@@ -41,6 +41,8 @@ test('distinguishes the active import operation from a disabled prerequisite', (
 
 test('reports incomplete board creation and offers managed-original reprocessing', () => {
   assert.match(panelSource, /Pipeline zdjęć:/);
+  assert.match(panelSource, /Silnik cięcia plansz:/);
+  assert.match(panelSource, /boardCellProcessingJobLabel/);
   assert.match(panelSource, /Wynik jest niekompletny/);
   assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
   assert.match(panelSource, /reprocessImageFolderImport/);

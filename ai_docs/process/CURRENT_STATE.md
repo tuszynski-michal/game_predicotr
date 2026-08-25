@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 ---
 
 # Current State
@@ -19,6 +19,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 - Wspólny dla lokalnej i zdalnej ręcznej selekcji wybór skoku strzałek obejmuje
   teraz również `8` oraz `9`; kolejność klawiaturowa `↑/↓` pozostaje ciągła.
+
+- Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
+  historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
+  `v19`; źródłem etykiety jest niezmienny snapshot joba.
 
 - Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
   wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;

@@ -15,6 +15,7 @@ import {
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  reconcileManualSelectionStateWithOutputManifest,
   resolveManualSelectionShortcut,
   RemoteManualSelectionContractError,
   stableRemoteStringify,
@@ -54,6 +55,110 @@ test('keeps the deterministic nine-layout range and undo state machine', () => {
   assert.equal(selected.nextRangeStart, 10);
   assert.equal(selected.currentIndex, 1);
   assert.equal(previousManualSelectionState(selected)?.nextRangeStart, 1);
+});
+
+test('reconciles a corrected output manifest before resuming a local session', () => {
+  const state = {
+    ...createManualSelectionState(229913, 'ascending'),
+    currentIndex: 2,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '229904_000006.jpg',
+        outputName: 'seq_229913-229921.jpg',
+        rangeEnd: 229921,
+        rangeStart: 229913,
+      },
+      {
+        action: 'skipped',
+        imageChecksum: null,
+        imagePath: null,
+        outputName: null,
+        rangeEnd: 229930,
+        rangeStart: 229922,
+      },
+      {
+        action: 'accepted',
+        imageChecksum: 'b'.repeat(64),
+        imagePath: '229904_000026.jpg',
+        outputName: 'seq_229931-229939.jpg',
+        rangeEnd: 229939,
+        rangeStart: 229931,
+      },
+    ],
+    nextRangeStart: 229940,
+  };
+  const reconciled = reconcileManualSelectionStateWithOutputManifest(state, {
+    schemaVersion: 1,
+    gameId: 'local-independent-manual-image-selection',
+    sessionKey: 'session-1',
+    sourceDirectoryName: '229913 - 248184',
+    direction: 'ascending',
+    firstLayout: 222913,
+    updatedAt: '2026-08-25T10:35:01.000Z',
+    items: [
+      {
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '229904_000006.jpg',
+        outputName: 'seq_222913-222921.jpg',
+        rangeEnd: 222921,
+        rangeStart: 222913,
+      },
+      {
+        imageChecksum: 'b'.repeat(64),
+        imagePath: '229904_000026.jpg',
+        outputName: 'seq_222931-222939.jpg',
+        rangeEnd: 222939,
+        rangeStart: 222931,
+      },
+    ],
+  });
+
+  assert.equal(reconciled.firstLayout, 222913);
+  assert.equal(reconciled.nextRangeStart, 222940);
+  assert.equal(reconciled.decisions[1]?.rangeStart, 222922);
+  assert.equal(reconciled.decisions[2]?.outputName, 'seq_222931-222939.jpg');
+});
+
+test('rejects a corrected manifest whose selected files do not match the session', () => {
+  const state = {
+    ...createManualSelectionState(229913, 'ascending'),
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '229904_000006.jpg',
+        outputName: 'seq_229913-229921.jpg',
+        rangeEnd: 229921,
+        rangeStart: 229913,
+      },
+    ],
+    nextRangeStart: 229922,
+  };
+
+  assert.throws(
+    () =>
+      reconcileManualSelectionStateWithOutputManifest(state, {
+        schemaVersion: 1,
+        gameId: 'local-independent-manual-image-selection',
+        sessionKey: 'session-1',
+        sourceDirectoryName: '229913 - 248184',
+        direction: 'ascending',
+        firstLayout: 222913,
+        updatedAt: '2026-08-25T10:35:01.000Z',
+        items: [
+          {
+            imageChecksum: 'b'.repeat(64),
+            imagePath: '229904_000006.jpg',
+            outputName: 'seq_222913-222921.jpg',
+            rangeEnd: 222921,
+            rangeStart: 222913,
+          },
+        ],
+      }),
+    /Manifest nie odpowiada zapisanym plikom tej sesji/,
+  );
 });
 
 test('preserves natural ordering and a bounded three-image preview policy', () => {

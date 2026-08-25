@@ -20,6 +20,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Wspólny dla lokalnej i zdalnej ręcznej selekcji wybór skoku strzałek obejmuje
   teraz również `8` oraz `9`; kolejność klawiaturowa `↑/↓` pozostaje ciągła.
 
+- Lokalna ręczna selekcja synchronizuje przy wznowieniu należący do sesji
+  manifest wynikowy z rekordem IndexedDB. Bezpieczna korekta ciągłej numeracji
+  aktualizuje pierwszy i następny zakres bez ponownego kopiowania JPEG-ów;
+  niezgodny manifest blokuje wznowienie.
+
 - Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
   historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
   `v19`; źródłem etykiety jest niezmienny snapshot joba.

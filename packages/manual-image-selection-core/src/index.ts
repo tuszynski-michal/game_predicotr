@@ -303,6 +303,71 @@ export function previousManualSelectionState(
   };
 }
 
+export function reconcileManualSelectionStateWithOutputManifest(
+  state: ManualSelectionState,
+  manifest: ManualSelectionOutputManifestV1,
+): ManualSelectionState {
+  if (manifest.direction !== state.direction) {
+    throw new Error('Kierunek manifestu nie odpowiada zapisanej sesji.');
+  }
+  if (!Number.isSafeInteger(manifest.firstLayout) || manifest.firstLayout < 1) {
+    throw new Error('Manifest ma nieprawidłowy pierwszy numer planszy.');
+  }
+
+  const expectedNextRangeStart = state.firstLayout + state.decisions.length * 9;
+  if (state.nextRangeStart !== expectedNextRangeStart) {
+    throw new Error('Zapisana sesja nie ma ciągłej numeracji zakresów.');
+  }
+
+  const accepted = state.decisions.filter(
+    (decision) => decision.action === 'accepted',
+  );
+  if (accepted.length !== manifest.items.length) {
+    throw new Error('Manifest nie odpowiada liczbie zatwierdzonych zdjęć.');
+  }
+
+  const offset = manifest.firstLayout - state.firstLayout;
+  let acceptedIndex = 0;
+  const decisions = state.decisions.map((decision, index) => {
+    const oldRangeStart = state.firstLayout + index * 9;
+    const oldRangeEnd = oldRangeStart + 8;
+    if (
+      decision.rangeStart !== oldRangeStart ||
+      decision.rangeEnd !== oldRangeEnd
+    ) {
+      throw new Error('Zapisana sesja zawiera nieciągły zakres decyzji.');
+    }
+    const rangeStart = oldRangeStart + offset;
+    const rangeEnd = rangeStart + 8;
+    if (decision.action === 'skipped') {
+      return { ...decision, rangeEnd, rangeStart };
+    }
+
+    const item = manifest.items[acceptedIndex];
+    acceptedIndex += 1;
+    const outputName = `seq_${rangeStart}-${rangeEnd}.jpg`;
+    if (
+      item === undefined ||
+      item.imageChecksum !== decision.imageChecksum ||
+      item.imagePath !== decision.imagePath ||
+      item.outputName !== outputName ||
+      item.rangeStart !== rangeStart ||
+      item.rangeEnd !== rangeEnd
+    ) {
+      throw new Error('Manifest nie odpowiada zapisanym plikom tej sesji.');
+    }
+    return { ...decision, outputName, rangeEnd, rangeStart };
+  });
+
+  return {
+    ...state,
+    decisions,
+    firstLayout: manifest.firstLayout,
+    nextRangeStart: state.nextRangeStart + offset,
+    updatedAt: manifest.updatedAt,
+  };
+}
+
 export function adjacentManualNavigationStep(
   value: number | undefined,
   direction: -1 | 1,

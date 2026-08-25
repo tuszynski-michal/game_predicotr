@@ -8,6 +8,7 @@ import {
   type ManualImageDescriptor,
   type ManualOutputFileResult,
   type ManualSelectionDecision,
+  type ManualSelectionOutputManifestV1,
   type ManualSelectionOutputPort,
   type ManualSelectionSessionMetadata,
   type ManualSelectionSourcePort,
@@ -229,6 +230,24 @@ export async function writeManualOutputManifest(
   ).writeOutputManifest(record);
 }
 
+export async function readManualOutputManifest(
+  outputDirectory: FileSystemDirectoryHandle,
+): Promise<ManualSelectionOutputManifestV1 | null> {
+  try {
+    const file = await (
+      await outputDirectory.getFileHandle(
+        'manual-image-selection-output-v1.json',
+      )
+    ).getFile();
+    return parseManualOutputManifest(await file.text());
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotFoundError') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function writeManualTraceManifest(
   outputDirectory: FileSystemDirectoryHandle,
   record: ManualSelectionSessionRecord,
@@ -273,4 +292,51 @@ async function writeOwnedJsonFile(
     await writable.abort().catch(() => undefined);
     throw error;
   }
+}
+
+function parseManualOutputManifest(
+  source: string,
+): ManualSelectionOutputManifestV1 {
+  const parsed: unknown = JSON.parse(source);
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('schemaVersion' in parsed) ||
+    parsed.schemaVersion !== 1 ||
+    !('gameId' in parsed) ||
+    typeof parsed.gameId !== 'string' ||
+    !('sessionKey' in parsed) ||
+    typeof parsed.sessionKey !== 'string' ||
+    !('sourceDirectoryName' in parsed) ||
+    typeof parsed.sourceDirectoryName !== 'string' ||
+    !('direction' in parsed) ||
+    (parsed.direction !== 'ascending' && parsed.direction !== 'descending') ||
+    !('firstLayout' in parsed) ||
+    !Number.isSafeInteger(parsed.firstLayout) ||
+    !('updatedAt' in parsed) ||
+    typeof parsed.updatedAt !== 'string' ||
+    !('items' in parsed) ||
+    !Array.isArray(parsed.items)
+  ) {
+    throw new Error('Manifest ręcznej selekcji ma nieprawidłową strukturę.');
+  }
+  for (const item of parsed.items) {
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      !('outputName' in item) ||
+      typeof item.outputName !== 'string' ||
+      !('imagePath' in item) ||
+      typeof item.imagePath !== 'string' ||
+      !('imageChecksum' in item) ||
+      typeof item.imageChecksum !== 'string' ||
+      !('rangeStart' in item) ||
+      !Number.isSafeInteger(item.rangeStart) ||
+      !('rangeEnd' in item) ||
+      !Number.isSafeInteger(item.rangeEnd)
+    ) {
+      throw new Error('Manifest ręcznej selekcji ma nieprawidłowy wpis pliku.');
+    }
+  }
+  return parsed as ManualSelectionOutputManifestV1;
 }

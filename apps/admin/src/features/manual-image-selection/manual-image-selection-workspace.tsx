@@ -12,6 +12,7 @@ import {
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  reconcileManualSelectionStateWithOutputManifest,
   resolveManualSelectionShortcut,
   type ManualSelectionDecision,
   type ManualSelectionState,
@@ -22,6 +23,7 @@ import {
   FileSystemManualSelectionOutputAdapter,
   FileSystemManualSelectionSourceAdapter,
   isMissingManualDirectoryHandleError,
+  readManualOutputManifest,
   relinkManualSelectionSession,
   type ManualImageFile,
   type ManualSelectionSessionRecord,
@@ -90,6 +92,7 @@ function LocalManualImageSelectionWorkspace() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resumeNotice, setResumeNotice] = useState<string | null>(null);
   const [resumeRecovery, setResumeRecovery] =
     useState<ResumeRecoveryTarget | null>(null);
   const [state, setState] = useState<ManualSelectionState | null>(null);
@@ -464,6 +467,7 @@ function LocalManualImageSelectionWorkspace() {
   async function resumeSession(): Promise<void> {
     if (savedRecord === null) return;
     setError(null);
+    setResumeNotice(null);
     setLoading(true);
     const sourceHandle = sourceDirectory ?? savedRecord.sourceDirectory;
     const outputHandle = outputDirectory ?? savedRecord.outputDirectory;
@@ -509,9 +513,27 @@ function LocalManualImageSelectionWorkspace() {
         sourceHandle,
         outputHandle,
       );
-      await store.save(repairedRecord);
+      const manifest = await readManualOutputManifest(outputHandle);
+      if (
+        manifest !== null &&
+        (manifest.sessionKey !== savedRecord.key ||
+          manifest.sourceDirectoryName !== repairedRecord.sourceDirectoryName)
+      ) {
+        throw new Error(
+          'Manifest folderu wynikowego nie należy do zapisywanej sesji ręcznej selekcji.',
+        );
+      }
+      const resumedState =
+        manifest === null
+          ? savedRecord.state
+          : reconcileManualSelectionStateWithOutputManifest(
+              savedRecord.state,
+              manifest,
+            );
+      const synchronizedRecord = { ...repairedRecord, state: resumedState };
+      await store.save(synchronizedRecord);
       setResumeRecovery(null);
-      setSavedRecord(repairedRecord);
+      setSavedRecord(synchronizedRecord);
       setSourceDirectory(sourceHandle);
       setOutputDirectory(outputHandle);
       setImages(
@@ -519,9 +541,17 @@ function LocalManualImageSelectionWorkspace() {
           ? found
           : [...found].reverse(),
       );
-      setRecord(repairedRecord);
-      setState(savedRecord.state);
-      stateRef.current = savedRecord.state;
+      setRecord(synchronizedRecord);
+      setState(resumedState);
+      stateRef.current = resumedState;
+      if (
+        manifest !== null &&
+        resumedState.nextRangeStart !== savedRecord.state.nextRangeStart
+      ) {
+        setResumeNotice(
+          `Numeracja została zsynchronizowana z manifestem. Następny zakres: ${resumedState.nextRangeStart}–${resumedState.nextRangeStart + 8}.`,
+        );
+      }
       const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
       traceEventIndexRef.current =
         events.reduce(
@@ -963,6 +993,11 @@ function LocalManualImageSelectionWorkspace() {
               Postęp sesji jest bezpieczny. Wybierz ponownie folder{' '}
               {resumeRecovery === 'source' ? 'źródłowy' : 'wynikowy'} i kliknij
               przycisk wznowienia.
+            </p>
+          ) : null}
+          {resumeNotice !== null ? (
+            <p className="manualImageSelectionStatus" role="status">
+              {resumeNotice}
             </p>
           ) : null}
           {error !== null ? (

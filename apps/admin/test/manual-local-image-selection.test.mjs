@@ -11,6 +11,7 @@ import {
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  reconcileManualSelectionStateWithOutputManifest,
   relinkManualSelectionSession,
   writeManualOutputManifest,
 } from '../src/features/manual-image-selection/manual-image-selection.ts';
@@ -161,6 +162,23 @@ test('recognizes a stale directory handle and relinks it without resetting state
 test('derives each inclusive nine-layout range from its first number', () => {
   assert.deepEqual(rangeForStart(1), { start: 1, end: 9 });
   assert.deepEqual(rangeForStart(352), { start: 352, end: 360 });
+});
+
+test('resumes only after synchronizing a matching output manifest', () => {
+  assert.equal(
+    typeof reconcileManualSelectionStateWithOutputManifest,
+    'function',
+  );
+  assert.match(workspaceSource, /readManualOutputManifest/);
+  assert.match(
+    workspaceSource,
+    /reconcileManualSelectionStateWithOutputManifest/,
+  );
+  assert.match(
+    workspaceSource,
+    /Numeracja została zsynchronizowana z manifestem/,
+  );
+  assert.match(selectionSource, /manual-image-selection-output-v1\.json/);
 });
 
 test('offers the requested persisted arrow navigation steps', () => {

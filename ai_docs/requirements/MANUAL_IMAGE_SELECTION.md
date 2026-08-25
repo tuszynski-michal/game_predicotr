@@ -61,6 +61,14 @@ gra jest kopiowana do niezależnego namespace'u razem ze swoim śladem; rekord
 historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
 uprawnień przez przeglądarkę.
 
+Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
+`manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów
+został świadomie przenumerowany przy zachowaniu tych samych źródłowych ścieżek
+i sum kontrolnych, sesja jest atomowo synchronizowana z manifestem: zmienia pierwszy
+oraz następny zakres i nazwy własnych decyzji, nie zmieniając indeksu zdjęcia
+ani plików. Niezgodny manifest, inna sesja, źródło, kierunek, checksumy lub
+nieciągły stan blokują wznowienie zamiast nadpisać wynik błędną numeracją.
+
 Jeżeli zapisany uchwyt wskazuje folder usunięty, przeniesiony albo utworzony
 ponownie pod tą samą ścieżką, workspace nie może porzucić sesji ani tworzyć
 nowego postępu. Pokazuje osobno brak folderu źródłowego lub wynikowego, pozwala

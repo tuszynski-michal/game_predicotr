@@ -30,6 +30,13 @@ więc istniejący manifest w folderze wynikowym nadal należy do tej samej sesji
 LocalStorage służy tylko do szybkiego odtworzenia kursora diagnostycznego i
 używa tego samego niezależnego identyfikatora.
 
+Przed wznowieniem workspace czyta output manifest przez zapisany uchwyt folderu
+i porównuje go ze stanem IndexedDB. Wyłącznie manifest należący do tej samej
+sesji, z tym samym źródłem, kierunkiem, kolejnością wybranych plików i
+checksumami może przesunąć numerację wszystkich decyzji o jeden stały offset.
+Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
+nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
+
 Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
 jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym
 utworzeniu katalogu uruchamia kontrolowane ponowne powiązanie. Operator wskazuje

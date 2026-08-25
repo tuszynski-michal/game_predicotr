@@ -436,6 +436,86 @@ test('submits a scope-bound whole-board command and classifies revision conflict
   });
 });
 
+test('retries a timed out resolution once with the exact idempotent command', async () => {
+  const command = {
+    action: 'accepted',
+    cells: [],
+    expectedRevision: 0,
+    geometryRevision: 0,
+    idempotencyKey: '11111111-1111-4111-8111-111111111111',
+    resolvedBy: 'local-admin',
+    sequenceNumber: 29,
+  };
+  const resolution = {
+    counts: {
+      accepted: 1,
+      completed: 1,
+      corrected: 0,
+      pending: 2,
+      rejected: 0,
+      superseded: 0,
+      total: 3,
+    },
+    created: false,
+    event: {},
+    item: {},
+    queueVersion: 1,
+  };
+  const received = [];
+  const result = await resolveOperationalReview(
+    {
+      resolveOperationalImageReviewItem: async (...args) => {
+        received.push(args);
+        if (received.length === 1) return await new Promise(() => {});
+        return { data: resolution };
+      },
+    },
+    {
+      command,
+      gameId: activeGame.id,
+      importJobId: 'job-1',
+      reviewItemId: 'review-1',
+    },
+    { timeoutMs: 5 },
+  );
+
+  assert.equal(received.length, 2);
+  assert.deepEqual(received[0], received[1]);
+  assert.strictEqual(received[0][2], command);
+  assert.deepEqual(result, { ok: true, resolution });
+});
+
+test('returns an ambiguous-save message and releases the caller after two timeouts', async () => {
+  let attempts = 0;
+  const result = await resolveOperationalReview(
+    {
+      resolveOperationalImageReviewItem: async () => {
+        attempts += 1;
+        return await new Promise(() => {});
+      },
+    },
+    {
+      command: {
+        action: 'accepted',
+        cells: [],
+        expectedRevision: 0,
+        geometryRevision: 0,
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        resolvedBy: 'local-admin',
+        sequenceNumber: 29,
+      },
+      gameId: activeGame.id,
+      importJobId: 'job-1',
+      reviewItemId: 'review-1',
+    },
+    { timeoutMs: 5 },
+  );
+
+  assert.equal(attempts, 2);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Zapis mógł zostać przyjęty/);
+});
+
 test('previews and saves geometry through the generated scope-bound client', async () => {
   const previewCommand = {
     corners: [

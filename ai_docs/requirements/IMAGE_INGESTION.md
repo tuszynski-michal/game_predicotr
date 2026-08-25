@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-23
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -180,7 +180,7 @@ Produkcyjna ścieżka v0.6 zastępuje pośredni raster planszy kontraktem
 - geometria przechowuje `sourceContextBounds`, `displayAssetKind` oraz
   `cellOutputSize`, aby Reviewer i audyt nie zgadywały pochodzenia obrazu.
 
-Aktywny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
+Domyślny cropper `board-cell-crops-v18-source-direct-validated-v1` pozostaje
 niezmieniony do czasu odbioru następcy. TASK-0249 wprowadza najpierw nieaktywny
 kontrakt `BoardCellGeometryManifestV1` dla
 `board-cell-geometry-v19-multi-point-source-direct-v1`:
@@ -219,9 +219,9 @@ ani pośredniego obrazu planszy.
 Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
 maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
 częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
-globalnych przypisań. Estymator nie zmienia pełnego pipeline'u importu v18;
-po zaliczeniu bramki 100 stron może działać wyłącznie w jawnej operacji
-pending-only opisanej poniżej.
+globalnych przypisań. Estymator działa w pełnym adapterze v20 opisanym poniżej.
+Historyczne joby v18 pozostają odtwarzalne, ale nie są tworzone przez bieżący
+workflow importu.
 
 Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
 deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
@@ -242,9 +242,8 @@ drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
 evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
 resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
 paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
-fingerprintem. Adapter pozostaje poza pełnym pipeline'em importu; po osobnym
-odbiorze integracji jest aktywny tylko dla ręcznej korekty i jawnego
-pending-only recropu.
+fingerprintem. Historyczny tryb v18 pozostaje odtwarzalny, natomiast bieżący
+adapter v20 używa croppera v19 w każdym nowym pełnym imporcie.
 
 Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
 cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
@@ -279,6 +278,74 @@ Adapter bierze istniejący zweryfikowany quad planszy i nie uruchamia ponownie
 discovery, detektora strony ani OCR numerów. Tylko kompletne evidence 3 × 5
 może utworzyć 15 source-direct cropów i append-only rewizję geometrii. Brak
 pełnej geometrii pozostawia planszę w review bez częściowych plików.
+
+Przed integracją następcy pełnego pipeline'u istnieje osobny trwały kontrakt
+`BoardCellProcessingManifestV1`. Manifest jest content-addressed i przypina
+poświadczony numer, źródło, oczekiwane rewizje oraz wersje i fingerprinty
+pipeline'u, estymatora i croppera. Nie zawiera obrazu ani 15 predykcji.
+
+Niewiarygodny wynik geometrii zapisuje się w
+`image_board_geometry_pending` z jednym z zamkniętych powodów:
+`insufficient_centers`, `incomplete_lattice`, `residual_too_high` albo
+`source_unavailable`. Stan `pending` może przejść wyłącznie do `resolved` albo
+`superseded`. Równoległa decyzja człowieka lub zmiana przypiętej rewizji zawsze
+prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
+aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
+
+Przypięty kontrakt pełnego importu
+`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem
+i jest domyślnym pipeline'em nowych importów. Żądanie startu domyślnie używa
+`boardCellProcessingMode=verified_v19`; klient Admina przekazuje tę wartość
+jawnie, a brak pola w API również wybiera v19.
+Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
+niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
+snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
+
+Przed etapem `board_crops` executor zapisuje osobny, niezmienny wynik
+`board_cell_geometry`. Dla każdej z dziewięciu plansz dozwolony jest wyłącznie
+jeden z wyników: kompletna zweryfikowana geometria 15 komórek albo `deferred`
+bez quadów komórek. Cropper v19 zwraca następnie dokładnie 15 source-direct
+cropów albo zero. Po błędzie nie wolno uruchomić historycznego v18 jako
+fallbacku ani wywołać modelu symboli dla tej planszy. Udane pozycje tej samej
+strony mogą kontynuować inferencję i review.
+
+Deferrals są odtwarzane z niezmiennych stage results po restarcie workera oraz
+przy job-local rehydration współdzielonego file execution. Exact replay jest
+idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Historyczny
+benchmark `93,78%` pozostaje audytowalny, lecz właściciel podjął odrębną
+decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania.
+
+Admin pokazuje v20/v19 dla aktywnego, gotowego browser stagingu po przygotowaniu
+raportu i geometrii strony. Każdy nowy staging zaczyna w `verified_v19`, bez
+staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowiedź
+idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
+snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
+
+Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
+`v18 — tryb historyczny` albo `v20 — geometria i cropy v19`. Etykieta pochodzi
+wyłącznie z niezmiennego snapshotu joba; nie zgaduje wersji selektora zdjęć,
+jeżeli nie została ona zapisana w payloadzie importu.
+
+Trwały deferred może zostać rozwiązany ręcznie bez ponownego uruchamiania
+pipeline'u. Komenda czterech narożników jest związana z checksumą manifestu,
+źródła, oczekiwanymi rewizjami oraz snapshotem modelu symboli przypiętym do
+źródłowego importu. Podgląd używa croppera v19 i nie zapisuje danych. Zapis
+tworzy atomowo jedną zwykłą planszę, dokładnie 15 obserwacji row-major,
+append-only rewizję geometrii oraz jeden `pending` item istniejącej kolejki
+review. Niepełna geometria albo błąd inferencji nie może utworzyć częściowej
+projekcji.
+
+Exact retry tej samej komendy jest idempotentny i nie wykonuje ponownie
+inferencji ani zapisu cropów. Ponowne użycie klucza dla zmienionej komendy,
+manifestu, źródła, modelu albo rewizji kończy się stabilnym konfliktem.
+Istniejąca plansza lub późniejsza decyzja człowieka zawsze wygrywa, a deferred
+przechodzi do `superseded`. Ręczne rozwiązanie nie zmienia poświadczonego
+numeru `seq_*`, aktywnego modelu ani przypiętego silnika joba.
+
+Benchmark 300 stron osiągnął historycznie `93,78%` pokrycia przy wcześniejszej
+bramce `98%`; raport, checksumy dowodowe oraz ograniczenia są opisane w
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`. Pomimo tej bramki
+właściciel wybrał stały domyślny v19 do jawnego odwołania.
 
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie
@@ -317,6 +384,22 @@ krawędzi co najmniej 0,70 średnio i 0,45 dla każdej planszy. Wynik preflightu
 jest niezmiennym, content-addressed `PageGeometryManifestV1` przypiętym do
 joba. Nieudana strona trafia do `Korekty geometrii strony`, a nie do OCR,
 symboli ani technicznego `board_detection failed`.
+
+Od v0.7.5 polityka `page-geometry-preflight-v2-auto-anchor` wykonuje najwyżej
+dwa dodatkowe przebiegi wyłącznie dla nierozpoznanych źródeł. W każdym
+przebiegu może dodać najwyżej 21 perspektyw rozłożonych po naturalnej kolejności
+stagingu. Auto-kotwicą może zostać tylko kompletna geometria 3 × 3, która
+przeszła zaostrzoną bramkę: co najmniej 60 inlierów, udział 0,35, p95 do
+1,75 px, średnie pokrycie czerwonej krawędzi 0,82 i co najmniej 0,65 dla każdej
+planszy. Wynik ponowienia nadal musi przejść wszystkie pierwotne twarde progi;
+polityka nie syntetyzuje quadów ani nie obniża bramki końcowej.
+
+Ukończony manifest może zawierać zarówno `registered`, jak i
+`review_required`. Import kopiuje i przekazuje do croppera wyłącznie źródła
+`registered`. Pozostałe źródła są bezpiecznie odroczone i mogą zostać ponowione
+po rozszerzeniu profilu lub poprawione ręcznie na końcu pracy. Niepełna
+geometria nigdy nie trafia do OCR, cropów ani inferencji symboli. Kanoniczne
+numery pozostają pominięte niezależnie od statusu geometrii.
 
 Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
 rewizję. Operator najpierw przesuwa cztery uchwyty strony, zachowując strukturę

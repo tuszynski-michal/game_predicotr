@@ -1,3 +1,5 @@
+import json
+
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 
@@ -532,9 +534,7 @@ def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> No
 
 def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
-    list_path = schema["paths"][
-        "/api/v1/admin/games/{game_id}/reviewer-work-assignments"
-    ]
+    list_path = schema["paths"]["/api/v1/admin/games/{game_id}/reviewer-work-assignments"]
     local_path = schema["paths"][
         "/api/v1/admin/games/{game_id}/imports/{import_job_id}/reviewer-work-assignments/local"
     ]
@@ -544,9 +544,7 @@ def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
     heartbeat_path = schema["paths"][
         "/api/v1/admin/reviewer-work-assignments/{assignment_id}/heartbeat"
     ]
-    close_path = schema["paths"][
-        "/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"
-    ]
+    close_path = schema["paths"]["/api/v1/admin/reviewer-work-assignments/{assignment_id}/close"]
 
     assert list_path["get"]["operationId"] == "listReviewerWorkAssignments"
     assert local_path["post"]["operationId"] == "openLocalReviewerWork"
@@ -562,6 +560,81 @@ def test_reviewer_work_openapi_exposes_scoped_assignment_lifecycle() -> None:
         "assignment",
         "created",
     }
+
+
+def test_remote_manual_selection_host_base_openapi_is_local_and_path_free() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    operation = schema["paths"]["/api/v1/admin/remote-manual-selections/base-capabilities"]["post"]
+
+    assert operation["operationId"] == "selectRemoteManualSelectionHostBase"
+    assert "requestBody" not in operation
+    response_schema = schema["components"]["schemas"]["RemoteManualSelectionBaseCapabilityResponse"]
+    assert set(response_schema["properties"]) == {
+        "status",
+        "baseCapability",
+        "displayName",
+        "expiresAt",
+    }
+    assert "path" not in json.dumps(response_schema).lower()
+    session_schema = schema["components"]["schemas"]["RemoteManualSelectionSessionResponse"]
+    serialized_session = json.dumps(session_schema).lower()
+    assert "accesscode" not in serialized_session
+    assert "token" not in serialized_session
+    assert "path" not in serialized_session
+    assert {"ready", "reviewUrl"} <= set(session_schema["properties"])
+    unlock = schema["paths"]["/api/v1/remote-manual-selections/sessions/{session_id}/unlock"][
+        "post"
+    ]
+    assert unlock["operationId"] == "unlockRemoteManualSelectionSession"
+    assert any(
+        parameter["in"] == "header" and parameter["name"] == "X-Remote-Selection-Proxy"
+        for parameter in unlock["parameters"]
+    )
+    context = schema["components"]["schemas"]["RemoteManualSelectionContextResponse"]
+    assert "accessToken" not in context["properties"]
+    assert "gameId" not in context["properties"]
+    assert "importJobId" not in context["properties"]
+
+
+def test_remote_manual_selection_routes_can_be_disabled() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "false"}
+    )
+
+    paths = create_app(settings).openapi()["paths"]
+    assert "/api/v1/admin/remote-manual-selections/base-capabilities" not in paths
+    assert "/api/v1/admin/remote-manual-selections/sessions" not in paths
+    assert "/api/v1/remote-manual-selections/context" not in paths
+
+
+def test_remote_manual_selection_transfer_openapi_is_binary_and_path_free() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    status_path = "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer"
+    content_path = "/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content"
+    status = schema["paths"][status_path]["get"]
+    upload = schema["paths"][content_path]["put"]
+
+    assert status["operationId"] == "getRemoteManualSelectionFileTransfer"
+    assert upload["operationId"] == "putRemoteManualSelectionFileContent"
+    body = upload["requestBody"]["content"]["application/octet-stream"]["schema"]
+    assert body == {"format": "binary", "type": "string"}
+    headers = {
+        parameter["name"] for parameter in upload["parameters"] if parameter["in"] == "header"
+    }
+    assert {
+        "Content-Length",
+        "Content-Type",
+        "X-Remote-Selection-Checksum-Sha256",
+        "X-Remote-Selection-Client",
+        "X-Remote-Selection-Generation",
+        "X-Remote-Selection-Proxy",
+        "X-Remote-Selection-Source-Mtime",
+        "X-Remote-Selection-Transfer-Id",
+    } <= headers
+    response = schema["components"]["schemas"]["RemoteManualSelectionTransferResponse"]
+    serialized = json.dumps(response).lower()
+    assert "path" not in serialized
+    assert "token" not in serialized
 
 
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:

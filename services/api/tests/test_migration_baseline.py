@@ -63,6 +63,9 @@ IMAGE_REVIEW_FIRST_SAVE_WINS_REVISION = "0050_image_review_first_save_wins"
 REVIEWER_WORK_ASSIGNMENTS_REVISION = "0051_reviewer_work_assignments"
 REVIEWER_ASSIGNMENT_SESSIONS_REVISION = "0052_reviewer_assignment_sessions"
 IMAGE_REVIEW_JOB_COMPLETION_REVISION = "0053_image_review_job_completion"
+IMAGE_BOARD_GEOMETRY_PENDING_REVISION = "0054_image_board_geometry_pending"
+BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION = "0055_board_cell_geometry_pipeline_stage"
+REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION = "0056_remote_manual_selection_persistence"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -137,7 +140,14 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     reviewer_work_assignments = script.get_revision(REVIEWER_WORK_ASSIGNMENTS_REVISION)
     reviewer_assignment_sessions = script.get_revision(REVIEWER_ASSIGNMENT_SESSIONS_REVISION)
     image_review_job_completion = script.get_revision(IMAGE_REVIEW_JOB_COMPLETION_REVISION)
-    assert script.get_heads() == [IMAGE_REVIEW_JOB_COMPLETION_REVISION]
+    image_board_geometry_pending = script.get_revision(IMAGE_BOARD_GEOMETRY_PENDING_REVISION)
+    board_cell_geometry_pipeline_stage = script.get_revision(
+        BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
+    )
+    remote_manual_selection_persistence = script.get_revision(
+        REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
+    )
+    assert script.get_heads() == [REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -254,6 +264,91 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert reviewer_assignment_sessions.down_revision == REVIEWER_WORK_ASSIGNMENTS_REVISION
     assert image_review_job_completion is not None
     assert image_review_job_completion.down_revision == REVIEWER_ASSIGNMENT_SESSIONS_REVISION
+    assert image_board_geometry_pending is not None
+    assert image_board_geometry_pending.down_revision == IMAGE_REVIEW_JOB_COMPLETION_REVISION
+    assert board_cell_geometry_pipeline_stage is not None
+    assert board_cell_geometry_pipeline_stage.down_revision == IMAGE_BOARD_GEOMETRY_PENDING_REVISION
+    assert remote_manual_selection_persistence is not None
+    assert (
+        remote_manual_selection_persistence.down_revision
+        == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
+    )
+
+
+def test_remote_manual_selection_migration_is_additive_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}:"
+        f"{REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION}:"
+        f"{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    for table_name in (
+        "remote_manual_selection_sessions",
+        "remote_manual_selection_collections",
+        "remote_manual_selection_batches",
+        "remote_manual_selection_files",
+        "remote_manual_selection_operations",
+        "remote_manual_selection_transfers",
+        "remote_manual_selection_host_actions",
+        "remote_manual_selection_audit_events",
+    ):
+        assert f"create table {table_name}" in upgrade_sql
+        assert f"drop table {table_name}" in downgrade_output.getvalue().lower()
+    assert "uq_rms_batches_base_mapping" in upgrade_sql
+    assert "fk_rms_operations_file_scope" in upgrade_sql
+    assert "deny_remote_manual_selection_append_only_mutation" in upgrade_sql
+
+
+def test_board_cell_geometry_pipeline_stage_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}:{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION}:{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}",
+        sql=True,
+    )
+
+    assert "'board_cell_geometry'" in upgrade_output.getvalue().lower()
+    assert "'board_cell_geometry'" not in downgrade_output.getvalue().lower()
+
+
+def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_JOB_COMPLETION_REVISION}:{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_BOARD_GEOMETRY_PENDING_REVISION}:{IMAGE_REVIEW_JOB_COMPLETION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_board_geometry_pending" in upgrade_sql
+    assert "uq_image_board_geometry_pending_manifest" in upgrade_sql
+    assert "uq_image_board_geometry_pending_current" in upgrade_sql
+    assert "ck_image_board_geometry_pending_lifecycle" in upgrade_sql
+    assert "bytea" not in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table image_board_geometry_pending" in downgrade_sql
 
 
 def test_reviewer_assignment_sessions_migration_is_scoped_and_reversible() -> None:

@@ -173,6 +173,13 @@ def job_input_key(
             "file_format": input_payload.get("file_format"),
             "contract_version": input_payload.get("contract_version"),
         }
+    elif (
+        job_type is JobType.VALIDATE
+        and input_payload.get("validation_kind") == "page_geometry_preflight"
+    ):
+        identity_payload = {
+            key: value for key, value in input_payload.items() if key != "source_display_name"
+        }
     canonical = json.dumps(
         {
             "gameId": None if game_id is None else str(game_id),

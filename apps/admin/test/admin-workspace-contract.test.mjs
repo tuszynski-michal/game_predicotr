@@ -28,6 +28,17 @@ test('uses a single controlled game context for dependent sections', () => {
   assert.doesNotMatch(shellSource, /href="#jobs"/);
 });
 
+test('keeps local manual image selection independent from game context', () => {
+  assert.match(
+    workspaceSource,
+    /<ManualImageSelectionWorkspace apiBaseUrl=\{apiBaseUrl\} \/>/,
+  );
+  assert.doesNotMatch(
+    workspaceSource,
+    /Ręczna selekcja zapisuje sesję w kontekście wybranej gry/,
+  );
+});
+
 test('does not expose duplicate Dataset or Manual Review workspaces', () => {
   assert.doesNotMatch(workspaceSource, /DatasetCatalog/);
   assert.doesNotMatch(workspaceSource, /ReviewWorkspace/);
@@ -47,4 +58,19 @@ test('keeps destructive game cleanup after every ordinary game section', () => {
   assert.notEqual(gameSectionsIndex, -1);
   assert.notEqual(cleanupIndex, -1);
   assert.ok(cleanupIndex > gameSectionsIndex);
+});
+
+test('mounts only the expanded game section to avoid hidden request storms', () => {
+  for (const section of [
+    'imports',
+    'symbols',
+    'rules',
+    'reviews',
+    'model-quality',
+  ]) {
+    assert.match(
+      workspaceSource,
+      new RegExp(`expanded && section\\.id === '${section}'`),
+    );
+  }
 });

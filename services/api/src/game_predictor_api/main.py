@@ -1,33 +1,42 @@
 """FastAPI application factory for the local Admin API."""
 
 import json
+import logging
 from collections.abc import Callable, Iterator
+from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewer,
 )
+from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+    ManualBoardCellSymbolPredictor,
+)
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.application.board_cell_geometry_pending import (
+    BoardCellGeometryPendingService,
+    ManagedBoardCellProcessingManifestStore,
+)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
     ManagedCleanupArtifactStore,
 )
+from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
     ImageFolderSelectionService,
-    WindowsFolderPicker,
 )
 from game_predictor_api.application.image_jobs import ImageJobOperationsService
 from game_predictor_api.application.image_review_cohorts import (
@@ -58,6 +67,34 @@ from game_predictor_api.application.mobile_releases import (
 )
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
+)
+from game_predictor_api.application.remote_manual_selection_access import (
+    RemoteManualSelectionAccessError,
+    RemoteManualSelectionAccessNotFoundError,
+    RemoteManualSelectionAccessService,
+    RemoteManualSelectionAuthenticationError,
+    RemoteManualSelectionAuthorizationError,
+    RemoteManualSelectionLeaseConflictError,
+)
+from game_predictor_api.application.remote_manual_selection_control import (
+    RemoteManualSelectionControlRateLimiter,
+    RemoteManualSelectionControlService,
+    RemoteManualSelectionRateLimitError,
+)
+from game_predictor_api.application.remote_manual_selection_host import (
+    RemoteManualSelectionHostService,
+)
+from game_predictor_api.application.remote_manual_selection_recovery import (
+    RemoteManualSelectionRecoveryRunner,
+    RemoteManualSelectionRecoveryService,
+)
+from game_predictor_api.application.remote_manual_selection_transfer import (
+    RemoteManualSelectionTransferGate,
+    RemoteManualSelectionTransferLimitError,
+    RemoteManualSelectionTransferLimits,
+    RemoteManualSelectionTransferRateLimitError,
+    RemoteManualSelectionTransferService,
+    RemoteManualSelectionTransferTimeoutError,
 )
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
@@ -125,6 +162,10 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseError,
     MobileReleaseNotFoundError,
 )
+from game_predictor_api.domain.remote_manual_selections import (
+    RemoteManualSelectionConflictError,
+    RemoteManualSelectionError,
+)
 from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignmentConflictError,
     ReviewerWorkAssignmentError,
@@ -146,6 +187,9 @@ from game_predictor_api.security.local_admin import (
     AppendOnlyAdminAuditLog,
     LocalAdminSecurityMiddleware,
     augment_admin_security_openapi,
+)
+from game_predictor_api.storage.board_cell_geometry_pending_repository import (
+    SqlAlchemyBoardCellGeometryPendingRepository,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -192,6 +236,12 @@ from game_predictor_api.storage.mobile_release_repository import (
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
+from game_predictor_api.storage.remote_manual_selection_access_repository import (
+    SqlAlchemyRemoteManualSelectionAccessRepository,
+)
+from game_predictor_api.storage.remote_manual_selection_repository import (
+    SqlAlchemyRemoteManualSelectionRepository,
+)
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
@@ -220,6 +270,8 @@ from game_predictor_api.storage.verified_training_cohort_repository import (
 from game_predictor_api.storage.worker_lane_repository import (
     SqlAlchemyWorkerLaneRepository,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def create_app(
@@ -252,6 +304,12 @@ def create_app(
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
+    board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_transfer_service_dependency: Callable[..., object] | None = None,
+    remote_manual_selection_recovery_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -373,9 +431,10 @@ def create_app(
         image_selection_service_dependency or default_image_selection_service_dependency
     )
 
-    default_image_folder_selection_service = ImageFolderSelectionService(
-        WindowsFolderPicker(Path.cwd() / "scripts" / "select_local_image_folder.ps1")
+    controlled_folder_picker = WindowsFolderPicker(
+        Path.cwd() / "scripts" / "select_local_image_folder.ps1"
     )
+    default_image_folder_selection_service = ImageFolderSelectionService(controlled_folder_picker)
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
     )
@@ -387,6 +446,143 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+    default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
+        controlled_folder_picker,
+        operator_local_control_root=(
+            resolved_settings.artifact_root / "remote-manual-selection-access"
+        ),
+    )
+    resolved_remote_manual_selection_host_dependency = (
+        remote_manual_selection_host_service_dependency
+        or (lambda: default_remote_manual_selection_host_service)
+    )
+
+    remote_manual_selection_host_parameter = Depends(
+        resolved_remote_manual_selection_host_dependency
+    )
+
+    def default_remote_manual_selection_access_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionAccessService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionAccessService(
+                    SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                    host_service,
+                )
+                session.commit()
+            except RemoteManualSelectionAccessError:
+                # Failed access attempts, lockout and successful lease mutations
+                # are security state and must survive the HTTP error response.
+                session.commit()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_access_dependency = (
+        remote_manual_selection_access_service_dependency
+        or default_remote_manual_selection_access_service_dependency
+    )
+    remote_manual_selection_control_rate_limiter = RemoteManualSelectionControlRateLimiter()
+
+    def default_remote_manual_selection_control_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionControlService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionControlService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    RemoteManualSelectionAccessService(
+                        SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                        host_service,
+                    ),
+                    host_service,
+                    rate_limiter=remote_manual_selection_control_rate_limiter,
+                    deselect_enabled=resolved_settings.remote_selection_deselect_enabled,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_control_dependency = (
+        remote_manual_selection_control_service_dependency
+        or default_remote_manual_selection_control_service_dependency
+    )
+    remote_manual_selection_transfer_limits = RemoteManualSelectionTransferLimits(
+        max_file_bytes=resolved_settings.remote_selection_max_file_bytes,
+        max_session_bytes=resolved_settings.remote_selection_max_session_bytes,
+        max_active_session_transfers=(
+            resolved_settings.remote_selection_max_active_session_transfers
+        ),
+        max_active_global_transfers=(
+            resolved_settings.remote_selection_max_active_global_transfers
+        ),
+        upload_timeout_seconds=resolved_settings.remote_selection_upload_timeout_seconds,
+    )
+    remote_manual_selection_transfer_gate = RemoteManualSelectionTransferGate(
+        remote_manual_selection_transfer_limits
+    )
+
+    def default_remote_manual_selection_transfer_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionTransferService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionTransferService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    RemoteManualSelectionAccessService(
+                        SqlAlchemyRemoteManualSelectionAccessRepository(session),
+                        host_service,
+                    ),
+                    host_service,
+                    limits=remote_manual_selection_transfer_limits,
+                    gate=remote_manual_selection_transfer_gate,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_transfer_dependency = (
+        remote_manual_selection_transfer_service_dependency
+        or default_remote_manual_selection_transfer_service_dependency
+    )
+
+    def default_remote_manual_selection_recovery_service_dependency(
+        host_service: Annotated[
+            RemoteManualSelectionHostService,
+            remote_manual_selection_host_parameter,
+        ],
+    ) -> Iterator[RemoteManualSelectionRecoveryService]:
+        with session_factory() as session:
+            try:
+                yield RemoteManualSelectionRecoveryService(
+                    SqlAlchemyRemoteManualSelectionRepository(session),
+                    host_service,
+                    upload_timeout=timedelta(
+                        seconds=resolved_settings.remote_selection_upload_timeout_seconds
+                    ),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_remote_manual_selection_recovery_dependency = (
+        remote_manual_selection_recovery_service_dependency
+        or default_remote_manual_selection_recovery_service_dependency
     )
 
     def default_image_sequence_canonical_service_dependency() -> Iterator[
@@ -583,6 +779,33 @@ def create_app(
         or default_page_geometry_override_service_dependency
     )
 
+    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
+        Path(__file__).resolve().parents[4],
+        resolved_settings.artifact_root,
+    )
+
+    def default_board_cell_geometry_pending_service_dependency() -> Iterator[
+        BoardCellGeometryPendingService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardCellGeometryPendingService(
+                    SqlAlchemyBoardCellGeometryPendingRepository(session),
+                    ManagedBoardCellProcessingManifestStore(resolved_settings.artifact_root),
+                    artifact_root=resolved_settings.artifact_root,
+                    previewer=ManualBoardCellGeometryPreviewer(),
+                    predictor=manual_board_cell_symbol_predictor,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_cell_geometry_pending_dependency = (
+        board_cell_geometry_pending_service_dependency
+        or default_board_cell_geometry_pending_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -743,9 +966,42 @@ def create_app(
             resolved_symbol_model_registry_dependency,
             resolved_grid_calibration_dependency,
             resolved_page_geometry_override_dependency,
+            resolved_board_cell_geometry_pending_dependency,
+            resolved_remote_manual_selection_host_dependency,
+            resolved_remote_manual_selection_access_dependency,
+            resolved_remote_manual_selection_control_dependency,
+            resolved_remote_manual_selection_transfer_dependency,
+            resolved_remote_manual_selection_recovery_dependency,
             resolved_settings.artifact_root,
         )
     )
+    if remote_manual_selection_recovery_service_dependency is None:
+        startup_recovery = RemoteManualSelectionRecoveryRunner(
+            session_factory,
+            default_remote_manual_selection_host_service,
+            enabled=resolved_settings.remote_selection_recovery_enabled,
+            upload_timeout=timedelta(
+                seconds=resolved_settings.remote_selection_upload_timeout_seconds
+            ),
+            limit=resolved_settings.remote_selection_recovery_limit,
+        )
+
+        def reconcile_remote_manual_selection_on_startup() -> None:
+            try:
+                application.state.remote_selection_startup_recovery = (
+                    startup_recovery.run_bounded_cycle()
+                )
+            except Exception:  # noqa: BLE001 - startup recovery is best-effort and bounded.
+                application.state.remote_selection_startup_recovery = None
+                LOGGER.warning(
+                    "remote_selection_startup_recovery_failed code=%s",
+                    "REMOTE_SELECTION_RECOVERY_STARTUP_FAILED",
+                )
+
+        application.router.add_event_handler(
+            "startup",
+            reconcile_remote_manual_selection_on_startup,
+        )
 
     @application.exception_handler(CatalogError)
     async def handle_catalog_error(
@@ -889,6 +1145,43 @@ def create_app(
         if isinstance(error, JobNotFoundError):
             status_code = 404
         elif isinstance(error, JobConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(RemoteManualSelectionError)
+    async def handle_remote_manual_selection_error(
+        _request: Request,
+        error: RemoteManualSelectionError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, RemoteManualSelectionAccessNotFoundError):
+            status_code = 404
+        elif isinstance(error, RemoteManualSelectionAuthenticationError):
+            status_code = 401
+        elif isinstance(error, RemoteManualSelectionAuthorizationError):
+            status_code = 403
+        elif isinstance(
+            error,
+            RemoteManualSelectionRateLimitError | RemoteManualSelectionTransferRateLimitError,
+        ):
+            status_code = 429
+        elif isinstance(error, RemoteManualSelectionTransferLimitError):
+            status_code = 413
+        elif isinstance(error, RemoteManualSelectionTransferTimeoutError):
+            status_code = 408
+        elif error.code == "REMOTE_SELECTION_TRANSFER_CONTENT_TYPE_INVALID":
+            status_code = 415
+        elif isinstance(
+            error,
+            RemoteManualSelectionConflictError | RemoteManualSelectionLeaseConflictError,
+        ):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

@@ -6,11 +6,15 @@ from pathlib import Path
 from uuid import uuid4
 
 import cv2
+import game_predictor_worker.images.page_geometry_preflight as preflight_module
 import numpy as np
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
-from game_predictor_worker.images.page_geometry_registration import PAGE_REGISTRATION_VERSION
+from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_VERSION,
+    RegisteredPageGeometry,
+)
 from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
 from PIL import Image
 
@@ -20,6 +24,10 @@ class _Context:
         self.checkpoints: list[dict[str, object]] = []
 
     def checkpoint(self, **kwargs: object) -> None:
+        if self.checkpoints:
+            previous = self.checkpoints[-1]
+            for key in ("current", "success_count", "failure_count", "review_count"):
+                assert int(kwargs[key]) >= int(previous[key]), f"{key} regressed"
         self.checkpoints.append(kwargs)
 
 
@@ -122,3 +130,102 @@ def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) 
     assert payload["registeredSourceCount"] == 1
     assert payload["reviewRequiredSourceCount"] == 0
     assert payload["entries"][checksum]["status"] == "registered"
+
+
+def test_geometry_preflight_retries_unresolved_page_with_strict_auto_anchor(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    selection_id = uuid4()
+    staged = tmp_path / str(selection_id)
+    staged.mkdir()
+    files = []
+    for index, intensity in enumerate((30, 220)):
+        source = staged / f"{index:08d}.jpg"
+        Image.fromarray(np.full((120, 180, 3), intensity, dtype=np.uint8), mode="RGB").save(
+            source,
+            format="JPEG",
+        )
+        content = source.read_bytes()
+        files.append(
+            {
+                "orderIndex": index,
+                "relativePath": f"seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+                "storedFileName": source.name,
+                "sizeBytes": len(content),
+                "checksumSha256": hashlib.sha256(content).hexdigest(),
+            }
+        )
+    browser_manifest = json.dumps(
+        {
+            "schemaVersion": 1,
+            "purpose": "layout_import",
+            "gameId": None,
+            "orderingPolicy": "natural_relative_path_v1",
+            "files": files,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    (staged / "_browser_manifest.json").write_bytes(browser_manifest)
+    quads = tuple(
+        tuple(Point(column * 10 + x, row * 10 + y) for x, y in ((0, 0), (8, 0), (8, 8), (0, 8)))
+        for row in range(3)
+        for column in range(3)
+    )
+
+    class _Registrar:
+        instances = 0
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            type(self).instances += 1
+            self.instance = type(self).instances
+            self.available = True
+
+        def register(self, rgb):
+            if self.instance == 1 and float(rgb.mean()) > 100:
+                return None
+            return RegisteredPageGeometry(
+                anchor_source_checksum_sha256="a" * 64,
+                quads=quads,
+                board_red_edge_coverages=(0.9,) * 9,
+                inlier_count=80,
+                inlier_ratio=0.5,
+                p95_reprojection_error=1.0,
+                mean_red_edge_coverage=0.9,
+                feature_count=1000,
+            )
+
+    monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", _Registrar)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
+            "source_selection_id": str(selection_id),
+            "source_directory": str(staged),
+            "source_manifest_sha256": hashlib.sha256(browser_manifest).hexdigest(),
+            "page_registration_profile": {
+                "policy": PAGE_REGISTRATION_VERSION,
+                "anchors": [{"sourceChecksumSha256": "c" * 64}],
+            },
+            "page_geometry_overrides": {},
+            "canonical_sequence_numbers": [],
+        },
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(context, job)  # type: ignore[arg-type]
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["version"] == "page-geometry-preflight-v2-auto-anchor"
+    assert payload["registeredSourceCount"] == 2
+    assert payload["reviewRequiredSourceCount"] == 0
+    assert payload["automaticAnchorPasses"][0]["resolvedSourceCount"] == 1
+    assert [checkpoint["review_count"] for checkpoint in context.checkpoints] == [0, 0, 0]

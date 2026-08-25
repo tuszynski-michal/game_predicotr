@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import PurePosixPath
+from typing import cast
 from uuid import UUID
 
 BOOTSTRAP_SYMBOL_MODEL_VERSION = "bootstrap-symbol-cnn-onnx-v1"
@@ -74,6 +78,60 @@ class SymbolModelJobSnapshot:
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
         ).hexdigest()
 
+    @classmethod
+    def from_payload(cls, value: object) -> SymbolModelJobSnapshot:
+        if not isinstance(value, Mapping):
+            raise ValueError("The symbol model snapshot must be an object.")
+        try:
+            iteration_value = value.get("iterationId")
+            iteration_id = None if iteration_value is None else UUID(str(iteration_value))
+            class_values = value["classCodes"]
+            if isinstance(class_values, str | bytes) or not isinstance(class_values, Sequence):
+                raise ValueError("classCodes must be an array.")
+            class_codes = cast(tuple[str, ...], tuple(class_values))
+            if (
+                len(class_codes) < 2
+                or not all(isinstance(item, str) and item for item in class_codes)
+                or len(set(class_codes)) != len(class_codes)
+            ):
+                raise ValueError("classCodes must contain unique non-empty values.")
+            input_size = value["inputSize"]
+            temperature = value["temperature"]
+            if (
+                isinstance(input_size, bool)
+                or not isinstance(input_size, int)
+                or input_size < 16
+                or isinstance(temperature, bool)
+                or not isinstance(temperature, int | float)
+                or not math.isfinite(float(temperature))
+                or float(temperature) <= 0
+            ):
+                raise ValueError("The symbol model runtime values are invalid.")
+            onnx_relative_path = _required_text(value, "onnxRelativePath")
+            relative = PurePosixPath(onnx_relative_path)
+            if (
+                relative.is_absolute()
+                or "\\" in onnx_relative_path
+                or any(part in {"", ".", ".."} for part in relative.parts)
+            ):
+                raise ValueError("The symbol model path is unsafe.")
+            snapshot = cls(
+                iteration_id=iteration_id,
+                model_version=_required_text(value, "modelVersion"),
+                manifest_checksum_sha256=_required_sha256(value, "manifestChecksumSha256"),
+                onnx_checksum_sha256=_required_sha256(value, "onnxChecksumSha256"),
+                onnx_relative_path=onnx_relative_path,
+                storage_root=SymbolModelStorageRoot(_required_text(value, "storageRoot")),
+                class_codes=class_codes,
+                input_size=input_size,
+                temperature=float(temperature),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("The pinned symbol model snapshot is invalid.") from error
+        if value.get("inferenceFingerprint") != snapshot.inference_fingerprint:
+            raise ValueError("The pinned symbol model inference fingerprint changed.")
+        return snapshot
+
 
 def bootstrap_symbol_model_snapshot() -> SymbolModelJobSnapshot:
     manifest_checksum = hashlib.sha256(
@@ -90,6 +148,26 @@ def bootstrap_symbol_model_snapshot() -> SymbolModelJobSnapshot:
         input_size=BOOTSTRAP_SYMBOL_INPUT_SIZE,
         temperature=BOOTSTRAP_SYMBOL_TEMPERATURE,
     )
+
+
+def _required_text(value: Mapping[str, object], field: str) -> str:
+    result = value.get(field)
+    if not isinstance(result, str) or not result:
+        raise ValueError(f"{field} must be a non-empty string.")
+    return result
+
+
+def _required_sha256(value: Mapping[str, object], field: str) -> str:
+    result = _required_text(value, field)
+    if len(result) != 64:
+        raise ValueError(f"{field} must be a SHA-256 checksum.")
+    try:
+        int(result, 16)
+    except ValueError as error:
+        raise ValueError(f"{field} must be a SHA-256 checksum.") from error
+    if result != result.lower():
+        raise ValueError(f"{field} must be lowercase.")
+    return result
 
 
 __all__ = [

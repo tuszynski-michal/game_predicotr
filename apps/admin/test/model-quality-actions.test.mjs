@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import {
   confirmGridActivation,
@@ -11,6 +12,14 @@ import {
   previewGridActivation,
   previewModelActivation,
 } from '../src/features/model-quality/model-quality-actions.ts';
+
+const workspaceSource = await readFile(
+  new URL(
+    '../src/features/model-quality/model-quality-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 const gameId = 'game-1';
 const checksum = 'a'.repeat(64);
@@ -50,7 +59,8 @@ const preview = {
   warnings: [],
 };
 
-test('loads summary and manifest from one game-scoped client', async () => {
+test('loads one summary and derives its checksum-bound preview without a duplicate request', async () => {
+  let previewCalls = 0;
   const result = await loadModelQuality(
     {
       getModelQuality: async (requestedGameId) => {
@@ -59,6 +69,7 @@ test('loads summary and manifest from one game-scoped client', async () => {
       },
       previewVerifiedTrainingCohort: async (requestedGameId) => {
         assert.equal(requestedGameId, gameId);
+        previewCalls += 1;
         return { data: preview };
       },
       listSymbolModelIterations: async (requestedGameId) => {
@@ -78,13 +89,22 @@ test('loads summary and manifest from one game-scoped client', async () => {
   assert.equal(result.preview.manifestChecksumSha256, checksum);
   assert.deepEqual(result.iterations, []);
   assert.deepEqual(result.activations, []);
+  assert.equal(previewCalls, 0);
+});
+
+test('does not start the heavy grid panel while the primary quality request is loading', () => {
+  const loadingBranch = workspaceSource.slice(
+    workspaceSource.indexOf('if (loading && quality === null)'),
+    workspaceSource.indexOf('if (quality === null || preview === null)'),
+  );
+
+  assert.doesNotMatch(loadingBranch, /GridQualityPanel/);
 });
 
 test('rejects a response from another game', async () => {
   const result = await loadModelQuality(
     {
       getModelQuality: async () => ({ data: { ...quality, gameId: 'other' } }),
-      previewVerifiedTrainingCohort: async () => ({ data: preview }),
       listSymbolModelIterations: async () => ({ data: [] }),
       listSymbolModelActivations: async () => ({ data: [] }),
     },

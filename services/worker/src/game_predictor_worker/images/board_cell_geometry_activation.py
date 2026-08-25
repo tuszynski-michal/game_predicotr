@@ -22,8 +22,12 @@ from .board_cell_geometry_estimator import (
 )
 
 PENDING_BOARD_CELL_RECROP_VERSION = "pending-board-cell-recrop-v19-v1"
+BOARD_CELL_PROCESSING_VERSION = "board-cell-processing-v20-verified-v19-v1"
 ACCEPTED_AUDIT_REPORT_CHECKSUM_SHA256 = (
     "320c9b1089b1481e8e4eea71c955eaf796c61554391783d2ac34020aa2421691"
+)
+SHADOW_BENCHMARK_MANIFEST_CHECKSUM_SHA256 = (
+    "8640084933f74586e2a429120ac29835c7e7fa20d9ac52d91c9c2f271c22473f"
 )
 
 
@@ -77,6 +81,51 @@ def validate_board_cell_recrop_snapshot(
     return expected
 
 
+def board_cell_processing_snapshot(*, cell_output_size: int) -> dict[str, object]:
+    """Build the pinned default full-import v20/v19 processing contract."""
+
+    recrop = board_cell_recrop_snapshot(cell_output_size=cell_output_size)
+    snapshot = {
+        **recrop,
+        "activationVersion": BOARD_CELL_PROCESSING_VERSION,
+        "estimatorFingerprintSha256": _sha256(
+            {
+                "estimatorVersion": ESTIMATOR_VERSION,
+                "geometryVersion": BOARD_CELL_GEOMETRY_VERSION,
+                "homographyVersion": HOMOGRAPHY_VERSION,
+                "locatorVersion": LOCATOR_VERSION,
+                "thresholds": estimator_thresholds(),
+                "thresholdsVersion": THRESHOLDS_VERSION,
+            }
+        ),
+        "rolloutMode": "default_v19",
+        "shadowBenchmarkManifestChecksumSha256": (
+            SHADOW_BENCHMARK_MANIFEST_CHECKSUM_SHA256
+        ),
+    }
+    snapshot["configurationFingerprintSha256"] = _sha256(
+        {**snapshot, "cellOutputSize": cell_output_size}
+    )
+    return snapshot
+
+
+def validate_board_cell_processing_snapshot(
+    value: object,
+    *,
+    cell_output_size: int,
+) -> dict[str, object]:
+    """Reject drift in an explicitly pinned v20 full-import snapshot."""
+
+    if not isinstance(value, Mapping):
+        raise BoardCellRecropSnapshotError("The board-cell processing snapshot is missing.")
+    expected = board_cell_processing_snapshot(cell_output_size=cell_output_size)
+    if dict(value) != expected:
+        raise BoardCellRecropSnapshotError(
+            "The board-cell processing snapshot differs from the accepted v20 contract."
+        )
+    return expected
+
+
 def _sha256(value: Mapping[str, object]) -> str:
     payload = json.dumps(
         value,
@@ -89,8 +138,12 @@ def _sha256(value: Mapping[str, object]) -> str:
 
 __all__ = [
     "ACCEPTED_AUDIT_REPORT_CHECKSUM_SHA256",
+    "BOARD_CELL_PROCESSING_VERSION",
     "PENDING_BOARD_CELL_RECROP_VERSION",
+    "SHADOW_BENCHMARK_MANIFEST_CHECKSUM_SHA256",
     "BoardCellRecropSnapshotError",
+    "board_cell_processing_snapshot",
     "board_cell_recrop_snapshot",
+    "validate_board_cell_processing_snapshot",
     "validate_board_cell_recrop_snapshot",
 ]

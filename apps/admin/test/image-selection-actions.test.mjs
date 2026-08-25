@@ -685,6 +685,6 @@ test('requires the first layout number before creating browser staging', async (
   );
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /numer pierwszego layoutu/i);
+  assert.match(result.error, /numer pierwszej planszy/i);
   assert.equal(createCalls, 0);
 });

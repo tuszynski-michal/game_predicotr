@@ -1,6 +1,8 @@
 'use client';
 
 import type {
+  BoardCellGeometryJobCountsResponse,
+  BrowserReadySelectionResponse,
   GameResponse,
   JobResponse,
   OperationalImageReviewCountsResponse,
@@ -22,12 +24,19 @@ import {
 } from '@/features/reviewer-access/reviewer-access-actions';
 import {
   hasImageImport,
+  hasReviewerWork,
   isImageImport,
+  readyBoardImportStaging,
   reviewableGames,
   reviewJobLabel,
   reviewReadyImports,
   selectReviewImportId,
 } from '@/features/reviewer-access/reviewer-access-state';
+import {
+  closePreparedLocalReviewerWindow,
+  navigatePreparedLocalReviewerWindow,
+  prepareLocalReviewerWindow,
+} from '@/features/reviewer-access/reviewer-local-window';
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
@@ -46,6 +55,9 @@ export function ReviewerAccessLauncher({
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
+  const [readyStaging, setReadyStaging] = useState<
+    readonly BrowserReadySelectionResponse[]
+  >([]);
   const [uncontrolledGameId, setGameId] = useState('');
   const gameId = controlledGameId ?? uncontrolledGameId;
   const [jobId, setJobId] = useState('');
@@ -60,6 +72,8 @@ export function ReviewerAccessLauncher({
   const [reviewContextLoading, setReviewContextLoading] = useState(false);
   const [reviewCounts, setReviewCounts] =
     useState<OperationalImageReviewCountsResponse | null>(null);
+  const [deferredGeometryCounts, setDeferredGeometryCounts] =
+    useState<BoardCellGeometryJobCountsResponse | null>(null);
   const [opening, setOpening] = useState<'local' | 'online' | null>(null);
   const [closingAssignmentId, setClosingAssignmentId] = useState<string | null>(
     null,
@@ -73,7 +87,7 @@ export function ReviewerAccessLauncher({
       setLoading(true);
       setError('');
       try {
-        const [gamesResult, jobsResult] = await Promise.all([
+        const [gamesResult, jobsResult, stagingResult] = await Promise.all([
           api.listGames(),
           api.listJobs({
             jobType: 'import',
@@ -82,6 +96,7 @@ export function ReviewerAccessLauncher({
               ? {}
               : { gameId: controlledGameId }),
           }),
+          api.listReadyBrowserImageSelections(),
         ]);
         if (!active) return;
         if (
@@ -108,6 +123,11 @@ export function ReviewerAccessLauncher({
           '';
         setGames(availableGames);
         setJobs(imageJobs);
+        setReadyStaging(
+          stagingResult.error === undefined && stagingResult.data !== undefined
+            ? stagingResult.data
+            : [],
+        );
         const selectedGameId = controlledGameId ?? firstGameId;
         if (controlledGameId === undefined) setGameId(firstGameId);
         setJobId(selectReviewImportId(imageJobs, selectedGameId, ''));
@@ -126,7 +146,9 @@ export function ReviewerAccessLauncher({
   }, [api, controlledGameId]);
 
   const availableJobs = reviewReadyImports(jobs, gameId);
+  const availableStaging = readyBoardImportStaging(readyStaging, gameId);
   const gameHasImageImport = hasImageImport(jobs, gameId);
+  const selectedJob = availableJobs.find((job) => job.id === jobId) ?? null;
   const selectedAssignment =
     overview?.assignments.find((item) => item.importJobId === jobId) ?? null;
 
@@ -189,6 +211,7 @@ export function ReviewerAccessLauncher({
     let active = true;
     async function loadReviewContext() {
       setReviewCounts(null);
+      setDeferredGeometryCounts(null);
       if (gameId === '' || jobId === '') {
         setReviewContextLoading(false);
         return;
@@ -196,23 +219,37 @@ export function ReviewerAccessLauncher({
       setReviewContextLoading(true);
       setError('');
       try {
-        const result = await api.listOperationalImageReviewItems({
-          gameId,
-          importJobId: jobId,
-          limit: 1,
-          view: 'all',
-        });
+        const [result, deferredResult] = await Promise.all([
+          api.listOperationalImageReviewItems({
+            gameId,
+            importJobId: jobId,
+            limit: 1,
+            view: 'all',
+          }),
+          api.listPendingBoardCellGeometry({
+            gameId,
+            importJobId: jobId,
+            limit: 1,
+            status: 'pending',
+          }),
+        ]);
         if (!active) return;
-        if (result.error !== undefined || result.data === undefined) {
+        if (
+          result.error !== undefined ||
+          result.data === undefined ||
+          deferredResult.error !== undefined ||
+          deferredResult.data === undefined
+        ) {
           setError(
             apiErrorMessage(
-              result.error,
+              result.error ?? deferredResult.error,
               'Nie udało się sprawdzić plansz wybranego importu.',
             ),
           );
           return;
         }
         setReviewCounts(result.data.counts);
+        setDeferredGeometryCounts(deferredResult.data.counts);
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -231,8 +268,7 @@ export function ReviewerAccessLauncher({
     return (
       gameId !== '' &&
       jobId !== '' &&
-      reviewCounts !== null &&
-      reviewCounts.total > 0 &&
+      hasReviewerWork(reviewCounts, deferredGeometryCounts) &&
       overview !== null &&
       opening === null &&
       closingAssignmentId === null
@@ -241,8 +277,11 @@ export function ReviewerAccessLauncher({
 
   async function launchLocalReviewer() {
     if (!canOpenWork()) return;
-    const reviewerWindow = window.open('about:blank', '_blank');
-    if (reviewerWindow !== null) reviewerWindow.opener = null;
+    const reviewerWindow = prepareLocalReviewerWindow(
+      window.location.href,
+      { gameId, importJobId: jobId },
+      (url, target) => window.open(url, target),
+    );
     setOpening('local');
     setError('');
     setNotice('');
@@ -253,25 +292,31 @@ export function ReviewerAccessLauncher({
         importJobId: jobId,
       });
       if (!result.ok) {
-        reviewerWindow?.close();
+        closePreparedLocalReviewerWindow(reviewerWindow);
         setError(result.error);
         return;
       }
       const reviewUrl = result.opened.assignment.reviewUrl;
-      await refreshOverview(false);
       if (reviewUrl === null) {
-        reviewerWindow?.close();
+        closePreparedLocalReviewerWindow(reviewerWindow);
         setError('Lokalna aplikacja Reviewer nie zwróciła adresu.');
         return;
       }
+      setLocalReviewUrl(reviewUrl);
       if (reviewerWindow === null) {
-        setLocalReviewUrl(reviewUrl);
         setError(
           'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
         );
         return;
       }
-      reviewerWindow.location.replace(reviewUrl);
+      if (!navigatePreparedLocalReviewerWindow(reviewerWindow, reviewUrl)) {
+        closePreparedLocalReviewerWindow(reviewerWindow);
+        setError(
+          'Nie udało się przekierować przygotowanego okna. Otwórz lokalny Reviewer z linku poniżej.',
+        );
+        return;
+      }
+      void refreshOverview(false);
     } finally {
       setOpening(null);
     }
@@ -362,6 +407,7 @@ export function ReviewerAccessLauncher({
                   setGameId(nextGameId);
                   setJobId(selectReviewImportId(jobs, nextGameId, ''));
                   setReviewCounts(null);
+                  setDeferredGeometryCounts(null);
                   setOneTimeOnlineAccess(null);
                 }}
                 value={gameId}
@@ -375,17 +421,22 @@ export function ReviewerAccessLauncher({
             </label>
           ) : null}
           {availableJobs.length > 0 ? (
-            <label>
-              Gotowy import zdjęć
+            <label className="reviewerImportChoice">
+              Gotowy import plansz
               <select
+                className="reviewerImportSelect"
                 disabled={loading || opening !== null || reviewContextLoading}
                 onChange={(event) => {
                   setJobId(event.target.value);
                   setReviewCounts(null);
+                  setDeferredGeometryCounts(null);
                   setOneTimeOnlineAccess(null);
                   setCopied(null);
                   setNotice('');
                 }}
+                title={
+                  selectedJob === null ? undefined : reviewJobLabel(selectedJob)
+                }
                 value={jobId}
               >
                 {availableJobs.map((job) => (
@@ -394,6 +445,11 @@ export function ReviewerAccessLauncher({
                   </option>
                 ))}
               </select>
+              {selectedJob !== null ? (
+                <span className="reviewerSelectedImportId">
+                  ID: <code>{selectedJob.id}</code>
+                </span>
+              ) : null}
             </label>
           ) : null}
 
@@ -459,14 +515,18 @@ export function ReviewerAccessLauncher({
           <div className="reviewerPrerequisite" role="status">
             <div>
               <strong>
-                {gameHasImageImport
-                  ? 'Import nie jest jeszcze gotowy do zatwierdzania'
-                  : 'Brak importu zdjęć dla tej gry'}
+                {availableStaging.length > 0
+                  ? 'Gotowy staging plansz czeka na uruchomienie importu'
+                  : gameHasImageImport
+                    ? 'Import nie jest jeszcze gotowy do zatwierdzania'
+                    : 'Brak uruchomionego importu plansz dla tej gry'}
               </strong>
               <p>
-                {gameHasImageImport
-                  ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
-                  : 'Wczytaj zdjęcia i zakończ ich przetwarzanie, aby otworzyć Reviewer.'}
+                {availableStaging.length > 0
+                  ? `Staging „${availableStaging[0].displayName}” zawiera ${availableStaging[0].uploadedFileCount.toLocaleString('pl-PL')} plików, ale nie jest jeszcze jobem importu plansz. Wróć do Importu plansz, pokaż raport, przygotuj geometrię stron i jawnie rozpocznij import. Dopiero utworzony job z kolejką plansz pojawi się tutaj.`
+                  : gameHasImageImport
+                    ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
+                    : 'Wczytaj zdjęcia, przygotuj import plansz i zakończ jego przetwarzanie, aby otworzyć Reviewer.'}
               </p>
             </div>
             {onOpenImports ? (
@@ -475,7 +535,7 @@ export function ReviewerAccessLauncher({
                 onClick={onOpenImports}
                 type="button"
               >
-                Przejdź do Import layoutów
+                Przejdź do Importu plansz
               </button>
             ) : null}
           </div>
@@ -483,14 +543,15 @@ export function ReviewerAccessLauncher({
 
         {reviewContextLoading ? (
           <p className="mutedText">Sprawdzam plansze wybranego importu…</p>
-        ) : reviewCounts?.total === 0 ? (
+        ) : reviewCounts?.total === 0 &&
+          deferredGeometryCounts?.pending === 0 ? (
           <div className="reviewerPrerequisite" role="status">
             <div>
               <strong>Wybrany import nie zawiera plansz</strong>
               <p>Doładuj zdjęcia lub wybierz inny gotowy import.</p>
             </div>
           </div>
-        ) : reviewCounts ? (
+        ) : reviewCounts && deferredGeometryCounts ? (
           <dl
             className="reviewerReadinessSummary"
             aria-label="Stan plansz importu"
@@ -506,6 +567,10 @@ export function ReviewerAccessLauncher({
             <div>
               <dt>Zakończone</dt>
               <dd>{reviewCounts.completed.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Do korekty siatki</dt>
+              <dd>{deferredGeometryCounts.pending.toLocaleString('pl-PL')}</dd>
             </div>
           </dl>
         ) : null}

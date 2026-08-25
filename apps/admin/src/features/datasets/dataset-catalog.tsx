@@ -232,7 +232,7 @@ export function DatasetCatalog({
     }
     setDatasets((current) => upsertDatasetVersion(current, result.dataset));
     setFeedback(
-      `Utworzono staging datasetu v${result.dataset.version} z 1000 layoutów.`,
+      `Utworzono staging datasetu v${result.dataset.version} z 1000 plansz.`,
     );
   }
 
@@ -289,7 +289,7 @@ export function DatasetCatalog({
           <p className="eyebrow">M2.4 · kanoniczny staging</p>
           <h1>Datasety</h1>
           <p className="lead">
-            Generator tworzy deterministyczny staging 1000 layoutów. Raport
+            Generator tworzy deterministyczny staging 1000 plansz. Raport
             oddziela blokady integralności od dozwolonych duplikatów treści.
           </p>
         </div>
@@ -360,7 +360,7 @@ export function DatasetCatalog({
               <div className="editorHeader">
                 <div>
                   <p className="eyebrow">Generator mock-v1</p>
-                  <h2>Nowy staging 1000 layoutów</h2>
+                  <h2>Nowy staging 1000 plansz</h2>
                 </div>
               </div>
               <label>
@@ -397,7 +397,7 @@ export function DatasetCatalog({
                   type="submit"
                 >
                   {isGenerating
-                    ? 'Generowanie 1000 layoutów…'
+                    ? 'Generowanie 1000 plansz…'
                     : 'Generuj staging'}
                 </button>
               </div>
@@ -415,7 +415,7 @@ export function DatasetCatalog({
                 <h2>Historia datasetów</h2>
                 <p>
                   Opublikowane wersje są niezmienne; archiwizacja zachowuje
-                  layouty i czas publikacji.
+                  plansze i czas publikacji.
                 </p>
               </div>
               {datasets.map((dataset) => (
@@ -433,7 +433,7 @@ export function DatasetCatalog({
                       <p className="rulesMetadata">
                         {dataset.rows} × {dataset.columns}
                         <span>·</span>
-                        {dataset.layoutCount} layoutów
+                        {dataset.layoutCount} plansz
                         <span>·</span>
                         seed {dataset.generationSeed}
                         <span>·</span>

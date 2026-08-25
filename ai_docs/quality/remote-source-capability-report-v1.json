@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "remote-source-capability-report-v1",
+  "generatedAt": "2026-08-23T19:09:29.170Z",
+  "task": "TASK-0273",
+  "executionEnvironment": {
+    "runtime": "node v24.14.0",
+    "platform": "win32-x64",
+    "benchmarkKind": "synthetic_metadata_only"
+  },
+  "browserMatrix": [
+    {
+      "browser": "Chrome desktop",
+      "directoryHandle": "supported_in_secure_context_after_user_activation",
+      "indexedDbHandle": "supported_but_permission_must_be_rechecked",
+      "fallback": "webkitdirectory_reselect",
+      "mvp": "supported"
+    },
+    {
+      "browser": "Edge desktop",
+      "directoryHandle": "supported_in_secure_context_after_user_activation",
+      "indexedDbHandle": "supported_but_permission_must_be_rechecked",
+      "fallback": "webkitdirectory_reselect",
+      "mvp": "supported"
+    },
+    {
+      "browser": "Firefox/Safari",
+      "directoryHandle": "not_guaranteed",
+      "indexedDbHandle": "not_guaranteed",
+      "fallback": "session_only_reselect_when_available",
+      "mvp": "not_committed"
+    }
+  ],
+  "evidence": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker",
+    "https://wicg.github.io/file-system-access/",
+    "https://developer.chrome.com/docs/capabilities/web-apis/file-system-access",
+    "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/file"
+  ],
+  "fixture": {
+    "path": "apps/reviewer/test/fixtures/remote-source-capability-spike.html",
+    "productionRouteCreated": false,
+    "apiEndpointCreated": false,
+    "tunnelRequired": false,
+    "sourceWritePermissionRequested": false,
+    "sourceBytesUploaded": false
+  },
+  "automatedChecks": {
+    "deterministicNaturalManifest": "passed",
+    "rejectsAbsoluteAndTraversalPaths": "passed",
+    "readOnlyPermissionDescriptor": "passed",
+    "relinkComparison": "passed",
+    "reportChecksum": "passed"
+  },
+  "browserChecks": {
+    "chromiumInAppCapabilityDetection": "passed_2026-08-23",
+    "opfsIndexedDbRoundtrip": "passed_2026-08-23",
+    "reloadAndRestoreOpfsHandle": "passed_2026-08-23",
+    "closeTabAndRestoreOpfsHandle": "passed_2026-08-23",
+    "osDirectoryPickerReadOnly": "manual_user_activation_required",
+    "closeBrowserAndRegrant": "manual_fixture_available",
+    "permissionDenial": "manual_fixture_available",
+    "webkitdirectoryFallback": "api_detected_manual_file_choice_available"
+  },
+  "benchmark": [
+    {
+      "fileCount": 1,
+      "totalBytes": 300001,
+      "durationMs": 129.102,
+      "manifestChecksumSha256": "de21fed54d4e6e3ba9c113239f394739cdf13dd6d82e9bcd7d05cb1009dfeb43",
+      "decodedFileCount": 0,
+      "byteReadCount": 0
+    },
+    {
+      "fileCount": 500,
+      "totalBytes": 150023400,
+      "durationMs": 24.537,
+      "manifestChecksumSha256": "4f94eb84a100d9f774bd18a66676a63782272e6198c8461991540bd9f2089369",
+      "decodedFileCount": 0,
+      "byteReadCount": 0
+    },
+    {
+      "fileCount": 1000,
+      "totalBytes": 300047025,
+      "durationMs": 35.563,
+      "manifestChecksumSha256": "544c0a3d1bd8d3f627eca4feeff4716be8a2faed7461b67419aa969ca5b44f9e",
+      "decodedFileCount": 0,
+      "byteReadCount": 0
+    }
+  ],
+  "guarantees": {
+    "sourceManifestContainsBytes": false,
+    "sourceManifestContainsAbsolutePath": false,
+    "decodedFileCount": 0,
+    "byteReadCount": 0,
+    "durablePermissionGrantAssumed": false,
+    "relinkFallbackRequired": true
+  },
+  "decision": {
+    "status": "go_with_constraints",
+    "browserOnlyMvp": true,
+    "supportedBrowsers": [
+      "Chrome desktop",
+      "Edge desktop"
+    ],
+    "constraints": [
+      "secure_context_and_transient_user_activation_are_required",
+      "permission_must_be_checked_after_every_resume",
+      "relink_is_required_when_a_handle_or_permission_is_unavailable",
+      "webkitdirectory_is_session_only_and_requires_reselection",
+      "the_remote_operator_selects_one_batch_at_a_time",
+      "background_transfer_after_tab_close_is_not_guaranteed",
+      "manual_browser_acceptance_is_required_before_public_rollout"
+    ],
+    "nextTaskAllowed": true
+  },
+  "reportChecksumSha256": "f04dc14c87b93f2bf69b56e1025364db32209d2e673f7214db3424965f69cd9e"
+}

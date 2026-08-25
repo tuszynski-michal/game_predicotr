@@ -13,6 +13,7 @@ from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
     CellObservationModel,
+    ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
@@ -191,6 +192,10 @@ class SqlAlchemyImagePipelineStore:
         crops = _boards_by_position(stage_results["board_crops"].payload)
         sequences = _boards_by_position(stage_results["sequence_ocr"].payload)
         symbols = _boards_by_position(stage_results["symbol_inference"].payload)
+        if "board_cell_geometry" in stage_results:
+            # v20 persists failed boards in the dedicated deferred projection.
+            # Only positions with verified 15-cell crops may reach recognition.
+            detection = {position: detection[position] for position in crops}
         if not (detection.keys() == crops.keys() == sequences.keys() == symbols.keys()):
             raise ImagePipelineStoreError(
                 "IMAGE_RECOGNITION_POSITION_CONFLICT",
@@ -388,7 +393,16 @@ class SqlAlchemyImagePipelineStore:
                     created_at=executed_at,
                 )
                 projected_positions += 1
-            source.status = "waiting_for_review" if projected_positions else "completed"
+            deferred_positions = _pending_board_geometry_count(
+                session,
+                job_id=job_id,
+                source_image_id=source.id,
+            )
+            source.status = (
+                "waiting_for_review"
+                if projected_positions or deferred_positions
+                else "completed"
+            )
             source.processed_at = executed_at
             session.flush()
 
@@ -410,7 +424,12 @@ class SqlAlchemyImagePipelineStore:
                     ImageReviewItemModel.status == "pending",
                 )
             )
-            return int(value or 0)
+            deferred = _pending_board_geometry_count(
+                session,
+                job_id=job_id,
+                source_image_id=source.id,
+            )
+            return int(value or 0) + deferred
 
     def resolve_board(
         self,
@@ -812,6 +831,22 @@ def _job_id(candidate: ImageBatchCandidate) -> UUID:
             "Image pipeline projection requires a job identity.",
         )
     return candidate.job_id
+
+
+def _pending_board_geometry_count(
+    session: Session,
+    *,
+    job_id: UUID,
+    source_image_id: UUID,
+) -> int:
+    value = session.scalar(
+        select(func.count()).where(
+            ImageBoardGeometryPendingModel.import_job_id == job_id,
+            ImageBoardGeometryPendingModel.source_image_id == source_image_id,
+            ImageBoardGeometryPendingModel.status == "pending",
+        )
+    )
+    return int(value or 0)
 
 
 def _require_candidate_lease(

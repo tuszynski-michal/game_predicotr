@@ -775,10 +775,241 @@ nav {
   margin-top: 12px;
 }
 
+.manualImageSelectionWorkspaceStack,
 .manualImageSelectionWorkspace {
   display: grid;
   min-width: 0;
   gap: 18px;
+}
+
+.manualImageSelectionWorkspaceStack {
+  gap: 32px;
+}
+
+.remoteManualSelectionHostPanel {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(5, 12, 22, 0.52);
+}
+
+.remoteManualSelectionHostHeader,
+.remoteManualSelectionMonitorHeader,
+.remoteManualSelectionLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.remoteManualSelectionHostHeader h2,
+.remoteManualSelectionHostHeader p,
+.remoteManualSelectionMonitorHeader h3 {
+  margin: 0;
+}
+
+.remoteManualSelectionHostHeader p:last-child {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.remoteManualSelectionCreate {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 0.8fr) minmax(220px, 1.2fr) minmax(150px, 0.6fr)
+    auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.remoteManualSelectionCreate label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.remoteManualSelectionCreate input,
+.remoteManualSelectionCreate select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0b1524;
+  color: var(--text);
+  color-scheme: dark;
+  font: inherit;
+}
+
+.remoteManualSelectionMonitorHeader code {
+  overflow-wrap: anywhere;
+  color: var(--accent);
+}
+
+.remoteManualSelectionBody {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.35fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.remoteManualSelectionSessions,
+.remoteManualSelectionMonitor {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(1, 7, 14, 0.46);
+}
+
+.remoteManualSelectionSessions h3 {
+  margin: 0;
+}
+
+.remoteManualSelectionSessionListHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.remoteManualSelectionSessionListHeader label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.remoteManualSelectionSessionListHeader select {
+  min-width: 128px;
+}
+
+.remoteManualSelectionSession {
+  display: grid;
+  min-height: 68px;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.remoteManualSelectionSession span,
+.remoteManualSelectionSession small {
+  color: var(--muted);
+}
+
+.remoteManualSelectionSessionActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.remoteManualSelectionMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.remoteManualSelectionMetrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.remoteManualSelectionMetrics span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.remoteManualSelectionLink {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.remoteManualSelectionCredentials {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.remoteManualSelectionCredentials > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.remoteManualSelectionCredentials span,
+.remoteManualSelectionCredentials small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.remoteManualSelectionCredentials span {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.remoteManualSelectionCredentials a,
+.remoteManualSelectionCredentials code,
+.remoteManualSelectionCredentials strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formSuccess {
+  margin: 0;
+  color: #baf3dc;
+}
+
+@media (max-width: 980px) {
+  .remoteManualSelectionCreate,
+  .remoteManualSelectionBody {
+    grid-template-columns: 1fr;
+  }
+
+  .remoteManualSelectionMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .remoteManualSelectionHostPanel {
+    padding: 14px;
+  }
+
+  .remoteManualSelectionHostHeader,
+  .remoteManualSelectionMonitorHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remoteManualSelectionCredentials {
+    grid-template-columns: 1fr;
+  }
+
+  .remoteManualSelectionMetrics {
+    grid-template-columns: 1fr;
+  }
 }
 
 .manualImageSelectionHeader,
@@ -887,7 +1118,7 @@ nav {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(1, 7, 14, 0.72);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .manualImageSelectionViewerToolbar {
@@ -911,8 +1142,14 @@ nav {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px 30px 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #0b1524;
   color: var(--text);
+  color-scheme: dark;
+}
+
+.manualImageSelectionStep select option {
+  background: #0b1524;
+  color: #f8fafc;
 }
 
 .manualImageSelectionZoom {
@@ -930,6 +1167,8 @@ nav {
 }
 
 .manualImageSelectionViewer:fullscreen {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
   width: 100vw;
   height: 100vh;
   min-height: 100vh;
@@ -971,21 +1210,43 @@ nav {
 
 .manualImageSelectionImageFrame {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 50vh;
-  place-items: center;
+  height: calc(64vh + 30px);
   gap: 12px;
 }
 
-.manualImageSelectionImageFrame img {
+.manualImageSelectionImageViewport {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.manualImageSelectionImageCanvas {
+  flex: 0 0 auto;
+  margin-block: auto;
+}
+
+.manualImageSelectionImageCanvas img {
   display: block;
-  width: auto;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: 64vh;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 8px;
-  transform-origin: center center;
-  transition: transform 120ms ease-out;
+}
+
+.manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
+  min-height: 0;
+  height: auto;
 }
 
 .manualImageSelectionNav {
@@ -3550,9 +3811,10 @@ div.imageJobInlineError {
 .paylineTableHeader,
 .paylineTableRow {
   display: grid;
-  grid-template-columns:
-    minmax(180px, 1fr) minmax(210px, 1.1fr) minmax(90px, 0.35fr)
-    minmax(210px, 0.8fr);
+  grid-template-columns: minmax(180px, 1fr) minmax(210px, 1.1fr) minmax(
+      210px,
+      0.8fr
+    );
   gap: 18px;
   align-items: center;
   padding: 16px 18px;
@@ -3701,7 +3963,7 @@ div.imageJobInlineError {
 
 .paylineFields {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 0.7fr 0.75fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
 }
 
@@ -4516,7 +4778,7 @@ div.imageJobInlineError {
 
   .paylineTableHeader,
   .paylineTableRow {
-    min-width: 820px;
+    min-width: 640px;
   }
 
   .jobFilters {
@@ -5450,6 +5712,91 @@ div.imageJobInlineError {
   line-height: 1.5;
 }
 
+.boardCellProcessingModePicker {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(2, 7, 12, 0.42);
+}
+
+.boardCellProcessingModePicker legend {
+  padding: 0 6px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.boardCellProcessingModePicker > p,
+.boardCellProcessingModeWarning p {
+  margin: 0;
+}
+
+.boardCellProcessingModeOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.boardCellProcessingModeOption {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.boardCellProcessingModeOption.selected {
+  border-color: rgba(112, 225, 180, 0.62);
+  background: var(--accent-soft);
+}
+
+.boardCellProcessingModeOption input,
+.boardCellProcessingModeWarning input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.boardCellProcessingModeOption span,
+.boardCellProcessingModeOption strong,
+.boardCellProcessingModeOption small {
+  display: block;
+  min-width: 0;
+}
+
+.boardCellProcessingModeOption small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.boardCellProcessingModeWarning {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid rgba(255, 190, 87, 0.42);
+  border-radius: 10px;
+  background: rgba(255, 190, 87, 0.08);
+}
+
+.boardCellProcessingModeWarning p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.boardCellProcessingModeWarning label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-weight: 750;
+}
+
 .pageGeometryCorrection {
   display: grid;
   gap: 14px;
@@ -6201,6 +6548,10 @@ div.imageJobInlineError {
     grid-template-columns: 1fr;
   }
 
+  .boardCellProcessingModeOptions {
+    grid-template-columns: 1fr;
+  }
+
   .curatedImportControls {
     align-items: stretch;
     flex-direction: column;
@@ -6894,6 +7245,33 @@ div.imageJobInlineError {
 
 .reviewerLauncherControls select {
   min-height: 42px;
+}
+
+.reviewerImportChoice {
+  min-width: 0;
+}
+
+.reviewerImportSelect {
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerSelectedImportId {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerSelectedImportId code {
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
 }
 
 .reviewerLauncherError {

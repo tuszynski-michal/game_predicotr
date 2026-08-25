@@ -1,0 +1,35 @@
+{
+  "challengeCorrectedBy": "local-admin",
+  "expectedActiveModelFingerprintSha256": "19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64",
+  "gameId": "80f3c7ec-6110-4e20-a263-2675ee5b15d6",
+  "pagesPerStaging": 50,
+  "sampleSeed": "task-2-v19-cross-staging-shadow-v1",
+  "stagingManifests": [
+    {
+      "label": "1-19809",
+      "pageGeometryManifestChecksumSha256": "61e8c5b2ec489aa8c18f4d7ec57008d90b9305a50092feb78c5a9a23932e6cf4"
+    },
+    {
+      "label": "19810 - 45162",
+      "pageGeometryManifestChecksumSha256": "8db0e5d1999969f1c3316ed7b00c6b5aed59b7c4f6ec7bdd3476891bdfc2e268"
+    },
+    {
+      "label": "45163 - 70371",
+      "pageGeometryManifestChecksumSha256": "2d860d2bae7ecfd3c8d114bb1ab57d43289120c58275dc3019803c9633bfad10"
+    },
+    {
+      "label": "70363 - 93861",
+      "pageGeometryManifestChecksumSha256": "5970b6cf9090ce221d1a524d85a6c80df9202f4723c5590fcf4d89b8633b5799"
+    },
+    {
+      "label": "93853 -117828",
+      "pageGeometryManifestChecksumSha256": "b286f139e61f95886cfb8eb728141e7728e3e03991bccf7fbb3ac0d17b99bf98"
+    },
+    {
+      "label": "117829 - 128268",
+      "pageGeometryManifestChecksumSha256": "a570814cfeadc1203226cf0ba90ef5141372d30ff22a2f658aabd97bbdd4aa57"
+    }
+  ],
+  "taskOneDiagnosticChecksumSha256": "e7f09e594d4013aee49362d7c22b0a0916acf47361f6ca742f15895a163e14eb",
+  "version": "board-cell-geometry-v19-shadow-benchmark-descriptor-v1"
+}

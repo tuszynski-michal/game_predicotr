@@ -1,8 +1,8 @@
 ---
 title: Iterative image import architecture
 status: accepted
-last_updated: 2026-08-09
-release: "0.5"
+last_updated: 2026-08-23
+release: "0.7"
 ---
 
 # Architektura iteracyjnego importu
@@ -70,6 +70,82 @@ snapshotami, pozostawiając poprzedni job audytowalny; identyczne żądanie jest
 idempotentne. Staging nie jest ponownie przesyłany, a kanoniczne numery są
 ponownie sprawdzane przed startem.
 
+### Jawnie przypięty adapter komórek v20
+
+Schema v5 może opcjonalnie zawierać snapshot
+`board-cell-processing-v20-verified-v19-v1`. Pole nie jest dodawane domyślnie:
+operator wybiera `verified_v19`, a zwykły start zachowuje historyczny v18.
+Konfiguracja estymatora i croppera wchodzi do efektywnego fingerprintu.
+
+Historyczna lista checkpointów pliku pozostaje niezmienna. V20 wykonuje
+`board_cell_geometry` jako trwały, niezmienny pre-crop substage etapu
+`board_crops`. Jeśli worker zakończy się po zapisaniu geometrii, resume używa
+stage result bez ponownego estymowania. Replayer po zapisie oraz przy
+rehydration materializuje job-local `image_board_geometry_pending`
+idempotentnie, co jest konieczne również przy współdzieleniu file execution
+przez dwa joby.
+
+Wynik strony może zawierać udane i odroczone pozycje. Tylko udane pozycje
+tworzą 15 cropów v19 i przechodzą przez numer z poświadczonego zakresu oraz
+model symboli. Odroczone pozycje tworzą zero cropów i zero predykcji. Nie
+istnieje przejście z błędu v19 do v18. Dzięki temu historyczne checkpointy i
+manifesty są odtwarzalne, a rollback nowych jobów polega na ponownym jawnym
+wyborze `historical_v18`.
+
+Oczekujący deferred geometrii należy do granicy `waiting_for_review`. Blokuje
+przedwczesną walidację ciągłości i nie jest interpretowany jako brakująca
+sekwencja.
+
+### Stan rollout'u i rollback
+
+Cross-staging benchmark obejmujący 300 stron i 2700 plansz potwierdził jakość
+automatycznych trafień v19, ale osiągnął `2532/2700 = 93,78%` pokrycia przy
+bramce co najmniej `98%`. Z tego powodu `historical_v18` pozostaje domyślnym
+snapshotem, a `verified_v19` jest wyłącznie staging-local opt-in. Jawna decyzja
+właściciela pozwoliła zintegrować i używać bezpiecznego adaptera v20, lecz nie
+zmieniła wyniku bramki ani domyślnego trybu.
+
+Rollback nie mutuje działającego ani historycznego joba. Operator wybiera
+`historical_v18` podczas tworzenia kolejnego joba z tego samego lub innego
+stagingu. Efektywny fingerprint i checkpointy v18/v20 są rozłączne, więc retry
+zawsze zachowuje snapshot pierwotnego joba.
+
+### Ręczne rozwiązanie deferred komórek
+
+Końcowy fallback nie tworzy równoległej kolejki plansz. Dla jednego
+`image_board_geometry_pending` API odczytuje niezmienny source i detekcję
+planszy oraz snapshot modelu symboli z tego samego importu. Cztery narożniki
+przechodzą przez ten sam source-direct cropper v19 co zwykła korekta. Preview
+pozostaje read-only; zapis jest dozwolony dopiero po uzyskaniu dokładnie 15
+cropów i 15 predykcji w kolejności 3 × 5.
+
+Repozytorium serializuje zapis na rekordzie deferred i w jednej transakcji
+tworzy `recognized_board`, 15 `cell_observations`, `image_review_item` oraz
+`image_board_geometry_revision`. Istniejący trigger kolejki projektuje nowy
+item we właściwe miejsce `sequence_number + position_index`; nie istnieje
+druga implementacja kolejki. Wcześniejsza materializacja planszy kończy próbę
+statusem `superseded`. Klucz idempotencji i checksumę komendy sprawdza się
+przed kosztownym preview/inferencją oraz ponownie pod blokadą zapisu.
+
+Artefakty ręcznych komend używają niezmiennych, command-scoped namespace'ów o
+stałej długości ścieżki zgodnej z Windows. Model ONNX jest ładowany wyłącznie z
+checksum-bound snapshotu źródłowego joba; aktualnie aktywny model gry nie może
+zmienić wyniku historycznego importu.
+
+Reviewer prezentuje trwałe wyjątki jako osobny tryb UI, ale konsumuje istniejące
+scope-bound API zamiast budować drugą projekcję domenową. Lista używa
+`status=pending`, limitu jednego elementu i stabilnego kursora; klient zachowuje
+jedynie bounded historię odwiedzonych stron. Źródło jest wersjonowane checksumą,
+a preview i resolution niosą checksumę manifestu oraz oczekiwane rewizje.
+
+Stan klienta wiąże wygenerowany preview z dokładnym zestawem czterech narożników.
+Zmiana komendy unieważnia podgląd i jej idempotency key. Ten sam klucz pozostaje
+wyłącznie dla ponowienia niezmienionej komendy po niejednoznacznym błędzie
+transportu. Konflikt rewizji, manifestu lub statusu powoduje odczyt kolejki od
+początku. Po materializacji Reviewer odświeża wyjątki, a zwykłą kolejkę pobiera
+ponownie przy powrocie do zatwierdzania symboli, dzięki czemu nowy item przechodzi
+przez istniejący bounded bufor plansz.
+
 ## Kohorta i profil geometrii
 
 Kohorta jest game-scoped, kumulacyjna i niezmienna. Dla każdej zaakceptowanej
@@ -90,6 +166,21 @@ wynikiem bazowego detektora. Właściwe 15 cropów pozostaje deterministycznym
 wynikiem croppera i podlega manualnemu review. Rejestr aktywacji jest
 append-only i umożliwia rollback.
 
+### Przyrostowe kotwice preflightu strony
+
+Preflight strony może zbudować tymczasową kohortę auto-kotwic dla jednego
+niezmiennego stagingu. Kohorta nie jest modelem aktywnym gry i nie zmienia
+profilu bazowego. Obejmuje wyłącznie wyniki kompletne, które przeszły
+zaostrzoną bramkę, ma ograniczenie dwóch przebiegów i 21 nowych kotwic na
+przebieg. Dzięki temu kolejne kąty kamery mogą zostać rozwiązane automatycznie,
+ale błąd nie propaguje się przez obniżanie bramek ani syntetyczną geometrię.
+
+Manifest końcowy jest również planem częściowego wykonania: `registered`
+wchodzi do pipeline'u, `review_required` pozostaje w stagingu do późniejszego
+ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
+wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
+przetwarzane drugi raz.
+
 ## Podgląd Reviewera
 
 Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound
@@ -107,8 +198,11 @@ CORS, aby ponowne otwarcie edytora nie dziedziczyło niezgodnej odpowiedzi obraz
 
 Każdy etap pipeline'u zapisuje czas wykonania. Raport skali agreguje czas,
 throughput i liczbę elementów bez skanowania całej historii przy każdym
-checkpointcie. Obowiązują istniejące lane'y i kolejki; wersja 0.5 nie dodaje
+checkpointcie. Obowiązują istniejące lane'y i kolejki; ten pion nie dodaje
 Redis, Celery, mikroserwisu ani nowego workera.
+
+Końcowy raport rollout'u oraz przypięte checksumy benchmarków znajdują się w
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
 
 ## Model neuronowy — ścieżka awaryjna
 

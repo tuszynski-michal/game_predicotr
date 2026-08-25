@@ -55,6 +55,9 @@ implementacyjnym.
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
 - [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
+- [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
+  — analiza wykonalności, bezpieczeństwa, synchronizacji i breakdown wdrożenia;
+  dokument ma status `proposed`.
 
 ### Dostarczanie
 
@@ -87,6 +90,9 @@ implementacyjnym.
 - [Task template](process/TASK_TEMPLATE.md)
 - [Test strategy](quality/TEST_STRATEGY.md)
 - [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
+- [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)
+- [Remote source browser capability spike](quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md)
+  — wynik TASK-0273 i bramka przed zdalnym modułem ręcznej selekcji.
 
 ### Bezpieczeństwo
 

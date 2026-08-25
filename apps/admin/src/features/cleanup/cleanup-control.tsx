@@ -45,9 +45,7 @@ export function CleanupControl({
   const submitting = useRef(false);
 
   const isRelease = target.kind === 'mobile-release';
-  const actionLabel = isRelease
-    ? 'Usuń to wydanie'
-    : 'Wyczyść dane layoutów gry';
+  const actionLabel = isRelease ? 'Usuń to wydanie' : 'Wyczyść dane plansz gry';
   const canExecute =
     preview !== null &&
     preview.blockers.length === 0 &&
@@ -98,7 +96,7 @@ export function CleanupControl({
           <p>
             {isRelease
               ? 'Usuwa rekord wydania oraz jego dedykowany snapshot, manifesty i APK.'
-              : 'Zachowuje grę, ale usuwa jej importy, layouty, symbole, reguły, review i wydania.'}
+              : 'Zachowuje grę, ale usuwa jej importy, plansze, symbole, reguły, review i wydania.'}
           </p>
         </div>
         <button

@@ -15,12 +15,35 @@ ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każde
 strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
 
 Sesje są przechowywane w osobnej bazie IndexedDB
-`game-predictor-manual-image-selection`, w magazynie `sessions` z kluczem
-`gameId`. Rekord obejmuje uchwyty folderów i serializowalny stan decyzji, więc
-nie wymaga migracji backendowej ani tabel domenowych. Wersja 2 bazy dodaje
-magazyn `traceEvents` z kluczem złożonym `(gameId, sessionKey, eventIndex)`;
-migracja zachowuje istniejące sesje i uchwyty folderów. LocalStorage służy tylko
-do szybkiego odtworzenia kursora diagnostycznego.
+`game-predictor-manual-image-selection`, w magazynie `sessions`. Historyczne
+pole klucza `gameId` pozostaje dla zgodności schematu v2, ale nowy workspace
+zawsze używa stabilnego lokalnego identyfikatora
+`local-independent-manual-image-selection`; nie jest to identyfikator domenowej
+gry. Rekord obejmuje uchwyty folderów i serializowalny stan decyzji, więc nie
+wymaga migracji backendowej ani tabel domenowych. Magazyn `traceEvents` nadal
+ma klucz złożony `(gameId, sessionKey, eventIndex)`.
+
+Jeżeli niezależny rekord jeszcze nie istnieje, store wybiera deterministycznie
+najnowszą historyczną sesję per gra, kopiuje ją oraz należące do niej zdarzenia
+do nowego namespace'u i zachowuje stary rekord. `sessionKey` nie zmienia się,
+więc istniejący manifest w folderze wynikowym nadal należy do tej samej sesji.
+LocalStorage służy tylko do szybkiego odtworzenia kursora diagnostycznego i
+używa tego samego niezależnego identyfikatora.
+
+Przed wznowieniem workspace czyta output manifest przez zapisany uchwyt folderu
+i porównuje go ze stanem IndexedDB. Wyłącznie manifest należący do tej samej
+sesji, z tym samym źródłem, kierunkiem, kolejnością wybranych plików i
+checksumami może przesunąć numerację wszystkich decyzji o jeden stały offset.
+Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
+nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
+
+Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
+jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym
+utworzeniu katalogu uruchamia kontrolowane ponowne powiązanie. Operator wskazuje
+osobno źródło albo wynik, aplikacja najpierw potwierdza możliwość listowania,
+a następnie zastępuje wyłącznie uchwyty i nazwę źródła w istniejącym rekordzie.
+Stan, `sessionKey` i trace pozostają niezmienne, a poprawiony rekord jest
+utrwalany przed otwarciem przeglądarki zdjęć.
 
 Workspace zapisuje dwa jawne artefakty przez wybrany uchwyt folderu wynikowego:
 kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,
@@ -30,9 +53,11 @@ poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKe
 nie nadpisać artefaktu innej sesji.
 
 W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
-zatwierdzenie oraz `Ctrl+Z`/`A` jako cofnięcie. Handler ignoruje pola edycyjne,
-selecty, przyciski i elementy `contenteditable`, aby skróty nie przejmowały
-interakcji formularza.
+zatwierdzenie, `Ctrl+Z`/`A` jako cofnięcie, lewo/prawo jako nawigację po
+zdjęciach oraz góra/dół jako przejście po sąsiednich pozycjach wersjonowanej
+listy skoku. Zmiana skoku przechodzi przez tę samą serializowaną kolejkę zapisu
+sesji w IndexedDB. Handler ignoruje pola edycyjne, selecty, przyciski i elementy
+`contenteditable`, aby skróty nie przejmowały interakcji formularza.
 
 Zapis pliku jest atomizowany na poziomie uchwytu: źródłowy Blob jest kopiowany
 bez transformacji, checksum SHA-256 jest porównywany z istniejącym plikiem,
@@ -44,4 +69,14 @@ Nie ma endpointu HTTP, joba, workera ani API/OpenAPI dla tego workspace'u.
 Kontrakt serwerowy pozostaje właścicielem automatycznej selekcji i importu;
 lokalny fallback zapisuje wyłącznie pliki przygotowane do późniejszego,
 jawnego importu layoutów. Pełny ekran używa `requestFullscreen` na kontenerze
-podglądu, a zoom jest lokalnym stylem `transform` obrazu i nie ingeruje w Blob.
+podglądu. Zoom oblicza rzeczywiste wymiary layoutu z naturalnego rozmiaru JPEG-a
+i aktualnego viewportu, dzięki czemu pionowy scroll obejmuje cały obraz;
+viewport ukrywa poziomy overflow i centruje nadmiar obrazu bez ingerencji w
+Blob.
+
+Bieżący `scrollTop` viewportu jest przechowywany w zwykłym `useRef`. Przejście
+na inny indeks oznacza pozycję jako oczekującą na odtworzenie; dopiero po
+dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
+`requestAnimationFrame` ustawia `scrollTop`. Zdarzenia scrolla nie zmieniają
+stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
+zapisu i dekodowania JPEG-a.

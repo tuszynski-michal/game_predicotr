@@ -19,7 +19,11 @@ export type ReviewerAccessClient = Pick<
 export type ReviewerLauncherClient = ReviewerAccessClient &
   Pick<
     AdminApiClient,
-    'listGames' | 'listJobs' | 'listOperationalImageReviewItems'
+    | 'listGames'
+    | 'listJobs'
+    | 'listOperationalImageReviewItems'
+    | 'listPendingBoardCellGeometry'
+    | 'listReadyBrowserImageSelections'
   >;
 
 export type ReviewerWorkOverviewResult =

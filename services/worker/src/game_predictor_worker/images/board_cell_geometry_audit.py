@@ -31,7 +31,9 @@ AUDIT_VERSION = "board-cell-geometry-v19-real-page-audit-v1"
 AUDIT_SCHEMA_VERSION = 1
 SAMPLE_POLICY_VERSION = "sha256-ranked-registered-pages-v1"
 DEFAULT_SAMPLE_SEED = "task-0249-v19-pre-editor-audit-v1"
-EXPECTED_PAGE_GEOMETRY_VERSION = "page-geometry-preflight-v1"
+EXPECTED_PAGE_GEOMETRY_VERSIONS = frozenset(
+    {"page-geometry-preflight-v1", "page-geometry-preflight-v2-auto-anchor"}
+)
 _SHA256 = frozenset("0123456789abcdef")
 _SEQUENCE_NAME = re.compile(
     r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?:jpg|jpeg)$", re.I
@@ -88,7 +90,7 @@ def load_page_geometry_manifest(path: Path) -> tuple[bytes, Mapping[str, object]
 def registered_pages(payload: Mapping[str, object]) -> tuple[RegisteredPage, ...]:
     """Validate and normalize registered 3 x 3 page geometry entries."""
 
-    if payload.get("version") != EXPECTED_PAGE_GEOMETRY_VERSION:
+    if payload.get("version") not in EXPECTED_PAGE_GEOMETRY_VERSIONS:
         raise _error(
             "BOARD_CELL_GEOMETRY_AUDIT_MANIFEST_INVALID", "Unexpected page manifest version."
         )
@@ -524,6 +526,7 @@ __all__ = [
     "AUDIT_SCHEMA_VERSION",
     "AUDIT_VERSION",
     "DEFAULT_SAMPLE_SEED",
+    "EXPECTED_PAGE_GEOMETRY_VERSIONS",
     "SAMPLE_POLICY_VERSION",
     "BoardCellGeometryAudit",
     "BoardCellGeometryAuditError",

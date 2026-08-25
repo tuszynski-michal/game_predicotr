@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Remote source capability spike</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #111827;
+        color: #e5e7eb;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 900px;
+        padding: 32px 20px;
+      }
+      section {
+        margin-block: 20px;
+        padding: 20px;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        background: #1f2937;
+      }
+      button,
+      label {
+        display: inline-block;
+        margin: 4px;
+        padding: 10px 14px;
+        border: 1px solid #6b7280;
+        border-radius: 8px;
+        background: #111827;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      input[type='file'] {
+        position: fixed;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+      }
+      pre {
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        background: #030712;
+        white-space: pre-wrap;
+      }
+      .notice {
+        color: #fbbf24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Remote source capability spike</h1>
+    <p class="notice">
+      Fixture testowy. Nie wysyła plików, nie odczytuje bajtów JPEG i nie prosi
+      o prawo zapisu do katalogu źródłowego.
+    </p>
+
+    <section>
+      <h2>Capability</h2>
+      <pre id="capabilities"></pre>
+    </section>
+
+    <section>
+      <h2>Testy</h2>
+      <button id="opfs-roundtrip" type="button">
+        OPFS → IndexedDB → odczyt
+      </button>
+      <button id="restore-opfs" type="button">Wznów uchwyt OPFS</button>
+      <button id="pick-directory" type="button">
+        Wybierz katalog tylko do odczytu
+      </button>
+      <button id="restore-directory" type="button">
+        Wznów zapisany uchwyt
+      </button>
+      <label for="fallback-directory">Fallback webkitdirectory</label>
+      <input
+        id="fallback-directory"
+        type="file"
+        accept="image/jpeg,.jpg,.jpeg"
+        webkitdirectory
+        multiple
+      />
+      <button id="clear-state" type="button">Wyczyść stan fixture</button>
+      <button id="export-report" type="button">Eksportuj raport testowy</button>
+      <pre id="result" aria-live="polite">Gotowy.</pre>
+    </section>
+
+    <script type="module">
+      import {
+        REMOTE_SOURCE_CAPABILITY_REPORT_SCHEMA,
+        attachCapabilityReportChecksum,
+        buildRemoteSourceManifest,
+        clearCapabilityDatabase,
+        compareRelinkManifest,
+        detectRemoteSourceCapabilities,
+        listDirectoryHandleMetadata,
+        loadCapabilityHandle,
+        queryReadPermission,
+        requestReadPermission,
+        saveCapabilityHandle,
+      } from './remote-source-capability-spike.mjs';
+
+      const SOURCE_HANDLE_KEY = 'selected-source';
+      const OPFS_HANDLE_KEY = 'opfs-root';
+      const MANIFEST_STORAGE_KEY = 'remote-source-capability-spike-manifest';
+      const capabilities = detectRemoteSourceCapabilities(window);
+      const manualChecks = [];
+      const capabilityOutput = document.querySelector('#capabilities');
+      const resultOutput = document.querySelector('#result');
+      const pickButton = document.querySelector('#pick-directory');
+
+      capabilityOutput.textContent = JSON.stringify(capabilities, null, 2);
+      pickButton.disabled = !capabilities.showDirectoryPicker;
+
+      function showResult(value) {
+        resultOutput.textContent =
+          typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      }
+
+      function rememberCheck(name, status, details) {
+        const existing = manualChecks.findIndex((item) => item.name === name);
+        const value = { name, status, details };
+        if (existing >= 0) manualChecks.splice(existing, 1, value);
+        else manualChecks.push(value);
+      }
+
+      function readRememberedManifest() {
+        const raw = localStorage.getItem(MANIFEST_STORAGE_KEY);
+        return raw == null ? null : JSON.parse(raw);
+      }
+
+      function rememberManifest(manifest) {
+        localStorage.setItem(MANIFEST_STORAGE_KEY, JSON.stringify(manifest));
+      }
+
+      async function manifestForHandle(handle) {
+        const files = await listDirectoryHandleMetadata(handle);
+        return buildRemoteSourceManifest(files, {
+          sourceKind: 'directory_handle',
+        });
+      }
+
+      document
+        .querySelector('#opfs-roundtrip')
+        .addEventListener('click', async () => {
+          try {
+            const handle = await navigator.storage.getDirectory();
+            await saveCapabilityHandle(indexedDB, OPFS_HANDLE_KEY, handle);
+            const restored = await loadCapabilityHandle(
+              indexedDB,
+              OPFS_HANDLE_KEY,
+            );
+            const permission = await queryReadPermission(restored);
+            const passed = restored?.kind === 'directory';
+            rememberCheck(
+              'opfs_indexeddb_roundtrip',
+              passed ? 'passed' : 'failed',
+              { permission, kind: restored?.kind ?? null },
+            );
+            showResult({ passed, permission, kind: restored?.kind ?? null });
+          } catch (error) {
+            rememberCheck('opfs_indexeddb_roundtrip', 'failed', String(error));
+            showResult(String(error));
+          }
+        });
+
+      document
+        .querySelector('#restore-opfs')
+        .addEventListener('click', async () => {
+          try {
+            const restored = await loadCapabilityHandle(
+              indexedDB,
+              OPFS_HANDLE_KEY,
+            );
+            const permission = await queryReadPermission(restored);
+            const passed = restored?.kind === 'directory';
+            rememberCheck(
+              'opfs_indexeddb_restore',
+              passed ? 'passed' : 'failed',
+              { permission, kind: restored?.kind ?? null },
+            );
+            showResult({ passed, permission, kind: restored?.kind ?? null });
+          } catch (error) {
+            rememberCheck('opfs_indexeddb_restore', 'failed', String(error));
+            showResult(String(error));
+          }
+        });
+
+      pickButton.addEventListener('click', async () => {
+        try {
+          const handle = await window.showDirectoryPicker({ mode: 'read' });
+          const manifest = await manifestForHandle(handle);
+          await saveCapabilityHandle(indexedDB, SOURCE_HANDLE_KEY, handle);
+          const previous = readRememberedManifest();
+          const relink =
+            previous == null ? null : compareRelinkManifest(previous, manifest);
+          rememberManifest(manifest);
+          rememberCheck('os_directory_read_only', 'passed', {
+            fileCount: manifest.fileCount,
+            relink,
+          });
+          showResult({ manifest, relink });
+        } catch (error) {
+          rememberCheck(
+            'os_directory_read_only',
+            'denied_or_failed',
+            String(error),
+          );
+          showResult(String(error));
+        }
+      });
+
+      document
+        .querySelector('#restore-directory')
+        .addEventListener('click', async () => {
+          try {
+            const handle = await loadCapabilityHandle(
+              indexedDB,
+              SOURCE_HANDLE_KEY,
+            );
+            if (handle == null) throw new Error('Brak zapisanego uchwytu.');
+            let permission = await queryReadPermission(handle);
+            if (permission === 'prompt')
+              permission = await requestReadPermission(handle);
+            if (permission !== 'granted') {
+              rememberCheck('restored_os_directory', 'denied', { permission });
+              showResult({ permission, action: 'relink_required' });
+              return;
+            }
+            const manifest = await manifestForHandle(handle);
+            const expected = readRememberedManifest();
+            const relink =
+              expected == null
+                ? null
+                : compareRelinkManifest(expected, manifest);
+            rememberCheck('restored_os_directory', 'passed', {
+              permission,
+              relink,
+            });
+            showResult({ permission, relink, manifest });
+          } catch (error) {
+            rememberCheck('restored_os_directory', 'failed', String(error));
+            showResult(String(error));
+          }
+        });
+
+      document
+        .querySelector('#fallback-directory')
+        .addEventListener('change', async (event) => {
+          try {
+            const manifest = await buildRemoteSourceManifest(
+              event.target.files,
+              {
+                sourceKind: 'webkitdirectory_reselect',
+              },
+            );
+            const expected = readRememberedManifest();
+            const relink =
+              expected == null
+                ? null
+                : compareRelinkManifest(expected, manifest);
+            rememberManifest(manifest);
+            rememberCheck('webkitdirectory_fallback', 'passed_session_only', {
+              fileCount: manifest.fileCount,
+              relink,
+            });
+            showResult({ manifest, relink, resume: 'reselect_required' });
+          } catch (error) {
+            rememberCheck('webkitdirectory_fallback', 'failed', String(error));
+            showResult(String(error));
+          }
+        });
+
+      document
+        .querySelector('#clear-state')
+        .addEventListener('click', async () => {
+          await clearCapabilityDatabase(indexedDB);
+          localStorage.removeItem(MANIFEST_STORAGE_KEY);
+          manualChecks.length = 0;
+          showResult('Stan fixture został usunięty.');
+        });
+
+      document
+        .querySelector('#export-report')
+        .addEventListener('click', async () => {
+          const report = await attachCapabilityReportChecksum({
+            schemaVersion: REMOTE_SOURCE_CAPABILITY_REPORT_SCHEMA,
+            generatedAt: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            capabilities,
+            manualChecks,
+            containsSourceBytes: false,
+            containsAbsolutePaths: false,
+          });
+          const blob = new Blob([`${JSON.stringify(report, null, 2)}\n`], {
+            type: 'application/json',
+          });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = 'remote-source-browser-check-v1.json';
+          anchor.click();
+          URL.revokeObjectURL(url);
+          showResult(report);
+        });
+    </script>
+  </body>
+</html>

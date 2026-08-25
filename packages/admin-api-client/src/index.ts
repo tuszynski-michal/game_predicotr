@@ -42,6 +42,7 @@ import {
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
+  createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
@@ -74,12 +75,17 @@ import {
   getOperationalImageReviewSourceAsset as getGeneratedOperationalImageReviewSourceAsset,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
+  getPendingBoardCellGeometry as getGeneratedPendingBoardCellGeometry,
+  getPendingBoardCellGeometryCorrectionContext as getGeneratedPendingBoardCellGeometryCorrectionContext,
+  getPendingBoardCellGeometrySource as getGeneratedPendingBoardCellGeometrySource,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
   getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
+  getRemoteManualSelectionSession as getGeneratedRemoteManualSelectionSession,
+  getRemoteManualSelectionRecoveryStatus as getGeneratedRemoteManualSelectionRecoveryStatus,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   heartbeatReviewerWorkAssignment as heartbeatGeneratedReviewerWorkAssignment,
   getSymbol as getGeneratedSymbol,
@@ -100,6 +106,7 @@ import {
   listMobileReleases as listGeneratedMobileReleases,
   listOperationalImageReviewItems as listGeneratedOperationalImageReviewItems,
   listOperationalImageReviewResolutionEvents as listGeneratedOperationalImageReviewResolutionEvents,
+  listPendingBoardCellGeometry as listGeneratedPendingBoardCellGeometry,
   listVerifiedImageReviewCohorts as listGeneratedVerifiedImageReviewCohorts,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
@@ -112,6 +119,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
+  listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
@@ -125,6 +133,7 @@ import {
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
+  previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
   startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
@@ -143,9 +152,13 @@ import {
   restoreRejectedImageSelectionGroup as restoreGeneratedRejectedImageSelectionGroup,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
+  revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
+  reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
+  resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
+  selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
   resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
@@ -168,6 +181,9 @@ import type {
   BrowserImageImportPreflightCreate,
   BrowserImageImportStart,
   BrowserPageGeometryOverrideCreate,
+  BoardCellGeometryManualPreviewCommand,
+  BoardCellGeometryManualResolutionCommand,
+  BoardCellGeometryPendingStatus,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -216,6 +232,9 @@ import type {
   ReviewerSessionUnlockResponse,
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
+  RemoteManualSelectionSessionCreate,
+  RemoteSelectionReopenCommand,
+  RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
   SymbolBootstrapResolveCommand,
   SymbolBootstrapStartCommand,
@@ -230,12 +249,22 @@ export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
+  BrowserImageImportStart,
   BrowserImageImportStartResponse,
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryOverrideResponse,
   BrowserPageGeometryPreflightResponse,
   BrowserPageGeometryReviewSourceResponse,
   BrowserPageGeometryReviewSourcesResponse,
+  BoardCellGeometryCorrectionContextResponse,
+  BoardCellGeometryJobCountsResponse,
+  BoardCellGeometryManualPreviewCommand,
+  BoardCellGeometryManualResolutionCommand,
+  BoardCellGeometryManualResolutionResponse,
+  BoardCellGeometryPendingPageResponse,
+  BoardCellGeometryPendingReason,
+  BoardCellGeometryPendingResponse,
+  BoardCellGeometryPendingStatus,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
   BrowserReadySelectionResponse,
@@ -420,7 +449,16 @@ export type {
   ReviewerWorkHeartbeatResponse,
   ReviewerWorkOpenCommand,
   ReviewerWorkOpenedResponse,
+  RemoteManualSelectionSessionCreate,
   ReviewerWorkOverviewResponse,
+  RemoteManualSelectionBaseCapabilityResponse,
+  RemoteManualSelectionBatchMonitorResponse,
+  RemoteManualSelectionSessionCreatedResponse,
+  RemoteManualSelectionSessionListResponse,
+  RemoteManualSelectionSessionMonitorResponse,
+  RemoteManualSelectionSessionResponse,
+  RemoteSelectionReopenCommand,
+  RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
   SymbolBootstrapCandidateResponse,
   SymbolBootstrapDefinitionCommand,
@@ -483,6 +521,12 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly limit?: number;
 }
 
+export interface ListPendingBoardCellGeometryOptions extends OperationalImageReviewContext {
+  readonly status?: BoardCellGeometryPendingStatus;
+  readonly cursor?: string;
+  readonly limit?: number;
+}
+
 export interface ListVerifiedImageReviewCohortsOptions extends OperationalImageReviewContext {
   readonly limit?: number;
 }
@@ -536,6 +580,55 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       revokeGeneratedReviewerSession({
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
+        path: { session_id: sessionId },
+      }),
+    selectRemoteManualSelectionHostBase: () =>
+      selectGeneratedRemoteManualSelectionHostBase({ client }),
+    createRemoteManualSelectionSession: (
+      body: RemoteManualSelectionSessionCreate,
+    ) =>
+      createGeneratedRemoteManualSelectionSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('remote-manual-selection-session:new'),
+      }),
+    listRemoteManualSelectionSessions: (limit = 100) =>
+      listGeneratedRemoteManualSelectionSessions({
+        client,
+        query: { limit },
+      }),
+    getRemoteManualSelectionSession: (sessionId: string, batchLimit = 100) =>
+      getGeneratedRemoteManualSelectionSession({
+        client,
+        path: { session_id: sessionId },
+        query: { batch_limit: batchLimit },
+      }),
+    getRemoteManualSelectionRecoveryStatus: (
+      sessionId: string,
+      batchId: string,
+    ) =>
+      getGeneratedRemoteManualSelectionRecoveryStatus({
+        client,
+        path: { batch_id: batchId, session_id: sessionId },
+      }),
+    revokeRemoteManualSelectionSession: (sessionId: string) =>
+      revokeGeneratedRemoteManualSelectionSession({
+        client,
+        headers: confirmedTargetHeaders(
+          `remote-manual-selection-session:${sessionId}`,
+        ),
+        path: { session_id: sessionId },
+      }),
+    reopenRemoteManualSelectionBatch: (
+      sessionId: string,
+      body: RemoteSelectionReopenCommand,
+    ) =>
+      reopenGeneratedRemoteManualSelectionBatch({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `remote-manual-selection-batch:${body.batchId}:reopen`,
+        ),
         path: { session_id: sessionId },
       }),
     listReviewerWorkAssignments: (gameId: string) =>
@@ -1386,6 +1479,85 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    listPendingBoardCellGeometry: (
+      options: ListPendingBoardCellGeometryOptions,
+    ) =>
+      listGeneratedPendingBoardCellGeometry({
+        client,
+        path: {
+          game_id: options.gameId,
+          import_job_id: options.importJobId,
+        },
+        query: {
+          ...(options.status === undefined ? {} : { status: options.status }),
+          ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getPendingBoardCellGeometry: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometry({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    getPendingBoardCellGeometryCorrectionContext: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometryCorrectionContext({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    getPendingBoardCellGeometrySource: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedPendingBoardCellGeometrySource({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    previewPendingBoardCellGeometryCorrection: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualPreviewCommand,
+    ) =>
+      previewGeneratedPendingBoardCellGeometryCorrection({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    resolvePendingBoardCellGeometryManually: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualResolutionCommand,
+    ) =>
+      resolveGeneratedPendingBoardCellGeometryManually({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
       }),
     resolveOperationalImageReviewItem: (
       reviewItemId: string,

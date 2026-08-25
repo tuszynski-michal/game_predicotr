@@ -117,6 +117,29 @@ def test_ingestion_deduplicates_bytes_and_survives_removed_source(
     assert len(list((artifact_root / "data" / "originals").glob("??/*.jpg"))) == 1
 
 
+def test_ingestion_copies_only_the_preflight_selected_originals(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "a.jpg", "JPEG")
+    Image.new("RGB", (32, 24), (0, 255, 0)).save(source / "b.jpg", "JPEG")
+    artifact_root = tmp_path / "artifacts"
+    job = _job(source)
+    store = ManagedOriginalStore(artifact_root)
+    manifest = store.load_or_create_manifest(job, source_directory=source)
+    selected = manifest.originals[:1]
+
+    returned = ImageSourceIngestionHandler(store).ingest(
+        RecordingContext(),  # type: ignore[arg-type]
+        job,
+        originals=selected,
+    )
+
+    assert returned.originals == manifest.originals
+    copied = list((artifact_root / "data" / "originals").glob("??/*.jpg"))
+    assert len(copied) == 1
+    assert copied[0].stem == selected[0].checksum_sha256
+
+
 def test_ingestion_rejects_source_changed_after_manifest(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -146,8 +169,7 @@ def test_seq_filenames_are_attested_and_sorted_by_numeric_range(tmp_path: Path) 
     )
 
     assert [
-        (item.sequence_range_start, item.sequence_range_end)
-        for item in manifest.originals
+        (item.sequence_range_start, item.sequence_range_end) for item in manifest.originals
     ] == [(1, 9), (10, 18)]
     assert all(item.sequence_range_source == "filename" for item in manifest.originals)
 

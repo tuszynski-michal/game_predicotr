@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-24
 ---
 
 # Model danych
@@ -16,6 +16,81 @@ domenowej. Każdy wpis ma UUID zdarzenia, czas UTC, serwerowego aktora
 przyczyny; body, Authorization, kody, tokeny, hasła i klucze nie są zapisywane.
 
 ## PostgreSQL — dane kanoniczne
+
+### Zdalna ręczna selekcja zdjęć
+
+Stan protokołu zdalnej ręcznej selekcji jest przechowywany w ośmiu tabelach:
+
+- `remote_manual_selection_sessions` — sesja, host-only binding katalogu oraz
+  opcjonalne sole i skróty poświadczeń; publiczna projekcja nie ujawnia tych
+  wartości;
+- `remote_manual_selection_collections` — kolekcje w scope sesji;
+- `remote_manual_selection_batches` — partie przypisane do jednego
+  `base_binding + normalized collection + normalized batch`, wraz z
+  monotonicznym `server_revision` i `last_client_sequence`;
+- `remote_manual_selection_files` — wyłącznie względne metadane plików,
+  desired state, generacja, zakres i checksumy; bez JPEG/BLOB;
+- `remote_manual_selection_operations` — append-only dziennik komend i ich
+  wyników, unikalny po `operationId` oraz
+  `batch + clientInstance + clientSequence`;
+- `remote_manual_selection_transfers` — metadane prób transferu, bez zawartości
+  obrazu; TASK 10 wykorzystuje istniejące pola attempt/generation, deklarowane i
+  odebrane bajty, checksumy, status oraz wyłącznie host-internal
+  `temp_relative_path`, dlatego nie wymaga nowej migracji;
+- `remote_manual_selection_host_actions` — kolejka host-only weryfikacji,
+  materializacji, usunięcia i reconciliacji; aktywna akcja jest unikalna dla
+  `file + generation + action type`;
+- `remote_manual_selection_audit_events` — append-only audyt bez sekretów.
+
+TASK 6 aktywuje opcjonalne pola poświadczeń i writer lease utworzone w migracji
+`0056`. Kod ma 16-bajtową sól i 32-bajtowy PBKDF2-SHA256 hash; token występuje
+wyłącznie jako 32-bajtowy SHA-256 i wygasa nie później niż sesja. Piąta błędna
+próba ustawia `locked_at` i usuwa token oraz pełną trójkę lease. Revoke ustawia
+status `revoked`, `revoked_at` i również atomowo czyści token/lease.
+
+Aktywny writer jest opisany przez nierozdzielną trójkę
+`writer_client_instance_id + writer_lease_token + writer_lease_expires_at`.
+Klient zna tylko własne `clientInstanceId`; fencing token pozostaje host-only.
+Lease trwa 45 sekund, heartbeat zachowuje token fencing, a takeover tworzy nowy
+token dopiero po expiry. Lookup bearer tokenu przy duplikacie skrótu kończy się
+fail-closed. Nie dodano nowej migracji, ponieważ 0056 zawiera komplet wymaganych
+pól i constraintów.
+
+Composite foreign keys wiążą każdy rekord z tym samym
+`session + batch + file` scope. Operacja domenowa blokuje wiersz partii i pliku,
+więc zwiększenie rewizji, aktualizacja desired state oraz dopisanie operacji są
+jedną transakcją. Tworzenie globalnego mapowania partii dodatkowo serializuje
+się advisory lockiem; constraint unikalności pozostaje ostateczną ochroną.
+Indeksy delta obsługują ograniczone strony zmian plików po rewizji i operacji
+po numerze klienta. Aktualizacja lub usunięcie rekordów operations/audit jest
+blokowane triggerem bazy.
+
+TASK 11 aktywuje akcje `materialize` i istniejące pola lease migracji `0056`.
+Claim używa `FOR UPDATE SKIP LOCKED`; `queued`, gotowy `retry` oraz wygasły
+`processing` mogą zostać przejęte z nowym tokenem. `attempt`,
+`next_attempt_at` i `last_error_code` opisują bounded retry, a ukończenie czyści
+lease. Terminalna akcja nie jest automatycznie zastępowana nową akcją tej samej
+generacji.
+
+Spójny commit materializacji ustawia plik na `synced`, transfer na wewnętrzne
+`materialized`, akcję na `completed`, `final_relative_path` oraz zwiększa
+`server_revision` i `transferred_file_count` dokładnie raz. Warunkiem są nadal
+bieżące desired state/generation, zgodna check­suma transferu i finalnego pliku
+oraz ten sam fencing token. Host-internal `temp_relative_path` i
+`final_relative_path` nie są polami publicznego DTO. Brakująca akcja dla
+spójnego rekordu `verified` jest odtwarzana przez bounded reconciliation;
+istniejąca akcja dowolnego statusu zapobiega nieograniczonemu resetowaniu limitu
+prób.
+
+TASK 12 wykorzystuje ten sam dziennik operacji i kolejkę host actions dla
+generacyjnego tombstone'u. `deselect`/`undo` wskazuje wcześniejszy zastosowany
+`select`; repozytorium w jednej transakcji anuluje starsze transfery, superseduje
+starsze materializacje i tworzy akcję `remove`. Projekcja pliku może zachować
+nowszy desired state podczas usuwania starszej generacji. Po bezpiecznej
+kwarantannie stara finalna ścieżka jest czyszczona, ale artefakt i checksumowany
+journal pozostają poza tabelami domenowymi do czasu osobnej decyzji o retencji.
+Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
+`0056`.
 
 ### games
 
@@ -147,9 +222,9 @@ roli zwykły/joker tego symbolu.
 | id | UUID | |
 | rules_version_id | UUID | |
 | code | varchar | stabilny w wersji |
-| name | varchar | |
+| name | varchar | opisowa etykieta; Admin przy tworzeniu ustawia ją równą `code` |
 | row_path | smallint[] | indeksy 0-based, po jednym na kolumnę |
-| display_order | integer | |
+| display_order | integer | deterministyczna kolejność prezentacji; Admin nadaje ją automatycznie |
 | is_active | boolean | |
 
 Nie ma pola `pattern_type`: jedynym typem jest `PAYLINE`.
@@ -848,6 +923,22 @@ status `pending`, a jego resolution revision oraz pełna projekcja planszy są
 identyczne ze snapshotem workera. Rozwiązana lub równolegle zmieniona pozycja
 nie tworzy rekordu. Istniejąca rewizja geometrii/croppera v19 jest uznawana za
 aktualną i nie jest nadpisywana.
+
+### image_board_geometry_pending
+
+Trwała projekcja fail-closed przechowuje plansze, dla których nie istnieje
+zweryfikowana geometria 3 × 5. Rekord należy do gry, joba importu, źródła i
+pozycji 0–8 oraz zachowuje poświadczony `sequence_number`. Powiązanie z
+`recognized_boards` i `image_review_items` jest opcjonalne: brak geometrii nie
+może wymuszać utworzenia planszy z pustym `cells_prediction`.
+
+Rekord zawiera status `pending | resolved | superseded`, zamknięty reason code,
+ścieżkę i SHA-256 `BoardCellProcessingManifestV1`, fingerprint pipeline'u oraz
+oczekiwane rewizje geometrii i decyzji. Nie przechowuje JPEG-a ani cropów.
+Unikalność manifestu zapewnia idempotentny retry, a częściowy indeks dopuszcza
+tylko jeden bieżący `pending` dla `job + source + position`. Nowy manifest
+superseduje poprzedni. Rozwiązanie zapisuje wyłącznie numer nowej rewizji;
+zmiana planszy albo review po snapshotcie kończy rekord jako `superseded`.
 
 ### reviewer_access_sessions i reviewer_access_audit_events
 

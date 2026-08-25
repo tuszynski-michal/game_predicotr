@@ -19,6 +19,8 @@ test('shows operational essentials before expanding technical details', () => {
   assert.match(monitorSource, /<details className={`jobCard/);
   assert.match(monitorSource, /<summary className="jobCardSummary">/);
   assert.match(monitorSource, /jobContextLabel\(job\)/);
+  assert.match(monitorSource, /jobSourceRangeLabel\(job\)/);
+  assert.match(monitorSource, /jobWorkflowLabel\(job\)/);
   assert.match(monitorSource, /jobErrorSummary\(job\)/);
   assert.match(monitorSource, /jobProgressLabel\(job\)/);
   assert.match(monitorSource, /imageImportAutomationTiming\(job\)/);

@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_imports import _geometry_manifest_descriptor
+from game_predictor_api.application import controlled_folder_picker as folder_picker_module
 from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
@@ -20,6 +21,9 @@ from game_predictor_api.application.image_imports import (
 )
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.remote_manual_selection_host import (
+    RemoteManualSelectionHostService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalService,
@@ -65,7 +69,7 @@ def test_native_folder_picker_overrides_hidden_parent_window(
             stderr="",
         )
 
-    monkeypatch.setattr(image_imports_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(folder_picker_module.subprocess, "run", fake_run)
 
     result = WindowsFolderPicker(script).choose()
 
@@ -141,6 +145,31 @@ def test_only_one_native_folder_picker_can_be_open() -> None:
         assert first_selection.result(timeout=1) is None
 
 
+def test_fixed_picker_serializes_image_import_and_remote_host_windows() -> None:
+    entered = Event()
+    release = Event()
+    picker = WindowsFolderPicker(Path("controlled.ps1"))
+
+    def blocking_picker() -> None:
+        entered.set()
+        assert release.wait(timeout=2)
+        return None
+
+    picker._choose_exclusive = blocking_picker  # type: ignore[method-assign]
+    image_service = ImageFolderSelectionService(picker)
+    remote_service = RemoteManualSelectionHostService(picker)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_selection = executor.submit(image_service.select)
+        assert entered.wait(timeout=1)
+
+        with pytest.raises(JobConflictError) as error:
+            remote_service.select_base()
+
+        assert error.value.code == "IMAGE_FOLDER_PICKER_ALREADY_OPEN"
+        release.set()
+        assert first_selection.result(timeout=1) is None
+
+
 def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> None:
     source = tmp_path / "photos"
     source.mkdir()
@@ -170,6 +199,10 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     assert job["inputPayload"]["sourceDirectory"] == str(source.resolve())
     assert len(job["inputPayload"]["pipelineFingerprint"]) == 64
     assert job["inputPayload"]["symbolModel"]["modelVersion"] == ("bootstrap-symbol-cnn-onnx-v1")
+    assert (
+        job["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
     assert replay.status_code == 422
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
@@ -202,6 +235,10 @@ def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
     assert payload["managedSourceJobId"] == source_job_id
     assert payload["sourceDisplayName"].endswith("(ponowne przetworzenie)")
     assert len(payload["pipelineFingerprint"]) == 64
+    assert (
+        payload["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
 
 
 def test_empty_folder_is_rejected_before_selection_token(tmp_path: Path) -> None:
@@ -362,9 +399,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         )
         assert finalized.status_code == 200
 
-        ready = client.get(
-            "/api/v1/admin/image-imports/browser-selections?purpose=layout_import"
-        )
+        ready = client.get("/api/v1/admin/image-imports/browser-selections?purpose=layout_import")
         assert ready.status_code == 200
         assert ready.json()[0]["uploadId"] == upload_id
 
@@ -389,6 +424,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
                 "validation_kind": "page_geometry_preflight",
                 "source_selection_id": upload_id,
                 "source_directory": str(tmp_path / "imports" / upload_id),
+                "source_display_name": "1-18",
                 "source_manifest_sha256": report["manifestChecksumSha256"],
                 "page_registration_profile": {
                     "policy": "verified-page-registration-v1",
@@ -424,7 +460,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             total=2,
             success_count=1,
             failure_count=0,
-            review_count=0,
+            review_count=1,
             updated_at=NOW + timedelta(seconds=1),
         )
         repository.add_job(
@@ -450,15 +486,33 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json=start_payload,
         )
+        rerun_current_models = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                **start_payload,
+                "startMode": "rerun_current_models",
+            },
+        )
 
     assert started.status_code == 201
     assert started.json()["created"] is True
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]
-    assert replay.json()["job"]["inputPayload"]["sourceManifestSha256"] == report[
-        "manifestChecksumSha256"
-    ]
+    assert (
+        replay.json()["job"]["inputPayload"]["sourceManifestSha256"]
+        == report["manifestChecksumSha256"]
+    )
+    assert (
+        started.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
+    assert rerun_current_models.status_code == 201, rerun_current_models.text
+    assert rerun_current_models.json()["created"] is True
+    assert (
+        rerun_current_models.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
 
 
 def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:
@@ -475,6 +529,7 @@ def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -
             "validation_kind": "page_geometry_preflight",
             "source_selection_id": str(upload_id),
             "source_directory": "C:/staging",
+            "source_display_name": "1-9",
             "source_manifest_sha256": "a" * 64,
             "page_registration_profile": {
                 "policy": "verified-page-registration-v1",
@@ -874,6 +929,52 @@ def test_finalized_photo_selection_can_be_reapproved_after_service_recreation(
     assert resumed.uploaded_bytes == len(content)
     assert first_selected.selection_id == repeated_selected.selection_id == upload.upload_id
     assert first_selected.input_manifest_sha256 == repeated_selected.input_manifest_sha256
+
+
+def test_expired_legacy_token_does_not_delete_finalized_browser_staging(
+    tmp_path: Path,
+) -> None:
+    current = NOW
+    selection_service = ImageFolderSelectionService(
+        lambda: None,
+        clock=lambda: current,
+    )
+    upload_root = tmp_path / "imports"
+    service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024 * 1024,
+        clock=lambda: current,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    first = service.begin(
+        display_name="Pierwszy staging",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    service.upload_file(
+        first.upload_id,
+        0,
+        relative_path="Pierwszy staging/seq_1-9.jpg",
+        content=content,
+    )
+    service.finalize(first.upload_id)
+    first_path = first.path
+
+    current = NOW + timedelta(minutes=20)
+    second = service.begin(
+        display_name="Drugi staging",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+
+    assert second.path.is_dir()
+    assert first_path.is_dir()
+    assert (
+        service.get_ready(first.upload_id).manifest.files[0].relative_path.endswith("seq_1-9.jpg")
+    )
 
 
 def test_photo_selection_staging_enforces_separate_file_and_byte_limits(

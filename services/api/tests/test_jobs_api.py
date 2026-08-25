@@ -232,6 +232,47 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
     }
 
 
+def test_job_exposes_explicit_board_cell_geometry_progress() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": r"C:\photos",
+            "source_display_name": "photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+        created_at=datetime(2026, 8, 23, tzinfo=UTC),
+    )
+    job = replace(
+        job,
+        checkpoint_payload={
+            "board_cell_geometry": {
+                "status": "waiting_for_geometry",
+                "total": 90,
+                "processed": 90,
+                "succeeded": 86,
+                "pending": 3,
+                "resolved": 0,
+                "superseded": 1,
+            }
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["boardCellGeometry"] == {
+        "status": "waiting_for_geometry",
+        "total": 90,
+        "processed": 90,
+        "succeeded": 86,
+        "pending": 3,
+        "resolved": 0,
+        "superseded": 1,
+    }
+
+
 def test_curated_image_import_job_preserves_selection_run_provenance(
     tmp_path: Path,
 ) -> None:
@@ -257,6 +298,39 @@ def test_curated_image_import_job_preserves_selection_run_provenance(
     assert isinstance(symbol_model, dict)
     assert symbol_model["modelVersion"] == "bootstrap-symbol-cnn-onnx-v1"
     assert len(str(symbol_model["inferenceFingerprint"])) == 64
+
+
+def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    source = tmp_path / "curated"
+    source.mkdir()
+
+    historical = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="historical",
+        pipeline_fingerprint="a" * 64,
+    )
+    pinned = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="v20",
+        pipeline_fingerprint="a" * 64,
+        use_verified_board_cell_geometry=True,
+    )
+
+    assert "board_cell_processing" not in historical.input_payload
+    processing = pinned.input_payload["board_cell_processing"]
+    assert isinstance(processing, dict)
+    assert processing["activationVersion"] == "board-cell-processing-v20-verified-v19-v1"
+    assert processing["rolloutMode"] == "default_v19"
+    assert pinned.input_payload["pipeline_fingerprint"] != historical.input_payload[
+        "pipeline_fingerprint"
+    ]
+    response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["boardCellProcessing"] == processing
 
 
 class _MutableSymbolModelResolver:

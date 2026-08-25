@@ -98,10 +98,10 @@ export function DatasetPreviewModal({
             <p className="eyebrow">
               Dataset v{dataset.version} · {dataset.rows} × {dataset.columns}
             </p>
-            <h2 id="dataset-preview-title">Podgląd layoutów</h2>
+            <h2 id="dataset-preview-title">Podgląd plansz</h2>
           </div>
           <button
-            aria-label="Zamknij podgląd layoutów"
+            aria-label="Zamknij podgląd plansz"
             className="iconButton"
             onClick={onClose}
             type="button"
@@ -115,14 +115,14 @@ export function DatasetPreviewModal({
             <span className="loadingMark" />
             <div>
               <h3>Wczytywanie strony</h3>
-              <p>Pobieram layouty w kolejności sekwencji…</p>
+              <p>Pobieram plansze w kolejności sekwencji…</p>
             </div>
           </div>
         ) : error ? (
           <div className="modalState">
             <span className="stateIcon">!</span>
             <div>
-              <h3>Nie udało się pobrać layoutów</h3>
+              <h3>Nie udało się pobrać plansz</h3>
               <p role="alert">{error}</p>
               <button
                 className="secondaryButton"
@@ -137,7 +137,7 @@ export function DatasetPreviewModal({
           <>
             <div className="datasetPreviewWorkspace">
               <ol
-                aria-label="Layouty na bieżącej stronie"
+                aria-label="Plansze na bieżącej stronie"
                 className="datasetPreviewList"
               >
                 {page.items.map((layout) => (
@@ -195,8 +195,8 @@ export function DatasetPreviewModal({
           <div className="modalState">
             <span className="stateIcon">0</span>
             <div>
-              <h3>Brak layoutów</h3>
-              <p>Ta strona nie zawiera żadnego layoutu.</p>
+              <h3>Brak plansz</h3>
+              <p>Ta strona nie zawiera żadnej planszy.</p>
             </div>
           </div>
         )}
@@ -216,11 +216,11 @@ function LayoutBoard({
 }) {
   return (
     <section
-      aria-label={`Layout ${layout.sequenceNumber}`}
+      aria-label={`Plansza ${layout.sequenceNumber}`}
       className="datasetLayoutBoardPanel"
     >
       <header>
-        <p className="eyebrow">Layout #{layout.sequenceNumber}</p>
+        <p className="eyebrow">Plansza #{layout.sequenceNumber}</p>
         <h3>Plansza row-major</h3>
       </header>
       <div

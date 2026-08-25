@@ -1,6 +1,9 @@
 import type {
+  BoardCellGeometryJobCountsResponse,
+  BrowserReadySelectionResponse,
   GameResponse,
   JobResponse,
+  OperationalImageReviewCountsResponse,
 } from '@game-predictor/admin-api-client';
 
 const REVIEW_READY_STATUSES = new Set<JobResponse['status']>([
@@ -58,12 +61,48 @@ export function hasImageImport(
   return jobs.some((job) => job.gameId === gameId && isImageImport(job));
 }
 
+export function hasReviewerWork(
+  reviewCounts: OperationalImageReviewCountsResponse | null,
+  deferredGeometryCounts: BoardCellGeometryJobCountsResponse | null,
+): boolean {
+  return (
+    reviewCounts !== null &&
+    deferredGeometryCounts !== null &&
+    (reviewCounts.total > 0 || deferredGeometryCounts.pending > 0)
+  );
+}
+
+export function readyBoardImportStaging(
+  selections: readonly BrowserReadySelectionResponse[],
+  gameId: string,
+): readonly BrowserReadySelectionResponse[] {
+  return selections
+    .filter(
+      (selection) =>
+        selection.purpose === 'layout_import' &&
+        (selection.gameId === null || selection.gameId === gameId),
+    )
+    .sort(
+      (left, right) =>
+        Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
+        left.uploadId.localeCompare(right.uploadId),
+    );
+}
+
 export function reviewJobLabel(job: JobResponse): string {
   const timestamp = new Intl.DateTimeFormat('pl-PL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
   }).format(new Date(job.createdAt));
-  const status =
-    job.status === 'completed' ? 'ukończony' : 'oczekuje na zatwierdzenie';
-  return `${timestamp} · ${status} · ${job.id.slice(0, 8)}`;
+  const status = job.status === 'completed' ? 'gotowy' : 'do zatw.';
+  const displayName =
+    'sourceDisplayName' in job.inputPayload &&
+    typeof job.inputPayload.sourceDisplayName === 'string' &&
+    job.inputPayload.sourceDisplayName.trim() !== ''
+      ? job.inputPayload.sourceDisplayName.trim()
+      : 'Import bez nazwy katalogu';
+  return `${timestamp} · ${displayName} · ${status}`;
 }

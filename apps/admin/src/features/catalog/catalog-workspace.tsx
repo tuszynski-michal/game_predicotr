@@ -77,8 +77,8 @@ const GAME_SECTION_OPTIONS: readonly {
 }[] = [
   {
     id: 'imports',
-    title: 'Import layoutów',
-    description: 'Wybór folderu, postęp importu i kompletność layoutów.',
+    title: 'Import plansz',
+    description: 'Wybór folderu, postęp importu i kompletność plansz.',
   },
   {
     id: 'symbols',
@@ -313,7 +313,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                         hidden={!expanded}
                         id={`game-section-${section.id}`}
                       >
-                        {section.id === 'imports' ? (
+                        {expanded && section.id === 'imports' ? (
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
@@ -328,28 +328,28 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             }
                           />
                         ) : null}
-                        {section.id === 'symbols' ? (
+                        {expanded && section.id === 'symbols' ? (
                           <SymbolCatalog
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             gamesRevision={gamesRevision}
                           />
                         ) : null}
-                        {section.id === 'rules' ? (
+                        {expanded && section.id === 'rules' ? (
                           <RulesVersionCatalog
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             gamesRevision={gamesRevision}
                           />
                         ) : null}
-                        {section.id === 'reviews' ? (
+                        {expanded && section.id === 'reviews' ? (
                           <ReviewerAccessLauncher
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             onOpenImports={() => openSection('imports')}
                           />
                         ) : null}
-                        {section.id === 'model-quality' ? (
+                        {expanded && section.id === 'model-quality' ? (
                           <ModelQualityWorkspace
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
@@ -419,26 +419,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           )
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
-          activeGame === null ? (
-            <section className="catalogEmptyState">
-              <p className="eyebrow">Brak aktywnego kontekstu</p>
-              <h2>Najpierw wybierz grę</h2>
-              <p>Ręczna selekcja zapisuje sesję w kontekście wybranej gry.</p>
-              <button
-                className="primaryButton"
-                onClick={() => selectWorkspace('games')}
-                type="button"
-              >
-                Przejdź do gier
-              </button>
-            </section>
-          ) : (
-            <ManualImageSelectionWorkspace
-              gameId={activeGame.id}
-              gameName={activeGame.name}
-              key={activeGame.id}
-            />
-          )
+          <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   isActiveJob,
   isImageImportJob,
   jobContextLabel,
+  jobSourceRangeLabel,
   jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
@@ -20,6 +21,7 @@ import {
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
+  jobWorkflowLabel,
   replaceJob,
 } from '../src/features/jobs/job-state.ts';
 
@@ -66,6 +68,89 @@ test('presents every lifecycle value as explicit text', () => {
   assert.equal(jobTypeLabel('image_selection'), 'Selekcja zdjęć');
   assert.equal(jobStageLabel('writing_layouts'), 'writing layouts');
   assert.equal(jobStageLabel(null), 'Etap nie został jeszcze rozpoczęty');
+});
+
+test('labels image import and geometry preflight jobs with their source range', () => {
+  const importJob = job({
+    inputPayload: {
+      schemaVersion: 5,
+      importKind: 'image_directory',
+      sourceDisplayName: '19810 - 45162',
+    },
+    jobType: 'import',
+  });
+  const geometryPreflight = job({
+    inputPayload: {
+      schemaVersion: 2,
+      sourceDisplayName: '45163 - 70731 v20',
+      validationKind: 'page_geometry_preflight',
+    },
+    jobType: 'validate',
+  });
+
+  assert.equal(jobSourceRangeLabel(importJob), 'Zakres 19810–45162');
+  assert.equal(jobSourceRangeLabel(geometryPreflight), 'Zakres 45163–70731');
+  assert.equal(
+    jobSourceRangeLabel(
+      job({
+        inputPayload: {
+          schemaVersion: 2,
+          sourceDirectory: 'C:\\managed\\70363 - 93861',
+          validationKind: 'page_geometry_preflight',
+        },
+        jobType: 'validate',
+      }),
+    ),
+    'Zakres 70363–93861',
+  );
+  assert.equal(jobSourceRangeLabel(job()), null);
+});
+
+test('uses descriptive workflow labels instead of technical import and validation types', () => {
+  const imageImport = job({
+    inputPayload: {
+      importKind: 'image_directory',
+      schemaVersion: 5,
+    },
+    jobType: 'import',
+    progress: {
+      ...job().progress,
+      stage: 'image_source:image_originals_copied',
+    },
+  });
+  const boardDetection = job({
+    ...imageImport,
+    progress: {
+      ...imageImport.progress,
+      stage: 'image_pipeline:board_detection',
+    },
+  });
+  const symbols = job({
+    ...imageImport,
+    progress: {
+      ...imageImport.progress,
+      stage: 'image_pipeline:symbol_inference',
+    },
+  });
+  const geometry = job({
+    inputPayload: {
+      schemaVersion: 2,
+      validationKind: 'page_geometry_preflight',
+    },
+    jobType: 'validate',
+  });
+
+  assert.equal(jobWorkflowLabel(imageImport), 'Ładowanie zdjęć');
+  assert.equal(
+    jobWorkflowLabel(boardDetection),
+    'Wyznaczanie siatki i cięcie plansz',
+  );
+  assert.equal(jobWorkflowLabel(symbols), 'Rozpoznawanie symboli');
+  assert.equal(jobWorkflowLabel(geometry), 'Tworzenie geometrii siatek');
+  assert.equal(
+    jobWorkflowLabel(job({ jobType: 'image_symbol_reinference' })),
+    'Ponowne rozpoznawanie symboli',
+  );
 });
 
 test('derives active polling, cancel and retry actions from lifecycle', () => {

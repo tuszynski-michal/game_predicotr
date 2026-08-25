@@ -24,8 +24,15 @@ test('rules UI exposes one current workspace and keeps technical history interna
 
 test('rules workspace exposes explicit payout recomputation and progress', () => {
   assert.match(source, /PayoutComputationPanel/);
-  assert.match(payoutSource, /Przelicz layouty/);
+  assert.match(payoutSource, /Przelicz plansze/);
   assert.match(payoutSource, /payout-v2|PAYOUT_ALGORITHM_VERSION/);
   assert.match(payoutSource, /Wznów przeliczanie/);
   assert.match(payoutSource, /progress/);
+});
+
+test('rules creation always releases its submitting guard', () => {
+  assert.match(
+    source,
+    /finally\s*\{\s*mutationInProgress\.current = false;\s*setIsSubmitting\(false\);\s*\}/,
+  );
 });

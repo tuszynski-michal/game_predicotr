@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final
 
+from game_predictor_api.domain.board_cell_geometry_pending import ImageBoardGeometryPending
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     ImageReviewItem,
@@ -33,6 +34,18 @@ def resolve_operational_source_asset(
         item.source_relative_path,
         item.source_checksum_sha256,
         asset_kind="source",
+    )
+
+
+def resolve_pending_board_cell_source_asset(
+    item: ImageBoardGeometryPending,
+    artifact_root: Path,
+) -> OperationalReviewAsset:
+    return _resolve(
+        artifact_root,
+        item.source_relative_path,
+        item.source_checksum_sha256,
+        asset_kind="pending-board-cell-source",
     )
 
 
@@ -123,4 +136,5 @@ __all__ = [
     "resolve_operational_board_asset",
     "resolve_operational_cell_asset",
     "resolve_operational_source_asset",
+    "resolve_pending_board_cell_source_asset",
 ]

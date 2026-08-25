@@ -48,6 +48,360 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BoardCellGeometryCorrectionContextResponse
+ */
+export type BoardCellGeometryCorrectionContextResponse = {
+  /**
+   * Boardquad
+   */
+  boardQuad: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceorderindex
+   */
+  sourceOrderIndex: number;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+  /**
+   * Suggestedcorners
+   */
+  suggestedCorners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+};
+
+/**
+ * BoardCellGeometryJobCountsResponse
+ */
+export type BoardCellGeometryJobCountsResponse = {
+  /**
+   * Pending
+   */
+  pending: number;
+  /**
+   * Resolved
+   */
+  resolved: number;
+  /**
+   * Superseded
+   */
+  superseded: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * BoardCellGeometryJobProgressResponse
+ */
+export type BoardCellGeometryJobProgressResponse = {
+  /**
+   * Pending
+   */
+  pending: number;
+  /**
+   * Processed
+   */
+  processed: number;
+  /**
+   * Resolved
+   */
+  resolved: number;
+  /**
+   * Status
+   */
+  status: 'processing' | 'waiting_for_geometry' | 'complete';
+  /**
+   * Succeeded
+   */
+  succeeded: number;
+  /**
+   * Superseded
+   */
+  superseded: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * BoardCellGeometryManualPreviewCommand
+ */
+export type BoardCellGeometryManualPreviewCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+};
+
+/**
+ * BoardCellGeometryManualResolutionCommand
+ */
+export type BoardCellGeometryManualResolutionCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Correctedby
+   */
+  correctedBy: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * BoardCellGeometryManualResolutionResponse
+ */
+export type BoardCellGeometryManualResolutionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision?: number | null;
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+};
+
+/**
+ * BoardCellGeometryPendingPageResponse
+ */
+export type BoardCellGeometryPendingPageResponse = {
+  counts: BoardCellGeometryJobCountsResponse;
+  /**
+   * Items
+   */
+  items: Array<BoardCellGeometryPendingResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * BoardCellGeometryPendingReason
+ */
+export type BoardCellGeometryPendingReason =
+  | 'insufficient_centers'
+  | 'incomplete_lattice'
+  | 'residual_too_high'
+  | 'source_unavailable';
+
+/**
+ * BoardCellGeometryPendingResponse
+ */
+export type BoardCellGeometryPendingResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedreviewresolutionrevision
+   */
+  expectedReviewResolutionRevision: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Pipelinefingerprintsha256
+   */
+  pipelineFingerprintSha256: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Processingmanifestchecksumsha256
+   */
+  processingManifestChecksumSha256: string;
+  /**
+   * Processingmanifestrelativepath
+   */
+  processingManifestRelativePath: string;
+  reasonCode: BoardCellGeometryPendingReason;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string | null;
+  /**
+   * Resolvedat
+   */
+  resolvedAt: string | null;
+  /**
+   * Resolvedgeometryrevision
+   */
+  resolvedGeometryRevision?: number | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  status: BoardCellGeometryPendingStatus;
+  /**
+   * Supersededat
+   */
+  supersededAt: string | null;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * BoardCellGeometryPendingStatus
+ */
+export type BoardCellGeometryPendingStatus =
+  'pending' | 'resolved' | 'superseded';
+
+/**
+ * BoardCellProcessingJobSnapshotPayload
+ */
+export type BoardCellProcessingJobSnapshotPayload = {
+  /**
+   * Activationversion
+   */
+  activationVersion: 'board-cell-processing-v20-verified-v19-v1';
+  /**
+   * Auditreportchecksumsha256
+   */
+  auditReportChecksumSha256: string;
+  /**
+   * Configurationfingerprintsha256
+   */
+  configurationFingerprintSha256: string;
+  /**
+   * Cropperfingerprintsha256
+   */
+  cropperFingerprintSha256: string;
+  /**
+   * Cropperversion
+   */
+  cropperVersion: string;
+  /**
+   * Estimatorfingerprintsha256
+   */
+  estimatorFingerprintSha256: string;
+  /**
+   * Estimatorversion
+   */
+  estimatorVersion: string;
+  /**
+   * Geometryversion
+   */
+  geometryVersion: string;
+  /**
+   * Homographyversion
+   */
+  homographyVersion: string;
+  /**
+   * Locatorversion
+   */
+  locatorVersion: string;
+  /**
+   * Rolloutmode
+   */
+  rolloutMode: 'explicit_job_only' | 'default_v19';
+  /**
+   * Shadowbenchmarkmanifestchecksumsha256
+   */
+  shadowBenchmarkManifestChecksumSha256: string;
+  /**
+   * Thresholdsfingerprintsha256
+   */
+  thresholdsFingerprintSha256: string;
+  /**
+   * Thresholdsversion
+   */
+  thresholdsVersion: string;
+};
+
+/**
  * BoardCellRecropJobSnapshotPayload
  */
 export type BoardCellRecropJobSnapshotPayload = {
@@ -101,6 +455,7 @@ export type BoardCellRecropJobSnapshotPayload = {
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Canonicalsequencenumbers
    */
@@ -242,6 +597,10 @@ export type BrowserImageImportPreflightResponse = {
  * BrowserImageImportStart
  */
 export type BrowserImageImportStart = {
+  /**
+   * Boardcellprocessingmode
+   */
+  boardCellProcessingMode?: 'historical_v18' | 'verified_v19';
   /**
    * Gameid
    */
@@ -805,6 +1164,7 @@ export type CuratedImageImportBatchResponse = {
  * CuratedImageImportJobPayload
  */
 export type CuratedImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Curatedimageimportbatchid
    */
@@ -1742,6 +2102,7 @@ export type ImageFolderSelectionResponse = {
  * ImageImportJobPayload
  */
 export type ImageImportJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   /**
    * Canonicalsequencenumbers
    */
@@ -3058,6 +3419,7 @@ export type JobErrorResponse = {
  * JobProgressResponse
  */
 export type JobProgressResponse = {
+  boardCellGeometry?: BoardCellGeometryJobProgressResponse | null;
   /**
    * Current
    */
@@ -3565,6 +3927,7 @@ export type LegacyImageImportJobPayload = {
  * ManagedImageReprocessJobPayload
  */
 export type ManagedImageReprocessJobPayload = {
+  boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
   /**
    * Imageselectionrunid
@@ -4455,6 +4818,10 @@ export type PageGeometryPreflightJobPayload = {
     [key: string]: unknown;
   };
   /**
+   * Preflightpolicyversion
+   */
+  preflightPolicyVersion?: 'page-geometry-preflight-v2-auto-anchor' | null;
+  /**
    * Schemaversion
    */
   schemaVersion: 2;
@@ -4462,6 +4829,10 @@ export type PageGeometryPreflightJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName?: string | null;
   /**
    * Sourcemanifestsha256
    */
@@ -4785,6 +5156,992 @@ export type PendingSymbolReinferencePreviewResponse = {
    */
   requiresExplicitActivation?: boolean;
 };
+
+/**
+ * RemoteManualSelectionBaseCapabilityResponse
+ */
+export type RemoteManualSelectionBaseCapabilityResponse = {
+  /**
+   * Basecapability
+   */
+  baseCapability?: string | null;
+  /**
+   * Displayname
+   */
+  displayName?: string | null;
+  /**
+   * Expiresat
+   */
+  expiresAt?: string | null;
+  /**
+   * Status
+   */
+  status: 'selected' | 'cancelled';
+};
+
+/**
+ * RemoteManualSelectionBatchCreate
+ */
+export type RemoteManualSelectionBatchCreate = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  direction: RemoteManualSelectionDirection;
+  /**
+   * Firstlayout
+   */
+  firstLayout: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
+ * RemoteManualSelectionBatchCreatedResponse
+ */
+export type RemoteManualSelectionBatchCreatedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Resumed
+   */
+  resumed: boolean;
+};
+
+/**
+ * RemoteManualSelectionBatchMonitorResponse
+ */
+export type RemoteManualSelectionBatchMonitorResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Failedfilecount
+   */
+  failedFileCount: number;
+  /**
+   * Finalmanifestchecksumsha256
+   */
+  finalManifestChecksumSha256: string | null;
+  /**
+   * Lasterrorcodes
+   */
+  lastErrorCodes: Array<string>;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Pendinghostactioncount
+   */
+  pendingHostActionCount: number;
+  /**
+   * Selectedfilecount
+   */
+  selectedFileCount: number;
+  /**
+   * Serverrevision
+   */
+  serverRevision: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Syncedfilecount
+   */
+  syncedFileCount: number;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * RemoteManualSelectionBatchResponse
+ */
+export type RemoteManualSelectionBatchResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Cursorindex
+   */
+  cursorIndex: number;
+  /**
+   * Direction
+   */
+  direction: string;
+  /**
+   * Firstlayout
+   */
+  firstLayout: number;
+  /**
+   * Lastclientsequence
+   */
+  lastClientSequence: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Serverrevision
+   */
+  serverRevision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionCollectionCreate
+ */
+export type RemoteManualSelectionCollectionCreate = {
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * RemoteManualSelectionCollectionResponse
+ */
+export type RemoteManualSelectionCollectionResponse = {
+  /**
+   * Collectionid
+   */
+  collectionId: string;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Normalizedname
+   */
+  normalizedName: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionContextResponse
+ */
+export type RemoteManualSelectionContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Iswriter
+   */
+  isWriter: boolean;
+  /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: 'active';
+  /**
+   * Writeractive
+   */
+  writerActive: boolean;
+  /**
+   * Writerleaseexpiresat
+   */
+  writerLeaseExpiresAt: string | null;
+};
+
+/**
+ * RemoteManualSelectionDirection
+ */
+export type RemoteManualSelectionDirection = 'ascending' | 'descending';
+
+/**
+ * RemoteManualSelectionFileResponse
+ */
+export type RemoteManualSelectionFileResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Desiredselected
+   */
+  desiredSelected: boolean;
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Hostchecksumsha256
+   */
+  hostChecksumSha256: string | null;
+  /**
+   * Lastmodifiedms
+   */
+  lastModifiedMs: number;
+  /**
+   * Lastserverrevision
+   */
+  lastServerRevision?: number | null;
+  /**
+   * Mimetype
+   */
+  mimeType: string;
+  /**
+   * Outputname
+   */
+  outputName: string | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart: number | null;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Selectiongeneration
+   */
+  selectionGeneration: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionOperationAppliedResponse
+ */
+export type RemoteManualSelectionOperationAppliedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Exactretry
+   */
+  exactRetry: boolean;
+  file: RemoteManualSelectionFileResponse | null;
+  operation: RemoteManualSelectionOperationResponse;
+};
+
+/**
+ * RemoteManualSelectionOperationCreate
+ */
+export type RemoteManualSelectionOperationCreate = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+  /**
+   * Clientsequence
+   */
+  clientSequence: number;
+  /**
+   * Decoded
+   */
+  decoded?: boolean;
+  /**
+   * Expectedserverrevision
+   */
+  expectedServerRevision: number;
+  /**
+   * Fileid
+   */
+  fileId?: string | null;
+  /**
+   * Imagechecksumsha256
+   */
+  imageChecksumSha256?: string | null;
+  /**
+   * Imagepath
+   */
+  imagePath?: string | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  operationType: RemoteManualSelectionOperationType;
+  /**
+   * Outputname
+   */
+  outputName?: string | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Recordedat
+   */
+  recordedAt: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 'remote-manual-selection-operation-v1';
+  /**
+   * Selectiongeneration
+   */
+  selectionGeneration: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
+  /**
+   * Targetoperationid
+   */
+  targetOperationId?: string | null;
+  /**
+   * Visiblemilliseconds
+   */
+  visibleMilliseconds?: number;
+};
+
+/**
+ * RemoteManualSelectionOperationResponse
+ */
+export type RemoteManualSelectionOperationResponse = {
+  /**
+   * Appliedserverrevision
+   */
+  appliedServerRevision: number;
+  /**
+   * Commandchecksumsha256
+   */
+  commandChecksumSha256: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Outcomecode
+   */
+  outcomeCode: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * RemoteManualSelectionOperationType
+ */
+export type RemoteManualSelectionOperationType =
+  'viewed' | 'select' | 'skip' | 'deselect' | 'undo';
+
+/**
+ * RemoteManualSelectionSessionCreate
+ */
+export type RemoteManualSelectionSessionCreate = {
+  /**
+   * Basecapability
+   */
+  baseCapability?: string | null;
+  /**
+   * Label
+   */
+  label?: string | null;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * RemoteManualSelectionSessionCreatedResponse
+ */
+export type RemoteManualSelectionSessionCreatedResponse = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+  session: RemoteManualSelectionSessionResponse;
+};
+
+/**
+ * RemoteManualSelectionSessionListResponse
+ */
+export type RemoteManualSelectionSessionListResponse = {
+  /**
+   * Sessions
+   */
+  sessions: Array<RemoteManualSelectionSessionResponse>;
+};
+
+/**
+ * RemoteManualSelectionSessionMonitorResponse
+ */
+export type RemoteManualSelectionSessionMonitorResponse = {
+  /**
+   * Batches
+   */
+  batches: Array<RemoteManualSelectionBatchMonitorResponse>;
+  /**
+   * Diskerrorcode
+   */
+  diskErrorCode: string | null;
+  /**
+   * Diskfreebytes
+   */
+  diskFreeBytes: number | null;
+  /**
+   * Disktotalbytes
+   */
+  diskTotalBytes: number | null;
+  /**
+   * Hasmorebatches
+   */
+  hasMoreBatches: boolean;
+  session: RemoteManualSelectionSessionResponse;
+};
+
+/**
+ * RemoteManualSelectionSessionResponse
+ */
+export type RemoteManualSelectionSessionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
+   * Lockedat
+   */
+  lockedAt: string | null;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Reviewurl
+   */
+  reviewUrl: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Revokedat
+   */
+  revokedAt: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Status
+   */
+  status: 'draft' | 'active' | 'completed' | 'expired' | 'revoked';
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Writeractive
+   */
+  writerActive: boolean;
+  /**
+   * Writerleaseexpiresat
+   */
+  writerLeaseExpiresAt: string | null;
+};
+
+/**
+ * RemoteManualSelectionSourceItem
+ */
+export type RemoteManualSelectionSourceItem = {
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Lastmodifiedms
+   */
+  lastModifiedMs: number;
+  /**
+   * Mimetype
+   */
+  mimeType: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
+ * RemoteManualSelectionSourceItemsCreate
+ */
+export type RemoteManualSelectionSourceItemsCreate = {
+  /**
+   * Complete
+   */
+  complete?: boolean;
+  /**
+   * Items
+   */
+  items: Array<RemoteManualSelectionSourceItem>;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  sourceKind: RemoteSourceKind;
+};
+
+/**
+ * RemoteManualSelectionSourceItemsResponse
+ */
+export type RemoteManualSelectionSourceItemsResponse = {
+  /**
+   * Acceptedfileids
+   */
+  acceptedFileIds: Array<string>;
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Createdcount
+   */
+  createdCount: number;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
+ * RemoteManualSelectionStateDeltaResponse
+ */
+export type RemoteManualSelectionStateDeltaResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Files
+   */
+  files: Array<RemoteManualSelectionFileResponse>;
+  /**
+   * Hasmore
+   */
+  hasMore: boolean;
+  /**
+   * Lastheartbeatat
+   */
+  lastHeartbeatAt: string | null;
+  /**
+   * Nextrevision
+   */
+  nextRevision: number;
+  queue: RemoteSelectionQueueStatusResponse;
+};
+
+/**
+ * RemoteManualSelectionTransferResponse
+ */
+export type RemoteManualSelectionTransferResponse = {
+  /**
+   * Attempt
+   */
+  attempt: number;
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Declaredbytes
+   */
+  declaredBytes: number;
+  /**
+   * Declaredchecksumsha256
+   */
+  declaredChecksumSha256: string | null;
+  /**
+   * Fileid
+   */
+  fileId: string;
+  /**
+   * Generation
+   */
+  generation: number;
+  /**
+   * Receivedbytes
+   */
+  receivedBytes: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Transferid
+   */
+  transferId: string | null;
+  /**
+   * Verifiedchecksumsha256
+   */
+  verifiedChecksumSha256: string | null;
+};
+
+/**
+ * RemoteManualSelectionUnlock
+ */
+export type RemoteManualSelectionUnlock = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+};
+
+/**
+ * RemoteManualSelectionWriterLeaseCommand
+ */
+export type RemoteManualSelectionWriterLeaseCommand = {
+  /**
+   * Clientinstanceid
+   */
+  clientInstanceId: string;
+};
+
+/**
+ * RemoteSelectionFinalizeBlockerResponse
+ */
+export type RemoteSelectionFinalizeBlockerResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Count
+   */
+  count: number;
+};
+
+/**
+ * RemoteSelectionFinalizeCommand
+ */
+export type RemoteSelectionFinalizeCommand = {
+  /**
+   * Expectedserverrevision
+   */
+  expectedServerRevision: number;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * RemoteSelectionFinalizePreviewResponse
+ */
+export type RemoteSelectionFinalizePreviewResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Blockers
+   */
+  blockers: Array<RemoteSelectionFinalizeBlockerResponse>;
+  /**
+   * Operationcount
+   */
+  operationCount: number;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Selectedfilecount
+   */
+  selectedFileCount: number;
+  /**
+   * Serverrevision
+   */
+  serverRevision: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Syncedfilecount
+   */
+  syncedFileCount: number;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+};
+
+/**
+ * RemoteSelectionFinalizedResponse
+ */
+export type RemoteSelectionFinalizedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Exactretry
+   */
+  exactRetry: boolean;
+  /**
+   * Finalmanifestchecksumsha256
+   */
+  finalManifestChecksumSha256: string;
+  /**
+   * Finalizedat
+   */
+  finalizedAt: string;
+};
+
+/**
+ * RemoteSelectionGcCategoryResponse
+ */
+export type RemoteSelectionGcCategoryResponse = {
+  /**
+   * Artifactcount
+   */
+  artifactCount: number;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Totalbytes
+   */
+  totalBytes: number;
+};
+
+/**
+ * RemoteSelectionGcPreviewResponse
+ */
+export type RemoteSelectionGcPreviewResponse = {
+  /**
+   * Categories
+   */
+  categories: Array<RemoteSelectionGcCategoryResponse>;
+  /**
+   * Deletionenabled
+   */
+  deletionEnabled: false;
+  /**
+   * Findings
+   */
+  findings: Array<string>;
+  /**
+   * Scannedartifactcount
+   */
+  scannedArtifactCount: number;
+  /**
+   * Scannedbytes
+   */
+  scannedBytes: number;
+};
+
+/**
+ * RemoteSelectionQueueStatusResponse
+ */
+export type RemoteSelectionQueueStatusResponse = {
+  /**
+   * Conflictfilecount
+   */
+  conflictFileCount: number;
+  /**
+   * Materializingactioncount
+   */
+  materializingActionCount: number;
+  /**
+   * Pendinghostactioncount
+   */
+  pendingHostActionCount: number;
+  /**
+   * Pendingoperationcount
+   */
+  pendingOperationCount: number;
+  /**
+   * Pendingtransferbytes
+   */
+  pendingTransferBytes: number;
+  /**
+   * Recoveryfindings
+   */
+  recoveryFindings: Array<RemoteSelectionRecoveryFindingResponse>;
+  /**
+   * Syncedfilecount
+   */
+  syncedFileCount: number;
+  /**
+   * Uploadingtransfercount
+   */
+  uploadingTransferCount: number;
+};
+
+/**
+ * RemoteSelectionRecoveryFindingResponse
+ */
+export type RemoteSelectionRecoveryFindingResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Count
+   */
+  count: number;
+};
+
+/**
+ * RemoteSelectionRecoveryStatusResponse
+ */
+export type RemoteSelectionRecoveryStatusResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  gcPreview: RemoteSelectionGcPreviewResponse;
+  queue: RemoteSelectionQueueStatusResponse;
+};
+
+/**
+ * RemoteSelectionReopenCommand
+ */
+export type RemoteSelectionReopenCommand = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Expectedfinalmanifestchecksumsha256
+   */
+  expectedFinalManifestChecksumSha256: string;
+  /**
+   * Expectedserverrevision
+   */
+  expectedServerRevision: number;
+};
+
+/**
+ * RemoteSelectionReopenedResponse
+ */
+export type RemoteSelectionReopenedResponse = {
+  batch: RemoteManualSelectionBatchResponse;
+  /**
+   * Reopenedat
+   */
+  reopenedAt: string;
+};
+
+/**
+ * RemoteSourceKind
+ */
+export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
 
 /**
  * ReviewAlternative
@@ -7665,6 +9022,305 @@ export type RollbackGridProfileResponses = {
 
 export type RollbackGridProfileResponse =
   RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
+
+export type ListPendingBoardCellGeometryData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+  };
+  query?: {
+    /**
+     * Status
+     */
+    status?: BoardCellGeometryPendingStatus | null;
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending';
+};
+
+export type ListPendingBoardCellGeometryErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListPendingBoardCellGeometryError =
+  ListPendingBoardCellGeometryErrors[keyof ListPendingBoardCellGeometryErrors];
+
+export type ListPendingBoardCellGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryPendingPageResponse;
+};
+
+export type ListPendingBoardCellGeometryResponse =
+  ListPendingBoardCellGeometryResponses[keyof ListPendingBoardCellGeometryResponses];
+
+export type GetPendingBoardCellGeometryData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}';
+};
+
+export type GetPendingBoardCellGeometryErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPendingBoardCellGeometryError =
+  GetPendingBoardCellGeometryErrors[keyof GetPendingBoardCellGeometryErrors];
+
+export type GetPendingBoardCellGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryPendingResponse;
+};
+
+export type GetPendingBoardCellGeometryResponse =
+  GetPendingBoardCellGeometryResponses[keyof GetPendingBoardCellGeometryResponses];
+
+export type GetPendingBoardCellGeometryCorrectionContextData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/correction-context';
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextError =
+  GetPendingBoardCellGeometryCorrectionContextErrors[keyof GetPendingBoardCellGeometryCorrectionContextErrors];
+
+export type GetPendingBoardCellGeometryCorrectionContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryCorrectionContextResponse;
+};
+
+export type GetPendingBoardCellGeometryCorrectionContextResponse =
+  GetPendingBoardCellGeometryCorrectionContextResponses[keyof GetPendingBoardCellGeometryCorrectionContextResponses];
+
+export type PreviewPendingBoardCellGeometryCorrectionData = {
+  body: BoardCellGeometryManualPreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-preview';
+};
+
+export type PreviewPendingBoardCellGeometryCorrectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingBoardCellGeometryCorrectionError =
+  PreviewPendingBoardCellGeometryCorrectionErrors[keyof PreviewPendingBoardCellGeometryCorrectionErrors];
+
+export type PreviewPendingBoardCellGeometryCorrectionResponses = {
+  /**
+   * Five by three contact sheet of manual v19 crops
+   */
+  200: unknown;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyData = {
+  body: BoardCellGeometryManualResolutionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution';
+};
+
+export type ResolvePendingBoardCellGeometryManuallyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyError =
+  ResolvePendingBoardCellGeometryManuallyErrors[keyof ResolvePendingBoardCellGeometryManuallyErrors];
+
+export type ResolvePendingBoardCellGeometryManuallyResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryManualResolutionResponse;
+};
+
+export type ResolvePendingBoardCellGeometryManuallyResponse =
+  ResolvePendingBoardCellGeometryManuallyResponses[keyof ResolvePendingBoardCellGeometryManuallyResponses];
+
+export type GetPendingBoardCellGeometrySourceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source';
+};
+
+export type GetPendingBoardCellGeometrySourceErrors = {
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPendingBoardCellGeometrySourceError =
+  GetPendingBoardCellGeometrySourceErrors[keyof GetPendingBoardCellGeometrySourceErrors];
+
+export type GetPendingBoardCellGeometrySourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type OpenLocalReviewerWorkData = {
   body: ReviewerWorkOpenCommand;
@@ -12730,6 +14386,285 @@ export type PreviewMobileReleaseDeletionResponses = {
 export type PreviewMobileReleaseDeletionResponse =
   PreviewMobileReleaseDeletionResponses[keyof PreviewMobileReleaseDeletionResponses];
 
+export type SelectRemoteManualSelectionHostBaseData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/base-capabilities';
+};
+
+export type SelectRemoteManualSelectionHostBaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type SelectRemoteManualSelectionHostBaseError =
+  SelectRemoteManualSelectionHostBaseErrors[keyof SelectRemoteManualSelectionHostBaseErrors];
+
+export type SelectRemoteManualSelectionHostBaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionBaseCapabilityResponse;
+};
+
+export type SelectRemoteManualSelectionHostBaseResponse =
+  SelectRemoteManualSelectionHostBaseResponses[keyof SelectRemoteManualSelectionHostBaseResponses];
+
+export type ListRemoteManualSelectionSessionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/remote-manual-selections/sessions';
+};
+
+export type ListRemoteManualSelectionSessionsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListRemoteManualSelectionSessionsError =
+  ListRemoteManualSelectionSessionsErrors[keyof ListRemoteManualSelectionSessionsErrors];
+
+export type ListRemoteManualSelectionSessionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionListResponse;
+};
+
+export type ListRemoteManualSelectionSessionsResponse =
+  ListRemoteManualSelectionSessionsResponses[keyof ListRemoteManualSelectionSessionsResponses];
+
+export type CreateRemoteManualSelectionSessionData = {
+  body: RemoteManualSelectionSessionCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions';
+};
+
+export type CreateRemoteManualSelectionSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionSessionError =
+  CreateRemoteManualSelectionSessionErrors[keyof CreateRemoteManualSelectionSessionErrors];
+
+export type CreateRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionSessionCreatedResponse;
+};
+
+export type CreateRemoteManualSelectionSessionResponse =
+  CreateRemoteManualSelectionSessionResponses[keyof CreateRemoteManualSelectionSessionResponses];
+
+export type GetRemoteManualSelectionSessionData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: {
+    /**
+     * Batch Limit
+     */
+    batch_limit?: number;
+  };
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}';
+};
+
+export type GetRemoteManualSelectionSessionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionSessionError =
+  GetRemoteManualSelectionSessionErrors[keyof GetRemoteManualSelectionSessionErrors];
+
+export type GetRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionMonitorResponse;
+};
+
+export type GetRemoteManualSelectionSessionResponse =
+  GetRemoteManualSelectionSessionResponses[keyof GetRemoteManualSelectionSessionResponses];
+
+export type GetRemoteManualSelectionRecoveryStatusData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/batches/{batch_id}/recovery';
+};
+
+export type GetRemoteManualSelectionRecoveryStatusErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionRecoveryStatusError =
+  GetRemoteManualSelectionRecoveryStatusErrors[keyof GetRemoteManualSelectionRecoveryStatusErrors];
+
+export type GetRemoteManualSelectionRecoveryStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteSelectionRecoveryStatusResponse;
+};
+
+export type GetRemoteManualSelectionRecoveryStatusResponse =
+  GetRemoteManualSelectionRecoveryStatusResponses[keyof GetRemoteManualSelectionRecoveryStatusResponses];
+
+export type ReopenRemoteManualSelectionBatchData = {
+  body: RemoteSelectionReopenCommand;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/reopen-batch';
+};
+
+export type ReopenRemoteManualSelectionBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReopenRemoteManualSelectionBatchError =
+  ReopenRemoteManualSelectionBatchErrors[keyof ReopenRemoteManualSelectionBatchErrors];
+
+export type ReopenRemoteManualSelectionBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteSelectionReopenedResponse;
+};
+
+export type ReopenRemoteManualSelectionBatchResponse =
+  ReopenRemoteManualSelectionBatchResponses[keyof ReopenRemoteManualSelectionBatchResponses];
+
+export type RevokeRemoteManualSelectionSessionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke';
+};
+
+export type RevokeRemoteManualSelectionSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeRemoteManualSelectionSessionError =
+  RevokeRemoteManualSelectionSessionErrors[keyof RevokeRemoteManualSelectionSessionErrors];
+
+export type RevokeRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSessionResponse;
+};
+
+export type RevokeRemoteManualSelectionSessionResponse =
+  RevokeRemoteManualSelectionSessionResponses[keyof RevokeRemoteManualSelectionSessionResponses];
+
 export type ListReviewBatchesData = {
   body?: never;
   path?: never;
@@ -14412,6 +16347,720 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type PutRemoteManualSelectionFileContentData = {
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Transfer-Id
+     */
+    'X-Remote-Selection-Transfer-Id': string;
+    /**
+     * X-Remote-Selection-Generation
+     */
+    'X-Remote-Selection-Generation': number;
+    /**
+     * X-Remote-Selection-Source-Mtime
+     */
+    'X-Remote-Selection-Source-Mtime': number;
+    /**
+     * X-Remote-Selection-Checksum-Sha256
+     */
+    'X-Remote-Selection-Checksum-Sha256': string;
+    /**
+     * Content-Length
+     */
+    'Content-Length': number;
+    /**
+     * Content-Type
+     */
+    'Content-Type': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * File Id
+     */
+    file_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content';
+};
+
+export type PutRemoteManualSelectionFileContentErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Request Entity Too Large
+   */
+  413: ErrorResponse;
+  /**
+   * Unsupported Media Type
+   */
+  415: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type PutRemoteManualSelectionFileContentError =
+  PutRemoteManualSelectionFileContentErrors[keyof PutRemoteManualSelectionFileContentErrors];
+
+export type PutRemoteManualSelectionFileContentResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionTransferResponse;
+};
+
+export type PutRemoteManualSelectionFileContentResponse =
+  PutRemoteManualSelectionFileContentResponses[keyof PutRemoteManualSelectionFileContentResponses];
+
+export type GetRemoteManualSelectionFileTransferData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * File Id
+     */
+    file_id: string;
+  };
+  query: {
+    /**
+     * Generation
+     */
+    generation: number;
+    /**
+     * Transferid
+     */
+    transferId?: string | null;
+  };
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer';
+};
+
+export type GetRemoteManualSelectionFileTransferErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionFileTransferError =
+  GetRemoteManualSelectionFileTransferErrors[keyof GetRemoteManualSelectionFileTransferErrors];
+
+export type GetRemoteManualSelectionFileTransferResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionTransferResponse;
+};
+
+export type GetRemoteManualSelectionFileTransferResponse =
+  GetRemoteManualSelectionFileTransferResponses[keyof GetRemoteManualSelectionFileTransferResponses];
+
+export type FinalizeRemoteManualSelectionBatchData = {
+  body: RemoteSelectionFinalizeCommand;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize';
+};
+
+export type FinalizeRemoteManualSelectionBatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type FinalizeRemoteManualSelectionBatchError =
+  FinalizeRemoteManualSelectionBatchErrors[keyof FinalizeRemoteManualSelectionBatchErrors];
+
+export type FinalizeRemoteManualSelectionBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteSelectionFinalizedResponse;
+};
+
+export type FinalizeRemoteManualSelectionBatchResponse =
+  FinalizeRemoteManualSelectionBatchResponses[keyof FinalizeRemoteManualSelectionBatchResponses];
+
+export type PreviewRemoteManualSelectionFinalizationData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize-preview';
+};
+
+export type PreviewRemoteManualSelectionFinalizationErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type PreviewRemoteManualSelectionFinalizationError =
+  PreviewRemoteManualSelectionFinalizationErrors[keyof PreviewRemoteManualSelectionFinalizationErrors];
+
+export type PreviewRemoteManualSelectionFinalizationResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteSelectionFinalizePreviewResponse;
+};
+
+export type PreviewRemoteManualSelectionFinalizationResponse =
+  PreviewRemoteManualSelectionFinalizationResponses[keyof PreviewRemoteManualSelectionFinalizationResponses];
+
+export type ApplyRemoteManualSelectionOperationData = {
+  body: RemoteManualSelectionOperationCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/operations';
+};
+
+export type ApplyRemoteManualSelectionOperationErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type ApplyRemoteManualSelectionOperationError =
+  ApplyRemoteManualSelectionOperationErrors[keyof ApplyRemoteManualSelectionOperationErrors];
+
+export type ApplyRemoteManualSelectionOperationResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionOperationAppliedResponse;
+};
+
+export type ApplyRemoteManualSelectionOperationResponse =
+  ApplyRemoteManualSelectionOperationResponses[keyof ApplyRemoteManualSelectionOperationResponses];
+
+export type RegisterRemoteManualSelectionSourceItemsData = {
+  body: RemoteManualSelectionSourceItemsCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/source-items';
+};
+
+export type RegisterRemoteManualSelectionSourceItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type RegisterRemoteManualSelectionSourceItemsError =
+  RegisterRemoteManualSelectionSourceItemsErrors[keyof RegisterRemoteManualSelectionSourceItemsErrors];
+
+export type RegisterRemoteManualSelectionSourceItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionSourceItemsResponse;
+};
+
+export type RegisterRemoteManualSelectionSourceItemsResponse =
+  RegisterRemoteManualSelectionSourceItemsResponses[keyof RegisterRemoteManualSelectionSourceItemsResponses];
+
+export type GetRemoteManualSelectionStateDeltaData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: {
+    /**
+     * Sincerevision
+     */
+    sinceRevision?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/remote-manual-selections/batches/{batch_id}/state';
+};
+
+export type GetRemoteManualSelectionStateDeltaErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type GetRemoteManualSelectionStateDeltaError =
+  GetRemoteManualSelectionStateDeltaErrors[keyof GetRemoteManualSelectionStateDeltaErrors];
+
+export type GetRemoteManualSelectionStateDeltaResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionStateDeltaResponse;
+};
+
+export type GetRemoteManualSelectionStateDeltaResponse =
+  GetRemoteManualSelectionStateDeltaResponses[keyof GetRemoteManualSelectionStateDeltaResponses];
+
+export type CreateRemoteManualSelectionCollectionData = {
+  body: RemoteManualSelectionCollectionCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/remote-manual-selections/collections';
+};
+
+export type CreateRemoteManualSelectionCollectionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionCollectionError =
+  CreateRemoteManualSelectionCollectionErrors[keyof CreateRemoteManualSelectionCollectionErrors];
+
+export type CreateRemoteManualSelectionCollectionResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionCollectionResponse;
+};
+
+export type CreateRemoteManualSelectionCollectionResponse =
+  CreateRemoteManualSelectionCollectionResponses[keyof CreateRemoteManualSelectionCollectionResponses];
+
+export type CreateRemoteManualSelectionBatchData = {
+  body: RemoteManualSelectionBatchCreate;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Collection Id
+     */
+    collection_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/collections/{collection_id}/batches';
+};
+
+export type CreateRemoteManualSelectionBatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Too Many Requests
+   */
+  429: ErrorResponse;
+};
+
+export type CreateRemoteManualSelectionBatchError =
+  CreateRemoteManualSelectionBatchErrors[keyof CreateRemoteManualSelectionBatchErrors];
+
+export type CreateRemoteManualSelectionBatchResponses = {
+  /**
+   * Successful Response
+   */
+  201: RemoteManualSelectionBatchCreatedResponse;
+};
+
+export type CreateRemoteManualSelectionBatchResponse =
+  CreateRemoteManualSelectionBatchResponses[keyof CreateRemoteManualSelectionBatchResponses];
+
+export type GetRemoteManualSelectionContextData = {
+  body?: never;
+  headers: {
+    /**
+     * X-Remote-Selection-Client
+     */
+    'X-Remote-Selection-Client': string;
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/remote-manual-selections/context';
+};
+
+export type GetRemoteManualSelectionContextErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetRemoteManualSelectionContextError =
+  GetRemoteManualSelectionContextErrors[keyof GetRemoteManualSelectionContextErrors];
+
+export type GetRemoteManualSelectionContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type GetRemoteManualSelectionContextResponse =
+  GetRemoteManualSelectionContextResponses[keyof GetRemoteManualSelectionContextResponses];
+
+export type UnlockRemoteManualSelectionSessionData = {
+  body: RemoteManualSelectionUnlock;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/unlock';
+};
+
+export type UnlockRemoteManualSelectionSessionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UnlockRemoteManualSelectionSessionError =
+  UnlockRemoteManualSelectionSessionErrors[keyof UnlockRemoteManualSelectionSessionErrors];
+
+export type UnlockRemoteManualSelectionSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type UnlockRemoteManualSelectionSessionResponse =
+  UnlockRemoteManualSelectionSessionResponses[keyof UnlockRemoteManualSelectionSessionResponses];
+
+export type HeartbeatRemoteManualSelectionWriterLeaseData = {
+  body: RemoteManualSelectionWriterLeaseCommand;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/heartbeat';
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseError =
+  HeartbeatRemoteManualSelectionWriterLeaseErrors[keyof HeartbeatRemoteManualSelectionWriterLeaseErrors];
+
+export type HeartbeatRemoteManualSelectionWriterLeaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type HeartbeatRemoteManualSelectionWriterLeaseResponse =
+  HeartbeatRemoteManualSelectionWriterLeaseResponses[keyof HeartbeatRemoteManualSelectionWriterLeaseResponses];
+
+export type TakeoverRemoteManualSelectionWriterLeaseData = {
+  body: RemoteManualSelectionWriterLeaseCommand;
+  headers?: {
+    /**
+     * X-Remote-Selection-Proxy
+     */
+    'X-Remote-Selection-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/takeover';
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseError =
+  TakeoverRemoteManualSelectionWriterLeaseErrors[keyof TakeoverRemoteManualSelectionWriterLeaseErrors];
+
+export type TakeoverRemoteManualSelectionWriterLeaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: RemoteManualSelectionContextResponse;
+};
+
+export type TakeoverRemoteManualSelectionWriterLeaseResponse =
+  TakeoverRemoteManualSelectionWriterLeaseResponses[keyof TakeoverRemoteManualSelectionWriterLeaseResponses];
 
 export type ListReviewerGamesData = {
   body?: never;

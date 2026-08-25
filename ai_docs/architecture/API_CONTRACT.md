@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-15
+last_updated: 2026-08-24
 ---
 
 # Kontrakty API i danych mobilnych
@@ -62,12 +62,167 @@ Format błędu:
 /image-imports
 /import-jobs
 /layout-import-validations
+/remote-manual-selections
 /review-batches
 /review-items
 /mobile-releases
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+### Host base zdalnej ręcznej selekcji
+
+Lokalny Admin może otworzyć wyłącznie stały systemowy picker:
+
+```text
+POST /api/v1/admin/remote-manual-selections/base-capabilities
+```
+
+Request nie ma body ani pola ścieżki. Sukces zwraca jednorazowe
+`baseCapability`, bezpieczny `displayName` i `expiresAt`; anulowanie zwraca
+status `cancelled`. Pełna i finalna ścieżka pozostaje host-only. Capability
+wygasa po pięciu minutach i może zostać użyta dokładnie raz przez przyszły
+lokalny workflow tworzenia sesji. Publiczne endpointy, kod i token powstaną
+dopiero w TASK 6.
+
+Endpoint można wyłączyć bez zmiany danych przez
+`GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false`; znika wtedy
+również z runtime OpenAPI. Klient Admina jest generowany z domyślnie włączonego
+kontraktu.
+
+Po uzyskaniu capability lokalny Admin obsługuje trwałe sesje:
+
+```text
+POST /api/v1/admin/remote-manual-selections/sessions
+GET  /api/v1/admin/remote-manual-selections/sessions?limit=1..100
+GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}?batch_limit=1..100
+GET  /api/v1/admin/remote-manual-selections/sessions/{sessionId}/batches/{batchId}/recovery
+POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/revoke
+POST /api/v1/admin/remote-manual-selections/sessions/{sessionId}/reopen-batch
+```
+
+Create przyjmuje `baseCapability`, opcjonalną etykietę do 100 znaków i TTL
+`5..1440` minut. Surowy
+`accessCode` występuje tylko w tej jednej odpowiedzi. Lista i detail pokazują
+status, display name, rewizję, daty, lock/revoke, stan writer lease, `ready`
+oraz dynamiczny `reviewUrl`; nie zwracają kodu, tokenu, client/fencing tokenu
+ani ścieżki hosta. Detail opakowuje sesję w ograniczony monitor: maksymalnie 100
+najnowszych partii, liczniki total/selected/synced/failed, liczbę oczekujących
+host actions, stabilne kody błędów i wyłącznie zagregowane bajty total/free
+dysku. Zakończona partia dodatkowo zwraca `serverRevision`, `updatedAt` i
+`finalManifestChecksumSha256`. `hasMoreBatches` sygnalizuje obcięcie widoku.
+Create, revoke i reopen są operacjami high-impact z exact target lokalnego
+Admina. Reopen przyjmuje `batchId`, `expectedServerRevision` oraz
+`expectedFinalManifestChecksumSha256`; zmienia tylko zgodną zakończoną partię
+na `active`, zwiększa rewizję i nie jest dostępny przez Reviewer proxy.
+
+Recovery detail jest lokalnym, read-only DTO. Zwraca wyłącznie zagregowane
+liczniki kolejek i bajtów, stabilne findings oraz preview kategorii artefaktów z
+`deletionEnabled=false`; nie zwraca host path, nazw plików, checksum, tokenów
+ani danych uwierzytelniających.
+
+Publiczna powierzchnia jest osiągalna z przeglądarki wyłącznie przez osobny
+same-origin proxy Reviewera `/selection-api`. Proxy przepuszcza dokładnie:
+
+```text
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/unlock
+GET  /api/v1/remote-manual-selections/context
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/heartbeat
+POST /api/v1/remote-manual-selections/sessions/{sessionId}/writer-lease/takeover
+POST /api/v1/remote-manual-selections/collections
+POST /api/v1/remote-manual-selections/collections/{collectionId}/batches
+POST /api/v1/remote-manual-selections/batches/{batchId}/source-items
+GET  /api/v1/remote-manual-selections/batches/{batchId}/state?sinceRevision=0&limit=100
+POST /api/v1/remote-manual-selections/batches/{batchId}/operations
+GET  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/transfer?generation=1&transferId=<UUID>
+PUT  /api/v1/remote-manual-selections/batches/{batchId}/files/{fileId}/content
+GET  /api/v1/remote-manual-selections/batches/{batchId}/finalize-preview
+POST /api/v1/remote-manual-selections/batches/{batchId}/finalize
+```
+
+Unlock przyjmuje osobny kod i `clientInstanceId`, rotuje token i zwraca jedynie
+purpose-scoped context. Token jest ustawiany jako cookie
+`gp_remote_selection_token` z `HttpOnly`, `Secure`, `SameSite=Strict` i
+`Path=/selection-api`; nigdy nie jest polem JSON. Reviewer tłumaczy je na
+host-only cookie API `remote_manual_selection_access`. Context wymaga cookie i
+`X-Remote-Selection-Client`; nie zawiera `gameId` ani `importJobId`.
+
+Proxy dodaje stały `X-Remote-Selection-Proxy: reviewer-v1`, którego wymagają
+wszystkie publiczne route FastAPI. Nie przekazuje Authorization, legacy cookie
+Reviewera ani `Set-Cookie` upstreamu. Wymusza same-origin Origin/Fetch Metadata,
+JSON i limit 128 KiB dla control requestu oraz każdej odpowiedzi. Query jest
+zabronione poza state delta (`sinceRevision`, `limit`) i statusem transferu
+(`generation`, opcjonalny `transferId`). Jedyny binarny wyjątek to dokładny
+`PUT .../content`: `application/octet-stream`, znany `Content-Length` do 32 MiB
+oraz walidowane nagłówki transfer UUID, generacji, source mtime i SHA-256.
+Proxy przekazuje body jako stream i nie buforuje JPEG-a. Route Admina, legacy
+Reviewera, jobów, storage, eksportów i wydań pozostają zabronione. API nie ma
+publicznego CORS i pozostaje na loopback.
+
+Dla mutacji oba dowody są obowiązkowe: `Origin` musi odpowiadać bezpośredniemu
+`Host` requestu, a `Sec-Fetch-Site` musi mieć wartość `same-origin`. Proxy nie
+ufa `X-Forwarded-Host` dostarczonemu przez klienta. Identyfikatory klienta i
+transferu muszą być ścisłymi UUID v4. Każda odpowiedź JSON jest przed
+zwróceniem skanowana rekurencyjnie; credential-like field lub absolutna ścieżka
+Windows/UNC daje `502 REMOTE_SELECTION_UPSTREAM_INVALID`.
+
+Exact replay operacji zachowuje idempotencję, ale zużywa ten sam per-session
+budżet co nowa operacja. Obrót `clientInstanceId` nie resetuje limitu.
+
+State delta zachowuje kursor `sinceRevision` i limit strony, a dodatkowo zwraca
+stałorozmiarowy `queue`, `recoveryFindings` oraz `lastHeartbeatAt`. Pola
+rozróżniają pending operations, upload count/bytes, materializację, pending
+host actions, synced i conflict bez ujawnienia danych hosta.
+
+Status zwraca `not_started` albo metadane próby bez host path. `PUT` jest
+idempotentny względem transferu/generacji/checksumy i zwraca dopiero
+`verified`. Stabilne odpowiedzi obejmują `408` timeout, `409` konflikt
+generacji/treści, `413` limit pliku lub sesji, `415` zły content type i `429`
+limit współbieżności. Od TASK 11 status może następnie przejść z `verified` do
+`synced`; wewnętrzny transfer `materialized` jest mapowany publicznie na
+`synced`. Odczyt statusu idempotentnie odtwarza brakującą host action dla
+istniejącego `verified`, ale nie wykonuje IO materializacji w requestcie.
+Odpowiedź nigdy nie zawiera temp/final path, lease ani journalu.
+
+Preview finalizacji zwraca bieżący status i rewizję, liczniki plików/operacji
+oraz uporządkowane blokady z licznością. Finalize wymaga writer lease,
+`sessionId` i dokładnego `expectedServerRevision`. Sukces zwiększa rewizję,
+ustawia `completed` i zwraca `finalizedAt`, checksumę operacyjnego manifestu
+oraz informację o exact retry. Nie przyjmuje treści manifestów ani ścieżek.
+
+Operacja `deselect` albo `undo` musi wskazywać wcześniejszy zastosowany `select`
+tego samego pliku i niższej generacji. Zastosowanie tworzy tombstone, anuluje
+starszy transfer i zwraca trwały outcome `tombstone_applied`; dokładny retry
+tego samego operation ID zwraca wcześniejszy outcome bez nowej generacji.
+Publiczny status nie ujawnia akcji `remove` ani ścieżki kwarantanny. Po usunięciu
+własnego wyniku przechodzi do stanu niesynchronizowanego/odznaczonego zgodnego z
+najnowszym desired state. Nowe odznaczenia mogą zostać fail-closed wyłączone
+flagą rollbacku, bez zmiany zachowania `select` i exact retry.
+
+Admin session create zapewnia jeden istniejący produkcyjny Reviewer/Quick
+Tunnel. Ciepły ingress nie jest ponownie uruchamiany. `reviewUrl` ma postać
+`https://<origin>/manual-selection?session=<UUID>` i przy restarcie tunelu
+zmienia wyłącznie origin, bez tworzenia nowej sesji. Revoke działa także przy
+awarii ingressu i nie zatrzymuje współdzielonego tunelu.
+
+Writer lease trwa 45 sekund. Unlock zajmuje wolny lease, ale nie kradnie
+aktywnego lease innego klienta. Heartbeat tego samego klienta przedłuża go
+idempotentnie, a takeover jest dozwolony dopiero po expiry. Fencing token
+pozostaje wyłącznie w PostgreSQL. Piąta błędna próba blokuje sesję i usuwa token
+oraz lease; revoke robi to natychmiast. Wszystkie te route znikają razem z flagą
+rollbacku TASK 5.
+
+Control plane TASK 9 używa UUID encji jako trwałych kluczy idempotencji.
+Rejestracja źródeł przyjmuje strony po maksymalnie 500 metadanych, a dopiero
+ostatnia strona z `complete=true` aktywuje partię po przeliczeniu pełnego
+checksumowanego manifestu. Aktywny manifest jest niezmienny. Operacje są
+stosowane według `clientSequence`, `expectedServerRevision` i
+`selectionGeneration`; nowe mutacje wymagają bieżącego writer lease w tej samej
+transakcji. Exact retry znanego `operationId + command checksum` może odczytać
+wcześniejszy wynik po utracie lease, ale nigdy nie wykonuje mutacji ponownie.
+State delta jest ograniczone do 100 rekordów i zwraca monotoniczny
+`nextRevision`. Konflikt pozostaje w outboxie klienta do jawnego uzgodnienia;
+nie stosujemy last-write-wins.
 
 ## Games i symbols
 
@@ -1518,6 +1673,41 @@ Preview zwraca osobno `pendingBoardCount`, `recalculableBoardCount`,
 stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v19
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
+
+Kontrakt odroczonej geometrii komórek wykorzystuje:
+
+```text
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/correction-context
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/source
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-preview
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/manual-resolution
+```
+
+Lista ma stabilny keyset cursor po `(sequence_number, position_index, id)`,
+opcjonalny filtr `status`, limit maksymalnie 200 oraz liczniki `total`,
+`pending`, `resolved`, `superseded` dla wskazanego joba. Element zwraca reason
+code, scope źródła, opcjonalne identyfikatory planszy/review, checksumę i
+ścieżkę niezmiennego manifestu, fingerprint pipeline'u oraz oczekiwane i
+wynikowe rewizje. Kontekst zwraca wymiary źródła, pinned quad planszy i te same
+cztery punkty jako początkową sugestię. Source jest checksum-bound i ma
+immutable ETag. Preview przyjmuje manifest checksum, obie oczekiwane rewizje
+oraz dokładnie cztery narożniki i zwraca kontaktowy PNG 5 × 3 bez zapisu.
+
+Manual resolution dodaje UUID idempotencji i aktora. Sukces zwraca ID zwykłego
+itemu review, nową rewizję geometrii oraz `created`. Exact retry zwraca
+`created=false`; ten sam klucz z inną komendą daje
+`IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT`. Zmiana manifestu, źródła,
+modelu lub rewizji jest fail-closed. Endpointy są dostępne dla lokalnego
+administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
+`gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
+Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
+
+`JobProgressResponse.boardCellGeometry` jest opcjonalną projekcją checkpointu
+o statusie `processing | waiting_for_geometry | complete` i licznikach
+`total`, `processed`, `succeeded`, `pending`, `resolved`, `superseded`.
+Historyczne joby bez tego checkpointu nie zwracają tej sekcji.
 Preview i worker obejmują wyłącznie importy w stanie `waiting_for_review`.
 Oczekujące projekcje importów `cancelled` albo `failed` pozostają audytowalne,
 ale nie mogą zwiększać zakresu nowego przeliczenia.
@@ -1728,6 +1918,12 @@ checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
 `incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
+
+GET jest odczytem bez `FOR UPDATE`. Backend zachowuje pełną checksumę manifestu,
+ale nie pobiera geometrii ani cropów dla elementów `pending`, `rejected` i
+`superseded`; kompletne dane obrazu są potrzebne tylko rozstrzygnięciom
+`accepted/corrected`. Blokowany snapshot pozostaje częścią wyłącznie jawnego
+POST zamrażającego kohortę.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
@@ -2178,9 +2374,19 @@ niezmienny manifest geometrii:
 - `GET /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-sources/{sourceChecksumSha256}/asset`,
 - `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/page-geometry-overrides`.
 
+Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
+raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
+zamiast wymagać ręcznego przycisku startu.
+
+Payload joba preflightu przechowuje również `sourceDisplayName` stagingu jako
+metadane prezentacyjne. Nie wchodzi ono do klucza idempotencji: zmiana etykiety
+nie może utworzyć drugiej walidacji tych samych obrazów i manifestu.
+
 Start importu zawiera `geometryPreflightJobId` oraz
 `geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
 dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
-drift albo nierozwiązana strona blokują start stabilnym błędem zamiast powrotu
-do klasycznego detektora. Override ma tylko checksumę źródła, rozmiar obrazu,
+drift albo nieukończony preflight blokują start. Nierozwiązane wpisy manifestu
+nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
+kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
+ma tylko checksumę źródła, rozmiar obrazu,
 dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.

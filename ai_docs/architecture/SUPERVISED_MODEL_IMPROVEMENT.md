@@ -1,7 +1,7 @@
 ---
 title: Supervised symbol model improvement architecture
 status: accepted
-last_updated: 2026-08-09
+last_updated: 2026-08-23
 ---
 
 # Architektura iteracyjnego ulepszania modelu symboli
@@ -84,6 +84,13 @@ zaakceptowaną geometrią oraz kompletem komórek. Zamrożony manifest wiąże:
 - zdjęcie źródłowe i import,
 - wersję geometrii oraz pipeline'u.
 
+Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
+czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast
+pełną geometrię i 15 cropów materializuje wyłącznie dla `accepted` oraz
+`corrected`. Manifest i jego check­suma są identyczne z pełnym odczytem.
+Jawne zamrożenie korzysta z tego samego zwartego wejścia, ale utrzymuje
+transakcyjną blokadę gry i pozycji do zakończenia zapisu kohorty.
+
 Grupą podziału jest co najmniej zdjęcie źródłowe. Builder generuje stabilny
 train/validation/test i osobny stały zestaw regresyjny. Ta sama grupa nie może
 wystąpić w kilku częściach. Kolejna iteracja trenuje od początku na całej
@@ -112,6 +119,26 @@ data/
 
 Manifest modelu zawiera co najmniej checksumę kohorty, konfiguracji, checkpointu
 i ONNX, wersję kodu, kalibrację, progi, katalog symboli oraz pełne metryki.
+
+### Niezmienna diagnoza residuali
+
+Read-only builder residuali jest osobnym konsumentem aktywnego snapshotu ONNX i
+nie korzysta z tabel iteracji jako miejsca zapisu. Descriptor w dokumentacji
+przypina model, dataset treningowy, sześć stagingów, seed splitu oraz oczekiwane
+checksumy. Content-addressed manifest zawiera pełne plansze v19, źródła,
+etykiety człowieka, cropy i audytowane wykluczenia; raport zawiera inferencję,
+parity, confusion matrix oraz decyzję.
+
+Zapisane cropy v19 mogą zostać użyte wyłącznie po kontroli kompletnej geometrii
+3 × 5 i checksumy. Brakujący zapis może zostać odtworzony read-only tylko przez
+ten sam wersjonowany fail-closed estymator i source-direct cropper. Cała rodzina
+źródła należy do jednego splitu. Konflikt etykiety wykryty podczas audytu usuwa
+całą planszę z metryk i zostaje przypięty przez sekwencję oraz checksumy cropów
+dowodowych.
+
+Skrypty diagnostyczne nie wykonują zapisu ORM, treningu ani aktywacji. Tryb
+`--check` wymaga dokładnego odtworzenia przypiętych checksum i dzięki temu
+wykrywa zmianę danych, modelu, preprocessingu lub implementacji.
 
 ## Trwały job
 
@@ -164,6 +191,14 @@ Pierwszy kandydat jawnie raportuje `baseline_unavailable`; od kolejnej aktywnej
 wersji kandydat i baza muszą być mierzone na dokładnie tych samych próbkach.
 Regresja recall pojedynczego symbolu blokuje kandydata nawet przy wzroście
 metryki globalnej.
+
+W iteracji opartej na cropach v19 gate dodatkowo wymaga zera błędów o
+confidence co najmniej `0,99` w deterministycznym audycie 100 plansz. Raport
+`V19_SYMBOL_MODEL_CANDIDATE.md` wykazał jeden taki błąd, dlatego stan końcowy
+tej iteracji to kontrolowane `rejected`. Artefakty pozostają audytowalne, ale
+resolver aktywnego modelu nie może ich zwrócić, ponieważ nie powstało zdarzenie
+aktywacji. Fingerprint aktywnego modelu pozostał równy
+`19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64`.
 
 ## Aktywacja, rollback i przypięcie importu
 

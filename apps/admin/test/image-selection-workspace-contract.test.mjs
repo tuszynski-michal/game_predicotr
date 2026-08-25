@@ -160,7 +160,7 @@ test('isolates image selection state by active game and keeps four tiles respons
 
 test('hands a verified output to the explicit import step without starting it', () => {
   assert.match(workspaceSource, /handoffImageSelection\(run\.id\)/);
-  assert.match(workspaceSource, /Przekaż do Importu layoutów/);
+  assert.match(workspaceSource, /Przekaż do Importu plansz/);
   assert.match(workspaceSource, /run\.outputManifestSha256 === null/);
   assert.match(catalogSource, /section: 'imports'/);
   assert.match(catalogSource, /initialHandoff=/);
@@ -175,9 +175,9 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(manualModalSource, /approvalInFlightRef/);
   assert.match(manualModalSource, /idempotencyKey/);
   assert.match(manualModalSource, /continueImageSelectionWithoutImage/);
-  assert.match(manualModalSource, /Brak zdjęcia dla layoutów/);
+  assert.match(manualModalSource, /Brak zdjęcia dla plansz/);
   assert.match(manualModalSource, /Dodaj opcjonalne zdjęcie/);
-  assert.match(manualModalSource, /Zakres layoutów nierozpoznany/);
+  assert.match(manualModalSource, /Zakres plansz nierozpoznany/);
   assert.match(manualModalSource, /listImageSelectionGroupCandidates/);
   assert.match(manualModalSource, /pliki kandydatów/);
   assert.match(workspaceSource, /manualGroups\.length > 0/);

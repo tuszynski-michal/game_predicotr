@@ -9,6 +9,13 @@ const panelSource = await readFile(
   ),
   'utf8',
 );
+const modePickerSource = await readFile(
+  new URL(
+    '../src/features/imports/board-cell-processing-mode-picker.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const globalStyles = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
@@ -34,6 +41,8 @@ test('distinguishes the active import operation from a disabled prerequisite', (
 
 test('reports incomplete board creation and offers managed-original reprocessing', () => {
   assert.match(panelSource, /Pipeline zdjęć:/);
+  assert.match(panelSource, /Silnik cięcia plansz:/);
+  assert.match(panelSource, /boardCellProcessingJobLabel/);
   assert.match(panelSource, /Wynik jest niekompletny/);
   assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
   assert.match(panelSource, /reprocessImageFolderImport/);
@@ -45,8 +54,25 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startReadyBrowserImageImport/);
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
+  assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /Importuj rozpoznane strony/);
+  assert.match(panelSource, /BoardCellProcessingModePicker/);
+  assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
+  assert.match(panelSource, /Rozpocznij import v20 z raportu/);
+  assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
+  assert.doesNotMatch(panelSource, /Import jest zablokowany/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);
+  assert.match(panelSource, /Import plansz z folderu/);
+});
+
+test('pins v20 geometry and v19 crops for every new staging import', () => {
+  assert.match(modePickerSource, /Nowe importy zawsze przypinają v20/);
+  assert.match(modePickerSource, /v20 — geometria i cropy v19/);
+  assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
+  assert.doesNotMatch(modePickerSource, /jawny opt-in/);
+  assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
+  assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
 });
 
 test('provides styled actions and accessible import help', () => {
@@ -56,6 +82,7 @@ test('provides styled actions and accessible import help', () => {
   assert.match(panelSource, /role="tooltip"/);
   assert.match(panelSource, /Co robią te akcje\?/);
   assert.match(globalStyles, /\.importActionButtons \{/);
+  assert.match(globalStyles, /\.boardCellProcessingModePicker \{/);
   assert.match(globalStyles, /\.importActionHelp:focus-within/);
 });
 

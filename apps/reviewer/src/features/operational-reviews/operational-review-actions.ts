@@ -37,6 +37,10 @@ export type OperationalReviewsClient = Pick<
   | 'resolveOperationalImageReviewItem'
   | 'freezeVerifiedImageReviewCohort'
   | 'listVerifiedImageReviewCohorts'
+  | 'getPendingBoardCellGeometryCorrectionContext'
+  | 'listPendingBoardCellGeometry'
+  | 'previewPendingBoardCellGeometryCorrection'
+  | 'resolvePendingBoardCellGeometryManually'
 >;
 
 export interface OperationalReviewGeometryOptions {
@@ -368,6 +372,10 @@ export interface ResolveOperationalReviewOptions {
   readonly reviewItemId: string;
 }
 
+export interface OperationalReviewRequestPolicy {
+  readonly timeoutMs?: number;
+}
+
 export type ResolveOperationalReviewResult =
   | {
       readonly ok: true;
@@ -379,19 +387,73 @@ export type ResolveOperationalReviewResult =
       readonly ok: false;
     };
 
+const DEFAULT_RESOLUTION_REQUEST_TIMEOUT_MS = 12_000;
+
+class OperationalReviewRequestTimeoutError extends Error {
+  constructor() {
+    super('Operational review request timed out.');
+    this.name = 'OperationalReviewRequestTimeoutError';
+  }
+}
+
+async function withOperationalReviewRequestTimeout<T>(
+  request: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new OperationalReviewRequestTimeoutError()),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+}
+
 export async function resolveOperationalReview(
   api: OperationalReviewsClient,
   options: ResolveOperationalReviewOptions,
+  policy?: OperationalReviewRequestPolicy,
 ): Promise<ResolveOperationalReviewResult> {
-  try {
-    const result = await api.resolveOperationalImageReviewItem(
-      options.reviewItemId,
-      {
-        gameId: options.gameId,
-        importJobId: options.importJobId,
-      },
-      options.command,
+  const timeoutMs = policy?.timeoutMs ?? DEFAULT_RESOLUTION_REQUEST_TIMEOUT_MS;
+  const resolveOnce = () =>
+    withOperationalReviewRequestTimeout(
+      api.resolveOperationalImageReviewItem(
+        options.reviewItemId,
+        {
+          gameId: options.gameId,
+          importJobId: options.importJobId,
+        },
+        options.command,
+      ),
+      timeoutMs,
     );
+  try {
+    let result;
+    try {
+      result = await resolveOnce();
+    } catch (cause) {
+      if (!(cause instanceof OperationalReviewRequestTimeoutError)) {
+        throw cause;
+      }
+      try {
+        result = await resolveOnce();
+      } catch (retryCause) {
+        if (retryCause instanceof OperationalReviewRequestTimeoutError) {
+          return {
+            error:
+              'Serwer nie potwierdził odpowiedzi w wyznaczonym czasie. Zapis mógł zostać przyjęty — ponów tę samą decyzję albo odśwież planszę.',
+            isRevisionConflict: false,
+            ok: false,
+          };
+        }
+        throw retryCause;
+      }
+    }
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(

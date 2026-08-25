@@ -78,7 +78,7 @@ export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
     expectedLayoutCount > 10_000_000
   ) {
     return {
-      error: 'Oczekiwana liczba layoutów musi być liczbą od 1 do 10 000 000.',
+      error: 'Oczekiwana liczba plansz musi być liczbą od 1 do 10 000 000.',
       valid: false,
     };
   }

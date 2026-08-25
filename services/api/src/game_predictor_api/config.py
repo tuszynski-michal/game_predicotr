@@ -13,6 +13,8 @@ _DEFAULT_DATABASE_URL = (
 )
 _DEFAULT_IMPORT_MAX_BYTES = 1024 * 1024 * 1024
 _DEFAULT_IMAGE_SELECTION_MAX_BYTES = 128 * 1024 * 1024 * 1024
+_DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES = 32 * 1024 * 1024
+_DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES = 20 * 1024 * 1024 * 1024
 _DEFAULT_REVIEW_CROP_ROOT = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 _DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
 
@@ -36,6 +38,18 @@ class ApiSettings:
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
+    remote_manual_selection_host_mapping_enabled: bool = True
+    remote_selection_deselect_enabled: bool = True
+    remote_selection_max_file_bytes: int = _DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES
+    remote_selection_max_session_bytes: int = _DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES
+    remote_selection_max_active_session_transfers: int = 4
+    remote_selection_max_active_global_transfers: int = 8
+    remote_selection_upload_timeout_seconds: int = 120
+    remote_selection_materialization_lease_seconds: int = 60
+    remote_selection_materialization_max_attempts: int = 5
+    remote_selection_materialization_max_actions_per_cycle: int = 4
+    remote_selection_recovery_enabled: bool = True
+    remote_selection_recovery_limit: int = 100
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -98,6 +112,73 @@ class ApiSettings:
             ),
             variable_name="GAME_PREDICTOR_REVIEW_SOURCE_ROOT",
         )
+        remote_manual_selection_host_mapping_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED",
+        )
+        remote_selection_deselect_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED",
+        )
+        remote_selection_max_file_bytes = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES",
+                str(_DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES),
+            ),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES",
+        )
+        remote_selection_max_session_bytes = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES",
+                str(_DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES),
+            ),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES",
+        )
+        remote_selection_max_active_session_transfers = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS", "4"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS",
+        )
+        remote_selection_max_active_global_transfers = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS", "8"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS",
+        )
+        remote_selection_upload_timeout_seconds = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS", "120"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS",
+        )
+        remote_selection_materialization_lease_seconds = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS",
+                "60",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS"),
+        )
+        remote_selection_materialization_max_attempts = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS",
+                "5",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS"),
+        )
+        remote_selection_materialization_max_actions_per_cycle = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE",
+                "4",
+            ),
+            variable_name=("GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE"),
+        )
+        remote_selection_recovery_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED", "true"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED",
+        )
+        remote_selection_recovery_limit = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT", "100"),
+            variable_name="GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT",
+        )
+        if remote_selection_recovery_limit > 1_000:
+            raise ConfigurationError(
+                "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT cannot exceed 1000."
+            )
         return cls(
             host=host,
             port=port,
@@ -110,6 +191,30 @@ class ApiSettings:
             image_selection_max_bytes=image_selection_max_bytes,
             review_crop_root=review_crop_root,
             review_source_root=review_source_root,
+            remote_manual_selection_host_mapping_enabled=(
+                remote_manual_selection_host_mapping_enabled
+            ),
+            remote_selection_deselect_enabled=remote_selection_deselect_enabled,
+            remote_selection_max_file_bytes=remote_selection_max_file_bytes,
+            remote_selection_max_session_bytes=remote_selection_max_session_bytes,
+            remote_selection_max_active_session_transfers=(
+                remote_selection_max_active_session_transfers
+            ),
+            remote_selection_max_active_global_transfers=(
+                remote_selection_max_active_global_transfers
+            ),
+            remote_selection_upload_timeout_seconds=remote_selection_upload_timeout_seconds,
+            remote_selection_materialization_lease_seconds=(
+                remote_selection_materialization_lease_seconds
+            ),
+            remote_selection_materialization_max_attempts=(
+                remote_selection_materialization_max_attempts
+            ),
+            remote_selection_materialization_max_actions_per_cycle=(
+                remote_selection_materialization_max_actions_per_cycle
+            ),
+            remote_selection_recovery_enabled=remote_selection_recovery_enabled,
+            remote_selection_recovery_limit=remote_selection_recovery_limit,
         )
 
 
@@ -132,6 +237,15 @@ def _parse_positive_integer(value: str, *, variable_name: str) -> int:
     if parsed < 1:
         raise ConfigurationError(f"{variable_name} must be positive.")
     return parsed
+
+
+def _parse_boolean(value: str, *, variable_name: str) -> bool:
+    candidate = value.strip().lower()
+    if candidate == "true":
+        return True
+    if candidate == "false":
+        return False
+    raise ConfigurationError(f"{variable_name} must be true or false.")
 
 
 def _parse_local_root(value: str, *, variable_name: str) -> Path:

@@ -73,6 +73,8 @@ Administrator może:
 
 - kliknąć `Dodaj wzór`,
 - zobaczyć w modalu pustą siatkę o wymiarach gry,
+- podać stabilny kod wzorca; opisowa nazwa nie jest osobnym polem i przy
+  tworzeniu przyjmuje wartość kodu,
 - zaznaczyć kafelek, który zostaje podświetlony lub oznaczony,
 - wybrać najwyżej jedną komórkę w każdej kolumnie,
 - zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
@@ -86,6 +88,10 @@ Walidacja:
 - UI pokazuje wiersze od 1, a API normalizuje je do indeksów od 0,
 - identyczny `row_path` nie może zostać dodany dwa razy do tej samej wersji reguł,
 - nie można wybrać dwóch komórek w jednej kolumnie.
+
+Administrator nie ustawia ręcznie kolejności prezentacji. Nowy wzorzec trafia
+za istniejące wzorce wersji; kolejność służy wyłącznie deterministycznemu
+wyświetlaniu i nie wpływa na obliczenie wypłat.
 
 Dokładny wygląd modala i tabeli zostanie ustalony przy projektowaniu UI, ale powyższy kontrakt zachowania jest obowiązkowy.
 
@@ -205,6 +211,15 @@ Administrator widzi zadania typu:
 Dla zadania widzi:
 
 - status,
+- opis pracy zamiast samego technicznego typu, np. `Ładowanie zdjęć`,
+  `Wyznaczanie siatki i cięcie plansz`, `Rozpoznawanie symboli` albo
+  `Tworzenie geometrii siatek`; opis odzwierciedla bieżący etap, a nie zmienia
+  typu ani semantyki joba,
+- dla importu katalogowego oraz walidacji geometrii: zakres źródłowy z nazwy
+  stagingu, np. `19810–45162`, zamiast technicznego identyfikatora gry w
+  kompaktowym podsumowaniu; gdy źródło nie ma poprawnej nazwy zakresu, panel
+  zachowuje bezpieczny kontekst joba bez ujawniania ścieżki lokalnej; starsze
+  joby mogą użyć wyłącznie nazwy ostatniego katalogu, jeżeli ma format zakresu,
 - etap i postęp,
 - liczbę elementów poprawnych, błędnych i wymagających review,
 - czas rozpoczęcia i zakończenia,
@@ -295,17 +310,37 @@ Operacyjne review dużego importu używa `image_review_items`, a nie ograniczone
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
+- prezentować gotowe stagingi w `Import plansz` według liczbowego początku
+  zakresu z nazwy katalogu; nazwy bez prefiksu `<liczba>-` są umieszczane za
+  zakresami w stabilnej kolejności,
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
+- pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
+  staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
+  importu nie utworzy kolejki plansz,
+- dla aktywnego gotowego stagingu z raportem pokazywać przypięty silnik
+  `v20 — geometria i cropy v19`; każdy nowy import używa go bez dodatkowego
+  potwierdzenia, a v18 jest dostępny wyłącznie jako etykieta i artefakt
+  historycznych jobów,
+- start przekazuje `boardCellProcessingMode=verified_v19` w checksum-bound
+  komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
+  niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
+  odroczenie do końcowej korekty,
 - mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
   dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
   `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,
   kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
   oraz unikalny kod wejścia,
+- identyfikować import w dropdownie krótką datą i godziną, nazwą katalogu oraz
+  krótkim statusem; techniczne ID wybranego joba jest widoczne osobno, a długa
+  etykieta nie poszerza bez ograniczenia kontrolki,
 - mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
   wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
   tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
-  strony otwartej przez loopback,
+  strony otwartej przez loopback; przygotowane synchronicznie okno ma otrzymać
+  zwrócony URL przed pomocniczym odświeżeniem overview, a błąd nawigacji ma
+  pozostawić właścicielowi widoczny link ręczny zamiast pustej karty
+  `about:blank`,
 - pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
   `Zatrzymaj udostępnianie`, który unieważnia wyłącznie sesję i assignment
   wybranego importu; współdzielony publiczny tunel pozostaje dostępny dla innych
@@ -376,13 +411,22 @@ w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
 blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
 Klucz idempotencji jednej niezmienionej komendy jest zachowywany także po
-niejednoznacznym błędzie transportu. Ponowienie może więc odzyskać poprawnie
+niejednoznacznym błędzie transportu. Pojedyncza próba ma ograniczony czas
+oczekiwania; pierwszy timeout powoduje dokładnie jedno automatyczne ponowienie
+tej samej pełnej komendy z tym samym kluczem. Drugi timeout odblokowuje UI i
+informuje, że decyzja mogła zostać utrwalona, zamiast pozostawiać przycisk
+`Zatwierdź` bezterminowo wyłączony. Ponowienie może więc odzyskać poprawnie
 utrwaloną decyzję zamiast wysłać nową komendę na starej rewizji. Pomyślny zapis
 zwraca trwały `queueVersion` i dokładne liczniki po całej transakcji, w tym po
 ewentualnym zastąpieniu innych źródeł. Reviewer nie wyprowadza tych liczników z
 lokalnej tablicy. Przeładowanie bieżącej planszy jest wymagane tylko przy
 konflikcie jej rewizji lub geometrii; zmiana sąsiedniej pozycji albo samych
-liczników nie jest konfliktem komendy.
+liczników nie jest konfliktem komendy. Konflikt rewizji podczas zapisu pełnej
+decyzji automatycznie pobiera autorytatywną, aktualną rewizję tej planszy i
+czyści klucz nieaktualnej komendy. Reviewer nie pozostawia operatora na
+niezapisywalnym snapshotcie ani nie ponawia tej komendy na nowej rewizji. Jeżeli
+inna sesja zdążyła już zapisać decyzję, jej wynik pozostaje widoczny i nie jest
+po cichu nadpisywany.
 
 Jeżeli inny reviewer wcześniej zapisze kanoniczną decyzję dla tej samej gry i
 numeru, bieżąca oczekująca pozycja otrzymuje kontrolowany status `superseded`.
@@ -427,6 +471,24 @@ jest stały w pikselach ekranu, a nie w pikselach źródła. Po zapisie Reviewer
 natychmiast zastępuje bieżący item projekcją zwróconą przez backend i pobiera
 planszę oraz cropy spod adresów wersjonowanych ich checksumami. Nie wolno
 pokazać starego assetu z cache jako wyniku nowej rewizji geometrii.
+
+Odroczona geometria komórek ma osobny, jawny tryb końcowego fallbacku. Admin
+pokazuje jej licznik dla wybranego importu i pozwala otworzyć Reviewer również
+wtedy, gdy zwykła kolejka ma `total = 0`, ale istnieje co najmniej jeden
+`image_board_geometry_pending` w stanie `pending`. Reviewer pobiera najwyżej
+jeden taki wyjątek, a lokalna historia nawigacji nie może materializować całej
+kolejki ani jej obrazów.
+
+Ekran fallbacku pobiera checksum-bound źródło i kontekst przypięty do manifestu
+oraz rewizji. Operator przesuwa dokładnie cztery narożniki perspektywicznej
+siatki 5 × 3 i przed zapisem musi wygenerować aktualny podgląd wszystkich 15
+cropów source-direct. Każda zmiana narożników unieważnia podgląd. Niejednoznaczny
+błąd transportu zachowuje klucz idempotencji niezmienionej komendy, natomiast
+konflikt, superseded albo rozstrzygnięcie przez inną sesję powodują bezpieczne
+przeładowanie bez nadpisania wyniku człowieka. Skuteczny zapis usuwa wyjątek z
+domyślnej kolejki `pending`, przechodzi do następnego wyjątku i tworzy zwykły
+item do zatwierdzenia symboli w istniejącej kolejce; nie powstaje druga trwała
+kolejka plansz.
 
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie

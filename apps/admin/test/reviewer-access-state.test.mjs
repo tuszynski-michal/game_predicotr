@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   hasImageImport,
+  hasReviewerWork,
+  readyBoardImportStaging,
   reviewJobLabel,
   reviewableGames,
   reviewReadyImports,
@@ -40,6 +42,7 @@ function imageJob(overrides = {}) {
       importKind: 'image_directory',
       pipelineFingerprint: 'a'.repeat(64),
       schemaVersion: 1,
+      sourceDisplayName: '19810 - 45162',
     },
     jobType: 'import',
     status: 'waiting_for_review',
@@ -72,8 +75,9 @@ test('selects the newest ready image import and preserves an explicit choice', (
     selectReviewImportId([older, newest], gameId, older.id),
     older.id,
   );
-  assert.match(reviewJobLabel(older), /ukończony/);
-  assert.match(reviewJobLabel(newest), /oczekuje na zatwierdzenie/);
+  assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
+  assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
+  assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);
 });
 
 test('distinguishes an unfinished image import from no image import', () => {
@@ -93,4 +97,51 @@ test('distinguishes an unfinished image import from no image import', () => {
   assert.equal(hasImageImport([processing], gameId), true);
   assert.equal(hasImageImport([fileImport], gameId), false);
   assert.equal(reviewReadyImports([processing], gameId).length, 0);
+});
+
+test('opens Reviewer for ordinary boards or deferred geometry only', () => {
+  const ordinary = {
+    accepted: 0,
+    completed: 0,
+    corrected: 0,
+    pending: 0,
+    rejected: 0,
+    superseded: 0,
+    total: 0,
+  };
+  const deferred = { pending: 0, resolved: 0, superseded: 0, total: 0 };
+
+  assert.equal(hasReviewerWork(ordinary, deferred), false);
+  assert.equal(hasReviewerWork({ ...ordinary, total: 1 }, deferred), true);
+  assert.equal(hasReviewerWork(ordinary, { ...deferred, pending: 1 }), true);
+  assert.equal(hasReviewerWork(null, { ...deferred, pending: 1 }), false);
+});
+
+test('keeps ready staging outside the review dropdown but scopes it to the game', () => {
+  const staging = {
+    createdAt: '2026-08-01T10:00:00Z',
+    displayName: '19810 - 45162',
+    expectedFileCount: 2817,
+    expectedTotalBytes: 744_900_000,
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    purpose: 'layout_import',
+    uploadId: 'staging-newest',
+    uploadedBytes: 744_900_000,
+    uploadedFileCount: 2817,
+  };
+
+  assert.deepEqual(
+    readyBoardImportStaging(
+      [
+        { ...staging, gameId: 'game-2', uploadId: 'other-game' },
+        { ...staging, createdAt: '2026-08-01T09:00:00Z', uploadId: 'older' },
+        { ...staging, purpose: 'image_selection', uploadId: 'wrong-purpose' },
+        staging,
+      ],
+      gameId,
+    ).map((item) => item.uploadId),
+    ['staging-newest', 'older'],
+  );
+  assert.equal(reviewReadyImports([], gameId).length, 0);
 });

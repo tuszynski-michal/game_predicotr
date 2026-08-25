@@ -42,9 +42,11 @@ import {
   jobProgressLabel,
   jobProgressPercent,
   jobProgressPresentation,
+  jobSourceRangeLabel,
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
+  jobWorkflowLabel,
   replaceJob,
 } from '@/features/jobs/job-state';
 
@@ -181,7 +183,7 @@ export function JobMonitor({
     }
     setJobs((current) => replaceJob(current, result.job));
     setFeedback(
-      `Zadanie ${jobTypeLabel(result.job.jobType)} wróciło do kolejki bez duplikowania wejścia.`,
+      `Zadanie „${jobWorkflowLabel(result.job)}” wróciło do kolejki bez duplikowania wejścia.`,
     );
   }
 
@@ -414,6 +416,7 @@ function JobCard({
   const errorSummary = jobErrorSummary(job);
   const automationTiming = imageImportAutomationTiming(job);
   const imageSelectionProgress = job.progress.imageSelection;
+  const sourceRange = jobSourceRangeLabel(job);
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
@@ -424,9 +427,11 @@ function JobCard({
           {job.jobType.slice(0, 2).toUpperCase()}
         </span>
         <span className="jobSummaryIdentity">
-          <strong>{jobTypeLabel(job.jobType)}</strong>
+          <strong>{jobWorkflowLabel(job)}</strong>
           <code title={job.id}>{job.id}</code>
-          <small title={jobContextLabel(job)}>{jobContextLabel(job)}</small>
+          <small title={sourceRange ?? jobContextLabel(job)}>
+            {sourceRange ?? jobContextLabel(job)}
+          </small>
         </span>
         <span className={`jobStatus jobStatus-${job.status}`}>
           {jobStatusLabel(job.status)}
@@ -473,7 +478,9 @@ function JobCard({
         <div className="jobCardHeader">
           <p className="jobStage">
             Etap:{' '}
-            <strong>{jobStageLabel(job.progress.stage, job.inputPayload)}</strong>
+            <strong>
+              {jobStageLabel(job.progress.stage, job.inputPayload)}
+            </strong>
           </p>
           <div className="jobActions">
             {deleteConfirmation ? (
@@ -826,7 +833,7 @@ function ImageJobOperationsPanel({
     <section className="imageJobOperations">
       <div className="imageJobOperationsHeader">
         <div>
-          <h3>Import zdjęć</h3>
+          <h3>Import plansz</h3>
           <p>
             Pipeline <code>{pipelineFingerprint}</code>
           </p>

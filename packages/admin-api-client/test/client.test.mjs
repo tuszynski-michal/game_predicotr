@@ -184,6 +184,89 @@ test('generated client starts only the confirmed local Reviewer target', async (
   assert.equal(captured.headers.get('X-Admin-Target'), 'local-reviewer');
 });
 
+test('generated client scopes remote manual selection create, monitor and revoke', async () => {
+  const requests = [];
+  const sessionId = '11111111-1111-4111-8111-111111111111';
+  const session = {
+    createdAt: '2026-08-24T10:00:00Z',
+    displayName: 'Operator 1',
+    expiresAt: '2026-08-24T18:00:00Z',
+    lockedAt: null,
+    ready: true,
+    revision: 0,
+    reviewUrl: `https://safe.trycloudflare.com/manual-selection?session=${sessionId}`,
+    revokedAt: null,
+    sessionId,
+    status: 'active',
+    updatedAt: '2026-08-24T10:00:00Z',
+    writerActive: false,
+    writerLeaseExpiresAt: null,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (url.pathname.endsWith('/base-capabilities')) {
+        return Response.json({ status: 'cancelled' });
+      }
+      if (request.method === 'GET' && url.pathname.endsWith(sessionId)) {
+        return Response.json({
+          batches: [],
+          diskErrorCode: null,
+          diskFreeBytes: 1,
+          diskTotalBytes: 2,
+          hasMoreBatches: false,
+          session,
+        });
+      }
+      if (request.method === 'GET') {
+        return Response.json({ sessions: [session] });
+      }
+      if (url.pathname.endsWith('/revoke')) {
+        return Response.json({ ...session, status: 'revoked' });
+      }
+      return Response.json(
+        { accessCode: 'ABCD-EFGH', session },
+        { status: 201 },
+      );
+    },
+  });
+
+  await client.selectRemoteManualSelectionHostBase();
+  await client.createRemoteManualSelectionSession({
+    baseCapability: 'x'.repeat(32),
+    label: 'Operator 1',
+    lifetimeMinutes: 480,
+  });
+  await client.listRemoteManualSelectionSessions(100);
+  await client.getRemoteManualSelectionSession(sessionId, 100);
+  await client.revokeRemoteManualSelectionSession(sessionId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/remote-manual-selections/base-capabilities'],
+      ['POST', '/api/v1/admin/remote-manual-selections/sessions'],
+      ['GET', '/api/v1/admin/remote-manual-selections/sessions'],
+      ['GET', `/api/v1/admin/remote-manual-selections/sessions/${sessionId}`],
+      [
+        'POST',
+        `/api/v1/admin/remote-manual-selections/sessions/${sessionId}/revoke`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    'remote-manual-selection-session:new',
+  );
+  assert.equal(
+    requests[4].headers.get('X-Admin-Target'),
+    `remote-manual-selection-session:${sessionId}`,
+  );
+  assert.equal(new URL(requests[3].url).searchParams.get('batch_limit'), '100');
+});
+
 test('generated client uses import-scoped Reviewer work targets', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -1759,6 +1842,104 @@ test('generated client previews and persists one scope-bound geometry revision',
     context.gameId,
   );
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
+});
+
+test('generated client exposes the checksum-bound deferred geometry workflow', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const checksum = 'a'.repeat(64);
+  const previewCommand = {
+    corners: [
+      { x: 10, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: 10, y: 310 },
+    ],
+    expectedGeometryRevision: 0,
+    expectedManifestChecksumSha256: checksum,
+    expectedResolutionRevision: 0,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/source') || path.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        });
+      }
+      if (path.endsWith('/manual-resolution')) {
+        return Response.json({
+          created: true,
+          geometryRevision: 1,
+          item: { id: pendingId, status: 'resolved' },
+          reviewItemId: '44444444-4444-4444-8444-444444444444',
+        });
+      }
+      if (path.endsWith('/correction-context')) {
+        return Response.json({ item: { id: pendingId } });
+      }
+      return Response.json({
+        counts: { pending: 1, resolved: 0, superseded: 0, total: 1 },
+        items: [{ id: pendingId }],
+        nextCursor: null,
+      });
+    },
+  });
+
+  await client.listPendingBoardCellGeometry({
+    ...context,
+    cursor: 'cursor-1',
+    limit: 1,
+    status: 'pending',
+  });
+  await client.getPendingBoardCellGeometryCorrectionContext(pendingId, context);
+  const source = await client.getPendingBoardCellGeometrySource(
+    pendingId,
+    context,
+  );
+  const preview = await client.previewPendingBoardCellGeometryCorrection(
+    pendingId,
+    context,
+    previewCommand,
+  );
+  const resolutionCommand = {
+    ...previewCommand,
+    correctedBy: 'reviewer-operator',
+    idempotencyKey: '55555555-5555-4555-8555-555555555555',
+  };
+  const resolved = await client.resolvePendingBoardCellGeometryManually(
+    pendingId,
+    context,
+    resolutionCommand,
+  );
+
+  assert.equal(source.data instanceof Blob, true);
+  assert.equal(preview.data instanceof Blob, true);
+  assert.equal(resolved.data?.created, true);
+  const collectionPath = `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/board-cell-geometry-pending`;
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      collectionPath,
+      `${collectionPath}/${pendingId}/correction-context`,
+      `${collectionPath}/${pendingId}/source`,
+      `${collectionPath}/${pendingId}/geometry-preview`,
+      `${collectionPath}/${pendingId}/manual-resolution`,
+    ],
+  );
+  const listUrl = new URL(requests[0].url);
+  assert.equal(listUrl.searchParams.get('cursor'), 'cursor-1');
+  assert.equal(listUrl.searchParams.get('limit'), '1');
+  assert.equal(listUrl.searchParams.get('status'), 'pending');
+  assert.deepEqual(await requests[3].clone().json(), previewCommand);
+  assert.deepEqual(await requests[4].clone().json(), resolutionCommand);
 });
 
 test('generated client lists and explicitly freezes verified cohorts in one context', async () => {

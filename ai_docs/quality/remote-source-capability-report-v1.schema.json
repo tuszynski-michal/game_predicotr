@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/remote-source-capability-report-v1.schema.json",
+  "title": "RemoteSourceCapabilityReportV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "task",
+    "executionEnvironment",
+    "browserMatrix",
+    "evidence",
+    "fixture",
+    "automatedChecks",
+    "browserChecks",
+    "benchmark",
+    "guarantees",
+    "decision",
+    "reportChecksumSha256"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "remote-source-capability-report-v1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "task": {
+      "const": "TASK-0273"
+    },
+    "executionEnvironment": {
+      "type": "object"
+    },
+    "browserMatrix": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "path",
+        "productionRouteCreated",
+        "apiEndpointCreated",
+        "tunnelRequired",
+        "sourceWritePermissionRequested",
+        "sourceBytesUploaded"
+      ]
+    },
+    "automatedChecks": {
+      "type": "object"
+    },
+    "browserChecks": {
+      "type": "object"
+    },
+    "benchmark": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "fileCount",
+          "totalBytes",
+          "durationMs",
+          "manifestChecksumSha256",
+          "decodedFileCount",
+          "byteReadCount"
+        ],
+        "properties": {
+          "fileCount": {
+            "enum": [1, 500, 1000]
+          },
+          "totalBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "durationMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "manifestChecksumSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "decodedFileCount": {
+            "const": 0
+          },
+          "byteReadCount": {
+            "const": 0
+          }
+        }
+      }
+    },
+    "guarantees": {
+      "type": "object"
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "status",
+        "browserOnlyMvp",
+        "supportedBrowsers",
+        "constraints",
+        "nextTaskAllowed"
+      ],
+      "properties": {
+        "status": {
+          "const": "go_with_constraints"
+        },
+        "browserOnlyMvp": {
+          "const": true
+        },
+        "supportedBrowsers": {
+          "type": "array",
+          "contains": {
+            "const": "Chrome desktop"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "nextTaskAllowed": {
+          "const": true
+        }
+      }
+    },
+    "reportChecksumSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

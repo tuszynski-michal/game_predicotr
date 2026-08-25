@@ -23,12 +23,46 @@ test('launcher exposes import-scoped local and independent online controls', asy
   assert.match(source, /maximumOnlineCount/);
   assert.match(source, /assignmentId/);
   assert.match(source, /listOperationalImageReviewItems/);
-  assert.match(source, /Przejdź do Import layoutów/);
-  assert.match(source, /reviewCounts\?\.total === 0/);
+  assert.match(source, /listPendingBoardCellGeometry/);
+  assert.match(source, /listReadyBrowserImageSelections/);
+  assert.match(source, /readyBoardImportStaging/);
+  assert.match(source, /Gotowy staging plansz czeka na uruchomienie importu/);
+  assert.match(source, /className="reviewerImportSelect"/);
+  assert.match(source, /className="reviewerSelectedImportId"/);
+  assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
+  assert.match(source, /Przejdź do Importu plansz/);
+  assert.match(source, /deferredGeometryCounts\?\.pending === 0/);
+  assert.match(source, /Do korekty siatki/);
+  assert.match(
+    source,
+    /hasReviewerWork\(reviewCounts, deferredGeometryCounts\)/,
+  );
   assert.match(source, /reviewReadyImports/);
   assert.match(source, /reviewableGames/);
   assert.doesNotMatch(source, /stopReviewerIngress/);
   assert.doesNotMatch(source, /revokeReviewerSession/);
   assert.doesNotMatch(source, /leaseToken/);
   assert.doesNotMatch(source, /game\.status === 'active'/);
+});
+
+test('local launch navigates the prepared window before refreshing assignment state', async () => {
+  const source = await readFile(launcherPath, 'utf8');
+  const launchStart = source.indexOf('async function launchLocalReviewer()');
+  const launchEnd = source.indexOf(
+    'async function createOnlineWork()',
+    launchStart,
+  );
+  const launchSource = source.slice(launchStart, launchEnd);
+  const navigateAt = launchSource.indexOf(
+    'navigatePreparedLocalReviewerWindow',
+  );
+  const refreshAt = launchSource.indexOf('void refreshOverview(false)');
+
+  assert.notEqual(navigateAt, -1);
+  assert.ok(refreshAt > navigateAt);
+  assert.doesNotMatch(launchSource, /await refreshOverview\(false\)/);
+  assert.doesNotMatch(launchSource, /about:blank/);
+  assert.match(launchSource, /closePreparedLocalReviewerWindow/);
+  assert.match(launchSource, /setLocalReviewUrl\(reviewUrl\)/);
+  assert.match(launchSource, /Nie udało się przekierować przygotowanego okna/);
 });

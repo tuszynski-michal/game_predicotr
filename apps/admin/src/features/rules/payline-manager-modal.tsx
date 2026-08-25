@@ -139,6 +139,7 @@ export function PaylineManagerModal({
         ? { mode: 'create' }
         : { mode: 'edit', paylineId: editor.payline.id },
       validation.value,
+      paylines,
     );
     mutationInProgress.current = false;
     setIsSubmitting(false);
@@ -150,8 +151,8 @@ export function PaylineManagerModal({
     setEditor({ mode: 'closed' });
     setFeedback(
       editor.mode === 'create'
-        ? `Dodano wzór „${result.payline.name}”.`
-        : `Zapisano wzór „${result.payline.name}”.`,
+        ? `Dodano wzór „${result.payline.code}”.`
+        : `Zapisano wzór „${result.payline.code}”.`,
     );
   }
 
@@ -169,7 +170,7 @@ export function PaylineManagerModal({
     }
     setPaylines((current) => markPaylineArchived(current, payline.id));
     setArchiveCandidateId(null);
-    setFeedback(`Zarchiwizowano wzór „${payline.name}”.`);
+    setFeedback(`Zarchiwizowano wzór „${payline.code}”.`);
   }
 
   return (
@@ -191,7 +192,7 @@ export function PaylineManagerModal({
                 ? 'Wzorce wypłat'
                 : editor.mode === 'create'
                   ? 'Dodaj wzór'
-                  : `Edytuj „${editor.payline.name}”`}
+                  : `Edytuj „${editor.payline.code}”`}
             </h2>
           </div>
           <button
@@ -254,14 +255,12 @@ export function PaylineManagerModal({
                 <div className="paylineTableHeader" role="row">
                   <span role="columnheader">Wzorzec</span>
                   <span role="columnheader">Ścieżka wierszy</span>
-                  <span role="columnheader">Kolejność</span>
                   <span role="columnheader">Akcje</span>
                 </div>
                 {paylines.map((payline) => (
                   <div className="paylineTableRow" key={payline.id} role="row">
                     <div role="cell">
-                      <strong>{payline.name}</strong>
-                      <code>{payline.code}</code>
+                      <strong>{payline.code}</strong>
                       <span
                         className={`paylineStatus ${
                           payline.isActive ? 'paylineStatusActive' : ''
@@ -273,7 +272,6 @@ export function PaylineManagerModal({
                     <code className="rowPathValue" role="cell">
                       {formatRowPath1Based(payline.rowPath)}
                     </code>
-                    <span role="cell">{payline.displayOrder}</span>
                     <div className="rowActions" role="cell">
                       {archiveCandidateId === payline.id ? (
                         <>
@@ -338,33 +336,6 @@ export function PaylineManagerModal({
                     }))
                   }
                   value={draft.code}
-                />
-              </label>
-              <label>
-                Nazwa
-                <input
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                  value={draft.name}
-                />
-              </label>
-              <label>
-                Kolejność
-                <input
-                  inputMode="numeric"
-                  min="0"
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      displayOrder: event.target.value,
-                    }))
-                  }
-                  type="number"
-                  value={draft.displayOrder}
                 />
               </label>
               <label className="checkboxField">

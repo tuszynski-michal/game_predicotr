@@ -39,7 +39,10 @@ export type ModelQualityClient = Pick<
 >;
 
 export type PendingSymbolReinferenceResult =
-  | { readonly ok: true; readonly preview: PendingSymbolReinferencePreviewResponse }
+  | {
+      readonly ok: true;
+      readonly preview: PendingSymbolReinferencePreviewResponse;
+    }
   | { readonly error: string; readonly ok: false };
 
 export async function previewPendingSymbolReinference(
@@ -49,26 +52,47 @@ export async function previewPendingSymbolReinference(
   try {
     const result = await api.previewPendingSymbolReinference(gameId);
     if (result.error !== undefined || result.data === undefined) {
-      return { error: apiErrorMessage(result.error, 'Nie udało się pobrać oczekujących predykcji.'), ok: false };
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać oczekujących predykcji.',
+        ),
+        ok: false,
+      };
     }
     return { ok: true, preview: result.data };
   } catch {
-    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
   }
 }
 
 export async function startPendingSymbolReinference(
   api: ModelQualityClient,
   gameId: string,
-): Promise<{ readonly error: string; readonly ok: false } | { readonly job: JobResponse; readonly ok: true }> {
+): Promise<
+  | { readonly error: string; readonly ok: false }
+  | { readonly job: JobResponse; readonly ok: true }
+> {
   try {
     const result = await api.startPendingSymbolReinference(gameId);
     if (result.error !== undefined || result.data === undefined) {
-      return { error: apiErrorMessage(result.error, 'Nie udało się uruchomić przeliczenia.'), ok: false };
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się uruchomić przeliczenia.',
+        ),
+        ok: false,
+      };
     }
     return { job: result.data, ok: true };
   } catch {
-    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
   }
 }
 
@@ -121,11 +145,12 @@ export async function loadGridQuality(
   signal?: AbortSignal,
 ): Promise<GridQualityLoadResult> {
   try {
-    const [profileResult, activationResult, diagnosticsResult] = await Promise.all([
-      api.listGridCalibrationProfiles(gameId, { limit: 20, signal }),
-      api.listGridProfileActivations(gameId, { limit: 50, signal }),
-      api.getGridCalibrationCohortDiagnostics(gameId, { signal }),
-    ]);
+    const [profileResult, activationResult, diagnosticsResult] =
+      await Promise.all([
+        api.listGridCalibrationProfiles(gameId, { limit: 20, signal }),
+        api.listGridProfileActivations(gameId, { limit: 50, signal }),
+        api.getGridCalibrationCohortDiagnostics(gameId, { signal }),
+      ]);
     if (
       profileResult.error !== undefined ||
       profileResult.data === undefined ||
@@ -136,7 +161,9 @@ export async function loadGridQuality(
     ) {
       return {
         error: apiErrorMessage(
-          profileResult.error ?? activationResult.error ?? diagnosticsResult.error,
+          profileResult.error ??
+            activationResult.error ??
+            diagnosticsResult.error,
           'Nie udało się pobrać stanu kalibracji siatki.',
         ),
         ok: false,
@@ -160,7 +187,10 @@ export async function loadGridQuality(
 }
 
 export type PendingGridReinferenceResult =
-  | { readonly ok: true; readonly preview: PendingGridReinferencePreviewResponse }
+  | {
+      readonly ok: true;
+      readonly preview: PendingGridReinferencePreviewResponse;
+    }
   | { readonly error: string; readonly ok: false };
 
 export async function previewPendingGridReinference(
@@ -170,26 +200,47 @@ export async function previewPendingGridReinference(
   try {
     const result = await api.previewPendingGridReinference(gameId);
     if (result.error !== undefined || result.data === undefined) {
-      return { error: apiErrorMessage(result.error, 'Nie udało się pobrać oczekującej siatki.'), ok: false };
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać oczekującej siatki.',
+        ),
+        ok: false,
+      };
     }
     return { ok: true, preview: result.data };
   } catch {
-    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
   }
 }
 
 export async function startPendingGridReinference(
   api: GridQualityClient,
   gameId: string,
-): Promise<{ readonly error: string; readonly ok: false } | { readonly job: JobResponse; readonly ok: true }> {
+): Promise<
+  | { readonly error: string; readonly ok: false }
+  | { readonly job: JobResponse; readonly ok: true }
+> {
   try {
     const result = await api.startPendingGridReinference(gameId);
     if (result.error !== undefined || result.data === undefined) {
-      return { error: apiErrorMessage(result.error, 'Nie udało się uruchomić odświeżenia siatki.'), ok: false };
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się uruchomić odświeżenia siatki.',
+        ),
+        ok: false,
+      };
     }
     return { job: result.data, ok: true };
   } catch {
-    return { error: 'Połączenie z lokalnym Admin API zostało przerwane.', ok: false };
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
   }
 }
 
@@ -338,18 +389,15 @@ export async function loadModelQuality(
   signal?: AbortSignal,
 ): Promise<ModelQualityLoadResult> {
   try {
-    const [qualityResult, previewResult, iterationResult, activationResult] =
+    const [qualityResult, iterationResult, activationResult] =
       await Promise.all([
         api.getModelQuality(gameId, { signal }),
-        api.previewVerifiedTrainingCohort(gameId, { signal }),
         api.listSymbolModelIterations(gameId, { limit: 20, signal }),
         api.listSymbolModelActivations(gameId, { limit: 50, signal }),
       ]);
     if (
       qualityResult.error !== undefined ||
       qualityResult.data === undefined ||
-      previewResult.error !== undefined ||
-      previewResult.data === undefined ||
       iterationResult.error !== undefined ||
       iterationResult.data === undefined ||
       activationResult.error !== undefined ||
@@ -358,7 +406,6 @@ export async function loadModelQuality(
       return {
         error: apiErrorMessage(
           qualityResult.error ??
-            previewResult.error ??
             iterationResult.error ??
             activationResult.error,
           'Nie udało się pobrać jakości modelu i kohorty.',
@@ -366,10 +413,7 @@ export async function loadModelQuality(
         ok: false,
       };
     }
-    if (
-      qualityResult.data.gameId !== gameId ||
-      previewResult.data.gameId !== gameId
-    ) {
+    if (qualityResult.data.gameId !== gameId) {
       return {
         error: 'Odpowiedź API nie należy do wybranej gry.',
         ok: false,
@@ -377,7 +421,7 @@ export async function loadModelQuality(
     }
     return {
       ok: true,
-      preview: previewResult.data,
+      preview: modelQualityPreview(qualityResult.data),
       quality: qualityResult.data,
       iterations: iterationResult.data,
       activations: activationResult.data,
@@ -391,6 +435,24 @@ export async function loadModelQuality(
       ok: false,
     };
   }
+}
+
+function modelQualityPreview(
+  quality: ModelQualityResponse,
+): VerifiedTrainingCohortPreviewResponse {
+  return {
+    cellSampleCount: quality.cellSampleCount,
+    gameId: quality.gameId,
+    incompleteItemCount: quality.incompleteItemCount,
+    manifestChecksumSha256: quality.manifestChecksumSha256,
+    manifestSchemaVersion: 1,
+    pendingItemCount: quality.pendingItemCount,
+    protectedItemCount: quality.protectedItemCount,
+    rejectedItemCount: quality.rejectedItemCount,
+    resolvedLayoutCount: quality.resolvedLayoutCount,
+    sourceImageCount: quality.sourceImageCount,
+    warnings: quality.warnings,
+  };
 }
 
 export async function previewModelActivation(

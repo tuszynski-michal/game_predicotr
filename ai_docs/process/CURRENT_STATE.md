@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-21
+last_updated: 2026-08-25
 ---
 
 # Current State
@@ -13,7 +13,991 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.6 implementation: source-native Layout Import quality and completeness`
+`Version 0.7 implementation: board import and review operations`
+
+### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
+
+- Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`
+  jako główną akcję po lewej stronie. `Restart selekcji` pozostaje po prawej
+  jako akcja wtórna, która dopiero otwiera bezpieczny modal potwierdzenia.
+
+- Od `v0.7.75` panel `Zdalna ręczna selekcja` trwale pokazuje przy wybranej
+  aktywnej sesji link i kod wraz z niezależnymi przyciskami kopiowania. Kod z
+  odpowiedzi create pozostaje wyłącznie w `localStorage` komputera Admina do
+  TTL albo revoke; API, baza i lista sesji nadal nie zwracają surowego kodu.
+  Nie ma już osobnej, znikającej sekcji „Kod jednorazowy”.
+
+- Od `v0.7.74` ekran startowy rozróżnia relink aktywnego źródła od świadomego
+  przełączenia folderu. Lokalne batch'e pozostają oddzielne i są odnajdywane po
+  nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów
+  wznawia postęp zamiast zgłaszać `REMOTE_SELECTION_SOURCE_CHANGED`.
+
+- Od `v0.7.72` aktywny workspace ma przycisk `Ekran startowy` obok restartu.
+  Jest to nie-destrykcyjny powrót do dwóch pickerów; `Wróć do selekcji` otwiera
+  bieżący kursor i zakres bez usuwania wyniku.
+
+- Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
+  pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać
+  przed źródłem; po indeksowaniu powstaje `<źródło> wybrane`. Poprawny wynik
+  wznawia zapisany kursor i zakres, a nowy modal resetu jawnie ostrzega przed
+  usunięciem i blokuje skróty oraz nawigację do czasu decyzji.
+
+- Wspólny dla lokalnej i zdalnej ręcznej selekcji wybór skoku strzałek obejmuje
+  teraz również `8` oraz `9`; kolejność klawiaturowa `↑/↓` pozostaje ciągła.
+
+- Lokalna ręczna selekcja synchronizuje przy wznowieniu należący do sesji
+  manifest wynikowy z rekordem IndexedDB. Bezpieczna korekta ciągłej numeracji
+  aktualizuje pierwszy i następny zakres bez ponownego kopiowania JPEG-ów;
+  niezgodny manifest blokuje wznowienie.
+
+- Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
+  historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
+  `v19`; źródłem etykiety jest niezmienny snapshot joba.
+
+- Od `v0.7.70` każdy nowy staging i ponowne przetworzenie importu przypinają
+  `v20 — geometria i cropy v19`. API przy braku pola także wybiera
+  `verified_v19`; historyczny v18 pozostaje wyłącznie odtwarzalnym artefaktem
+  już utworzonych jobów i nie jest fallbackiem.
+
+- Monitor jobów pokazuje pod importem katalogowym i preflightem geometrii
+  zakres z nazwy stagingu, np. `Zakres 19810–45162`. Nazwa stagingu jest
+  metadataną prezentacyjną i nie zmienia idempotencji preflightu.
+
+- Zamiast technicznych etykiet `Import` i `Walidacja` monitor jobów pokazuje
+  opis aktualnej pracy: ładowanie zdjęć, wyznaczanie siatki i cięcie plansz,
+  rozpoznawanie symboli albo tworzenie geometrii siatek.
+
+- Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
+  wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;
+  źródło, decyzje, kursor, zoom, obie osie scrolla, manifest oraz wybrane JPEG-i
+  pozostają na urządzeniu operatora. Reviewer tworzy w wybranym katalogu
+  nadrzędnym folder `<źródło> wybrane`; nie wysyła decyzji ani obrazów na host.
+- Zdalny viewport otrzymał brakujące bazowe reguły CSS lokalnego selektora.
+  Wcześniej komponent używał tych samych nazw klas i obliczał nowy rozmiar, ale
+  Reviewer nie definiował wysokości viewportu, flex layoutu ani canvasu, dlatego
+  wartość zoomu zmieniała się bez widocznego efektu. Scroll i zoom są utrwalane
+  per sesja/partia w storage przeglądarki operatora.
+- Mobilny test operator-local wykrył drugi niezależny przypadek niewidocznego
+  zoomu: naturalne wymiary JPEG-a nie zawsze trafiały do stanu przez
+  `onLoadCapture`. Reviewer używa zwykłego `onLoad` zgodnego z lokalnym
+  selektorem i ma fallback dla obrazu już zdekodowanego z cache.
+- Panel hosta nie pokazuje już pustej tabeli serwerowych partii, limitu 100 ani
+  historycznych akcji recovery/reopen. Aktywny operator-local workflow utrzymuje
+  wyniki wyłącznie na urządzeniu operatora, więc host zarządza tylko sesją
+  dostępu i stanem połączenia.
+- Lista hosta jest ograniczona do dziesięciu najnowszych sesji w porządku
+  malejącym. Starsze wpisy pozostają audytowalne, ale nie rosną bez końca w
+  codziennym widoku Admina. Operator może filtrować tę listę na aktywne
+  (`draft/active`) i zakończone (`completed/expired/revoked`); panel pobiera
+  ograniczone 100 metadanych, aby dziesięć nowych terminalnych wpisów nie
+  ukrywało starszej aktywnej sesji.
+- Zdalny podgląd nie resetuje już wymiarów tego samego JPEG-a po drugim refreshu
+  następującym po zatwierdzeniu. Scroll poziomy i pionowy pozostają zachowane po
+  `Enter`, `F` i przycisku zapisu, nie tylko po nawigacji strzałkami.
+- Folder operator-local jest teraz przyjmowany tylko jako pusty albo jako
+  kompletny wynik do wznowienia. Manifest przechowuje checksumę źródła, liczbę
+  JPEG-ów, pierwszy zakres i kierunek; przy nowym linku odtwarza zdjęcie,
+  następny zakres i decyzje, mapując je na świeże identyfikatory IndexedDB.
+  Obce pliki, brak manifestu, brak wskazanego `seq_*` lub inne źródło blokują
+  start przed zapisem.
+- Odtworzenie scrolla po zatwierdzeniu jest przypięte do ordinalu następnego
+  JPEG-a. Wcześniejsza flaga boolean mogła zostać skonsumowana przez render
+  `busy` jeszcze na starym zdjęciu; teraz dopiero załadowany docelowy podgląd
+  może odtworzyć i wyczyścić oczekiwanie.
+- Dodatkowa regresja ujawniła różnicę względem lokalnego selektora: pozycja była
+  przechwytywana przed asynchronicznym zapisem JPEG-a. Zdalny ekran przechwytuje
+  ją teraz dokładnie jak lokalny — po trwałym zapisie, bezpośrednio przed
+  zmianą stanu React. Test rzeczywistego komponentu przy viewportcie 390×844
+  zachował `scrollTop=388,8` po zatwierdzeniu i przejściu na kolejny JPEG.
+- Próba operatorska w Chrome na macOS nadal wykazała reset wewnętrznego scrolla
+  wyłącznie po zatwierdzeniu; zwykła nawigacja zachowywała pozycję. Ścieżka
+  zapisu przechwytuje więc `scrollLeft/scrollTop` synchronicznie przy komendzie
+  Enter/F/klik, zanim rozpocznie zapis pliku i zmieni stan `busy`.
+  Dodatkowym źródłem resetu był stan przejściowy: canvas znikał i `scrollHeight`
+  chwilowo malał, więc Chrome mógł wymusić `scrollTop=0` po wcześniejszym
+  odtworzeniu.
+  Reviewer utrzymuje teraz stary canvas i jego wymiary do `decode` następnego
+  JPEG-a; odtwarzanie czeka jawnie na `decoded` docelowego ordinalu.
+- Kolejna próba ujawniła, że publiczny link nadal serwował proces Reviewera
+  uruchomiony o 17:05, podczas gdy aktualny build powstał o 17:40. Kod poprawek
+  nie był więc obecny w testowanej stronie. Po kontrolowanym restarcie aktualny
+  proces wystartował o 17:56, a ten sam Quick Tunnel pozostał aktywny.
+- Kontrolery lokalnego i zdalnego Reviewera wiążą teraz readiness z aktualnym
+  `.next/BUILD_ID`, który produkcyjny HTML zawiera jako identyfikator builda.
+  Stary produkcyjny Node na porcie 3001 jest bezpiecznie zastępowany przed
+  ponownym użyciem ingressu, a stan procesu zapisuje tożsamość rzeczywistego
+  listenera zamiast krótkotrwałego wrappera `npm.cmd`.
+- Operator-local przechowuje teraz również uchwyt katalogu nadrzędnego wyniku.
+  Usunięcie `<źródło> wybrane` albo błąd niedostępnego źródła powoduje atomowy
+  reset od pierwszego zdjęcia i odłączenie obu uchwytów. Reviewer wymaga
+  ponownego wskazania zgodnego folderu zdjęć i katalogu zapisu; pusty manifest
+  powstaje dopiero przy jawnym uruchomieniu. Jawny `Restart selekcji` czyści
+  tylko zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują
+  operację.
+- Bieżącym aktywnym modelem symboli gry `777` jest iteracja `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`. Weryfikacja bazy 2026-08-24
+  potwierdziła status `candidate_ready` oraz aktywację z 2026-08-19; ponowna
+  aktywacja zwraca poprawnie `SYMBOL_MODEL_ALREADY_ACTIVE`. Historyczna
+  iteracja v19 z błędem `lemon → orange` pozostaje odrzuconym artefaktem i nie
+  jest tym aktywnym modelem.
+- Historyczny control outbox, transfer i materializacja pozostają w repozytorium
+  do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
+  transfer do hosta wymagają ponownej decyzji przed kontynuacją.
+
+- Rozpoczęto TASK 18 po zamknięciu bramki bezpieczeństwa v0.7.41. Pierwszy pion
+  tworzy deterministyczny etap 1, wersjonowany raport content-addressed oraz
+  runbook kolejnych checkpointów 10/500/1000/8000/15000.
+- Etap 1 przeszedł lokalnie przez `npm run remote-selection:rollout:stage1` i
+  `npm run remote-selection:rollout:check`; obejmuje także stale-generation
+  i exact retry przez właściwą maszynę domenową. Nie uruchomiono jeszcze
+  etapów 2–5 ani środowiska LAN/publicznego.
+- Lokalna podbramka etapu 2 przeszła 100 JPEG-ów przez rzeczywisty tymczasowy
+  filesystem, produkcyjny streaming, materializację i finalizację. Wykryła i
+  zamknęła regresję: udane ponowienie transferu anuluje starszą próbę `failed`
+  tego samego pliku/generacji, zachowując audyt i twardą bramkę finalizacji.
+  Raport pozostaje świadomie `blocked`, dopóki nie przejdą wymagane próby dwóch
+  profili/UI, LAN, offline host/operator, restart API, revoke i nowy URL tunelu.
+- Etapy 4 i 5, prawdziwy Quick Tunnel oraz testy na zewnętrznej sieci wymagają
+  osobnej zgody właściciela i nie zostaną uruchomione przez implementację.
+- TASK 19 pozostaje warunkowy: decyzja o chunkowanym uploadzie może powstać
+  wyłącznie na podstawie raportów TASK-0290.
+- Próba UI etapu 2 wykryła blokujący błąd File System Access API: identyfikator
+  pickera folderu źródłowego przekraczał limit 32 znaków Chromium. Reviewer używa
+  teraz stabilnego `gp-remote-source-v1`, a test regresyjny pilnuje limitu i
+  dozwolonego alfabetu identyfikatora.
+- Kolejna próba UI wykryła, że natywny `window.fetch` był wywoływany z obiektem
+  transportu jako odbiorcą i Chromium zwracał `Illegal invocation`. Transport
+  control plane oraz transfer JPEG wywołują teraz fetch z `globalThis`; dwa
+  testy regresyjne chronią oba miejsca przed powrotem błędu.
+- Zdalny workspace ponownie używa klas wizualnych lokalnej selekcji zamiast
+  natywnie wyglądających kontrolek. Poziomy scroll podglądu jest ukryty, obraz
+  pozostaje wycentrowany, a pionowy scroll jest przywracany po gotowym layoucie
+  kolejnego zdjęcia. Dwa testy kontraktu pilnują parytetu UI i scrolla.
+- Próba operatorska wykryła utratę szybkich decyzji oraz możliwość finalizacji
+  po cyklu synchronizacji, który nie obejmował operacji dopisanych w jego
+  trakcie. Interakcje są teraz szeregowane, koordynator synchronizacji wykonuje
+  zaległy kolejny przebieg, a finalizacja wymaga pustego lokalnego outboxu.
+  Cofnięcie przywraca również indeks zdjęcia usuwanej decyzji.
+- Mobilna próba Quick Tunnel wykryła możliwość pozostania na statycznym ekranie
+  `Sprawdzanie sesji…`, gdy przeglądarka odrzuca dostęp do `sessionStorage` albo
+  zapytanie przez ingress nie kończy się. Id klienta ma teraz bezpieczny
+  fallback pamięciowy i UUID v4 bez `randomUUID`, a context, unlock i lease mają
+  wspólny limit 12 sekund zamiast bezterminowego oczekiwania.
+- Kolejna próba wykryła `selected > 0` przy `transfer = synced = 0`: aktywny
+  skan mógł nadpisać przewinięcie kursora transferów wykonane przez nową decyzję
+  `F`. Aktualizacja kursora jest teraz warunkowa, więc starszy skan nie pomija
+  świeżych wyborów. Zdalny viewport przywraca też poziomy scroll i zachowuje
+  obie osie przy przejściu strzałką, decyzji, pominięciu oraz cofnięciu.
+- Mobilna próba wykryła `REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY` po otwarciu
+  kolejnej karty. Klient uzgadnia teraz globalny zegar sekwencji z odpowiedzią
+  hosta i jednokrotnie, atomowo przenumerowuje wyłącznie niepotwierdzony outbox,
+  zachowując `operationId` oraz decyzje. Koordynacja kart rozróżnia instancję
+  karty od kopiowanego `clientInstanceId`, więc duplikat karty jest read-only.
+  Podgląd ma pełną szerokość, techniczne liczniki usunięto z bocznego panelu,
+  a zoom i przywracanie obu osi są wymuszane po ustabilizowaniu layoutu.
+- Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
+  plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
+  konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono
+  tej wcześniejszej polityki w ramach benchmarku.
+
+### Bramka bezpieczeństwa zdalnej ręcznej selekcji — v0.7.41
+
+- TASK-0289 zamyka publiczny zakres zdalnej ręcznej selekcji dokładną,
+  domyślnie blokującą allowlistą route/method powiązaną z OpenAPI. Mutacje
+  wymagają zgodnego `Origin`, `Host` i `Sec-Fetch-Site: same-origin`; nagłówki
+  forwarded nie mogą zmienić granicy zaufania.
+- Identyfikatory klienta i transferu są walidowane jako UUID v4. Publiczne
+  odpowiedzi są rekurencyjnie filtrowane z sekretów i absolutnych ścieżek
+  Windows, a wspólna walidacja audit payloadów obejmuje repozytoria SQL i
+  in-memory.
+- Dokładny replay nadal jest idempotentny, ale zużywa sesyjny budżet operacji.
+  Quota transferu i bajtów pozostaje fail-closed; rotacja client ID nie resetuje
+  limitu sesji.
+- Zapisano content-addressed raport
+  `remote-manual-selection-security-gate-v1` o SHA-256
+  `8386c3676422ecb3d98994c854bb7c447f5c5452592990485f7bd9af3e4b4360`.
+  Osiem kontroli przeszło i nie ma otwartego findingu `critical`/`high`.
+- Bramka: 106 testów Reviewera oraz 183 celowane testy API/filesystemu są
+  zielone; jeden test symlinka jest pominięty, ponieważ host Windows nie pozwala
+  utworzyć symlinka. Pięć celowanych testów PostgreSQL przeszło. Zielone są też
+  Reviewer lint/typecheck/build, Ruff zmienionych plików, Prettier, OpenAPI i
+  weryfikator raportu. Selektywny mypy nadal wchodzi w wcześniejszy problem
+  repozytoryjny: pakiet workera nie publikuje `py.typed` i pełny graf API zgłasza
+  31 błędów poza zmienionymi modułami.
+- Prawdziwy test Quick Tunnel, zewnętrzny pentest oraz rollout i benchmark skali
+  pozostają zakresem kolejnego checkpointu TASK 18. Feature flagi nie zostały
+  włączone przez TASK-0289.
+
+### Recovery zdalnej ręcznej selekcji — v0.7.40
+
+- TASK-0288 dodaje ograniczony, idempotentny reconciler uruchamiany przy starcie
+  API oraz przed cyklem akcji hosta w general workerze. Zgodny plik `.verified`
+  jest ponownie hashowany i odzyskiwany bez uploadu; `.part`, brak pliku lub
+  konflikt checksummy nigdy nie potwierdzają zapisu i pozostawiają artefakty do
+  jawnej diagnozy.
+- Reconciler uzupełnia brakujące akcje materializacji, używa porównania
+  `updated_at` jako fencing i może zostać wyłączony przez
+  `GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_ENABLED=false`. Jeden cykl ma limit
+  `1..1000`, domyślnie 100; nie wykonuje automatycznego delete ani GC.
+- State delta zawiera teraz zagregowane liczniki pending/uploading bytes/
+  materializing/synced/conflict i `lastHeartbeatAt`. Reviewer odpytuje stan z
+  backoffem `1–15 s`, nie tworzy równoległych pętli i po odzyskanym `failed`
+  transferze używa nowego identyfikatora próby.
+- Lokalny Admin ma path-free diagnostykę partii oraz agregatowy preview GC.
+  Logi i audyt zawierają wyłącznie stabilne kody/liczniki, bez kodu dostępu,
+  tokenów, lease tokenu i ścieżki hosta.
+- Bramka celowana: 102 testy Reviewera, 248 testów Admina, 41 testów klienta
+  oraz celowane zestawy API/workera (1 test pominięty z powodu braku symlinków
+  Windows), OpenAPI, Ruff i TypeScript typecheck są zielone. Focused mypy zmienionych
+  modułów jest zielony; pełny import graph nadal raportuje dwa wcześniejsze,
+  niezwiązane błędy w `symbol_model_iteration_repository.py`. Pełne repozytoryjne
+  `npm run lint` pozostaje czerwone na ośmiu wcześniejszych błędach Ruff w
+  migracjach 0045/0046 i `test_symbol_confidence.py`, a pełny `format:check` na
+  31 wcześniejszych plikach; wszystkie pliki TASK-0288 przechodzą własną kontrolę
+  Ruff/Prettier.
+
+### Finalizacja zdalnej ręcznej selekcji — v0.7.39
+
+- TASK-0287 dodaje rewizyjną barierę finalizacji. Preview blokuje zakończenie,
+  dopóki istnieje aktywna operacja, transfer, akcja hosta, oczekujące usunięcie
+  albo wybrany JPEG bez potwierdzonego pliku i checksummy.
+- Host publikuje kompatybilne `manual-image-selection-output-v1.json` i
+  `manual-image-selection-trace-v1.json` oraz wewnętrzny manifest operacyjny.
+  Rewizyjny journal i ownership pointer pozwalają wznowić crash między
+  filesystemem a commitem bazy bez drugiego wyniku lub nadpisania obcego pliku.
+- Zakończona partia jest w Reviewerze tylko do odczytu. Zdalny operator może
+  wykonać jedynie dwuetapową finalizację; reopen nie występuje w publicznej
+  allowliście i wymaga lokalnego Admina, exact targetu, rewizji oraz checksummy
+  finalnego manifestu.
+- Monitor hosta pokazuje rewizję i checksumę finalizacji. Ponowne otwarcie jest
+  dwuetapowe i dotyczy dokładnie jednej partii.
+- Bramka: celowane testy API/repozytorium/filesystemu, 100 testów Reviewera i
+  248 testów Admina są zielone; Ruff, TypeScript typecheck i generowany OpenAPI
+  są zgodne. Nie dodano migracji ani BLOB-ów obrazów.
+
+### Panel hosta zdalnej ręcznej selekcji — v0.7.38
+
+- TASK-0286 dodaje do niezależnej zakładki `Ręczna selekcja` panel właściciela:
+  kontrolowany picker bazy, etykietę, TTL, jednorazową kartę kodu/linku oraz
+  odzyskiwalną po reloadzie listę maksymalnie 100 sesji.
+- Wybrana sesja jest monitorowana co 10 sekund, lista co 30 sekund. Detail
+  ogranicza wynik do 100 najnowszych partii i pokazuje total/selected/synced,
+  błędy plików, oczekujące host actions, stabilne kody błędów oraz wyłącznie
+  zagregowane total/free bajty dysku bez host path.
+- URL jest dynamiczną projekcją bieżącego wspólnego ingressu. Dwustopniowy
+  revoke używa exact session target, czyści tylko wskazaną sesję i nie zatrzymuje
+  tunelu ani innych Reviewer assignments.
+- Kod dostępu istnieje wyłącznie w odpowiedzi create i pamięci komponentu; nie
+  trafia do list/detail, IndexedDB, localStorage ani sessionStorage.
+- Bramka: 248 testów Admina, 41 testów klienta, celowane testy API/OpenAPI i
+  izolowany test agregacji PostgreSQL są zielone; Admin lint/typecheck/build,
+  Ruff, focused mypy i kontrola generowanego OpenAPI są zielone.
+
+### Zdalny workspace ręcznej selekcji — v0.7.37
+
+- TASK-0285 łączy lokalny i zdalny tryb wspólnym resolverem skrótów bez zmiany
+  zachowania Admina: Enter/F zatwierdza, Tab pomija, A/Ctrl+Z cofa, strzałki
+  nawigują albo zmieniają skok z ochroną kontrolek formularza.
+- Reviewer konfiguruje logiczną kolekcję i partię, rejestruje naturalnie
+  uporządkowany manifest stronami po 500 metadanych i pracuje na lokalnym,
+  ograniczonym cache'u siedmiu Object URL-i. JPEG przed wyborem nie opuszcza
+  komputera operatora, a Blob i ścieżka absolutna nie są utrwalane.
+- Stan decyzji, zakres, kursor i outbox są zapisywane atomowo w IndexedDB.
+  Control plane i ograniczony scheduler transferu działają w tle, zaległości po
+  refreshu są skanowane stronicami, a operator widzi osobne stany local,
+  pending, confirmed, synced i error oraz offline/conflict/permission/
+  backpressure.
+- Zoom 10–3000%, fullscreen, pionowy scroll, kierunek, przeskok i beforeunload
+  zachowują parity lokalnego workflow. Utrata folder handle wymaga relinku do
+  identycznego manifestu i nie usuwa decyzji.
+- Bramka: 98 testów Reviewera, 245 testów Admina i 11 testów wspólnego core są
+  zielone; Reviewer/Admin lint, typecheck i build są zielone (pozostają tylko
+  istniejące ostrzeżenia `no-img-element`). TASK 14 nie został rozpoczęty i
+  wymaga osobnego checkpointu/review TASK 13.
+
+### Odznaczanie zdalnej selekcji i odwracalna kwarantanna — v0.7.36
+
+- TASK-0284 implementuje `deselect`/`undo` jako generacyjny tombstone wskazujący
+  wcześniejszy zastosowany `select`. Dokładny retry pozostaje idempotentny, a
+  błędny target jest odrzucany przed zmianą stanu.
+- Operacja sterująca anuluje starsze queued/in-flight transfery, superseduje
+  starsze akcje materializacji i enqueue'uje priorytetową host action `remove`.
+  Claim materializacji jest blokowany, dopóki istnieje gotowa akcja usunięcia,
+  dlatego spóźniona generacja nie może ponownie opublikować odznaczonego pliku.
+- Executor przenosi wyłącznie własny `seq_*` zgodny z journalem i checksumą do
+  wewnętrznej, odwracalnej kwarantanny. Rename odbywa się po przypiętym uchwycie
+  Windows; obcy, zmieniony lub reparse target pozostaje nietknięty. Kwarantanna
+  nie ma jeszcze finalnego GC.
+- Sekwencja select/deselect/reselect zachowuje nowszy desired state, ale najpierw
+  bezpiecznie usuwa starszą materializację. Reviewer trwale oznacza anulowany
+  checkpoint i nie wznawia transferu starszej generacji po odświeżeniu.
+- Rollback ma osobną flagę
+  `GAME_PREDICTOR_REMOTE_SELECTION_DESELECT_ENABLED`; wyłącza nowe odznaczenia,
+  nie usuwa journalu, kwarantanny ani wcześniej zapisanych operacji.
+- Bramka: 144 celowane testy API (1 symlink pominięty na tym hoście), 16 testów
+  workera, 16 testów PostgreSQL i 93 testy Reviewera; Ruff, izolowany mypy,
+  Reviewer lint/typecheck/build oraz OpenAPI są zielone. TASK 12 kończy się
+  obowiązkowym checkpointem przed TASK 13.
+
+### Atomowa materializacja zdalnej selekcji — v0.7.35
+
+- TASK-0283 zamienia checksum-verified host-internal JPEG na należący do partii
+  `seq_*` przez osobną trwałą akcję `materialize`. Upload i odczyt statusu
+  idempotentnie uzupełniają akcję; general worker dodatkowo reconciliuje
+  historyczne rekordy `verified` bez akcji po restarcie.
+- Executor działa w ograniczonych cyklach, używa PostgreSQL `SKIP LOCKED`,
+  czasowego lease z fencing tokenem, maksymalnej liczby prób oraz wykładniczego
+  backoffu. Wygasła akcja `processing` jest odzyskiwana, a bieżąca generacja,
+  desired state, transfer i checksum są ponownie blokowane i sprawdzane przed
+  dostępem do filesystemu.
+- Publikacja używa same-volume pliku roboczego, `fsync`, host-internal
+  checksumowanego journalu i wyłącznego utworzenia finalnej nazwy. Zgodny własny
+  półstan jest adoptowany po crashu; obcy cel, zmieniony własny cel, reparse lub
+  starsza generacja kończą się kontrolowanym konfliktem bez nadpisania.
+- Stan pliku przechodzi do `synced`, a transfer do wewnętrznego `materialized`
+  dopiero po potwierdzeniu checksummy finalnego pliku. Publiczny status mapuje
+  ten stan na `synced` i nie ujawnia ścieżki hosta. Verified temp pozostaje
+  odzyskiwalny; usuwanie i finalizacja partii nadal należą do TASK 12/15.
+- General worker wykonuje host actions przed próbą pobrania zwykłego joba.
+  Limity lease/prób/cyklu mają trwałe ustawienia środowiskowe. Nie dodano
+  Redis/Celery, nowego procesu ani migracji — migracja `0056` zawiera wymagane
+  pola kolejki i ścieżek.
+- Bramka: 131 celowanych testów API zaliczonych i 1 pominięty test
+  symlinku niedostępnego na tym hoście, 92 testy Reviewera oraz izolowany test
+  PostgreSQL dwóch równoległych claimerów zaliczone. 14 celowanych testów
+  lifecycle workera, Ruff zmienionych plików, izolowany mypy 9 modułów,
+  Reviewer lint/typecheck/build oraz OpenAPI są zielone. Pełny Ruff nadal
+  raportuje wcześniejsze formatowanie migracji `0045/0046` i testu symboli, a
+  pełny mypy dependency graph nie zakończył się w limicie 60 sekund.
+- TASK 11 kończy się obowiązkowym checkpointem przed TASK 12.
+
+### Strumieniowy transfer zdalnej selekcji — v0.7.34
+
+- TASK-0282 dodaje osobne route statusu i binarnego `PUT` dla jednego
+  checksum-bound JPEG-a. FastAPI konsumuje `Request.stream()` porcjami do 1 MiB,
+  zapisuje `.part` pod zweryfikowanym host mappingiem i kończy najwyżej na
+  host-internal artefakcie `verified`; nie tworzy jeszcze pliku `seq_*`.
+- Rozmiar i mtime muszą odpowiadać niezmiennemu source manifestowi, a checksum
+  potwierdzonemu `SELECT` tej samej generacji. Serwer sprawdza długość, SHA-256,
+  JPEG magic/format/decode oraz limity per plik, sesję i współbieżność.
+- Przerwany lub błędny stream usuwa `.part`. Status-before-retry i trwały
+  `transferId` w checkpointcie odzyskują utraconą odpowiedź bez drugiego uploadu;
+  po restarcie zgodny osierocony artefakt `verified` jest adoptowany po ponownej
+  walidacji.
+- Reviewer proxy ma oddzielną dokładną allowlistę oraz limit 32 MiB dla
+  binarnego streamu. Scheduler domyślnie dopuszcza dwa transfery, ma limit
+  pending bytes, priorytet, AbortController i retry wyłącznie dla błędów
+  przejściowych.
+- Bramka: 54 celowane testy API, 14 testów PostgreSQL i 91 testów Reviewera;
+  Ruff, Reviewer lint/typecheck/build, OpenAPI i wygenerowany klient są zielone.
+  Pełna regresja API wykonana wcześniej w rozłącznych grupach dała 534 testy
+  zaliczone i 2 pominięte, a późniejsze zmiany ponownie pokryła celowana bramka.
+- TASK 10 kończy się na checkpointcie przed materializacją TASK 11.
+
+### Control plane zdalnej selekcji — v0.7.33
+
+- TASK-0281 dodaje idempotentne tworzenie kolekcji i partii, stronicowaną
+  rejestrację metadanych źródła oraz aktywację dopiero po zgodności kompletnego
+  manifestu. Aktywny manifest nie może być zmieniony.
+- Operacje selekcji są stosowane transakcyjnie w jednej kolejności
+  `clientSequence/serverRevision/selectionGeneration`. Nowa mutacja wymaga
+  aktualnego writer lease, natomiast exact retry identycznego `operationId` i
+  checksumy zwraca zapisany outcome także po utracie lease, bez ponownego
+  zwiększenia rewizji.
+- Reviewer ma zamkniętą allowlistę control plane, cyfrowe query wyłącznie dla
+  bounded state delta i sekwencyjny synchronizator trwałego IndexedDB outboxu.
+  Potwierdzenie usuwa tylko dokładny `operationId`; błąd sieci pozostawia
+  pending, a kontrolowany konflikt zachowuje operację i uzgadnia nowszy stan.
+- Historycznie publiczna powierzchnia nie przyjmowała bajtów JPEG. Od TASK 10
+  przyjmuje wyłącznie dokładnie ograniczony transfer do host-internal
+  `verified`; materializacja i finalizacja pozostają zakresem TASK 11+.
+- Bramka: 526 top-level testów API i 2 pominięte testy symlinków Windows,
+  13/13 PostgreSQL (w tym indeksowany delta dla 15 000 rekordów), 85/85 testów
+  Reviewera, Ruff, Reviewer lint/typecheck/build, klient API i OpenAPI są
+  zielone. Pełny mypy grafu API nadal zatrzymują dwa wcześniejsze błędy w
+  `symbol_model_iteration_repository.py`; zmienione moduły przechodzą kontrolę
+  izolowaną.
+- TASK 9 wymaga osobnego checkpointu przed TASK 10.
+
+### Trwałe źródło i outbox zdalnej selekcji — v0.7.32
+
+- TASK-0280 dodaje do Reviewera osobny IndexedDB
+  `game-predictor-remote-manual-selection` w wersji 1. Schemat ma jawne store'y
+  `sessions`, `batches`, `sourceItems`, `outbox`, `transferCheckpoints` oraz
+  `clientInstances`; nie zmienia lokalnego IndexedDB v2 Admina.
+- Adapter File System Access otwiera źródło wyłącznie z `mode: read`, indeksuje
+  tylko metadane JPEG w deterministycznej naturalnej kolejności i przechowuje
+  uchwyt katalogu bez kopiowania Blobów. `webkitdirectory` pozostaje jawnym,
+  sesyjnym fallbackiem wymagającym ponownego wskazania folderu.
+- Kursor i pending outbox są odtwarzane po utworzeniu nowej instancji store.
+  Exact retry zachowuje `operationId`, konflikt treści i luka
+  `clientSequence` są blokowane, a ack usuwa wyłącznie jawnie wymienione ID.
+- Utrata permission/handle nie usuwa kursora ani outboxu. Relink wymaga
+  identycznego checksumowanego manifestu i działa fail-closed przy zmianie lub
+  niekompatybilnym source kind. Ścieżki absolutne/traversal i trwały Blob są
+  blokowane przed zapisem.
+- `BroadcastChannel` wybiera jedną kartę zapisującą w obrębie sesji; kolejne są
+  read-only. Brak API przeglądarki jest jawnie komunikowany. Persist storage
+  jest best effort i nie stanowi gwarancji permission.
+- Bramka: 79/79 testów Reviewera i 9/9 testów wspólnego core, w tym fake FSA,
+  fake IndexedDB, crash restore, exact ack, 1000 metadanych i 15 000 rekordów
+  outboxu. Reviewer lint/typecheck/build oraz typecheck core są zielone.
+  Chromium fixture potwierdził IndexedDB handle roundtrip i restore po reload;
+  zewnętrzny Chrome nie był podłączony do sesji i pozostaje ręcznym punktem
+  odbioru przed publicznym rolloutem.
+- TASK 8 nie wysyła operacji HTTP ani bajtów JPEG. Control-plane apply pozostaje
+  zakresem TASK 9, transfer binarny TASK 10, a pełny workspace TASK 13.
+
+### Izolowana powierzchnia Reviewera dla zdalnej selekcji — v0.7.31
+
+- TASK-0279 udostępnia shell `/manual-selection` i osobny same-origin proxy
+  `/selection-api` w istniejącej aplikacji Reviewer. Nie powstał drugi proces
+  Reviewera ani drugi Quick Tunnel.
+- Zamknięta allowlista obejmuje wyłącznie unlock, context, heartbeat i takeover
+  purpose-scoped sesji. Route Admina, legacy Reviewera, jobów, storage, eksportu
+  oraz binarnego uploadu kończą się przed API stabilnym `403`.
+- Publiczne cookie `gp_remote_selection_token` ma `HttpOnly`, `Secure`,
+  `SameSite=Strict` i `Path=/selection-api`; proxy tłumaczy je na host-only
+  cookie API. Token, kod, host path i fencing token nie trafiają do URL-a,
+  JavaScriptu ani odpowiedzi JSON.
+- Mutacje wymagają same-origin `Origin`/Fetch Metadata, JSON i maksymalnie
+  128 KiB. Proxy filtruje nagłówki i odpowiedź, wymaga JSON, blokuje odpowiedzi
+  ponad 128 KiB i łączy się z API wyłącznie przez HTTP loopback. Dedykowany CSP
+  nie dopuszcza połączenia przeglądarki z `127.0.0.1:8000`.
+- Create sesji wykorzystuje rozgrzany wspólny ingress albo uruchamia dokładnie
+  jedną brakującą instancję. `reviewUrl` jest dynamiczną projekcją bieżącego
+  originu i zachowuje ten sam opaque session ID po restarcie tunelu. Revoke nie
+  zależy od dostępności tunelu i nie zatrzymuje go dla innych prac.
+- Bramka: 62/62 testów Reviewera, 9/9 nowych testów API dostępu, 28/28 testów
+  access/ingress oraz 62/62 pozostałych celowanych testów lifecycle,
+  security i kontraktu. Reviewer lint/typecheck/build, Ruff, format,
+  OpenAPI i klient są zielone. Lokalny production E2E potwierdził shell, brak
+  błędów konsoli i ścisły CSP; rzeczywistego publicznego tunelu nie uruchamiano.
+- Mypy grafu API pozostaje czerwony na dwóch wcześniejszych błędach typów w
+  `symbol_model_iteration_repository.py`, po czym sam mypy kończy się błędem
+  wewnętrznym. Zmienione TypeScript i kontrakty wygenerowanego klienta są
+  sprawdzone; problem nie został objęty TASK-0279.
+- Workspace, remote source adapter, outbox, operacje i upload pozostają zakresem
+  TASK 8+. Przed TASK 8 obowiązuje checkpoint bezpieczeństwa.
+
+### Purpose-scoped dostęp i writer lease zdalnej selekcji — v0.7.30
+
+- TASK-0278 wydzielił wspólne primitives kodu/tokena bez zmiany parametrów ani
+  zachowania istniejącego Reviewera: PBKDF2-SHA256 `210000`, sól 16 B i SHA-256
+  tokenu. Regresja Reviewera przeszła bez zmian kontraktu `game/import`.
+- Lokalny Admin może zużyć jednorazową base capability i utworzyć sesję z TTL
+  5 minut–24 godziny. Kod jest pokazany tylko w odpowiedzi create; list/detail
+  nie zawierają kodu, tokenu, client/fencing tokenu ani host path.
+- Publiczne unlock/context nie zawierają bearer w JSON. Unlock rotuje token i
+  ustawia wyłącznie `HttpOnly`, `Secure`, `SameSite=Strict` cookie o ścieżce
+  `/selection-api`. Purpose-scoped context nie ma `gameId/importJobId`.
+- Piąta trwała błędna próba blokuje sesję. Revoke natychmiast czyści token i
+  lease. Jeden 45-sekundowy writer lease jest przypisany do client instance;
+  heartbeat zachowuje host-only fencing token, a takeover działa dopiero po
+  expiry. Audyt pozostaje append-only i path/secret-free.
+- PostgreSQL potwierdził restart, równoległy unlock, pięć współbieżnych błędnych
+  prób oraz exactly-one-winner takeover. PBKDF2 kosztował średnio około
+  `103 ms/hash` na pięciu próbkach na obecnym komputerze.
+- Celowana bramka zakończyła się wynikiem 108/108, a izolowana bramka
+  PostgreSQL 12/12. Ruff, formatowanie i focused mypy są zielone.
+- Pełny historyczny pytest API doszedł do 55% bez błędu, ale został przerwany
+  po 120 sekundach zgodnie z limitem; proces potomny zakończono. Celowane testy,
+  12 testów PostgreSQL, Ruff, focused mypy, OpenAPI i klient są bramką TASK 6.
+- Nie dodano proxy/Quick Tunnel, UI, kolekcji/partii, operacji zdjęć, uploadu ani
+  materializacji. Przed TASK 7 obowiązuje osobny checkpoint bezpieczeństwa.
+
+### Bezpieczne mapowanie hosta zdalnej selekcji — v0.7.29
+
+- TASK-0277 wydzielił jeden współdzielony, kontrolowany picker Windows bez
+  caller-controlled command/path. Równoległa próba z importu i zdalnej
+  selekcji nie może otworzyć drugiego okna.
+- Lokalny endpoint zwraca tylko pięciominutową, jednorazową opaque capability,
+  display name i expiry. OpenAPI oraz generowany klient nie zawierają ścieżki
+  hosta; request nie przyjmuje body.
+- Centralna polityka nazw wymusza NFC, case-insensitive key, rzeczywiste limity
+  filesystemu oraz blokuje traversal, drive/UNC, separatory, reserved names,
+  kontrolne znaki i końcową kropkę/spację.
+- Final-handle guard blokuje reparse/symlink/junction i trzyma uchwyty bez
+  `FILE_SHARE_DELETE` podczas utworzenia collection/batch. Batch dostaje
+  atomowy, checksumowany marker własności; zgodny marker pozwala odzyskać
+  crash-window po rollbacku DB i wznowić po restarcie.
+- Testy: 104/104 celowanych unit/API/kontraktu/security oraz 8/8 izolowanych
+  PostgreSQL. Junction i podstawienie TOCTOU przeszły na realnym
+  Windows. OpenAPI, klient, PowerShell, Ruff i focused mypy są zielone.
+- Pełny mypy monorepo został przerwany po ponad 60 sekundach bez wyniku;
+  osierocony proces został zakończony. Nie rozpoczęto TASK 6.
+- Rollback: ustawić
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` i uruchomić API
+  ponownie; endpoint znika bez zmiany bazy ani markerów.
+
+### Trwały model zdalnej ręcznej selekcji — v0.7.28
+
+- TASK-0276 utrwalił kontrakty TASK-0275 w ośmiu addytywnych tabelach
+  PostgreSQL, modelach ORM i repozytoriach SQLAlchemy/in-memory parity.
+- Composite FK egzekwują `session + batch + file` scope. Globalna unikalność
+  mapowania katalogu jest chroniona advisory lockiem oraz constraintem, a
+  operacje zmieniają rewizję i desired state atomowo pod row lockiem.
+- Dzienniki operacji i audytu są append-only także przy bezpośrednim SQL.
+  Publiczne mappery nie ujawniają base/temp path, salt/hash ani lease tokenu;
+  baza nie przechowuje bajtów JPEG.
+- Bounded delta i plan indeksów sprawdzono na 15 000 plików i 15 000 operacji.
+  Izolowane testy TASK 4: 10/10 PostgreSQL oraz 53/53 unit/migration.
+- Pełna historyczna bramka PostgreSQL ma wynik 35/39: cztery istniejące testy
+  spoza zakresu wymagają osobnego uporządkowania fixture
+  `expected_layout_count`, kodu błędu raportu importu i duplikatów generatora.
+  Nowa migracja nie zmienia tabel używanych przez te cztery testy.
+- Nie dodano API, filesystem pickera, auth, uploadu, materializacji ani UI.
+  Przed TASK 5 obowiązuje osobny checkpoint/review.
+
+### Kontrakty domenowe zdalnej ręcznej selekcji — v0.7.27
+
+- TASK-0275 zamroził wersjonowane kontrakty sesji, kolekcji, partii, pliku,
+  operacji, transferu i akcji hosta bez dodawania ORM, HTTP, filesystemu ani UI.
+- Siedem jawnych maszyn stanów działa fail-closed. Operacje egzekwują scope,
+  monotoniczny `clientSequence`, `serverRevision`, per-file
+  `selectionGeneration` i exact retry po `operationId + checksum`.
+- Starsza generacja kończy się jako `superseded` bez zmiany desired state i
+  rewizji. Projekcje output/trace zachowują istniejące schema v1, w tym undo
+  wskazujące konkretną decyzję.
+- Python i wspólny core TypeScript mają zgodną kanoniczną serializację JSON,
+  SHA-256 oraz `remote-source-manifest-v1`. Test skali objął 15 000 rekordów.
+- Nie powstały route, tabela, migracja ani integracja transportowa. Przed TASK 4
+  obowiązuje checkpoint/review kontraktów.
+
+### Wspólny core ręcznej selekcji — v0.7.26
+
+- TASK-0274 wydzielił `@game-predictor/manual-image-selection-core` z czystą
+  maszyną zakresów, decyzjami, naturalnym sortowaniem, polityką bounded preview
+  oraz frontend-internal portami source/output/session.
+- Lokalny Admin korzysta z adapterów File System Access i istniejącego store
+  IndexedDB v2. Zachowano skróty, zoom, scroll, zakresy `+9`, checksum guard i
+  oba manifesty v1; nie dodano API, outboxu, formatu v2 ani zdalnego UI.
+- Core ma 4/4 testy, Admin 245/245. Przeszły typecheck core/Admin, lint Admina
+  i produkcyjny build Admina. TASK 2 ma wymagany checkpoint przed TASK 3.
+
+### Browser capability zdalnej ręcznej selekcji — v0.7.25
+
+- TASK-0273 kończy TASK 1 planu zdalnej ręcznej selekcji decyzją
+  `GO_WITH_CONSTRAINTS` dla browser-only MVP na desktopowym Chrome/Edge.
+- Izolowany fixture potwierdził w Chromium secure context,
+  `showDirectoryPicker`, IndexedDB, OPFS i `webkitdirectory`. Uchwyt OPFS
+  przeszedł zapis/odczyt IndexedDB, reload oraz zamknięcie i ponowne otwarcie
+  karty z permission `granted`.
+- `remote-source-manifest-v1` jest deterministyczny, naturalnie sortowany,
+  checksumowany i zawiera wyłącznie względne metadane. Testy 1/500/1000 nie
+  wykonały decode ani odczytu bajtów JPEG.
+- Permission musi być sprawdzany przy każdym resume. Brak uchwytu, grant lub
+  zmieniony manifest wymagają relinku; `webkitdirectory` jest wyłącznie
+  fallbackiem sesyjnym.
+- Ręczne użycie natywnego pickera, odmowa/regrant i zamknięcie całej docelowej
+  przeglądarki pozostają bramką przed publicznym rolloutem, ale nie blokują
+  wydzielenia wspólnego core w TASK 2.
+- Raport:
+  `ai_docs/quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md`; checksum JSON
+  `f04dc14c...f69cd9e`. Nie dodano route, API, uploadu, bazy ani tunelu.
+
+### Propozycja zdalnej ręcznej selekcji zdjęć — analiza TASK-0272
+
+- Zrekonstruowano lokalny przepływ ręcznej selekcji, IndexedDB v2, zapis
+  `seq_*`, manifest output/trace oraz granice File System Access API.
+- Zaproponowano reuse jednego procesu Reviewer i Quick Tunnel, lecz z osobnym
+  route, cookie, purpose, sesją i zamkniętą allowlistą. Obecna sesja
+  `gameId + importJobId` nie może zostać użyta bez rozszerzenia modelu.
+- Rekomendowany MVP używa hosta jako źródła prawdy, trwałego IndexedDB outboxu,
+  trzech oddzielnych kolejek i jednoplikowego streamowanego uploadu. Protokół
+  chunked pozostaje warunkowy do czasu benchmarku.
+- Plan zawiera 19 osobno weryfikowalnych tasków, bramkę security, etapowy test
+  8–15 tys. operacji oraz propozycje P-001–P-003 i R-001–R-005. Żadna z nich
+  nie jest jeszcze zaakceptowaną decyzją; kod produkcyjny nie został zmieniony.
+- Źródło: `ai_docs/architecture/REMOTE_MANUAL_IMAGE_SELECTION.md`.
+
+### Zamknięcie rollout'u geometrii v19 i modelu symboli — v0.7.23
+
+- TASK 10 zsynchronizował wymagania, architekturę, decyzje i instrukcję
+  operatorską z faktycznym wynikiem TASK 1–9. Końcowy raport:
+  `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
+- `historical_v18` pozostaje domyślnym trybem importu. Adapter
+  `board-cell-processing-v20-verified-v19-v1` jest wyłącznie staging-local
+  opt-in, ponieważ cross-staging benchmark osiągnął `93,78%` pokrycia przy
+  wymaganym minimum `98%`.
+- V20 zachowuje fail-closed: każda plansza daje dokładnie 15 source-direct
+  cropów albo trwały deferred bez inferencji. Deferred można rozwiązać ręcznie
+  na końcu w tej samej kolejce Reviewera; istniejąca plansza i decyzja człowieka
+  zawsze wygrywają.
+- Kandydat modelu symboli TASK 9 pozostaje `rejected` po jednym błędzie
+  wysokiej pewności. Aktywny fingerprint nadal wynosi
+  `19e15e92...e48db64`; nie powstało zdarzenie aktywacji.
+- D-214 formalizuje kontrolowany opt-in i rollback przez nowy job v18. D-215
+  formalizuje odrzucenie kandydata bez osłabienia bramki.
+- Umbrella TASK-0256 oraz dokumentacyjne TASK-0271 są zamknięte. Następna praca
+  wersji 0.7 wymaga nowego, osobno zleconego zadania.
+
+### Kontrolowanie odrzucony kandydat modelu v19 — v0.7.22
+
+- TASK 9 wytrenował od początku `spatial-symbol-cnn-v1` na zamrożonej kohorcie
+  321 plansz i 4815 cropów v19. Split zachował 38 rodzin train oraz po jednej
+  validation, test i regression, bez przecieku źródeł.
+- Najlepsza była epoka 24/40. Kandydat poprawił accuracy symboli na połączonym
+  test/regression z `98,4314%` do `99,2157%`, a accuracy całych plansz z
+  `88,2353%` do `94,1176%`. Recall żadnej klasy nie spadł o więcej niż 1 pp.
+- ONNX top-1 parity przeszło, maksymalny błąd logitów wyniósł `0,000002861`, a
+  temperatura `0,60057958` pozostała w bezpiecznym zakresie.
+- Kandydat został poprawnie oznaczony `rejected`: audyt 100 plansz znalazł
+  jeden błąd wysokiej pewności `lemon -> orange` dla sekwencji 35, komórki 13,
+  confidence `0,99999698`. Bramka nie została osłabiona.
+- Aktywny model nie został zmieniony; jego fingerprint nadal wynosi
+  `19e15e92...e48db64`. Raport decyzji ma checksumę `4e6ace22...421578`.
+  Szczegóły: `ai_docs/quality/V19_SYMBOL_MODEL_CANDIDATE.md`.
+
+### Kohorta pozostałych błędów modelu v19 — v0.7.21
+
+- TASK 8 zamroził read-only kohortę 321 ręcznie rozwiązanych plansz, 4815
+  checksum-verified cropów v19, 41 rodzin źródeł i sześciu stagingów. Każda
+  plansza ma dokładnie 15 komórek row-major, a split po rodzinie źródła nie ma
+  przecieku.
+- Audyt błędów wysokiej pewności wykrył 12 plansz z konfliktem ręcznej etykiety
+  lub pozycji. Całe plansze są wykluczone fail-closed, ich 27 cropów dowodowych
+  jest przypięte checksumami, a problem ma klasyfikację `OPEN` zamiast
+  fałszywego błędu modelu.
+- Na oczyszczonej kohorcie aktywny model osiąga `99,3354%` accuracy symboli i
+  `94,3925%` całych plansz. Parity preprocessingu przeszło `4815/4815`.
+  Jedyny istotny residual to M2 `plum -> grapes`: 9 błędów na dwóch nowych
+  rodzinach źródeł.
+- Raport wydaje decyzję `retrain`, ale TASK 8 nie uruchamia treningu ani
+  aktywacji. Manifest kohorty ma checksumę `eaa368b5...523ab88`, a raport
+  `c617fdf4...07d3cc`. Szczegóły:
+  `ai_docs/quality/V19_SYMBOL_RESIDUAL_COHORT.md`.
+
+### Kontrolowany opt-in importu v20 — v0.7.20
+
+- TASK 7 podłącza istniejący `boardCellProcessingMode=verified_v19` do startu
+  gotowego browser stagingu w Adminie. Każdy staging domyślnie pozostaje w
+  historycznym v18; v20 wymaga jawnego, lokalnego dla stagingu potwierdzenia.
+- UI pokazuje niezaliczoną bramkę `93,78% < 98%`, brak fallbacku do v18 i
+  trwałe odroczenie nierozpoznanej geometrii do końcowej korekty Reviewera.
+- Checksum-bound start zawsze przesyła wybrany tryb. Admin porównuje zwrócony
+  niezmienny snapshot joba z wyborem i nie raportuje sukcesu przy rozbieżności;
+  komunikat końcowy podaje faktycznie przypięty tryb.
+- Domyślna wartość backendu, kontrakt HTTP/OpenAPI, fingerprinty algorytmów,
+  próg rollout, istniejące joby i dane kanoniczne nie zostały zmienione.
+- Walidacja: Admin `243/243`, klient Admin API `40/40`, oba typechecki, lint,
+  build Admina, formatowanie zmienionych plików i kontrola OpenAPI przeszły.
+  Lint Admina zachowuje dwa wcześniejsze ostrzeżenia `<img>` w plikach spoza
+  TASK 7. Nie uruchamiano rzeczywistego importu danych użytkownika.
+
+### Końcowa kolejka korekty geometrii — v0.7.19
+
+- TASK 6 udostępnia w Reviewerze osobny, bounded tryb dla trwałych
+  `image_board_geometry_pending`: pobiera jeden element `pending`, zachowuje
+  lokalną historię opartą na stabilnym kursorze i nie materializuje całego
+  importu ani jego obrazów.
+- Edytor pobiera checksum-bound kontekst i źródło, pozwala przesuwać dokładnie
+  cztery narożniki perspektywicznej siatki 5 × 3 oraz wymaga aktualnego podglądu
+  15 cropów source-direct przed zapisem. Zmiana narożników unieważnia preview.
+- Exact retry niezmienionej komendy zachowuje idempotency key. Konflikt
+  manifestu, rewizji, statusu albo human-wins odświeża kolejkę bez nadpisania
+  rozstrzygnięcia. Udany zapis przechodzi do następnego deferred, a utworzona
+  plansza trafia do dotychczasowej kolejki zatwierdzania symboli.
+- Launcher Admina pokazuje licznik `Do korekty siatki` i pozwala uruchomić
+  lokalnego lub online Reviewera także dla importu z zerową zwykłą kolejką, ale
+  z niezerową liczbą odroczonych plansz.
+- Backend, OpenAPI, baza, domyślny v18, opt-in v20, model symboli i numery
+  `seq_*` nie zostały zmienione. TASK 6 korzysta z kontraktu dostarczonego w
+  TASK 5.
+- Walidacja: klient Admin API `40/40`, Admin `238/238`, Reviewer `40/40`,
+  typecheck i lint wszystkich trzech workspace'ów, buildy Admina i Reviewera
+  oraz kontrola aktualności OpenAPI przeszły. Interaktywny smoke test nie został
+  wykonany, ponieważ lokalny Reviewer na porcie 3001 nie był uruchomiony.
+
+### Ręczne rozwiązanie deferred geometrii komórek — v0.7.18
+
+- TASK 5 dodaje checksum-bound kontekst, source, preview i zapis dla jednego
+  `image_board_geometry_pending`. Preview czterech narożników używa dokładnie
+  croppera v19 i nie zapisuje danych.
+- Zapis używa modelu symboli przypiętego do źródłowego importu. Dopiero komplet
+  15 cropów i 15 predykcji tworzy w jednej transakcji zwykłą planszę,
+  obserwacje, rewizję oraz `pending` item istniejącej kolejki Reviewera.
+- Exact retry wraca bez ponownego preview/inferencji, zmieniona komenda daje
+  stabilny konflikt, a istniejąca plansza wygrywa i superseduje deferred.
+- API i wygenerowany klient obsługują lokalnego administratora oraz dokładnie
+  scoped bearer sesję Reviewera. Reviewer proxy nadal blokuje pozostałe Admin
+  API. Komponent UI korekty jest poza TASK 5.
+- Domyślny v18, opt-in v20, benchmark `93,78%`, aktywny model i dane kanoniczne
+  nie zostały zmienione.
+
+### Jawnie przypięty adapter pełnego importu v20 — v0.7.17
+
+- Na jawne polecenie właściciela TASK 4 został wykonany mimo niezaliczonej
+  bramki pokrycia TASK 2. Wyjątek nie aktywuje v19 domyślnie: zwykły start
+  nadal używa v18, a v20 wymaga `boardCellProcessingMode=verified_v19`.
+- Snapshot `board-cell-processing-v20-verified-v19-v1` przypina cały kontrakt
+  v19 i wchodzi do fingerprintu joba. `board_cell_geometry` jest trwałym
+  pre-crop substage; restart i job-local rehydration odtwarzają deferrals bez
+  ponownego estymowania.
+- Każda plansza daje dokładnie 15 zweryfikowanych source-direct cropów v19 albo
+  zero cropów oraz trwały `image_board_geometry_pending`. Błąd v19 nigdy nie
+  wraca do v18 i nie uruchamia ONNX dla tej planszy.
+- Migracja `0055_board_cell_geometry_pipeline_stage` rozszerza wyłącznie
+  zamknięty zbiór nazw stage results. Historyczne checkpointy i domyślny
+  manifest v18 pozostają niezmienione.
+- Celowane testy kontraktu, workera, API, migracji i benchmarku shadow
+  przechodzą `154/154`, w tym regresja zaliczająca durable deferred do granicy
+  `waiting_for_review`. Pełny worker
+  doszedł do `91%` bez błędu, po czym został zatrzymany zgodnie z limitem 120 s.
+  Pełny mypy nadal raportuje dwa wcześniejsze błędy
+  `symbol_model_iteration_repository.py`, niezwiązane z TASK 4.
+- Bramka domyślnego rollout pozostaje zamknięta: `93,78% < 98%`. Przed TASK 5
+  wymagany jest osobny review/checkpoint TASK 4.
+
+### Trwały kontrakt deferred geometrii komórek — v0.7.16
+
+- Na jawne polecenie właściciela TASK 3 został ograniczony do warstwy kontraktu
+  mimo niezaliczonej bramki pokrycia TASK 2. TASK 4 został później wykonany
+  wyłącznie jako jawnie przypięty opt-in; nie zmienił domyślnego v18.
+- `BoardCellProcessingManifestV1` przypina źródło, sekwencję, rewizje i
+  fingerprinty. `image_board_geometry_pending` utrwala `pending`, `resolved`
+  albo `superseded` bez JPEG-ów, cropów i fałszywych 15 predykcji.
+- Exact retry jest serializowany na zdjęciu źródłowym. Przy rozwiązaniu
+  repozytorium ponownie odczytuje planszę i review; późniejsza decyzja człowieka
+  zawsze kończy automat statusem `superseded`.
+- Read-only API list/get, liczniki joba, OpenAPI i klient Admina są gotowe.
+  Produkcyjny zapis tych rekordów przez jawny adapter v20 jest gotowy; UI
+  korekty pozostaje poza zakresem.
+- Migracja `0054` definiuje rekordy, a `0055` dopuszcza trwały stage v20. Pełny zestaw API bez izolowanych testów
+  PostgreSQL przeszedł `410 passed, 2 skipped`; celowany zestaw kontraktu,
+  migracji i jobów przeszedł `65/65`. Pełne Ruff/mypy nadal zatrzymują się na
+  wcześniejszych błędach poza plikami TASK-0264.
+
+### Cross-staging shadow benchmark geometrii v19 — v0.7.15
+
+- TASK 2 dodał read-only, content-addressed benchmark 300 stron / 2700 plansz:
+  po 50 stron z sześciu przypiętych stagingów, kompletna galeria i challenge 81
+  ręcznie poprawionych plansz odziedziczony z niezmiennego raportu TASK 1.
+- Dwa niezależne zapisy i osobny `--check` odtworzyły manifest
+  `8640084933f74586e2a429120ac29835c7e7fa20d9ac52d91c9c2f271c22473f`.
+  Czasy są celowo przechowywane w osobnych raportach, aby obciążenie komputera
+  nie zmieniało checksumy wyniku jakościowego.
+- Automatyczne trafienia spełniają bramki jakości: zero katastrofalnych
+  przesunięć, `95,61%` accuracy symboli i `73,68%` całych plansz w challenge.
+- Checkpoint ma status `REJECTED_FOR_ROLLOUT`: pokrycie wynosi `93,78%`
+  (`2532/2700`) zamiast wymaganych minimum `98%`; 168 plansz zostało bezpiecznie
+  odroczonych bez częściowych cropów ani inferencji.
+- Produkcyjny estymator, cropper, joby, decyzje i aktywny model nie zostały
+  zmienione. Warstwa kontraktu TASK 3 i jawnie przypięty adapter TASK 4 zostały
+  później wykonane na polecenie właściciela. Domyślny rollout nadal wymaga
+  poprawy pokrycia i ponownego zaliczenia benchmarku.
+- Raport: `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_SHADOW_BENCHMARK.md`.
+
+### Read-only diagnoza cropów v18/v19 — v0.7.14
+
+- TASK 1 przygotował `grid-cropping-vs-symbol-model-diagnosis-v1`: powtarzalny,
+  content-addressed raport A/B bez zmiany jobów, modelu, review albo danych
+  kanonicznych.
+- Rzeczywista kohorta obejmuje 81 ręcznie rozwiązanych plansz v19 i 1215
+  symboli z sześciu stagingów. Baseline v18 oraz ponowna inferencja cropów v19
+  używają tego samego przypiętego fingerprintu aktywnego modelu.
+- Wynik: symbol accuracy `71,03% → 95,80%`, whole-board accuracy
+  `22,22% → 72,84%`, średnia liczba poprawek `4,35 → 0,63` na planszę.
+  Trzy nieaktualne rewizje zostały jawnie wykluczone.
+- Dokumentacja: `ai_docs/quality/GRID_CROPPING_VS_SYMBOL_MODEL_DIAGNOSIS.md`.
+  Następny krok to cross-staging shadow benchmark v19; pełny import i trening
+  pozostają bez zmian.
+
+### Trwałe usunięcie `about:blank` lokalnego Reviewera — v0.7.13
+
+- `Otwórz lokalnie` nie tworzy już pustej karty. Synchronicznie otwiera
+  przewidywany loopback-only URL wybranej gry i importu, a po odpowiedzi API
+  ponawia nawigację zwróconym, zwalidowanym adresem.
+- Odmowa ustawienia `window.opener = null` jest izolowana i nie może przerwać
+  handlera przed `openLocalReviewerWork`. Poprzednio taki wyjątek pozostawiał
+  `about:blank`, a do API nie trafiało żadne żądanie.
+- Poprawny URL jest zachowywany jako link ręczny również po udanej odpowiedzi,
+  dzięki czemu blokada popupu lub późniejszej nawigacji nie odbiera dostępu do
+  działającego Reviewera.
+- Wykonywalna regresja symuluje `SecurityError` przeglądarki. Przeszło `237/237`
+  testów Admina, typecheck, lint bez błędów, Prettier i build produkcyjny.
+  Idempotentne otwarcie rzeczywistej pracy zwróciło `ready=true`, a jej strona
+  odpowiedziała HTTP 200. Workery, joby i decyzje review nie zostały zmienione.
+
+### Odzyskiwanie ręcznej sesji i stabilne odczyty API — v0.7.12
+
+- Ręczna selekcja rozpoznaje nieaktualny uchwyt źródła lub wyniku i prowadzi do
+  ponownego wskazania właściwego folderu. Nie tworzy nowej sesji: zachowuje
+  `sessionKey`, wszystkie decyzje, kolejny zakres i pozycję, a naprawione
+  uchwyty utrwala w IndexedDB.
+- Zamknięte sekcje Gry nie są już montowane, dzięki czemu nie uruchamiają
+  równoległych requestów podczas wejścia na ekran. Rozwinięcie sekcji zachowuje
+  dotychczasowe zachowanie i kontrakty.
+- Read-only podgląd kohorty oraz jakość modelu nie używają `FOR UPDATE` i nie
+  materializują cropów około 67 tys. oczekujących pozycji. Lekka projekcja
+  całej historii zachowuje identyczny manifest/checksumę, a pełne plansze są
+  pobierane tylko dla `accepted/corrected`. Freeze nadal stosuje blokowany
+  snapshot transakcyjny.
+- Panel jakości wykonuje jeden ciężki odczyt `model-quality`; preview wymagany
+  do zamrożenia wyprowadza z tej samej odpowiedzi, zamiast równolegle budować
+  ten sam snapshot drugi raz.
+- Panel siatki jest montowany dopiero po zakończeniu podstawowego odczytu
+  jakości. Jego ciężki preview oczekujących nie konkuruje już o bazę w trakcie
+  requestu inicjalizującego cały ekran ani nie powoduje fałszywego timeoutu.
+- Na rzeczywistej bazie endpointy wróciły z timeoutu/błędu limitu parametrów do
+  HTTP 200: preview około 4,9 s, model quality około 7,2 s. Workery i joby nie
+  zostały zatrzymane ani zmienione.
+
+### Ręczna selekcja niezależna od gry — v0.7.11
+
+- Zakładka `Ręczna selekcja` otwiera lokalny workspace bez aktywnego kontekstu
+  gry. Wybór folderów, wznowienie, nawigacja, zapis `seq_*` i trace nie zależą
+  od odpowiedzi API ani `activeGame`.
+- IndexedDB używa jednego stabilnego namespace'u narzędzia. Przy pierwszym
+  wejściu najnowsza historyczna sesja per gra i jej zdarzenia są kopiowane do
+  nowego namespace'u; stary rekord pozostaje nienaruszony, a `sessionKey`
+  zachowuje własność istniejących manifestów.
+- Format manifestu v1, checksumy, File System Access API, automatyczna selekcja,
+  import plansz i workery nie zostały zmienione.
+- Walidacja: `229/229` testów Admina, typecheck, celowany ESLint bez błędów oraz
+  Prettier przeszły. Widok sprawdzono lokalnie bez parametru `game`.
+
+### Numeryczna kolejność importów i czytelny wybór Reviewera — v0.7.10
+
+- Gotowe stagingi w `Import plansz` są sortowane rosnąco po liczbie przed
+  pierwszym myślnikiem. Zakres `20000-99999` jest dzięki temu przed
+  `100000-150000`; nazwy bez takiego prefiksu pozostają za zakresami w
+  deterministycznej kolejności.
+- Dropdown `Gotowy import plansz` używa krótkiej daty i godziny, nazwy katalogu
+  źródłowego oraz skróconego statusu. Nie pokazuje już skrótu technicznego ID;
+  pełne ID wybranego joba jest widoczne osobno pod kontrolką.
+- Etykieta dropdownu ma ograniczoną szerokość i ellipsis. Kolejność wykonywania
+  jobów, statusy domenowe, API oraz działające pipeline'y nie zostały zmienione.
+- Walidacja: `227/227` testów Admina, typecheck, ESLint, Prettier i produkcyjny
+  build Admina przeszły.
+
+### Monotoniczny postęp preflightu geometrii — v0.7.9
+
+- Preflight v2 nie publikuje już tymczasowej liczby `review_required` jako
+  wspólnego licznika review przed zakończeniem ograniczonych przebiegów
+  auto-kotwic. Tymczasowy wynik pozostaje w trwałym checkpointcie, natomiast
+  finalny licznik review jest publikowany razem z niezmiennym manifestem.
+- Naprawa usuwa `JOB_PROGRESS_REGRESSION`, który występował po pełnym skanie,
+  gdy auto-kotwice przenosiły stronę z tymczasowego review do `registered`.
+  Progi geometrii, kolejność źródeł i zawartość manifestu nie zostały zmienione.
+- Regresja obejmuje kontekst egzekwujący monotoniczność wszystkich wspólnych
+  liczników. Przeszło 18 testów preflightu i domeny jobów oraz Ruff; mypy nadal
+  kończy się na dwóch istniejących błędach w
+  `symbol_model_iteration_repository.py`.
+
+### Pierwszy pion wersji 0.7 — TASK-0251
+
+- Pierwsze zadanie 0.7 naprawiło zawieszony stan ładowania przy tworzeniu reguł.
+- Rzeczywisty draft v1 został zapisany, mimo że panel nie pokazał zakończenia
+  operacji. Admin otrzyma ograniczony czas oczekiwania i uzgodnienie skutecznej
+  mutacji przez ponowny odczyt reguł gry.
+- Zakres nie zmienia domeny reguł, API, publikacji ani payoutów.
+- Kontrola ujawniła dwa zgodne drafty: v1 z `10:57:38` oraz v2 z `11:00:31`.
+  UI poprawnie wybiera najnowszy v2. Żaden rekord nie został usunięty.
+- Walidacja: 216 testów Admina, typecheck, celowany ESLint i Prettier przeszły.
+
+### Uproszczenie edytora wzorców — TASK-0252
+
+- Edytor payline pozostawia administratorowi stabilny kod, aktywność i wybór
+  ścieżki na siatce. Pola opisowej nazwy oraz kolejności nie są już ręcznie
+  edytowane ani prezentowane w tabeli.
+- Przy utworzeniu Admin zapisuje `name = code` i następną kolejność po
+  istniejących rekordach; przy edycji zachowuje historyczną nazwę i kolejność.
+  Pola te nadal istnieją w kontrakcie API i bazie dla zgodności.
+- D-207 potwierdza, że kolejność jest wyłącznie deterministyczną prezentacją,
+  bez wpływu na wynik payoutu. Walidacja: 219 testów Admina, typecheck,
+  celowany ESLint oraz Prettier przeszły.
+
+### Staging importu plansz w Reviewerze — TASK-0253
+
+- Gotowy browser staging nie jest jobem importu i nie zawiera kolejki
+  zatwierdzania; Reviewer pokazuje go jako informację pomocniczą wyłącznie,
+  gdy bieżąca gra nie ma joba `waiting_for_review` albo `completed`.
+- Dropdown Reviewera nadal zawiera tylko uruchomione joby z kolejką plansz.
+  Karta stagingu kieruje do `Importu plansz`, gdzie właściciel jawnie wykonuje
+  raport, preflight geometrii i start importu.
+- Widoczne określenie produktu zostało ujednolicone do „plansza”; techniczne
+  `layout` w API, modelu i danych historycznych pozostaje niezmienione dla
+  zgodności.
+- Walidacja: 220 testów Admina, typecheck, celowany ESLint bez błędów,
+  Prettier oraz `git diff --check` przeszły.
+
+### Pionowe przewijanie zoomu ręcznej selekcji — TASK-0254
+
+- Lokalna ręczna selekcja nie skaluje już JPEG-a przez wizualny `transform`,
+  który nie powiększał obszaru przewijania. Zoom oblicza rzeczywiste wymiary
+  layoutu z naturalnych wymiarów JPEG-a i viewportu.
+- Wewnętrzny viewport przewija obraz wyłącznie pionowo. Szerokie zdjęcie jest
+  wyśrodkowane, a jego boki są symetrycznie przycięte bez poziomego scrolla.
+  Zmiana zdjęcia wraca na górę nowego obrazu.
+- Pełny ekran utrzymuje zakres, pozycję i nazwę nad przewijanym obrazem;
+  File System Access API, source Blob, nawigacja i skróty nie zostały zmienione.
+- Walidacja: 221 testów Admina, typecheck, celowany ESLint, Prettier,
+  `git diff --check` i produkcyjny build Admina przeszły.
+
+### Stabilny scroll i wybór skoku ręcznej selekcji — TASK-0257
+
+- Ręczna selekcja zachowuje bieżący pionowy `scrollTop` przy przejściu między
+  JPEG-ami i przywraca go dopiero po ułożeniu nowego obrazu. Wartość istnieje
+  wyłącznie w pamięci aktywnego workspace'u; scroll nie zapisuje IndexedDB ani
+  nie wywołuje renderowania React.
+- Select skoku zawiera `1, 2, 3, 4, 5, 6, 7, 10, 15, 20` i ma jawne ciemne tło
+  oraz tekst również dla natywnych opcji rozwijanej listy.
+
+### Klawiaturowa zmiana skoku ręcznej selekcji — TASK-0259
+
+- Poza kontrolkami formularza `ArrowDown` wybiera następną skonfigurowaną
+  wartość skoku, a `ArrowUp` poprzednią. Przykładowo `2 → 3`, natomiast `7 →
+  10`; wartości krańcowe pozostają przy `1` i `20`.
+- Ustawienie nadal trafia do istniejącego stanu sesji i serializowanej kolejki
+  IndexedDB. Nie zmienia zdjęcia, zakresu ani śladu uczenia.
+- Walidacja: `225/225` testów Admina, typecheck, produkcyjny build i celowany
+  ESLint bez błędów; pozostało jedno istniejące ostrzeżenie o celowym `<img>`
+  dla lokalnego Blob URL.
+
+### Automatyczne odzyskiwanie konfliktu Reviewera — TASK-0258
+
+- Plansza `253` importu `b2d9b299…` została faktycznie zaakceptowana i ma jedną
+  append-only rewizję. Komunikat `IMAGE_REVIEW_REVISION_CONFLICT` pochodził z
+  ponownej komendy opartej na starszym snapshotcie rewizji `0`, nie z utraty
+  decyzji ani błędu symboli.
+- Konflikt rewizji pełnej decyzji automatycznie unieważnia klucz starej komendy
+  i pobiera aktualny item. Reviewer nie pozostaje na niezapisywalnym buforze,
+  ale nadal nie nadpisuje decyzji zapisanej w innym oknie lub przez inną osobę.
+- API, baza, bounded prefetch i konflikty geometrii pozostały bez zmian.
+  Walidacja: `35/35` testów Reviewera, typecheck, ESLint i build produkcyjny.
+
+### Odzyskiwanie otwarcia i zapisu Reviewera — TASK-0255
+
+- Lokalny launcher przekazuje zwrócony URL do przygotowanego okna przed
+  pomocniczym odświeżeniem overview. Błąd nawigacji zamyka pustą kartę i
+  pozostawia w Adminie ręczny link, zamiast zatrzymywać użytkownika na
+  `about:blank`.
+- Zapis decyzji Reviewera ma limit 12 sekund na próbę. Po pierwszym timeoutcie
+  klient wykonuje dokładnie jedno ponowienie niezmienionej, idempotentnej
+  komendy. Drugi timeout odblokowuje przycisk i jawnie komunikuje, że zapis mógł
+  zostać przyjęty.
+- Rzeczywista decyzja zgłoszona 21 sierpnia 2026 została potwierdzona w bazie
+  jako `accepted`; poprawka nie usuwa ani nie powiela istniejącego zdarzenia.
+- Walidacja: 222 testy Admina, 35 testów Reviewera, typecheck obu aplikacji,
+  ESLint (dwa istniejące ostrzeżenia Admina bez błędów) oraz Prettier przeszły.
+  Produkcyjnych procesów i aktywnego udostępnienia nie zatrzymano.
+
+### Przejście z wersji 0.6 do 0.7 — 2026-08-21
+
+- Właściciel zamknął całą pozostałą kolejkę zadań bezpośrednio w
+  `ai_docs/tasks/`. Każde zadanie zostało przeniesione do `tasks/completed/`
+  z zachowanym Outcome oraz jawnym powodem zamknięcia.
+- TASK-0149 jest zaakceptowany na podstawie ciągłego testowania panelu Admin
+  przez właściciela bez zgłoszonych problemów; regresje pending-only lub
+  pinningu modeli wymagają nowego zadania 0.7.
+- TASK-0208 jest zamknięty po akceptacji poprawy geometrii i rozpoznawania
+  symboli na bazie wcześniejszych 63 plansz. Kolejne pomiary wydajności muszą
+  używać aktualnego pipeline'u i osobnej bramki 0.7.
+- Historyczne zadania selektorów v9–v10.18 oraz ręcznego eksportu luk zostały
+  oznaczone jako zastąpione przez późniejsze implementacje i workflow ręczny.
+- Nie ma obecnie aktywnego zadania implementacyjnego. Nowy zakres 0.7 powstaje
+  dopiero po osobnym planie i akceptacji właściciela.
 
 ### Domykanie statusu importu po review — v0.6.79
 
@@ -2064,3 +3048,18 @@ fallbackom `1.1.1.1`, `8.8.8.8` i Cloudflare DNS-over-HTTPS; połączenie po
 adresie nadal weryfikuje hostname, SNI i certyfikat TLS. Po teście nie pozostał
 aktywny assignment, cloudflared ani testowy plik cookie. TASK-0249 jest
 ukończony.
+
+## TASK-0256 — automatyczna geometria z korektą odroczoną
+
+Preflight `page-geometry-preflight-v2-auto-anchor` zachowuje dotychczasowe
+twarde bramki rejestracji, a następnie wykonuje najwyżej dwa ponowienia dla
+nierozpoznanych stron. Każdy przebieg używa maksymalnie 21 pełnych wyników 3 × 3
+spełniających ostrzejszą bramkę jako dodatkowych perspektyw. Manifest schema v2
+zapisuje promocje i liczbę rozwiązanych stron; manifesty v1 pozostają czytelne.
+
+Import z częściowym manifestem kopiuje i przetwarza wyłącznie `registered`.
+`review_required` pozostają w trwałym stagingu i nie docierają do croppera ani
+symbol inference. Admin automatycznie tworzy lub odzyskuje preflight po
+pokazaniu raportu, pokazuje nierozpoznane strony jako odroczone i ukrywa ich
+ręczną korektę pod sekcją „zostaw na koniec”. Wygasający 15-minutowy token
+legacy nie usuwa już sfinalizowanego browser stagingu.

@@ -1,7 +1,7 @@
 ---
 title: Iterative supervised symbol model improvement requirements
 status: accepted
-last_updated: 2026-08-09
+last_updated: 2026-08-23
 ---
 
 # Iteracyjne ulepszanie rozpoznawania symboli
@@ -70,6 +70,24 @@ lub 100 plansz pozwala uruchomić trening.
 - brak wymaganej reprezentacji klasy blokuje promocję albo wymaga jawnego
   zaakceptowania ograniczenia przez właściciela.
 
+## Read-only diagnoza residuali przed kolejną iteracją
+
+Przed podjęciem decyzji o kolejnej iteracji można zamrozić osobną kohortę
+diagnostyczną poprawnych cropów aktualnej wersji geometrii. Taka kohorta:
+
+- zawiera wyłącznie kompletne `accepted/corrected`, dokładnie 15 komórek
+  row-major i zweryfikowane checksumy źródeł oraz cropów,
+- odrzuca starsze wersje croppera, niepewną geometrię i konflikt etykiety;
+  wizualnie potwierdzony konflikt jest audytowalnym `OPEN`, a nie błędem modelu,
+- stosuje deterministyczny, rozłączny split po rodzinie źródła,
+- porównuje preprocessing treningowy z produkcyjnym wejściem ONNX dla każdej
+  próbki,
+- klasyfikuje każdy istotny residual jako M1, M2, P1 albo `OPEN` i kończy się
+  jawną decyzją `retrain` albo `no-retrain`.
+
+Diagnoza nie tworzy iteracji, nie uruchamia treningu i nie aktywuje modelu.
+Decyzja `retrain` jest wyłącznie wejściem do osobnego, jawnego workflow.
+
 ## Cykl życia wersji modelu
 
 ```text
@@ -87,6 +105,27 @@ draft -> training -> evaluating -> candidate_ready -> active
 - aktywacja wymaga jawnego potwierdzenia użytkownika po pokazaniu porównania z
   bieżącym modelem,
 - poprzednia aktywna wersja pozostaje dostępna do kontrolowanego rollbacku.
+
+### Historyczny kandydat v19 i bieżący aktywny model
+
+Kohorta v19 obejmuje 321 kompletnych plansz, 4815 cropów, 41 rodzin źródeł i
+sześć stagingów. Wytrenowany od początku kandydat poprawił accuracy całych
+plansz o `5,8824 pp` i nie pogorszył recall żadnej klasy o więcej niż `1 pp`,
+ale audyt 100 plansz wykrył jeden błąd `lemon -> orange` z confidence
+`0,99999698`.
+
+Ponieważ zaakceptowana bramka wymaga zera błędów o confidence co najmniej
+`0,99`, ten historyczny kandydat ma status `rejected`. Nie wolno go aktywować
+ani użyć do nowych importów. Odrzucenie jest wynikiem jakościowym, a nie
+technicznym `failed`.
+
+Nie jest to jednak bieżący aktywny snapshot gry. Późniejsza iteracja `#3`
+`47b6aa0d-2cea-4765-97f0-ee1f86cfc056`, wytrenowana po stabilizacji splitu
+`source-family-balanced-split-v2`, uzyskała `candidate_ready` i została
+aktywowana 2026-08-19 jako aktywny model dla nowych jobów. Kolejna aktywacja
+tego samego modelu jest idempotentnie odrzucana kodem
+`SYMBOL_MODEL_ALREADY_ACTIVE`; aktywacja nowej iteracji nadal wymaga jawnej
+decyzji i nowego niezmiennego raportu.
 
 ## Użycie nowego modelu
 

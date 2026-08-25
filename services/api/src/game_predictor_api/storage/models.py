@@ -1335,7 +1335,7 @@ class ImagePipelineStageResultModel(Base):
     __table_args__ = (
         CheckConstraint(
             "stage IN ('discovery', 'normalization', 'board_detection', "
-            "'board_crops', 'sequence_ocr', 'symbol_inference')",
+            "'board_cell_geometry', 'board_crops', 'sequence_ocr', 'symbol_inference')",
             name="ck_image_pipeline_stage_results_stage",
         ),
         CheckConstraint(
@@ -1869,6 +1869,112 @@ class ImagePageGeometryOverrideModel(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class ImageBoardGeometryPendingModel(Base):
+    """A board for which verified cell geometry is not yet available."""
+
+    __tablename__ = "image_board_geometry_pending"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND position_index BETWEEN 0 AND 8 "
+            "AND expected_geometry_revision >= 0 "
+            "AND expected_review_resolution_revision >= 0",
+            name="ck_image_board_geometry_pending_values",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND processing_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND pipeline_fingerprint_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_geometry_pending_checksums",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'resolved', 'superseded')",
+            name="ck_image_board_geometry_pending_status",
+        ),
+        CheckConstraint(
+            "reason_code IN ('insufficient_centers', 'incomplete_lattice', "
+            "'residual_too_high', 'source_unavailable')",
+            name="ck_image_board_geometry_pending_reason",
+        ),
+        CheckConstraint(
+            "(status = 'pending' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NULL) OR "
+            "(status = 'resolved' AND resolved_geometry_revision IS NOT NULL "
+            "AND resolved_geometry_revision > expected_geometry_revision "
+            "AND resolved_at IS NOT NULL AND superseded_at IS NULL) OR "
+            "(status = 'superseded' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NOT NULL)",
+            name="ck_image_board_geometry_pending_lifecycle",
+        ),
+        CheckConstraint(
+            r"length(btrim(source_relative_path)) > 0 "
+            r"AND source_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)' "
+            r"AND length(btrim(processing_manifest_relative_path)) > 0 "
+            r"AND processing_manifest_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_board_geometry_pending_paths",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "source_image_id",
+            "position_index",
+            "processing_manifest_checksum_sha256",
+            name="uq_image_board_geometry_pending_manifest",
+        ),
+        Index(
+            "ix_image_board_geometry_pending_job_status_sequence",
+            "import_job_id",
+            "status",
+            "sequence_number",
+            "position_index",
+            "id",
+        ),
+        Index(
+            "uq_image_board_geometry_pending_current",
+            "import_job_id",
+            "source_image_id",
+            "position_index",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=True
+    )
+    review_item_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    processing_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    processing_manifest_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    pipeline_fingerprint_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_review_resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resolved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ReviewerAccessSessionModel(Base):
@@ -3505,6 +3611,550 @@ class RepresentativeRankingActivationModel(Base):
     reason: Mapped[str | None] = mapped_column(Text)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
     command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionSessionModel(Base):
+    __tablename__ = "remote_manual_selection_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','active','completed','expired','revoked')",
+            name="ck_rms_sessions_status",
+        ),
+        CheckConstraint(
+            "revision >= 0 AND failed_attempts BETWEEN 0 AND 5",
+            name="ck_rms_sessions_counters",
+        ),
+        CheckConstraint(
+            "length(btrim(host_base_path)) > 0 AND length(btrim(display_name)) > 0",
+            name="ck_rms_sessions_names",
+        ),
+        CheckConstraint(
+            "updated_at >= created_at AND expires_at > created_at",
+            name="ck_rms_sessions_timestamps",
+        ),
+        CheckConstraint(
+            "(code_salt IS NULL AND code_hash IS NULL) OR "
+            "(code_salt IS NOT NULL AND code_hash IS NOT NULL "
+            "AND octet_length(code_salt) = 16 AND octet_length(code_hash) = 32)",
+            name="ck_rms_sessions_code_hash",
+        ),
+        CheckConstraint(
+            "(token_hash IS NULL AND token_expires_at IS NULL) OR "
+            "(token_hash IS NOT NULL AND octet_length(token_hash) = 32 "
+            "AND token_expires_at IS NOT NULL)",
+            name="ck_rms_sessions_token_hash",
+        ),
+        CheckConstraint(
+            "(writer_client_instance_id IS NULL AND writer_lease_token IS NULL "
+            "AND writer_lease_expires_at IS NULL) OR "
+            "(writer_client_instance_id IS NOT NULL AND writer_lease_token IS NOT NULL "
+            "AND writer_lease_expires_at IS NOT NULL)",
+            name="ck_rms_sessions_writer_lease",
+        ),
+        UniqueConstraint("id", "base_binding_id", name="uq_rms_sessions_binding_scope"),
+        Index("ix_rms_sessions_status_expiry", "status", "expires_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    base_binding_id: Mapped[UUID] = mapped_column(nullable=False)
+    host_base_path: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    code_salt: Mapped[bytes | None] = mapped_column(LargeBinary(16), nullable=True)
+    code_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    writer_client_instance_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    writer_lease_token: Mapped[UUID | None] = mapped_column(nullable=True)
+    writer_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class RemoteManualSelectionCollectionModel(Base):
+    __tablename__ = "remote_manual_selection_collections"
+    __table_args__ = (
+        CheckConstraint("status IN ('active','completed')", name="ck_rms_collections_status"),
+        CheckConstraint(
+            "revision >= 0 AND length(btrim(name)) > 0 AND length(btrim(normalized_name)) > 0",
+            name="ck_rms_collections_values",
+        ),
+        UniqueConstraint("session_id", "normalized_name", name="uq_rms_collections_session_name"),
+        UniqueConstraint(
+            "id", "session_id", "normalized_name", name="uq_rms_collections_scope_name"
+        ),
+        Index("ix_rms_collections_session_status", "session_id", "status", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("remote_manual_selection_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionBatchModel(Base):
+    __tablename__ = "remote_manual_selection_batches"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','indexing','active','finalizing','completed','failed','abandoned')",
+            name="ck_rms_batches_status",
+        ),
+        CheckConstraint("direction IN ('ascending','descending')", name="ck_rms_batches_direction"),
+        CheckConstraint(
+            "source_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "(final_manifest_checksum_sha256 IS NULL OR "
+            "final_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_rms_batches_checksums",
+        ),
+        CheckConstraint(
+            "first_layout > 0 AND cursor_index >= 0 AND server_revision >= 0 "
+            "AND last_client_sequence >= 0 AND total_file_count >= 0 "
+            "AND selected_file_count >= 0 AND transferred_file_count >= 0 "
+            "AND selected_file_count <= total_file_count "
+            "AND transferred_file_count <= selected_file_count",
+            name="ck_rms_batches_counters",
+        ),
+        CheckConstraint(
+            "length(btrim(name)) > 0 AND length(btrim(normalized_name)) > 0 "
+            "AND length(btrim(normalized_collection_name)) > 0",
+            name="ck_rms_batches_names",
+        ),
+        ForeignKeyConstraint(
+            ["session_id", "base_binding_id"],
+            [
+                "remote_manual_selection_sessions.id",
+                "remote_manual_selection_sessions.base_binding_id",
+            ],
+            name="fk_rms_batches_session_binding",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["collection_id", "session_id", "normalized_collection_name"],
+            [
+                "remote_manual_selection_collections.id",
+                "remote_manual_selection_collections.session_id",
+                "remote_manual_selection_collections.normalized_name",
+            ],
+            name="fk_rms_batches_collection_scope",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("id", "session_id", name="uq_rms_batches_scope"),
+        UniqueConstraint(
+            "base_binding_id",
+            "normalized_collection_name",
+            "normalized_name",
+            name="uq_rms_batches_base_mapping",
+        ),
+        Index("ix_rms_batches_session_status", "session_id", "status", "updated_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(nullable=False)
+    collection_id: Mapped[UUID] = mapped_column(nullable=False)
+    base_binding_id: Mapped[UUID] = mapped_column(nullable=False)
+    normalized_collection_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    first_layout: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    cursor_index: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    server_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    last_client_sequence: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    final_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    total_file_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    selected_file_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    transferred_file_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionFileModel(Base):
+    __tablename__ = "remote_manual_selection_files"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('discovered','unselected','selection_queued','upload_queued',"
+            "'uploading','stored_temporarily','verified','materialized','synced',"
+            "'deselect_pending','removed','failed','retrying')",
+            name="ck_rms_files_status",
+        ),
+        CheckConstraint(
+            "source_index >= 0 AND size_bytes >= 0 AND last_modified_ms >= 0 "
+            "AND selection_generation >= 0 AND last_server_revision >= 0",
+            name="ck_rms_files_counters",
+        ),
+        CheckConstraint(
+            r"length(relative_path) > 0 AND relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_rms_files_relative_path",
+        ),
+        CheckConstraint(
+            "(range_start IS NULL AND range_end IS NULL) OR "
+            "(range_start > 0 AND range_end = range_start + 8)",
+            name="ck_rms_files_range",
+        ),
+        CheckConstraint(
+            "host_checksum_sha256 IS NULL OR host_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_rms_files_checksum",
+        ),
+        CheckConstraint(
+            "status <> 'synced' OR (desired_selected AND range_start IS NOT NULL "
+            "AND output_name IS NOT NULL AND host_checksum_sha256 IS NOT NULL "
+            "AND final_relative_path IS NOT NULL)",
+            name="ck_rms_files_synced",
+        ),
+        ForeignKeyConstraint(
+            ["batch_id", "session_id"],
+            ["remote_manual_selection_batches.id", "remote_manual_selection_batches.session_id"],
+            name="fk_rms_files_batch_scope",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("id", "batch_id", "session_id", name="uq_rms_files_scope"),
+        UniqueConstraint("batch_id", "source_index", name="uq_rms_files_source_index"),
+        UniqueConstraint("batch_id", "relative_path", name="uq_rms_files_relative_path"),
+        Index("ix_rms_files_delta", "batch_id", "last_server_revision", "source_index", "id"),
+        Index("ix_rms_files_status", "batch_id", "status", "source_index", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(nullable=False)
+    batch_id: Mapped[UUID] = mapped_column(nullable=False)
+    source_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_modified_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    desired_selected: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    selection_generation: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    range_start: Mapped[int | None] = mapped_column(BigInteger)
+    range_end: Mapped[int | None] = mapped_column(BigInteger)
+    output_name: Mapped[str | None] = mapped_column(String(255))
+    host_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    temp_relative_path: Mapped[str | None] = mapped_column(Text)
+    final_relative_path: Mapped[str | None] = mapped_column(Text)
+    last_server_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionOperationModel(Base):
+    __tablename__ = "remote_manual_selection_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "operation_type IN ('viewed','select','skip','deselect','undo')",
+            name="ck_rms_operations_type",
+        ),
+        CheckConstraint(
+            "status IN ('queued','sending','applied','retry','superseded','conflict','rejected')",
+            name="ck_rms_operations_status",
+        ),
+        CheckConstraint(
+            "client_sequence > 0 AND expected_server_revision >= 0 "
+            "AND selection_generation >= 0 AND applied_server_revision >= 0 "
+            "AND visible_milliseconds >= 0 AND range_start > 0 "
+            "AND range_end = range_start + 8",
+            name="ck_rms_operations_counters",
+        ),
+        CheckConstraint(
+            "command_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "(image_checksum_sha256 IS NULL OR image_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_rms_operations_checksums",
+        ),
+        CheckConstraint(
+            "(operation_type = 'skip' AND file_id IS NULL) OR "
+            "(operation_type <> 'skip' AND file_id IS NOT NULL)",
+            name="ck_rms_operations_file_scope",
+        ),
+        CheckConstraint(
+            "operation_type <> 'select' OR (image_path IS NOT NULL "
+            "AND source_index IS NOT NULL AND output_name IS NOT NULL)",
+            name="ck_rms_operations_select_payload",
+        ),
+        CheckConstraint(
+            "operation_type NOT IN ('deselect','undo') OR target_operation_id IS NOT NULL",
+            name="ck_rms_operations_target",
+        ),
+        ForeignKeyConstraint(
+            ["batch_id", "session_id"],
+            ["remote_manual_selection_batches.id", "remote_manual_selection_batches.session_id"],
+            name="fk_rms_operations_batch_scope",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["file_id", "batch_id", "session_id"],
+            [
+                "remote_manual_selection_files.id",
+                "remote_manual_selection_files.batch_id",
+                "remote_manual_selection_files.session_id",
+            ],
+            name="fk_rms_operations_file_scope",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["target_operation_id", "batch_id", "session_id"],
+            [
+                "remote_manual_selection_operations.id",
+                "remote_manual_selection_operations.batch_id",
+                "remote_manual_selection_operations.session_id",
+            ],
+            name="fk_rms_operations_target_scope",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("id", "batch_id", "session_id", name="uq_rms_operations_scope"),
+        UniqueConstraint(
+            "batch_id",
+            "client_instance_id",
+            "client_sequence",
+            name="uq_rms_operations_client_sequence",
+        ),
+        Index(
+            "uq_rms_operations_applied_revision",
+            "batch_id",
+            "applied_server_revision",
+            unique=True,
+            postgresql_where=text("status = 'applied'"),
+        ),
+        Index("ix_rms_operations_delta", "batch_id", "client_sequence", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(nullable=False)
+    batch_id: Mapped[UUID] = mapped_column(nullable=False)
+    file_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    client_instance_id: Mapped[UUID] = mapped_column(nullable=False)
+    client_sequence: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expected_server_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    operation_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    selection_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    image_path: Mapped[str | None] = mapped_column(Text)
+    source_index: Mapped[int | None] = mapped_column(BigInteger)
+    image_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    output_name: Mapped[str | None] = mapped_column(String(255))
+    visible_milliseconds: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    decoded: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    target_operation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    command_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    applied_server_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionTransferModel(Base):
+    __tablename__ = "remote_manual_selection_transfers"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued','uploading','stored_temp','verified','materialized',"
+            "'cancelled','failed','retrying')",
+            name="ck_rms_transfers_status",
+        ),
+        CheckConstraint(
+            "generation >= 0 AND attempt > 0 AND declared_bytes >= 0 "
+            "AND received_bytes >= 0 AND received_bytes <= declared_bytes",
+            name="ck_rms_transfers_counters",
+        ),
+        CheckConstraint(
+            "(declared_checksum_sha256 IS NULL OR "
+            "declared_checksum_sha256 ~ '^[0-9a-f]{64}$') AND "
+            "(verified_checksum_sha256 IS NULL OR "
+            "verified_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_rms_transfers_checksums",
+        ),
+        ForeignKeyConstraint(
+            ["file_id", "batch_id", "session_id"],
+            [
+                "remote_manual_selection_files.id",
+                "remote_manual_selection_files.batch_id",
+                "remote_manual_selection_files.session_id",
+            ],
+            name="fk_rms_transfers_file_scope",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("id", "file_id", "batch_id", "session_id", name="uq_rms_transfers_scope"),
+        UniqueConstraint("file_id", "generation", "attempt", name="uq_rms_transfers_attempt"),
+        Index("ix_rms_transfers_queue", "status", "retry_at", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(nullable=False)
+    batch_id: Mapped[UUID] = mapped_column(nullable=False)
+    file_id: Mapped[UUID] = mapped_column(nullable=False)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    declared_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    received_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    declared_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    verified_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    temp_relative_path: Mapped[str | None] = mapped_column(Text)
+    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionHostActionModel(Base):
+    __tablename__ = "remote_manual_selection_host_actions"
+    __table_args__ = (
+        CheckConstraint(
+            "action_type IN ('verify','materialize','remove','reconcile')",
+            name="ck_rms_host_actions_type",
+        ),
+        CheckConstraint(
+            "status IN ('queued','processing','completed','retry','failed','superseded')",
+            name="ck_rms_host_actions_status",
+        ),
+        CheckConstraint("generation >= 0 AND attempt >= 0", name="ck_rms_host_actions_counters"),
+        CheckConstraint(
+            "(lease_owner IS NULL AND lease_token IS NULL AND lease_expires_at IS NULL) OR "
+            "(length(btrim(lease_owner)) > 0 AND lease_token IS NOT NULL "
+            "AND lease_expires_at IS NOT NULL)",
+            name="ck_rms_host_actions_lease",
+        ),
+        ForeignKeyConstraint(
+            ["file_id", "batch_id", "session_id"],
+            [
+                "remote_manual_selection_files.id",
+                "remote_manual_selection_files.batch_id",
+                "remote_manual_selection_files.session_id",
+            ],
+            name="fk_rms_host_actions_file_scope",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["transfer_id", "file_id", "batch_id", "session_id"],
+            [
+                "remote_manual_selection_transfers.id",
+                "remote_manual_selection_transfers.file_id",
+                "remote_manual_selection_transfers.batch_id",
+                "remote_manual_selection_transfers.session_id",
+            ],
+            name="fk_rms_host_actions_transfer_scope",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "uq_rms_host_actions_active",
+            "file_id",
+            "generation",
+            "action_type",
+            unique=True,
+            postgresql_where=text("status IN ('queued','processing','retry')"),
+        ),
+        Index("ix_rms_host_actions_queue", "status", "next_attempt_at", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(nullable=False)
+    batch_id: Mapped[UUID] = mapped_column(nullable=False)
+    file_id: Mapped[UUID] = mapped_column(nullable=False)
+    transfer_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    action_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    lease_owner: Mapped[str | None] = mapped_column(String(200))
+    lease_token: Mapped[UUID | None] = mapped_column(nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RemoteManualSelectionAuditEventModel(Base):
+    __tablename__ = "remote_manual_selection_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(event_type)) > 0 AND length(btrim(actor)) > 0 "
+            "AND length(btrim(outcome_code)) > 0",
+            name="ck_rms_audit_values",
+        ),
+        CheckConstraint("jsonb_typeof(payload) = 'object'", name="ck_rms_audit_payload"),
+        ForeignKeyConstraint(
+            ["batch_id", "session_id"],
+            ["remote_manual_selection_batches.id", "remote_manual_selection_batches.session_id"],
+            name="fk_rms_audit_batch_scope",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_rms_audit_session_created", "session_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("remote_manual_selection_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    batch_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

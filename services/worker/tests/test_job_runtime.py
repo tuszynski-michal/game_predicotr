@@ -303,6 +303,23 @@ def test_worker_claims_oldest_checkpoints_and_completes() -> None:
     assert store.jobs[second.id].status is JobStatus.CREATED
 
 
+def test_worker_runs_bounded_auxiliary_work_before_domain_job_claim() -> None:
+    clock = MutableClock()
+    store = MemoryWorkerJobStore([])
+    calls: list[str] = []
+    worker = LocalJobWorker(
+        store,
+        {},
+        worker_id="worker-test",
+        worker_version="worker-v1",
+        clock=clock,
+        auxiliary_work=lambda: calls.append("materialize"),
+    )
+
+    assert worker.run_once() is JobExecutionResult.NO_JOB
+    assert calls == ["materialize"]
+
+
 def test_worker_keeps_lease_alive_while_handler_runs_without_checkpoints() -> None:
     created_at = datetime.now(UTC)
     source_job = create_job(

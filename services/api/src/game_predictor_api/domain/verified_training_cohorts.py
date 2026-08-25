@@ -44,6 +44,29 @@ class VerifiedTrainingCohortSource:
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedTrainingReviewState:
+    game_id: UUID
+    review_item_id: UUID
+    recognized_board_id: UUID
+    source_image_id: UUID
+    import_job_id: UUID
+    source_order_index: int
+    position_index: int
+    status: str
+    resolution_revision: int
+    geometry_revision: int
+    source_checksum_sha256: str
+    board_checksum_sha256: str
+    pipeline_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class CumulativeVerifiedTrainingSnapshot:
+    review_states: tuple[VerifiedTrainingReviewState, ...]
+    resolved_items: tuple[ImageReviewItem, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class VerifiedTrainingCohort:
     id: UUID
     game_id: UUID
@@ -105,6 +128,7 @@ def build_verified_training_cohort_source(
     *,
     game_id: UUID,
     items: Sequence[ImageReviewItem],
+    review_states: Sequence[VerifiedTrainingReviewState] | None = None,
 ) -> VerifiedTrainingCohortSource:
     """Build one deterministic snapshot of every review item belonging to a game."""
 
@@ -119,10 +143,34 @@ def build_verified_training_cohort_source(
             ),
         )
     )
-    if any(item.game_id != game_id for item in ordered_items):
+    states = (
+        tuple(_review_state_from_item(item) for item in ordered_items)
+        if review_states is None
+        else tuple(review_states)
+    )
+    ordered_states = tuple(
+        sorted(
+            states,
+            key=lambda state: (
+                str(state.import_job_id),
+                state.source_order_index,
+                state.position_index,
+                str(state.review_item_id),
+            ),
+        )
+    )
+    if any(item.game_id != game_id for item in ordered_items) or any(
+        state.game_id != game_id for state in ordered_states
+    ):
         raise ImageReviewConflictError(
             "VERIFIED_TRAINING_COHORT_GAME_MISMATCH",
             "A cumulative training cohort cannot contain review items from another game.",
+        )
+    items_by_id = {item.id: item for item in ordered_items}
+    if len(items_by_id) != len(ordered_items):
+        raise ImageReviewConflictError(
+            "VERIFIED_TRAINING_COHORT_ITEM_DUPLICATE",
+            "A cumulative training cohort cannot contain a review item more than once.",
         )
 
     boards: list[Mapping[str, object]] = []
@@ -130,18 +178,24 @@ def build_verified_training_cohort_source(
     pending_count = 0
     rejected_count = 0
     incomplete_count = 0
-    for item in ordered_items:
+    for state in ordered_states:
         exclusion_reason: str | None = None
-        if item.status == "pending":
+        if state.status == "pending":
             pending_count += 1
             exclusion_reason = "pending"
-        elif item.status == "rejected":
+        elif state.status == "rejected":
             rejected_count += 1
             exclusion_reason = "human_rejected"
-        elif item.status == "superseded":
+        elif state.status == "superseded":
             rejected_count += 1
             exclusion_reason = "superseded_by_canonical_sequence"
-        elif item.status in {"accepted", "corrected"}:
+        elif state.status in {"accepted", "corrected"}:
+            item = items_by_id.get(state.review_item_id)
+            if item is None or _review_state_from_item(item) != state:
+                raise ImageReviewConflictError(
+                    "VERIFIED_TRAINING_COHORT_RESOLVED_ITEM_MISSING",
+                    "A resolved review state is missing its complete board projection.",
+                )
             try:
                 boards.append(build_verified_board_manifest(item))
             except ImageReviewConflictError as error:
@@ -154,16 +208,16 @@ def build_verified_training_cohort_source(
             )
         review_state.append(
             {
-                "reviewItemId": str(item.id),
-                "recognizedBoardId": str(item.recognized_board_id),
-                "sourceImageId": str(item.source_image_id),
-                "importJobId": str(item.import_job_id),
-                "status": item.status,
-                "resolutionRevision": item.resolution_revision,
-                "geometryRevision": item.geometry_revision,
-                "sourceChecksumSha256": item.source_checksum_sha256,
-                "boardChecksumSha256": item.board_checksum_sha256,
-                "pipelineFingerprint": item.pipeline_fingerprint,
+                "reviewItemId": str(state.review_item_id),
+                "recognizedBoardId": str(state.recognized_board_id),
+                "sourceImageId": str(state.source_image_id),
+                "importJobId": str(state.import_job_id),
+                "status": state.status,
+                "resolutionRevision": state.resolution_revision,
+                "geometryRevision": state.geometry_revision,
+                "sourceChecksumSha256": state.source_checksum_sha256,
+                "boardChecksumSha256": state.board_checksum_sha256,
+                "pipelineFingerprint": state.pipeline_fingerprint,
                 "included": exclusion_reason is None,
                 "exclusionReason": exclusion_reason,
             }
@@ -220,6 +274,24 @@ def build_verified_training_cohort_source(
         rejected_item_count=rejected_count,
         incomplete_item_count=incomplete_count,
         warnings=tuple(warnings),
+    )
+
+
+def _review_state_from_item(item: ImageReviewItem) -> VerifiedTrainingReviewState:
+    return VerifiedTrainingReviewState(
+        game_id=item.game_id,
+        review_item_id=item.id,
+        recognized_board_id=item.recognized_board_id,
+        source_image_id=item.source_image_id,
+        import_job_id=item.import_job_id,
+        source_order_index=item.source_order_index,
+        position_index=item.position_index,
+        status=item.status,
+        resolution_revision=item.resolution_revision,
+        geometry_revision=item.geometry_revision,
+        source_checksum_sha256=item.source_checksum_sha256,
+        board_checksum_sha256=item.board_checksum_sha256,
+        pipeline_fingerprint=item.pipeline_fingerprint,
     )
 
 
@@ -322,12 +394,14 @@ def require_pending_model_prediction_target(
 __all__ = [
     "VERIFIED_TRAINING_COHORT_DATASET_KIND",
     "VERIFIED_TRAINING_COHORT_SCHEMA_VERSION",
+    "CumulativeVerifiedTrainingSnapshot",
     "ModelQualityAdvisoryThreshold",
     "ModelQualitySummary",
     "SymbolTrainingCoverage",
     "VerifiedTrainingCohort",
     "VerifiedTrainingCohortSnapshot",
     "VerifiedTrainingCohortSource",
+    "VerifiedTrainingReviewState",
     "build_model_quality_summary",
     "build_verified_training_cohort_source",
     "require_pending_model_prediction_target",

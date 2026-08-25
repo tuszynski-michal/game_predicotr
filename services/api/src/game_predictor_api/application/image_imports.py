@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -30,6 +29,7 @@ from game_predictor_worker.images.selection.sequence_bounds import (
     parse_sequence_bounds_display_name,
 )
 
+from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.image_selections import (
@@ -104,78 +104,6 @@ class BrowserReadySelection:
     upload: BrowserImageUpload
     manifest: BrowserSequenceManifest
     completed_at: datetime | None
-
-
-class WindowsFolderPicker:
-    """Invoke one fixed PowerShell helper; no caller-controlled command exists."""
-
-    def __init__(self, script_path: Path, *, timeout_seconds: int = 120) -> None:
-        self._script_path = script_path.resolve()
-        self._timeout_seconds = timeout_seconds
-
-    def choose(self) -> Path | None:
-        if os.name != "nt":
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_UNAVAILABLE",
-                "The native folder picker is available only on local Windows.",
-            )
-        if not self._script_path.is_file():
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_UNAVAILABLE",
-                "The controlled folder picker helper is missing.",
-            )
-        startup_info = subprocess.STARTUPINFO()
-        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startup_info.wShowWindow = 1  # SW_SHOWNORMAL; override a hidden API parent.
-        try:
-            result = subprocess.run(
-                [
-                    "powershell.exe",
-                    "-NoProfile",
-                    "-STA",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    str(self._script_path),
-                ],
-                check=False,
-                capture_output=True,
-                encoding="utf-8-sig",
-                errors="strict",
-                shell=False,
-                startupinfo=startup_info,
-                timeout=self._timeout_seconds,
-            )
-        except subprocess.TimeoutExpired as error:
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_TIMEOUT",
-                "Folder selection exceeded the controlled time limit.",
-            ) from error
-        except OSError as error:
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_UNAVAILABLE",
-                "The native folder picker could not be started.",
-            ) from error
-        if result.returncode != 0:
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_FAILED",
-                "The native folder picker failed.",
-            )
-        try:
-            payload = json.loads(result.stdout.strip())
-        except json.JSONDecodeError as error:
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_FAILED",
-                "The native folder picker returned an invalid result.",
-            ) from error
-        if payload == {"status": "cancelled"}:
-            return None
-        if not isinstance(payload, dict) or not isinstance(payload.get("path"), str):
-            raise JobError(
-                "IMAGE_FOLDER_PICKER_FAILED",
-                "The native folder picker returned an invalid result.",
-            )
-        return Path(payload["path"])
 
 
 class ImageFolderSelectionService:
@@ -306,6 +234,7 @@ class ImageFolderSelectionService:
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
             image_selection_run_id=selected.image_selection_run_id,
             canonical_sequence_numbers=canonical_sequence_numbers,
+            use_verified_board_cell_geometry=True,
         )
         with self._lock:
             self._selections.pop(selection_token, None)
@@ -410,7 +339,11 @@ class ImageFolderSelectionService:
         ]
         for token, selection in expired:
             self._selections.pop(token, None)
-            if selection.managed:
+            # The 15-minute token is only a legacy authorization handle.  A
+            # finalized browser staging has its own durable lifecycle and may
+            # already be pinned by a geometry preflight or import.  Expiring
+            # the token must therefore never delete a finalized staging.
+            if selection.managed and not (selection.path / UPLOAD_MANIFEST_FILE_NAME).is_file():
                 shutil.rmtree(selection.path, ignore_errors=True)
 
 

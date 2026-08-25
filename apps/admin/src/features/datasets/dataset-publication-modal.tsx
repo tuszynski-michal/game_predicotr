@@ -99,7 +99,7 @@ export function DatasetPublicationModal({
         <header className="paylineDialogHeader">
           <div>
             <p className="eyebrow">
-              Dataset v{dataset.version} · {dataset.layoutCount} layoutów
+              Dataset v{dataset.version} · {dataset.layoutCount} plansz
             </p>
             <h2 id="dataset-publication-title">Publikacja datasetu</h2>
           </div>

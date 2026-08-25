@@ -52,6 +52,23 @@ class SymbolModelJobSnapshotPayload(ApiModel):
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class BoardCellProcessingJobSnapshotPayload(ApiModel):
+    activation_version: Literal["board-cell-processing-v20-verified-v19-v1"]
+    audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cropper_version: str = Field(min_length=1, max_length=255)
+    estimator_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    estimator_version: str = Field(min_length=1, max_length=255)
+    geometry_version: str = Field(min_length=1, max_length=255)
+    homography_version: str = Field(min_length=1, max_length=255)
+    locator_version: str = Field(min_length=1, max_length=255)
+    rollout_mode: Literal["explicit_job_only", "default_v19"]
+    shadow_benchmark_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    thresholds_version: str = Field(min_length=1, max_length=255)
+
+
 class ImageImportJobPayload(ApiModel):
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -67,6 +84,7 @@ class ImageImportJobPayload(ApiModel):
         pattern=r"^[0-9a-f]{64}$",
     )
     symbol_model: SymbolModelJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class GridProfileJobSnapshotPayload(ApiModel):
@@ -101,6 +119,7 @@ class BrowserImageImportJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     page_geometry_manifest: PageGeometryManifestJobPayload | None = None
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -120,6 +139,7 @@ class CuratedImageImportJobPayload(ApiModel):
     curated_manifest_entry_count: int = Field(ge=1)
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class ManagedImageReprocessJobPayload(ApiModel):
@@ -134,6 +154,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     managed_source_job_id: UUID
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
+    board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):
@@ -168,8 +189,10 @@ class LayoutImportValidateJobPayload(ApiModel):
 class PageGeometryPreflightJobPayload(ApiModel):
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
+    preflight_policy_version: Literal["page-geometry-preflight-v2-auto-anchor"] | None = None
     source_selection_id: UUID
     source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)
@@ -326,6 +349,16 @@ class ImageSelectionJobProgressResponse(ApiModel):
     telemetry_counters: dict[str, int] | None = None
 
 
+class BoardCellGeometryJobProgressResponse(ApiModel):
+    status: Literal["processing", "waiting_for_geometry", "complete"]
+    total: int = Field(ge=0)
+    processed: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    pending: int = Field(ge=0)
+    resolved: int = Field(ge=0)
+    superseded: int = Field(ge=0)
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -338,6 +371,10 @@ class JobProgressResponse(ApiModel):
         exclude_if=lambda value: value is None,
     )
     page_geometry_preflight: PageGeometryPreflightJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    board_cell_geometry: BoardCellGeometryJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
@@ -418,6 +455,7 @@ class JobResponse(ApiModel):
                 review=job.review_count,
                 image_selection=_image_selection_progress(job),
                 page_geometry_preflight=_page_geometry_preflight_progress(job),
+                board_cell_geometry=_board_cell_geometry_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -448,6 +486,29 @@ def _page_geometry_preflight_progress(
         complete=complete,
         geometry_manifest_checksum_sha256=checksum,
     )
+
+
+def _board_cell_geometry_progress(job: Job) -> BoardCellGeometryJobProgressResponse | None:
+    if job.checkpoint_payload is None:
+        return None
+    raw = job.checkpoint_payload.get("board_cell_geometry")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        status = raw["status"]
+        if status not in {"processing", "waiting_for_geometry", "complete"}:
+            return None
+        return BoardCellGeometryJobProgressResponse(
+            status=status,
+            total=_progress_integer(raw["total"]),
+            processed=_progress_integer(raw["processed"]),
+            succeeded=_progress_integer(raw["succeeded"]),
+            pending=_progress_integer(raw["pending"]),
+            resolved=_progress_integer(raw["resolved"]),
+            superseded=_progress_integer(raw["superseded"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | None:

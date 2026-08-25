@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-15
+last_updated: 2026-08-24
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -157,7 +157,10 @@ Otwórz `http://127.0.0.1:3000/`. Dokumentacja API jest dostępna lokalnie pod
 `http://127.0.0.1:8000/docs`.
 
 Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
-general workera. `Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
+general workera. Ten sam general worker wykonuje także bounded host actions
+zdalnej ręcznej selekcji przed próbą pobrania zwykłego joba; po restarcie
+reconciliuje istniejące verified uploady i publikuje brakujące `seq_*`.
+`Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
 komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
 
 ```powershell
@@ -231,6 +234,19 @@ npm run worker:image-selection:once
 Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawny
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
+
+Domyślne limity host action materializacji to lease 60 sekund, 5 prób i 4
+akcje w jednym cyklu workera. Można je zmienić trwale w środowisku procesu:
+
+```powershell
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_LEASE_SECONDS', '60', 'User')
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ATTEMPTS', '5', 'User')
+[Environment]::SetEnvironmentVariable('GAME_PREDICTOR_REMOTE_SELECTION_MATERIALIZATION_MAX_ACTIONS_PER_CYCLE', '4', 'User')
+```
+
+Po zmianie otwórz nowy PowerShell i zrestartuj general worker. Zatrzymanie
+executora nie usuwa verified temp ani finalnych plików; kolejny start bezpiecznie
+wznawia akcje queued/retry i wygasłe processing.
 
 ### Uruchomienie dużego runu Selekcji Zdjęć na bieżącym selektorze
 
@@ -321,6 +337,38 @@ Minimalna kolejność przygotowania danych i wydania:
 Admin 0.2 nie pokazuje osobnych workspace'ów `Datasety` ani `Manual review`.
 Pozostają one wewnętrznymi encjami workflow, a decyzje użytkownika prowadzą
 przez import, reguły i osobną aplikację Reviewer.
+
+### Wybór geometrii plansz v18/v20
+
+Po przygotowaniu raportu i geometrii gotowego browser stagingu Admin pokazuje
+tryb cięcia komórek dla tego stagingu:
+
+- pozostaw `Historyczny v18`, aby utworzyć job z domyślnym
+  `historical_v18`,
+- wybierz `Zweryfikowany v19 (v20)` wyłącznie świadomie, potwierdź ostrzeżenie
+  i uruchom job z `verified_v19`.
+
+V20 nie jest obecnie trybem domyślnym. Benchmark osiągnął `93,78%` pokrycia
+przy wymaganych `98%`. Trafienia spełniają bramki jakości, ale pozostałe
+pozycje są odkładane do ręcznej korekty. V20 nigdy nie wraca po cichu do v18:
+pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
+
+Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
+`Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
+
+1. ustaw cztery narożniki zewnętrznej siatki symboli 5 × 3,
+2. wygeneruj podgląd wszystkich 15 cropów,
+3. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
+   do sąsiedniego pola,
+4. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
+
+Snapshot działającego joba jest niezmienny. Aby wycofać użycie v20, nie wznawiaj
+ani nie przełączaj istniejącego joba. Utwórz kolejny job i wybierz
+`historical_v18`. Nie usuwaj ręcznie rekordów deferred ani artefaktów v20.
+
+Kandydat modelu symboli wytrenowany na cropach v19 został odrzucony przez
+bramkę błędów wysokiej pewności. Nie wymaga ręcznego rollbacku, ponieważ nigdy
+nie został aktywowany; nowe joby nadal przypinają dotychczasowy aktywny model.
 
 Końcową techniczną bramkę 0.2 można powtórzyć bez użycia danych roboczych:
 
@@ -604,6 +652,12 @@ developerskim, zatrzymaj okno z `reviewer:dev` i kliknij ponownie. Zimny start
 ma twardy limit 60 sekund; zdrowy warm ingress jest używany ponownie bez nowego
 procesu i bez zmiany publicznego originu. Proces uruchomiony przez
 `npm run api:dev` automatycznie przeładowuje zmiany API.
+Po ręcznym `npm run reviewer:build` kontroler porównuje aktualny `.next/BUILD_ID`
+z identyfikatorem serwowanym przez proces na porcie 3001. Starszy produkcyjny
+Reviewer zostaje zastąpiony przed ponownym użyciem linku; sam Quick Tunnel może
+pozostać aktywny. Proces developerski lub listener, którego nie można bezpiecznie
+zidentyfikować jako Node Reviewera, kończy operację jawnym błędem zamiast być
+automatycznie zatrzymywany.
 Awaryjny odpowiednik CLI:
 
 ```powershell
@@ -674,3 +728,56 @@ Stały adres wymaga później named tunnel i osobnej decyzji. Pełny test odbior
 TASK-0115 wykonuje się z urządzenia poza domową siecią: unlock, odczyt tylko
 wskazanej gry/importu, jeden zapis, revoke oraz próby wejścia na zabronione
 ścieżki Admina.
+
+Lokalny endpoint wyboru bazy i purpose-scoped route sesji zdalnej ręcznej
+selekcji zdjęć są domyślnie włączone. Awaryjny rollback bez zmiany bazy,
+audytu i istniejących markerów:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED = 'false'
+npm run api:dev
+```
+
+Po restarcie API wszystkie te route znikają z OpenAPI. Ponowne ustawienie
+`true` przywraca je. Capability utworzone przed restartem procesu API są celowo
+nieważne; cookie aktywnej sesji pozostaje ważne do TTL, rotacji lub revoke,
+ponieważ binding, hash-only credentials, stan lease i audyt są trwałe w
+PostgreSQL.
+
+TASK-0282 dodaje binarny transfer wybranego JPEG-a. Domyślne, trwałe limity
+procesu API można zmienić przed jego uruchomieniem:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_FILE_BYTES = '33554432'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_SESSION_BYTES = '21474836480'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_SESSION_TRANSFERS = '4'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_MAX_ACTIVE_GLOBAL_TRANSFERS = '8'
+$env:GAME_PREDICTOR_REMOTE_SELECTION_UPLOAD_TIMEOUT_SECONDS = '120'
+npm run api:dev
+```
+
+Zmiana limitu pliku w API powyżej 32 MiB wymaga osobnej zgodnej zmiany limitu
+proxy Reviewera; obecna wersja celowo blokuje większe publiczne body wcześniej.
+Transfer kończy się na prywatnym stanie `verified`. Brak finalnego `seq_*` jest
+oczekiwany do czasu TASK 11.
+
+Od TASK-0279 utworzenie purpose-scoped sesji zdalnej selekcji automatycznie
+wykorzystuje ten sam produkcyjny Reviewer i Quick Tunnel. Publiczny link ma
+postać `/manual-selection?session=<UUID>` i nie zawiera kodu ani tokenu. Po
+restarcie tunelu odśwież detail/listę sesji w Adminie: ten sam identyfikator
+sesji otrzyma bieżący origin. Nie uruchamiaj drugiej kopii Reviewera ani tunelu.
+
+Shell TASK 7 obsługuje kod, context, heartbeat i takeover. Nie pokazuje jeszcze
+folderu ani zdjęć — workspace i synchronizacja należą do TASK 8. Revoke działa
+również wtedy, gdy kontroler tunelu jest niedostępny, i celowo nie zatrzymuje
+wspólnego ingressu. Awaryjne wyłączenie całej powierzchni:
+
+```powershell
+$env:GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED = 'false'
+npm run api:dev
+```
+
+Zatrzymaj wcześniej uruchomiony Reviewer i uruchom go ponownie z procesu API,
+który dziedziczy tę flagę. Po ponownym uruchomieniu API i Reviewera
+`/manual-selection` zwraca 404, proxy
+nie przekazuje żądań, a starsze linki zatwierdzania plansz pozostają bez zmian.

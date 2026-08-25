@@ -6,6 +6,7 @@ import {
   formatRowPath1Based,
   isPaylineComplete,
   markPaylineArchived,
+  nextPaylineDisplayOrder,
   paylineToDraft,
   selectPaylineCell,
   upsertPayline,
@@ -40,9 +41,7 @@ test('validates a complete zero-based row path and normalizes fields', () => {
     validatePaylineDraft(
       {
         code: ' line-v ',
-        displayOrder: ' 10 ',
         isActive: true,
-        name: ' V ',
         rowPath: [0, 1, 2, 1, 0],
       },
       { columns: 5, rows: 3 },
@@ -51,9 +50,7 @@ test('validates a complete zero-based row path and normalizes fields', () => {
       valid: true,
       value: {
         code: 'line-v',
-        displayOrder: 10,
         isActive: true,
-        name: 'V',
         rowPath: [0, 1, 2, 1, 0],
       },
     },
@@ -70,13 +67,26 @@ test('validates a complete zero-based row path and normalizes fields', () => {
       {
         ...emptyPaylineDraft(5),
         code: 'line',
-        name: 'Line',
         rowPath: [0, 1, 3, 1, 0],
       },
       { columns: 5, rows: 3 },
     ).valid,
     false,
   );
+});
+
+test('assigns the next display position automatically without exposing it in the draft', () => {
+  assert.equal(nextPaylineDisplayOrder([]), 0);
+  assert.equal(nextPaylineDisplayOrder([payline]), 11);
+  assert.equal(
+    nextPaylineDisplayOrder([{ ...payline, displayOrder: 2_147_483_647 }]),
+    null,
+  );
+  assert.deepEqual(Object.keys(emptyPaylineDraft(5)).sort(), [
+    'code',
+    'isActive',
+    'rowPath',
+  ]);
 });
 
 test('presents one-based rows and keeps archived records in canonical order', () => {

@@ -360,6 +360,8 @@ class ImageSourceIngestionHandler:
         self,
         context: JobExecutionContext,
         job: Job,
+        *,
+        originals: Sequence[ManagedOriginal] | None = None,
     ) -> ManagedSourceManifest:
         """Copy managed originals and return their immutable manifest to the pipeline."""
 
@@ -386,9 +388,16 @@ class ImageSourceIngestionHandler:
             job,
             source_directory=source,
         )
-        total = len(manifest.originals)
+        selected = manifest.originals if originals is None else tuple(originals)
+        known = {original.checksum_sha256 for original in manifest.originals}
+        if any(original.checksum_sha256 not in known for original in selected):
+            raise JobHandlerError(
+                "IMAGE_SOURCE_SELECTION_INVALID",
+                "The selected managed originals do not belong to this immutable manifest.",
+            )
+        total = len(selected)
         copied = 0
-        for index, original in enumerate(manifest.originals, start=1):
+        for index, original in enumerate(selected, start=1):
             self._store.ensure_original(manifest, original)
             copied = index
             if index % COPY_CHECKPOINT_BATCH_SIZE == 0 or index == total:
@@ -612,14 +621,12 @@ def _browser_manifest_bytes(job: Job, source: Path) -> bytes:
         if stat.st_size != item.size_bytes or checksum != item.checksum_sha256:
             raise JobHandlerError(
                 "IMAGE_SOURCE_CHANGED",
-                "A browser-staged image changed after upload: "
-                f"{item.stored_file_name}.",
+                f"A browser-staged image changed after upload: {item.stored_file_name}.",
             )
         if checksum in seen_checksums:
             raise JobHandlerError(
                 "IMAGE_SEQUENCE_DUPLICATE_CHECKSUM",
-                "A seq_* import contains the same JPEG more than once: "
-                f"{item.relative_path}.",
+                f"A seq_* import contains the same JPEG more than once: {item.relative_path}.",
             )
         seen_checksums.add(checksum)
         source_file = SourceFile(

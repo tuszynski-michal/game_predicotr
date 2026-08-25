@@ -13,10 +13,10 @@ from uuid import UUID
 from game_predictor_api.domain.image_review_cohorts import validate_cohort_actor
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
-    ImageReviewItem,
     canonical_image_review_bytes,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
+    CumulativeVerifiedTrainingSnapshot,
     ModelQualitySummary,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
@@ -31,11 +31,17 @@ class VerifiedTrainingCohortSourceRepository(Protocol):
 
     def has_active_heavy_job(self, *, game_id: UUID) -> bool: ...
 
+    def cumulative_verified_snapshot(
+        self,
+        *,
+        game_id: UUID,
+    ) -> CumulativeVerifiedTrainingSnapshot: ...
+
     def lock_cumulative_verified_snapshot(
         self,
         *,
         game_id: UUID,
-    ) -> Sequence[ImageReviewItem]: ...
+    ) -> CumulativeVerifiedTrainingSnapshot: ...
 
     def lock_model_prediction_target(
         self,
@@ -166,8 +172,12 @@ class VerifiedTrainingCohortService:
         self._artifact_store = artifact_store
 
     def preview(self, *, game_id: UUID) -> VerifiedTrainingCohortSource:
-        items = self._source_repository.lock_cumulative_verified_snapshot(game_id=game_id)
-        return build_verified_training_cohort_source(game_id=game_id, items=items)
+        snapshot = self._source_repository.cumulative_verified_snapshot(game_id=game_id)
+        return build_verified_training_cohort_source(
+            game_id=game_id,
+            items=snapshot.resolved_items,
+            review_states=snapshot.review_states,
+        )
 
     def model_quality(self, *, game_id: UUID) -> ModelQualitySummary:
         source = self.preview(game_id=game_id)
@@ -219,7 +229,12 @@ class VerifiedTrainingCohortService:
                 "Another heavy operation is active for this game.",
             )
 
-        source = self.preview(game_id=game_id)
+        snapshot = self._source_repository.lock_cumulative_verified_snapshot(game_id=game_id)
+        source = build_verified_training_cohort_source(
+            game_id=game_id,
+            items=snapshot.resolved_items,
+            review_states=snapshot.review_states,
+        )
         if source.manifest_checksum_sha256 != expected_manifest_checksum_sha256:
             raise ImageReviewConflictError(
                 "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",

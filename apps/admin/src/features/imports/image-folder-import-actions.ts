@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   BrowserImageImportPreflightResponse,
+  BrowserImageImportStart,
   BrowserImageImportStartResponse,
   BrowserPageGeometryPreflightResponse,
   BrowserReadySelectionResponse,
@@ -35,6 +36,10 @@ export type ImageFolderImportClient = Pick<
 >;
 
 type Failure = { readonly error: string; readonly ok: false };
+
+export type BoardCellProcessingMode = NonNullable<
+  BrowserImageImportStart['boardCellProcessingMode']
+>;
 
 export async function uploadImageFolder(
   api: ImageFolderImportClient,
@@ -141,7 +146,7 @@ export async function listReadyBrowserImageSelections(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się pobrać gotowych stagingów importu layoutów.',
+          'Nie udało się pobrać gotowych stagingów importu plansz.',
         ),
         ok: false,
       };
@@ -171,7 +176,7 @@ export async function previewReadyBrowserImageImport(
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się przygotować raportu przed importem layoutów.',
+          'Nie udało się przygotować raportu przed importem plansz.',
         ),
         ok: false,
       };
@@ -193,6 +198,7 @@ export async function startReadyBrowserImageImport(
   preflightChecksumSha256: string,
   geometryPreflightJobId: string,
   geometryManifestChecksumSha256: string,
+  boardCellProcessingMode: BoardCellProcessingMode,
   symbolModelInferenceFingerprint?: string,
   gridProfileInferenceFingerprint?: string,
 ): Promise<
@@ -212,12 +218,13 @@ export async function startReadyBrowserImageImport(
         : { gridProfileInferenceFingerprint }),
       geometryPreflightJobId,
       geometryManifestChecksumSha256,
+      boardCellProcessingMode,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
           result.error,
-          'Nie udało się utworzyć importu layoutów.',
+          'Nie udało się utworzyć importu plansz.',
         ),
         ok: false,
       };

@@ -5,6 +5,9 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from game_predictor_api.api.board_cell_geometry_pending import (
+    create_board_cell_geometry_pending_router,
+)
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
@@ -24,6 +27,10 @@ from game_predictor_api.api.layout_import_reports import (
 )
 from game_predictor_api.api.mobile_releases import (
     create_mobile_releases_router,
+)
+from game_predictor_api.api.remote_manual_selections import (
+    create_remote_manual_selections_admin_router,
+    create_remote_manual_selections_public_router,
 )
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
@@ -66,6 +73,12 @@ def create_api_router(
     symbol_model_registry_service_dependency: Callable[..., object],
     grid_calibration_service_dependency: Callable[..., object],
     page_geometry_override_service_dependency: Callable[..., object],
+    board_cell_geometry_pending_service_dependency: Callable[..., object],
+    remote_manual_selection_host_service_dependency: Callable[..., object],
+    remote_manual_selection_access_service_dependency: Callable[..., object],
+    remote_manual_selection_control_service_dependency: Callable[..., object],
+    remote_manual_selection_transfer_service_dependency: Callable[..., object],
+    remote_manual_selection_recovery_service_dependency: Callable[..., object],
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
@@ -81,6 +94,23 @@ def create_api_router(
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
     router.include_router(create_cleanup_router(cleanup_service_dependency))
+    if settings.remote_manual_selection_host_mapping_enabled:
+        router.include_router(
+            create_remote_manual_selections_admin_router(
+                remote_manual_selection_host_service_dependency,
+                remote_manual_selection_access_service_dependency,
+                remote_manual_selection_control_service_dependency,
+                remote_manual_selection_recovery_service_dependency,
+                reviewer_ingress_service_dependency,
+            )
+        )
+        router.include_router(
+            create_remote_manual_selections_public_router(
+                remote_manual_selection_access_service_dependency,
+                remote_manual_selection_control_service_dependency,
+                remote_manual_selection_transfer_service_dependency,
+            )
+        )
     router.include_router(
         create_symbol_bootstrap_router(
             symbol_bootstrap_service_dependency,
@@ -134,6 +164,13 @@ def create_api_router(
         )
     )
     router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
+    router.include_router(
+        create_board_cell_geometry_pending_router(
+            board_cell_geometry_pending_service_dependency,
+            reviewer_access_service_dependency,
+            artifact_root,
+        )
+    )
     router.include_router(
         create_layout_import_reports_router(layout_import_report_service_dependency)
     )

@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -26,6 +27,7 @@ from game_predictor_worker.images.pipeline_execution import (
     StoredImageStageResult,
     continuity_issues,
 )
+from game_predictor_worker.images.pipeline_store import SqlAlchemyImagePipelineStore
 from PIL import Image
 
 CHECKSUM = "a" * 64
@@ -39,11 +41,17 @@ class FakeAdapter:
     version: str
     payload: dict[str, object]
     call_count: int = 0
+    replay_count: int = 0
 
     def execute(self, context: ImageStageContext) -> dict[str, object]:
         self.call_count += 1
         assert context.source_checksum_sha256 == CHECKSUM
         return self.payload
+
+    def replay(self, context: ImageStageContext, payload: dict[str, object]) -> None:
+        assert context.source_checksum_sha256 == CHECKSUM
+        assert payload == self.payload
+        self.replay_count += 1
 
 
 class FakeProjectionStore:
@@ -90,7 +98,7 @@ class FakeProjectionStore:
         *,
         stage_results: dict[str, StoredImageStageResult],
     ) -> None:
-        assert set(stage_results) == set(AUTOMATED_IMAGE_STAGES)
+        assert set(AUTOMATED_IMAGE_STAGES).issubset(stage_results)
         self.recognition_projection_count += 1
 
     def pending_review_count(self, candidate: ImageBatchCandidate) -> int:
@@ -273,6 +281,28 @@ def _candidate() -> ImageBatchCandidate:
     )
 
 
+class _ScalarSequenceSession:
+    def __init__(self, values: Sequence[object]) -> None:
+        self._values = iter(values)
+
+    def __enter__(self) -> _ScalarSequenceSession:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def scalar(self, _statement: object) -> object:
+        return next(self._values)
+
+
+def test_pending_review_count_includes_deferred_board_cell_geometry() -> None:
+    source = SimpleNamespace(id=uuid4())
+    session = _ScalarSequenceSession((source, 2, 8))
+    store = SqlAlchemyImagePipelineStore(cast(object, lambda: session))
+
+    assert store.pending_review_count(_candidate()) == 10
+
+
 def test_pipeline_executes_all_adapters_then_stages_only_after_review() -> None:
     store = FakeProjectionStore()
     adapters = _adapters()
@@ -322,6 +352,65 @@ def test_replayed_immutable_stage_does_not_call_adapter_twice() -> None:
 
     assert adapters[0].call_count == 1
     assert store.source_projection_count == 2
+
+
+def test_v20_geometry_substage_is_persisted_and_replayed_before_crops() -> None:
+    store = FakeProjectionStore()
+    adapters = _adapters()
+    geometry = FakeAdapter(
+        "board_cell_geometry",
+        "board-cell-processing-v20-verified-v19-v1",
+        {
+            "boards": [
+                {
+                    "cellGeometry": {
+                        "cells": [
+                            {
+                                "columnIndex": index % 5,
+                                "quad": [
+                                    {"x": 1.0, "y": 1.0},
+                                    {"x": 2.0, "y": 1.0},
+                                    {"x": 2.0, "y": 2.0},
+                                    {"x": 1.0, "y": 2.0},
+                                ],
+                                "rowIndex": index // 5,
+                            }
+                            for index in range(15)
+                        ]
+                    },
+                    "confidence": 0.98,
+                    "geometry": {"quad": [[1, 1], [10, 1], [10, 10], [1, 10]]},
+                    "positionIndex": 0,
+                    "sequenceNumber": 1,
+                    "status": "verified",
+                }
+            ],
+            "configurationFingerprintSha256": "f" * 64,
+            "processingVersion": "board-cell-processing-v20-verified-v19-v1",
+        },
+    )
+    adapters.insert(3, geometry)
+    executor = ImagePipelineStageExecutor(store, adapters)
+    candidate = _candidate()
+
+    for stage in AUTOMATED_IMAGE_STAGES[:3]:
+        executor.execute_stage(candidate, stage)
+    executor.execute_stage(candidate, "board_crops")
+    replay_adapters = _adapters()
+    replay_geometry = FakeAdapter(
+        geometry.stage,
+        geometry.version,
+        geometry.payload,
+    )
+    replay_adapters.insert(3, replay_geometry)
+    ImagePipelineStageExecutor(store, replay_adapters).execute_stage(candidate, "board_crops")
+
+    assert geometry.call_count == 1
+    assert adapters[4].call_count == 1
+    assert replay_geometry.call_count == 0
+    assert replay_adapters[4].call_count == 0
+    assert replay_geometry.replay_count == 1
+    assert "board_cell_geometry" in store.results
 
 
 def test_incomplete_symbol_board_fails_closed_without_projection() -> None:

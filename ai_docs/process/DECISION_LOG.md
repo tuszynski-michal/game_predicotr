@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 ---
 
 # Decision Log
@@ -4977,6 +4977,622 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   pozostają jawne; nie powstaje drugi proces Reviewera ani drugi tunel per link.
 - **Supersedes:** rozszerza D-095, D-120 i D-188 oraz zastępuje w D-098 zasadę
   zatrzymywania całego tunelu przy zakończeniu pojedynczej sesji.
+
+## D-207 — Edytor payline nie eksponuje nazwy ani kolejności technicznej
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** administrator wskazuje stabilny `code`, aktywność i `row_path`.
+  Przy POST Admin zapisuje `name = code` oraz automatyczną kolejność o jeden
+  większą od najwyższej istniejącej wartości w tej wersji reguł. PATCH nie
+  zmienia ani nazwy, ani kolejności. Tabela identyfikuje wzorzec przez kod i
+  nie pokazuje pomocniczych pól.
+- **Context:** ręczne pola `name` i `displayOrder` nie przekazują semantyki
+  potrzebnej do definicji ani obliczenia payline, a zwiększają liczbę czynności
+  podczas konfiguracji reguł.
+- **Safety:** `code` pozostaje stabilny i unikalny zgodnie z D-026; `row_path`
+  zachowuje wszystkie walidacje wymiarów i unikalności. `displayOrder` nie jest
+  unikalny, lecz sort po nim, kodzie i UUID pozostaje deterministyczny. Kolejność
+  nie wpływa na wynik payoutu.
+- **Consequences:** kontrakt API i schemat bazy pozostają kompatybilne, bez
+  migracji. Historyczne wartości nazwy i kolejności są zachowane podczas edycji;
+  nowe rekordy otrzymują wartości automatyczne.
+
+## D-208 — Panel używa „planszy”, a staging nie jest jobem Reviewera
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** widoczny UI Admina i Reviewera nazywa sekwencyjny układ symboli
+  „planszą”. Wewnętrzne nazwy oraz stabilne pola API `layout` pozostają bez
+  zmiany. Finalized staging jest tylko poświadczonym źródłem JPEG-ów; nie jest
+  import jobem ani elementem dropdownu Reviewera. Dropdown może wskazać
+  wyłącznie job tej samej gry w stanie `waiting_for_review` lub `completed`,
+  dla którego istnieje kolejka plansz.
+- **Context:** gotowy staging `19810 - 45162` był widoczny w Importach, ale nie
+  w Zatwierdzaniu plansz. Brak wyjaśnienia sugerował błąd, mimo że uruchomienie
+  joba po preflightach było jeszcze świadomie pominięte.
+- **Safety:** UI pokazuje gotowy staging i prowadzi do jawnego kroku importu,
+  lecz nie uruchamia mutacji ani nie tworzy sesji Reviewera. Zakres gry,
+  istniejące uprawnienia, staging manifest i fail-closed geometria pozostają
+  niezmienione.
+- **Consequences:** brak migracji, zmian OpenAPI lub ponownego uploadu. Termin
+  `layout` nadal obowiązuje w kodzie technicznym i danych historycznych.
+
+## D-209 — Nierozpoznana geometria strony jest odroczona, a nie blokująca
+
+- **Status:** accepted
+- **Date:** 2026-08-21
+- **Decision:** preflight geometrii wykonuje najwyżej dwa automatyczne
+  ponowienia z maksymalnie 21 zaostrzonymi auto-kotwicami na przebieg. Ukończony
+  manifest może zawierać wpisy `review_required`; import przetwarza wyłącznie
+  `registered`, a ręczna korekta wyjątków jest dostępna na końcu.
+- **Context:** stagingi `19810–45162` i `70363–93861` miały odpowiednio 54 i
+  152 nierozpoznane strony, mimo kompletnej geometrii większości źródeł.
+  Wymaganie ręcznej korekty wszystkich wyjątków przed rozpoczęciem importu
+  zatrzymywało tysiące poprawnych plansz.
+- **Safety:** końcowe progi ORB/RANSAC, dowód czerwonej ramki, kompletność 3 × 3,
+  zakaz syntetycznych quadów i ochrona kanonicznych numerów pozostają bez zmian.
+  Auto-kotwice mają ostrzejsze progi niż wynik produkcyjny, limit liczby i
+  audyt w manifeście. `review_required` nie jest kopiowane, cięte ani
+  klasyfikowane.
+- **Consequences:** Admin automatycznie odzyskuje lub tworzy preflight po
+  pokazaniu raportu i pozwala uruchomić import częściowy. Staging pozostaje
+  trwały, więc odroczone strony można ponowić albo poprawić ręcznie później.
+- **Supersedes:** zmienia część D-195 wymagającą zera stron review przed startem,
+  zachowując jej fail-closed zasady geometrii.
+
+## D-210 — Lokalna ręczna selekcja nie należy do gry
+
+- **Status:** accepted
+- **Date:** 2026-08-22
+- **Decision:** zakładka `Ręczna selekcja` jest dostępna bez aktywnej gry i
+  utrzymuje jedną lokalną sesję pod stabilnym namespace'em narzędzia. Pole
+  `gameId` historycznego schematu IndexedDB i manifestu v1 pozostaje technicznie
+  obecne dla kompatybilności, ale zawiera identyfikator lokalnego workspace'u,
+  a nie UUID gry.
+- **Context:** wybór pojedynczych zdjęć oraz zapis `seq_*` korzystają wyłącznie
+  z File System Access API. Wymaganie aktywnej gry blokowało niezależny proces,
+  mimo że narzędzie nie wywołuje backendu, OCR ani workera.
+- **Safety:** przy pierwszym wejściu najnowsza historyczna sesja per gra jest
+  niedestrukcyjnie kopiowana razem z własnym trace. Jej `sessionKey`, checksumy,
+  uchwyty i własność manifestu pozostają bez zmian, a stary rekord nie jest
+  usuwany. Automatyczna selekcja i późniejszy jawny import pozostają odrębne.
+- **Consequences:** zmiana nie wymaga migracji PostgreSQL ani OpenAPI. Format
+  manifestu v1 pozostaje czytelny dla istniejącego rankera, który grupuje po
+  `sessionKey` i zakresie, a przypisanie kohorty do gry następuje osobno.
+
+## D-211 — Niewiarygodna geometria komórek ma trwały stan bez predykcji
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** brak zweryfikowanej geometrii 3 × 5 zapisuje się jako osobny
+  rekord `image_board_geometry_pending`, związany z jobem, źródłem i pozycją
+  planszy. Rekord może powstać przed `recognized_board` i nie wymaga utworzenia
+  15 cropów ani `cells_prediction`. Jego niezmienny
+  `BoardCellProcessingManifestV1` przypina poświadczoną sekwencję, rewizje oraz
+  wszystkie wersje i fingerprinty przetwarzania.
+- **Context:** bez osobnego stanu pełny pipeline musiałby albo zgubić planszę,
+  albo utworzyć pozornie kompletną planszę z niewiarygodnymi/pustymi 15
+  predykcjami. Oba zachowania łamią fail-closed i utrudniają trwałe wznowienie.
+- **Safety:** zamknięte statusy to `pending`, `resolved`, `superseded`, a powody
+  v1 to `insufficient_centers`, `incomplete_lattice`, `residual_too_high` i
+  `source_unavailable`. Exact retry jest idempotentny. Rozwiązanie ponownie
+  sprawdza planszę oraz review pod blokadą; późniejsza decyzja człowieka zawsze
+  wygrywa i kończy automat jako `superseded`.
+- **Consequences:** API TASK-0264 jest tylko do odczytu. Produkcyjne tworzenie
+  rekordów należy do osobnego adaptera, nie przełącza v19 i nie zmienia
+  historycznego v18. Tabela przechowuje ścieżki i checksumy, nigdy obrazy BLOB.
+- **Supersedes:** rozszerza D-204 i D-209 o trwały fallback na poziomie
+  pojedynczej planszy; nie osłabia ich bramek geometrii.
+
+## D-212 — Pełny adapter v20 jest jawny i nie zmienia domyślnego v18
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** `board-cell-processing-v20-verified-v19-v1` może działać w
+  pełnym imporcie wyłącznie po jawnym przypięciu
+  `boardCellProcessingMode=verified_v19`. Brak pola oznacza historyczny v18.
+  W obrębie v20 plansza daje dokładnie 15 zweryfikowanych cropów v19 albo
+  trwały deferred bez cropów i inferencji; fallback do v18 jest zabroniony.
+- **Context:** cross-staging benchmark potwierdził jakość trafień, lecz osiągnął
+  `93,78%` pokrycia przy bramce `98%`. Właściciel jawnie zlecił TASK 4 mimo tej
+  bramki, aby zintegrować bezpieczny opt-in bez aktywacji domyślnej.
+- **Safety:** snapshot i fingerprint rozdzielają execution v18/v20. Trwały
+  pre-crop stage oraz replay po restarcie zapisują job-local deferrals
+  idempotentnie. Równoległa decyzja człowieka nadal wygrywa. Historyczne
+  checkpointy i manifest v18 nie są modyfikowane.
+- **Consequences:** API pozwala jawnie uruchomić v20 i jawnie wrócić do v18.
+  Zmiana domyślnego trybu pozostaje zablokowana do osobnego checkpointu z
+  pokryciem co najmniej `98%`. TASK 5 dostarczył później wyłącznie ręczne
+  rozwiązanie trwałych wyjątków.
+
+## D-213 — Ręczny deferred materializuje istniejącą kolejkę review
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** ręczna korekta jednego `image_board_geometry_pending` nie
+  tworzy osobnej domeny review. Po uzyskaniu dokładnie 15 source-direct cropów
+  v19 i predykcji modelu przypiętego do importu atomowo materializuje zwykły
+  `recognized_board`, obserwacje, rewizję geometrii i `image_review_item`.
+- **Context:** deferred powstaje przed planszą, więc istniejący edytor rewizji
+  nie miał obiektu docelowego. Kopiowanie logiki kolejki albo inferencja przez
+  bieżący model gry naruszałyby kolejność sekwencji i odtwarzalność importu.
+- **Safety:** komenda jest związana z manifestem, źródłem, modelem i obiema
+  rewizjami. Exact retry jest sprawdzany przed kosztowną pracą i pod blokadą;
+  istniejąca plansza zawsze wygrywa jako `superseded`. Preview niczego nie
+  zapisuje, a błędna geometria/model nie tworzą częściowej projekcji w bazie.
+- **Consequences:** nowy item trafia przez istniejący trigger do tej samej
+  uporządkowanej kolejki. API jest scope-bound dla Reviewera i lokalnego
+  administratora. UI fallbacku, rollout v20, trening i backfill pozostają
+  osobnymi zadaniami.
+
+## D-214 — Rollout geometrii v19 kończy się kontrolowanym opt-in v20
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** `historical_v18` pozostaje domyślnym trybem importu.
+  `board-cell-processing-v20-verified-v19-v1` może zostać wybrany wyłącznie
+  jawnie dla konkretnego stagingu i każdą pozycję kończy dokładnie 15 cropami
+  v19 albo trwałym deferred bez inferencji. Nie ma fallbacku v19 → v18.
+- **Context:** benchmark 300 stron i 2700 plansz potwierdził jakość trafień, ale
+  osiągnął `93,78%` pokrycia przy wymaganym minimum `98%`. Właściciel jawnie
+  dopuścił integrację i użycie bezpiecznego opt-in mimo odrzuconej aktywacji
+  domyślnej.
+- **Safety:** bramka `98%` nie zostaje obniżona. Snapshoty i fingerprinty
+  rozdzielają v18/v20; istniejącego joba nie wolno przełączać w locie. Deferred
+  jest rozwiązywany przez ten sam source-direct cropper v19 i model przypięty
+  do źródłowego joba, a decyzja człowieka zawsze wygrywa.
+- **Consequences:** rollback polega na utworzeniu kolejnego joba z
+  `historical_v18`, bez mutowania historycznych wyników. Domyślny rollout v20
+  wymaga nowego benchmarku osiągającego co najmniej `98%` i osobnej decyzji.
+- **Supersedes:** domyka D-211–D-213; nie zmienia ich invariantów ani
+  historycznego v18.
+
+## D-215 — Kandydat modelu symboli v19 pozostaje odrzucony
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** kandydat `spatial-symbol-cnn-v1` wytrenowany na zamrożonej
+  kohorcie v19 otrzymuje końcowy status `rejected` i nie może zostać aktywowany.
+  Aktywny fingerprint pozostaje równy
+  `19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64`.
+- **Context:** kandydat poprawił whole-board accuracy o `5,8824 pp`, przeszedł
+  ONNX parity i nie miał regresji recall powyżej `1 pp`, ale audyt 100 plansz
+  wykrył jeden błąd `lemon → orange` z confidence `0,99999698`. Bramka wymaga
+  zera błędów o confidence co najmniej `0,99`.
+- **Safety:** próg nie jest osłabiany po zobaczeniu wyniku. Odrzucone artefakty
+  i raport pozostają content-addressed oraz audytowalne; nie powstaje zdarzenie
+  aktywacji i żaden trwający ani nowy import nie użyje kandydata.
+- **Consequences:** kolejna iteracja wymaga osobnego jawnego zadania, nowej
+  niezmiennej kohorty i ponownego przejścia pełnej bramki. Odrzucenie jakościowe
+  nie jest klasyfikowane jako techniczny `failed`.
+- **Supersedes:** domyka wynik D-159 bez zmiany D-160 i monotonicznego rejestru
+  aktywacji.
+
+## D-216 — Zdalna selekcja rozdziela rewizję partii od generacji pliku
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** zdalna ręczna selekcja używa monotonicznego `serverRevision`
+  dla kolejności operacji partii oraz niezależnego `selectionGeneration` dla
+  żądanego stanu konkretnego pliku. Exact retry identyfikuje niezmienną
+  operację przez `operationId + canonical command checksum`; starsza generacja
+  kończy się `superseded` bez zmiany desired state ani rewizji.
+- **Context:** zdalny klient może ponawiać, buforować i wysyłać operacje po
+  zmianie połączenia. Jedna rewizja nie rozstrzyga jednocześnie kolejności
+  dziennika i aktualności transferu lub usunięcia konkretnego pliku.
+- **Safety:** obcy scope, luka/regresja `clientSequence`, konflikt rewizji,
+  nieznany typ operacji i ponowne użycie `operationId` z inną treścią są
+  odrzucane fail-closed. Każda maszyna stanów ma zamkniętą macierz przejść.
+- **Consequences:** ORM i endpointy w kolejnych zadaniach muszą zachować te
+  kontrakty. Istniejące output/trace v1 pozostają bez zmian; nie dodano jeszcze
+  tabel, route, filesystemu ani transportu.
+- **Alternatives:** jeden wspólny licznik dla partii i plików odrzucono, bo
+  powodowałby fałszywe konflikty przy równoległym uploadzie i deselect.
+
+## D-217 — Trwałość zdalnej selekcji jest scope-bound i append-only
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** stan zdalnej ręcznej selekcji jest utrwalany w ośmiu
+  addytywnych tabelach. Composite FK wiążą rekordy z jednym
+  `session + batch + file` scope, globalne mapowanie
+  `base binding + collection + batch` jest unikalne, a operacje i audyt są
+  append-only także dla bezpośrednich poleceń SQL.
+- **Context:** retry, dwóch klientów i dwie sesje mogą równolegle dotknąć tej
+  samej logicznej partii. Spójność nie może zależeć wyłącznie od późniejszej
+  warstwy HTTP ani od pojedynczego procesu API.
+- **Safety:** aplikacja blokuje wiersz partii i pliku przed zastosowaniem
+  operacji, tworzenie mapowania serializuje advisory lockiem, a constrainty
+  pozostają ostateczną ochroną. Publiczne mappery nie zwracają ścieżek hosta,
+  ścieżek tymczasowych, salt/hash ani lease tokenów. Obrazy pozostają poza
+  bazą.
+- **Consequences:** filesystem picker i path containment powstaną dopiero w
+  TASK 5, a auth/writer lease service w TASK 6. Migracji nie należy cofać na
+  produkcyjnych danych bez eksportu, audytu i jawnej decyzji.
+- **Alternatives:** walidację tylko w repozytorium odrzucono, ponieważ nie
+  zabezpiecza innych procesów ani bezpośrednich zapisów do bazy.
+
+## D-218 — Host filesystem wymaga final-handle containment i własności
+
+- **Status:** accepted
+- **Date:** 2026-08-23
+- **Decision:** zdalnie inicjowane mapowanie katalogu nie przyjmuje ścieżki.
+  Host wybiera bazę stałym pickerem i przekazuje tylko jednorazową opaque
+  capability. Collection i batch są dwoma walidowanymi komponentami, a zapis
+  wymaga final-handle containment, braku reparse w łańcuchu oraz zgodnego,
+  checksumowanego ownership markera.
+- **Context:** tekstowe `resolve()` nie chroni przed junctionem podstawionym po
+  walidacji, case/Unicode collision ani wznowieniem w obcym folderze.
+- **Safety:** adapter trzyma uchwyty bazy, collection i batch bez
+  `FILE_SHARE_DELETE`, ponownie sprawdza final path, nie wykonuje suffix ani
+  overwrite i tworzy marker atomowym rename bez zastępowania celu. Marker bez
+  zgodnego scope/DB blokuje operację; crash po markerze, ale przed commitem DB,
+  można odzyskać tylko z tymi samymi identyfikatorami.
+- **Consequences:** TASK 6 może zużyć capability przy lokalnym tworzeniu sesji,
+  ale publiczny klient nigdy nie otrzyma ścieżki. Materializacja i usuwanie w
+  późniejszych zadaniach muszą zachować ten sam guard oraz własność plików.
+- **Rollback:** ustawienie
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` usuwa lokalny
+  endpoint z runtime OpenAPI bez mutowania istniejących danych.
+- **Alternatives:** `Path.resolve()` i walidację samych stringów odrzucono jako
+  podatne na TOCTOU; automatyczny suffix i nadpisywanie odrzucono jako
+  nieaudytowalne.
+
+## D-219 — Zdalna selekcja ma osobne credentials i host-only writer fencing
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** sesja zdalnej ręcznej selekcji nie korzysta z
+  `reviewer_access_sessions` ani scope `game/import`. Używa wspólnych primitives
+  PBKDF2/token hash, ale własnej tabeli, kodu, rotowanego tokenu i
+  45-sekundowego writer lease. Bearer trafia wyłącznie do ciasteczka
+  `HttpOnly/Secure/SameSite=Strict` o ścieżce `/selection-api`, a fencing token
+  lease pozostaje host-only.
+- **Context:** reuse istniejącej sesji Reviewera rozszerzyłby dostęp do danych
+  gry/importu. Przekazywanie bearer lub fencing tokenu w JSON/URL zwiększałoby
+  ryzyko wycieku i pozwalało klientowi fałszować własność lease.
+- **Safety:** kod jest ujawniany tylko przy create, pięć błędnych prób trwale
+  blokuje sesję, unlock rotuje token, revoke usuwa token i lease. Aktywny lease
+  innego `clientInstanceId` pozostaje read-only; takeover jest dozwolony dopiero
+  po expiry i dostaje nowy host-only fencing token. Audyt nie zawiera sekretów
+  ani ścieżki.
+- **Consequences:** TASK 7 może wystawić cookie wyłącznie przez osobną
+  allowlistę `/selection-api`. Operacje TASK 9 muszą sprawdzać zarówno session
+  token, jak i aktualne writer ownership bez przyjmowania fencing tokenu od
+  przeglądarki.
+- **Rollback:** wyłączyć
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED`; route znikają, a
+  hash-only dane i audyt pozostają do kontrolowanego revoke/retencji.
+- **Alternatives:** reuse bearer Reviewera, token w JSON/localStorage oraz
+  client-provided lease token odrzucono jako rozszerzające lub osłabiające
+  granicę bezpieczeństwa.
+
+## D-220 — Zdalna selekcja współdzieli ingress, ale nie powierzchnię uprawnień
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** jeden produkcyjny Reviewer i jeden Quick Tunnel obsługują legacy
+  review oraz zdalną ręczną selekcję. Selekcja ma osobny shell
+  `/manual-selection`, proxy `/selection-api`, cookie i zamkniętą allowlistę.
+  Publiczny URL sesji jest dynamiczną projekcją bieżącego originu tunelu.
+- **Context:** drugi proces lub tunel zwiększałby ryzyko konfliktów portu, plików
+  runtime i lifecycle. Reuse legacy cookie/allowlisty rozszerzyłby z kolei scope
+  na grę, import i operacje zatwierdzania plansz.
+- **Safety:** proxy tłumaczy purpose-scoped HttpOnly cookie, wymaga stałej
+  intencji backendu i same-origin mutacji, filtruje nagłówki, ogranicza request
+  i response do 128 KiB oraz łączy się tylko z loopback API. Revoke nie zależy
+  od dostępności ani zatrzymania wspólnego ingressu.
+- **Consequences:** restart Quick Tunnel zmienia URL, ale nie session ID. TASK 8
+  rozszerzy tylko allowlistę nowego scope o read-only źródło i workspace;
+  nie może użyć `/review-api` ani publicznego CORS FastAPI.
+- **Rollback:** flaga
+  `GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED=false` usuwa shell,
+  proxy i backend route po restarcie, bez kasowania sesji i audytu. Legacy
+  Reviewer pozostaje aktywny.
+- **Alternatives:** drugi Reviewer/tunnel oraz wspólne credentials lub route
+  proxy odrzucono jako bardziej awaryjne albo zbyt szerokie.
+
+## D-221 — Zdalna mutacja wymaga trwałego lokalnego outboxu
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** każda zdalna operacja wpływająca na finalny JPEG musi zostać
+  zapisana w osobnym, wersjonowanym IndexedDB outboxie przed próbą wysłania.
+  Lokalna operacja jest `pending`, dopóki host jawnie nie potwierdzi jej
+  dokładnego `operationId`; `beforeunload` nie jest mechanizmem poprawności.
+- **Context:** refresh, crash, utrata sieci lub permission mogą nastąpić między
+  decyzją operatora a odpowiedzią hosta. Stan wyłącznie w React albo pamięci
+  procesu zgubiłby pracę lub zacierał różnicę między intencją i skutkiem.
+- **Safety:** exact retry wymaga tego samego `operationId + checksum`,
+  `clientSequence` jest monotoniczny, ack usuwa wyłącznie jawnie wymienione ID,
+  a utrata uchwytu nie usuwa kursora ani outboxu. IndexedDB nie przechowuje
+  Blobów JPEG ani ścieżek absolutnych.
+- **Consequences:** TASK 9 może wysyłać i uzgadniać wyłącznie operacje wcześniej
+  zapisane w outboxie. TASK 8 nie implementuje jeszcze transportu ani nie
+  deklaruje synchronizacji bez host ack.
+- **Alternatives:** request przed zapisem, pamięć React, localStorage i
+  `beforeunload` odrzucono jako nietrwałe lub niewystarczające dla crash replay.
+
+## D-222 — Idempotencja control plane jest związana z encją i trwałym outcome
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** UUID kolekcji, partii, pliku i operacji są kluczami
+  idempotencji odpowiednich mutacji. Dokładny retry `operationId + checksum`
+  zwraca wcześniej zapisany outcome bez zwiększenia rewizji, również po utracie
+  writer lease. Każda nowa mutacja nadal wymaga aktywnego lease sprawdzonego w
+  tej samej transakcji co zapis domenowy.
+- **Context:** odpowiedź hosta może zginąć po trwałym commicie. Wymaganie nowego
+  lease do samego odczytu outcome zablokowałoby bezpieczny replay, natomiast
+  ponowne zastosowanie komendy mogłoby zdublować decyzję albo cofnąć generację.
+- **Safety:** zgodność pełnego checksumy komendy, session/batch/client scope,
+  `clientSequence`, `expectedServerRevision` i `selectionGeneration` jest
+  egzekwowana fail-closed. Konflikt nie jest automatycznie rebase'owany ani
+  rozstrzygany last-write-wins; pozostaje w outboxie do jawnego uzgodnienia.
+- **Consequences:** source manifest aktywuje się dopiero po kompletnej walidacji
+  i staje się immutable. State delta jest stronicowane i monotoniczne. TASK 10
+  musi użyć tej samej tożsamości/generacji, ale nie może rozszerzyć control route
+  o binarny body.
+- **Alternatives:** losowy `Idempotency-Key` niezwiązany z encją, retry jako nowa
+  operacja i automatyczne last-write-wins odrzucono jako tworzące drugi porządek
+  lub ryzyko utraty decyzji.
+
+## D-223 — Transfer i materializacja mają osobne kolejki oraz fault-injection gate
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** browser control outbox, kolejka transferów i host action queue są
+  odrębnymi mechanizmami ze wspólną tożsamością pliku i generacji. Każdy workflow
+  łączący bazę z filesystemem musi przejść fault injection wszystkich trwałych
+  granic oraz idempotentne reconciliation przed uznaniem go za ukończony.
+- **Context:** jedna kolejka blokowałaby nawigację transferem i mieszała intencję,
+  przesłanie bajtów oraz lokalny skutek. PostgreSQL i NTFS nie tworzą jednej
+  transakcji ACID, więc happy path nie dowodzi braku false success, overwrite ani
+  podwójnej materializacji po crashu.
+- **Safety:** host action używa lease i fencing tokenu, `SKIP LOCKED`, bounded
+  retry/backoff, generation recheck, own marker, same-volume temp, fsync,
+  checksumowany journal i wyłączną publikację finalnej nazwy. Reconciliation
+  może adoptować wyłącznie zgodny własny półstan; obcy lub zmieniony target jest
+  konfliktem.
+- **Retry clarification (v0.7.43):** nowa próba ma osobny transfer ID i nie
+  zmienia historii poprzedniej próby. Dopiero gdy nowa próba tego samego pliku i
+  generacji osiągnie `verified`, starsze próby `failed` przechodzą do
+  `cancelled`. Nieodzyskany bieżący `failed` nadal blokuje finalizację.
+- **Consequences:** zasady R-003 i R-005 z planu zdalnej selekcji są przyjęte.
+  TASK 12 i TASK 15 muszą używać tej samej kolejki/fault gate dla usuwania oraz
+  finalizacji. Mały synchroniczny zapis lokalnego narzędzia może pozostać, jeśli
+  nie przekracza tej granicy browser-to-host.
+- **Rollback:** zatrzymać general executor; verified temp, akcje DB, journal i
+  opublikowane own pliki pozostają do bezpiecznego wznowienia. Rollback nie
+  usuwa ani nie nadpisuje finalnych plików.
+- **Alternatives:** wspólna kolejka, bezpośredni zapis w requestcie oraz uznanie
+  DB za synced przed weryfikacją finalnego pliku odrzucono jako blokujące lub
+  podatne na crash windows.
+
+## D-224 — Zdalne odznaczenie używa generacyjnego tombstone'u i odwracalnej kwarantanny
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** `deselect` i `undo` wskazują wcześniejszy zastosowany `select` i
+  tworzą nową generację desired state. W tej samej transakcji starsze transfery
+  są anulowane, akcje materializacji supersedowane, a dla istniejącego własnego
+  wyniku powstaje priorytetowa akcja `remove`. Plik nie jest kasowany: po
+  zgodności materialization journalu i checksummy zostaje przeniesiony
+  przypiętym uchwytem do host-internal, checksumowanej kwarantanny.
+- **Context:** upload, control outbox i host action są asynchroniczne. Bez
+  generacyjnego fence spóźniona materializacja mogłaby wskrzesić odznaczony plik,
+  a bez journalu crash między NTFS i PostgreSQL mógłby dać false success lub
+  próbę usunięcia obcego celu.
+- **Safety:** akcja `remove` ma pierwszeństwo przed nową materializacją, używa
+  lease/fencing, bounded retry oraz ponownego sprawdzenia generacji. Rename jest
+  dozwolony wyłącznie dla własnego, regularnego i nadal checksumowo zgodnego
+  pliku. Foreign/changed/reparse target pozostaje nietknięty. Exact retry nie
+  zwiększa rewizji ani generacji.
+- **Consequences:** kwarantanna pozostaje odwracalna i nie ma finalnego GC do
+  czasu rozstrzygnięcia `OPEN-5`. Osobna flaga rollbacku może zablokować nowe
+  `deselect`/`undo`, zachowując trwałe operacje, journale i artefakty do
+  bezpiecznego wznowienia. TASK 13 może budować UI na tym stanie, ale nie zmienia
+  protokołu usuwania.
+- **Alternatives:** bezpośrednie `unlink`, usuwanie po samej nazwie, traktowanie
+  cancel uploadu jako wystarczające oraz last-write-wins bez generacji odrzucono
+  jako nieodwracalne albo podatne na TOCTOU i stale resurrection.
+
+## D-225 — Zdalny workspace zapisuje decyzję i outbox atomowo, a podgląd pozostaje lokalny
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** stan zakresu, decyzja operatora i odpowiadająca jej operacja
+  outboxu są jednym zapisem IndexedDB przed zmianą widoku. Podgląd ma ograniczone
+  okno lokalnych Object URL-i; sync control plane i transfer JPEG-a są osobnymi
+  procesami w tle. UI rozróżnia local, pending, confirmed, synced i error.
+- **Context:** zapis decyzji i outboxu w dwóch transakcjach tworzyłby crash window,
+  w którym widok przeszedł dalej bez operacji możliwej do odtworzenia. Trzymanie
+  JPEG-ów albo wszystkich podglądów w React/IndexedDB łamałoby local-first i
+  bounded-memory przy 8–15 tysiącach zdjęć.
+- **Safety:** Blob i absolutna ścieżka są zakazane w stanie trwałym i kontrakcie.
+  Operacja nie czeka na sieć lub upload; potwierdzenie control plane nie jest
+  nazywane synchronizacją pliku. Konflikt blokuje kolejne mutacje zamiast
+  automatycznego rebase, a relink wymaga identycznego manifestu.
+- **Consequences:** lokalny i zdalny ekran współdzielą semantykę skrótów, ale
+  zachowują osobne adaptery trwałości. Refresh może wznowić kursor, outbox i
+  transfer checkpoint bez przechowywania bajtów obrazu. TASK 14 może budować
+  monitor hosta na tych stanach, lecz nie może scalać ich w jeden status.
+- **Alternatives:** optymistyczna zmiana widoku przed zapisem, Blob cache w IDB,
+  blokowanie interakcji do końca uploadu i etykieta „zapisano” po samym SELECT
+  zostały odrzucone jako podatne na utratę, nieograniczoną pamięć lub false
+  success.
+
+## D-226 — Finalizacja zdalnej partii jest rewizyjną barierą hosta
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** zdalna partia przechodzi do `completed` dopiero po
+  serwerowym preview i transakcyjnym potwierdzeniu braku aktywnych operacji,
+  transferów i host actions oraz zgodności wszystkich wybranych plików.
+  Manifesty output/trace zachowują lokalny schemat v1; stan operacyjny jest
+  osobnym host-internal manifestem. Reopen jest wyłącznie lokalną operacją
+  właściciela z exact targetem, rewizją i checksumą.
+- **Context:** sam pusty outbox przeglądarki nie dowodzi, że JPEG został
+  materializowany, a crash między zapisem JSON i commitem bazy mógłby stworzyć
+  fałszywy sukces albo drugi wynik przy retry.
+- **Safety:** rewizyjny journal i ownership pointer pozwalają adoptować tylko
+  identyczny półstan. Obcy lub zmieniony manifest nigdy nie jest nadpisywany.
+  Publiczna allowlista nie zawiera reopen ani endpointu zapisu manifestu.
+- **Consequences:** zakończony Reviewer jest tylko do odczytu; import lokalny
+  konsumuje wynik bez nowej gałęzi kontraktu. Ponowne otwarcie zwiększa rewizję
+  i wymaga kolejnej jawnej finalizacji po zmianach.
+- **Alternatives:** finalizacja na podstawie stanu React/IndexedDB, bezpośredni
+  upload manifestów przez operatora i automatyczny reopen odrzucono jako
+  podatne na rozjazd DB–filesystem, podmianę artefaktu lub stale mutation.
+
+## D-227 — Wynik zdalnej ręcznej selekcji pozostaje na urządzeniu operatora
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** link, kod, cookie i writer lease służą wyłącznie do odblokowania
+  strony Reviewera. Operator wybiera lokalne źródło i katalog nadrzędny, a
+  Reviewer tworzy `<źródło> wybrane` i zapisuje w nim oryginalne JPEG-i `seq_*`
+  oraz manifest. Decyzje, kursor i uchwyty pozostają w IndexedDB operatora;
+  zoom i obie osie scrolla w jego localStorage. Nowy workspace nie rejestruje
+  partii na hoście, nie wysyła operacji i nie uruchamia transferu ani host
+  finalization.
+- **Context:** rzeczywiste próby v0.7.47–v0.7.50 wielokrotnie wykazały rozjazd
+  szybkich decyzji, zegara klienta i transferu. Właściciel jawnie wybrał zapis u
+  użytkownika końcowego jako prostszy i bezpośrednio weryfikowalny model.
+  Osobno wykryto, że Reviewer używał klas lokalnego selektora bez odpowiadających
+  im bazowych stylów, więc zoom zmieniał etykietę bez prawidłowego viewportu.
+- **Safety:** plik powstaje przed lokalnym commitem decyzji i jest weryfikowany
+  SHA-256. Idempotentny zapis przyjmuje identyczną zawartość, a konflikt nie
+  nadpisuje ani nie usuwa obcego pliku. Cofnięcie usuwa wyłącznie plik o zgodnej
+  nazwie i checksumie. Interakcje są szeregowane, a brak trwałego File System
+  Access API blokuje zapis jawnie.
+- **Consequences:** host zachowuje tylko access session i audyt; techniczny
+  binding pod artifact root nie jest wynikiem operatora. Operator musi wskazać
+  katalog nadrzędny osobnym pickerem, ponieważ przeglądarka nie ujawnia rodzica
+  źródłowego uchwytu. Historyczne tabele, endpointy, outbox, transfer i
+  materializacja pozostają odtwarzalne, ale nie są wywoływane przez nowy ekran.
+- **Supersedes:** D-221 i D-225 dla obowiązującego workspace'u; D-223, D-224 i
+  D-226 pozostają historycznymi zasadami nieaktywnego wariantu host-transfer.
+- **Alternatives:** dalsze naprawianie synchronizacji do hosta, upload całego
+  stagingu i zapis Blobów w IndexedDB odrzucono jako bardziej złożone, wolniejsze
+  albo niebezpieczne dla pamięci i trwałości.
+
+## D-228 — Manifest operatora jest źródłem wznowienia folderu wynikowego
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** folder `<źródło> wybrane` może rozpocząć pracę tylko jako pusty
+  albo jako kompletny wynik operator-local. W drugim przypadku
+  `manual-image-selection-output-v1.json` przechowuje tożsamość źródła, liczbę
+  zdjęć, kierunek, kursor, następny zakres i decyzje. Czasowa access session nie
+  jest właścicielem wyniku; po nowym linku decyzje są wiązane ze świeżymi
+  identyfikatorami IndexedDB według ordinalu i względnej ścieżki.
+- **Context:** wcześniejszy Reviewer bezwarunkowo otwierał lub tworzył folder
+  wynikowy. Nie potrafił odróżnić pustego katalogu od obcych danych ani użyć
+  manifestu do wznowienia po utracie originu poprzedniego Quick Tunnel.
+- **Safety:** niepusty folder bez poprawnego manifestu, dodatkowy plik,
+  brakujący `seq_*`, niezgodna nazwa, liczba zdjęć lub checksum źródła blokują
+  start. Zapis i cofnięcie nadal weryfikują checksumę konkretnego JPEG-a.
+- **Consequences:** ponowne wskazanie zgodnego źródła i katalogu nadrzędnego
+  wystarcza do odtworzenia zdjęcia oraz następnego zakresu, także pod nowym
+  linkiem. Rozszerzenie manifestu v1 jest kompatybilne z istniejącą nazwą pliku.
+- **Alternatives:** wyłączne poleganie na IndexedDB originu, bezwarunkowe
+  czyszczenie folderu i zezwolenie na mieszanie obcych plików odrzucono jako
+  podatne na utratę postępu albo nadpisanie danych.
+
+## D-229 — Niedostępny katalog wymaga ponownego podpięcia obu stron workspace'u
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** brak źródłowego JPEG-a albo usunięty folder wynikowy zeruje
+  lokalne decyzje, kursor i następny zakres, odłącza wszystkie uchwyty katalogów
+  oraz wymaga ponownego wskazania źródła i katalogu nadrzędnego wyniku. Indeks i
+  checksum manifestu źródła pozostają wyłącznie do fail-closed walidacji
+  ponownie wybranego folderu. Nowy pusty manifest jest zapisywany dopiero przy
+  jawnym rozpoczęciu selekcji.
+- **Context:** starsze sesje nie zawsze miały utrwalony uchwyt katalogu
+  nadrzędnego. Po zewnętrznym usunięciu folderu wynikowego przeglądarka zwracała
+  `NotFoundError`, a aplikacja pozostawała przy martwym uchwycie i nie mogła
+  wykonać restartu.
+- **Safety:** recovery reaguje wyłącznie na niedostępny uchwyt albo stabilny
+  błąd brakującego pliku źródłowego. Konflikt checksumy, obcy plik i niezgodny
+  manifest nadal blokują operację bez resetowania dowodów.
+- **Consequences:** operator rozpoczyna od pierwszego zdjęcia i ponownie nadaje
+  oba uprawnienia; aplikacja nie próbuje niejawnie odtworzyć usuniętego folderu
+  na podstawie nieaktualnego uchwytu.
+- **Supersedes:** automatyczne odtwarzanie brakującego potomnego folderu opisane
+  pierwotnie przy D-228; pozostałe invarianty D-227 i D-228 obowiązują.
+- **Alternatives:** automatyczna rekonstrukcja wyłącznie z opcjonalnego uchwytu
+  rodzica została odrzucona, ponieważ nie działa dla starszych sesji i nie
+  naprawia równoczesnej utraty dostępu do źródła.
+
+## D-230 — Aktywna iteracja symboli pozostaje najnowszym kandydatem gotowym do użycia
+
+- **Status:** accepted
+- **Date:** 2026-08-24
+- **Decision:** aktywna dla gry `777` pozostaje iteracja symboli `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`, aktywowana 2026-08-19 po statusie
+  `candidate_ready`. Nowe importy i przeliczenia przypinają jej snapshot; nie
+  tworzymy ponownego zdarzenia aktywacji dla identycznego modelu.
+- **Context:** opis historycznego kandydata v19 odrzuconego po błędzie
+  `lemon → orange` był mylony z późniejszą iteracją #3. Odczyt rejestru modelu
+  potwierdził, że #3 jest już aktywna, a API zwraca
+  `SYMBOL_MODEL_ALREADY_ACTIVE` dla drugiej próby.
+- **Safety:** odrzucony kandydat pozostaje audytowalny i nie może wrócić do
+  produkcji. Aktywacja kolejnej iteracji nadal wymaga `candidate_ready`,
+  aktualnego manifestu, oczekiwanego aktywnego modelu i jawnej komendy
+  idempotentnej.
+- **Consequences:** nie uruchamiamy treningu ani migracji tylko po to, aby
+  ponownie aktywować model już aktywny. Dokumentacja rozróżnia historyczny
+  wynik od bieżącego snapshotu.
+- **Supersedes:** doprecyzowuje zakres historycznej D-215; nie zmienia jej
+  decyzji o odrzuceniu konkretnego wcześniejszego kandydata.
+- **Alternatives:** wymuszenie nowej aktywacji lub ręczna zmiana wskaźnika w
+  bazie zostały odrzucone jako zbędne i mniej audytowalne.
+
+## D-231 — v20 z geometrią i cropami v19 jest domyślnym silnikiem nowych importów
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** do czasu jawnego odwołania właściciela każdy nowy staging oraz
+  ponowne przetworzenie importu przypina
+  `board-cell-processing-v20-verified-v19-v1`. API przy braku
+  `boardCellProcessingMode` także wybiera `verified_v19`; Admin nie pokazuje
+  wyboru ani potwierdzenia v18.
+- **Context:** właściciel potwierdził, że kolejne runy mają zawsze używać v19,
+  a aktywny v18 ma być anulowany i odtworzony jako nowy job. Poprzednia polityka
+  opt-in pozostawiała v18 jako niezamierzoną wartość domyślną.
+- **Safety:** istniejącego joba nie przełączamy w locie. Snapshot i fingerprint
+  nadal rozdzielają v18 oraz v20/v19; brak kompletnej geometrii pozostaje
+  `deferred`, bez fallbacku v19 → v18 i bez inferencji symboli. Decyzja
+  człowieka nadal wygrywa.
+- **Consequences:** v18 pozostaje czytelny i odtwarzalny wyłącznie dla historii;
+  rollback wymaga świadomego utworzenia historycznego joba poza codziennym
+  workflow. Nowe i odtworzone joby pokazują `rolloutMode=default_v19`.
+- **Supersedes:** zastępuje w D-212 i D-214 wyłącznie zasadę opt-in oraz
+  domyślny v18; pozostałe invarianty bezpieczeństwa pozostają bez zmian.
+
+## D-232 — Kod zdalnej ręcznej selekcji jest trwały tylko lokalnie u właściciela
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** panel `Zdalna ręczna selekcja` utrzymuje surowy kod zwrócony
+  przez create wyłącznie w `localStorage` profilu lokalnego Admina. Wyświetla
+  go przy wybranej aktywnej sesji wraz z linkiem i przyciskami kopiowania do
+  `expiresAt` albo revoke.
+- **Context:** jednorazowa karta kodu znikała po odświeżeniu, choć właściciel
+  potrzebuje ponownie skopiować oba dane w krótkim czasie życia sesji.
+- **Safety:** API, PostgreSQL, odpowiedzi listujące i logi nadal zachowują
+  wyłącznie hash kodu; link nie zawiera kodu. Cache jest usuwany przy revoke,
+  odrzuca wartości wygasłe lub uszkodzone i nie jest dostępny na innym
+  komputerze/profilu Admina.
+- **Consequences:** istniejącej sesji utworzonej przed tą zmianą nie można
+  odzyskać kodu z serwera. Użytkownik widzi wtedy jasny stan niedostępności
+  zamiast tworzenia równoległego mechanizmu odzyskania sekretu.
+- **Alternatives:** zapis surowego kodu w bazie lub dodanie endpointu jego
+  odczytu odrzucono, ponieważ poszerzałoby powierzchnię sekretów serwera bez
+  potrzeby dla tego krótkotrwałego workflow.
 
 ## Szablon nowej decyzji
 

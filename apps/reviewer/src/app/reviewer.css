@@ -112,6 +112,131 @@
   height: auto;
 }
 
+.deferredGeometryEntry,
+.deferredGeometryHeader,
+.deferredGeometryNavigation,
+.deferredGeometrySaveBar,
+.deferredGeometrySectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.deferredGeometryEntry {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid rgba(244, 211, 94, 0.26);
+  border-radius: 12px;
+  background: rgba(244, 211, 94, 0.06);
+}
+
+.deferredGeometryEntry strong {
+  display: block;
+  margin: 3px 0 4px;
+  font-size: 18px;
+}
+
+.deferredGeometryEntry p,
+.deferredGeometryHeader p,
+.deferredGeometrySectionHeader p,
+.deferredGeometrySaveBar > span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.deferredGeometryQueue {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.deferredGeometryHeader,
+.deferredGeometryEditor,
+.deferredGeometryComplete {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.deferredGeometryHeader h2,
+.deferredGeometryComplete h3,
+.deferredGeometrySectionHeader h3,
+.deferredGeometrySectionHeader p {
+  margin: 0;
+}
+
+.deferredGeometryMetadata {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.deferredGeometryMetadata > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(2, 7, 12, 0.5);
+}
+
+.deferredGeometryMetadata span,
+.deferredGeometryMetadata strong {
+  display: block;
+}
+
+.deferredGeometryMetadata span {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deferredGeometryMetadata strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deferredGeometryBody {
+  padding: 0;
+}
+
+.deferredGeometryBody > section {
+  min-width: 0;
+}
+
+.deferredGeometrySectionHeader {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.deferredGeometryCanvas {
+  width: 100%;
+  max-height: 68vh;
+  border-radius: 10px;
+  touch-action: none;
+}
+
+.deferredGeometrySaveBar,
+.deferredGeometryNavigation {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.deferredGeometryComplete {
+  text-align: center;
+}
+
+.deferredGeometryComplete .primaryButton {
+  margin-top: 12px;
+}
+
 @media (max-width: 900px) {
   .reviewerShell .operationalReviewVisualComparison {
     grid-template-columns: 1fr;
@@ -119,6 +244,28 @@
 
   .reviewerShell .operationalReviewSymbolsPanel {
     width: min(560px, 100%);
+  }
+
+  .deferredGeometryEntry,
+  .deferredGeometryHeader,
+  .deferredGeometrySaveBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .deferredGeometryMetadata {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .deferredGeometryMetadata {
+    grid-template-columns: 1fr;
+  }
+
+  .deferredGeometryNavigation {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
@@ -136,6 +283,536 @@
   border-radius: var(--radius);
   background: rgba(14, 26, 44, 0.94);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+}
+
+.reviewerAccessCard.remoteSelectionReadyCard {
+  width: min(1440px, 100%);
+}
+
+.remoteSelectionWorkspaceFoundation,
+.remoteSelectionSetup,
+.remoteManualWorkspace,
+.remoteSelectionSourceRecovery {
+  display: grid;
+  gap: 12px;
+}
+
+/*
+ * Keep the remote operator viewport identical to the proven local manual
+ * selector. These classes intentionally mirror the Admin implementation: the
+ * component shares the same sizing helper, so omitting this layout makes zoom
+ * update its label without changing the visible image.
+ */
+.manualImageSelectionWorkspace {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.manualImageSelectionHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.manualImageSelectionHeader h1,
+.manualImageSelectionHeader p {
+  margin-top: 0;
+}
+
+.manualImageSelectionHeader p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.manualImageSelectionHeader strong {
+  color: var(--accent);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.manualImageSelectionActive {
+  min-height: min(78vh, 900px);
+}
+
+.manualImageSelectionCounters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}
+
+.manualImageSelectionViewerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.manualImageSelectionStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.manualImageSelectionStep select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 30px 6px 10px;
+  background: #0b1524;
+  color: var(--text);
+  color-scheme: dark;
+}
+
+.manualImageSelectionStep select option {
+  background: #0b1524;
+  color: #f8fafc;
+}
+
+.manualImageSelectionZoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}
+
+.manualImageSelectionZoom .secondaryButton {
+  min-width: 38px;
+  padding: 7px 10px;
+}
+
+.manualImageSelectionViewer {
+  display: grid;
+  grid-template-columns: minmax(48px, 72px) minmax(0, 1fr) minmax(48px, 72px);
+  align-items: center;
+  gap: 12px;
+  min-height: 55vh;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(1, 7, 14, 0.72);
+  overflow: hidden;
+}
+
+.manualImageSelectionViewer:fullscreen {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border: 0;
+  border-radius: 0;
+  background: #020617;
+}
+
+.manualImageSelectionFullscreenInfo {
+  display: none;
+}
+
+.manualImageSelectionViewer:fullscreen .manualImageSelectionFullscreenInfo {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.94);
+  color: var(--text);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+}
+
+.manualImageSelectionViewer:fullscreen
+  .manualImageSelectionFullscreenInfo
+  span:last-child {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.manualImageSelectionImageFrame {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  min-width: 0;
+  min-height: 50vh;
+  height: calc(64vh + 30px);
+  gap: 12px;
+}
+
+.manualImageSelectionImageViewport {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.manualImageSelectionImageCanvas {
+  flex: 0 0 auto;
+  margin-block: auto;
+}
+
+.manualImageSelectionImageCanvas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.manualImageSelectionViewer:fullscreen .manualImageSelectionImageFrame {
+  min-height: 0;
+  height: auto;
+}
+
+.manualImageSelectionNav {
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 34px;
+}
+
+.manualImageSelectionNav:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.manualImageSelectionNav:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.manualImageSelectionFilename {
+  margin: 0;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.manualImageSelectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.manualImageSelectionActions .primaryButton {
+  min-width: min(100%, 330px);
+}
+
+.remoteSelectionSetup {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.remoteSelectionDirectoryCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.remoteSelectionDirectoryCard {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteSelectionDirectoryCard h3,
+.remoteSelectionDirectoryCard p {
+  margin: 0;
+}
+
+.remoteSelectionDirectoryCard p {
+  min-height: 42px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.remoteSelectionResetDialogBackdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(1, 7, 14, 0.78);
+}
+
+.remoteSelectionResetDialog {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(255, 139, 139, 0.55);
+  border-radius: 16px;
+  background: #0d1b2b;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.remoteSelectionResetDialog h2,
+.remoteSelectionResetDialog p {
+  margin: 0;
+}
+
+.remoteSelectionResetDialog .buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dangerButton {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 139, 139, 0.66);
+  border-radius: 8px;
+  background: rgba(151, 36, 36, 0.7);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: rgba(190, 45, 45, 0.9);
+}
+
+.dangerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.remoteSelectionSetup > p,
+.remoteSelectionSetup > button {
+  grid-column: 1 / -1;
+}
+
+.remoteSelectionSetup label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.remoteSelectionSetup input,
+.remoteSelectionSetup select {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #081321;
+  color: var(--text);
+}
+
+.remoteManualWorkspaceHeader,
+.remoteManualActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.remoteManualWorkspaceHeader h2,
+.remoteManualWorkspaceHeader p {
+  margin: 0;
+}
+
+.remoteManualWorkspaceGrid {
+  display: block;
+  min-width: 0;
+}
+
+.remoteSelectionSourceRecovery {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteSelectionWorkspaceActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.remoteSelectionWorkspaceActions > button {
+  flex: 1 1 0;
+  max-width: 300px;
+}
+
+.remoteManualSyncControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.remoteManualPreview {
+  position: relative;
+  min-width: 0;
+}
+
+.remoteManualPreviewViewport {
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  background: #02060b;
+}
+
+.remoteManualPreviewCanvas {
+  flex: 0 0 auto;
+  margin-inline: auto;
+  margin-block: auto;
+}
+
+.remoteManualPreviewCanvas > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+}
+
+.remoteManualShortcutHelp {
+  margin: 0;
+  padding: 8px 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.remoteManualActions {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.remoteSyncBadge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(137, 161, 191, 0.1);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.remoteSyncBadge--selected_local,
+.remoteSyncBadge--pending {
+  border-color: rgba(244, 211, 94, 0.45);
+  color: #f4d35e;
+}
+
+.remoteSyncBadge--confirmed {
+  border-color: rgba(79, 168, 255, 0.45);
+  color: #82c2ff;
+}
+
+.remoteSyncBadge--synced {
+  border-color: rgba(89, 211, 145, 0.45);
+  color: #74e4a8;
+}
+
+.remoteSyncBadge--error {
+  border-color: rgba(255, 139, 139, 0.45);
+  color: var(--danger);
+}
+
+.remoteWorkspaceBanner {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(79, 168, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(79, 168, 255, 0.08);
+}
+
+.remoteWorkspaceBanner--warning {
+  border-color: rgba(244, 211, 94, 0.4);
+  background: rgba(244, 211, 94, 0.08);
+  color: #f4d35e;
+}
+
+@media (max-width: 900px) {
+  .remoteSelectionDirectoryCards {
+    grid-template-columns: 1fr;
+  }
+
+  .remoteSelectionSetup {
+    grid-template-columns: 1fr;
+  }
+
+  .remoteManualWorkspaceHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .manualImageSelectionViewerToolbar,
+  .manualImageSelectionHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manualImageSelectionStep {
+    justify-content: space-between;
+  }
+
+  .manualImageSelectionCounters {
+    justify-content: flex-start;
+  }
+
+  .manualImageSelectionViewer {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    padding: 8px;
+  }
+
+  .manualImageSelectionNav {
+    min-height: 64px;
+    font-size: 26px;
+  }
 }
 
 .reviewerAccessCard .brand {

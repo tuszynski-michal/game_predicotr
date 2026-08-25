@@ -1,30 +1,101 @@
 'use client';
 
 import type {
-  ManualSelectionSessionRecord,
+  ManualSelectionSessionPort,
   ManualSelectionTraceEvent,
-} from './manual-image-selection';
+} from '@game-predictor/manual-image-selection-core';
+import type { ManualSelectionSessionRecord } from './manual-image-selection-fsa-adapter.ts';
 
 const DATABASE_NAME = 'game-predictor-manual-image-selection';
 const DATABASE_VERSION = 2;
 const STORE_NAME = 'sessions';
 const TRACE_STORE_NAME = 'traceEvents';
 
-export class ManualImageSelectionStore {
+export function latestLegacyManualSelectionSession(
+  records: readonly ManualSelectionSessionRecord[],
+  independentId: string,
+): ManualSelectionSessionRecord | null {
+  return (
+    records
+      .filter((record) => record.gameId !== independentId)
+      .sort((left, right) => {
+        const updatedDifference =
+          timestamp(right.state.updatedAt) - timestamp(left.state.updatedAt);
+        return updatedDifference || left.key.localeCompare(right.key);
+      })[0] ?? null
+  );
+}
+
+export function migrateLegacyManualSelectionSession(
+  legacy: ManualSelectionSessionRecord,
+  traceEvents: readonly ManualSelectionTraceEvent[],
+  independentId: string,
+): {
+  readonly record: ManualSelectionSessionRecord;
+  readonly traceEvents: readonly ManualSelectionTraceEvent[];
+} {
+  return {
+    record: { ...legacy, gameId: independentId },
+    traceEvents: traceEvents
+      .filter(
+        (event) =>
+          event.gameId === legacy.gameId && event.sessionKey === legacy.key,
+      )
+      .map((event) => ({ ...event, gameId: independentId })),
+  };
+}
+
+export class ManualImageSelectionStore implements ManualSelectionSessionPort<ManualSelectionSessionRecord> {
   private readonly factory: IDBFactory | undefined;
 
   constructor(factory: IDBFactory | undefined = globalThis.indexedDB) {
     this.factory = factory;
   }
 
-  async load(gameId: string): Promise<ManualSelectionSessionRecord | null> {
+  async loadIndependent(
+    independentId: string,
+  ): Promise<ManualSelectionSessionRecord | null> {
     if (this.factory === undefined) return null;
     const database = await this.open();
     try {
-      const transaction = database.transaction(STORE_NAME, 'readonly');
-      return (await requestResult(
-        transaction.objectStore(STORE_NAME).get(gameId),
+      const currentTransaction = database.transaction(STORE_NAME, 'readonly');
+      const current = (await requestResult(
+        currentTransaction.objectStore(STORE_NAME).get(independentId),
       )) as ManualSelectionSessionRecord | null;
+      if (current !== null) return current;
+
+      const sessionsTransaction = database.transaction(STORE_NAME, 'readonly');
+      const sessions = (await requestAll(
+        sessionsTransaction.objectStore(STORE_NAME),
+      )) as ManualSelectionSessionRecord[];
+      const legacy = latestLegacyManualSelectionSession(
+        sessions,
+        independentId,
+      );
+      if (legacy === null) return null;
+
+      const tracesTransaction = database.transaction(
+        TRACE_STORE_NAME,
+        'readonly',
+      );
+      const traces = (await requestAll(
+        tracesTransaction.objectStore(TRACE_STORE_NAME),
+      )) as ManualSelectionTraceEvent[];
+      const migrated = migrateLegacyManualSelectionSession(
+        legacy,
+        traces,
+        independentId,
+      );
+
+      const writeTransaction = database.transaction(
+        [STORE_NAME, TRACE_STORE_NAME],
+        'readwrite',
+      );
+      writeTransaction.objectStore(STORE_NAME).put(migrated.record);
+      const traceStore = writeTransaction.objectStore(TRACE_STORE_NAME);
+      for (const event of migrated.traceEvents) traceStore.put(event);
+      await transactionComplete(writeTransaction);
+      return migrated.record;
     } finally {
       database.close();
     }
@@ -49,7 +120,10 @@ export class ManualImageSelectionStore {
       // Keep every asynchronous IDB request inside its own transaction. A
       // read request can yield control long enough for a readwrite
       // transaction to become inactive in Chromium/Firefox.
-      const readTransaction = database.transaction(TRACE_STORE_NAME, 'readonly');
+      const readTransaction = database.transaction(
+        TRACE_STORE_NAME,
+        'readonly',
+      );
       const traceKeys = await requestAllKeys(
         readTransaction.objectStore(TRACE_STORE_NAME),
       );
@@ -124,6 +198,11 @@ export class ManualImageSelectionStore {
         reject(request.error ?? new Error('IDB_OPEN_FAILED'));
     });
   }
+}
+
+function timestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function requestResult(request: IDBRequest): Promise<unknown> {

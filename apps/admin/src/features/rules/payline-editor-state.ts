@@ -5,17 +5,13 @@ const MAX_DISPLAY_ORDER = 2_147_483_647;
 
 export interface PaylineDraft {
   readonly code: string;
-  readonly displayOrder: string;
   readonly isActive: boolean;
-  readonly name: string;
   readonly rowPath: readonly (number | null)[];
 }
 
 export interface ValidatedPaylineDraft {
   readonly code: string;
-  readonly displayOrder: number;
   readonly isActive: boolean;
-  readonly name: string;
   readonly rowPath: readonly number[];
 }
 
@@ -26,9 +22,7 @@ export type PaylineDraftValidation =
 export function emptyPaylineDraft(columns: number): PaylineDraft {
   return {
     code: '',
-    displayOrder: '0',
     isActive: true,
-    name: '',
     rowPath: Array.from({ length: columns }, () => null),
   };
 }
@@ -36,11 +30,19 @@ export function emptyPaylineDraft(columns: number): PaylineDraft {
 export function paylineToDraft(payline: PaylineResponse): PaylineDraft {
   return {
     code: payline.code,
-    displayOrder: String(payline.displayOrder),
     isActive: payline.isActive,
-    name: payline.name,
     rowPath: payline.rowPath,
   };
+}
+
+export function nextPaylineDisplayOrder(
+  paylines: readonly PaylineResponse[],
+): number | null {
+  const greatest = paylines.reduce(
+    (current, payline) => Math.max(current, payline.displayOrder),
+    -1,
+  );
+  return greatest >= MAX_DISPLAY_ORDER ? null : greatest + 1;
 }
 
 export function selectPaylineCell(
@@ -67,28 +69,10 @@ export function validatePaylineDraft(
 ): PaylineDraftValidation {
   const { rows, columns } = dimensions;
   const code = draft.code.trim();
-  const name = draft.name.trim();
   if (!STABLE_CODE_PATTERN.test(code)) {
     return {
       error:
         'Kod musi mieć 1–64 znaki: litery, cyfry, myślnik lub podkreślenie.',
-      valid: false,
-    };
-  }
-  if (!name || name.length > 200) {
-    return {
-      error: 'Nazwa musi zawierać od 1 do 200 znaków.',
-      valid: false,
-    };
-  }
-  const displayOrder = parseInteger(draft.displayOrder);
-  if (
-    displayOrder === null ||
-    displayOrder < 0 ||
-    displayOrder > MAX_DISPLAY_ORDER
-  ) {
-    return {
-      error: 'Kolejność musi być liczbą całkowitą od 0 do 2147483647.',
       valid: false,
     };
   }
@@ -109,9 +93,7 @@ export function validatePaylineDraft(
     valid: true,
     value: {
       code,
-      displayOrder,
       isActive: draft.isActive,
-      name,
       rowPath,
     },
   };
@@ -143,13 +125,4 @@ export function markPaylineArchived(
 
 export function formatRowPath1Based(rowPath: readonly number[]): string {
   return `[${rowPath.map((row) => row + 1).join(', ')}]`;
-}
-
-function parseInteger(value: string): number | null {
-  const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) {
-    return null;
-  }
-  const parsed = Number(normalized);
-  return Number.isSafeInteger(parsed) ? parsed : null;
 }

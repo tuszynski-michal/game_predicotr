@@ -15,6 +15,9 @@ import type {
   ActivateSymbolModelData,
   ActivateSymbolModelErrors,
   ActivateSymbolModelResponses,
+  ApplyRemoteManualSelectionOperationData,
+  ApplyRemoteManualSelectionOperationErrors,
+  ApplyRemoteManualSelectionOperationResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -93,6 +96,15 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreateRemoteManualSelectionBatchData,
+  CreateRemoteManualSelectionBatchErrors,
+  CreateRemoteManualSelectionBatchResponses,
+  CreateRemoteManualSelectionCollectionData,
+  CreateRemoteManualSelectionCollectionErrors,
+  CreateRemoteManualSelectionCollectionResponses,
+  CreateRemoteManualSelectionSessionData,
+  CreateRemoteManualSelectionSessionErrors,
+  CreateRemoteManualSelectionSessionResponses,
   CreateReviewerSessionData,
   CreateReviewerSessionErrors,
   CreateReviewerSessionResponses,
@@ -129,6 +141,9 @@ import type {
   FinalizeBrowserImageSelectionData,
   FinalizeBrowserImageSelectionErrors,
   FinalizeBrowserImageSelectionResponses,
+  FinalizeRemoteManualSelectionBatchData,
+  FinalizeRemoteManualSelectionBatchErrors,
+  FinalizeRemoteManualSelectionBatchResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -224,6 +239,30 @@ import type {
   GetPayoutRuleData,
   GetPayoutRuleErrors,
   GetPayoutRuleResponses,
+  GetPendingBoardCellGeometryCorrectionContextData,
+  GetPendingBoardCellGeometryCorrectionContextErrors,
+  GetPendingBoardCellGeometryCorrectionContextResponses,
+  GetPendingBoardCellGeometryData,
+  GetPendingBoardCellGeometryErrors,
+  GetPendingBoardCellGeometryResponses,
+  GetPendingBoardCellGeometrySourceData,
+  GetPendingBoardCellGeometrySourceErrors,
+  GetPendingBoardCellGeometrySourceResponses,
+  GetRemoteManualSelectionContextData,
+  GetRemoteManualSelectionContextErrors,
+  GetRemoteManualSelectionContextResponses,
+  GetRemoteManualSelectionFileTransferData,
+  GetRemoteManualSelectionFileTransferErrors,
+  GetRemoteManualSelectionFileTransferResponses,
+  GetRemoteManualSelectionRecoveryStatusData,
+  GetRemoteManualSelectionRecoveryStatusErrors,
+  GetRemoteManualSelectionRecoveryStatusResponses,
+  GetRemoteManualSelectionSessionData,
+  GetRemoteManualSelectionSessionErrors,
+  GetRemoteManualSelectionSessionResponses,
+  GetRemoteManualSelectionStateDeltaData,
+  GetRemoteManualSelectionStateDeltaErrors,
+  GetRemoteManualSelectionStateDeltaResponses,
   GetReviewBatchData,
   GetReviewBatchErrors,
   GetReviewBatchResponses,
@@ -265,6 +304,9 @@ import type {
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
+  HeartbeatRemoteManualSelectionWriterLeaseData,
+  HeartbeatRemoteManualSelectionWriterLeaseErrors,
+  HeartbeatRemoteManualSelectionWriterLeaseResponses,
   HeartbeatReviewerWorkAssignmentData,
   HeartbeatReviewerWorkAssignmentErrors,
   HeartbeatReviewerWorkAssignmentResponses,
@@ -327,9 +369,15 @@ import type {
   ListPayoutRulesData,
   ListPayoutRulesErrors,
   ListPayoutRulesResponses,
+  ListPendingBoardCellGeometryData,
+  ListPendingBoardCellGeometryErrors,
+  ListPendingBoardCellGeometryResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
+  ListRemoteManualSelectionSessionsData,
+  ListRemoteManualSelectionSessionsErrors,
+  ListRemoteManualSelectionSessionsResponses,
   ListReviewBatchesData,
   ListReviewBatchesErrors,
   ListReviewBatchesResponses,
@@ -399,6 +447,9 @@ import type {
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewPendingBoardCellGeometryCorrectionData,
+  PreviewPendingBoardCellGeometryCorrectionErrors,
+  PreviewPendingBoardCellGeometryCorrectionResponses,
   PreviewPendingGridReinferenceData,
   PreviewPendingGridReinferenceErrors,
   PreviewPendingGridReinferenceResponses,
@@ -408,6 +459,9 @@ import type {
   PreviewReadyBrowserImageImportData,
   PreviewReadyBrowserImageImportErrors,
   PreviewReadyBrowserImageImportResponses,
+  PreviewRemoteManualSelectionFinalizationData,
+  PreviewRemoteManualSelectionFinalizationErrors,
+  PreviewRemoteManualSelectionFinalizationResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -423,18 +477,27 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  PutRemoteManualSelectionFileContentData,
+  PutRemoteManualSelectionFileContentErrors,
+  PutRemoteManualSelectionFileContentResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
+  RegisterRemoteManualSelectionSourceItemsData,
+  RegisterRemoteManualSelectionSourceItemsErrors,
+  RegisterRemoteManualSelectionSourceItemsResponses,
   RejectImageSelectionReviewGroupData,
   RejectImageSelectionReviewGroupErrors,
   RejectImageSelectionReviewGroupResponses,
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ReopenRemoteManualSelectionBatchData,
+  ReopenRemoteManualSelectionBatchErrors,
+  ReopenRemoteManualSelectionBatchResponses,
   ReprocessManagedImageImportData,
   ReprocessManagedImageImportErrors,
   ReprocessManagedImageImportResponses,
@@ -447,6 +510,9 @@ import type {
   ResolveOperationalImageReviewItemData,
   ResolveOperationalImageReviewItemErrors,
   ResolveOperationalImageReviewItemResponses,
+  ResolvePendingBoardCellGeometryManuallyData,
+  ResolvePendingBoardCellGeometryManuallyErrors,
+  ResolvePendingBoardCellGeometryManuallyResponses,
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
@@ -462,6 +528,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeRemoteManualSelectionSessionData,
+  RevokeRemoteManualSelectionSessionErrors,
+  RevokeRemoteManualSelectionSessionResponses,
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
@@ -477,6 +546,9 @@ import type {
   SelectLocalImageFolderData,
   SelectLocalImageFolderErrors,
   SelectLocalImageFolderResponses,
+  SelectRemoteManualSelectionHostBaseData,
+  SelectRemoteManualSelectionHostBaseErrors,
+  SelectRemoteManualSelectionHostBaseResponses,
   SelectSymbolImageCandidateData,
   SelectSymbolImageCandidateErrors,
   SelectSymbolImageCandidateResponses,
@@ -504,6 +576,12 @@ import type {
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
+  TakeoverRemoteManualSelectionWriterLeaseData,
+  TakeoverRemoteManualSelectionWriterLeaseErrors,
+  TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockRemoteManualSelectionSessionData,
+  UnlockRemoteManualSelectionSessionErrors,
+  UnlockRemoteManualSelectionSessionResponses,
   UnlockReviewerSessionData,
   UnlockReviewerSessionErrors,
   UnlockReviewerSessionResponses,
@@ -916,6 +994,149 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List durable board-cell geometry fallback items
+ */
+export const listPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  ListPendingBoardCellGeometryResponses,
+  ListPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPendingBoardCellGeometryResponses,
+    ListPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending',
+    ...options,
+  });
+
+/**
+ * Get one durable board-cell geometry fallback item
+ */
+export const getPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  GetPendingBoardCellGeometryResponses,
+  GetPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometryResponses,
+    GetPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}',
+    ...options,
+  });
+
+/**
+ * Get checksum-bound manual correction context
+ */
+export const getPendingBoardCellGeometryCorrectionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    GetPendingBoardCellGeometryCorrectionContextData,
+    ThrowOnError
+  >,
+): RequestResult<
+  GetPendingBoardCellGeometryCorrectionContextResponses,
+  GetPendingBoardCellGeometryCorrectionContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometryCorrectionContextResponses,
+    GetPendingBoardCellGeometryCorrectionContextErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/correction-context',
+    ...options,
+  });
+
+/**
+ * Preview 15 manual source-direct crops for a deferred board
+ */
+export const previewPendingBoardCellGeometryCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingBoardCellGeometryCorrectionData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingBoardCellGeometryCorrectionResponses,
+  PreviewPendingBoardCellGeometryCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPendingBoardCellGeometryCorrectionResponses,
+    PreviewPendingBoardCellGeometryCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create one ordinary review item from manual deferred geometry
+ */
+export const resolvePendingBoardCellGeometryManually = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResolvePendingBoardCellGeometryManuallyData, ThrowOnError>,
+): RequestResult<
+  ResolvePendingBoardCellGeometryManuallyResponses,
+  ResolvePendingBoardCellGeometryManuallyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolvePendingBoardCellGeometryManuallyResponses,
+    ResolvePendingBoardCellGeometryManuallyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read checksum-bound source for manual correction
+ */
+export const getPendingBoardCellGeometrySource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPendingBoardCellGeometrySourceData, ThrowOnError>,
+): RequestResult<
+  GetPendingBoardCellGeometrySourceResponses,
+  GetPendingBoardCellGeometrySourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPendingBoardCellGeometrySourceResponses,
+    GetPendingBoardCellGeometrySourceErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source',
+    ...options,
   });
 
 /**
@@ -3321,6 +3542,162 @@ export const previewMobileReleaseDeletion = <
   });
 
 /**
+ * Select a local host base for remote manual image selection
+ */
+export const selectRemoteManualSelectionHostBase = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SelectRemoteManualSelectionHostBaseData, ThrowOnError>,
+): RequestResult<
+  SelectRemoteManualSelectionHostBaseResponses,
+  SelectRemoteManualSelectionHostBaseErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectRemoteManualSelectionHostBaseResponses,
+    SelectRemoteManualSelectionHostBaseErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/base-capabilities',
+    ...options,
+  });
+
+/**
+ * List remote manual selection sessions without secrets
+ */
+export const listRemoteManualSelectionSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListRemoteManualSelectionSessionsData, ThrowOnError>,
+): RequestResult<
+  ListRemoteManualSelectionSessionsResponses,
+  ListRemoteManualSelectionSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListRemoteManualSelectionSessionsResponses,
+    ListRemoteManualSelectionSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/remote-manual-selections/sessions', ...options });
+
+/**
+ * Create one purpose-scoped remote manual selection session
+ */
+export const createRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionSessionResponses,
+  CreateRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionSessionResponses,
+    CreateRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Monitor one remote manual selection session without secrets
+ */
+export const getRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionSessionResponses,
+  GetRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionSessionResponses,
+    GetRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}',
+    ...options,
+  });
+
+/**
+ * Preview recovery findings and non-destructive GC candidates
+ */
+export const getRemoteManualSelectionRecoveryStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionRecoveryStatusData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionRecoveryStatusResponses,
+  GetRemoteManualSelectionRecoveryStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionRecoveryStatusResponses,
+    GetRemoteManualSelectionRecoveryStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/batches/{batch_id}/recovery',
+    ...options,
+  });
+
+/**
+ * Reopen one completed remote manual selection batch
+ */
+export const reopenRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReopenRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  ReopenRemoteManualSelectionBatchResponses,
+  ReopenRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReopenRemoteManualSelectionBatchResponses,
+    ReopenRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/reopen-batch',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Immediately revoke one remote manual selection session
+ */
+export const revokeRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeRemoteManualSelectionSessionResponses,
+  RevokeRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeRemoteManualSelectionSessionResponses,
+    RevokeRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/remote-manual-selections/sessions/{session_id}/revoke',
+    ...options,
+  });
+
+/**
  * List immutable manual-review batches
  */
 export const listReviewBatches = <ThrowOnError extends boolean = false>(
@@ -4122,6 +4499,309 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
     ...options,
+  });
+
+/**
+ * Stream one checksum-bound selected JPEG to host temporary storage
+ */
+export const putRemoteManualSelectionFileContent = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PutRemoteManualSelectionFileContentData, ThrowOnError>,
+): RequestResult<
+  PutRemoteManualSelectionFileContentResponses,
+  PutRemoteManualSelectionFileContentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    PutRemoteManualSelectionFileContentResponses,
+    PutRemoteManualSelectionFileContentErrors,
+    ThrowOnError
+  >({
+    bodySerializer: null,
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/content',
+    ...options,
+  });
+
+/**
+ * Read the resumable status of one selected JPEG transfer
+ */
+export const getRemoteManualSelectionFileTransfer = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionFileTransferData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionFileTransferResponses,
+  GetRemoteManualSelectionFileTransferErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionFileTransferResponses,
+    GetRemoteManualSelectionFileTransferErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/files/{file_id}/transfer',
+    ...options,
+  });
+
+/**
+ * Finalize one fully reconciled remote manual selection batch
+ */
+export const finalizeRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FinalizeRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  FinalizeRemoteManualSelectionBatchResponses,
+  FinalizeRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FinalizeRemoteManualSelectionBatchResponses,
+    FinalizeRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the durable finalization barrier for one batch
+ */
+export const previewRemoteManualSelectionFinalization = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewRemoteManualSelectionFinalizationData, ThrowOnError>,
+): RequestResult<
+  PreviewRemoteManualSelectionFinalizationResponses,
+  PreviewRemoteManualSelectionFinalizationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewRemoteManualSelectionFinalizationResponses,
+    PreviewRemoteManualSelectionFinalizationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/finalize-preview',
+    ...options,
+  });
+
+/**
+ * Apply one strictly ordered idempotent selection operation
+ */
+export const applyRemoteManualSelectionOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApplyRemoteManualSelectionOperationData, ThrowOnError>,
+): RequestResult<
+  ApplyRemoteManualSelectionOperationResponses,
+  ApplyRemoteManualSelectionOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApplyRemoteManualSelectionOperationResponses,
+    ApplyRemoteManualSelectionOperationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/operations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Register one bounded page of immutable source metadata
+ */
+export const registerRemoteManualSelectionSourceItems = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RegisterRemoteManualSelectionSourceItemsData, ThrowOnError>,
+): RequestResult<
+  RegisterRemoteManualSelectionSourceItemsResponses,
+  RegisterRemoteManualSelectionSourceItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterRemoteManualSelectionSourceItemsResponses,
+    RegisterRemoteManualSelectionSourceItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/source-items',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one bounded canonical state delta
+ */
+export const getRemoteManualSelectionStateDelta = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionStateDeltaData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionStateDeltaResponses,
+  GetRemoteManualSelectionStateDeltaErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionStateDeltaResponses,
+    GetRemoteManualSelectionStateDeltaErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/batches/{batch_id}/state',
+    ...options,
+  });
+
+/**
+ * Create an idempotent remote selection collection
+ */
+export const createRemoteManualSelectionCollection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionCollectionData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionCollectionResponses,
+  CreateRemoteManualSelectionCollectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionCollectionResponses,
+    CreateRemoteManualSelectionCollectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/collections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create an idempotent remote selection batch mapping
+ */
+export const createRemoteManualSelectionBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRemoteManualSelectionBatchData, ThrowOnError>,
+): RequestResult<
+  CreateRemoteManualSelectionBatchResponses,
+  CreateRemoteManualSelectionBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRemoteManualSelectionBatchResponses,
+    CreateRemoteManualSelectionBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/collections/{collection_id}/batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the authenticated remote manual selection context
+ */
+export const getRemoteManualSelectionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRemoteManualSelectionContextData, ThrowOnError>,
+): RequestResult<
+  GetRemoteManualSelectionContextResponses,
+  GetRemoteManualSelectionContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRemoteManualSelectionContextResponses,
+    GetRemoteManualSelectionContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/remote-manual-selections/context', ...options });
+
+/**
+ * Unlock one purpose-scoped remote manual selection session
+ */
+export const unlockRemoteManualSelectionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockRemoteManualSelectionSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockRemoteManualSelectionSessionResponses,
+  UnlockRemoteManualSelectionSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockRemoteManualSelectionSessionResponses,
+    UnlockRemoteManualSelectionSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Renew the currently owned remote selection writer lease
+ */
+export const heartbeatRemoteManualSelectionWriterLease = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<HeartbeatRemoteManualSelectionWriterLeaseData, ThrowOnError>,
+): RequestResult<
+  HeartbeatRemoteManualSelectionWriterLeaseResponses,
+  HeartbeatRemoteManualSelectionWriterLeaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    HeartbeatRemoteManualSelectionWriterLeaseResponses,
+    HeartbeatRemoteManualSelectionWriterLeaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/heartbeat',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Take over an expired remote selection writer lease
+ */
+export const takeoverRemoteManualSelectionWriterLease = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<TakeoverRemoteManualSelectionWriterLeaseData, ThrowOnError>,
+): RequestResult<
+  TakeoverRemoteManualSelectionWriterLeaseResponses,
+  TakeoverRemoteManualSelectionWriterLeaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    TakeoverRemoteManualSelectionWriterLeaseResponses,
+    TakeoverRemoteManualSelectionWriterLeaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/remote-manual-selections/sessions/{session_id}/writer-lease/takeover',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

@@ -30,6 +30,7 @@ from .orchestration import (
 from .pipeline_contract import PIPELINE_STAGES, canonical_json_bytes
 
 AUTOMATED_IMAGE_STAGES = PIPELINE_STAGES[:6]
+BOARD_CELL_GEOMETRY_STAGE = "board_cell_geometry"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 BOARD_ROWS = 3
 BOARD_COLUMNS = 5
@@ -68,9 +69,14 @@ class FunctionImageStageAdapter:
     stage: str
     version: str
     runner: Callable[[ImageStageContext], Mapping[str, object]]
+    replayer: Callable[[ImageStageContext, Mapping[str, object]], None] | None = None
 
     def execute(self, context: ImageStageContext) -> Mapping[str, object]:
         return self.runner(context)
+
+    def replay(self, context: ImageStageContext, payload: Mapping[str, object]) -> None:
+        if self.replayer is not None:
+            self.replayer(context, payload)
 
 
 class ImageBatchRegistrar(Protocol):
@@ -236,6 +242,7 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
     ) -> None:
         self._store = store
         self._adapters = _adapter_registry(adapters)
+        self._result_stages = frozenset(self._adapters)
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
 
     def rehydrate(self, candidate: ImageBatchCandidate) -> None:
@@ -245,6 +252,27 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
         discovery = results.get("discovery")
         if discovery is not None:
             self._store.project_source(candidate, discovery=discovery.payload)
+        for stage in (BOARD_CELL_GEOMETRY_STAGE, "board_crops"):
+            stored = results.get(stage)
+            adapter = self._adapters.get(stage)
+            replay = None if adapter is None else getattr(adapter, "replay", None)
+            if stored is not None and callable(replay):
+                replay(
+                    ImageStageContext(
+                        job_id=_candidate_job_id(candidate),
+                        file_execution_key=candidate.execution.file_execution_key,
+                        source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                        source_relative_path=candidate.source_relative_path,
+                        pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
+                        previous_results={
+                            key: value.payload for key, value in results.items() if key != stage
+                        },
+                        attested_sequence_range=self._attested_sequence_ranges.get(
+                            candidate.execution.source_checksum_sha256
+                        ),
+                    ),
+                    stored.payload,
+                )
         required = {
             "board_detection",
             "board_crops",
@@ -266,6 +294,8 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                 "A persisted image stage requires job, lease and timestamp context.",
             )
         if stage in AUTOMATED_IMAGE_STAGES:
+            if stage == "board_crops" and BOARD_CELL_GEOMETRY_STAGE in self._adapters:
+                self._execute_automated(candidate, BOARD_CELL_GEOMETRY_STAGE, job_id)
             return self._execute_automated(candidate, stage, job_id)
         if stage == "manual_review":
             if self._store.pending_review_count(candidate):
@@ -304,7 +334,7 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                 previous_results={
                     key: value.payload
                     for key, value in existing.items()
-                    if key in AUTOMATED_IMAGE_STAGES
+                    if key in self._result_stages
                 },
                 attested_sequence_range=self._attested_sequence_ranges.get(
                     candidate.execution.source_checksum_sha256
@@ -340,6 +370,24 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                         candidate.execution.source_checksum_sha256
                     ),
                 ),
+            )
+        replay = getattr(adapter, "replay", None)
+        if callable(replay):
+            replay(
+                ImageStageContext(
+                    job_id=job_id,
+                    file_execution_key=candidate.execution.file_execution_key,
+                    source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                    source_relative_path=candidate.source_relative_path,
+                    pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
+                    previous_results={
+                        key: value.payload for key, value in existing.items() if key != stage
+                    },
+                    attested_sequence_range=self._attested_sequence_ranges.get(
+                        candidate.execution.source_checksum_sha256
+                    ),
+                ),
+                stored.payload,
             )
         if stage == "discovery":
             self._store.project_source(candidate, discovery=stored.payload)
@@ -387,28 +435,49 @@ def validate_stage_payload(
         _positive_integer(payload.get("height"), "normalization.height")
     elif stage == "board_detection":
         _boards(payload, require_cells=False, require_sequence=False, require_symbols=False)
+    elif stage == BOARD_CELL_GEOMETRY_STAGE:
+        _board_cell_geometry(payload, context)
     elif stage == "board_crops":
         boards = _boards(
             payload,
             require_cells=True,
             require_sequence=False,
             require_symbols=False,
+            allow_empty=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
+            allow_sparse=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
         )
-        _same_positions(context, "board_detection", boards)
+        previous_stage = (
+            BOARD_CELL_GEOMETRY_STAGE
+            if BOARD_CELL_GEOMETRY_STAGE in context.previous_results
+            else "board_detection"
+        )
+        if previous_stage == BOARD_CELL_GEOMETRY_STAGE:
+            _v20_crop_positions(context, payload, boards)
+        else:
+            _same_positions(context, previous_stage, boards)
     elif stage == "sequence_ocr":
         boards = _boards(
             payload,
             require_cells=False,
             require_sequence=True,
             require_symbols=False,
+            allow_empty=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
+            allow_sparse=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
         )
-        _same_positions(context, "board_detection", boards)
+        previous_stage = (
+            "board_crops"
+            if BOARD_CELL_GEOMETRY_STAGE in context.previous_results
+            else "board_detection"
+        )
+        _same_positions(context, previous_stage, boards)
     elif stage == "symbol_inference":
         boards = _boards(
             payload,
             require_cells=False,
             require_sequence=False,
             require_symbols=True,
+            allow_empty=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
+            allow_sparse=BOARD_CELL_GEOMETRY_STAGE in context.previous_results,
         )
         _same_positions(context, "board_crops", boards)
         model_version = payload.get("modelVersion")
@@ -475,7 +544,7 @@ def _adapter_registry(
     result: dict[str, VersionedImageStageAdapter] = {}
     for adapter in adapters:
         if (
-            adapter.stage not in AUTOMATED_IMAGE_STAGES
+            adapter.stage not in {*AUTOMATED_IMAGE_STAGES, BOARD_CELL_GEOMETRY_STAGE}
             or not adapter.version.strip()
             or adapter.stage in result
         ):
@@ -507,10 +576,17 @@ def _boards(
     require_cells: bool,
     require_sequence: bool,
     require_symbols: bool,
+    allow_empty: bool = False,
+    allow_sparse: bool = False,
 ) -> tuple[Mapping[str, object], ...]:
     raw = payload.get("boards")
-    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes) or not 1 <= len(raw) <= 9:
-        _invalid("Stage payload must contain 1..9 boards.")
+    minimum = 0 if allow_empty else 1
+    if (
+        not isinstance(raw, Sequence)
+        or isinstance(raw, str | bytes)
+        or not minimum <= len(raw) <= 9
+    ):
+        _invalid(f"Stage payload must contain {minimum}..9 boards.")
     boards: list[Mapping[str, object]] = []
     positions: list[int] = []
     for index, item in enumerate(cast(Sequence[object], raw)):
@@ -541,8 +617,10 @@ def _boards(
             if not isinstance(board.get("geometry"), Mapping):
                 _invalid("Detected board geometry must be an object.")
         boards.append(board)
-    if positions != list(range(len(positions))):
-        _invalid("Board positions must be contiguous and row-major from zero.")
+    if positions != sorted(set(positions)) or (
+        not allow_sparse and positions != list(range(len(positions)))
+    ):
+        _invalid("Board positions must be unique and row-major.")
     return tuple(boards)
 
 
@@ -603,10 +681,109 @@ def _same_positions(
     raw = previous.get("boards")
     if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
         _invalid(f"{previous_stage} has no boards.")
-    previous_positions = [_mapping(item, "previous board").get("positionIndex") for item in raw]
+    previous_boards = [_mapping(item, "previous board") for item in raw]
+    previous_positions = [item.get("positionIndex") for item in previous_boards]
     current_positions = [item.get("positionIndex") for item in boards]
     if current_positions != previous_positions:
         _invalid("Board positions cannot change between pipeline stages.")
+
+
+def _board_cell_geometry(
+    payload: Mapping[str, object],
+    context: ImageStageContext,
+) -> None:
+    processing_version = payload.get("processingVersion")
+    configuration_fingerprint = payload.get("configurationFingerprintSha256")
+    if not isinstance(processing_version, str) or not processing_version.strip():
+        _invalid("board_cell_geometry.processingVersion must be non-empty.")
+    _sha256(configuration_fingerprint, "board_cell_geometry configuration fingerprint")
+    boards = _boards(
+        payload,
+        require_cells=False,
+        require_sequence=False,
+        require_symbols=False,
+    )
+    _same_positions(context, "board_detection", boards)
+    for board in boards:
+        status = board.get("status")
+        sequence_number = board.get("sequenceNumber")
+        _positive_integer(sequence_number, "board_cell_geometry.sequenceNumber")
+        if status == "verified":
+            geometry = _mapping(board.get("cellGeometry"), "cellGeometry")
+            cells = geometry.get("cells")
+            if not isinstance(cells, Sequence) or isinstance(cells, str | bytes):
+                _invalid("Verified board-cell geometry must contain cells.")
+            if len(cells) != BOARD_CELL_COUNT:
+                _invalid("Verified board-cell geometry must contain exactly 15 cells.")
+            for index, value in enumerate(cells):
+                cell = _mapping(value, "cellGeometry.cell")
+                if (
+                    _nonnegative_integer(cell.get("rowIndex"), "cellGeometry.rowIndex")
+                    != index // BOARD_COLUMNS
+                    or _nonnegative_integer(
+                        cell.get("columnIndex"), "cellGeometry.columnIndex"
+                    )
+                    != index % BOARD_COLUMNS
+                ):
+                    _invalid("Verified board-cell geometry must be complete and row-major.")
+                quad = cell.get("quad")
+                if (
+                    not isinstance(quad, Sequence)
+                    or isinstance(quad, str | bytes)
+                    or len(quad) != 4
+                    or any(not isinstance(point, Mapping) for point in quad)
+                ):
+                    _invalid("Every verified board-cell quad must contain four points.")
+        elif status == "deferred":
+            if board.get("cellGeometry") is not None:
+                _invalid("Deferred board-cell geometry cannot contain synthetic cells.")
+            reason = board.get("reasonCode")
+            estimator_reason = board.get("estimatorFailureReason")
+            if not isinstance(reason, str) or not reason.strip():
+                _invalid("Deferred board-cell geometry requires a reasonCode.")
+            if not isinstance(estimator_reason, str) or not estimator_reason.strip():
+                _invalid("Deferred board-cell geometry requires an estimatorFailureReason.")
+        else:
+            _invalid("Board-cell geometry status must be verified or deferred.")
+
+
+def _v20_crop_positions(
+    context: ImageStageContext,
+    payload: Mapping[str, object],
+    boards: Sequence[Mapping[str, object]],
+) -> None:
+    geometry = context.previous_results.get(BOARD_CELL_GEOMETRY_STAGE)
+    if geometry is None:
+        _invalid("board_cell_geometry must complete before v19 crops.")
+    geometry_boards = _sequence_mappings(geometry.get("boards"), "board_cell_geometry.boards")
+    expected = [
+        _nonnegative_integer(item.get("positionIndex"), "board_cell_geometry.positionIndex")
+        for item in geometry_boards
+        if item.get("status") == "verified"
+    ]
+    deferred = _sequence_mappings(payload.get("deferredBoards", []), "deferredBoards")
+    deferred_positions: list[int] = []
+    for item in deferred:
+        position = _nonnegative_integer(
+            item.get("positionIndex"), "deferredBoards.positionIndex"
+        )
+        _positive_integer(item.get("sequenceNumber"), "deferredBoards.sequenceNumber")
+        if not isinstance(item.get("reasonCode"), str) or not item["reasonCode"]:
+            _invalid("A deferred crop requires a reasonCode.")
+        deferred_positions.append(position)
+    crop_positions = [
+        _nonnegative_integer(item.get("positionIndex"), "board_crops.positionIndex")
+        for item in boards
+    ]
+    combined = sorted([*crop_positions, *deferred_positions])
+    if combined != expected or len(combined) != len(set(combined)):
+        _invalid("v19 crop results must partition every verified geometry position.")
+
+
+def _sequence_mappings(value: object, label: str) -> list[Mapping[str, object]]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        _invalid(f"{label} must be an array.")
+    return [_mapping(item, label) for item in cast(Sequence[object], value)]
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -658,6 +835,15 @@ def _relative_path(value: object, label: str) -> str:
 def _matching_text(value: object, expected: str, label: str) -> None:
     if value != expected:
         _invalid(f"{label} differs from the attested execution.")
+
+
+def _candidate_job_id(candidate: ImageBatchCandidate) -> UUID:
+    if candidate.job_id is None:
+        raise ImagePipelineExecutionError(
+            "IMAGE_PIPELINE_EXECUTION_CONTEXT_MISSING",
+            "A persisted image stage requires a job context.",
+        )
+    return candidate.job_id
 
 
 def _invalid(message: str) -> Never:

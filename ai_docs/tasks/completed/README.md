@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-24
 ---
 
 # Ukończone zadania
@@ -11,6 +11,44 @@ Outcome. Nie są one aktywnym kontekstem implementacyjnym.
 
 Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć status
 `todo`, `in_progress` albo `blocked`.
+
+## Zamknięcie kolejki przed wersją 0.7
+
+W dniu 2026-08-21 uporządkowano całą pozostałą kolejkę wersji 0.4–0.6. Zadania
+oznaczone jako zastąpione lub odroczone zachowują pełny Outcome i Closure do
+audytu; nie są aktywnym zakresem wersji 0.7.
+
+- [TASK-0141 — Mobile 0.3 acceptance](0141-version-0-3-mobile-regression-and-pixel-acceptance.md)
+- [TASK-0142 — Admin 0.2 owner acceptance regressions](0142-v02-owner-acceptance-regressions.md)
+- [TASK-0149 — Pending-only re-inference and import pinning](0149-pending-only-reinference-and-import-pinning.md)
+- [TASK-0150 — Iterative supervised loop acceptance](0150-iterative-supervised-loop-acceptance.md)
+- [TASK-0157 — Image-selection scale and owner acceptance](0157-image-selection-scale-quality-and-owner-acceptance.md)
+- [TASK-0171 — Fast-selection real-corpus activation](0171-fast-selection-real-corpus-regression-and-activation.md)
+- [TASK-0178 — Image-selection v10 accuracy-first](0178-image-selection-v10-accuracy-first-selection.md)
+- [TASK-0197 — V10.1 owner gate](0197-image-selection-v101-first-5000-owner-gate.md)
+- [TASK-0208 — Image-import scaling observability](0208-image-import-scaling-observability.md)
+- [TASK-0209 — Cancelled baseline diagnostics](0209-image-selection-cancelled-baseline-and-false-merge-diagnostics.md)
+- [TASK-0211 — Windows worker process tree](0211-windows-worker-process-tree.md)
+- [TASK-0218 — Manual gap export and owner gate](0218-manual-gap-export-and-owner-gate.md)
+- [TASK-0241 — v10.10 label lattice recovery](0241-image-selection-v1010-label-lattice-safety-recovery.md)
+- [TASK-0242 — v10.11 derived range recovery](0242-image-selection-v1011-derived-range-recovery.md)
+- [TASK-0246 — Local manual image selection](0246-manual-local-image-selection.md)
+- [TASK-0247 — Attested `seq_*` import](0247-attested-seq-range-import.md)
+- [TASK-0248 — Representative quality ranking](0248-representative-quality-ranking.md)
+
+## Wersja 0.7
+
+- [TASK-0251 — Uzgodnienie wyniku tworzenia reguł](0251-rules-creation-response-reconciliation.md)
+- [TASK-0252 — Uproszczenie edytora wzorców](0252-simplify-payline-editor.md)
+- [TASK-0253 — Widoczność stagingu importu plansz i nazewnictwo panelu](0253-board-import-staging-visibility-and-terminology.md)
+- [TASK-0272 — Analiza zdalnej ręcznej selekcji zdjęć](0272-remote-manual-image-selection-analysis.md)
+- [TASK-0273 — Browser capability zdalnego źródła](0273-remote-source-browser-capability-spike.md)
+- [TASK-0274 — Wspólny silnik ręcznej selekcji i adapter lokalny](0274-manual-image-selection-shared-core.md)
+- [TASK-0275 — Kontrakty domenowe zdalnej ręcznej selekcji](0275-remote-manual-selection-domain-contracts.md)
+- [TASK-0276 — Trwały model zdalnej ręcznej selekcji](0276-remote-manual-selection-persistence.md)
+- [TASK-0277 — Host base binding i bezpieczne mapowanie Windows](0277-remote-manual-selection-host-path-safety.md)
+- [TASK-0278 — Purpose-scoped sesja, kod i writer lease](0278-remote-manual-selection-access-and-writer-lease.md)
+- [TASK-0279 — Osobna powierzchnia Reviewera i reuse ingressu](0279-remote-manual-selection-reviewer-ingress.md)
 
 ## Zawartość
 
@@ -80,3 +118,4 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0094 — Independent cell-grid golden annotations and crop quality gate](0094-cell-grid-golden-annotations-crop-quality-gate.md)
 - [TASK-0095 — Board cell cropper v2 and corpus regeneration](0095-board-cell-cropper-v2-corpus-regeneration.md)
 - [TASK-0096 — Grid calibration profiles and perspective editor](0096-grid-calibration-profiles-line-editor.md)
+- [TASK-0269 — Kohorta pozostałych błędów modelu](0269-v19-symbol-residual-cohort.md)

@@ -266,6 +266,7 @@ class LocalJobWorker:
         execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
         lease_duration: timedelta = DEFAULT_LEASE_DURATION,
         clock: Callable[[], datetime] | None = None,
+        auxiliary_work: Callable[[], object] | None = None,
     ) -> None:
         self._store = store
         self._handlers = dict(handlers)
@@ -274,8 +275,11 @@ class LocalJobWorker:
         self._execution_slot = execution_slot
         self._lease_duration = lease_duration
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._auxiliary_work = auxiliary_work
 
     def run_once(self) -> JobExecutionResult:
+        if self._auxiliary_work is not None:
+            self._auxiliary_work()
         claimed = self._store.claim_next(
             worker_id=self._worker_id,
             worker_version=self._worker_version,

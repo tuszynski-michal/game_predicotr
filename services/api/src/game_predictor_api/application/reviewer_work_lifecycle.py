@@ -17,6 +17,7 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressError,
     ReviewerIngressService,
     ReviewerIngressStatus,
+    ensure_online_reviewer_ingress,
 )
 from game_predictor_api.application.reviewer_work_assignments import (
     ReviewerWorkAssignmentService,
@@ -241,16 +242,7 @@ class ReviewerWorkLifecycleService:
         return started
 
     def _ensure_online_reviewer(self) -> ReviewerIngressStatus:
-        status = self._ingress.status()
-        if _is_ready_online(status):
-            return status
-        started = self._ingress.start()
-        if not _is_ready_online(started):
-            raise ReviewerIngressError(
-                "REVIEWER_INGRESS_NOT_READY",
-                "Shared Reviewer ingress did not reach a ready online state.",
-            )
-        return started
+        return ensure_online_reviewer_ingress(self._ingress)
 
     def _revoke_assignment_session(self, assignment: ReviewerWorkAssignment) -> None:
         if assignment.reviewer_access_session_id is not None:
@@ -283,29 +275,6 @@ def _is_local_target(value: str) -> bool:
         parsed.scheme == "http"
         and parsed.hostname == "127.0.0.1"
         and parsed.port == 3001
-        and parsed.username is None
-        and parsed.password is None
-        and parsed.path in {"", "/"}
-        and not parsed.params
-        and not parsed.query
-        and not parsed.fragment
-    )
-
-
-def _is_ready_online(status: ReviewerIngressStatus) -> bool:
-    if (
-        status.state != "running"
-        or status.reviewer_ready is not True
-        or not _is_local_target(status.target)
-        or status.public_origin is None
-    ):
-        return False
-    parsed = urlparse(status.public_origin)
-    return (
-        parsed.scheme == "https"
-        and parsed.hostname is not None
-        and parsed.hostname.endswith(".trycloudflare.com")
-        and parsed.port is None
         and parsed.username is None
         and parsed.password is None
         and parsed.path in {"", "/"}

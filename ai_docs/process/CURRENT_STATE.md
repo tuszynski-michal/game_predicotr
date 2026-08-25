@@ -31,6 +31,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - TASK-0291 pozostaje osobnym blockerem trwałego zapobiegania duplikatom
   `pending` z ponownych importów. Wyszukiwarka nie maskuje tych danych przez
   arbitralne łączenie ich w wiele kart.
+- Od `v0.8.1` semantyka częściowego wzoru jest zamknięta w czystym kontrakcie
+  `partial-board-ranking-v1`: primary match = `1.0`, alternatywy pending =
+  `0.60/0.40/0.25/0.15`, a `?` oznacza brak dowodu. Zero-evidence candidates
+  nie trafiają do wyniku; remisy są deterministyczne.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

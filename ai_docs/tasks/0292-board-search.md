@@ -80,15 +80,18 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Changed
 
-- Realizacja w toku.
+- `v0.8.1` dodaje czysty, wersjonowany kontrakt `partial-board-ranking-v1`.
+  Ranking rozróżnia pełne dopasowanie, cztery pozycje alternatywy, sprzeczność
+  i brak dowodu `?`; nie zależy od ORM, HTTP ani confidence modelu.
 
 ### Verification results
 
-- Będzie uzupełnione przy odbiorze.
+- `services/api/tests/test_board_search_domain.py`: 8 passed.
+- Ruff i sprawdzenie formatowania nowych plików: passed.
 
 ### Not completed
 
-- Kolejne moduły będą domykane osobnymi commitami `v0.8.2`–`v0.8.8`.
+- Trwała projekcja, synchronizacja, HTTP API i Admin pozostają do wykonania.
 
 ### Documentation updates
 
@@ -96,4 +99,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 1: ranking domenowy.
+- Moduł 2: projekcja kandydatów i jednoznaczny dokument sekwencji.

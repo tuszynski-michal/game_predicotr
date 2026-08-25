@@ -3450,6 +3450,143 @@ class ImageSequenceCanonicalModel(Base):
     )
 
 
+class ImageBoardSearchCandidateModel(Base):
+    """Compact current symbol evidence for a review item search candidate."""
+
+    __tablename__ = "image_board_search_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_candidates_sequence_positive",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_candidates_status",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_search_candidates_checksum",
+        ),
+        CheckConstraint(
+            "board_confidence BETWEEN 0 AND 1 AND sequence_confidence BETWEEN 0 AND 1 "
+            "AND source_pixel_count > 0",
+            name="ck_image_board_search_candidates_scores",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(primary_symbol_codes) = 'array' "
+            "AND jsonb_array_length(primary_symbol_codes) = 15",
+            name="ck_image_board_search_candidates_primary_cells",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(alternative_symbol_codes) = 'array' "
+            "AND jsonb_array_length(alternative_symbol_codes) = 15",
+            name="ck_image_board_search_candidates_alternative_cells",
+        ),
+        Index(
+            "ix_image_board_search_candidates_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+        Index(
+            "ix_image_board_search_candidates_game_status_sequence",
+            "game_id",
+            "status",
+            "sequence_number",
+        ),
+    )
+
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    source_pixel_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    primary_symbol_codes: Mapped[list[str | None]] = mapped_column(JSONB, nullable=False)
+    alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(
+        JSONB, nullable=False
+    )
+    primary_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchDocumentModel(Base):
+    """Single current search owner for one game sequence number."""
+
+    __tablename__ = "image_board_search_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_documents_sequence_positive",
+        ),
+        CheckConstraint(
+            "selection_kind IN ('canonical', 'pending')",
+            name="ck_image_board_search_documents_selection_kind",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            name="uq_image_board_search_documents_review_item",
+        ),
+        Index(
+            "ix_image_board_search_documents_game_review",
+            "game_id",
+            "review_item_id",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class ImageSequenceAlternativeModel(Base):
     """A skipped source for an already canonical sequence."""
 

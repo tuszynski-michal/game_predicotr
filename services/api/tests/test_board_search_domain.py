@@ -6,10 +6,12 @@ import pytest
 from game_predictor_api.domain.board_search import (
     BoardSearchCandidate,
     BoardSearchError,
+    BoardSearchProjectionPayload,
     BoardSearchQueryCell,
     BoardSearchScope,
     rank_board_search_candidates,
     score_board_search_candidate,
+    select_board_search_document,
 )
 
 
@@ -132,6 +134,76 @@ def test_ties_are_deterministic_and_prefer_approved_before_pending() -> None:
         pending_first.review_item_id,
         pending_second.review_item_id,
     ]
+
+
+def test_document_selection_prefers_canonical_then_best_waiting_pending() -> None:
+    first = _candidate(identifier=1, sequence_number=7)
+    second = _candidate(identifier=2, sequence_number=7)
+    payloads = (
+        BoardSearchProjectionPayload(
+            game_id=UUID(int=100),
+            import_job_id=UUID(int=101),
+            recognized_board_id=UUID(int=102),
+            candidate=first,
+            board_checksum_sha256="a" * 64,
+            board_confidence=0.8,
+            sequence_confidence=0.8,
+            source_pixel_count=1_000,
+        ),
+        BoardSearchProjectionPayload(
+            game_id=UUID(int=100),
+            import_job_id=UUID(int=101),
+            recognized_board_id=UUID(int=103),
+            candidate=second,
+            board_checksum_sha256="b" * 64,
+            board_confidence=0.9,
+            sequence_confidence=0.8,
+            source_pixel_count=1_000,
+        ),
+    )
+
+    pending_selection = select_board_search_document(
+        sequence_number=7,
+        candidates=payloads,
+        canonical_review_item_id=None,
+        waiting_pending_review_item_ids=(first.review_item_id, second.review_item_id),
+    )
+    canonical_selection = select_board_search_document(
+        sequence_number=7,
+        candidates=payloads,
+        canonical_review_item_id=first.review_item_id,
+        waiting_pending_review_item_ids=(first.review_item_id, second.review_item_id),
+    )
+
+    assert pending_selection is not None
+    assert pending_selection.review_item_id == second.review_item_id
+    assert pending_selection.selection_kind == "pending"
+    assert canonical_selection is not None
+    assert canonical_selection.review_item_id == first.review_item_id
+    assert canonical_selection.selection_kind == "canonical"
+
+
+def test_projection_tokens_exclude_unknown_symbols() -> None:
+    candidate = _candidate(
+        identifier=1,
+        sequence_number=1,
+        primary=("seven", "?", *([None] * 13)),
+        alternatives=(("bell", "lemon"), ("?",), *([()] * 13)),
+    )
+    payload = BoardSearchProjectionPayload(
+        game_id=UUID(int=100),
+        import_job_id=UUID(int=101),
+        recognized_board_id=UUID(int=102),
+        candidate=candidate,
+        board_checksum_sha256="a" * 64,
+        board_confidence=0.8,
+        sequence_confidence=0.8,
+        source_pixel_count=1_000,
+    )
+
+    assert payload.primary_match_tokens == ("0:seven",)
+    assert payload.alternative_match_tokens(0) == ("0:bell",)
+    assert payload.alternative_match_tokens(1) == ("0:lemon",)
 
 
 @pytest.mark.parametrize(

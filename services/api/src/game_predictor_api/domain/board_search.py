@@ -87,6 +87,54 @@ class RankedBoardSearchCandidate:
     score: BoardSearchScore
 
 
+@dataclass(frozen=True, slots=True)
+class BoardSearchProjectionPayload:
+    """Persistable evidence for one review item without any image bytes."""
+
+    game_id: UUID
+    import_job_id: UUID
+    recognized_board_id: UUID
+    candidate: BoardSearchCandidate
+    board_checksum_sha256: str
+    board_confidence: float
+    sequence_confidence: float
+    source_pixel_count: int
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.board_confidence <= 1.0:
+            raise ValueError("board_confidence must be between 0 and 1")
+        if not 0.0 <= self.sequence_confidence <= 1.0:
+            raise ValueError("sequence_confidence must be between 0 and 1")
+        if self.source_pixel_count <= 0:
+            raise ValueError("source_pixel_count must be positive")
+        if len(self.board_checksum_sha256) != 64:
+            raise ValueError("board_checksum_sha256 must be a SHA-256 digest")
+
+    @property
+    def primary_match_tokens(self) -> tuple[str, ...]:
+        return tuple(
+            _match_token(index, symbol)
+            for index, symbol in enumerate(self.candidate.primary_symbol_codes)
+            if _is_known_symbol(symbol)
+        )
+
+    def alternative_match_tokens(self, rank: int) -> tuple[str, ...]:
+        if not 0 <= rank < len(BOARD_SEARCH_ALTERNATIVE_WEIGHTS):
+            raise ValueError("alternative rank is outside the ranking contract")
+        return tuple(
+            _match_token(index, alternatives[rank])
+            for index, alternatives in enumerate(self.candidate.alternative_symbol_codes)
+            if rank < len(alternatives) and _is_known_symbol(alternatives[rank])
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchDocumentSelection:
+    review_item_id: UUID
+    sequence_number: int
+    selection_kind: str
+
+
 def validate_board_search_query(
     cells: Iterable[BoardSearchQueryCell],
 ) -> tuple[BoardSearchQueryCell, ...]:
@@ -218,17 +266,101 @@ def rank_board_search_candidates(
     )
 
 
+def select_board_search_document(
+    *,
+    sequence_number: int,
+    candidates: Iterable[BoardSearchProjectionPayload],
+    canonical_review_item_id: UUID | None,
+    waiting_pending_review_item_ids: Iterable[UUID],
+) -> BoardSearchDocumentSelection | None:
+    """Choose the single visible candidate for a logical sequence.
+
+    The caller owns persistence and job-state lookups.  Keeping this resolver
+    pure means the backfill and every incremental writer apply identical source
+    precedence.
+    """
+
+    if sequence_number < 1:
+        raise ValueError("sequence_number must be positive")
+    same_sequence = tuple(
+        candidate
+        for candidate in candidates
+        if candidate.candidate.sequence_number == sequence_number
+    )
+    by_review_item = {candidate.candidate.review_item_id: candidate for candidate in same_sequence}
+    if canonical_review_item_id is not None and canonical_review_item_id in by_review_item:
+        return BoardSearchDocumentSelection(
+            review_item_id=canonical_review_item_id,
+            sequence_number=sequence_number,
+            selection_kind="canonical",
+        )
+
+    resolved = tuple(
+        candidate for candidate in same_sequence if candidate.candidate.status in _APPROVED_STATUSES
+    )
+    if resolved:
+        return BoardSearchDocumentSelection(
+            review_item_id=_selection_sort_key(resolved)[0].candidate.review_item_id,
+            sequence_number=sequence_number,
+            selection_kind="canonical",
+        )
+
+    waiting_ids = set(waiting_pending_review_item_ids)
+    pending = tuple(
+        candidate
+        for candidate in same_sequence
+        if candidate.candidate.status == "pending"
+        and candidate.candidate.review_item_id in waiting_ids
+    )
+    if not pending:
+        return None
+    return BoardSearchDocumentSelection(
+        review_item_id=_selection_sort_key(pending)[0].candidate.review_item_id,
+        sequence_number=sequence_number,
+        selection_kind="pending",
+    )
+
+
+def _selection_sort_key(
+    candidates: Iterable[BoardSearchProjectionPayload],
+) -> tuple[BoardSearchProjectionPayload, ...]:
+    return tuple(
+        sorted(
+            candidates,
+            key=lambda candidate: (
+                -candidate.board_confidence,
+                -candidate.sequence_confidence,
+                -candidate.source_pixel_count,
+                str(candidate.candidate.review_item_id),
+            ),
+        )
+    )
+
+
+def _is_known_symbol(symbol: str | None) -> bool:
+    return symbol not in {None, UNKNOWN_SYMBOL_CODE}
+
+
+def _match_token(cell_index: int, symbol_code: str | None) -> str:
+    if not _is_known_symbol(symbol_code):
+        raise ValueError("a token requires a known symbol")
+    return f"{cell_index}:{symbol_code}"
+
+
 __all__ = [
     "BOARD_SEARCH_ALGORITHM_VERSION",
     "BOARD_SEARCH_ALTERNATIVE_WEIGHTS",
     "BOARD_SEARCH_CELL_COUNT",
     "BoardSearchCandidate",
     "BoardSearchError",
+    "BoardSearchDocumentSelection",
+    "BoardSearchProjectionPayload",
     "BoardSearchQueryCell",
     "BoardSearchScope",
     "BoardSearchScore",
     "RankedBoardSearchCandidate",
     "rank_board_search_candidates",
+    "select_board_search_document",
     "score_board_search_candidate",
     "validate_board_search_query",
 ]

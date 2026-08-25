@@ -83,15 +83,23 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 - `v0.8.1` dodaje czysty, wersjonowany kontrakt `partial-board-ranking-v1`.
   Ranking rozróżnia pełne dopasowanie, cztery pozycje alternatywy, sprzeczność
   i brak dowodu `?`; nie zależy od ORM, HTTP ani confidence modelu.
+- `v0.8.2` dodaje migrację `0057_board_search_projection`, zwarte kandydatury
+  symboli oraz jeden dokument widoczny dla pary `game + sequence`. GIN indeksy
+  tokenów ograniczają zbiór kandydatów, a backfill w porcjach nie przenosi
+  obrazów ani nie modyfikuje istniejącego review.
 
 ### Verification results
 
 - `services/api/tests/test_board_search_domain.py`: 8 passed.
+- `services/api/tests/test_board_search_projection_repository.py`: 3 passed.
+- `services/api/tests/test_migration_baseline.py`: 40 passed.
 - Ruff i sprawdzenie formatowania nowych plików: passed.
 
 ### Not completed
 
-- Trwała projekcja, synchronizacja, HTTP API i Admin pozostają do wykonania.
+- Automatyczna synchronizacja projekcji, HTTP API i Admin pozostają do
+  wykonania. Backfill zostanie uruchomiony po podłączeniu wspólnego writer'a,
+  aby importy w toku nie mogły odtworzyć starego stanu.
 
 ### Documentation updates
 
@@ -99,4 +107,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 2: projekcja kandydatów i jednoznaczny dokument sekwencji.
+- Moduł 3: synchronizacja projekcji w ścieżkach importu i review.

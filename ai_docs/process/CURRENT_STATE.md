@@ -35,6 +35,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `partial-board-ranking-v1`: primary match = `1.0`, alternatywy pending =
   `0.60/0.40/0.25/0.15`, a `?` oznacza brak dowodu. Zero-evidence candidates
   nie trafiają do wyniku; remisy są deterministyczne.
+- Od `v0.8.2` migracja `0057_board_search_projection` definiuje kompaktowy
+  candidate projection i jeden current document dla `game + sequence`. Candidacy
+  przechowuje wyłącznie kody 15 komórek, rankowane alternatywy, statusy,
+  identyfikatory, checksumy i metryki jakości. Tokeny pozycji (`cell:symbol`)
+  mają osobne indeksy GIN; full board crop pozostaje assetem filesystemu.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

@@ -66,6 +66,7 @@ IMAGE_REVIEW_JOB_COMPLETION_REVISION = "0053_image_review_job_completion"
 IMAGE_BOARD_GEOMETRY_PENDING_REVISION = "0054_image_board_geometry_pending"
 BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION = "0055_board_cell_geometry_pipeline_stage"
 REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION = "0056_remote_manual_selection_persistence"
+BOARD_SEARCH_PROJECTION_REVISION = "0057_board_search_projection"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -147,7 +148,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     remote_manual_selection_persistence = script.get_revision(
         REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
     )
-    assert script.get_heads() == [REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION]
+    board_search_projection = script.get_revision(BOARD_SEARCH_PROJECTION_REVISION)
+    assert script.get_heads() == [BOARD_SEARCH_PROJECTION_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -269,6 +271,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert board_cell_geometry_pipeline_stage is not None
     assert board_cell_geometry_pipeline_stage.down_revision == IMAGE_BOARD_GEOMETRY_PENDING_REVISION
     assert remote_manual_selection_persistence is not None
+    assert board_search_projection is not None
+    assert board_search_projection.down_revision == REMOTE_MANUAL_SELECTION_PERSISTENCE_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION

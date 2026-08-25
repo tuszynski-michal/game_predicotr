@@ -5,22 +5,31 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import case, delete, func, select
+from sqlalchemy import Numeric, and_, case, delete, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from game_predictor_api.domain.board_search import (
+    BOARD_SEARCH_ALTERNATIVE_WEIGHTS,
     BOARD_SEARCH_CELL_COUNT,
     BoardSearchCandidate,
+    BoardSearchError,
     BoardSearchProjectionPayload,
+    BoardSearchQueryCell,
+    BoardSearchResult,
+    BoardSearchScope,
+    BoardSearchScore,
     select_board_search_document,
 )
+from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.models import (
     CellObservationModel,
+    GameModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchDocumentModel,
     ImageBoardSearchProjectionStateModel,
@@ -30,6 +39,7 @@ from game_predictor_api.storage.models import (
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
+    SymbolModel,
 )
 
 _SEARCHABLE_STATUSES = frozenset({"pending", "accepted", "corrected"})
@@ -221,6 +231,126 @@ class SqlAlchemyBoardSearchProjectionRepository:
             document_count=int(record.document_count),
             skipped_review_item_count=int(record.skipped_review_item_count),
             failure_message=record.failure_message,
+        )
+
+    def search(
+        self,
+        *,
+        game_id: UUID,
+        query: Sequence[BoardSearchQueryCell],
+        scope: BoardSearchScope,
+        limit: int,
+    ) -> tuple[BoardSearchResult, ...]:
+        if self._session.get(GameModel, game_id) is None:
+            raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
+        state = self.state_for_game(game_id)
+        if state is None or state.status != "ready":
+            raise BoardSearchError(
+                "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+                "The board-search projection is not ready for this game.",
+            )
+        active_codes = set(
+            self._session.scalars(
+                select(SymbolModel.code).where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.status == SymbolStatus.ACTIVE,
+                )
+            ).all()
+        )
+        if any(cell.symbol_code not in active_codes for cell in query):
+            raise BoardSearchError(
+                "BOARD_SEARCH_SYMBOL_INVALID",
+                "Every board-search symbol must be active in the selected game.",
+            )
+
+        candidate = ImageBoardSearchCandidateModel
+        document = ImageBoardSearchDocumentModel
+        query_tokens = tuple(f"{cell.cell_index}:{cell.symbol_code}" for cell in query)
+        token_filter = or_(
+            candidate.primary_match_tokens.overlap(query_tokens),
+            and_(
+                candidate.status == "pending",
+                or_(
+                    candidate.alternative_rank_1_match_tokens.overlap(query_tokens),
+                    candidate.alternative_rank_2_match_tokens.overlap(query_tokens),
+                    candidate.alternative_rank_3_match_tokens.overlap(query_tokens),
+                    candidate.alternative_rank_4_match_tokens.overlap(query_tokens),
+                ),
+            ),
+        )
+        (
+            score_expression,
+            exact_expression,
+            alternative_expression,
+            weighted_alternative,
+            mismatch,
+            unknown,
+        ) = _search_score_expressions(candidate, query)
+        status_priority = case(
+            (candidate.status.in_(("accepted", "corrected")), 0),
+            else_=1,
+        )
+        statement = (
+            select(
+                candidate.review_item_id,
+                candidate.recognized_board_id,
+                candidate.import_job_id,
+                candidate.sequence_number,
+                candidate.status,
+                candidate.board_checksum_sha256,
+                score_expression.label("score"),
+                exact_expression.label("exact_match_count"),
+                alternative_expression.label("alternative_match_count"),
+                weighted_alternative.label("weighted_alternative_score"),
+                mismatch.label("mismatch_count"),
+                unknown.label("unknown_count"),
+            )
+            .join(document, document.review_item_id == candidate.review_item_id)
+            .where(candidate.game_id == game_id, token_filter)
+            .order_by(
+                score_expression.desc(),
+                exact_expression.desc(),
+                weighted_alternative.desc(),
+                mismatch.asc(),
+                status_priority.asc(),
+                candidate.sequence_number.asc(),
+                candidate.review_item_id.asc(),
+            )
+            .limit(limit)
+        )
+        if scope is BoardSearchScope.APPROVED_ONLY:
+            statement = statement.where(candidate.status.in_(("accepted", "corrected")))
+        return tuple(
+            BoardSearchResult(
+                review_item_id=review_item_id,
+                recognized_board_id=recognized_board_id,
+                import_job_id=import_job_id,
+                sequence_number=int(sequence_number),
+                status=status,
+                board_checksum_sha256=board_checksum_sha256,
+                score=BoardSearchScore(
+                    score=float(score),
+                    exact_match_count=int(exact_match_count),
+                    alternative_match_count=int(alternative_match_count),
+                    weighted_alternative_score=float(weighted_alternative_score),
+                    mismatch_count=int(mismatch_count),
+                    unknown_count=int(unknown_count),
+                ),
+            )
+            for (
+                review_item_id,
+                recognized_board_id,
+                import_job_id,
+                sequence_number,
+                status,
+                board_checksum_sha256,
+                score,
+                exact_match_count,
+                alternative_match_count,
+                weighted_alternative_score,
+                mismatch_count,
+                unknown_count,
+            ) in self._session.execute(statement).all()
         )
 
     def reconcile_review_item(self, review_item_id: UUID) -> None:
@@ -663,6 +793,115 @@ def _payload_from_candidate(
         board_confidence=candidate.board_confidence,
         sequence_confidence=candidate.sequence_confidence,
         source_pixel_count=int(candidate.source_pixel_count),
+    )
+
+
+def _search_score_expressions(
+    candidate: type[ImageBoardSearchCandidateModel],
+    query: Sequence[BoardSearchQueryCell],
+) -> tuple[
+    ColumnElement[Any],
+    ColumnElement[Any],
+    ColumnElement[Any],
+    ColumnElement[Any],
+    ColumnElement[Any],
+    ColumnElement[Any],
+]:
+    weighted_evidence: ColumnElement[Any] = literal(0.0)
+    exact_count: ColumnElement[Any] = literal(0)
+    alternative_count: ColumnElement[Any] = literal(0)
+    weighted_alternative: ColumnElement[Any] = literal(0.0)
+    mismatch_count: ColumnElement[Any] = literal(0)
+    unknown_count: ColumnElement[Any] = literal(0)
+    for cell in query:
+        token = f"{cell.cell_index}:{cell.symbol_code}"
+        primary_matches = candidate.primary_match_tokens.contains([token])
+        has_pending_status = candidate.status == "pending"
+        alternative_matches = (
+            and_(
+                has_pending_status,
+                candidate.alternative_rank_1_match_tokens.contains([token]),
+            ),
+            and_(
+                has_pending_status,
+                candidate.alternative_rank_2_match_tokens.contains([token]),
+            ),
+            and_(
+                has_pending_status,
+                candidate.alternative_rank_3_match_tokens.contains([token]),
+            ),
+            and_(
+                has_pending_status,
+                candidate.alternative_rank_4_match_tokens.contains([token]),
+            ),
+        )
+        primary_code = func.jsonb_extract_path_text(
+            candidate.primary_symbol_codes,
+            str(cell.cell_index),
+        )
+        alternative_codes = tuple(
+            func.jsonb_extract_path_text(
+                candidate.alternative_symbol_codes,
+                str(cell.cell_index),
+                str(rank),
+            )
+            for rank in range(4)
+        )
+        matched = or_(primary_matches, *alternative_matches)
+        has_known_evidence = or_(
+            (primary_code.is_not(None)) & (primary_code != "?"),
+            *(
+                and_(
+                    has_pending_status,
+                    (alternative_code.is_not(None)) & (alternative_code != "?"),
+                )
+                for alternative_code in alternative_codes
+            ),
+        )
+        alternative_weight = case(
+            (primary_matches, 0.0),
+            *(
+                (alternative_matches[rank], weight)
+                for rank, weight in enumerate(BOARD_SEARCH_ALTERNATIVE_WEIGHTS)
+            ),
+            else_=0.0,
+        )
+        weighted_evidence = weighted_evidence + case(
+            (primary_matches, 1.0),
+            *(
+                (alternative_matches[rank], weight)
+                for rank, weight in enumerate(BOARD_SEARCH_ALTERNATIVE_WEIGHTS)
+            ),
+            else_=0.0,
+        )
+        exact_count = exact_count + case((primary_matches, 1), else_=0)
+        alternative_count = alternative_count + case(
+            (primary_matches, 0),
+            (or_(*alternative_matches), 1),
+            else_=0,
+        )
+        weighted_alternative = weighted_alternative + alternative_weight
+        mismatch_count = mismatch_count + case(
+            (matched, 0),
+            (has_known_evidence, 1),
+            else_=0,
+        )
+        unknown_count = unknown_count + case(
+            (matched, 0),
+            (has_known_evidence, 0),
+            else_=1,
+        )
+    score = func.round(
+        (weighted_evidence * literal(100.0 / len(query))).cast(Numeric(10, 6)),
+        1,
+    )
+    return (
+        score,
+        exact_count,
+        alternative_count,
+        weighted_alternative,
+        mismatch_count,
+        unknown_count,
     )
 
 

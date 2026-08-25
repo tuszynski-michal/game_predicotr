@@ -2319,3 +2319,43 @@ test('image selection status request forwards its abort signal', async () => {
   );
   assert.equal(requests[0].signal.aborted, true);
 });
+
+test('board search forwards a partial pattern and scope through the generated client', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        gameId,
+        queryCellCount: 2,
+        results: [],
+        scope: 'approved_only',
+      });
+    },
+  });
+
+  await client.searchGameBoards(gameId, {
+    cells: [
+      { cellIndex: 1, symbolCode: 'bell' },
+      { cellIndex: 14, symbolCode: 'seven' },
+    ],
+    limit: 20,
+    scope: 'approved_only',
+  });
+
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search`,
+  );
+  assert.deepEqual(new URL(requests[0].url).searchParams.getAll('cell'), [
+    '1:bell',
+    '14:seven',
+  ]);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('scope'),
+    'approved_only',
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+});

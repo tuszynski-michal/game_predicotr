@@ -452,6 +452,91 @@ export type BoardCellRecropJobSnapshotPayload = {
 };
 
 /**
+ * BoardSearchResponse
+ */
+export type BoardSearchResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchResultResponse>;
+  scope: BoardSearchScope;
+};
+
+/**
+ * BoardSearchResultResponse
+ */
+export type BoardSearchResultResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  score: BoardSearchScoreResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * BoardSearchScope
+ */
+export type BoardSearchScope = 'all_searchable' | 'approved_only';
+
+/**
+ * BoardSearchScoreResponse
+ */
+export type BoardSearchScoreResponse = {
+  /**
+   * Alternativematchcount
+   */
+  alternativeMatchCount: number;
+  /**
+   * Exactmatchcount
+   */
+  exactMatchCount: number;
+  /**
+   * Mismatchcount
+   */
+  mismatchCount: number;
+  /**
+   * Score
+   */
+  score: number;
+  /**
+   * Unknowncount
+   */
+  unknownCount: number;
+  /**
+   * Weightedalternativescore
+   */
+  weightedAlternativeScore: number;
+};
+
+/**
  * BrowserImageImportJobPayload
  */
 export type BrowserImageImportJobPayload = {
@@ -8616,6 +8701,56 @@ export type UpdateGameResponses = {
 };
 
 export type UpdateGameResponse = UpdateGameResponses[keyof UpdateGameResponses];
+
+export type SearchGameBoardsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cell
+     */
+    cell?: Array<string> | null;
+    scope?: BoardSearchScope;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search';
+};
+
+export type SearchGameBoardsErrors = {
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid partial board query
+   */
+  422: ErrorResponse;
+};
+
+export type SearchGameBoardsError =
+  SearchGameBoardsErrors[keyof SearchGameBoardsErrors];
+
+export type SearchGameBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchResponse;
+};
+
+export type SearchGameBoardsResponse =
+  SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
 
 export type ListDatasetVersionsData = {
   body?: never;

@@ -92,6 +92,10 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   stan `rebuilding/ready/failed` per gra; skrypt operatorski buduje historyczną
   projekcję stronicami po ID i materializuje dokumenty SQL-em, bez skanowania
   obrazów i bez ponownego uruchamiania importu.
+- `v0.8.4` dodaje read-only endpoint wyszukiwania, stabilne błędy walidacji oraz
+  wygenerowany klient Admina. Endpoint wykorzystuje wyłącznie gotową projekcję,
+  sprawdza kody względem aktywnego katalogu gry i nie traktuje alternatyw stale
+  zapisanych przy `accepted/corrected` jako dowodu.
 
 ### Verification results
 
@@ -103,12 +107,16 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   `services/worker/tests/test_pending_grid_reinference.py`: 32 passed;
   6 izolowanych testów PostgreSQL pozostaje opt-in.
 - Ruff i sprawdzenie formatowania nowych plików: passed.
+- `services/api/tests/test_board_search_api.py` i rozszerzona kontrola OpenAPI
+  weryfikują parser powtarzalnego `cell`, scope, stabilne błędy oraz kontrakt
+  odpowiedzi; klient Admina weryfikuje serializację zapytania.
 
 ### Not completed
 
-- HTTP API i Admin pozostają do wykonania. Aktualny backfill gry `777` jest
-  kontrolowany przez `scripts/rebuild_board_search_projection.py`; endpoint nie
-  będzie uznawał projekcji `rebuilding` za pusty wynik.
+- Widok Admina, karuzela assetów, prefetch oraz benchmark pozostają do
+  wykonania. Historyczny backfill gry `777` zakończył się stanem `ready` dla
+  `212251` kandydatów i `125431` dokumentów; endpoint nie uznaje stanu
+  `rebuilding` za pusty wynik.
 
 ### Documentation updates
 
@@ -116,4 +124,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 4: read-only API, OpenAPI i wygenerowany klient Admina.
+- Moduł 5: edytor częściowej planszy i nawigacja Admina.

@@ -74,6 +74,34 @@ def test_catalog_openapi_exposes_stable_operations_and_error_schema() -> None:
     ]["schema"] == {"$ref": "#/components/schemas/ErrorResponse"}
 
 
+def test_board_search_openapi_exposes_the_read_only_partial_pattern_contract() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+
+    operation = schema["paths"]["/api/v1/admin/games/{game_id}/board-search"]["get"]
+    assert operation["operationId"] == "searchGameBoards"
+    assert operation["tags"] == ["board-search"]
+    parameters = {parameter["name"]: parameter for parameter in operation["parameters"]}
+    assert parameters["cell"]["schema"]["anyOf"][0] == {
+        "items": {"type": "string"},
+        "type": "array",
+    }
+    assert parameters["scope"]["schema"] == {
+        "$ref": "#/components/schemas/BoardSearchScope",
+        "default": "all_searchable",
+    }
+    assert parameters["limit"]["schema"] == {
+        "type": "integer",
+        "maximum": 100,
+        "minimum": 1,
+        "default": 100,
+        "title": "Limit",
+    }
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/BoardSearchResponse"
+    }
+    assert set(operation["responses"]).issuperset({"404", "409", "422"})
+
+
 def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     expected_operations = {

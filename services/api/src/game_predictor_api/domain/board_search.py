@@ -88,6 +88,19 @@ class RankedBoardSearchCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class BoardSearchResult:
+    """One ranked logical board returned by the read-only search API."""
+
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int
+    status: str
+    board_checksum_sha256: str
+    score: BoardSearchScore
+
+
+@dataclass(frozen=True, slots=True)
 class BoardSearchProjectionPayload:
     """Persistable evidence for one review item without any image bytes."""
 
@@ -356,6 +369,7 @@ __all__ = [
     "BoardSearchDocumentSelection",
     "BoardSearchProjectionPayload",
     "BoardSearchQueryCell",
+    "BoardSearchResult",
     "BoardSearchScope",
     "BoardSearchScore",
     "RankedBoardSearchCandidate",

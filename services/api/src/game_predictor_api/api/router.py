@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from game_predictor_api.api.board_cell_geometry_pending import (
     create_board_cell_geometry_pending_router,
 )
+from game_predictor_api.api.board_search import create_board_search_router
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
@@ -47,6 +48,7 @@ from game_predictor_api.config import ApiSettings
 def create_api_router(
     settings: ApiSettings,
     catalog_service_dependency: Callable[..., object],
+    board_search_service_dependency: Callable[..., object],
     cleanup_service_dependency: Callable[..., object],
     rules_service_dependency: Callable[..., object],
     dataset_service_dependency: Callable[..., object],
@@ -93,6 +95,7 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_board_search_router(board_search_service_dependency))
     router.include_router(create_cleanup_router(cleanup_service_dependency))
     if settings.remote_manual_selection_host_mapping_enabled:
         router.include_router(

@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-25
+last_updated: 2026-08-26
 ---
 
 # Current State
@@ -46,6 +46,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `scripts/rebuild_board_search_projection.py` odbudowuje historyczne rekordy
   stronicami po review ID. Nie dotyka obrazów, cropów, jobów ani decyzji review;
   status `rebuilding/failed` ma później blokować mylące puste wyniki API.
+- Od `v0.8.4` dostępny jest read-only endpoint
+  `GET /api/v1/admin/games/{gameId}/board-search`. Przyjmuje powtarzalne
+  `cell={0..14}:{symbolCode}`, scope `all_searchable/approved_only` i limit do
+  100. Prowadzi przez backendową walidację aktywnego katalogu symboli, nie
+  zwraca obrazów binarnych i blokuje odczyt, dopóki projekcja gry nie ma stanu
+  `ready`. Wygenerowany klient Admina udostępnia typowane `searchGameBoards`.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

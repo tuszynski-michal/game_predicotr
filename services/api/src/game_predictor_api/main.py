@@ -25,6 +25,7 @@ from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
     ManagedBoardCellProcessingManifestStore,
 )
+from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
@@ -121,6 +122,7 @@ from game_predictor_api.application.verified_training_cohorts import (
 )
 from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
+from game_predictor_api.domain.board_search import BoardSearchError
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogError,
@@ -190,6 +192,9 @@ from game_predictor_api.security.local_admin import (
 )
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
+)
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -278,6 +283,7 @@ def create_app(
     settings: ApiSettings | None = None,
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
+    board_search_service_dependency: Callable[..., object] | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -325,6 +331,19 @@ def create_app(
                 raise
 
     resolved_catalog_dependency = catalog_service_dependency or default_catalog_service_dependency
+
+    def default_board_search_service_dependency() -> Iterator[BoardSearchService]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchService(SqlAlchemyBoardSearchProjectionRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_dependency = (
+        board_search_service_dependency or default_board_search_service_dependency
+    )
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
         with session_factory() as session:
@@ -940,6 +959,7 @@ def create_app(
         create_api_router(
             resolved_settings,
             resolved_catalog_dependency,
+            resolved_board_search_dependency,
             resolved_cleanup_dependency,
             resolved_rules_dependency,
             resolved_dataset_dependency,
@@ -1020,6 +1040,21 @@ def create_app(
                 "message": error.message,
                 "details": error.details,
             },
+        )
+
+    @application.exception_handler(BoardSearchError)
+    async def handle_board_search_error(
+        _request: Request,
+        error: BoardSearchError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code == "GAME_NOT_FOUND":
+            status_code = 404
+        elif error.code == "BOARD_SEARCH_PROJECTION_INCOMPLETE":
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(CleanupError)

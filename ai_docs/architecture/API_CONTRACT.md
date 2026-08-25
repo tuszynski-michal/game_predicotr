@@ -51,6 +51,7 @@ Format błędu:
 ```text
 /games
 /games/{gameId}/symbols
+/games/{gameId}/board-search
 /games/{gameId}/rules-versions
 /rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines
@@ -69,6 +70,27 @@ Format błędu:
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+### Wyszukiwanie plansz częściowym układem
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode}&limit=1..100
+```
+
+Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem i
+określa tylko znane pozycje układu 3 × 5; co najmniej jedna pozycja jest
+wymagana. `?` nigdy nie jest prawidłowym symbolem zapytania. `all_searchable`
+zwraca deterministycznie wybrany dokument logicznej planszy dla każdego numeru
+sekwencji (accepted/corrected albo oczekujący), a `approved_only` ogranicza
+wyniki do decyzji accepted/corrected.
+
+Każdy wynik zawiera identyfikatory źródłowej pozycji review i planszy,
+`sequenceNumber`, status, checksumę cropu oraz rozkład punktów (`score`, exact,
+alternatywa, mismatch i unknown). Odpowiedź nie zawiera danych binarnych obrazu.
+Niespójny wzór zwraca `422` (`BOARD_SEARCH_QUERY_EMPTY`,
+`BOARD_SEARCH_CELL_INVALID`, `BOARD_SEARCH_CELL_DUPLICATE` lub
+`BOARD_SEARCH_SYMBOL_INVALID`); nieistniejąca gra `404 GAME_NOT_FOUND`, a
+niedokończona projekcja `409 BOARD_SEARCH_PROJECTION_INCOMPLETE`.
 
 ### Host base zdalnej ręcznej selekcji
 

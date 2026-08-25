@@ -162,6 +162,7 @@ import {
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
   resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
+  searchGameBoards as searchGeneratedGameBoards,
   startSymbolBootstrap as startGeneratedSymbolBootstrap,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
@@ -184,6 +185,8 @@ import type {
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
+  BoardSearchResponse,
+  BoardSearchScope,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -265,6 +268,8 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  BoardSearchResponse,
+  BoardSearchScope,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
   BrowserReadySelectionResponse,
@@ -529,6 +534,17 @@ export interface ListPendingBoardCellGeometryOptions extends OperationalImageRev
 
 export interface ListVerifiedImageReviewCohortsOptions extends OperationalImageReviewContext {
   readonly limit?: number;
+}
+
+export interface SearchGameBoardsOptions {
+  readonly cells: readonly BoardSearchQueryCell[];
+  readonly scope?: BoardSearchScope;
+  readonly limit?: number;
+}
+
+export interface BoardSearchQueryCell {
+  readonly cellIndex: number;
+  readonly symbolCode: string;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -1160,6 +1176,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedImageDatasetCompleteness({
         client,
         path: { game_id: gameId },
+      }),
+    searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
+      searchGeneratedGameBoards({
+        client,
+        path: { game_id: gameId },
+        query: {
+          cell: options.cells.map(
+            (cell) => `${cell.cellIndex}:${cell.symbolCode}`,
+          ),
+          ...(options.scope === undefined ? {} : { scope: options.scope }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
       }),
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({

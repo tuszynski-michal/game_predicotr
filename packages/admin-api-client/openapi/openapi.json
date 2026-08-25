@@ -792,6 +792,148 @@
         "title": "BoardCellRecropJobSnapshotPayload",
         "type": "object"
       },
+      "BoardSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "queryCellCount": {
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Querycellcount",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchResultResponse"
+            },
+            "maxItems": 100,
+            "title": "Results",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope"
+          }
+        },
+        "required": [
+          "gameId",
+          "scope",
+          "queryCellCount",
+          "results"
+        ],
+        "title": "BoardSearchResponse",
+        "type": "object"
+      },
+      "BoardSearchResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "score": {
+            "$ref": "#/components/schemas/BoardSearchScoreResponse"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sequenceNumber",
+          "status",
+          "boardChecksumSha256",
+          "score"
+        ],
+        "title": "BoardSearchResultResponse",
+        "type": "object"
+      },
+      "BoardSearchScope": {
+        "enum": [
+          "all_searchable",
+          "approved_only"
+        ],
+        "title": "BoardSearchScope",
+        "type": "string"
+      },
+      "BoardSearchScoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeMatchCount": {
+            "maximum": 15.0,
+            "minimum": 0.0,
+            "title": "Alternativematchcount",
+            "type": "integer"
+          },
+          "exactMatchCount": {
+            "maximum": 15.0,
+            "minimum": 0.0,
+            "title": "Exactmatchcount",
+            "type": "integer"
+          },
+          "mismatchCount": {
+            "maximum": 15.0,
+            "minimum": 0.0,
+            "title": "Mismatchcount",
+            "type": "integer"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "unknownCount": {
+            "maximum": 15.0,
+            "minimum": 0.0,
+            "title": "Unknowncount",
+            "type": "integer"
+          },
+          "weightedAlternativeScore": {
+            "maximum": 15.0,
+            "minimum": 0.0,
+            "title": "Weightedalternativescore",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "exactMatchCount",
+          "alternativeMatchCount",
+          "weightedAlternativeScore",
+          "mismatchCount",
+          "unknownCount"
+        ],
+        "title": "BoardSearchScoreResponse",
+        "type": "object"
+      },
       "BrowserImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -14992,6 +15134,109 @@
         "summary": "Update game",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search": {
+      "get": {
+        "operationId": "searchGameBoards",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cell",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cell"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/BoardSearchScope",
+              "default": "all_searchable"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board-search projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid partial board query"
+          }
+        },
+        "summary": "Find logical boards by a partial symbol pattern",
+        "tags": [
+          "board-search"
         ]
       }
     },

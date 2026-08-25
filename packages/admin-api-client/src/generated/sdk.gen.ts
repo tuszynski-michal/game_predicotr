@@ -540,6 +540,9 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SearchGameBoardsData,
+  SearchGameBoardsErrors,
+  SearchGameBoardsResponses,
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
@@ -801,6 +804,22 @@ export const updateGame = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Find logical boards by a partial symbol pattern
+ */
+export const searchGameBoards = <ThrowOnError extends boolean = false>(
+  options: Options<SearchGameBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchGameBoardsResponses,
+  SearchGameBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    SearchGameBoardsResponses,
+    SearchGameBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
 
 /**
  * List game dataset versions

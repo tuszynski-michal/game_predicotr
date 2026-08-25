@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -150,6 +150,15 @@ sesje pozostają w audycie, ale nie zaśmiecają aktywnego widoku. Panel nie
 pokazuje serwerowych partii, ich limitu, transferów ani diagnostyki
 materializacji, ponieważ aktywny tryb operator-local nie tworzy tych danych na
 hoście.
+
+Kod zdalnego dostępu po utworzeniu sesji jest utrwalany wyłącznie w
+`localStorage` przeglądarki lokalnego właściciela, pod identyfikatorem sesji i
+najpóźniej do jej `expiresAt`. Dane wybranej aktywnej sesji stale pokazują link
+oraz kod z przyciskami `Kopiuj link` i `Kopiuj kod`; odświeżenie strony nie
+ukrywa kodu na tym samym komputerze. Revoke, lokalne wygaśnięcie albo status
+nieaktywny usuwa go z cache. API, baza i logi nadal przechowują wyłącznie hash,
+a inny komputer Admina oraz sesje utworzone przed tą zmianą nie mogą odzyskać
+surowego kodu.
 
 Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
 okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
@@ -317,11 +326,13 @@ osobnego, pamięciowego identyfikatora karty, dlatego dwie karty ze skopiowanym
 Niezależna od gry zakładka Admina pokazuje nad lokalnym narzędziem osobny panel
 hosta. Właściciel wybiera bazę kontrolowanym pickerem, nadaje sesji czytelną
 etykietę i TTL od 5 minut do 24 godzin. Ścieżka bazy nie jest wyświetlana ani
-zwracana przez API. Surowy kod jest dostępny wyłącznie na jednorazowej karcie po
-utworzeniu sesji; reload, ukrycie karty lub revoke usuwa go ze stanu UI.
+zwracana przez API. Surowy kod z odpowiedzi create jest utrwalany tylko w
+lokalnym `localStorage` tego panelu do TTL albo revoke i jest pokazywany przy
+wybranej aktywnej sesji obok dynamicznego linku. Nie trafia do listy API,
+bazy, logów ani na inny komputer właściciela.
 
-Lista do 100 sesji odtwarza się po reloadzie bez sekretów. Dla jednej wybranej
-sesji Admin odpytuje ograniczony monitor maksymalnie 100 najnowszych partii i
+Lista do 100 sesji odtwarza się po reloadzie bez sekretów serwera. Dla jednej
+wybranej sesji Admin odpytuje ograniczony monitor maksymalnie 100 najnowszych partii i
 pokazuje stan ingressu, writer lease, wolne miejsce, liczniki wybranych i
 zsynchronizowanych plików, oczekujące akcje oraz stabilne kody błędów. URL jest
 dynamiczną projekcją bieżącego wspólnego ingressu, dlatego po restarcie tunelu

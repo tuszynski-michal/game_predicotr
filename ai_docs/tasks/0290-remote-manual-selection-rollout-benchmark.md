@@ -60,6 +60,18 @@ ani kopiowania JPEG-ów do repozytorium.
 
 ## Progress
 
+### v0.7.75 — trwałe dane dostępu właściciela
+
+- Panel `Zdalna ręczna selekcja` nie używa już znikającej po refreshu sekcji
+  „Kod jednorazowy”. Wybrana aktywna sesja pokazuje stale link i kod z
+  przyciskami `Kopiuj link` oraz `Kopiuj kod`.
+- Kod z odpowiedzi create jest cache'owany wyłącznie w `localStorage` bieżącego
+  komputera Admina pod `sessionId`, do `expiresAt` albo revoke. Cache jest
+  czyszczony przy zatrzymaniu sesji i nie istnieje w API, bazie ani logach.
+- Sesja otwarta na innym komputerze Admina lub utworzona przed tą zmianą
+  pokazuje jawnie, że kod nie jest dostępny na tym urządzeniu; nie ma próby
+  odzyskania go z backendu.
+
 ### v0.7.42 — kontrakt raportu, runbook i lokalna bramka etapu 1
 
 - Dodano `remote-manual-selection-rollout-v1`: kanoniczny, checksumowany raport
@@ -384,3 +396,7 @@ procesie API i Reviewera.
 
 TASK pozostaje otwarty dla benchmarku i checkpointów rolloutowych. Zmiana v0.7.71
 nie uruchamia Quick Tunnel, transferu ani dodatkowych etapów benchmarku.
+
+Pion `v0.7.75` ukończono lokalnie: cache kodu właściciela, stałe dane dostępu
+sesji oraz testy Admina nie zmieniają API, modelu danych, ruchu przez Quick
+Tunnel ani benchmarkowych etapów TASK-0290.

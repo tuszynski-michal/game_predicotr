@@ -1,7 +1,6 @@
 'use client';
 
 import type {
-  RemoteManualSelectionSessionCreatedResponse,
   RemoteManualSelectionSessionMonitorResponse,
   RemoteManualSelectionSessionResponse,
 } from '@game-predictor/admin-api-client';
@@ -9,6 +8,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
+import {
+  loadRemoteManualSelectionAccessCodes,
+  rememberRemoteManualSelectionAccessCode,
+  removeRemoteManualSelectionAccessCode,
+  retainActiveRemoteManualSelectionAccessCodes,
+  type RemoteManualSelectionAccessCodeMap,
+} from './remote-manual-selection-access-code-cache';
 import {
   createRemoteManualSelectionAccess,
   loadRemoteManualSelectionMonitor,
@@ -49,8 +55,10 @@ export function RemoteManualSelectionHostPanel({
     useState<RemoteManualSelectionSessionFilter>('active');
   const [monitor, setMonitor] =
     useState<RemoteManualSelectionSessionMonitorResponse | null>(null);
-  const [oneTimeAccess, setOneTimeAccess] =
-    useState<RemoteManualSelectionSessionCreatedResponse | null>(null);
+  const [accessCodes, setAccessCodes] =
+    useState<RemoteManualSelectionAccessCodeMap>(() =>
+      loadRemoteManualSelectionAccessCodes(),
+    );
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(
@@ -62,7 +70,7 @@ export function RemoteManualSelectionHostPanel({
   const [error, setError] = useState('');
   const [monitorError, setMonitorError] = useState('');
   const [notice, setNotice] = useState('');
-  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const refreshSessions = useCallback(
     async (showError: boolean) => {
@@ -76,6 +84,17 @@ export function RemoteManualSelectionHostPanel({
         REMOTE_SESSION_FETCH_LIMIT,
       );
       setSessions(newestSessions);
+      setAccessCodes((current) =>
+        retainActiveRemoteManualSelectionAccessCodes(
+          current,
+          newestSessions
+            .filter(
+              (session) =>
+                session.status === 'draft' || session.status === 'active',
+            )
+            .map((session) => session.sessionId),
+        ),
+      );
     },
     [api],
   );
@@ -90,6 +109,17 @@ export function RemoteManualSelectionHostPanel({
           REMOTE_SESSION_FETCH_LIMIT,
         );
         setSessions(newestSessions);
+        setAccessCodes((current) =>
+          retainActiveRemoteManualSelectionAccessCodes(
+            current,
+            newestSessions
+              .filter(
+                (session) =>
+                  session.status === 'draft' || session.status === 'active',
+              )
+              .map((session) => session.sessionId),
+          ),
+        );
       } else {
         setError(result.error);
       }
@@ -161,7 +191,6 @@ export function RemoteManualSelectionHostPanel({
     setCreating(true);
     setError('');
     setNotice('');
-    setOneTimeAccess(null);
     setCopied(null);
     try {
       const result = await createRemoteManualSelectionAccess(api, {
@@ -172,11 +201,17 @@ export function RemoteManualSelectionHostPanel({
         setError(result.error);
         return;
       }
-      setOneTimeAccess(result.data);
+      setAccessCodes((current) =>
+        rememberRemoteManualSelectionAccessCode(current, {
+          accessCode: result.data.accessCode,
+          expiresAt: result.data.session.expiresAt,
+          sessionId: result.data.session.sessionId,
+        }),
+      );
       setSessionFilter('active');
       setSelectedSessionId(result.data.session.sessionId);
       setNotice(
-        'Sesja została utworzona. Kod skopiuj przed zamknięciem karty.',
+        'Sesja została utworzona. Link i kod pozostają widoczne w danych wybranej sesji.',
       );
       await refreshSessions(false);
       await refreshMonitor(result.data.session.sessionId, false);
@@ -199,8 +234,8 @@ export function RemoteManualSelectionHostPanel({
         return;
       }
       setRevokeConfirmationId(null);
-      setOneTimeAccess((current) =>
-        current?.session.sessionId === sessionId ? null : current,
+      setAccessCodes((current) =>
+        removeRemoteManualSelectionAccessCode(current, sessionId),
       );
       setNotice(
         'Wybrana sesja została zatrzymana. Inne sesje i wspólny tunel nie zostały przerwane.',
@@ -212,10 +247,10 @@ export function RemoteManualSelectionHostPanel({
     }
   }
 
-  async function copyValue(value: string, kind: 'code' | 'link') {
+  async function copyValue(value: string, key: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(kind);
+      setCopied(key);
     } catch {
       setError('Nie udało się skopiować wartości. Zaznacz ją ręcznie.');
     }
@@ -233,9 +268,10 @@ export function RemoteManualSelectionHostPanel({
     selectedSession === null
       ? null
       : safeRemoteManualSelectionUrl(selectedSession);
-  const oneTimeReviewUrl = safeRemoteManualSelectionUrl(
-    oneTimeAccess?.session ?? emptySession,
-  );
+  const selectedAccessCode =
+    selectedSession === null
+      ? null
+      : (accessCodes[selectedSession.sessionId]?.accessCode ?? null);
 
   return (
     <section
@@ -297,40 +333,6 @@ export function RemoteManualSelectionHostPanel({
           {creating ? 'Tworzę sesję…' : 'Utwórz zdalną sesję'}
         </button>
       </div>
-
-      {oneTimeAccess !== null ? (
-        <div className="remoteManualSelectionSecret" role="status">
-          <div>
-            <strong>Kod jednorazowy — nie pojawi się po odświeżeniu</strong>
-            <code>{oneTimeAccess.accessCode}</code>
-          </div>
-          <button
-            className="secondaryButton"
-            onClick={() => void copyValue(oneTimeAccess.accessCode, 'code')}
-            type="button"
-          >
-            {copied === 'code' ? 'Skopiowano kod' : 'Kopiuj kod'}
-          </button>
-          {oneTimeReviewUrl !== null ? (
-            <button
-              className="secondaryButton"
-              onClick={() => void copyValue(oneTimeReviewUrl, 'link')}
-              type="button"
-            >
-              {copied === 'link' ? 'Skopiowano link' : 'Kopiuj link'}
-            </button>
-          ) : (
-            <span>Ingress jeszcze nie zwrócił bezpiecznego adresu.</span>
-          )}
-          <button
-            className="textButton"
-            onClick={() => setOneTimeAccess(null)}
-            type="button"
-          >
-            Ukryj kod
-          </button>
-        </div>
-      ) : null}
 
       <div className="remoteManualSelectionBody">
         <div className="remoteManualSelectionSessions">
@@ -433,30 +435,71 @@ export function RemoteManualSelectionHostPanel({
                   value={formatDate(selectedSession.expiresAt)}
                 />
               </div>
-              <div className="remoteManualSelectionLink">
-                {selectedReviewUrl === null ? (
-                  <span>
-                    Brak aktualnego bezpiecznego URL. Po restarcie tunelu
-                    kliknij „Odśwież stan”.
-                  </span>
-                ) : (
-                  <>
+              <div className="remoteManualSelectionCredentials">
+                <div>
+                  <span>Link aplikacji</span>
+                  {selectedReviewUrl === null ? (
+                    <strong>
+                      Brak aktualnego bezpiecznego URL. Odśwież stan po
+                      restarcie tunelu.
+                    </strong>
+                  ) : (
                     <a
                       href={selectedReviewUrl}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Otwórz bieżący link
+                      {selectedReviewUrl}
                     </a>
-                    <button
-                      className="textButton"
-                      onClick={() => void copyValue(selectedReviewUrl, 'link')}
-                      type="button"
-                    >
-                      Kopiuj link
-                    </button>
-                  </>
-                )}
+                  )}
+                  <button
+                    className="textButton"
+                    disabled={selectedReviewUrl === null}
+                    onClick={() =>
+                      selectedReviewUrl === null
+                        ? undefined
+                        : void copyValue(
+                            selectedReviewUrl,
+                            `${selectedSession.sessionId}:link`,
+                          )
+                    }
+                    type="button"
+                  >
+                    {copied === `${selectedSession.sessionId}:link`
+                      ? 'Skopiowano link'
+                      : 'Kopiuj link'}
+                  </button>
+                </div>
+                <div>
+                  <span>Kod wejścia</span>
+                  <code>
+                    {selectedAccessCode ??
+                      'Kod nie jest dostępny na tym komputerze'}
+                  </code>
+                  <button
+                    className="textButton"
+                    disabled={selectedAccessCode === null}
+                    onClick={() =>
+                      selectedAccessCode === null
+                        ? undefined
+                        : void copyValue(
+                            selectedAccessCode,
+                            `${selectedSession.sessionId}:code`,
+                          )
+                    }
+                    type="button"
+                  >
+                    {copied === `${selectedSession.sessionId}:code`
+                      ? 'Skopiowano kod'
+                      : 'Kopiuj kod'}
+                  </button>
+                </div>
+                <small>
+                  Kod jest zapisany wyłącznie lokalnie na tym komputerze do
+                  wygaśnięcia albo zatrzymania sesji.
+                </small>
+              </div>
+              <div className="remoteManualSelectionLink">
                 <button
                   className="textButton"
                   onClick={() =>
@@ -522,20 +565,3 @@ function formatDate(value: string): string {
     timeStyle: 'short',
   }).format(new Date(value));
 }
-
-const emptySession: RemoteManualSelectionSessionResponse = {
-  createdAt: '',
-  displayName: '',
-  expiresAt: '',
-  lockedAt: null,
-  lastHeartbeatAt: null,
-  ready: false,
-  revision: 0,
-  reviewUrl: null,
-  revokedAt: null,
-  sessionId: '',
-  status: 'draft',
-  updatedAt: '',
-  writerActive: false,
-  writerLeaseExpiresAt: null,
-};

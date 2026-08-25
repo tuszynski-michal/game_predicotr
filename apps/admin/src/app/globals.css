@@ -798,8 +798,7 @@ nav {
 
 .remoteManualSelectionHostHeader,
 .remoteManualSelectionMonitorHeader,
-.remoteManualSelectionLink,
-.remoteManualSelectionSecret {
+.remoteManualSelectionLink {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -846,22 +845,6 @@ nav {
   font: inherit;
 }
 
-.remoteManualSelectionSecret {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line));
-  border-radius: 12px;
-  background: var(--accent-soft);
-}
-
-.remoteManualSelectionSecret > div {
-  display: grid;
-  gap: 5px;
-  margin-right: auto;
-}
-
-.remoteManualSelectionSecret code,
 .remoteManualSelectionMonitorHeader code {
   overflow-wrap: anywhere;
   color: var(--accent);
@@ -953,6 +936,46 @@ nav {
   flex-wrap: wrap;
 }
 
+.remoteManualSelectionCredentials {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.remoteManualSelectionCredentials > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.remoteManualSelectionCredentials span,
+.remoteManualSelectionCredentials small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.remoteManualSelectionCredentials span {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.remoteManualSelectionCredentials a,
+.remoteManualSelectionCredentials code,
+.remoteManualSelectionCredentials strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .formSuccess {
   margin: 0;
   color: #baf3dc;
@@ -978,6 +1001,10 @@ nav {
   .remoteManualSelectionMonitorHeader {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .remoteManualSelectionCredentials {
+    grid-template-columns: 1fr;
   }
 
   .remoteManualSelectionMetrics {

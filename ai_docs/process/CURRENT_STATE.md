@@ -17,6 +17,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.7.75` panel `Zdalna ręczna selekcja` trwale pokazuje przy wybranej
+  aktywnej sesji link i kod wraz z niezależnymi przyciskami kopiowania. Kod z
+  odpowiedzi create pozostaje wyłącznie w `localStorage` komputera Admina do
+  TTL albo revoke; API, baza i lista sesji nadal nie zwracają surowego kodu.
+  Nie ma już osobnej, znikającej sekcji „Kod jednorazowy”.
+
 - Od `v0.7.74` ekran startowy rozróżnia relink aktywnego źródła od świadomego
   przełączenia folderu. Lokalne batch'e pozostają oddzielne i są odnajdywane po
   nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów

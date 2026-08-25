@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -79,7 +79,7 @@ sesji i kodu.
 |---|---|
 | wyciek samego linku | link nie zawiera kodu ani tokenu; dane są pobierane dopiero po unlock |
 | brute force kodu | losowy alfabet bez mylących znaków, PBKDF2-SHA256, maksymalnie 5 prób i trwała blokada |
-| wyciek bazy | kod i token występują tylko jako hash; kod jest pokazany raz |
+| wyciek bazy | kod i token występują tylko jako hash; kod zdalnej ręcznej selekcji może istnieć wyłącznie lokalnie w `localStorage` Admina do TTL albo revoke |
 | replay tokenu | token jest losowy, rotowany przy unlock, wygasa nie później niż sesja i jest natychmiast usuwany przy revoke |
 | dostęp do innej gry/importu | każdy review read/write porównuje scope tokenu z parametrami żądania |
 | dostęp administracyjny | publiczny proxy ma allowlistę; CRUD, eksporty, job mutations i wydania nie mają trasy |
@@ -143,9 +143,12 @@ na tym samym uchwycie; każdy inny błąd pozostaje fail-closed. Kwarantanna nie
 jest czyszczona przed rozstrzygnięciem polityki retencji.
 
 Zdalna ręczna selekcja ma osobny purpose i nie używa scope
-`gameId/importJobId` istniejącego Reviewera. Kod jest pokazany tylko przy
-lokalnym create, ma maksymalnie pięć trwałych prób i jest przechowywany jako
-PBKDF2-SHA256. Unlock rotuje losowy token zapisany wyłącznie jako SHA-256;
+`gameId/importJobId` istniejącego Reviewera. Kod jest zwracany wyłącznie przy
+lokalnym create, ma maksymalnie pięć trwałych prób i jest przechowywany przez
+API jako PBKDF2-SHA256. Panel Admina może przechować jego surową wartość
+wyłącznie lokalnie w `localStorage` profilu właściciela, dokładnie do `expiresAt`
+albo revoke; nie wysyła jej ponownie, nie loguje i nie udostępnia jej przez
+listę API. Unlock rotuje losowy token zapisany wyłącznie jako SHA-256;
 publiczna odpowiedź ustawia go w cookie `HttpOnly`, `Secure`,
 `SameSite=Strict`, `Path=/selection-api` i nie zawiera bearer w JSON. Revoke i
 piąta błędna próba atomowo usuwają token oraz writer lease.

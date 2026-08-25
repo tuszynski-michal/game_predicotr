@@ -5573,6 +5573,27 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Supersedes:** zastępuje w D-212 i D-214 wyłącznie zasadę opt-in oraz
   domyślny v18; pozostałe invarianty bezpieczeństwa pozostają bez zmian.
 
+## D-232 — Kod zdalnej ręcznej selekcji jest trwały tylko lokalnie u właściciela
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** panel `Zdalna ręczna selekcja` utrzymuje surowy kod zwrócony
+  przez create wyłącznie w `localStorage` profilu lokalnego Admina. Wyświetla
+  go przy wybranej aktywnej sesji wraz z linkiem i przyciskami kopiowania do
+  `expiresAt` albo revoke.
+- **Context:** jednorazowa karta kodu znikała po odświeżeniu, choć właściciel
+  potrzebuje ponownie skopiować oba dane w krótkim czasie życia sesji.
+- **Safety:** API, PostgreSQL, odpowiedzi listujące i logi nadal zachowują
+  wyłącznie hash kodu; link nie zawiera kodu. Cache jest usuwany przy revoke,
+  odrzuca wartości wygasłe lub uszkodzone i nie jest dostępny na innym
+  komputerze/profilu Admina.
+- **Consequences:** istniejącej sesji utworzonej przed tą zmianą nie można
+  odzyskać kodu z serwera. Użytkownik widzi wtedy jasny stan niedostępności
+  zamiast tworzenia równoległego mechanizmu odzyskania sekretu.
+- **Alternatives:** zapis surowego kodu w bazie lub dodanie endpointu jego
+  odczytu odrzucono, ponieważ poszerzałoby powierzchnię sekretów serwera bez
+  potrzeby dla tego krótkotrwałego workflow.
+
 ## Szablon nowej decyzji
 
 ```text

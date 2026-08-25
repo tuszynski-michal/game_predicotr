@@ -276,25 +276,27 @@ test('filters the ten newest active or completed sessions without hiding drafts'
   );
 });
 
-test('panel keeps secret in React memory and uses bounded polling and exact revoke', () => {
+test('panel keeps active session credentials in local owner storage and uses bounded polling and exact revoke', () => {
   assert.equal(REMOTE_SESSION_LIST_POLL_MS, 30_000);
   assert.equal(REMOTE_SESSION_MONITOR_POLL_MS, 10_000);
   assert.match(panelSource, /Najnowsze sesje/);
   assert.match(panelSource, /Filtr najnowszych sesji/);
   assert.match(panelSource, /Aktywne/);
   assert.match(panelSource, /Zakończone/);
-  assert.match(
-    panelSource,
-    /useState<RemoteManualSelectionSessionCreatedResponse/,
-  );
-  assert.doesNotMatch(panelSource, /localStorage|sessionStorage|indexedDB/i);
+  assert.match(panelSource, /loadRemoteManualSelectionAccessCodes/);
+  assert.match(panelSource, /rememberRemoteManualSelectionAccessCode/);
+  assert.match(panelSource, /removeRemoteManualSelectionAccessCode/);
   assert.match(
     panelSource,
     /loadRemoteManualSelectionMonitor\(api, sessionId\)/,
   );
   assert.match(panelSource, /revokeSession\(selectedSession\.sessionId\)/);
   assert.match(panelSource, /Inne sesje i wspólny tunel nie zostały przerwane/);
-  assert.match(panelSource, /Kod jednorazowy — nie pojawi się po odświeżeniu/);
+  assert.match(panelSource, /Kopiuj kod/);
+  assert.match(panelSource, /Kopiuj link/);
+  assert.match(panelSource, /Kod jest zapisany wyłącznie lokalnie/);
+  assert.doesNotMatch(panelSource, /Kod jednorazowy/);
+  assert.doesNotMatch(panelSource, /oneTimeAccess/);
   assert.doesNotMatch(panelSource, /Wybierz folder bazowy/);
   assert.match(panelSource, /wybrane obrazy pozostają wyłącznie na urządzeniu/);
   assert.match(

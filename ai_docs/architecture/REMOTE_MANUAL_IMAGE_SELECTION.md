@@ -1,7 +1,7 @@
 ---
 title: Remote manual image selection architecture and implementation plan
 status: accepted
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 ---
 
 # Zdalna ręczna selekcja zdjęć
@@ -124,7 +124,8 @@ pliku ani trwały status hosta.
    podaje nazwę sesji i TTL, a API wiąże rozwiązany katalog wyłącznie po stronie
    hosta.
 2. API zapewnia jeden produkcyjny Reviewer i jeden Quick Tunnel, tworzy
-   purpose-scoped sesję i jednorazowo pokazuje link oraz osobny kod.
+   purpose-scoped sesję i zwraca link oraz osobny kod wyłącznie w odpowiedzi
+   create. Panel Admina utrwala ten kod lokalnie do TTL albo revoke.
 3. Zdalny operator odblokowuje sesję. Link nie zawiera bearer tokenu ani ścieżki
    hosta.
 4. Operator wybiera jedną partię lokalnych zdjęć, a następnie potwierdza logiczną
@@ -357,7 +358,7 @@ sequenceDiagram
   API-->>A: opaque base capability + display name
   A->>API: create session(TTL, capability)
   API->>R: ensure one production Reviewer/tunnel
-  API-->>A: URL + one-time code
+  API-->>A: URL + code in create response
 ```
 
 ### 11.3. Wybór partii

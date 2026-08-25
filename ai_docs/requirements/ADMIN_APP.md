@@ -211,6 +211,11 @@ Administrator widzi zadania typu:
 Dla zadania widzi:
 
 - status,
+- dla importu katalogowego oraz walidacji geometrii: zakres źródłowy z nazwy
+  stagingu, np. `19810–45162`, zamiast technicznego identyfikatora gry w
+  kompaktowym podsumowaniu; gdy źródło nie ma poprawnej nazwy zakresu, panel
+  zachowuje bezpieczny kontekst joba bez ujawniania ścieżki lokalnej; starsze
+  joby mogą użyć wyłącznie nazwy ostatniego katalogu, jeżeli ma format zakresu,
 - etap i postęp,
 - liczbę elementów poprawnych, błędnych i wymagających review,
 - czas rozpoczęcia i zakończenia,

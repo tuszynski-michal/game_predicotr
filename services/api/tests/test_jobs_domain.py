@@ -205,6 +205,31 @@ def test_layout_import_input_key_uses_attested_content_not_file_name() -> None:
     )
 
 
+def test_page_geometry_preflight_input_key_ignores_source_display_name() -> None:
+    game_id = uuid4()
+    first: dict[str, object] = {
+        "schema_version": 2,
+        "validation_kind": "page_geometry_preflight",
+        "source_selection_id": str(uuid4()),
+        "source_directory": "C:/managed/browser-selections/source",
+        "source_manifest_sha256": "a" * 64,
+        "page_registration_profile": {"anchors": [{}]},
+        "page_geometry_overrides": {},
+        "canonical_sequence_numbers": [1, 2, 3],
+    }
+    labeled = {**first, "source_display_name": "1 - 19809"}
+
+    assert job_input_key(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload=first,
+    ) == job_input_key(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload=labeled,
+    )
+
+
 def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
     original = _job()
     started, token = _leased_job(original)

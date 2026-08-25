@@ -8480,6 +8480,19 @@
             "title": "Sourcedirectory",
             "type": "string"
           },
+          "sourceDisplayName": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcedisplayname"
+          },
           "sourceManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sourcemanifestsha256",

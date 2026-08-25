@@ -192,6 +192,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
     preflight_policy_version: Literal["page-geometry-preflight-v2-auto-anchor"] | None = None
     source_selection_id: UUID
     source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     page_registration_profile: dict[str, object]
     page_geometry_overrides: dict[str, object] = Field(default_factory=dict)

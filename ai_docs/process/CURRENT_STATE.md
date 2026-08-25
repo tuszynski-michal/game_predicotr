@@ -29,6 +29,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
   `v19`; źródłem etykiety jest niezmienny snapshot joba.
 
+- Monitor jobów pokazuje pod importem katalogowym i preflightem geometrii
+  zakres z nazwy stagingu, np. `Zakres 19810–45162`. Nazwa stagingu jest
+  metadataną prezentacyjną i nie zmienia idempotencji preflightu.
+
 - Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
   wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;
   źródło, decyzje, kursor, zoom, obie osie scrolla, manifest oraz wybrane JPEG-i

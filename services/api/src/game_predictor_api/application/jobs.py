@@ -900,6 +900,7 @@ class JobService:
         game_id: UUID,
         selection_id: UUID,
         source_directory: Path,
+        source_display_name: str,
         source_manifest_sha256: str,
         canonical_sequence_numbers: Sequence[int] = (),
     ) -> Job:
@@ -963,6 +964,7 @@ class JobService:
                 "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
                 "source_selection_id": str(selection_id),
                 "source_directory": str(resolved),
+                "source_display_name": source_display_name,
                 "source_manifest_sha256": source_manifest_sha256,
                 "page_registration_profile": registration,
                 "page_geometry_overrides": overrides,

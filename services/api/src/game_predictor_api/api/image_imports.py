@@ -547,6 +547,7 @@ def create_image_imports_router(
                 game_id=payload.game_id,
                 selection_id=upload_id,
                 source_directory=ready.upload.path,
+                source_display_name=ready.upload.display_name,
                 source_manifest_sha256=ready.manifest.checksum_sha256,
                 canonical_sequence_numbers=(
                     ()

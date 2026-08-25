@@ -4830,6 +4830,10 @@ export type PageGeometryPreflightJobPayload = {
    */
   sourceDirectory: string;
   /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName?: string | null;
+  /**
    * Sourcemanifestsha256
    */
   sourceManifestSha256: string;

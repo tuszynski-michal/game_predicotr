@@ -2378,6 +2378,10 @@ Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.
 
+Payload joba preflightu przechowuje również `sourceDisplayName` stagingu jako
+metadane prezentacyjne. Nie wchodzi ono do klucza idempotencji: zmiana etykiety
+nie może utworzyć drugiej walidacji tych samych obrazów i manifestu.
+
 Start importu zawiera `geometryPreflightJobId` oraz
 `geometryManifestChecksumSha256`. Backend ponownie sprawdza, że ukończony job
 dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,

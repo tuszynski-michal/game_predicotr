@@ -42,6 +42,7 @@ import {
   jobProgressLabel,
   jobProgressPercent,
   jobProgressPresentation,
+  jobSourceRangeLabel,
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
@@ -414,6 +415,7 @@ function JobCard({
   const errorSummary = jobErrorSummary(job);
   const automationTiming = imageImportAutomationTiming(job);
   const imageSelectionProgress = job.progress.imageSelection;
+  const sourceRange = jobSourceRangeLabel(job);
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
@@ -426,7 +428,9 @@ function JobCard({
         <span className="jobSummaryIdentity">
           <strong>{jobTypeLabel(job.jobType)}</strong>
           <code title={job.id}>{job.id}</code>
-          <small title={jobContextLabel(job)}>{jobContextLabel(job)}</small>
+          <small title={sourceRange ?? jobContextLabel(job)}>
+            {sourceRange ?? jobContextLabel(job)}
+          </small>
         </span>
         <span className={`jobStatus jobStatus-${job.status}`}>
           {jobStatusLabel(job.status)}

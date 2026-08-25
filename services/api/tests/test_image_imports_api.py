@@ -416,6 +416,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
                 "validation_kind": "page_geometry_preflight",
                 "source_selection_id": upload_id,
                 "source_directory": str(tmp_path / "imports" / upload_id),
+                "source_display_name": "1-18",
                 "source_manifest_sha256": report["manifestChecksumSha256"],
                 "page_registration_profile": {
                     "policy": "verified-page-registration-v1",
@@ -517,6 +518,7 @@ def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -
             "validation_kind": "page_geometry_preflight",
             "source_selection_id": str(upload_id),
             "source_directory": "C:/staging",
+            "source_display_name": "1-9",
             "source_manifest_sha256": "a" * 64,
             "page_registration_profile": {
                 "policy": "verified-page-registration-v1",

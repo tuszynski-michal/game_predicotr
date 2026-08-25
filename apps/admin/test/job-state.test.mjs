@@ -13,6 +13,7 @@ import {
   isActiveJob,
   isImageImportJob,
   jobContextLabel,
+  jobSourceRangeLabel,
   jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
@@ -66,6 +67,42 @@ test('presents every lifecycle value as explicit text', () => {
   assert.equal(jobTypeLabel('image_selection'), 'Selekcja zdjęć');
   assert.equal(jobStageLabel('writing_layouts'), 'writing layouts');
   assert.equal(jobStageLabel(null), 'Etap nie został jeszcze rozpoczęty');
+});
+
+test('labels image import and geometry preflight jobs with their source range', () => {
+  const importJob = job({
+    inputPayload: {
+      schemaVersion: 5,
+      importKind: 'image_directory',
+      sourceDisplayName: '19810 - 45162',
+    },
+    jobType: 'import',
+  });
+  const geometryPreflight = job({
+    inputPayload: {
+      schemaVersion: 2,
+      sourceDisplayName: '45163 - 70731 v20',
+      validationKind: 'page_geometry_preflight',
+    },
+    jobType: 'validate',
+  });
+
+  assert.equal(jobSourceRangeLabel(importJob), 'Zakres 19810–45162');
+  assert.equal(jobSourceRangeLabel(geometryPreflight), 'Zakres 45163–70731');
+  assert.equal(
+    jobSourceRangeLabel(
+      job({
+        inputPayload: {
+          schemaVersion: 2,
+          sourceDirectory: 'C:\\managed\\70363 - 93861',
+          validationKind: 'page_geometry_preflight',
+        },
+        jobType: 'validate',
+      }),
+    ),
+    'Zakres 70363–93861',
+  );
+  assert.equal(jobSourceRangeLabel(job()), null);
 });
 
 test('derives active polling, cancel and retry actions from lifecycle', () => {

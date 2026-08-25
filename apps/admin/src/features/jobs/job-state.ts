@@ -57,6 +57,31 @@ export function jobContextLabel(job: JobResponse): string {
   return 'Proces globalny';
 }
 
+export function jobSourceRangeLabel(job: JobResponse): string | null {
+  const sourceDisplayName =
+    'sourceDisplayName' in job.inputPayload &&
+    typeof job.inputPayload.sourceDisplayName === 'string'
+      ? job.inputPayload.sourceDisplayName
+      : 'sourceDirectory' in job.inputPayload &&
+          typeof job.inputPayload.sourceDirectory === 'string'
+        ? (job.inputPayload.sourceDirectory.split(/[\\/]/).at(-1) ?? null)
+        : null;
+  if (sourceDisplayName === null) return null;
+  const match = /^\s*(\d+)\s*[-–]\s*(\d+)(?:\s|$)/.exec(sourceDisplayName);
+  if (match === null) return null;
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 1 ||
+    end < start
+  ) {
+    return null;
+  }
+  return `Zakres ${start}–${end}`;
+}
+
 export function jobErrorSummary(job: JobResponse, limit = 140): string | null {
   if (job.error === null) return null;
   const summary = `${job.error.code}: ${job.error.message}`;

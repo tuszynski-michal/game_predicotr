@@ -73,6 +73,10 @@ export function RemoteManualSelectionWorkspaceFoundation({
   const [notice, setNotice] = useState('');
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [showStartScreen, setShowStartScreen] = useState(false);
+  const [startScreenOutputParent, setStartScreenOutputParent] =
+    useState<FileSystemDirectoryHandle | null>(null);
+  const [startScreenSourceSelected, setStartScreenSourceSelected] =
+    useState(false);
   const [collectionName, setCollectionName] = useState('Zdjęcia');
   const [batchName, setBatchName] = useState('');
   const [firstLayout, setFirstLayout] = useState('1');
@@ -403,7 +407,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
     reader: RemoteSourceFileReader,
   ) {
     const persistence = await requestBestEffortPersistentStorage();
-    if (batch !== null) {
+    if (batch !== null && !showStartScreen) {
       const expected = await store.loadSourceManifest(sessionId, batch.batchId);
       validateRemoteSourceRelink(expected, indexed.manifest);
       if (session === null) {
@@ -426,12 +430,72 @@ export function RemoteManualSelectionWorkspaceFoundation({
       return;
     }
 
+    if (batch !== null && showStartScreen && session !== null) {
+      if (
+        batch.sourceDirectoryName === indexed.sourceDirectoryName &&
+        batch.sourceManifestChecksumSha256 ===
+          indexed.manifest.manifestChecksumSha256
+      ) {
+        const expected = await store.loadSourceManifest(
+          sessionId,
+          batch.batchId,
+        );
+        validateRemoteSourceRelink(expected, indexed.manifest);
+        await bindStartScreenSource({
+          batch,
+          indexed,
+          permissionState,
+          persistenceGranted: persistence.granted,
+          reader,
+          session,
+        });
+        return;
+      }
+
+      const previous = await store.findBatchBySourceManifest({
+        sessionId,
+        sourceDirectoryName: indexed.sourceDirectoryName,
+        sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+      });
+      if (previous !== null) {
+        const expected = await store.loadSourceManifest(
+          sessionId,
+          previous.batchId,
+        );
+        validateRemoteSourceRelink(expected, indexed.manifest);
+        await bindStartScreenSource({
+          batch: previous,
+          indexed,
+          permissionState,
+          persistenceGranted: persistence.granted,
+          reader,
+          session: {
+            ...session,
+            activeBatchId: previous.batchId,
+            outputDirectoryName: null,
+            outputHandle: null,
+            outputParentHandle: startScreenOutputParent,
+            outputParentPermissionState:
+              startScreenOutputParent === null ? 'prompt' : 'granted',
+            outputPermissionState: 'prompt',
+            updatedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+    }
+
     const now = new Date().toISOString();
     const batchId = crypto.randomUUID();
     const parsedFirstLayout = Number.parseInt(firstLayout, 10) || 1;
-    const savedOutputParent = session?.outputParentHandle ?? null;
-    const savedOutputParentPermission =
-      session?.outputParentPermissionState ?? 'prompt';
+    const savedOutputParent = showStartScreen
+      ? startScreenOutputParent
+      : (session?.outputParentHandle ?? null);
+    const savedOutputParentPermission = showStartScreen
+      ? startScreenOutputParent === null
+        ? 'prompt'
+        : 'granted'
+      : (session?.outputParentPermissionState ?? 'prompt');
     const localSession: RemoteSelectionLocalSessionRecord = {
       schemaVersion: 1,
       activeBatchId: batchId,
@@ -480,6 +544,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       ),
     });
     setSourceReader(reader);
+    setStartScreenSourceSelected(showStartScreen);
     setBatchName(indexed.sourceDirectoryName);
     if (savedOutputParent !== null) {
       const connection = await connectOutputParent(
@@ -493,6 +558,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
         setNotice(
           `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
         );
+        setStartScreenOutputParent(null);
+        setShowStartScreen(false);
       } else {
         setNotice(
           `Zaindeksowano ${indexed.manifest.fileCount.toLocaleString('pl-PL')} JPEG-ów. Folder wynikowy „${connection.session.outputDirectoryName}” jest gotowy do nowej selekcji.`,
@@ -504,6 +571,111 @@ export function RemoteManualSelectionWorkspaceFoundation({
       );
     }
     await refresh();
+  }
+
+  async function bindStartScreenSource(input: {
+    readonly batch: RemoteSelectionLocalBatchRecord;
+    readonly indexed: RemoteSourceIndexResult;
+    readonly permissionState: RemoteSourcePermissionState;
+    readonly persistenceGranted: boolean;
+    readonly reader: RemoteSourceFileReader;
+    readonly session: RemoteSelectionLocalSessionRecord;
+  }) {
+    const updatedSession: RemoteSelectionLocalSessionRecord = {
+      ...input.session,
+      permissionState: input.permissionState,
+      persistenceGranted: input.persistenceGranted,
+      sourceDirectoryName: input.indexed.sourceDirectoryName,
+      sourceHandle: input.indexed.sourceHandle,
+      sourceKind: input.indexed.manifest.sourceKind,
+      sourceManifestChecksumSha256:
+        input.indexed.manifest.manifestChecksumSha256,
+      updatedAt: new Date().toISOString(),
+    };
+    await store.saveSession(updatedSession);
+    setSourceReader(input.reader);
+    setStartScreenSourceSelected(true);
+    setBatchName(input.batch.batchName ?? input.batch.sourceDirectoryName);
+    setFirstLayout(String(input.batch.firstLayout));
+    setDirection(input.batch.direction);
+    if (startScreenOutputParent !== null) {
+      await connectStartScreenOutput(
+        startScreenOutputParent,
+        updatedSession,
+        input.batch,
+      );
+      return;
+    }
+    await refresh();
+    if (
+      updatedSession.outputHandle !== null &&
+      updatedSession.outputHandle !== undefined &&
+      input.batch.hostRegistered === true
+    ) {
+      setShowStartScreen(false);
+      setNotice('Folder został ponownie powiązany. Wznowiono zapisany postęp.');
+      return;
+    }
+    setNotice('Katalog zdjęć został wybrany. Wybierz katalog do zapisu.');
+  }
+
+  async function connectStartScreenOutput(
+    parent: FileSystemDirectoryHandle,
+    currentSession: RemoteSelectionLocalSessionRecord,
+    currentBatch: RemoteSelectionLocalBatchRecord,
+  ) {
+    await assertStartScreenOutputCanResume(
+      parent,
+      currentSession,
+      currentBatch,
+    );
+    const connection = await connectOutputParent(
+      parent,
+      currentSession,
+      currentBatch,
+    );
+    setStartScreenOutputParent(null);
+    setFirstLayout(String(connection.batch.firstLayout));
+    setDirection(connection.batch.direction);
+    await refresh();
+    if (connection.resumed) {
+      setShowStartScreen(false);
+      setNotice(
+        `Wznowiono selekcję od zdjęcia ${connection.batch.cursorIndex + 1}; następny zakres to ${connection.batch.nextRangeStart}–${(connection.batch.nextRangeStart ?? connection.batch.firstLayout) + 8}.`,
+      );
+      return;
+    }
+    setNotice(
+      `Folder wynikowy „${connection.session.outputDirectoryName}” jest pusty i gotowy do nowej selekcji.`,
+    );
+  }
+
+  async function assertStartScreenOutputCanResume(
+    parent: FileSystemDirectoryHandle,
+    currentSession: RemoteSelectionLocalSessionRecord,
+    currentBatch: RemoteSelectionLocalBatchRecord,
+  ) {
+    if ((currentBatch.decisions ?? []).length === 0) return;
+    const outputName = `${currentSession.sourceDirectoryName} wybrane`;
+    let output: FileSystemDirectoryHandle;
+    try {
+      output = await parent.getDirectoryHandle(outputName);
+    } catch (cause) {
+      if (isNotFoundError(cause)) {
+        throw new RemoteSelectionStoreError(
+          'REMOTE_SELECTION_OUTPUT_RESUME_REQUIRED',
+          'Wybrany katalog nie zawiera wyniku tej selekcji. Wskaż katalog nadrzędny z istniejącym folderem „wybrane”.',
+        );
+      }
+      throw cause;
+    }
+    const outputState = await verifyOperatorLocalOutputDirectory(output);
+    if (outputState.kind === 'empty') {
+      throw new RemoteSelectionStoreError(
+        'REMOTE_SELECTION_OUTPUT_RESUME_REQUIRED',
+        'Wybrany folder wyniku jest pusty, mimo że selekcja ma już zapisane decyzje.',
+      );
+    }
   }
 
   async function connectOutputParent(
@@ -586,6 +758,17 @@ export function RemoteManualSelectionWorkspaceFoundation({
         id: REMOTE_OUTPUT_PARENT_PICKER_ID,
         mode: 'readwrite',
       });
+      if (showStartScreen && !startScreenSourceSelected) {
+        setStartScreenOutputParent(parent);
+        setNotice(
+          'Katalog do zapisu został zapamiętany. Wybierz katalog zdjęć, aby połączyć oba foldery.',
+        );
+        return;
+      }
+      if (showStartScreen && session !== null && batch !== null) {
+        await connectStartScreenOutput(parent, session, batch);
+        return;
+      }
       if (session === null || batch === null) {
         await store.saveSession({
           schemaVersion: 1,
@@ -685,6 +868,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
         setFirstLayout(String(resumed.firstLayout));
         setDirection(resumed.direction);
         await refresh();
+        setStartScreenOutputParent(null);
+        setStartScreenSourceSelected(false);
+        setShowStartScreen(false);
         setNotice(
           `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
         );
@@ -723,6 +909,9 @@ export function RemoteManualSelectionWorkspaceFoundation({
         updatedAt: new Date().toISOString(),
       });
       await refresh();
+      setStartScreenOutputParent(null);
+      setStartScreenSourceSelected(false);
+      setShowStartScreen(false);
       setNotice(
         'Sesja lokalna jest aktywna. Decyzje i JPEG-i nie będą wysyłane na komputer właściciela linku.',
       );
@@ -881,7 +1070,15 @@ export function RemoteManualSelectionWorkspaceFoundation({
       void activateBatch();
       return;
     }
+    setStartScreenOutputParent(null);
+    setStartScreenSourceSelected(false);
     setShowStartScreen(false);
+  }
+
+  function openStartScreen() {
+    setStartScreenOutputParent(null);
+    setStartScreenSourceSelected(false);
+    setShowStartScreen(true);
   }
 
   if (
@@ -950,7 +1147,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
             <button
               className="secondaryButton"
               disabled={busy}
-              onClick={() => setShowStartScreen(true)}
+              onClick={openStartScreen}
               type="button"
             >
               Ekran startowy
@@ -1080,7 +1277,12 @@ export function RemoteManualSelectionWorkspaceFoundation({
         </article>
         <article className="remoteSelectionDirectoryCard">
           <h3>Katalog do zapisu</h3>
-          {session?.outputDirectoryName ? (
+          {showStartScreen && startScreenOutputParent !== null ? (
+            <p>
+              Wybrano katalog nadrzędny:{' '}
+              <strong>{startScreenOutputParent.name}</strong>
+            </p>
+          ) : session?.outputDirectoryName ? (
             <p>
               Folder wynikowy: <strong>{session.outputDirectoryName}</strong>
             </p>

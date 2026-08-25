@@ -361,6 +361,16 @@ ani kopiowania JPEG-ów do repozytorium.
   wraca do obu pickerów katalogów bez kasowania batcha, manifestu, decyzji,
   kursora ani numeracji; jawne `Wróć do selekcji` otwiera ten sam workspace.
 
+### v0.7.74 — przełączanie katalogów bez utraty batcha
+
+- Konfigurator rozpoznaje istniejący lokalny batch po nazwie źródła i
+  checksummie manifestu, dzięki czemu ponowne wskazanie tej samej pary folderów
+  odtwarza kursor oraz zakres. Inny katalog jest nowym przełączeniem, nie
+  błędem `REMOTE_SELECTION_SOURCE_CHANGED`; aktywny relink poza ekranem
+  startowym pozostaje rygorystyczny.
+- Wynik zawierający decyzje nie może zostać przypadkowo podmieniony pustym
+  folderem: przełączenie wymaga zgodnego, weryfikowalnego manifestu.
+
 ## Open checkpoint before a public pilot
 
 Architektura w sekcji 21 opisuje feature flag jako domyślnie nieaktywną do

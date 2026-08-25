@@ -17,6 +17,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.7.74` ekran startowy rozróżnia relink aktywnego źródła od świadomego
+  przełączenia folderu. Lokalne batch'e pozostają oddzielne i są odnajdywane po
+  nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów
+  wznawia postęp zamiast zgłaszać `REMOTE_SELECTION_SOURCE_CHANGED`.
+
 - Od `v0.7.72` aktywny workspace ma przycisk `Ekran startowy` obok restartu.
   Jest to nie-destrykcyjny powrót do dwóch pickerów; `Wróć do selekcji` otwiera
   bieżący kursor i zakres bez usuwania wyniku.

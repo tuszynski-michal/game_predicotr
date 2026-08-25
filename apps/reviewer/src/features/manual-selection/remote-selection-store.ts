@@ -329,6 +329,53 @@ export class RemoteSelectionIndexedDbStore {
     }
   }
 
+  /**
+   * Batches remain local to one access session. The start screen uses this
+   * lookup to restore a previously indexed source instead of treating it as a
+   * changed version of whichever source happens to be active right now.
+   */
+  async findBatchBySourceManifest(input: {
+    readonly sessionId: string;
+    readonly sourceDirectoryName: string;
+    readonly sourceManifestChecksumSha256: string;
+  }): Promise<RemoteSelectionLocalBatchRecord | null> {
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(
+        REMOTE_SELECTION_DATABASE_STORES.batches,
+        'readonly',
+      );
+      const records = (await requestResult(
+        transaction
+          .objectStore(REMOTE_SELECTION_DATABASE_STORES.batches)
+          .getAll(
+            this.boundedRange(
+              [input.sessionId, ''],
+              [input.sessionId, '\uffff'],
+            ),
+          ),
+      )) as RemoteSelectionLocalBatchRecord[];
+      return (
+        records
+          .filter(
+            (record) =>
+              record.sourceDirectoryName === input.sourceDirectoryName &&
+              record.sourceManifestChecksumSha256 ===
+                input.sourceManifestChecksumSha256,
+          )
+          .toSorted((left, right) => {
+            const updated = right.updatedAt.localeCompare(left.updatedAt);
+            return updated !== 0
+              ? updated
+              : left.batchId.localeCompare(right.batchId);
+          })
+          .at(0) ?? null
+      );
+    } finally {
+      database.close();
+    }
+  }
+
   async saveBatch(record: RemoteSelectionLocalBatchRecord): Promise<void> {
     validateWorkspaceBatch(record);
     assertMetadataOnly(record);

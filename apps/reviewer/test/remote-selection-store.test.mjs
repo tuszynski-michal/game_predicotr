@@ -144,6 +144,68 @@ test('restores cursor and exact pending operation IDs after a new store instance
   );
 });
 
+test('finds a previously indexed source without making it the active batch first', async () => {
+  const { store } = await fixture();
+  const active = await store.loadBatch('session-1', 'batch-1');
+  const activeSession = await store.loadSession('session-1');
+  const source = new File(['other'], 'other.jpg', {
+    lastModified: 1_700_000_001_000,
+    type: 'image/jpeg',
+  });
+  Object.defineProperty(source, 'webkitRelativePath', {
+    value: 'other-batch/other.jpg',
+  });
+  const indexed = await new WebkitDirectoryRemoteSourceAdapter([
+    source,
+  ]).index();
+  const historical = {
+    ...active,
+    batchId: 'batch-historical',
+    fileCount: indexed.manifest.fileCount,
+    sourceDirectoryName: indexed.sourceDirectoryName,
+    sourceKind: indexed.manifest.sourceKind,
+    sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+    totalBytes: indexed.manifest.totalBytes,
+    updatedAt: '2026-08-24T01:00:00.000Z',
+  };
+  await store.saveIndexedSource({
+    batch: historical,
+    session: {
+      ...activeSession,
+      activeBatchId: historical.batchId,
+      sourceDirectoryName: indexed.sourceDirectoryName,
+      sourceKind: indexed.manifest.sourceKind,
+      sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+    },
+    sourceItems: createRemoteSourceItemRecords(
+      'session-1',
+      historical.batchId,
+      indexed.manifest,
+    ),
+  });
+  await store.saveSession(activeSession);
+
+  const found = await store.findBatchBySourceManifest({
+    sessionId: 'session-1',
+    sourceDirectoryName: indexed.sourceDirectoryName,
+    sourceManifestChecksumSha256: indexed.manifest.manifestChecksumSha256,
+  });
+  assert.equal(found?.batchId, 'batch-historical');
+  assert.equal(
+    (await store.loadSourceManifest('session-1', found.batchId))
+      .manifestChecksumSha256,
+    indexed.manifest.manifestChecksumSha256,
+  );
+  assert.equal(
+    await store.findBatchBySourceManifest({
+      sessionId: 'session-1',
+      sourceDirectoryName: active.sourceDirectoryName,
+      sourceManifestChecksumSha256: 'f'.repeat(64),
+    }),
+    null,
+  );
+});
+
 test('append is idempotent and ack removes only explicitly confirmed operation IDs', async () => {
   const { store } = await fixture();
   assert.equal((await store.appendOutboxOperation(command(1))).created, true);

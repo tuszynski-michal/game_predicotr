@@ -168,6 +168,10 @@ test('operator-local restart persists the parent handle and missing directories 
   assert.match(workspace, /Restart selekcji/);
   assert.match(workspace, /Ekran startowy/);
   assert.match(workspace, /showStartScreen/);
+  assert.match(workspace, /startScreenSourceSelected/);
+  assert.match(workspace, /startScreenOutputParent/);
+  assert.match(workspace, /findBatchBySourceManifest/);
+  assert.match(workspace, /REMOTE_SELECTION_OUTPUT_RESUME_REQUIRED/);
   assert.match(workspace, /Wróć do selekcji/);
   assert.match(workspace, /remoteSelectionWorkspaceActions/);
   assert.match(workspace, /remoteSelectionResetDialogBackdrop/);

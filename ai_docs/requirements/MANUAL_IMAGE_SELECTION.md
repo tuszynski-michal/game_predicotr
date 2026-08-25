@@ -128,6 +128,11 @@ Po rozpoczęciu selekcji przycisk `Ekran startowy` wraca do tego konfiguratora,
 aby operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
 manifestu, decyzji ani zapisanych JPEG-ów; `Wróć do selekcji` otwiera bieżący
 workspace bez zmiany kursora i zakresu.
+W tym trybie wybór innego katalogu zdjęć tworzy albo odnajduje jego własny
+lokalny batch. Ponowne wskazanie katalogów zgodnych z istniejącym wynikiem
+wznawia jego kursor i zakres; różnica źródła nie jest błędem relinkowania
+poprzedniego katalogu. Katalog wyniku z zapisanymi decyzjami musi jednak
+zawierać zgodny manifest — pusty lub obcy wynik nie może zastąpić postępu.
 
 Oryginalne bajty zaakceptowanego JPEG-a są zapisywane bezpośrednio w tym
 folderze jako `seq_<start>-<end>.jpg`. Decyzja, kursor, następny zakres, uchwyty

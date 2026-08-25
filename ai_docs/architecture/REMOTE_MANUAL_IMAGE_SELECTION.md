@@ -28,7 +28,9 @@ flowchart LR
   źródła; po indeksowaniu Reviewer tworzy lub waliduje właściwy folder wyniku.
 - `Ekran startowy` jest wyłącznie lokalną nawigacją do tych pickerów. Nie
   zmienia trwałego batcha ani outputu; ponowne otwarcie workspace'u zachowuje
-  zapisane decyzje, kursor i zakres.
+  zapisane decyzje, kursor i zakres. Wybór innego źródła odnajduje jego
+  poprzedni batch po nazwie i checksumie manifestu albo tworzy nowy; nie jest
+  mylony z relinkowaniem aktualnego źródła.
 - Reviewer tworzy `<sourceDirectoryName> wybrane`, zapisuje oryginalne bajty
   jako `seq_start-end.jpg` i lokalny `manual-image-selection-output-v1.json`.
 - Folder wynikowy przechodzi fail-closed preflight: jest pusty albo zawiera

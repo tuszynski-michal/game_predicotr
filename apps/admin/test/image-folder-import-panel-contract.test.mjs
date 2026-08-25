@@ -57,7 +57,6 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);
-  assert.match(panelSource, /boardCellProcessingStartAllowed/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
   assert.match(panelSource, /Rozpocznij import v20 z raportu/);
   assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
@@ -67,14 +66,13 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
-test('keeps v20 as an acknowledged staging-local opt-in', () => {
-  assert.match(modePickerSource, /Historyczny v18 — domyślny/);
-  assert.match(modePickerSource, /v20 z geometrią v19 — jawny opt-in/);
-  assert.match(modePickerSource, /93,78%/);
-  assert.match(modePickerSource, /wymaganej bramce 98%/);
-  assert.match(modePickerSource, /verifiedV19Confirmed/);
-  assert.match(modePickerSource, /onVerifiedV19ConfirmationChange/);
-  assert.match(panelSource, /setVerifiedV19Confirmed\(false\)/);
+test('pins v20 geometry and v19 crops for every new staging import', () => {
+  assert.match(modePickerSource, /Nowe importy zawsze przypinają v20/);
+  assert.match(modePickerSource, /v20 — geometria i cropy v19/);
+  assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
+  assert.doesNotMatch(modePickerSource, /jawny opt-in/);
+  assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
+  assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
 });
 
 test('provides styled actions and accessible import help', () => {

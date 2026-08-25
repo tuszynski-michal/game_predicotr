@@ -234,6 +234,7 @@ class ImageFolderSelectionService:
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
             image_selection_run_id=selected.image_selection_run_id,
             canonical_sequence_numbers=canonical_sequence_numbers,
+            use_verified_board_cell_geometry=True,
         )
         with self._lock:
             self._selections.pop(selection_token, None)

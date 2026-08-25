@@ -670,6 +670,22 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
+        processing_snapshot = board_cell_processing_snapshot(
+            cell_output_size=symbol_model.input_size
+        )
+        configuration_fingerprint = processing_snapshot[
+            "configurationFingerprintSha256"
+        ]
+        if not isinstance(configuration_fingerprint, str):
+            raise JobError(
+                "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
+                "The verified board-cell processing snapshot is invalid.",
+            )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            f"{effective_pipeline_fingerprint}:{configuration_fingerprint}".encode("ascii")
+        ).hexdigest()
+        payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
+        payload["board_cell_processing"] = processing_snapshot
         source_selection_id = source.input_payload.get("source_selection_id")
         if source_selection_id is not None:
             payload["source_selection_id"] = source_selection_id

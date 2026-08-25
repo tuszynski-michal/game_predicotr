@@ -318,14 +318,14 @@ pełnych plansz i ma:
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
   staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
   importu nie utworzy kolejki plansz,
-- dla aktywnego gotowego stagingu z raportem pokazywać jawny wybór silnika
-  cięcia komórek: historyczny v18 pozostaje domyślny, a v20 z geometrią v19
-  wymaga osobnego potwierdzenia ograniczeń dla tego stagingu; zmiana stagingu
-  albo trybu kasuje potwierdzenie,
-- przy wyborze v20 pokazywać wynik przypiętego benchmarku `93,78%` wobec bramki
-  `98%`, brak fallbacku do v18 oraz trwałe odroczenie nierozpoznanej geometrii;
-  start przekazuje wybrany tryb w checksum-bound komendzie i nie może
-  prezentować sukcesu, jeżeli zwrócony job ma inny niezmienny snapshot,
+- dla aktywnego gotowego stagingu z raportem pokazywać przypięty silnik
+  `v20 — geometria i cropy v19`; każdy nowy import używa go bez dodatkowego
+  potwierdzenia, a v18 jest dostępny wyłącznie jako etykieta i artefakt
+  historycznych jobów,
+- start przekazuje `boardCellProcessingMode=verified_v19` w checksum-bound
+  komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
+  niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
+  odroczenie do końcowej korekty,
 - mieć własny proces i adres; panel Admin wybiera grę oraz gotowy import, pokazuje
   dla niego liczniki wszystkich, oczekujących i zakończonych plansz, a przycisk
   `Utwórz link online` uruchamia brakujący produkcyjny Reviewer,

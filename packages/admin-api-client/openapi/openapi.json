@@ -667,7 +667,10 @@
             "type": "string"
           },
           "rolloutMode": {
-            "const": "explicit_job_only",
+            "enum": [
+              "explicit_job_only",
+              "default_v19"
+            ],
             "title": "Rolloutmode",
             "type": "string"
           },
@@ -1060,7 +1063,7 @@
         "additionalProperties": false,
         "properties": {
           "boardCellProcessingMode": {
-            "default": "historical_v18",
+            "default": "verified_v19",
             "enum": [
               "historical_v18",
               "verified_v19"

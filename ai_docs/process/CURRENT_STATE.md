@@ -29,6 +29,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
   `v19`; źródłem etykiety jest niezmienny snapshot joba.
 
+- Od `v0.7.70` każdy nowy staging i ponowne przetworzenie importu przypinają
+  `v20 — geometria i cropy v19`. API przy braku pola także wybiera
+  `verified_v19`; historyczny v18 pozostaje wyłącznie odtwarzalnym artefaktem
+  już utworzonych jobów i nie jest fallbackiem.
+
 - Monitor jobów pokazuje pod importem katalogowym i preflightem geometrii
   zakres z nazwy stagingu, np. `Zakres 19810–45162`. Nazwa stagingu jest
   metadataną prezentacyjną i nie zmienia idempotencji preflightu.

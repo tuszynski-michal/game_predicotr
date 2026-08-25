@@ -300,7 +300,7 @@ def test_curated_image_import_job_preserves_selection_run_provenance(
     assert len(str(symbol_model["inferenceFingerprint"])) == 64
 
 
-def test_verified_v19_full_import_requires_an_explicit_pin(tmp_path: Path) -> None:
+def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     _client_value, game_id, service, _repository = _client(tmp_path)
     source = tmp_path / "curated"
     source.mkdir()
@@ -325,7 +325,7 @@ def test_verified_v19_full_import_requires_an_explicit_pin(tmp_path: Path) -> No
     processing = pinned.input_payload["board_cell_processing"]
     assert isinstance(processing, dict)
     assert processing["activationVersion"] == "board-cell-processing-v20-verified-v19-v1"
-    assert processing["rolloutMode"] == "explicit_job_only"
+    assert processing["rolloutMode"] == "default_v19"
     assert pinned.input_payload["pipeline_fingerprint"] != historical.input_payload[
         "pipeline_fingerprint"
     ]

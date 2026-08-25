@@ -82,12 +82,7 @@ def validate_board_cell_recrop_snapshot(
 
 
 def board_cell_processing_snapshot(*, cell_output_size: int) -> dict[str, object]:
-    """Build the explicitly pinned full-import v20 processing contract.
-
-    The cross-staging coverage gate remains below the threshold required for a
-    default rollout.  This snapshot therefore records an explicit-job-only
-    mode and is never injected into ordinary image-import jobs implicitly.
-    """
+    """Build the pinned default full-import v20/v19 processing contract."""
 
     recrop = board_cell_recrop_snapshot(cell_output_size=cell_output_size)
     snapshot = {
@@ -103,7 +98,7 @@ def board_cell_processing_snapshot(*, cell_output_size: int) -> dict[str, object
                 "thresholdsVersion": THRESHOLDS_VERSION,
             }
         ),
-        "rolloutMode": "explicit_job_only",
+        "rolloutMode": "default_v19",
         "shadowBenchmarkManifestChecksumSha256": (
             SHADOW_BENCHMARK_MANIFEST_CHECKSUM_SHA256
         ),

@@ -28,13 +28,11 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
-  canStartBoardCellProcessingMode,
   DEFAULT_BOARD_CELL_PROCESSING_MODE,
   jobMatchesBoardCellProcessingMode,
 } from './board-cell-processing-mode';
 import { BoardCellProcessingModePicker } from './board-cell-processing-mode-picker';
 import {
-  type BoardCellProcessingMode,
   type ImageFolderImportClient,
   createImageFolderImport,
   listReadyBrowserImageSelections,
@@ -138,9 +136,7 @@ export function ImageFolderImportPanel({
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
     useState<JobResponse | null>(null);
-  const [boardCellProcessingMode, setBoardCellProcessingMode] =
-    useState<BoardCellProcessingMode>(DEFAULT_BOARD_CELL_PROCESSING_MODE);
-  const [verifiedV19Confirmed, setVerifiedV19Confirmed] = useState(false);
+  const boardCellProcessingMode = DEFAULT_BOARD_CELL_PROCESSING_MODE;
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -164,16 +160,6 @@ export function ImageFolderImportPanel({
   const geometryManifestChecksum =
     geometryPreflightJob?.progress.pageGeometryPreflight
       ?.geometryManifestChecksumSha256 ?? null;
-  const boardCellProcessingStartAllowed = canStartBoardCellProcessingMode(
-    boardCellProcessingMode,
-    verifiedV19Confirmed,
-  );
-
-  function selectBoardCellProcessingMode(mode: BoardCellProcessingMode) {
-    setBoardCellProcessingMode(mode);
-    setVerifiedV19Confirmed(false);
-  }
-
   const refreshJobs = useCallback(async () => {
     const [jobsResult, completenessResult, curatedResult, readyResult] =
       await Promise.all([
@@ -311,7 +297,6 @@ export function ImageFolderImportPanel({
       return;
     }
     if (busy) return;
-    selectBoardCellProcessingMode(DEFAULT_BOARD_CELL_PROCESSING_MODE);
     setActiveAction('choose-folder');
     setUploadProgress({ total: selectedFiles.length, uploaded: 0 });
     setError('');
@@ -373,9 +358,6 @@ export function ImageFolderImportPanel({
 
   async function prepareReadyImport(uploadId: string) {
     if (busy) return;
-    if (uploadId !== readyUploadId) {
-      selectBoardCellProcessingMode(DEFAULT_BOARD_CELL_PROCESSING_MODE);
-    }
     setActiveAction('preflight');
     setError('');
     setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
@@ -419,8 +401,7 @@ export function ImageFolderImportPanel({
       readyUploadId === null ||
       preflight === null ||
       geometryPreflightJob?.status !== 'completed' ||
-      geometryManifestChecksum === null ||
-      !boardCellProcessingStartAllowed
+      geometryManifestChecksum === null
     ) {
       return;
     }
@@ -469,7 +450,6 @@ export function ImageFolderImportPanel({
       setSelectionDisplayName('');
       setPreflight(null);
       setGeometryPreflightJob(null);
-      selectBoardCellProcessingMode(DEFAULT_BOARD_CELL_PROCESSING_MODE);
       await refreshJobs();
     } catch {
       setError('Nie udało się utworzyć importu plansz.');
@@ -535,7 +515,6 @@ export function ImageFolderImportPanel({
         setReadyUploadId(null);
         setPreflight(null);
         setGeometryPreflightJob(null);
-        selectBoardCellProcessingMode(DEFAULT_BOARD_CELL_PROCESSING_MODE);
       }
       setFeedback('Nieużywany staging został usunięty.');
     } catch {
@@ -994,15 +973,7 @@ export function ImageFolderImportPanel({
                           </details>
                         ) : null}
                       </div>
-                      <BoardCellProcessingModePicker
-                        disabled={busy}
-                        mode={boardCellProcessingMode}
-                        onModeChange={selectBoardCellProcessingMode}
-                        onVerifiedV19ConfirmationChange={
-                          setVerifiedV19Confirmed
-                        }
-                        verifiedV19Confirmed={verifiedV19Confirmed}
-                      />
+                      <BoardCellProcessingModePicker disabled={busy} />
                     </>
                   ) : null}
                 </li>
@@ -1026,8 +997,7 @@ export function ImageFolderImportPanel({
                   selection?.selectionToken == null)) ||
               (preflight !== null &&
                 (geometryPreflightJob?.status !== 'completed' ||
-                  geometryManifestChecksum === null ||
-                  !boardCellProcessingStartAllowed))
+                  geometryManifestChecksum === null))
             }
             onClick={() =>
               void (preflight === null ? startImport() : startReadyImport())

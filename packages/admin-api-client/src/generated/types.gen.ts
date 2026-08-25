@@ -386,7 +386,7 @@ export type BoardCellProcessingJobSnapshotPayload = {
   /**
    * Rolloutmode
    */
-  rolloutMode: 'explicit_job_only';
+  rolloutMode: 'explicit_job_only' | 'default_v19';
   /**
    * Shadowbenchmarkmanifestchecksumsha256
    */

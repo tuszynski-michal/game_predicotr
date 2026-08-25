@@ -199,6 +199,10 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     assert job["inputPayload"]["sourceDirectory"] == str(source.resolve())
     assert len(job["inputPayload"]["pipelineFingerprint"]) == 64
     assert job["inputPayload"]["symbolModel"]["modelVersion"] == ("bootstrap-symbol-cnn-onnx-v1")
+    assert (
+        job["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
     assert replay.status_code == 422
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
@@ -231,6 +235,10 @@ def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
     assert payload["managedSourceJobId"] == source_job_id
     assert payload["sourceDisplayName"].endswith("(ponowne przetworzenie)")
     assert len(payload["pipelineFingerprint"]) == 64
+    assert (
+        payload["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
 
 
 def test_empty_folder_is_rejected_before_selection_token(tmp_path: Path) -> None:
@@ -478,11 +486,10 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json=start_payload,
         )
-        pinned_v19 = client.post(
+        rerun_current_models = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json={
                 **start_payload,
-                "boardCellProcessingMode": "verified_v19",
                 "startMode": "rerun_current_models",
             },
         )
@@ -496,10 +503,14 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         replay.json()["job"]["inputPayload"]["sourceManifestSha256"]
         == report["manifestChecksumSha256"]
     )
-    assert pinned_v19.status_code == 201, pinned_v19.text
-    assert pinned_v19.json()["created"] is True
     assert (
-        pinned_v19.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        started.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        == "board-cell-processing-v20-verified-v19-v1"
+    )
+    assert rerun_current_models.status_code == 201, rerun_current_models.text
+    assert rerun_current_models.json()["created"] is True
+    assert (
+        rerun_current_models.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
         == "board-cell-processing-v20-verified-v19-v1"
     )
 

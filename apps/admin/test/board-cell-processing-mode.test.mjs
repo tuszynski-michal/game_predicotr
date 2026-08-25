@@ -4,8 +4,6 @@ import test from 'node:test';
 import {
   boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
-  boardCellProcessingModeRequiresConfirmation,
-  canStartBoardCellProcessingMode,
   DEFAULT_BOARD_CELL_PROCESSING_MODE,
   jobMatchesBoardCellProcessingMode,
   VERIFIED_V19_ACTIVATION_VERSION,
@@ -23,27 +21,13 @@ function imageImportJob(boardCellProcessing) {
   };
 }
 
-test('keeps historical v18 as the unconfirmed default', () => {
-  assert.equal(DEFAULT_BOARD_CELL_PROCESSING_MODE, 'historical_v18');
-  assert.equal(
-    boardCellProcessingModeRequiresConfirmation('historical_v18'),
-    false,
-  );
-  assert.equal(canStartBoardCellProcessingMode('historical_v18', false), true);
+test('uses verified v19 processing as the default for new imports', () => {
+  assert.equal(DEFAULT_BOARD_CELL_PROCESSING_MODE, 'verified_v19');
+  assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
   assert.equal(
     boardCellProcessingModeLabel('historical_v18'),
     'v18 — tryb historyczny',
   );
-});
-
-test('requires an explicit confirmation before starting verified v19', () => {
-  assert.equal(
-    boardCellProcessingModeRequiresConfirmation('verified_v19'),
-    true,
-  );
-  assert.equal(canStartBoardCellProcessingMode('verified_v19', false), false);
-  assert.equal(canStartBoardCellProcessingMode('verified_v19', true), true);
-  assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
 });
 
 test('labels each persisted import with its pinned board processing engine', () => {

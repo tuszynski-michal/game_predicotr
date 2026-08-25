@@ -219,10 +219,9 @@ ani pośredniego obrazu planszy.
 Regresja rzeczywistego corpusu przechodzi automatycznie `25/27` plansz z
 maksymalnym średnim błędem czterech narożników `6,25 px`. Dwie plansze z
 częściową okluzją pozostają fail-closed: jedna ma 8 inlierów, a druga tylko 9
-globalnych przypisań. Estymator nie zmienia pełnego pipeline'u importu v18;
-Po późniejszym cross-staging benchmarku może działać w jawnej operacji
-pending-only oraz w opisanym poniżej pełnym adapterze v20. Nie zmienia to
-domyślnego pipeline'u v18.
+globalnych przypisań. Estymator działa w pełnym adapterze v20 opisanym poniżej.
+Historyczne joby v18 pozostają odtwarzalne, ale nie są tworzone przez bieżący
+workflow importu.
 
 Checkpoint `board-cell-geometry-v19-real-page-audit-v1` wybiera 100 stron
 deterministycznie przez ranking SHA-256, sprawdza źródłowe checksumy i uruchamia
@@ -243,9 +242,8 @@ drugiego `resize` i nie używa border replication. Cały komplet 15 komórek,
 evidence, wymiary i położenie padded quadów jest sprawdzany przed pierwszym
 resamplingiem; błąd daje `needs_review` bez częściowych cropów. Konfiguracja
 paddingu, interpolacji, geometrii, brzegu i rozmiaru wyjścia jest objęta
-fingerprintem. Dla historycznego trybu v18 adapter pozostaje poza pełnym
-pipeline'em. Jawny adapter v20 opisany poniżej może użyć go także w pełnym
-imporcie, bez zmiany wartości domyślnej.
+fingerprintem. Historyczny tryb v18 pozostaje odtwarzalny, natomiast bieżący
+adapter v20 używa croppera v19 w każdym nowym pełnym imporcie.
 
 Ręczny podgląd `manual-board-cell-geometry-v19-preview-v1` konsumuje te same
 cztery granice `latticeBoundsQuad`, wyprowadza 15 komórek tym samym kontraktem
@@ -294,10 +292,11 @@ Niewiarygodny wynik geometrii zapisuje się w
 prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
 aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
 
-Jawnie przypięty kontrakt pełnego importu
-`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem,
-ale nie jest domyślnym pipeline'em. Żądanie startu musi wskazać
-`boardCellProcessingMode=verified_v19`; brak pola zachowuje historyczny v18.
+Przypięty kontrakt pełnego importu
+`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem
+i jest domyślnym pipeline'em nowych importów. Żądanie startu domyślnie używa
+`boardCellProcessingMode=verified_v19`; klient Admina przekazuje tę wartość
+jawnie, a brak pola w API również wybiera v19.
 Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
 niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
 snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
@@ -312,17 +311,15 @@ strony mogą kontynuować inferencję i review.
 
 Deferrals są odtwarzane z niezmiennych stage results po restarcie workera oraz
 przy job-local rehydration współdzielonego file execution. Exact replay jest
-idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Pokrycie TASK 2
-wynosi nadal `93,78%`, dlatego v20 pozostaje wyłącznie opt-in; zmiana domyślnego
-trybu wymaga osobnego checkpointu i osiągnięcia bramki co najmniej `98%`.
+idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Historyczny
+benchmark `93,78%` pozostaje audytowalny, lecz właściciel podjął odrębną
+decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania.
 
-Admin udostępnia ten opt-in wyłącznie dla aktywnego, gotowego browser stagingu
-po przygotowaniu raportu i geometrii strony. Każdy nowy staging zaczyna w
-`historical_v18`; wybór `verified_v19` wymaga staging-local potwierdzenia ryzyka.
-Komenda startu zawsze zawiera wybrany `boardCellProcessingMode`, a odpowiedź
+Admin pokazuje v20/v19 dla aktywnego, gotowego browser stagingu po przygotowaniu
+raportu i geometrii strony. Każdy nowy staging zaczyna w `verified_v19`, bez
+staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowiedź
 idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
-snapshot joba odpowiada temu wyborowi. Nie zmienia to wartości domyślnej API ani
-bramki automatycznego rollout.
+snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
 
 Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
 `v18 — tryb historyczny` albo `v20 — geometria i cropy v19`. Etykieta pochodzi
@@ -343,12 +340,12 @@ inferencji ani zapisu cropów. Ponowne użycie klucza dla zmienionej komendy,
 manifestu, źródła, modelu albo rewizji kończy się stabilnym konfliktem.
 Istniejąca plansza lub późniejsza decyzja człowieka zawsze wygrywa, a deferred
 przechodzi do `superseded`. Ręczne rozwiązanie nie zmienia poświadczonego
-numeru `seq_*`, aktywnego modelu, domyślnego v18 ani bramki rollout v20.
+numeru `seq_*`, aktywnego modelu ani przypiętego silnika joba.
 
-Końcowy wynik rollout'u zachowuje tę granicę: benchmark 300 stron osiągnął
-`93,78%` pokrycia przy wymaganym minimum `98%`, dlatego v20 pozostaje
-staging-local opt-in. Raport, checksumy dowodowe, rollback i ograniczenia są
-opisane w `ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`.
+Benchmark 300 stron osiągnął historycznie `93,78%` pokrycia przy wcześniejszej
+bramce `98%`; raport, checksumy dowodowe oraz ograniczenia są opisane w
+`ai_docs/quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md`. Pomimo tej bramki
+właściciel wybrał stały domyślny v19 do jawnego odwołania.
 
 Kwalifikacja początkowa obejmuje tylko `pending`, ale nie jest wystarczającą
 ochroną zapisu. Bezpośrednio przed zmianą projekcji worker pod blokadą ponownie

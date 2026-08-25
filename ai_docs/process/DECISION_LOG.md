@@ -5551,6 +5551,28 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** wymuszenie nowej aktywacji lub ręczna zmiana wskaźnika w
   bazie zostały odrzucone jako zbędne i mniej audytowalne.
 
+## D-231 — v20 z geometrią i cropami v19 jest domyślnym silnikiem nowych importów
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** do czasu jawnego odwołania właściciela każdy nowy staging oraz
+  ponowne przetworzenie importu przypina
+  `board-cell-processing-v20-verified-v19-v1`. API przy braku
+  `boardCellProcessingMode` także wybiera `verified_v19`; Admin nie pokazuje
+  wyboru ani potwierdzenia v18.
+- **Context:** właściciel potwierdził, że kolejne runy mają zawsze używać v19,
+  a aktywny v18 ma być anulowany i odtworzony jako nowy job. Poprzednia polityka
+  opt-in pozostawiała v18 jako niezamierzoną wartość domyślną.
+- **Safety:** istniejącego joba nie przełączamy w locie. Snapshot i fingerprint
+  nadal rozdzielają v18 oraz v20/v19; brak kompletnej geometrii pozostaje
+  `deferred`, bez fallbacku v19 → v18 i bez inferencji symboli. Decyzja
+  człowieka nadal wygrywa.
+- **Consequences:** v18 pozostaje czytelny i odtwarzalny wyłącznie dla historii;
+  rollback wymaga świadomego utworzenia historycznego joba poza codziennym
+  workflow. Nowe i odtworzone joby pokazują `rolloutMode=default_v19`.
+- **Supersedes:** zastępuje w D-212 i D-214 wyłącznie zasadę opt-in oraz
+  domyślny v18; pozostałe invarianty bezpieczeństwa pozostają bez zmian.
+
 ## Szablon nowej decyzji
 
 ```text

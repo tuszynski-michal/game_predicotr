@@ -63,7 +63,7 @@ class BoardCellProcessingJobSnapshotPayload(ApiModel):
     geometry_version: str = Field(min_length=1, max_length=255)
     homography_version: str = Field(min_length=1, max_length=255)
     locator_version: str = Field(min_length=1, max_length=255)
-    rollout_mode: Literal["explicit_job_only"]
+    rollout_mode: Literal["explicit_job_only", "default_v19"]
     shadow_benchmark_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_version: str = Field(min_length=1, max_length=255)

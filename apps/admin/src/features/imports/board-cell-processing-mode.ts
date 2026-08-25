@@ -3,25 +3,10 @@ import type { JobResponse } from '@game-predictor/admin-api-client';
 import type { BoardCellProcessingMode } from './image-folder-import-actions.ts';
 
 export const DEFAULT_BOARD_CELL_PROCESSING_MODE: BoardCellProcessingMode =
-  'historical_v18';
+  'verified_v19';
 
 export const VERIFIED_V19_ACTIVATION_VERSION =
   'board-cell-processing-v20-verified-v19-v1';
-
-export function boardCellProcessingModeRequiresConfirmation(
-  mode: BoardCellProcessingMode,
-): boolean {
-  return mode === 'verified_v19';
-}
-
-export function canStartBoardCellProcessingMode(
-  mode: BoardCellProcessingMode,
-  verifiedV19Confirmed: boolean,
-): boolean {
-  return (
-    !boardCellProcessingModeRequiresConfirmation(mode) || verifiedV19Confirmed
-  );
-}
 
 export function boardCellProcessingModeLabel(
   mode: BoardCellProcessingMode,

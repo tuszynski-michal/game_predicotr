@@ -57,6 +57,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   wskazać komórkę albo uzupełniać sekwencyjnie z pięciokolumnowej palety,
   bezpiecznie cofnąć każdą zmianę i wyzerować wzór. Jedno jawne `Szukaj plansz`
   przekazuje wybrany scope i wyłącznie znane pozycje przez typowany klient.
+- Od `v0.8.6` wynik częściowego wyszukiwania jest karuzelą pełnych,
+  nieprzeskalowanych cropów planszy. Pokazuje pozycję, wynik, status i dowody
+  rankingu; przyciski oraz klawisze `←/→` przesuwają dokładnie o jedną pozycję
+  bez zawijania. Klient prefetchuje wyłącznie bezpośrednich sąsiadów przez
+  istniejący, scope-bound asset API. Niedostępny crop daje widoczny fallback,
+  a nie usuwa poprawnego wyniku z rankingu.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

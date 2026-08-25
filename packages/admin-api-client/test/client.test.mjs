@@ -2359,3 +2359,20 @@ test('board search forwards a partial pattern and scope through the generated cl
   );
   assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
 });
+
+test('board search builds only a scoped board-crop asset URL for a result', () => {
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+  });
+
+  assert.equal(
+    client.operationalImageReviewBoardAssetUrl(
+      '22222222-2222-4222-8222-222222222222',
+      {
+        gameId: '11111111-1111-4111-8111-111111111111',
+        importJobId: '33333333-3333-4333-8333-333333333333',
+      },
+    ),
+    'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
+  );
+});

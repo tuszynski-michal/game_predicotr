@@ -8667,9 +8667,118 @@ div.imageJobInlineError {
   margin-left: auto;
 }
 
+.boardSearchResults {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  outline: none;
+}
+
+.boardSearchResults:focus-visible {
+  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.2);
+}
+
+.boardSearchResults > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.boardSearchResults h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.boardSearchResultMetrics,
+.boardSearchEvidence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.boardSearchResultMetrics {
+  min-width: min(100%, 360px);
+}
+
+.boardSearchResultMetrics div,
+.boardSearchEvidence div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(7, 16, 29, 0.46);
+}
+
+.boardSearchResultMetrics dt,
+.boardSearchEvidence dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.boardSearchResultMetrics dd,
+.boardSearchEvidence dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchBoardAsset {
+  display: block;
+  width: min(100%, 900px);
+  max-height: min(68vh, 760px);
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+  object-fit: contain;
+}
+
+.boardSearchBoardAssetError {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed var(--danger);
+  border-radius: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.boardSearchEvidence {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.boardSearchResultNavigation {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.boardSearchResultNavigation > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
 @media (max-width: 860px) {
   .boardSearchComposer {
     grid-template-columns: 1fr;
+  }
+
+  .boardSearchResults > header {
+    display: grid;
   }
 }
 
@@ -8689,5 +8798,19 @@ div.imageJobInlineError {
   .boardSearchActions .primaryButton {
     width: 100%;
     margin-left: 0;
+  }
+
+  .boardSearchResultMetrics,
+  .boardSearchEvidence {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .boardSearchResultNavigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .boardSearchResultNavigation > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }

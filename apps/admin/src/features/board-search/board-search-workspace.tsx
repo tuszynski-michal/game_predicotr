@@ -23,6 +23,7 @@ import {
   selectedBoardSearchCells,
   undoBoardSearchEdit,
 } from './board-search-editor-state';
+import { BoardSearchResults } from './board-search-results';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type SearchState =
@@ -33,7 +34,10 @@ type SearchState =
 
 type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
-  'listSymbols' | 'searchGameBoards' | 'symbolImageAssetUrl'
+  | 'listSymbols'
+  | 'searchGameBoards'
+  | 'symbolImageAssetUrl'
+  | 'operationalImageReviewBoardAssetUrl'
 >;
 
 interface BoardSearchWorkspaceProps {
@@ -349,10 +353,12 @@ export function BoardSearchWorkspace({
         </p>
       ) : null}
       {searchState.kind === 'ready' ? (
-        <p className="boardSearchFeedback" role="status">
-          Znaleziono {searchState.result.results.length} plansz. Wyniki są
-          gotowe do przeglądania.
-        </p>
+        <BoardSearchResults
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          gameId={gameId}
+          response={searchState.result}
+        />
       ) : null}
     </section>
   );

@@ -186,6 +186,8 @@ import type {
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
   BoardSearchResponse,
+  BoardSearchResultResponse,
+  BoardSearchScoreResponse,
   BoardSearchScope,
   CreateJobData,
   GridProfileActivationAction,
@@ -269,6 +271,8 @@ export type {
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
   BoardSearchResponse,
+  BoardSearchResultResponse,
+  BoardSearchScoreResponse,
   BoardSearchScope,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
@@ -1476,6 +1480,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { review_item_id: reviewItemId },
         query: context,
       }),
+    operationalImageReviewBoardAssetUrl: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) => {
+      const query = new URLSearchParams({
+        gameId: context.gameId,
+        importJobId: context.importJobId,
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/${encodeURIComponent(reviewItemId)}/assets/board?${query.toString()}`;
+    },
     getOperationalImageReviewCellAsset: (
       reviewItemId: string,
       cellIndex: number,

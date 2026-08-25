@@ -101,6 +101,11 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
   konkretnej komórki z sekwencyjnym przejściem do kolejnego pustego pola;
   `Cofnij`, `Resetuj` i przełączenie scope nie wykonują requestu. Jedynie jawne
   `Szukaj plansz` wywołuje read-only API.
+- `v0.8.6` dodaje karuzelę wyników z checksum-bound pełnym cropem planszy,
+  pozycją, wynikiem, statusem i licznikami dowodów rankingu. Nawigacja
+  przyciskami oraz `←/→` przesuwa dokładnie o jeden wynik i nie zawija listy;
+  klient prefetchuje wyłącznie bezpośrednich sąsiadów. Brak cropu nie usuwa
+  wyniku, lecz pokazuje kontrolowany fallback.
 
 ### Verification results
 
@@ -118,12 +123,17 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 - `apps/admin/test/board-search-editor-state.test.mjs` sprawdza edycję
   sekwencyjną, nadpisanie wskazanej komórki, cofnięcie i reset; test nawigacji
   potwierdza trwały adres sekcji `board-search` w kontekście gry.
+- `apps/admin/test/board-search-results-state.test.mjs` sprawdza karuzelę
+  jednego kroku bez zawijania i wyznaczanie wyłącznie istniejących sąsiadów;
+  klient Admina sprawdza scope-bound URL pełnego cropu. Testy Admina,
+  typecheck i produkcyjny build przechodzą; lint nie zgłasza błędów i pozostają
+  wyłącznie trzy wcześniejsze ostrzeżenia w niepowiązanych modułach.
 
 ### Not completed
 
-- Karuzela assetów, prefetch oraz benchmark pozostają do wykonania. Historyczny
-  backfill gry `777` zakończył się stanem `ready` dla `212251` kandydatów i
-  `125431` dokumentów; endpoint nie uznaje stanu `rebuilding` za pusty wynik.
+- Benchmark i odbiór wydajnościowy pozostają do wykonania. Historyczny backfill
+  gry `777` zakończył się stanem `ready` dla `212251` kandydatów i `125431`
+  dokumentów; endpoint nie uznaje stanu `rebuilding` za pusty wynik.
 
 ### Documentation updates
 
@@ -131,4 +141,4 @@ bez skanowania setek tysięcy surowych obserwacji w żądaniu użytkownika.
 
 ### Recommended next task
 
-- Moduł 6: karuzela wyników, asset cropu i prefetch sąsiadów.
+- Moduł 7: benchmark, testy przekrojowe, dokumentacja i odbiór.

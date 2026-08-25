@@ -1,14 +1,19 @@
 ---
 title: TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
-status: in_progress
-last_updated: 2026-08-24
+status: blocked
+last_updated: 2026-08-25
 ---
 
 # TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
 
 ## Status
 
-`in_progress`
+`blocked`
+
+Kontrolowany rollout publiczny pozostaje świadomie wstrzymany. Obowiązujący
+operator-local workflow jest wdrożony i testowany oddzielnie; dalsze etapy
+LAN/Quick Tunnel wymagają osobnej decyzji właściciela. Nie blokuje to toru
+`0.8` dotyczącego danych plansz i lokalnego panelu Admina.
 
 ## Goal
 

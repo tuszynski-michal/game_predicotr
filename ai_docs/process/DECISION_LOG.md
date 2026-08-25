@@ -5594,6 +5594,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   odczytu odrzucono, ponieważ poszerzałoby powierzchnię sekretów serwera bez
   potrzeby dla tego krótkotrwałego workflow.
 
+## D-233 — Wyszukiwanie plansz korzysta z jednej projekcji logicznej na sekwencję
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** częściowy wzór 3 × 5 jest oceniany na trwałej projekcji
+  `game_id + sequence_number`, a nie przez pełny join `recognized_boards`,
+  `cell_observations` i rewizji dla każdego requestu. Właściciel dokumentu jest
+  kanoniczną planszą `accepted/corrected`; gdy jej nie ma, jest nim
+  deterministycznie wybrana pozycja `pending`. Projekcja przechowuje wyłącznie
+  kody, statusy, identyfikatory, checksumy i metadane assetu, bez obrazów BLOB.
+- **Context:** obecny zbiór ma setki tysięcy plansz i miliony obserwacji.
+  Bez materializacji read path nie ma przewidywalnego czasu odpowiedzi, a
+  ponowione importy mogłyby wyświetlać wiele kart dla jednego numeru.
+- **Safety:** accepted/corrected wykorzystuje wyłącznie ręcznie rozwiązany
+  symbol. Dla `pending` wynik dokładny ma wagę 1, a alternatywy mają słabsze,
+  wersjonowane wagi. Przyszły `?` oznacza brak dowodu: nie daje punktu i nie
+  jest karą. Wynik jest ograniczony do 100 rekordów i po brakującym assetcie
+  pokazuje kontrolowany fallback.
+- **Consequences:** synchronizacja projekcji należy do ścieżek importu,
+  inferencji i decyzji review. Trwałe blokowanie kolejnych pozycji `pending`
+  dla tego samego numeru jest nadal osobnym TASK-0291, a nie ukrytą zmianą
+  semantyki rankingu.
+- **Alternatives:** wyszukiwanie identycznego łańcucha ignoruje niepewność;
+  runtime join i skan całej tabeli na żądanie nie daje akceptowalnej wydajności;
+  przechowywanie binarnych cropów w projekcji narusza model danych.
+
 ## Szablon nowej decyzji
 
 ```text

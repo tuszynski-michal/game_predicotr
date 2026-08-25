@@ -13,7 +13,24 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.7 implementation: board import and review operations`
+`Version 0.8 implementation: board search and review data quality`
+
+### Wyszukiwanie plansz częściowym układem — TASK-0292
+
+- Tor `0.7` został zamknięty dla bieżących zmian produktu. TASK-0290 pozostaje
+  `blocked` wyłącznie na zewnętrzne checkpointy publicznego rolloutu; nie blokuje
+  lokalnego panelu Admina ani toru `0.8`.
+- TASK-0292 dostarcza wyszukiwarkę częściowego układu w zakładce gry. Wynik ma
+  zawsze jednego logicznego właściciela na `game + sequence_number`: kanoniczną
+  planszę `accepted/corrected`, a w pozostałym przypadku deterministycznie
+  wybraną oczekującą pozycję.
+- Ranking nie jest prostym porównaniem łańcucha: pełne dopasowanie ma największą
+  wagę, alternatywy pending są słabszym dowodem, a przyszły `?` nie daje punktu
+  ani kary. Obrazy pozostają wyłącznie assetami filesystemu; do bazy trafia
+  zwarta projekcja metadanych i kodów symboli.
+- TASK-0291 pozostaje osobnym blockerem trwałego zapobiegania duplikatom
+  `pending` z ponownych importów. Wyszukiwarka nie maskuje tych danych przez
+  arbitralne łączenie ich w wiele kart.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

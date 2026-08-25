@@ -60,6 +60,13 @@ ani kopiowania JPEG-ów do repozytorium.
 
 ## Progress
 
+### v0.7.76 — priorytet ekranu startowego w workspace
+
+- Aktywny workspace ma po lewej główny przycisk `Ekran startowy`, który
+  niedestrukcyjnie otwiera konfigurator folderów. Po prawej pozostaje wtórny
+  `Restart selekcji`; nadal nie usuwa danych przed osobnym potwierdzeniem w
+  istniejącym modalu.
+
 ### v0.7.75 — trwałe dane dostępu właściciela
 
 - Panel `Zdalna ręczna selekcja` nie używa już znikającej po refreshu sekcji

@@ -1137,20 +1137,20 @@ export function RemoteManualSelectionWorkspaceFoundation({
           </p>
           <div className="remoteSelectionWorkspaceActions">
             <button
+              className="primaryButton"
+              disabled={busy}
+              onClick={openStartScreen}
+              type="button"
+            >
+              Ekran startowy
+            </button>
+            <button
               className="secondaryButton"
               disabled={!canWrite || busy}
               onClick={requestSelectionRestart}
               type="button"
             >
               {busy ? 'Restartowanie…' : 'Restart selekcji'}
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={busy}
-              onClick={openStartScreen}
-              type="button"
-            >
-              Ekran startowy
             </button>
           </div>
         </section>

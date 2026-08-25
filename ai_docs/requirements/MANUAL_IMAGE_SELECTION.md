@@ -124,8 +124,9 @@ poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy
 kierunku, a kompletny manifest automatycznie wznawia zapisane zdjęcie i następny
 zakres.
 
-Po rozpoczęciu selekcji przycisk `Ekran startowy` wraca do tego konfiguratora,
-aby operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
+Po rozpoczęciu selekcji główny przycisk `Ekran startowy`, umieszczony po lewej
+stronie obok wtórnego `Restart selekcji`, wraca do tego konfiguratora, aby
+operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
 manifestu, decyzji ani zapisanych JPEG-ów; `Wróć do selekcji` otwiera bieżący
 workspace bez zmiany kursora i zakresu.
 W tym trybie wybór innego katalogu zdjęć tworzy albo odnajduje jego własny

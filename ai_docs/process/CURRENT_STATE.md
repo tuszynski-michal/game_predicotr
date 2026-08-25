@@ -17,6 +17,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`
+  jako główną akcję po lewej stronie. `Restart selekcji` pozostaje po prawej
+  jako akcja wtórna, która dopiero otwiera bezpieczny modal potwierdzenia.
+
 - Od `v0.7.75` panel `Zdalna ręczna selekcja` trwale pokazuje przy wybranej
   aktywnej sesji link i kod wraz z niezależnymi przyciskami kopiowania. Kod z
   odpowiedzi create pozostaje wyłącznie w `localStorage` komputera Admina do

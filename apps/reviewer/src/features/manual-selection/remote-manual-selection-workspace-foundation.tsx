@@ -938,22 +938,24 @@ export function RemoteManualSelectionWorkspaceFoundation({
             Restart wraca do pierwszego zdjęcia, zeruje zakres i usuwa wyłącznie
             zweryfikowane pliki tej selekcji z folderu wynikowego.
           </p>
-          <button
-            className="secondaryButton"
-            disabled={!canWrite || busy}
-            onClick={requestSelectionRestart}
-            type="button"
-          >
-            {busy ? 'Restartowanie…' : 'Restart selekcji'}
-          </button>
-          <button
-            className="secondaryButton"
-            disabled={busy}
-            onClick={() => setShowStartScreen(true)}
-            type="button"
-          >
-            Ekran startowy
-          </button>
+          <div className="remoteSelectionWorkspaceActions">
+            <button
+              className="secondaryButton"
+              disabled={!canWrite || busy}
+              onClick={requestSelectionRestart}
+              type="button"
+            >
+              {busy ? 'Restartowanie…' : 'Restart selekcji'}
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={busy}
+              onClick={() => setShowStartScreen(true)}
+              type="button"
+            >
+              Ekran startowy
+            </button>
+          </div>
         </section>
         <RemoteManualSelectionWorkspace
           key={`${batch.batchId}:${batch.updatedAt}`}

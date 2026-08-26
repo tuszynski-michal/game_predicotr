@@ -2267,6 +2267,49 @@ a:focus-visible {
   gap: 18px;
 }
 
+.symbolManualForm {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
+}
+
+.symbolManualForm .formActions {
+  grid-column: 1 / -1;
+}
+
+.symbolCatalogToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+}
+
+.symbolIdentityMetadata {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.symbolIdentityMetadata div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.4);
+}
+
+.symbolIdentityMetadata dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.symbolIdentityMetadata dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .rulesForm {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4558,6 +4601,13 @@ div.imageJobInlineError {
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;
+}
+
+.symbolDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .archiveConfirmation {

@@ -102,6 +102,7 @@ test('deletes through the typed boundary and preserves API errors', async () => 
   assert.equal(deletedSymbolId, savedSymbol.id);
   assert.deepEqual(success, { ok: true });
   assert.deepEqual(failure, {
+    blockers: ['reguły: 1'],
     error: 'Symbol is still used. (SYMBOL_DELETE_BLOCKED)',
     ok: false,
   });

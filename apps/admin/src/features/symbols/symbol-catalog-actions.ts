@@ -61,7 +61,12 @@ export async function saveSymbol(
 }
 
 export type DeleteSymbolResult =
-  { readonly ok: true } | { readonly error: string; readonly ok: false };
+  | { readonly ok: true }
+  | {
+      readonly blockers: readonly string[];
+      readonly error: string;
+      readonly ok: false;
+    };
 
 export async function deleteSymbol(
   api: SymbolsClient,
@@ -72,6 +77,7 @@ export async function deleteSymbol(
     const result = await api.deleteSymbol(gameId, symbolId);
     if (result.error !== undefined) {
       return {
+        blockers: symbolDeleteBlockers(result.error.details),
         error: apiErrorMessage(result.error, 'Nie udało się usunąć symbolu.'),
         ok: false,
       };
@@ -79,9 +85,31 @@ export async function deleteSymbol(
     return { ok: true };
   } catch {
     return {
+      blockers: [],
       error:
         'Połączenie z lokalnym Admin API zostało przerwane. Usunięcie nie zostało potwierdzone.',
       ok: false,
     };
   }
+}
+
+const DELETE_BLOCKER_LABELS: Readonly<Record<string, string>> = {
+  observationPredictions: 'predykcje obserwacji',
+  pendingBoardPredictions: 'oczekujące predykcje plansz',
+  resolvedBoardDecisions: 'rozwiązane plansze',
+  rules: 'reguły',
+  symbolModelActivations: 'aktywacje modelu symboli',
+  symbolModelIterations: 'iteracje modelu symboli',
+  trainingCohorts: 'kohorty treningowe',
+};
+
+function symbolDeleteBlockers(
+  details: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  return Object.entries(DELETE_BLOCKER_LABELS).flatMap(([key, label]) => {
+    const count = details[key];
+    return typeof count === 'number' && Number.isInteger(count) && count > 0
+      ? [`${label}: ${count}`]
+      : [];
+  });
 }

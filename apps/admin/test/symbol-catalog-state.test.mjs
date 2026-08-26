@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  markSymbolArchived,
   selectGameId,
   symbolToDraft,
   upsertSymbol,
@@ -17,102 +16,40 @@ const game = {
   status: 'active',
   updatedAt: '2026-07-26T10:00:00Z',
 };
-
 const symbol = {
   code: 'S1',
   displayOrder: 10,
   gameId: game.id,
   id: '22222222-2222-4222-8222-222222222222',
-  imagePath: 'symbols/game-1/s1.png',
+  imagePath: null,
   isWildcard: false,
   mobileCode: 1,
   name: 'Symbol 1',
-  nameEn: 'Lemon',
-  namePl: 'Cytryna',
+  nameEn: null,
+  namePl: null,
   status: 'active',
 };
 
-test('validates and normalizes all symbol contract fields', () => {
+test('validates only the manually entered name and joker flag', () => {
   assert.deepEqual(
-    validateSymbolDraft({
-      code: ' S1 ',
-      displayOrder: ' 10 ',
-      imagePath: ' symbols/game-1/s1.png ',
-      isWildcard: false,
-      mobileCode: ' 1 ',
-      name: ' Symbol 1 ',
-      nameEn: ' Lemon ',
-      namePl: ' Cytryna ',
-      status: 'active',
-    }),
-    {
-      valid: true,
-      value: {
-        code: 'S1',
-        displayOrder: 10,
-        imagePath: 'symbols/game-1/s1.png',
-        isWildcard: false,
-        mobileCode: 1,
-        name: 'Symbol 1',
-        nameEn: 'Lemon',
-        namePl: 'Cytryna',
-        status: 'active',
-      },
-    },
+    validateSymbolDraft({ isWildcard: true, name: '  Wild  ' }),
+    { valid: true, value: { isWildcard: true, name: 'Wild' } },
   );
-  assert.equal(symbolToDraft(symbol).mobileCode, '1');
-  assert.equal(symbolToDraft(symbol).namePl, 'Cytryna');
-});
-
-test('rejects invalid mobile codes, display order and stable code', () => {
-  const base = {
-    code: 'S1',
-    displayOrder: '0',
-    imagePath: '',
-    isWildcard: false,
-    mobileCode: '1',
-    name: 'Symbol 1',
-    nameEn: '',
-    namePl: '',
-    status: 'active',
-  };
-
-  assert.equal(validateSymbolDraft({ ...base, mobileCode: '0' }).valid, false);
   assert.equal(
-    validateSymbolDraft({ ...base, mobileCode: '1.5' }).valid,
+    validateSymbolDraft({ isWildcard: false, name: '  ' }).valid,
     false,
   );
   assert.equal(
-    validateSymbolDraft({ ...base, displayOrder: '-1' }).valid,
+    validateSymbolDraft({ isWildcard: false, name: 'x'.repeat(201) }).valid,
     false,
   );
-  assert.equal(validateSymbolDraft({ ...base, code: 'bad code' }).valid, false);
 });
 
-test('accepts an empty image path and rejects unsafe local paths', () => {
-  const base = {
-    code: 'S1',
-    displayOrder: '0',
-    imagePath: '',
+test('keeps stable identity out of the editable draft', () => {
+  assert.deepEqual(symbolToDraft(symbol), {
     isWildcard: false,
-    mobileCode: '1',
     name: 'Symbol 1',
-    nameEn: '',
-    namePl: '',
-    status: 'active',
-  };
-
-  const empty = validateSymbolDraft(base);
-  assert.equal(empty.valid, true);
-  assert.equal(empty.valid ? empty.value.imagePath : 'failure', null);
-  for (const imagePath of [
-    '../s1.png',
-    'symbols/../s1.png',
-    String.raw`C:\symbols\s1.png`,
-    '/symbols/s1.png',
-  ]) {
-    assert.equal(validateSymbolDraft({ ...base, imagePath }).valid, false);
-  }
+  });
 });
 
 test('keeps the current game or chooses the first non-archived game', () => {
@@ -124,17 +61,10 @@ test('keeps the current game or chooses the first non-archived game', () => {
   assert.equal(selectGameId([], 'missing'), null);
 });
 
-test('upserts in canonical order and archives without removing records', () => {
-  const later = {
-    ...symbol,
-    code: 'S2',
-    displayOrder: 20,
-    id: 'later',
-    mobileCode: 2,
-  };
+test('upserts symbols in their server-assigned canonical order', () => {
+  const later = { ...symbol, displayOrder: 20, id: 'later', mobileCode: 2 };
   const earlier = {
     ...symbol,
-    code: 'WILD',
     displayOrder: 5,
     id: 'earlier',
     isWildcard: true,
@@ -142,15 +72,10 @@ test('upserts in canonical order and archives without removing records', () => {
   };
   const inserted = upsertSymbol([later], earlier);
   const renamed = { ...earlier, name: 'Wildcard' };
-  const updated = upsertSymbol(inserted, renamed);
-  const archived = markSymbolArchived(updated, earlier.id);
 
   assert.deepEqual(
     inserted.map((item) => item.id),
     ['earlier', 'later'],
   );
-  assert.equal(updated[0].name, 'Wildcard');
-  assert.equal(archived.length, 2);
-  assert.equal(archived[0].status, 'archived');
-  assert.equal(updated[0].status, 'active');
+  assert.equal(upsertSymbol(inserted, renamed)[0].name, 'Wildcard');
 });

@@ -138,6 +138,30 @@ skalowy z izolowaną PostgreSQL.
   downgrade migracji daje `50 passed`; izolowany PostgreSQL potwierdził pełną
   decyzję, reinferencję bez nadpisania człowieka, geometrię resetującą 15
   cropów i wykluczenie `superseded` (`3 passed`).
-- Checkpoint przed produkcyjnym backfillem pozostaje obowiązkowy: trzeba
-  osobno przejrzeć transakcje canonical/staging/search i kolejność blokad.
-  Operacje pojedynczych cropów, API i UI pozostają zakresem TASK 4+.
+- Operacje pojedynczych cropów, API i UI pozostają zakresem TASK 4+.
+
+### Checkpoint po TASK 3 — ukończony
+
+- Izolowany PostgreSQL potwierdził, że równoległe decyzje pełnej planszy
+  zapisują jednego właściciela kanonicznego, a przegrana pozycja jest
+  `superseded`. Review kolejności blokad potwierdził, że canonical, staging i
+  fast-document są aktualizowane w tej samej transakcji co write-through 15
+  komórek; nie znaleziono blokera przed odczytem TASK 4.
+
+### TASK 4 — ukończony w `v0.8.22`
+
+- Dodano lokalny, read-only kontrakt `symbol-cell-reviews` z keysetową stroną
+  60 (maks. 100), filtrami symbolu lub `unknown`, stanu i scope-bound
+  cursorami. Lista zwraca liczniki oraz rewizję katalogu bez materializowania
+  pełnej listy cropów.
+- Repozytorium zawsze łączy `image_symbol_review_cells` z aktualnym
+  `image_board_search_fast_documents` i bieżącą geometrią, więc superseded,
+  alternatywny właściciel i stale crop nie mogą wyciec do listy. Endpoint assetu
+  wymaga oczekiwanej checksumy oraz ponownie weryfikuje aktualność, bezpieczną
+  ścieżkę i bajty pliku.
+- Weryfikacja obejmuje HTTP: filtry, `unknown`, keyset next/previous bez
+  duplikatów, scope cursorów, gotowość projekcji i checksum-bound asset;
+  izolowany PostgreSQL potwierdza wykluczenie komórek po usunięciu ich
+  fast-document ownera. OpenAPI i wygenerowany klient zostały odświeżone.
+- Nie dodano mutacji komórki, endpointów operacji masowych, workerów ani UI —
+  pozostają wyłącznie zakresami TASK 5, 6 i 8+.

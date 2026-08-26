@@ -33,6 +33,10 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewView,
     validate_image_review_geometry_command,
 )
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
+)
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
@@ -53,6 +57,7 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyImageSymbolReviewRepository,
+    SqlAlchemySymbolCellReviewQueryRepository,
     SymbolCellReviewWriteThroughCoordinator,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
@@ -101,7 +106,7 @@ from game_predictor_worker.images.pipeline_store import (
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, func, null, select
+from sqlalchemy import create_engine, delete, func, null, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -530,6 +535,62 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
                 )
                 == 3
             )
+            query_repository = SqlAlchemySymbolCellReviewQueryRepository(session)
+            known_filter = SymbolCellReviewListFilter(
+                game_id=game.id,
+                symbol_id=symbol.id,
+                state=SymbolCellReviewFilterState.ALL,
+            )
+            first_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=None,
+                before_key=None,
+                limit=16,
+            )
+            assert [item.sequence_number for item in first_page.items] == [1] * 15 + [2]
+            assert first_page.has_previous is False
+            assert first_page.has_next is True
+            assert query_repository.counts(review_filter=known_filter).all_count == 30
+            assert query_repository.counts(review_filter=known_filter).approved_count == 30
+            assert query_repository.counts(review_filter=known_filter).pending_count == 0
+            second_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=first_page.items[-1].cursor_key,
+                before_key=None,
+                limit=16,
+            )
+            assert [item.sequence_number for item in second_page.items] == [2] * 14
+            assert {item.cell_review_id for item in first_page.items}.isdisjoint(
+                item.cell_review_id for item in second_page.items
+            )
+            unknown_filter = SymbolCellReviewListFilter(
+                game_id=game.id,
+                symbol_id=None,
+                state=SymbolCellReviewFilterState.PENDING,
+            )
+            unknown_page = query_repository.list_items(
+                review_filter=unknown_filter,
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert len(unknown_page.items) == 15
+            assert {item.sequence_number for item in unknown_page.items} == {3}
+            assert all(item.assigned_symbol_id is None for item in unknown_page.items)
+            session.execute(
+                delete(ImageBoardSearchFastDocumentModel).where(
+                    ImageBoardSearchFastDocumentModel.game_id == game.id,
+                    ImageBoardSearchFastDocumentModel.sequence_number == 2,
+                )
+            )
+            hidden_owner_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert len(hidden_owner_page.items) == 15
+            assert {item.sequence_number for item in hidden_owner_page.items} == {1}
     finally:
         engine.dispose()
 

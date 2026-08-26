@@ -52,6 +52,7 @@ Format błędu:
 /games
 /games/{gameId}/symbols
 /games/{gameId}/board-search
+/games/{gameId}/symbol-cell-reviews
 /games/{gameId}/rules-versions
 /rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines
@@ -97,6 +98,44 @@ Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
 zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
+### Odczyt pojedynczych cropów do weryfikacji symboli
+
+```text
+GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
+  ?symbolId={UUID|unknown}
+  &state=all|approved|pending
+  &afterCursor=...
+  &beforeCursor=...
+  &limit=1..100
+
+GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
+  ?expectedCropChecksumSha256={sha256}
+```
+
+To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
+zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
+`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 60 elementów, a limit 100
+jest twardym maksimum. Lista używa keysetu
+`(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
+symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
+scope.
+
+Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
+właściciela `game + sequence_number`, liczniki po filtrowaniu, monotoniczną
+`catalogRevision` i kursory poprzedniej/następnej strony. Łączenie z
+`image_board_search_fast_documents` oraz bieżącą rewizją geometrii eliminuje
+superseded, alternatywne oraz nieaktualne cropy bez materializowania całego
+wyniku w pamięci.
+
+Endpoint assetu wymaga checksumy odczytanej z listy. Przed wysłaniem pliku
+ponownie sprawdza scope gry i aktualnego właściciela, rewizję geometrii,
+bezpieczną ścieżkę pod zarządzanym katalogiem `data/`, rozszerzenie oraz
+SHA-256 bajtów. Nie zwraca ścieżki filesystemu. Niedokończona projekcja zwraca
+`409 SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE`; cursor z obcego scope albo
+sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
+zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
+filtr, checksum lub limit `422`.
 
 ### Host base zdalnej ręcznej selekcji
 

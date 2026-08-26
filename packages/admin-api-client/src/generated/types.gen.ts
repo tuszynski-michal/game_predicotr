@@ -7353,6 +7353,132 @@ export type SnapshotJobPayload = {
 };
 
 /**
+ * SymbolCellReviewCountsResponse
+ */
+export type SymbolCellReviewCountsResponse = {
+  /**
+   * Allcount
+   */
+  allCount: number;
+  /**
+   * Approvedcount
+   */
+  approvedCount: number;
+  /**
+   * Pendingcount
+   */
+  pendingCount: number;
+};
+
+/**
+ * SymbolCellReviewFilterState
+ *
+ * A bounded read filter for current symbol-cell review state.
+ */
+export type SymbolCellReviewFilterState = 'all' | 'approved' | 'pending';
+
+/**
+ * SymbolCellReviewListItemResponse
+ */
+export type SymbolCellReviewListItemResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Assignedsymbolid
+   */
+  assignedSymbolId: string | null;
+  /**
+   * Assignedsymbolname
+   */
+  assignedSymbolName: string | null;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Hasgridissue
+   */
+  hasGridIssue: boolean;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Predictionsymbolcode
+   */
+  predictionSymbolCode: string | null;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * SymbolCellReviewPageResponse
+ */
+export type SymbolCellReviewPageResponse = {
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  counts: SymbolCellReviewCountsResponse;
+  /**
+   * Items
+   */
+  items: Array<SymbolCellReviewListItemResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Previouscursor
+   */
+  previousCursor: string | null;
+};
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -9610,6 +9736,110 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type ListSymbolCellReviewsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Symbolid
+     */
+    symbolId: string;
+    state?: SymbolCellReviewFilterState;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Beforecursor
+     */
+    beforeCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews';
+};
+
+export type ListSymbolCellReviewsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolCellReviewsError =
+  ListSymbolCellReviewsErrors[keyof ListSymbolCellReviewsErrors];
+
+export type ListSymbolCellReviewsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewPageResponse;
+};
+
+export type ListSymbolCellReviewsResponse =
+  ListSymbolCellReviewsResponses[keyof ListSymbolCellReviewsResponses];
+
+export type GetSymbolCellReviewAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cell Review Id
+     */
+    cell_review_id: string;
+  };
+  query: {
+    /**
+     * Expectedcropchecksumsha256
+     */
+    expectedCropChecksumSha256: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset';
+};
+
+export type GetSymbolCellReviewAssetErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellReviewAssetError =
+  GetSymbolCellReviewAssetErrors[keyof GetSymbolCellReviewAssetErrors];
+
+export type GetSymbolCellReviewAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListSymbolModelIterationsData = {
   body?: never;

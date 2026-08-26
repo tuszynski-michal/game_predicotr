@@ -12729,6 +12729,237 @@
         "title": "SnapshotJobPayload",
         "type": "object"
       },
+      "SymbolCellReviewCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "allCount": {
+            "minimum": 0.0,
+            "title": "Allcount",
+            "type": "integer"
+          },
+          "approvedCount": {
+            "minimum": 0.0,
+            "title": "Approvedcount",
+            "type": "integer"
+          },
+          "pendingCount": {
+            "minimum": 0.0,
+            "title": "Pendingcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allCount",
+          "approvedCount",
+          "pendingCount"
+        ],
+        "title": "SymbolCellReviewCountsResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewFilterState": {
+        "description": "A bounded read filter for current symbol-cell review state.",
+        "enum": [
+          "all",
+          "approved",
+          "pending"
+        ],
+        "title": "SymbolCellReviewFilterState",
+        "type": "string"
+      },
+      "SymbolCellReviewListItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolcode"
+          },
+          "assignedSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolid"
+          },
+          "assignedSymbolName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolname"
+          },
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "cropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropchecksumsha256",
+            "type": "string"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "hasGridIssue": {
+            "title": "Hasgridissue",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "predictionSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictionsymbolcode"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "rowIndex": {
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sequenceNumber",
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "assignedSymbolId",
+          "assignedSymbolCode",
+          "assignedSymbolName",
+          "predictionSymbolCode",
+          "reviewState",
+          "hasGridIssue",
+          "revision",
+          "geometryRevision",
+          "cropChecksumSha256",
+          "boardStatus"
+        ],
+        "title": "SymbolCellReviewListItemResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogRevision": {
+            "minimum": 0.0,
+            "title": "Catalogrevision",
+            "type": "integer"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/SymbolCellReviewCountsResponse"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolCellReviewListItemResponse"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "previousCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouscursor"
+          }
+        },
+        "required": [
+          "items",
+          "counts",
+          "catalogRevision",
+          "nextCursor",
+          "previousCursor"
+        ],
+        "title": "SymbolCellReviewPageResponse",
+        "type": "object"
+      },
       "SymbolCreate": {
         "additionalProperties": false,
         "properties": {
@@ -16836,6 +17067,206 @@
         "summary": "Create draft rules version",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews": {
+      "get": {
+        "operationId": "listSymbolCellReviews",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "symbolId",
+            "required": true,
+            "schema": {
+              "title": "Symbolid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SymbolCellReviewFilterState",
+              "default": "all"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftercursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "beforeCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Beforecursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "List current symbol-cell reviews with bounded keyset pagination",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset": {
+      "get": {
+        "operationId": "getSymbolCellReviewAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cell Review Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedCropChecksumSha256",
+            "required": true,
+            "schema": {
+              "title": "Expectedcropchecksumsha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Read one current checksum-bound symbol-cell crop",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

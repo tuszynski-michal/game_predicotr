@@ -888,6 +888,15 @@ Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.
 
+Read path TASK-0294 nie tworzy drugiego read modelu cropów. Keysetowe API
+listuje najwyżej 100 rekordów jednocześnie po
+`(sequence_number, cell_index, review_item_id)`, zawsze łącząc komórkę z
+aktualnym `image_board_search_fast_documents` i bieżącą rewizją geometrii
+planszy. Dzięki temu historyczne rekordy komórek mogą pozostać audytowalne, ale
+nie są widoczne jako aktywne cropy. `catalog_revision` jest częścią odpowiedzi
+i pozwoli późniejszym mutacjom wykrywać drift katalogu; nie jest to wersja
+obrazu ani substytut checksumy cropa.
+
 ### image_sequence_source_override_events
 
 TASK-0124 utrwala wyłącznie jawne odstępstwa od automatycznego rankingu źródeł.

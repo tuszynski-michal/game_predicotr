@@ -5,17 +5,27 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
+from game_predictor_api.application.image_symbol_reviews import (
+    SymbolCellReviewListSlice,
+    SymbolCellReviewQueryRepository,
+)
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import ImageReviewCell
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellAssignmentSource,
+    SymbolCellReviewAsset,
+    SymbolCellReviewCounts,
+    SymbolCellReviewError,
+    SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
+    SymbolCellReviewListItem,
     SymbolCellReviewState,
     map_current_symbol_cell_reviews,
 )
@@ -91,6 +101,200 @@ class SymbolCellReviewBackfillStep:
     report: SymbolCellReviewBackfillReport
     processed_review_item_count: int
     has_more: bool
+
+
+class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository):
+    """Bounded current-owner reads for the future local Admin workspace.
+
+    The table can contain historical rows for superseded review items.  Every
+    read therefore joins the narrow fast-document projection, which is the
+    deterministic current owner of one logical ``game + sequence``.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def require_ready_game(self, game_id: UUID) -> int:
+        if self._session.get(GameModel, game_id) is None:
+            raise SymbolCellReviewError(
+                "GAME_NOT_FOUND",
+                "The selected game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        state = self._session.get(ImageSymbolReviewStateModel, game_id)
+        if state is None or state.status != "ready":
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+                "The symbol-cell review projection is not ready for this game.",
+                details={
+                    "status": None if state is None else state.status,
+                    "gameId": str(game_id),
+                },
+            )
+        return int(state.catalog_revision)
+
+    def list_items(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        after_key: tuple[int, int, str] | None,
+        before_key: tuple[int, int, str] | None,
+        limit: int,
+    ) -> SymbolCellReviewListSlice:
+        if after_key is not None and before_key is not None:
+            raise ValueError("only one symbol-cell review keyset direction is allowed")
+        statement = self._list_statement(review_filter=review_filter)
+        sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
+        if before_key is not None:
+            rows = self._session.execute(
+                statement.where(_symbol_cell_review_before_key(before_key))
+                .order_by(sequence.desc(), cell_index.desc(), review_item_key.desc())
+                .limit(limit + 1)
+            ).all()
+            has_previous = len(rows) > limit
+            visible = tuple(reversed(rows[:limit]))
+            has_next = bool(visible) and self._has_item_after(
+                review_filter=review_filter,
+                key=_row_to_list_item(visible[-1]).cursor_key,
+            )
+        else:
+            if after_key is not None:
+                statement = statement.where(_symbol_cell_review_after_key(after_key))
+            rows = self._session.execute(
+                statement.order_by(sequence, cell_index, review_item_key).limit(limit + 1)
+            ).all()
+            has_next = len(rows) > limit
+            visible = tuple(rows[:limit])
+            has_previous = bool(visible) and self._has_item_before(
+                review_filter=review_filter,
+                key=_row_to_list_item(visible[0]).cursor_key,
+            )
+        return SymbolCellReviewListSlice(
+            items=tuple(_row_to_list_item(row) for row in visible),
+            has_previous=has_previous,
+            has_next=has_next,
+        )
+
+    def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
+        cell = ImageSymbolReviewCellModel
+        rows = self._session.execute(
+            self._visible_statement(review_filter=review_filter)
+            .with_only_columns(cell.review_state, func.count(cell.id))
+            .group_by(cell.review_state)
+        ).all()
+        by_state = {str(state): int(count) for state, count in rows}
+        approved_count = by_state.get(SymbolCellReviewState.APPROVED.value, 0)
+        pending_count = by_state.get(SymbolCellReviewState.PENDING.value, 0)
+        return SymbolCellReviewCounts(
+            all_count=approved_count + pending_count,
+            approved_count=approved_count,
+            pending_count=pending_count,
+        )
+
+    def get_asset(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_id: UUID,
+    ) -> SymbolCellReviewAsset | None:
+        cell = ImageSymbolReviewCellModel
+        document = ImageBoardSearchFastDocumentModel
+        row = self._session.execute(
+            select(cell, RecognizedBoardModel.geometry_revision)
+            .join(
+                document,
+                and_(
+                    document.game_id == cell.game_id,
+                    document.sequence_number == cell.sequence_number,
+                    document.review_item_id == cell.review_item_id,
+                    document.recognized_board_id == cell.recognized_board_id,
+                    document.import_job_id == cell.import_job_id,
+                ),
+            )
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+            .where(cell.game_id == game_id, cell.id == cell_review_id)
+        ).one_or_none()
+        if row is None:
+            return None
+        review_cell, current_geometry_revision = row
+        return SymbolCellReviewAsset(
+            cell_review_id=review_cell.id,
+            crop_relative_path=review_cell.crop_relative_path,
+            crop_checksum_sha256=review_cell.crop_checksum_sha256,
+            geometry_revision=review_cell.geometry_revision,
+            current_geometry_revision=int(current_geometry_revision),
+        )
+
+    def _list_statement(self, *, review_filter: SymbolCellReviewListFilter):
+        cell = ImageSymbolReviewCellModel
+        assigned_symbol = aliased(SymbolModel)
+        return self._visible_statement(review_filter=review_filter).add_columns(
+            ImageBoardSearchFastDocumentModel.status.label("board_status"),
+            assigned_symbol.id.label("assigned_symbol_id"),
+            assigned_symbol.code.label("assigned_symbol_code"),
+            assigned_symbol.name.label("assigned_symbol_name"),
+        ).outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
+
+    def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter):
+        cell = ImageSymbolReviewCellModel
+        document = ImageBoardSearchFastDocumentModel
+        statement = (
+            select(cell)
+            .join(
+                document,
+                and_(
+                    document.game_id == cell.game_id,
+                    document.sequence_number == cell.sequence_number,
+                    document.review_item_id == cell.review_item_id,
+                    document.recognized_board_id == cell.recognized_board_id,
+                    document.import_job_id == cell.import_job_id,
+                ),
+            )
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+            .where(
+                cell.game_id == review_filter.game_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+            )
+        )
+        if review_filter.symbol_id is None:
+            statement = statement.where(cell.assigned_symbol_id.is_(None))
+        else:
+            statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+        if review_filter.state is not SymbolCellReviewFilterState.ALL:
+            statement = statement.where(cell.review_state == review_filter.state.value)
+        return statement
+
+    def _has_item_after(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        key: tuple[int, int, str],
+    ) -> bool:
+        return (
+            self._session.execute(
+                self._visible_statement(review_filter=review_filter)
+                .with_only_columns(ImageSymbolReviewCellModel.id)
+                .where(_symbol_cell_review_after_key(key))
+                .limit(1)
+            ).first()
+            is not None
+        )
+
+    def _has_item_before(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        key: tuple[int, int, str],
+    ) -> bool:
+        return (
+            self._session.execute(
+                self._visible_statement(review_filter=review_filter)
+                .with_only_columns(ImageSymbolReviewCellModel.id)
+                .where(_symbol_cell_review_before_key(key))
+                .limit(1)
+            ).first()
+            is not None
+        )
 
 
 class SymbolCellReviewWriteThroughCoordinator:
@@ -585,6 +789,53 @@ class _CellPreviousState:
 class _CatalogRevisionTransactionMarker:
     transaction: object
     game_ids: set[UUID]
+
+
+def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
+    cell = ImageSymbolReviewCellModel
+    return cell.sequence_number, cell.cell_index, cell.review_item_id.cast(String)
+
+
+def _symbol_cell_review_after_key(key: tuple[int, int, str]):
+    sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
+    return or_(
+        sequence > key[0],
+        and_(sequence == key[0], cell_index > key[1]),
+        and_(sequence == key[0], cell_index == key[1], review_item_key > key[2]),
+    )
+
+
+def _symbol_cell_review_before_key(key: tuple[int, int, str]):
+    sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
+    return or_(
+        sequence < key[0],
+        and_(sequence == key[0], cell_index < key[1]),
+        and_(sequence == key[0], cell_index == key[1], review_item_key < key[2]),
+    )
+
+
+def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
+    cell = cast(ImageSymbolReviewCellModel, row[0])
+    return SymbolCellReviewListItem(
+        cell_review_id=cell.id,
+        review_item_id=cell.review_item_id,
+        recognized_board_id=cell.recognized_board_id,
+        import_job_id=cell.import_job_id,
+        sequence_number=int(cell.sequence_number),
+        cell_index=int(cell.cell_index),
+        row_index=int(cell.row_index),
+        column_index=int(cell.column_index),
+        assigned_symbol_id=cast(UUID | None, row[2]),
+        assigned_symbol_code=cast(str | None, row[3]),
+        assigned_symbol_name=cast(str | None, row[4]),
+        prediction_symbol_code=cell.prediction_symbol_code,
+        review_state=SymbolCellReviewState(cell.review_state),
+        has_grid_issue=bool(cell.has_grid_issue),
+        revision=int(cell.revision),
+        geometry_revision=int(cell.geometry_revision),
+        crop_checksum_sha256=cell.crop_checksum_sha256,
+        board_status=cast(str, row[1]),
+    )
 
 
 def _current_sequence_number(
@@ -1242,6 +1493,7 @@ def _current_cropper_version(
 
 
 __all__ = [
+    "SqlAlchemySymbolCellReviewQueryRepository",
     "SymbolCellReviewWriteThroughCoordinator",
     "SqlAlchemyImageSymbolReviewRepository",
     "SymbolCellReviewBackfillError",

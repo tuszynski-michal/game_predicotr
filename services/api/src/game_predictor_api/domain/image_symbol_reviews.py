@@ -9,10 +9,13 @@ rules.
 
 from __future__ import annotations
 
+import base64
+import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from uuid import UUID
 
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
@@ -42,6 +45,19 @@ class SymbolCellReviewAction(StrEnum):
     MARK_GRID_ISSUE = "mark_grid_issue"
 
 
+class SymbolCellReviewFilterState(StrEnum):
+    """A bounded read filter for current symbol-cell review state."""
+
+    ALL = "all"
+    APPROVED = "approved"
+    PENDING = "pending"
+
+
+class SymbolCellReviewCursorDirection(StrEnum):
+    AFTER = "after"
+    BEFORE = "before"
+
+
 class SymbolCellReviewError(ValueError):
     """Stable validation error shared by later persistence and transport layers."""
 
@@ -56,6 +72,102 @@ class SymbolCellReviewError(ValueError):
         self.code = code
         self.message = message
         self.details = dict(details or {})
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewListFilter:
+    """One local-admin list scope.
+
+    ``symbol_id=None`` means the deliberate synthetic ``unknown`` (`?`)
+    filter, never an unfiltered scan of a whole game.
+    """
+
+    game_id: UUID
+    symbol_id: UUID | None
+    state: SymbolCellReviewFilterState
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewListItem:
+    """A compact current crop-review card, without binary crop bytes."""
+
+    cell_review_id: UUID
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int
+    cell_index: int
+    row_index: int
+    column_index: int
+    assigned_symbol_id: UUID | None
+    assigned_symbol_code: str | None
+    assigned_symbol_name: str | None
+    prediction_symbol_code: str | None
+    review_state: SymbolCellReviewState
+    has_grid_issue: bool
+    revision: int
+    geometry_revision: int
+    crop_checksum_sha256: str
+    board_status: str
+
+    def __post_init__(self) -> None:
+        if self.sequence_number < 1:
+            raise ValueError("sequence_number must be positive")
+        if not 0 <= self.cell_index < IMAGE_REVIEW_CELL_COUNT:
+            raise ValueError("cell_index must be between 0 and 14")
+        if self.row_index != self.cell_index // 5 or self.column_index != self.cell_index % 5:
+            raise ValueError("cell coordinates must be row-major")
+        if self.revision < 0 or self.geometry_revision < 0:
+            raise ValueError("review and geometry revisions cannot be negative")
+        if not _is_sha256(self.crop_checksum_sha256):
+            raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
+
+    @property
+    def cursor_key(self) -> tuple[int, int, str]:
+        return (self.sequence_number, self.cell_index, str(self.review_item_id))
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewCounts:
+    all_count: int
+    approved_count: int
+    pending_count: int
+
+    def __post_init__(self) -> None:
+        if min(self.all_count, self.approved_count, self.pending_count) < 0:
+            raise ValueError("symbol-cell review counts cannot be negative")
+        if self.all_count != self.approved_count + self.pending_count:
+            raise ValueError("all_count must equal approved_count plus pending_count")
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewPage:
+    items: tuple[SymbolCellReviewListItem, ...]
+    counts: SymbolCellReviewCounts
+    catalog_revision: int
+    next_cursor: str | None
+    previous_cursor: str | None
+
+    def __post_init__(self) -> None:
+        if self.catalog_revision < 0:
+            raise ValueError("catalog_revision cannot be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewAsset:
+    """Current, checksum-bound crop metadata after owner verification."""
+
+    cell_review_id: UUID
+    crop_relative_path: str
+    crop_checksum_sha256: str
+    geometry_revision: int
+    current_geometry_revision: int
+
+    def __post_init__(self) -> None:
+        if not _is_sha256(self.crop_checksum_sha256):
+            raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
+        if self.geometry_revision < 0 or self.current_geometry_revision < 0:
+            raise ValueError("geometry revisions cannot be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,6 +437,86 @@ def derive_symbol_cell_board_resolution(
     return SymbolCellBoardResolution(action=action, symbol_codes=assigned)
 
 
+def encode_symbol_cell_review_cursor(
+    *,
+    review_filter: SymbolCellReviewListFilter,
+    direction: SymbolCellReviewCursorDirection,
+    key: tuple[int, int, str],
+) -> str:
+    """Encode a keyset cursor that cannot be replayed in another list scope."""
+
+    payload = {
+        "direction": direction.value,
+        "gameId": str(review_filter.game_id),
+        "key": list(key),
+        "state": review_filter.state.value,
+        "symbolId": "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id),
+        "version": 1,
+    }
+    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def decode_symbol_cell_review_cursor(
+    value: str,
+    *,
+    review_filter: SymbolCellReviewListFilter,
+    direction: SymbolCellReviewCursorDirection,
+) -> tuple[int, int, str]:
+    """Decode and bind a cursor to game, symbol filter, state and direction."""
+
+    try:
+        payload = json.loads(
+            base64.b64decode(value + "=" * (-len(value) % 4), altchars=b"-_", validate=True)
+        )
+        key = payload["key"]
+        parsed_game_id = UUID(payload["gameId"])
+        parsed_symbol_id = payload["symbolId"]
+        parsed_direction = SymbolCellReviewCursorDirection(payload["direction"])
+        parsed_state = SymbolCellReviewFilterState(payload["state"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
+            "The symbol-cell review cursor is invalid.",
+        ) from error
+
+    expected_symbol = "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
+    if (
+        payload.get("version") != 1
+        or parsed_game_id != review_filter.game_id
+        or parsed_symbol_id != expected_symbol
+        or parsed_state is not review_filter.state
+        or parsed_direction is not direction
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
+            "The symbol-cell review cursor does not belong to this list scope.",
+        )
+    if (
+        not isinstance(key, list)
+        or len(key) != 3
+        or not isinstance(key[0], int)
+        or isinstance(key[0], bool)
+        or key[0] < 1
+        or not isinstance(key[1], int)
+        or isinstance(key[1], bool)
+        or not 0 <= key[1] < IMAGE_REVIEW_CELL_COUNT
+        or not isinstance(key[2], str)
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
+            "The symbol-cell review cursor key is invalid.",
+        )
+    try:
+        UUID(key[2])
+    except ValueError as error:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
+            "The symbol-cell review cursor item identity is invalid.",
+        ) from error
+    return key[0], key[1], key[2]
+
+
 def _validate_complete_cells(cells: Sequence[ImageReviewCell]) -> None:
     indexes = sorted(cell.cell_index for cell in cells)
     if indexes != list(range(IMAGE_REVIEW_CELL_COUNT)) or any(
@@ -385,15 +577,24 @@ def _is_sha256(value: str) -> bool:
 __all__ = [
     "UNKNOWN_SYMBOL_CODE",
     "SymbolCellAssignmentSource",
+    "SymbolCellReviewAsset",
     "SymbolCellBoardResolution",
+    "SymbolCellReviewCounts",
     "SymbolCellCropIdentity",
     "SymbolCellReview",
     "SymbolCellReviewAction",
+    "SymbolCellReviewCursorDirection",
     "SymbolCellReviewError",
+    "SymbolCellReviewFilterState",
+    "SymbolCellReviewListFilter",
+    "SymbolCellReviewListItem",
+    "SymbolCellReviewPage",
     "SymbolCellReviewState",
     "SymbolCellReviewTransition",
     "approve_symbol_cell_review",
+    "decode_symbol_cell_review_cursor",
     "derive_symbol_cell_board_resolution",
+    "encode_symbol_cell_review_cursor",
     "invalidate_symbol_cell_reviews_for_geometry",
     "map_current_symbol_cell_reviews",
     "mark_symbol_cell_grid_issue",

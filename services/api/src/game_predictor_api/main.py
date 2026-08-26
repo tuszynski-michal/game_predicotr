@@ -52,6 +52,7 @@ from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
 )
+from game_predictor_api.application.image_symbol_reviews import SymbolCellReviewQueryService
 from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
 from game_predictor_api.application.jobs import (
     JobService,
@@ -152,6 +153,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionNotFoundError,
 )
 from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
+from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewError
 from game_predictor_api.domain.iterative_image_imports import (
     IterativeImageImportConflictError,
     IterativeImageImportError,
@@ -231,6 +233,9 @@ from game_predictor_api.storage.image_selection_repository import (
 from game_predictor_api.storage.image_sequence_canonical_repository import (
     SqlAlchemyImageSequenceCanonicalRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemySymbolCellReviewQueryRepository,
+)
 from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
 )
@@ -307,6 +312,7 @@ def create_app(
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
+    symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -376,6 +382,24 @@ def create_app(
 
     resolved_symbol_reference_dependency = (
         symbol_reference_service_dependency or default_symbol_reference_service_dependency
+    )
+
+    def default_symbol_cell_review_query_service_dependency() -> Iterator[
+        SymbolCellReviewQueryService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolCellReviewQueryService(
+                    SqlAlchemySymbolCellReviewQueryRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_cell_review_query_dependency = (
+        symbol_cell_review_query_service_dependency
+        or default_symbol_cell_review_query_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -986,6 +1010,7 @@ def create_app(
             resolved_reviewer_ingress_dependency,
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
+            resolved_symbol_cell_review_query_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,
@@ -1061,6 +1086,31 @@ def create_app(
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": {}},
+        )
+
+    @application.exception_handler(SymbolCellReviewError)
+    async def handle_symbol_cell_review_error(
+        _request: Request,
+        error: SymbolCellReviewError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code in {
+            "GAME_NOT_FOUND",
+            "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
+            "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
+        }:
+            status_code = 404
+        elif error.code in {
+            "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+            "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
+            "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
+            "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+            "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
+        }:
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
         )
 
     @application.exception_handler(CleanupError)

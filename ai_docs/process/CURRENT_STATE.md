@@ -39,8 +39,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   reinferencji symboli/siatki, nowych elementów pipeline’u i zmiany właściciela
   sekwencji. Migracja `0067_symbol_cell_review_catalog_revision` wprowadza
   per-game `catalog_revision`, zwiększaną co najwyżej raz w pojedynczej
-  transakcji. Przed uruchomieniem produkcyjnego backfillu wymagany jest osobny
-  checkpoint transakcji canonical/staging/search oraz blokad współbieżności.
+  transakcji. Checkpoint transakcji canonical/staging/search oraz blokad
+  współbieżności przeszedł na izolowanym PostgreSQL: równoległe decyzje
+  utrzymują jednego właściciela kanonicznego, a przegrany jest superseded.
+- Od `v0.8.22` lokalne Admin API ma bounded, checksum-bound odczyt komórek
+  `symbol-cell-reviews`: keyset 60 (maks. 100), filtry aktywnego symbolu lub
+  technicznego `?` i stanu, liczniki oraz scope-bound kursory. Odczyt i asset
+  widzą wyłącznie aktualnego właściciela z fast-document i aktualną geometrię;
+  asset ponownie sprawdza SHA-256 pliku. OpenAPI oraz generowany klient są
+  zgodne. Nie istnieją jeszcze mutacje komórek, job masowy ani workspace
+  Admina — to pozostaje TASK 5+ i TASK 8+.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

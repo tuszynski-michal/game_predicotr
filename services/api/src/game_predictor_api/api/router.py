@@ -22,6 +22,7 @@ from game_predictor_api.api.image_review_cohorts import (
 from game_predictor_api.api.image_reviews import create_image_reviews_router
 from game_predictor_api.api.image_selections import create_image_selections_router
 from game_predictor_api.api.image_storage import create_image_storage_router
+from game_predictor_api.api.image_symbol_reviews import create_image_symbol_reviews_router
 from game_predictor_api.api.jobs import create_jobs_router
 from game_predictor_api.api.layout_import_reports import (
     create_layout_import_reports_router,
@@ -69,6 +70,7 @@ def create_api_router(
     reviewer_ingress_service_dependency: Callable[..., object],
     reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_reference_service_dependency: Callable[..., object],
+    symbol_cell_review_query_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
@@ -117,6 +119,12 @@ def create_api_router(
     router.include_router(
         create_symbol_references_router(
             symbol_reference_service_dependency,
+            settings.artifact_root,
+        )
+    )
+    router.include_router(
+        create_image_symbol_reviews_router(
+            symbol_cell_review_query_service_dependency,
             settings.artifact_root,
         )
     )

@@ -289,6 +289,9 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetSymbolCellReviewAssetData,
+  GetSymbolCellReviewAssetErrors,
+  GetSymbolCellReviewAssetResponses,
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolImageAssetData,
@@ -406,6 +409,9 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSymbolCellReviewsData,
+  ListSymbolCellReviewsErrors,
+  ListSymbolCellReviewsResponses,
   ListSymbolModelActivationsData,
   ListSymbolModelActivationsErrors,
   ListSymbolModelActivationsResponses,
@@ -1317,6 +1323,41 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List current symbol-cell reviews with bounded keyset pagination
+ */
+export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolCellReviewsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolCellReviewsResponses,
+  ListSymbolCellReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolCellReviewsResponses,
+    ListSymbolCellReviewsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews', ...options });
+
+/**
+ * Read one current checksum-bound symbol-cell crop
+ */
+export const getSymbolCellReviewAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellReviewAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewAssetResponses,
+  GetSymbolCellReviewAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewAssetResponses,
+    GetSymbolCellReviewAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset',
+    ...options,
   });
 
 /**

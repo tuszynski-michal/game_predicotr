@@ -138,17 +138,10 @@ def create_catalog_router(
         service: Annotated[CatalogService, service_parameter],
     ) -> SymbolResponse:
         return SymbolResponse.model_validate(
-            service.create_symbol(
+            service.create_manual_symbol(
                 game_id,
-                mobile_code=payload.mobile_code,
-                code=payload.code,
                 name=payload.name,
-                name_pl=payload.name_pl,
-                name_en=payload.name_en,
-                image_path=payload.image_path,
                 is_wildcard=payload.is_wildcard,
-                display_order=payload.display_order,
-                status=payload.status,
             )
         )
 
@@ -184,31 +177,23 @@ def create_catalog_router(
                 game_id,
                 symbol_id,
                 name=payload.name,
-                name_pl=payload.name_pl,
-                update_name_pl="name_pl" in payload.model_fields_set,
-                name_en=payload.name_en,
-                update_name_en="name_en" in payload.model_fields_set,
-                image_path=payload.image_path,
-                update_image_path="image_path" in payload.model_fields_set,
                 is_wildcard=payload.is_wildcard,
-                display_order=payload.display_order,
-                status=payload.status,
             )
         )
 
     @router.delete(
         "/games/{game_id}/symbols/{symbol_id}",
         status_code=status.HTTP_204_NO_CONTENT,
-        operation_id="archiveSymbol",
-        summary="Archive game symbol",
+        operation_id="deleteSymbol",
+        summary="Delete an unused game symbol",
         responses=ERROR_RESPONSES,
     )
-    def archive_symbol(
+    def delete_symbol(
         game_id: UUID,
         symbol_id: UUID,
         service: Annotated[CatalogService, service_parameter],
     ) -> Response:
-        service.archive_symbol(game_id, symbol_id)
+        service.delete_symbol(game_id, symbol_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

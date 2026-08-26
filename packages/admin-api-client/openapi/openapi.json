@@ -12992,82 +12992,20 @@
       "SymbolCreate": {
         "additionalProperties": false,
         "properties": {
-          "code": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Code",
-            "type": "string"
-          },
-          "displayOrder": {
-            "minimum": 0.0,
-            "title": "Displayorder",
-            "type": "integer"
-          },
-          "imagePath": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Imagepath"
-          },
           "isWildcard": {
             "default": false,
             "title": "Iswildcard",
             "type": "boolean"
-          },
-          "mobileCode": {
-            "maximum": 32767.0,
-            "minimum": 1.0,
-            "title": "Mobilecode",
-            "type": "integer"
           },
           "name": {
             "maxLength": 200,
             "minLength": 1,
             "title": "Name",
             "type": "string"
-          },
-          "nameEn": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nameen"
-          },
-          "namePl": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Namepl"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SymbolStatus",
-            "default": "active"
           }
         },
         "required": [
-          "mobileCode",
-          "code",
-          "name",
-          "displayOrder"
+          "name"
         ],
         "title": "SymbolCreate",
         "type": "object"
@@ -13884,30 +13822,6 @@
       "SymbolUpdate": {
         "additionalProperties": false,
         "properties": {
-          "displayOrder": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Displayorder"
-          },
-          "imagePath": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Imagepath"
-          },
           "isWildcard": {
             "anyOf": [
               {
@@ -13931,42 +13845,6 @@
               }
             ],
             "title": "Name"
-          },
-          "nameEn": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nameen"
-          },
-          "namePl": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Namepl"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SymbolStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "title": "SymbolUpdate",
@@ -18317,7 +18195,7 @@
     },
     "/api/v1/admin/games/{game_id}/symbols/{symbol_id}": {
       "delete": {
-        "operationId": "archiveSymbol",
+        "operationId": "deleteSymbol",
         "parameters": [
           {
             "in": "path",
@@ -18407,7 +18285,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Archive game symbol",
+        "summary": "Delete an unused game symbol",
         "tags": [
           "catalog"
         ]

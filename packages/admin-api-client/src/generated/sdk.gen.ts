@@ -36,9 +36,6 @@ import type {
   ArchiveRulesVersionData,
   ArchiveRulesVersionErrors,
   ArchiveRulesVersionResponses,
-  ArchiveSymbolData,
-  ArchiveSymbolErrors,
-  ArchiveSymbolResponses,
   BuildMobileReleaseData,
   BuildMobileReleaseErrors,
   BuildMobileReleaseResponses,
@@ -129,6 +126,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeleteSymbolData,
+  DeleteSymbolErrors,
+  DeleteSymbolResponses,
   DiscardDuplicateImageSelectionGroupData,
   DiscardDuplicateImageSelectionGroupErrors,
   DiscardDuplicateImageSelectionGroupResponses,
@@ -1586,14 +1586,14 @@ export const createSymbol = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Archive game symbol
+ * Delete an unused game symbol
  */
-export const archiveSymbol = <ThrowOnError extends boolean = false>(
-  options: Options<ArchiveSymbolData, ThrowOnError>,
-): RequestResult<ArchiveSymbolResponses, ArchiveSymbolErrors, ThrowOnError> =>
+export const deleteSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteSymbolData, ThrowOnError>,
+): RequestResult<DeleteSymbolResponses, DeleteSymbolErrors, ThrowOnError> =>
   (options.client ?? client).delete<
-    ArchiveSymbolResponses,
-    ArchiveSymbolErrors,
+    DeleteSymbolResponses,
+    DeleteSymbolErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],

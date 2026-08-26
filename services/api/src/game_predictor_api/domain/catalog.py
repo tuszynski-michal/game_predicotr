@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -78,6 +79,34 @@ class Symbol:
     name_en: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolUsageSummary:
+    """All durable dependencies that make hard deletion unsafe."""
+
+    rules: int = 0
+    pending_board_predictions: int = 0
+    resolved_board_decisions: int = 0
+    observation_predictions: int = 0
+    training_cohorts: int = 0
+    symbol_model_iterations: int = 0
+    symbol_model_activations: int = 0
+
+    @property
+    def is_unused(self) -> bool:
+        return not any(self.as_details().values())
+
+    def as_details(self) -> dict[str, object]:
+        return {
+            "rules": self.rules,
+            "pendingBoardPredictions": self.pending_board_predictions,
+            "resolvedBoardDecisions": self.resolved_board_decisions,
+            "observationPredictions": self.observation_predictions,
+            "trainingCohorts": self.training_cohorts,
+            "symbolModelIterations": self.symbol_model_iterations,
+            "symbolModelActivations": self.symbol_model_activations,
+        }
+
+
 def validate_stable_code(value: str, *, field_name: str) -> str:
     if not _CODE_PATTERN.fullmatch(value):
         raise CatalogError(
@@ -97,6 +126,15 @@ def validate_name(value: str) -> str:
             details={"field": "name"},
         )
     return normalized
+
+
+def stable_code_stem_from_name(value: str) -> str:
+    """Produce a portable deterministic base for a backend-assigned code."""
+
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    stem = re.sub(r"[^A-Za-z0-9]+", "-", ascii_value).strip("-").upper()
+    return (stem or "SYMBOL")[:64]
 
 
 def validate_optional_name(value: str | None, *, field_name: str) -> str | None:

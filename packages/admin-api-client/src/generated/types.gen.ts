@@ -7519,38 +7519,13 @@ export type SymbolBootstrapStatus = 'ready' | 'conflict' | 'applied';
  */
 export type SymbolCreate = {
   /**
-   * Code
-   */
-  code: string;
-  /**
-   * Displayorder
-   */
-  displayOrder: number;
-  /**
-   * Imagepath
-   */
-  imagePath?: string | null;
-  /**
    * Iswildcard
    */
   isWildcard?: boolean;
   /**
-   * Mobilecode
-   */
-  mobileCode: number;
-  /**
    * Name
    */
   name: string;
-  /**
-   * Nameen
-   */
-  nameEn?: string | null;
-  /**
-   * Namepl
-   */
-  namePl?: string | null;
-  status?: SymbolStatus;
 };
 
 /**
@@ -8010,14 +7985,6 @@ export type SymbolTrainingJobPayload = {
  */
 export type SymbolUpdate = {
   /**
-   * Displayorder
-   */
-  displayOrder?: number | null;
-  /**
-   * Imagepath
-   */
-  imagePath?: string | null;
-  /**
    * Iswildcard
    */
   isWildcard?: boolean | null;
@@ -8025,15 +7992,6 @@ export type SymbolUpdate = {
    * Name
    */
   name?: string | null;
-  /**
-   * Nameen
-   */
-  nameEn?: string | null;
-  /**
-   * Namepl
-   */
-  namePl?: string | null;
-  status?: SymbolStatus | null;
 };
 
 /**
@@ -10403,7 +10361,7 @@ export type CreateSymbolResponses = {
 export type CreateSymbolResponse =
   CreateSymbolResponses[keyof CreateSymbolResponses];
 
-export type ArchiveSymbolData = {
+export type DeleteSymbolData = {
   body?: never;
   headers: {
     'X-Admin-Confirmation': 'confirmed';
@@ -10423,7 +10381,7 @@ export type ArchiveSymbolData = {
   url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}';
 };
 
-export type ArchiveSymbolErrors = {
+export type DeleteSymbolErrors = {
   /**
    * Local Admin security guard rejected the request
    */
@@ -10442,17 +10400,17 @@ export type ArchiveSymbolErrors = {
   422: ErrorResponse;
 };
 
-export type ArchiveSymbolError = ArchiveSymbolErrors[keyof ArchiveSymbolErrors];
+export type DeleteSymbolError = DeleteSymbolErrors[keyof DeleteSymbolErrors];
 
-export type ArchiveSymbolResponses = {
+export type DeleteSymbolResponses = {
   /**
    * Successful Response
    */
   204: void;
 };
 
-export type ArchiveSymbolResponse =
-  ArchiveSymbolResponses[keyof ArchiveSymbolResponses];
+export type DeleteSymbolResponse =
+  DeleteSymbolResponses[keyof DeleteSymbolResponses];
 
 export type GetSymbolData = {
   body?: never;

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -12,6 +13,8 @@ from game_predictor_api.domain.catalog import (
     GameStatus,
     Symbol,
     SymbolStatus,
+    SymbolUsageSummary,
+    stable_code_stem_from_name,
 )
 from game_predictor_api.main import create_app
 
@@ -21,6 +24,7 @@ class MemoryCatalogRepository(CatalogRepository):
         self.games: dict[UUID, Game] = {}
         self.symbols: dict[UUID, Symbol] = {}
         self.rules_symbol_ids: set[UUID] = set()
+        self.usage_overrides: dict[UUID, SymbolUsageSummary] = {}
 
     def list_games(self) -> list[Game]:
         return list(self.games.values())
@@ -116,6 +120,43 @@ class MemoryCatalogRepository(CatalogRepository):
     def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
         return symbol_id in self.rules_symbol_ids
 
+    def add_manual_symbol(self, *, game_id: UUID, name: str, is_wildcard: bool) -> Symbol:
+        game_symbols = self.list_symbols(game_id)
+        stem = stable_code_stem_from_name(name)
+        code = stem
+        suffix = 2
+        existing_codes = {symbol.code for symbol in game_symbols}
+        while code in existing_codes:
+            rendered_suffix = f"-{suffix}"
+            code = f"{stem[: 64 - len(rendered_suffix)]}{rendered_suffix}"
+            suffix += 1
+        symbol = Symbol(
+            id=uuid4(),
+            game_id=game_id,
+            mobile_code=max((item.mobile_code for item in game_symbols), default=0) + 1,
+            code=code,
+            name=name,
+            image_path=None,
+            is_wildcard=is_wildcard,
+            display_order=max((item.display_order for item in game_symbols), default=-1) + 1,
+            status=SymbolStatus.ACTIVE,
+        )
+        self.symbols[symbol.id] = symbol
+        return symbol
+
+    def symbol_usage_summary(
+        self, *, game_id: UUID, symbol_id: UUID
+    ) -> SymbolUsageSummary | None:
+        symbol = self.get_symbol(game_id, symbol_id)
+        if symbol is None:
+            return None
+        if symbol_id in self.usage_overrides:
+            return self.usage_overrides[symbol_id]
+        return SymbolUsageSummary(rules=int(symbol_id in self.rules_symbol_ids))
+
+    def delete_unused_symbol(self, *, game_id: UUID, symbol_id: UUID) -> None:
+        del self.symbols[symbol_id]
+
 
 def _client(repository: MemoryCatalogRepository) -> TestClient:
     service = CatalogService(repository)
@@ -126,7 +167,7 @@ def _client(repository: MemoryCatalogRepository) -> TestClient:
     return TestClient(app)
 
 
-def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
+def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols() -> None:
     repository = MemoryCatalogRepository()
 
     with _client(repository) as client:
@@ -155,23 +196,17 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
         symbol_response = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
             json={
-                "mobileCode": 12,
-                "code": "WILD",
                 "name": "Wildcard",
-                "namePl": " Dziki ",
-                "nameEn": " Wild ",
-                "imagePath": "symbols/blazing-hot/wild.png",
                 "isWildcard": True,
-                "displayOrder": 5,
             },
         )
         assert symbol_response.status_code == 201
         symbol = symbol_response.json()
         symbol_id = symbol["id"]
         assert symbol["gameId"] == game_id
-        assert symbol["mobileCode"] == 12
-        assert symbol["namePl"] == "Dziki"
-        assert symbol["nameEn"] == "Wild"
+        assert symbol["mobileCode"] == 1
+        assert symbol["code"] == "WILDCARD"
+        assert symbol["displayOrder"] == 0
 
         repository.rules_symbol_ids.add(UUID(symbol_id))
         identity_change = client.patch(
@@ -185,34 +220,32 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
             f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
             json={
                 "name": "Wild",
-                "namePl": None,
-                "nameEn": "Wildcard",
-                "imagePath": None,
-                "displayOrder": 1,
             },
         )
         assert updated.status_code == 200
         assert updated.json()["name"] == "Wild"
-        assert updated.json()["namePl"] is None
-        assert updated.json()["nameEn"] == "Wildcard"
-        assert updated.json()["imagePath"] is None
+        assert updated.json()["code"] == "WILDCARD"
+        assert updated.json()["mobileCode"] == 1
 
         listed = client.get(f"/api/v1/admin/games/{game_id}/symbols")
         assert listed.status_code == 200
         assert [item["id"] for item in listed.json()] == [symbol_id]
 
+        blocked = client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}")
+        assert blocked.status_code == 409
+        assert blocked.json()["code"] == "SYMBOL_DELETE_BLOCKED"
+        assert blocked.json()["details"]["rules"] == 1
+        repository.rules_symbol_ids.clear()
         assert (
-            client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code == 204
+            client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code
+            == 204
         )
         assert client.delete(f"/api/v1/admin/games/{game_id}").status_code == 204
 
         assert client.get(f"/api/v1/admin/games/{game_id}").json()["status"] == "archived"
-        assert (
-            client.get(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").json()["status"]
-            == "archived"
-        )
+        assert client.get(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code == 404
         assert len(repository.games) == 1
-        assert len(repository.symbols) == 1
+        assert len(repository.symbols) == 0
 
 
 def test_api_returns_stable_conflict_not_found_and_validation_errors() -> None:
@@ -238,12 +271,7 @@ def test_api_returns_stable_conflict_not_found_and_validation_errors() -> None:
 
         invalid = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
-            json={
-                "mobileCode": 0,
-                "code": "S1",
-                "name": "Symbol",
-                "displayOrder": 0,
-            },
+            json={"isWildcard": False},
         )
         assert invalid.status_code == 422
         assert invalid.json()["code"] == "VALIDATION_ERROR"
@@ -258,3 +286,61 @@ def test_api_returns_stable_conflict_not_found_and_validation_errors() -> None:
         missing = client.get(f"/api/v1/admin/games/{uuid4()}")
         assert missing.status_code == 404
         assert missing.json()["code"] == "GAME_NOT_FOUND"
+
+
+def test_manual_symbol_creation_assigns_stable_identity_and_resolves_name_collisions() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "game-1", "name": "Game 1"},
+        ).json()["id"]
+        first = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Cherries", "isWildcard": False},
+        )
+        second = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Cherries", "isWildcard": True},
+        )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert (first.json()["code"], second.json()["code"]) == ("CHERRIES", "CHERRIES-2")
+    assert (first.json()["mobileCode"], second.json()["mobileCode"]) == (1, 2)
+    assert (first.json()["displayOrder"], second.json()["displayOrder"]) == (0, 1)
+
+
+def test_delete_reports_each_durable_usage_blocker() -> None:
+    repository = MemoryCatalogRepository()
+    usage_fields = (
+        "pending_board_predictions",
+        "resolved_board_decisions",
+        "observation_predictions",
+        "training_cohorts",
+        "symbol_model_iterations",
+        "symbol_model_activations",
+    )
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "game-1", "name": "Game 1"},
+        ).json()["id"]
+        for index, field_name in enumerate(usage_fields):
+            symbol = client.post(
+                f"/api/v1/admin/games/{game_id}/symbols",
+                json={"name": f"Symbol {index}", "isWildcard": False},
+            ).json()
+            symbol_id = UUID(symbol["id"])
+            repository.usage_overrides[symbol_id] = replace(
+                SymbolUsageSummary(), **{field_name: 1}
+            )
+            blocked = client.delete(
+                f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}"
+            )
+
+            assert blocked.status_code == 409
+            assert blocked.json()["code"] == "SYMBOL_DELETE_BLOCKED"
+            assert any(value == 1 for value in blocked.json()["details"].values())

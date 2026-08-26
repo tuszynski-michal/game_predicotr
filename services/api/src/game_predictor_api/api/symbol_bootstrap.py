@@ -158,27 +158,6 @@ def create_symbol_bootstrap_router(
             headers={"Cache-Control": "private, immutable, max-age=31536000"},
         )
 
-    @router.get(
-        "/{game_id}/symbols/{symbol_id}/image/asset",
-        response_class=FileResponse,
-        operation_id="getSymbolImageAsset",
-        summary="Read the current checksum-bound symbol reference image",
-        responses=ERROR_RESPONSES,
-    )
-    def get_symbol_image_asset(
-        game_id: UUID,
-        symbol_id: UUID,
-        service: Annotated[SymbolBootstrapService, service_parameter],
-    ) -> FileResponse:
-        reference = service.symbol_reference_image(game_id, symbol_id)
-        path = _resolve_candidate_asset(
-            artifact_root,
-            reference.crop_relative_path,
-            reference.crop_checksum_sha256,
-        )
-        media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-        return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
-
     @router.post(
         "/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection",
         response_model=SymbolResponse,

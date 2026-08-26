@@ -190,6 +190,55 @@ class SymbolModel(Base):
     )
 
 
+class SymbolReferenceImageModel(Base):
+    """One explicitly selected, immutable image reference for a symbol."""
+
+    __tablename__ = "symbol_reference_images"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
+            "AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_symbol_reference_images_position",
+        ),
+        CheckConstraint(
+            "image_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_symbol_reference_images_checksum",
+        ),
+        CheckConstraint(
+            r"length(btrim(image_relative_path)) > 0 "
+            r"AND image_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_symbol_reference_images_relative_path",
+        ),
+        Index("ix_symbol_reference_images_game", "game_id"),
+    )
+
+    symbol_id: Mapped[UUID] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), primary_key=True
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_observation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("cell_observations.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    image_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    image_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    selected_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    selected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SymbolBootstrapRunModel(Base):
     __tablename__ = "symbol_bootstrap_runs"
     __table_args__ = (

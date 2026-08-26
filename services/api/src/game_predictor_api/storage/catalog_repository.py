@@ -21,6 +21,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     RulesVersionSymbolModel,
     SymbolModel,
+    SymbolReferenceImageModel,
 )
 
 _CONFLICTS = {
@@ -84,8 +85,12 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         return _to_game(record)
 
     def list_symbols(self, game_id: UUID) -> list[Symbol]:
-        records = self._session.scalars(
-            select(SymbolModel)
+        records = self._session.execute(
+            select(SymbolModel, SymbolReferenceImageModel.image_relative_path)
+            .outerjoin(
+                SymbolReferenceImageModel,
+                SymbolReferenceImageModel.symbol_id == SymbolModel.id,
+            )
             .where(SymbolModel.game_id == game_id)
             .order_by(
                 SymbolModel.display_order,
@@ -93,16 +98,21 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
                 SymbolModel.id,
             )
         )
-        return [_to_symbol(record) for record in records]
+        return [_to_symbol(record, image_path=image_path) for record, image_path in records]
 
     def get_symbol(self, game_id: UUID, symbol_id: UUID) -> Symbol | None:
-        record = self._session.scalar(
-            select(SymbolModel).where(
+        result = self._session.execute(
+            select(SymbolModel, SymbolReferenceImageModel.image_relative_path)
+            .outerjoin(
+                SymbolReferenceImageModel,
+                SymbolReferenceImageModel.symbol_id == SymbolModel.id,
+            )
+            .where(
                 SymbolModel.id == symbol_id,
                 SymbolModel.game_id == game_id,
             )
-        )
-        return None if record is None else _to_symbol(record)
+        ).one_or_none()
+        return None if result is None else _to_symbol(result[0], image_path=result[1])
 
     def add_symbol(
         self,
@@ -146,7 +156,12 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.display_order = symbol.display_order
         record.status = symbol.status
         self._flush_or_raise_conflict()
-        return _to_symbol(record)
+        reference_path = self._session.scalar(
+            select(SymbolReferenceImageModel.image_relative_path).where(
+                SymbolReferenceImageModel.symbol_id == record.id
+            )
+        )
+        return _to_symbol(record, image_path=reference_path)
 
     def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
         return (
@@ -183,7 +198,7 @@ def _to_game(record: GameModel) -> Game:
     )
 
 
-def _to_symbol(record: SymbolModel) -> Symbol:
+def _to_symbol(record: SymbolModel, *, image_path: str | None = None) -> Symbol:
     return Symbol(
         id=record.id,
         game_id=record.game_id,
@@ -192,7 +207,9 @@ def _to_symbol(record: SymbolModel) -> Symbol:
         name=record.name,
         name_pl=record.name_pl,
         name_en=record.name_en,
-        image_path=record.image_path,
+        # A legacy image_path is never an approved reference.  The outer join
+        # deliberately hides it until a provenance row exists.
+        image_path=image_path,
         is_wildcard=record.is_wildcard,
         display_order=record.display_order,
         status=record.status,

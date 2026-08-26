@@ -13,9 +13,10 @@ from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
 )
 from game_predictor_api.domain.catalog import CatalogConflictError, CatalogNotFoundError
-from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.catalog import ErrorResponse, SymbolResponse
 from game_predictor_api.schemas.symbol_references import (
     ApprovedSymbolReferenceCandidatePageResponse,
+    ApprovedSymbolReferenceSelectionCommand,
     to_approved_symbol_reference_candidate_page_response,
 )
 
@@ -81,6 +82,51 @@ def create_symbol_references_router(
             path,
             media_type=media_type,
             headers={"Cache-Control": "private, immutable, max-age=31536000"},
+        )
+
+    @router.get(
+        "/{game_id}/symbols/{symbol_id}/image/asset",
+        response_class=FileResponse,
+        operation_id="getSymbolImageAsset",
+        summary="Read the current human-approved symbol reference image",
+        responses=ERROR_RESPONSES,
+    )
+    def get_reference_asset(
+        game_id: UUID,
+        symbol_id: UUID,
+        service: Annotated[ApprovedSymbolReferenceService, service_parameter],
+    ) -> FileResponse:
+        reference = service.reference(game_id, symbol_id)
+        path = resolve_symbol_reference_asset(
+            artifact_root,
+            reference.image_relative_path,
+            reference.image_checksum_sha256,
+        )
+        media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+        return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
+
+    @router.post(
+        "/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection",
+        response_model=SymbolResponse,
+        operation_id="selectApprovedSymbolReferenceCandidate",
+        summary="Persist one checksum-bound human-approved crop as a symbol reference",
+        responses=ERROR_RESPONSES,
+    )
+    def select_candidate(
+        game_id: UUID,
+        symbol_id: UUID,
+        observation_id: UUID,
+        payload: ApprovedSymbolReferenceSelectionCommand,
+        service: Annotated[ApprovedSymbolReferenceService, service_parameter],
+    ) -> SymbolResponse:
+        return SymbolResponse.model_validate(
+            service.select(
+                game_id,
+                symbol_id,
+                observation_id,
+                expected_checksum_sha256=payload.expected_checksum_sha256,
+                selected_by=payload.selected_by,
+            )
         )
 
     return router

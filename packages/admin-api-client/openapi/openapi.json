@@ -148,6 +148,28 @@
         "title": "ApprovedSymbolReferenceCandidateResponse",
         "type": "object"
       },
+      "ApprovedSymbolReferenceSelectionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedchecksumsha256",
+            "type": "string"
+          },
+          "selectedBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Selectedby",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedChecksumSha256",
+          "selectedBy"
+        ],
+        "title": "ApprovedSymbolReferenceSelectionCommand",
+        "type": "object"
+      },
       "BoardCellGeometryCorrectionContextResponse": {
         "additionalProperties": false,
         "properties": {
@@ -18735,6 +18757,114 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection": {
+      "post": {
+        "operationId": "selectApprovedSymbolReferenceCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "symbol_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Symbol Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "observation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Observation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovedSymbolReferenceSelectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game, symbol, or crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Candidate cursor conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Persist one checksum-bound human-approved crop as a symbol reference",
+        "tags": [
+          "symbol-references"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates": {
       "get": {
         "operationId": "listSymbolImageCandidates",
@@ -19057,7 +19187,7 @@
                 }
               }
             },
-            "description": "Game or bootstrap not found"
+            "description": "Game, symbol, or crop not found"
           },
           "409": {
             "content": {
@@ -19067,7 +19197,7 @@
                 }
               }
             },
-            "description": "Bootstrap conflict"
+            "description": "Candidate cursor conflict"
           },
           "422": {
             "content": {
@@ -19080,9 +19210,9 @@
             "description": "Validation error"
           }
         },
-        "summary": "Read the current checksum-bound symbol reference image",
+        "summary": "Read the current human-approved symbol reference image",
         "tags": [
-          "symbol-bootstrap"
+          "symbol-references"
         ]
       }
     },

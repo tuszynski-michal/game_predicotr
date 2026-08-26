@@ -116,7 +116,10 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
-from game_predictor_api.application.symbol_references import ApprovedSymbolReferenceService
+from game_predictor_api.application.symbol_references import (
+    ApprovedSymbolReferenceService,
+    ManagedSymbolReferenceArtifactStore,
+)
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
@@ -368,7 +371,8 @@ def create_app(
         with session_factory() as session:
             try:
                 yield ApprovedSymbolReferenceService(
-                    SqlAlchemyApprovedSymbolReferenceRepository(session)
+                    SqlAlchemyApprovedSymbolReferenceRepository(session),
+                    ManagedSymbolReferenceArtifactStore(resolved_settings.artifact_root),
                 )
                 session.commit()
             except BaseException:

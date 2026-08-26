@@ -92,6 +92,20 @@ export type ApprovedSymbolReferenceCandidateResponse = {
 };
 
 /**
+ * ApprovedSymbolReferenceSelectionCommand
+ */
+export type ApprovedSymbolReferenceSelectionCommand = {
+  /**
+   * Expectedchecksumsha256
+   */
+  expectedChecksumSha256: string;
+  /**
+   * Selectedby
+   */
+  selectedBy: string;
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -10627,6 +10641,58 @@ export type GetApprovedSymbolReferenceCandidateAssetResponses = {
   200: unknown;
 };
 
+export type SelectApprovedSymbolReferenceCandidateData = {
+  body: ApprovedSymbolReferenceSelectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection';
+};
+
+export type SelectApprovedSymbolReferenceCandidateErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game, symbol, or crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Candidate cursor conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectApprovedSymbolReferenceCandidateError =
+  SelectApprovedSymbolReferenceCandidateErrors[keyof SelectApprovedSymbolReferenceCandidateErrors];
+
+export type SelectApprovedSymbolReferenceCandidateResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type SelectApprovedSymbolReferenceCandidateResponse =
+  SelectApprovedSymbolReferenceCandidateResponses[keyof SelectApprovedSymbolReferenceCandidateResponses];
+
 export type ListSymbolImageCandidatesData = {
   body?: never;
   path: {
@@ -10795,11 +10861,11 @@ export type GetSymbolImageAssetData = {
 
 export type GetSymbolImageAssetErrors = {
   /**
-   * Game or bootstrap not found
+   * Game, symbol, or crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Candidate cursor conflict
    */
   409: ErrorResponse;
   /**

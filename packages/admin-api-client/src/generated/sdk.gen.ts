@@ -549,6 +549,9 @@ import type {
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
+  SelectApprovedSymbolReferenceCandidateData,
+  SelectApprovedSymbolReferenceCandidateErrors,
+  SelectApprovedSymbolReferenceCandidateResponses,
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
@@ -1673,6 +1676,32 @@ export const getApprovedSymbolReferenceCandidateAsset = <
   });
 
 /**
+ * Persist one checksum-bound human-approved crop as a symbol reference
+ */
+export const selectApprovedSymbolReferenceCandidate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectApprovedSymbolReferenceCandidateData, ThrowOnError>,
+): RequestResult<
+  SelectApprovedSymbolReferenceCandidateResponses,
+  SelectApprovedSymbolReferenceCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectApprovedSymbolReferenceCandidateResponses,
+    SelectApprovedSymbolReferenceCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List a bounded page of actual crop candidates
  */
 export const listSymbolImageCandidates = <ThrowOnError extends boolean = false>(
@@ -1739,7 +1768,7 @@ export const selectSymbolImageCandidate = <
   });
 
 /**
- * Read the current checksum-bound symbol reference image
+ * Read the current human-approved symbol reference image
  */
 export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
   options: Options<GetSymbolImageAssetData, ThrowOnError>,

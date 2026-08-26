@@ -24,6 +24,11 @@ class ApprovedSymbolReferenceCandidatePageResponse(ApiModel):
     next_cursor: str | None
 
 
+class ApprovedSymbolReferenceSelectionCommand(ApiModel):
+    expected_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_by: str = Field(min_length=1, max_length=200)
+
+
 def to_approved_symbol_reference_candidate_page_response(
     page: ApprovedSymbolReferenceCandidatePage,
 ) -> ApprovedSymbolReferenceCandidatePageResponse:
@@ -38,5 +43,6 @@ def to_approved_symbol_reference_candidate_page_response(
 
 __all__ = [
     "ApprovedSymbolReferenceCandidatePageResponse",
+    "ApprovedSymbolReferenceSelectionCommand",
     "to_approved_symbol_reference_candidate_page_response",
 ]

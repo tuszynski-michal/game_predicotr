@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceRepository,
 )
-from game_predictor_api.domain.catalog import CatalogNotFoundError, Symbol
+from game_predictor_api.domain.catalog import CatalogConflictError, CatalogNotFoundError, Symbol
 from game_predictor_api.domain.symbol_references import (
     ApprovedSymbolReferenceCandidate,
     SymbolReferenceImage,
@@ -25,6 +25,7 @@ from game_predictor_api.storage.models import (
     ImageSequenceCanonicalModel,
     RecognizedBoardModel,
     SymbolModel,
+    SymbolReferenceImageModel,
 )
 
 _APPROVED_STATUSES = ("accepted", "corrected")
@@ -92,10 +93,20 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         return self._to_candidates((row,))[0]
 
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None:
-        # TASK 3 adds the durable reference projection.  Returning None keeps
-        # this read-only extraction safe while legacy endpoints are still live.
-        self._symbol_code(game_id, symbol_id)
-        return None
+        row = self._session.execute(
+            select(SymbolReferenceImageModel).join(
+                SymbolModel,
+                SymbolModel.id == SymbolReferenceImageModel.symbol_id,
+            ).where(
+                SymbolReferenceImageModel.symbol_id == symbol_id,
+                SymbolReferenceImageModel.game_id == game_id,
+                SymbolModel.game_id == game_id,
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            self._symbol_code(game_id, symbol_id)
+            return None
+        return _to_reference(row)
 
     def select_reference(
         self,
@@ -105,11 +116,92 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         candidate: ApprovedSymbolReferenceCandidate,
         expected_checksum_sha256: str,
         selected_by: str,
+        image_relative_path: str,
     ) -> Symbol:
-        raise CatalogNotFoundError(
-            "SYMBOL_REFERENCE_WRITE_UNAVAILABLE",
-            "Saving approved symbol reference images is not available yet.",
+        current = self._locked_current_candidate(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            observation_id=candidate.observation_id,
         )
+        if current is None or current != candidate or (
+            current.crop_checksum_sha256 != expected_checksum_sha256
+        ):
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_CANDIDATE_STALE",
+                "The approved symbol reference candidate changed after it was loaded.",
+            )
+        symbol = self._session.execute(
+            select(SymbolModel)
+            .where(SymbolModel.id == symbol_id, SymbolModel.game_id == game_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+        if symbol is None:
+            raise CatalogNotFoundError(
+                "SYMBOL_NOT_FOUND",
+                "Symbol does not exist in this game.",
+                details={"gameId": str(game_id), "symbolId": str(symbol_id)},
+            )
+        reference = self._session.get(SymbolReferenceImageModel, symbol_id)
+        if reference is None:
+            reference = SymbolReferenceImageModel(
+                symbol_id=symbol.id,
+                game_id=game_id,
+                source_review_item_id=current.review_item_id,
+                source_recognized_board_id=current.recognized_board_id,
+                source_observation_id=current.observation_id,
+                sequence_number=current.sequence_number,
+                cell_index=current.cell_index,
+                resolution_revision=current.resolution_revision,
+                geometry_revision=current.geometry_revision,
+                image_relative_path=image_relative_path,
+                image_checksum_sha256=expected_checksum_sha256,
+                selected_by=selected_by,
+            )
+            self._session.add(reference)
+        else:
+            reference.game_id = game_id
+            reference.source_review_item_id = current.review_item_id
+            reference.source_recognized_board_id = current.recognized_board_id
+            reference.source_observation_id = current.observation_id
+            reference.sequence_number = current.sequence_number
+            reference.cell_index = current.cell_index
+            reference.resolution_revision = current.resolution_revision
+            reference.geometry_revision = current.geometry_revision
+            reference.image_relative_path = image_relative_path
+            reference.image_checksum_sha256 = expected_checksum_sha256
+            reference.selected_by = selected_by
+        # The column remains an internal pointer for existing storage cleanup.
+        # Catalog reads expose it only when the provenance row exists.
+        symbol.image_path = image_relative_path
+        self._session.flush()
+        return Symbol(
+            id=symbol.id,
+            game_id=symbol.game_id,
+            mobile_code=symbol.mobile_code,
+            code=symbol.code,
+            name=symbol.name,
+            image_path=image_relative_path,
+            is_wildcard=symbol.is_wildcard,
+            display_order=symbol.display_order,
+            status=symbol.status,
+            name_pl=symbol.name_pl,
+            name_en=symbol.name_en,
+        )
+
+    def _locked_current_candidate(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID,
+        observation_id: UUID,
+    ) -> ApprovedSymbolReferenceCandidate | None:
+        symbol_code = self._symbol_code(game_id, symbol_id)
+        row = self._session.execute(
+            self._candidate_query(game_id=game_id, symbol_code=symbol_code)
+            .where(CellObservationModel.id == observation_id)
+            .with_for_update()
+        ).one_or_none()
+        return None if row is None else self._to_candidates((row,))[0]
 
     def _symbol_code(self, game_id: UUID, symbol_id: UUID) -> str:
         code = self._session.scalar(
@@ -242,6 +334,23 @@ def _crop_artifact(
         "cropRelativePath": cast(str, match["cropRelativePath"]),
         "cropChecksumSha256": cast(str, match["cropChecksumSha256"]),
     }
+
+
+def _to_reference(record: SymbolReferenceImageModel) -> SymbolReferenceImage:
+    return SymbolReferenceImage(
+        symbol_id=record.symbol_id,
+        source_review_item_id=record.source_review_item_id,
+        source_recognized_board_id=record.source_recognized_board_id,
+        source_observation_id=record.source_observation_id,
+        sequence_number=int(record.sequence_number),
+        cell_index=record.cell_index,
+        resolution_revision=record.resolution_revision,
+        geometry_revision=record.geometry_revision,
+        image_relative_path=record.image_relative_path,
+        image_checksum_sha256=record.image_checksum_sha256,
+        selected_by=record.selected_by,
+        selected_at=record.selected_at,
+    )
 
 
 __all__ = ["SqlAlchemyApprovedSymbolReferenceRepository"]

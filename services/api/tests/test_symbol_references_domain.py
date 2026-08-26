@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
 from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
+    ManagedSymbolReferenceArtifactStore,
 )
 from game_predictor_api.domain.catalog import CatalogConflictError, Symbol, SymbolStatus
 from game_predictor_api.domain.symbol_references import (
@@ -81,3 +84,41 @@ def test_select_rejects_stale_checksum_without_calling_repository():
             game_id, symbol_id, candidate.observation_id,
             expected_checksum_sha256="b" * 64, selected_by="admin",
         )
+
+
+def test_select_copies_exact_candidate_bytes_into_content_addressed_reference(tmp_path):
+    game_id, symbol_id = uuid4(), uuid4()
+    source = tmp_path / "data" / "crops" / "approved.png"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"human-approved-crop")
+    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
+    candidate = replace(
+        _candidate(),
+        crop_relative_path="data/crops/approved.png",
+        crop_checksum_sha256=checksum,
+    )
+    repository = MemoryRepository(game_id, (candidate,))
+    service = ApprovedSymbolReferenceService(
+        repository,
+        ManagedSymbolReferenceArtifactStore(tmp_path),
+    )
+
+    selected = service.select(
+        game_id,
+        symbol_id,
+        candidate.observation_id,
+        expected_checksum_sha256=checksum,
+        selected_by="admin",
+    )
+
+    destination = (
+        tmp_path
+        / "data"
+        / "symbol-references"
+        / str(game_id)
+        / str(symbol_id)
+        / f"{checksum}.png"
+    )
+    assert selected.image_path == "data/reference.png"
+    assert destination.read_bytes() == source.read_bytes()
+    assert hashlib.sha256(destination.read_bytes()).hexdigest() == checksum

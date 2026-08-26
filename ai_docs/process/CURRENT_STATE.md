@@ -78,6 +78,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   checksum-bound crop zapisany w niezmiennym manifeście historycznego bootstrapu
   katalogu, więc katalogi utworzone przed trwałymi obserwacjami cropów nie
   zwracają już błędnie `404` dla istniejącej grafiki.
+- Od `v0.8.9` edytor `Twój wzór` używa kompaktowych kafli 3 × 5. Na desktopie
+  ich szerokość jest ograniczona do 56 px, a na wąskim ekranie siatka nadal
+  wypełnia dostępne miejsce bez zmiany kolejności pozycji.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

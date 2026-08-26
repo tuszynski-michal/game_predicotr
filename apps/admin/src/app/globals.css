@@ -8627,25 +8627,26 @@ div.imageJobInlineError {
 
 .boardSearchGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 9px;
+  grid-template-columns: repeat(5, minmax(42px, 56px));
+  gap: 7px;
+  width: fit-content;
 }
 
 .boardSearchCell {
-  gap: 4px;
-  aspect-ratio: 0.88;
-  padding: 7px 4px;
+  gap: 2px;
+  aspect-ratio: 1;
+  padding: 4px 2px;
 }
 
 .boardSearchCell > img {
-  width: min(74%, 70px);
+  width: min(70%, 38px);
   aspect-ratio: 1;
   border-radius: 9px;
   object-fit: contain;
 }
 
 .boardSearchCell strong {
-  font-size: clamp(9px, 1.1vw, 12px);
+  font-size: 9px;
 }
 
 .boardSearchCellSelected {
@@ -8784,6 +8785,11 @@ div.imageJobInlineError {
 @media (max-width: 520px) {
   .boardSearchPaletteGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .boardSearchGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
   }
 
   .boardSearchScope {

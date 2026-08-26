@@ -1278,6 +1278,7 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         has_grid_issue=bool(cell.has_grid_issue),
         revision=int(cell.revision),
         geometry_revision=int(cell.geometry_revision),
+        crop_sample_id=cell.crop_sample_id,
         crop_checksum_sha256=cell.crop_checksum_sha256,
         board_status=cast(str, row[1]),
     )

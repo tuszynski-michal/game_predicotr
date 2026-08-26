@@ -122,8 +122,11 @@ symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
 scope.
 
 Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
-właściciela `game + sequence_number`, liczniki po filtrowaniu, monotoniczną
-`catalogRevision` i kursory poprzedniej/następnej strony. Łączenie z
+właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
+rewizję komórki i geometrii, liczniki po filtrowaniu, monotoniczną
+`catalogRevision` i kursory poprzedniej/następnej strony. `cropSampleId` wraz
+z checksumą jest obowiązkową tożsamością jawnego targetu masowej operacji.
+Łączenie z
 `image_board_search_fast_documents` oraz bieżącą rewizją geometrii eliminuje
 superseded, alternatywne oraz nieaktualne cropy bez materializowania całego
 wyniku w pamięci.
@@ -160,6 +163,8 @@ natomiast inna komenda z tym kluczem zwraca konflikt. Status zwraca liczniki
 kontrolowany komunikat błędu. Operacja ma częściową semantykę: każda plansza
 jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
 `applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
+Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
+sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
 
 ### Host base zdalnej ręcznej selekcji
 

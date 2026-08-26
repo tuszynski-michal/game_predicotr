@@ -7661,6 +7661,10 @@ export type SymbolCellReviewListItemResponse = {
    */
   cropChecksumSha256: string;
   /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
    * Geometryrevision
    */
   geometryRevision: number;

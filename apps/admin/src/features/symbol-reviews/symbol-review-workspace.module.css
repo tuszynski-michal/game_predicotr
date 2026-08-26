@@ -83,6 +83,27 @@
   background: var(--panel-soft);
 }
 
+.cardSelected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.cardToggle {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cardToggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
 .card img,
 .assetFallback {
   display: grid;
@@ -134,6 +155,99 @@
   text-align: center;
 }
 
+.toolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 16%);
+  backdrop-filter: blur(8px);
+}
+
+.toolbarSelection,
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarActions {
+  justify-content: flex-end;
+}
+
+.toolbarActions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.toolbarActions select {
+  max-width: 180px;
+}
+
+.operationProgress {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-soft);
+}
+
+.operationProgress span,
+.operationProgress p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.modalBackdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 55%);
+}
+
+.modal {
+  display: grid;
+  width: min(100%, 480px);
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 36%);
+}
+
+.modal h2,
+.modal p {
+  margin: 0;
+}
+
+.modal p {
+  color: var(--muted);
+}
+
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .empty {
   padding: 30px 18px;
   border: 1px dashed var(--line-strong);
@@ -165,5 +279,14 @@
 
   .pagination button {
     width: 100%;
+  }
+
+  .toolbar {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .toolbarActions {
+    justify-content: flex-start;
   }
 }

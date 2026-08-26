@@ -223,6 +223,7 @@ def _item(
         has_grid_issue=False,
         revision=2,
         geometry_revision=0,
+        crop_sample_id="b" * 64,
         crop_checksum_sha256="a" * 64,
         board_status="pending",
     )
@@ -305,6 +306,7 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert len(set(first_ids).intersection(second_ids)) == 0
     assert [item["id"] for item in previous.json()["items"]] == first_ids
     assert first.json()["counts"] == {"allCount": 3, "approvedCount": 1, "pendingCount": 2}
+    assert first.json()["items"][0]["cropSampleId"] == "b" * 64
 
     with _client(repository, artifact_root=tmp_path) as client:
         approved = client.get(

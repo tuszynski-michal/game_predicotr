@@ -13283,6 +13283,11 @@
             "title": "Cropchecksumsha256",
             "type": "string"
           },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
           "geometryRevision": {
             "minimum": 0.0,
             "title": "Geometryrevision",
@@ -13361,6 +13366,7 @@
           "hasGridIssue",
           "revision",
           "geometryRevision",
+          "cropSampleId",
           "cropChecksumSha256",
           "boardStatus"
         ],

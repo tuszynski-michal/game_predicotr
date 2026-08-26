@@ -336,7 +336,18 @@ lokalnego Admin API; brak jednego assetu pokazuje placeholder tylko tej karty.
 Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
 review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Zaznaczanie i masowe
-operacje są osobnym, późniejszym etapem workflow.
+operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
+zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w
+tryb snapshotu z listą wykluczeń. Zmiana gry, symbolu albo stanu przed
+potwierdzeniem wyraźnie ostrzega i czyści wyłącznie zaznaczenie.
+
+Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
+symbol` i `Oznacz złą siatkę`. Każda akcja najpierw pokazuje niezmienny preview
+liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
+`Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
+Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
+polling nie wysyła nakładających się requestów i po terminalnym wyniku odświeża
+bounded listę oraz liczniki.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

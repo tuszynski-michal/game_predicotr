@@ -3,6 +3,60 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('generated client previews, starts and reads durable symbol review operations', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const operationId = '22222222-2222-4222-8222-222222222222';
+  const command = {
+    action: 'approve',
+    selection: {
+      kind: 'explicit',
+      targets: [
+        {
+          cellReviewId: '33333333-3333-4333-8333-333333333333',
+          expectedCropChecksumSha256: 'a'.repeat(64),
+          expectedCropSampleId: 'b'.repeat(64),
+          expectedGeometryRevision: 0,
+          expectedRevision: 0,
+        },
+      ],
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ operation: {}, created: true });
+    },
+  });
+
+  await client.previewSymbolCellReviewBulkOperation(gameId, command);
+  await client.startSymbolCellReviewBulkOperation(gameId, {
+    ...command,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
+  await client.getSymbolCellReviewBulkOperation(gameId, operationId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/symbol-cell-review-operations/preview`,
+      ],
+      ['POST', `/api/v1/admin/games/${gameId}/symbol-cell-review-operations`],
+      [
+        'GET',
+        `/api/v1/admin/games/${gameId}/symbol-cell-review-operations/${operationId}`,
+      ],
+    ],
+  );
+  assert.equal(
+    JSON.parse(await requests[1].clone().text()).idempotencyKey,
+    '44444444-4444-4444-8444-444444444444',
+  );
+});
+
 test('generated client pages and selects checksum-bound approved symbol reference candidates', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

@@ -107,6 +107,7 @@ class SymbolCellReviewListItem:
     has_grid_issue: bool
     revision: int
     geometry_revision: int
+    crop_sample_id: str
     crop_checksum_sha256: str
     board_status: str
 
@@ -119,8 +120,10 @@ class SymbolCellReviewListItem:
             raise ValueError("cell coordinates must be row-major")
         if self.revision < 0 or self.geometry_revision < 0:
             raise ValueError("review and geometry revisions cannot be negative")
-        if not _is_sha256(self.crop_checksum_sha256):
-            raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
+        if not _is_sha256(self.crop_sample_id) or not _is_sha256(
+            self.crop_checksum_sha256
+        ):
+            raise ValueError("crop identity must contain SHA-256 digests")
 
     @property
     def cursor_key(self) -> tuple[int, int, str]:

@@ -48,6 +48,7 @@ class SymbolCellReviewListItemResponse(ApiModel):
     has_grid_issue: bool
     revision: int = Field(ge=0)
     geometry_revision: int = Field(ge=0)
+    crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     board_status: str
 
@@ -259,6 +260,7 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         has_grid_issue=item.has_grid_issue,
         revision=item.revision,
         geometry_revision=item.geometry_revision,
+        crop_sample_id=item.crop_sample_id,
         crop_checksum_sha256=item.crop_checksum_sha256,
         board_status=item.board_status,
     )

@@ -79,6 +79,7 @@ import {
   getPendingBoardCellGeometryCorrectionContext as getGeneratedPendingBoardCellGeometryCorrectionContext,
   getPendingBoardCellGeometrySource as getGeneratedPendingBoardCellGeometrySource,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
+  getSymbolCellReviewBulkOperation as getGeneratedSymbolCellReviewBulkOperation,
   getRulesVersion as getGeneratedRulesVersion,
   getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
@@ -136,8 +137,10 @@ import {
   previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
+  previewSymbolCellReviewBulkOperation as previewGeneratedSymbolCellReviewBulkOperation,
   startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
   startPendingGridReinference as startGeneratedPendingGridReinference,
+  startSymbolCellReviewBulkOperation as startGeneratedSymbolCellReviewBulkOperation,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   openLocalReviewerWork as openGeneratedLocalReviewerWork,
@@ -245,6 +248,12 @@ import type {
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
   SymbolCellReviewFilterState,
+  SymbolCellReviewAction,
+  SymbolCellReviewBulkOperationRequest,
+  SymbolCellReviewBulkOperationResponse,
+  SymbolCellReviewBulkOperationStartRequest,
+  SymbolCellReviewBulkOperationStartResponse,
+  SymbolCellReviewBulkPreviewResponse,
   WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
@@ -413,6 +422,15 @@ export type {
   SymbolModelActivationPreviewResponse,
   SymbolModelActivationResponse,
   SymbolCellReviewCountsResponse,
+  SymbolCellReviewAction,
+  SymbolCellReviewBulkExplicitSelectionRequest,
+  SymbolCellReviewBulkExplicitTargetRequest,
+  SymbolCellReviewBulkFilterSelectionRequest,
+  SymbolCellReviewBulkOperationRequest,
+  SymbolCellReviewBulkOperationResponse,
+  SymbolCellReviewBulkOperationStartRequest,
+  SymbolCellReviewBulkOperationStartResponse,
+  SymbolCellReviewBulkPreviewResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewPageResponse,
@@ -1532,6 +1550,29 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       const query = new URLSearchParams({ expectedCropChecksumSha256 });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
     },
+    previewSymbolCellReviewBulkOperation: (
+      gameId: string,
+      body: SymbolCellReviewBulkOperationRequest,
+    ) =>
+      previewGeneratedSymbolCellReviewBulkOperation({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolCellReviewBulkOperation: (
+      gameId: string,
+      body: SymbolCellReviewBulkOperationStartRequest,
+    ) =>
+      startGeneratedSymbolCellReviewBulkOperation({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    getSymbolCellReviewBulkOperation: (gameId: string, operationId: string) =>
+      getGeneratedSymbolCellReviewBulkOperation({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+      }),
     listPendingBoardCellGeometry: (
       options: ListPendingBoardCellGeometryOptions,
     ) =>

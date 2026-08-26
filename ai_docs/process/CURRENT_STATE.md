@@ -25,10 +25,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
   domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
   `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
-- TASK-0294 pozostaje `in_progress`: istnieje już odczyt, wewnętrzne mutacje,
-  trwałe operacje masowe cropów oraz filtr złej siatki w Reviewerze, ale
-  workspace Admina pozostaje kolejnym etapem. Nie ma jeszcze widocznej zakładki
-  produktu.
+- TASK-0294 pozostaje `in_progress`: istnieje odczyt, wewnętrzne mutacje,
+  trwałe operacje masowe cropów, filtr złej siatki w Reviewerze i lokalny
+  workspace Admina. Pozostaje benchmark oraz odbiór całego pionu.
 - Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
   i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
   keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
@@ -81,6 +80,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pokazuje numer planszy, pozycję komórki, stan i flagę `Zła siatka`; brak
   pojedynczego assetu nie usuwa metadanych. Wybór, toolbar i masowe decyzje
   pozostają wyłącznie zakresem TASK 9.
+- Od `v0.8.27` ten workspace obsługuje jawne zaznaczenie checksum-bound cropów
+  (maks. 10 000) albo cały snapshot bieżącego filtra z wykluczeniami. Sticky
+  toolbar uruchamia po preview `approve`, `reassign` i `mark_grid_issue` przez
+  istniejący trwały job; dla technicznego `?` zatwierdzanie jest zablokowane.
+  Lista transportuje także `cropSampleId`, niezbędny do bezpiecznej jawnej
+  mutacji. Polling jednej aktywnej operacji nie nakłada requestów, pokazuje
+  `applied/conflict/failed` i po terminalnym wyniku odświeża bounded stronę.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

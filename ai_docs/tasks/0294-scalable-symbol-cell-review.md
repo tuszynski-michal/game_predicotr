@@ -248,3 +248,25 @@ skalowy z izolowaną PostgreSQL.
 - Weryfikacja: test reduktora trzech stron, keysetowego klienta i kontrolowanej
   przebudowy, test kontraktowy workspace’u, test nawigacji, typecheck Admina i
   klienta, lint Admina, kontrola OpenAPI oraz produkcyjny build Admina.
+
+### TASK 9 — ukończony w `v0.8.27`
+
+- Workspace Admina ma teraz zaznaczenie pojedynczych kart, widocznej strony
+  oraz całego filtra. Tryb całego filtra przechowuje tylko immutable snapshot
+  `catalogRevision` i uporządkowane wykluczenia; jawny tryb przechowuje
+  checksum-bound tożsamość (`cropSampleId`, checksumę, rewizję komórki i
+  geometrii) do 10 000 cropów.
+- Sticky toolbar najpierw pobiera preview, a dopiero po wyraźnym potwierdzeniu
+  uruchamia idempotentne `approve`, `reassign` albo `mark_grid_issue`.
+  `approve` dla `Nierozpoznany (?)` jest niemożliwe zarówno w UI, jak i w
+  adapterze komendy. Zmiana filtra wymaga potwierdzenia wyczyszczenia wyłącznie
+  lokalnego zaznaczenia.
+- Status aktywnej operacji pokazuje liczniki `applied/conflict/failed`.
+  Polling jest sekwencyjny (kolejny request powstaje po odpowiedzi poprzedniego)
+  i terminalny wynik odświeża stronę oraz liczniki bez zatrzymywania procesu
+  backendowego. Dodany `cropSampleId` w list response jest częścią jawnego,
+  bezpiecznego kontraktu targetu; OpenAPI i klient Admina zostały odświeżone.
+- Weryfikacja: testy selekcji i budowania komend, test kontraktowy workspace’u,
+  test klienta, test API list response, typecheck/lint Admina i klienta,
+  kontrola OpenAPI oraz build Admina. Benchmark i pełny odbiór pozostają
+  wyłącznie w TASK 10.

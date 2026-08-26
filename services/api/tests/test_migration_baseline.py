@@ -74,6 +74,7 @@ BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION = "0061_board_search_document_evidence"
 BOARD_SEARCH_FAST_DOCUMENTS_REVISION = "0062_board_search_fast_documents"
 SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION = "0063_symbol_reference_candidate_index"
 SYMBOL_REFERENCE_IMAGES_REVISION = "0064_symbol_reference_images"
+REMOVE_SYMBOL_BOOTSTRAP_REVISION = "0065_remove_symbol_bootstrap"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -169,7 +170,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION
     )
     symbol_reference_images = script.get_revision(SYMBOL_REFERENCE_IMAGES_REVISION)
-    assert script.get_heads() == [SYMBOL_REFERENCE_IMAGES_REVISION]
+    remove_symbol_bootstrap = script.get_revision(REMOVE_SYMBOL_BOOTSTRAP_REVISION)
+    assert script.get_heads() == [REMOVE_SYMBOL_BOOTSTRAP_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -312,11 +314,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert board_search_fast_documents is not None
     assert board_search_fast_documents.down_revision == BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION
     assert symbol_reference_candidate_index is not None
-    assert (
-        symbol_reference_candidate_index.down_revision == BOARD_SEARCH_FAST_DOCUMENTS_REVISION
-    )
+    assert symbol_reference_candidate_index.down_revision == BOARD_SEARCH_FAST_DOCUMENTS_REVISION
     assert symbol_reference_images is not None
     assert symbol_reference_images.down_revision == SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION
+    assert remove_symbol_bootstrap is not None
+    assert remove_symbol_bootstrap.down_revision == SYMBOL_REFERENCE_IMAGES_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -495,14 +497,12 @@ def test_symbol_reference_candidate_index_migration_is_reversible() -> None:
     downgrade_output = StringIO()
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}:"
-        f"{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}",
+        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}:{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}",
         sql=True,
     )
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
-        f"{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}:"
-        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}",
+        f"{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}:{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}",
         sql=True,
     )
 
@@ -510,6 +510,7 @@ def test_symbol_reference_candidate_index_migration_is_reversible() -> None:
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "ix_image_review_items_resolved_symbols_gin" in upgrade_sql
     assert "using gin" in upgrade_sql
+    assert "(resolved_value -> 'symbolcodes') jsonb_path_ops" in upgrade_sql
     assert "drop index ix_image_review_items_resolved_symbols_gin" in downgrade_sql
 
 
@@ -532,6 +533,26 @@ def test_symbol_reference_images_migration_is_reversible() -> None:
     assert "create table symbol_reference_images" in upgrade_sql
     assert "ck_symbol_reference_images_checksum" in upgrade_sql
     assert "drop table symbol_reference_images" in downgrade_sql
+
+
+def test_remove_symbol_bootstrap_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{SYMBOL_REFERENCE_IMAGES_REVISION}:{REMOVE_SYMBOL_BOOTSTRAP_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REMOVE_SYMBOL_BOOTSTRAP_REVISION}:{SYMBOL_REFERENCE_IMAGES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table symbol_bootstrap_runs" in upgrade_sql
+    assert "create table symbol_bootstrap_runs" in downgrade_sql
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

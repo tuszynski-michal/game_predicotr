@@ -113,7 +113,6 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
-from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
 from game_predictor_api.application.symbol_references import (
@@ -261,9 +260,6 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
-from game_predictor_api.storage.symbol_bootstrap_repository import (
-    SqlAlchemySymbolBootstrapRepository,
-)
 from game_predictor_api.storage.symbol_model_iteration_repository import (
     SqlAlchemySymbolModelIterationRepository,
 )
@@ -311,7 +307,6 @@ def create_app(
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
-    symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -381,19 +376,6 @@ def create_app(
 
     resolved_symbol_reference_dependency = (
         symbol_reference_service_dependency or default_symbol_reference_service_dependency
-    )
-
-    def default_symbol_bootstrap_service_dependency() -> Iterator[SymbolBootstrapService]:
-        with session_factory() as session:
-            try:
-                yield SymbolBootstrapService(SqlAlchemySymbolBootstrapRepository(session))
-                session.commit()
-            except BaseException:
-                session.rollback()
-                raise
-
-    resolved_symbol_bootstrap_dependency = (
-        symbol_bootstrap_service_dependency or default_symbol_bootstrap_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -1004,7 +986,6 @@ def create_app(
             resolved_reviewer_ingress_dependency,
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
-            resolved_symbol_bootstrap_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,

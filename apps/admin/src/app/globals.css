@@ -2267,67 +2267,6 @@ a:focus-visible {
   gap: 18px;
 }
 
-.symbolBootstrapPanel {
-  padding-top: 22px;
-}
-
-.symbolBootstrapControls {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.symbolBootstrapCountField {
-  display: grid;
-  width: min(100%, 220px);
-  gap: 8px;
-  color: #d9e4f1;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.symbolBootstrapCountField input {
-  width: 100%;
-  min-height: 46px;
-  padding: 0 13px;
-  border: 1px solid var(--line-strong);
-  border-radius: 11px;
-  outline: none;
-  background: rgba(5, 12, 22, 0.62);
-  color: var(--text);
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background 140ms ease;
-}
-
-.symbolBootstrapCountField input:hover {
-  border-color: rgba(170, 196, 230, 0.4);
-  background: rgba(5, 12, 22, 0.78);
-}
-
-.symbolBootstrapCountField input:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.symbolBootstrapCountField input:disabled {
-  color: #8294aa;
-  cursor: not-allowed;
-}
-
-@media (max-width: 520px) {
-  .symbolBootstrapControls {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .symbolBootstrapCountField,
-  .symbolBootstrapControls .primaryButton {
-    width: 100%;
-  }
-}
-
 .rulesForm {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

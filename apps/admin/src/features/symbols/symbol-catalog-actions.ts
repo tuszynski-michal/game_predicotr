@@ -10,17 +10,11 @@ import type { ValidatedSymbolDraft } from './symbol-catalog-state.ts';
 
 export type SymbolsClient = Pick<
   AdminApiClient,
-  | 'archiveSymbol'
+  | 'deleteSymbol'
   | 'createSymbol'
-  | 'getLatestSymbolBootstrap'
   | 'listGames'
   | 'listSymbols'
-  | 'resolveSymbolBootstrap'
-  | 'listSymbolImageCandidates'
-  | 'selectSymbolImageCandidate'
-  | 'startSymbolBootstrap'
   | 'symbolImageAssetUrl'
-  | 'symbolImageCandidateAssetUrl'
   | 'updateSymbol'
 >;
 
@@ -42,24 +36,12 @@ export async function saveSymbol(
     const result =
       intent.mode === 'create'
         ? await api.createSymbol(gameId, {
-            code: draft.code,
-            displayOrder: draft.displayOrder,
-            imagePath: draft.imagePath,
             isWildcard: draft.isWildcard,
-            mobileCode: draft.mobileCode,
             name: draft.name,
-            nameEn: draft.nameEn,
-            namePl: draft.namePl,
-            status: draft.status,
           } satisfies SymbolCreate)
         : await api.updateSymbol(gameId, intent.symbolId, {
-            displayOrder: draft.displayOrder,
-            imagePath: draft.imagePath,
             isWildcard: draft.isWildcard,
             name: draft.name,
-            nameEn: draft.nameEn,
-            namePl: draft.namePl,
-            status: draft.status,
           } satisfies SymbolUpdate);
 
     if (result.error !== undefined || result.data === undefined) {
@@ -78,22 +60,19 @@ export async function saveSymbol(
   }
 }
 
-export type ArchiveSymbolResult =
+export type DeleteSymbolResult =
   { readonly ok: true } | { readonly error: string; readonly ok: false };
 
-export async function archiveSymbol(
+export async function deleteSymbol(
   api: SymbolsClient,
   gameId: string,
   symbolId: string,
-): Promise<ArchiveSymbolResult> {
+): Promise<DeleteSymbolResult> {
   try {
-    const result = await api.archiveSymbol(gameId, symbolId);
+    const result = await api.deleteSymbol(gameId, symbolId);
     if (result.error !== undefined) {
       return {
-        error: apiErrorMessage(
-          result.error,
-          'Nie udało się zarchiwizować symbolu.',
-        ),
+        error: apiErrorMessage(result.error, 'Nie udało się usunąć symbolu.'),
         ok: false,
       };
     }
@@ -101,7 +80,7 @@ export async function archiveSymbol(
   } catch {
     return {
       error:
-        'Połączenie z lokalnym Admin API zostało przerwane. Archiwizacja nie została potwierdzona.',
+        'Połączenie z lokalnym Admin API zostało przerwane. Usunięcie nie zostało potwierdzone.',
       ok: false,
     };
   }

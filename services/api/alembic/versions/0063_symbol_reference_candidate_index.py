@@ -15,12 +15,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_image_review_items_resolved_symbols_gin",
-        "image_review_items",
-        ["(resolved_value -> 'symbolCodes')"],
-        postgresql_using="gin",
-        postgresql_ops={"(resolved_value -> 'symbolCodes')": "jsonb_path_ops"},
+    # Alembic's generic ``create_index`` treats an expression string as an
+    # identifier and would quote it.  The expression must remain raw SQL so
+    # PostgreSQL builds a JSONB expression index, not an index on a nonexistent
+    # column named ``(resolved_value -> 'symbolCodes')``.
+    op.execute(
+        "CREATE INDEX ix_image_review_items_resolved_symbols_gin "
+        "ON image_review_items USING gin "
+        "((resolved_value -> 'symbolCodes') jsonb_path_ops)"
     )
 
 

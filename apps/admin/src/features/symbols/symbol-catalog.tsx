@@ -18,13 +18,12 @@ import {
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
-  archiveSymbol,
+  deleteSymbol,
   saveSymbol,
   type SymbolsClient,
 } from '@/features/symbols/symbol-catalog-actions';
 import {
   EMPTY_SYMBOL_DRAFT,
-  markSymbolArchived,
   selectGameId,
   type SymbolDraft,
   SYMBOL_STATUS_LABELS,
@@ -32,9 +31,6 @@ import {
   upsertSymbol,
   validateSymbolDraft,
 } from '@/features/symbols/symbol-catalog-state';
-import { SymbolBootstrapPanel } from '@/features/symbols/symbol-bootstrap-panel';
-import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
-import { SymbolImagePreviewModal } from '@/features/symbols/symbol-image-preview-modal';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -76,14 +72,10 @@ export function SymbolCatalog({
   const [formError, setFormError] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [archiveCandidateId, setArchiveCandidateId] = useState<string | null>(
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(
     null,
   );
-  const [archivingId, setArchivingId] = useState<string | null>(null);
-  const [imagePickerSymbol, setImagePickerSymbol] =
-    useState<SymbolResponse | null>(null);
-  const [imagePreviewSymbol, setImagePreviewSymbol] =
-    useState<SymbolResponse | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -198,9 +190,7 @@ export function SymbolCatalog({
     setEditor({ mode: 'closed' });
     setFormError('');
     setFeedback(null);
-    setArchiveCandidateId(null);
-    setImagePickerSymbol(null);
-    setImagePreviewSymbol(null);
+    setDeleteCandidateId(null);
   }
 
   function openEditEditor(symbol: SymbolResponse) {
@@ -267,39 +257,30 @@ export function SymbolCatalog({
     }
   }
 
-  async function confirmArchive(symbol: SymbolResponse) {
+  async function confirmDelete(symbol: SymbolResponse) {
     if (mutationInProgress.current || selectedGameId === null) {
       return;
     }
     mutationInProgress.current = true;
-    setArchivingId(symbol.id);
+    setDeletingId(symbol.id);
     setFeedback(null);
 
     try {
-      const result = await archiveSymbol(api, selectedGameId, symbol.id);
+      const result = await deleteSymbol(api, selectedGameId, symbol.id);
       if (!result.ok) {
         setFeedback({ kind: 'error', text: result.error });
         return;
       }
-      setSymbols((current) => markSymbolArchived(current, symbol.id));
-      setArchiveCandidateId(null);
+      setSymbols((current) => current.filter((item) => item.id !== symbol.id));
+      setDeleteCandidateId(null);
       setFeedback({
         kind: 'success',
-        text: `Zarchiwizowano symbol „${symbol.name}”. Rekord pozostał w katalogu.`,
+        text: `Usunięto symbol „${symbol.name}”.`,
       });
     } finally {
       mutationInProgress.current = false;
-      setArchivingId(null);
+      setDeletingId(null);
     }
-  }
-
-  function imageSelected(symbol: SymbolResponse) {
-    setSymbols((current) => upsertSymbol(current, symbol));
-    setImagePickerSymbol(null);
-    setFeedback({
-      kind: 'success',
-      text: `Zapisano grafikę reprezentatywną symbolu „${symbol.name}”.`,
-    });
   }
 
   return (
@@ -367,15 +348,6 @@ export function SymbolCatalog({
             </p>
           ) : null}
 
-          {selectedGameId ? (
-            <SymbolBootstrapPanel
-              client={api}
-              gameId={selectedGameId}
-              hasSymbols={symbols.length > 0}
-              onApplied={() => void loadSymbols(selectedGameId)}
-            />
-          ) : null}
-
           {editor.mode !== 'closed' ? (
             <SymbolEditor
               draft={draft}
@@ -384,11 +356,6 @@ export function SymbolCatalog({
               mode={editor.mode}
               onCancel={closeEditor}
               onChange={setDraft}
-              onImagePreview={
-                editor.mode === 'edit' && editor.symbol.imagePath !== null
-                  ? () => setImagePreviewSymbol(editor.symbol)
-                  : undefined
-              }
               onSubmit={submitSymbol}
             />
           ) : null}
@@ -413,13 +380,12 @@ export function SymbolCatalog({
             ) : null}
             {symbolsState === 'ready' && symbols.length > 0 ? (
               <SymbolsList
-                archiveCandidateId={archiveCandidateId}
-                archivingId={archivingId}
-                onArchive={setArchiveCandidateId}
-                onArchiveCancel={() => setArchiveCandidateId(null)}
-                onArchiveConfirm={(symbol) => void confirmArchive(symbol)}
+                deleteCandidateId={deleteCandidateId}
+                deletingId={deletingId}
+                onDelete={setDeleteCandidateId}
+                onDeleteCancel={() => setDeleteCandidateId(null)}
+                onDeleteConfirm={(symbol) => void confirmDelete(symbol)}
                 onEdit={openEditEditor}
-                onImageEdit={setImagePickerSymbol}
                 symbolImageAssetUrl={(symbol) =>
                   api.symbolImageAssetUrl(symbol.gameId, symbol.id)
                 }
@@ -427,26 +393,6 @@ export function SymbolCatalog({
               />
             ) : null}
           </div>
-
-          {selectedGameId && imagePickerSymbol ? (
-            <SymbolImagePickerModal
-              api={api}
-              gameId={selectedGameId}
-              onClose={() => setImagePickerSymbol(null)}
-              onSelected={imageSelected}
-              symbol={imagePickerSymbol}
-            />
-          ) : null}
-          {imagePreviewSymbol ? (
-            <SymbolImagePreviewModal
-              imageUrl={api.symbolImageAssetUrl(
-                imagePreviewSymbol.gameId,
-                imagePreviewSymbol.id,
-              )}
-              onClose={() => setImagePreviewSymbol(null)}
-              symbol={imagePreviewSymbol}
-            />
-          ) : null}
         </>
       ) : null}
     </section>
@@ -460,7 +406,6 @@ interface SymbolEditorProps {
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
   readonly onChange: (draft: SymbolDraft) => void;
-  readonly onImagePreview?: () => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
@@ -471,7 +416,6 @@ function SymbolEditor({
   mode,
   onCancel,
   onChange,
-  onImagePreview,
   onSubmit,
 }: SymbolEditorProps) {
   return (
@@ -647,37 +591,6 @@ function SymbolEditor({
           </span>
         </label>
 
-        <label className="imagePathField">
-          <span>Ścieżka obrazu referencyjnego</span>
-          <div className="imagePathControlRow">
-            <input
-              autoComplete="off"
-              disabled={isSubmitting}
-              maxLength={500}
-              name="imagePath"
-              onChange={(event) =>
-                onChange({ ...draft, imagePath: event.currentTarget.value })
-              }
-              placeholder="symbols/blazing-hot/s12.png"
-              value={draft.imagePath}
-            />
-            {onImagePreview ? (
-              <button
-                className="secondaryButton"
-                disabled={isSubmitting}
-                onClick={onImagePreview}
-                type="button"
-              >
-                Podgląd
-              </button>
-            ) : null}
-          </div>
-          <small>
-            Opcjonalna ścieżka względna POSIX. Panel zapisuje metadane, nie
-            zawartość pliku. Podgląd pokazuje ostatnio zapisaną grafikę.
-          </small>
-        </label>
-
         <div className="formActions">
           <button
             className="secondaryButton"
@@ -707,25 +620,23 @@ function SymbolEditor({
 }
 
 interface SymbolsListProps {
-  readonly archiveCandidateId: string | null;
-  readonly archivingId: string | null;
-  readonly onArchive: (symbolId: string) => void;
-  readonly onArchiveCancel: () => void;
-  readonly onArchiveConfirm: (symbol: SymbolResponse) => void;
+  readonly deleteCandidateId: string | null;
+  readonly deletingId: string | null;
+  readonly onDelete: (symbolId: string) => void;
+  readonly onDeleteCancel: () => void;
+  readonly onDeleteConfirm: (symbol: SymbolResponse) => void;
   readonly onEdit: (symbol: SymbolResponse) => void;
-  readonly onImageEdit: (symbol: SymbolResponse) => void;
   readonly symbolImageAssetUrl: (symbol: SymbolResponse) => string;
   readonly symbols: readonly SymbolResponse[];
 }
 
 function SymbolsList({
-  archiveCandidateId,
-  archivingId,
-  onArchive,
-  onArchiveCancel,
-  onArchiveConfirm,
+  deleteCandidateId,
+  deletingId,
+  onDelete,
+  onDeleteCancel,
+  onDeleteConfirm,
   onEdit,
-  onImageEdit,
   symbolImageAssetUrl,
   symbols,
 }: SymbolsListProps) {
@@ -744,8 +655,8 @@ function SymbolsList({
       </div>
       <div className="symbolsList">
         {symbols.map((symbol) => {
-          const archivePending = archivingId === symbol.id;
-          const confirmArchive = archiveCandidateId === symbol.id;
+          const deletePending = deletingId === symbol.id;
+          const confirmDelete = deleteCandidateId === symbol.id;
           return (
             <article
               className="symbolRow"
@@ -760,12 +671,12 @@ function SymbolsList({
                       ? 'symbolImageButton symbolTileWildcard'
                       : 'symbolImageButton'
                   }
-                  disabled={symbol.imagePath === null}
-                  onClick={() => onImageEdit(symbol)}
+                  disabled
+                  onClick={() => undefined}
                   title={
                     symbol.imagePath === null
-                      ? 'Brak cropów dostępnych dla tego symbolu'
-                      : 'Wybierz inną grafikę reprezentatywną'
+                      ? 'Wybór zatwierdzonego cropa będzie dostępny po załadowaniu listy.'
+                      : 'Wybór grafiki jest chwilowo niedostępny.'
                   }
                   type="button"
                 >
@@ -816,25 +727,25 @@ function SymbolsList({
                 </div>
               </div>
 
-              {confirmArchive ? (
+              {confirmDelete ? (
                 <div className="archiveConfirmation" role="group">
-                  <p>Archiwizować? Symbol pozostanie w katalogu.</p>
+                  <p>Usunąć symbol? Tej operacji nie można cofnąć.</p>
                   <button
                     className="textButton"
-                    disabled={archivePending}
-                    onClick={onArchiveCancel}
+                    disabled={deletePending}
+                    onClick={onDeleteCancel}
                     type="button"
                   >
                     Anuluj
                   </button>
                   <button
                     className="dangerButton"
-                    data-testid={`symbol-archive-confirm-${symbol.id}`}
-                    disabled={archivePending}
-                    onClick={() => onArchiveConfirm(symbol)}
+                    data-testid={`symbol-delete-confirm-${symbol.id}`}
+                    disabled={deletePending}
+                    onClick={() => onDeleteConfirm(symbol)}
                     type="button"
                   >
-                    {archivePending ? 'Archiwizowanie…' : 'Potwierdź'}
+                    {deletePending ? 'Usuwanie…' : 'Usuń'}
                   </button>
                 </div>
               ) : (
@@ -847,16 +758,14 @@ function SymbolsList({
                   >
                     Edytuj
                   </button>
-                  {symbol.status !== 'archived' ? (
-                    <button
-                      className="textButton"
-                      data-testid={`symbol-archive-${symbol.id}`}
-                      onClick={() => onArchive(symbol.id)}
-                      type="button"
-                    >
-                      Archiwizuj
-                    </button>
-                  ) : null}
+                  <button
+                    className="textButton"
+                    data-testid={`symbol-delete-${symbol.id}`}
+                    onClick={() => onDelete(symbol.id)}
+                    type="button"
+                  >
+                    Usuń
+                  </button>
                 </div>
               )}
             </article>

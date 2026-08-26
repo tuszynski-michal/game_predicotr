@@ -58,13 +58,15 @@ def test_catalog_openapi_exposes_stable_operations_and_error_schema() -> None:
         (
             "/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
             "delete",
-        ): "archiveSymbol",
+        ): "deleteSymbol",
     }
 
     for (path, method), operation_id in expected_operations.items():
         operation = schema["paths"][path][method]
         assert operation["operationId"] == operation_id
         assert operation["tags"] == ["catalog"]
+
+    assert all("symbol-bootstrap" not in path for path in schema["paths"])
 
     error_schema = schema["components"]["schemas"]["ErrorResponse"]
     assert error_schema["additionalProperties"] is False

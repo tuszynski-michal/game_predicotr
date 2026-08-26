@@ -11,7 +11,7 @@ import {
   archivePayline as archiveGeneratedPayline,
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
-  archiveSymbol as archiveGeneratedSymbol,
+  deleteSymbol as deleteGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
   closeReviewerWorkAssignment as closeGeneratedReviewerWorkAssignment,
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
@@ -80,7 +80,6 @@ import {
   getPendingBoardCellGeometrySource as getGeneratedPendingBoardCellGeometrySource,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
-  getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
   getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
@@ -121,7 +120,7 @@ import {
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
-  listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
+  listApprovedSymbolReferenceCandidates as listGeneratedApprovedSymbolReferenceCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
@@ -160,10 +159,8 @@ import {
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
-  selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
-  resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
+  selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
   searchGameBoards as searchGeneratedGameBoards,
-  startSymbolBootstrap as startGeneratedSymbolBootstrap,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
@@ -241,9 +238,7 @@ import type {
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
-  SymbolBootstrapResolveCommand,
-  SymbolBootstrapStartCommand,
-  SymbolImageSelectionCommand,
+  ApprovedSymbolReferenceSelectionCommand,
   SymbolUpdate,
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
@@ -468,17 +463,10 @@ export type {
   RemoteManualSelectionSessionResponse,
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
+  ApprovedSymbolReferenceCandidatePageResponse,
+  ApprovedSymbolReferenceCandidateResponse,
+  ApprovedSymbolReferenceSelectionCommand,
   SymbolCreate,
-  SymbolBootstrapCandidateResponse,
-  SymbolBootstrapDefinitionCommand,
-  SymbolBootstrapDefinitionResponse,
-  SymbolBootstrapResolveCommand,
-  SymbolBootstrapRunResponse,
-  SymbolBootstrapStartCommand,
-  SymbolBootstrapStatus,
-  SymbolImageCandidatePageResponse,
-  SymbolImageCandidateResponse,
-  SymbolImageSelectionCommand,
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
@@ -1114,61 +1102,38 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
-    getLatestSymbolBootstrap: (gameId: string) =>
-      getGeneratedLatestSymbolBootstrap({
-        client,
-        path: { game_id: gameId },
-      }),
-    startSymbolBootstrap: (gameId: string, body: SymbolBootstrapStartCommand) =>
-      startGeneratedSymbolBootstrap({
-        body,
-        client,
-        headers: confirmedTargetHeaders(`symbol-bootstrap:${gameId}`),
-        path: { game_id: gameId },
-      }),
-    resolveSymbolBootstrap: (
-      gameId: string,
-      bootstrapId: string,
-      body: SymbolBootstrapResolveCommand,
-    ) =>
-      resolveGeneratedSymbolBootstrap({
-        body,
-        client,
-        headers: confirmedTargetHeaders(`symbol-bootstrap:${bootstrapId}`),
-        path: { bootstrap_id: bootstrapId, game_id: gameId },
-      }),
-    listSymbolImageCandidates: (
+    listApprovedSymbolReferenceCandidates: (
       gameId: string,
       symbolId: string,
       afterCursor?: string,
     ) =>
-      listGeneratedSymbolImageCandidates({
+      listGeneratedApprovedSymbolReferenceCandidates({
         client,
         path: { game_id: gameId, symbol_id: symbolId },
         query: {
-          limit: 10,
+          limit: 20,
           ...(afterCursor === undefined ? {} : { afterCursor }),
         },
       }),
-    symbolImageCandidateAssetUrl: (
+    approvedSymbolReferenceCandidateAssetUrl: (
       gameId: string,
       symbolId: string,
       observationId: string,
     ) =>
-      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image-candidates/${encodeURIComponent(observationId)}/asset`,
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(observationId)}/asset`,
     symbolImageAssetUrl: (gameId: string, symbolId: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
-    selectSymbolImageCandidate: (
+    selectApprovedSymbolReferenceCandidate: (
       gameId: string,
       symbolId: string,
       observationId: string,
-      body: SymbolImageSelectionCommand,
+      body: ApprovedSymbolReferenceSelectionCommand,
     ) =>
-      selectGeneratedSymbolImageCandidate({
+      selectGeneratedApprovedSymbolReferenceCandidate({
         body,
         client,
         headers: confirmedTargetHeaders(
-          `symbol-image:${gameId}:${symbolId}:${observationId}`,
+          `symbol-reference:${gameId}:${symbolId}:${observationId}`,
         ),
         path: {
           game_id: gameId,
@@ -1993,8 +1958,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId, symbol_id: symbolId },
       }),
-    archiveSymbol: (gameId: string, symbolId: string) =>
-      archiveGeneratedSymbol({
+    deleteSymbol: (gameId: string, symbolId: string) =>
+      deleteGeneratedSymbol({
         client,
         headers: confirmedTargetHeaders(`symbol:${symbolId}`),
         path: { game_id: gameId, symbol_id: symbolId },

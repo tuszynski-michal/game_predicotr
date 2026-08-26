@@ -435,7 +435,6 @@ _GAME_RESET_STATEMENTS = (
     """DELETE FROM paylines WHERE rules_version_id IN
        (SELECT id FROM rules_versions WHERE game_id = :game_id)""",
     "DELETE FROM rules_versions WHERE game_id = :game_id",
-    "DELETE FROM symbol_bootstrap_runs WHERE game_id = :game_id",
     "DELETE FROM symbols WHERE game_id = :game_id",
 )
 

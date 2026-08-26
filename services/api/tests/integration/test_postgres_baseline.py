@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0056_remote_manual_selection_persistence"
+HEAD_REVISION = "0065_remove_symbol_bootstrap"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 EXPECTED_TABLES = {
     "alembic_version",
@@ -96,7 +96,7 @@ EXPECTED_TABLES = {
     "rules_version_symbols",
     "rules_versions",
     "source_images",
-    "symbol_bootstrap_runs",
+    "symbol_reference_images",
     "symbols",
     "symbol_model_iterations",
     "worker_lane_runtime",

@@ -36,7 +36,6 @@ from game_predictor_api.api.remote_manual_selections import (
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
 from game_predictor_api.api.rules import create_rules_router
-from game_predictor_api.api.symbol_bootstrap import create_symbol_bootstrap_router
 from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
 from game_predictor_api.api.symbol_references import create_symbol_references_router
 from game_predictor_api.api.verified_training_cohorts import (
@@ -70,7 +69,6 @@ def create_api_router(
     reviewer_ingress_service_dependency: Callable[..., object],
     reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_reference_service_dependency: Callable[..., object],
-    symbol_bootstrap_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
@@ -119,12 +117,6 @@ def create_api_router(
     router.include_router(
         create_symbol_references_router(
             symbol_reference_service_dependency,
-            settings.artifact_root,
-        )
-    )
-    router.include_router(
-        create_symbol_bootstrap_router(
-            symbol_bootstrap_service_dependency,
             settings.artifact_root,
         )
     )

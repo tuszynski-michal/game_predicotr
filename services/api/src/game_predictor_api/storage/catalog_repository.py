@@ -25,6 +25,8 @@ from game_predictor_api.storage.models import (
     GameModel,
     GameSymbolModelActivationModel,
     ImageReviewItemModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewEventModel,
     JobModel,
     RecognizedBoardModel,
     RulesVersionSymbolModel,
@@ -217,9 +219,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             is not None
         )
 
-    def symbol_usage_summary(
-        self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolUsageSummary | None:
+    def symbol_usage_summary(self, *, game_id: UUID, symbol_id: UUID) -> SymbolUsageSummary | None:
         symbol = self._session.scalar(
             select(SymbolModel).where(
                 SymbolModel.id == symbol_id,
@@ -284,6 +284,20 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
                 .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
                 .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
                 .where(JobModel.game_id == game_id, predicted_symbol == symbol_code),
+            ),
+            symbol_cell_assignments=_count(
+                self._session,
+                select(ImageSymbolReviewCellModel.id).where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.assigned_symbol_id == symbol_id,
+                ),
+            ),
+            symbol_cell_review_events=_count(
+                self._session,
+                select(ImageSymbolReviewEventModel.id).where(
+                    (ImageSymbolReviewEventModel.previous_assigned_symbol_id == symbol_id)
+                    | (ImageSymbolReviewEventModel.assigned_symbol_id == symbol_id)
+                ),
             ),
             # Cohort and model artifacts are immutable game-level data. They
             # might retain the code only in an external content-addressed file,

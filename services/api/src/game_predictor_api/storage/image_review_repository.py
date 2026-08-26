@@ -2132,6 +2132,37 @@ def _item_from_records(
     )
 
 
+def materialize_current_image_review_cells(
+    *,
+    item: ImageReviewItemModel,
+    board: RecognizedBoardModel,
+    source: SourceImageModel,
+    queue_item: ImageReviewQueueItemModel,
+    job: JobModel,
+    observations: Sequence[CellObservationModel],
+    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    prediction_override: Sequence[Mapping[str, object]] | None = None,
+) -> tuple[ImageReviewCell, ...]:
+    """Expose the Reviewer-selected current crop identities to internal writers.
+
+    The operational Reviewer owns the only implementation choosing base
+    observations or the current geometry revision.  Backfills and later
+    write-through projections must call this adapter instead of reconstructing
+    a second, subtly divergent choice of the 15 crops.
+    """
+
+    return _item_from_records(
+        item,
+        board,
+        source,
+        queue_item,
+        job,
+        observations,
+        geometry_revision,
+        prediction_override,
+    ).cells
+
+
 def _event_from_record(
     record: ImageReviewResolutionEventModel,
 ) -> ImageReviewResolutionEvent:
@@ -2221,4 +2252,7 @@ def _geometry_revision_from_record(
     )
 
 
-__all__ = ["SqlAlchemyOperationalImageReviewRepository"]
+__all__ = [
+    "SqlAlchemyOperationalImageReviewRepository",
+    "materialize_current_image_review_cells",
+]

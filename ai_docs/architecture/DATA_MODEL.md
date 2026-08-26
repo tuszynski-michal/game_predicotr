@@ -853,6 +853,33 @@ i opcjonalną akcję przegranej komendy. Unikalne
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
 wcześniejszej decyzji z audytu.
 
+### image_symbol_review_states, image_symbol_review_cells i image_symbol_review_events
+
+TASK-0294 wprowadza trwały, checksum-bound stan pojedynczego cropa, bez
+przechowywania jego bajtów w PostgreSQL. `image_symbol_review_states` jest
+jednym rekordem per gra i ma stan `rebuilding`, `ready` albo `failed`, keysetowy
+kursor `last_review_item_id`, liczniki oraz kontrolowany raport braków numeru,
+cropów lub geometrii. Gra nie staje się `ready`, dopóki każdy aktualnie wybrany
+właściciel z `image_board_search_fast_documents` nie ma dokładnie 15 komórek z
+bieżącą rewizją geometrii i aktualną tożsamością cropa.
+
+`image_symbol_review_cells` ma unikalny klucz `(review_item_id, cell_index)` i
+zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
+`0..14`, `crop_sample_id`, bezpieczną ścieżkę, SHA-256, rewizję geometrii,
+wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
+`NULL` w przypisaniu oznacza techniczne `?`; `approved` wymaga realnego
+symbolu. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
+Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
+plansz mających problem siatki.
+
+`image_symbol_review_events` jest append-only audytem przyszłych akcji komórki.
+Zapisuje oba stany, przypisania, dokładną tożsamość cropa, rewizje, aktora oraz
+opcjonalną operację masową. Początkowy backfill nie tworzy sztucznych eventów:
+jego pochodzenie jest zapisane w rekordzie komórki i raporcie przebudowy.
+Aktualizacja istniejącej geometrii albo decyzji pełnej planszy nie jest jeszcze
+obsługiwana przez tę projekcję — transakcyjny write-through jest zakresem
+następnego etapu TASK-0294.
+
 ### image_sequence_source_override_events
 
 TASK-0124 utrwala wyłącznie jawne odstępstwa od automatycznego rankingu źródeł.

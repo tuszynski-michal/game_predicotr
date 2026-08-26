@@ -38,6 +38,9 @@ from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_mo
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
@@ -48,11 +51,15 @@ from game_predictor_api.storage.image_job_repository import (
 from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemyImageSymbolReviewRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryRevisionModel,
+    ImageBoardSearchFastDocumentModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
@@ -63,6 +70,8 @@ from game_predictor_api.storage.models import (
     ImageReviewResolutionEventModel,
     ImageSequenceAlternativeModel,
     ImageSequenceCanonicalModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewStateModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -232,6 +241,374 @@ def _add_review_projection_source(
         for index in range(15)
     )
     return review.id, board.id
+
+
+def _set_complete_resolution(
+    session: Session,
+    *,
+    review_item_id: UUID,
+    board_id: UUID,
+    sequence_number: int,
+    action: str,
+    resolved_at: datetime,
+) -> None:
+    review = session.get(ImageReviewItemModel, review_item_id)
+    board = session.get(RecognizedBoardModel, board_id)
+    assert review is not None
+    assert board is not None
+    review.status = action
+    review.resolved_value = {
+        "action": action,
+        "sequenceNumber": sequence_number,
+        "symbolCodes": ["test"] * 15,
+    }
+    review.resolved_by = "symbol-cell-backfill-test"
+    review.resolution_revision = 1
+    review.resolved_at = resolved_at
+    board.status = action
+
+
+def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 12, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="symbol-cell-backfill",
+                name="Symbol cell backfill",
+                status=GameStatus.ACTIVE,
+            )
+            symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        base_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="base.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        corrected_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="2" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="corrected.jpg",
+            order_index=1,
+            registered_at=now,
+        )
+        pending_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="7" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="unknown.jpg",
+            order_index=2,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            base_review_id, base_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=base_execution.file_execution_key,
+                source_checksum="1" * 64,
+                source_name="base.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            corrected_review_id, corrected_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=corrected_execution.file_execution_key,
+                source_checksum="2" * 64,
+                source_name="corrected.jpg",
+                position_index=0,
+                sequence_number=2,
+                status="pending",
+                created_at=now,
+            )
+            pending_review_id, _pending_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=pending_execution.file_execution_key,
+                source_checksum="7" * 64,
+                source_name="unknown.jpg",
+                position_index=0,
+                sequence_number=3,
+                status="pending",
+                created_at=now,
+            )
+            for observation in session.scalars(
+                select(CellObservationModel)
+                .where(CellObservationModel.recognized_board_id == _pending_board_id)
+                .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
+            ):
+                observation.prediction = {
+                    "symbolCode": "?",
+                    "confidence": 1.0,
+                    "alternatives": [{"symbolCode": "?", "confidence": 1.0}],
+                }
+            _set_complete_resolution(
+                session,
+                review_item_id=base_review_id,
+                board_id=base_board_id,
+                sequence_number=1,
+                action="accepted",
+                resolved_at=now,
+            )
+            _set_complete_resolution(
+                session,
+                review_item_id=corrected_review_id,
+                board_id=corrected_board_id,
+                sequence_number=2,
+                action="corrected",
+                resolved_at=now,
+            )
+            corrected_board = session.get(RecognizedBoardModel, corrected_board_id)
+            assert corrected_board is not None
+            corrected_board.geometry_revision = 1
+            session.add(
+                ImageBoardGeometryRevisionModel(
+                    review_item_id=corrected_review_id,
+                    recognized_board_id=corrected_board_id,
+                    revision=1,
+                    idempotency_key=uuid4(),
+                    command_sha256="3" * 64,
+                    corners=[
+                        {"x": 0, "y": 0},
+                        {"x": 100, "y": 0},
+                        {"x": 100, "y": 100},
+                        {"x": 0, "y": 100},
+                    ],
+                    geometry={"source": "manual"},
+                    board_relative_path="boards/corrected.png",
+                    board_checksum_sha256="4" * 64,
+                    cropper_version="corrected-cropper-v1",
+                    crop_artifacts=[
+                        {
+                            "rowIndex": index // 5,
+                            "columnIndex": index % 5,
+                            "cropRelativePath": f"corrected/cell-{index}.png",
+                            "cropChecksumSha256": f"{1000 + index:064x}",
+                        }
+                        for index in range(15)
+                    ],
+                    corrected_by="integration-owner",
+                    created_at=now,
+                )
+            )
+            for sequence_number, review_item_id, board_id, status, geometry_revision in (
+                (1, base_review_id, base_board_id, "accepted", 0),
+                (2, corrected_review_id, corrected_board_id, "corrected", 1),
+            ):
+                board = session.get(RecognizedBoardModel, board_id)
+                assert board is not None
+                source = session.get(SourceImageModel, board.source_image_id)
+                assert source is not None
+                session.add(
+                    ImageSequenceCanonicalModel(
+                        game_id=game.id,
+                        sequence_number=sequence_number,
+                        review_item_id=review_item_id,
+                        recognized_board_id=board_id,
+                        import_job_id=job.id,
+                        source_image_id=source.id,
+                        source_checksum_sha256=source.checksum_sha256,
+                        board_checksum_sha256=board.board_checksum_sha256,
+                        status=status,
+                        resolution_revision=1,
+                        geometry_revision=geometry_revision,
+                        created_at=now,
+                    )
+                )
+            job_record = session.get(JobModel, job.id)
+            assert job_record is not None
+            job_record.status = JobStatus.WAITING_FOR_REVIEW
+            projection_result = SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(
+                game.id
+            )
+            assert projection_result.candidate_count == 3
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageBoardSearchFastDocumentModel)
+                    .where(ImageBoardSearchFastDocumentModel.game_id == game.id)
+                )
+                == 3
+            )
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyImageSymbolReviewRepository(session)
+            assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
+            first_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert first_step.processed_review_item_count == 1
+            assert first_step.has_more is True
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyImageSymbolReviewRepository(session)
+            assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
+            second_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert second_step.processed_review_item_count == 1
+            third_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert third_step.processed_review_item_count == 1
+            final_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert final_step.has_more is False
+            assert final_step.report.status == "ready"
+            assert final_step.report.cell_count == 45
+            session.commit()
+
+        with Session(engine) as session:
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            assert state.status == "ready"
+            assert state.processed_review_item_count == 3
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewCellModel)
+                    .where(ImageSymbolReviewCellModel.game_id == game.id)
+                )
+                == 45
+            )
+            base_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == base_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            corrected_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == corrected_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            pending_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == pending_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert len(base_cells) == len(corrected_cells) == len(pending_cells) == 15
+            assert all(cell.review_state == "approved" for cell in base_cells + corrected_cells)
+            assert all(
+                cell.assigned_symbol_id == symbol.id for cell in base_cells + corrected_cells
+            )
+            assert [cell.geometry_revision for cell in corrected_cells] == [1] * 15
+            assert [cell.cropper_version for cell in corrected_cells] == [
+                "corrected-cropper-v1"
+            ] * 15
+            assert [cell.crop_relative_path for cell in corrected_cells] == [
+                f"corrected/cell-{index}.png" for index in range(15)
+            ]
+            assert all(cell.review_state == "pending" for cell in pending_cells)
+            assert all(cell.assigned_symbol_id is None for cell in pending_cells)
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageBoardSearchFastDocumentModel)
+                    .where(ImageBoardSearchFastDocumentModel.game_id == game.id)
+                )
+                == 3
+            )
+    finally:
+        engine.dispose()
+
+
+def test_symbol_cell_backfill_fails_closed_when_an_active_board_has_no_sequence(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 13, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="symbol-cell-no-sequence",
+                name="Symbol cell no sequence",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="5" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="missing-sequence.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            source = SourceImageModel(
+                import_job_id=job.id,
+                file_execution_key=execution.file_execution_key,
+                relative_path="missing-sequence.jpg",
+                checksum_sha256="5" * 64,
+                width=1920,
+                height=1080,
+                status="waiting_for_review",
+                created_at=now,
+            )
+            session.add(source)
+            session.flush()
+            board = RecognizedBoardModel(
+                source_image_id=source.id,
+                position_index=0,
+                sequence_number_raw="?",
+                sequence_number=None,
+                sequence_confidence=0.0,
+                board_geometry={"source": "integration"},
+                board_relative_path="boards/missing-sequence.png",
+                board_checksum_sha256="6" * 64,
+                cells_prediction={"cells": []},
+                board_confidence=1.0,
+                pipeline_fingerprint=PIPELINE,
+                status="pending_review",
+                created_at=now,
+            )
+            session.add(board)
+            session.flush()
+            review = ImageReviewItemModel(
+                recognized_board_id=board.id,
+                status="pending",
+                snapshot={"sequenceNumber": None},
+                resolution_revision=0,
+                created_at=now,
+            )
+            session.add(review)
+            session.flush()
+
+            report = SqlAlchemyImageSymbolReviewRepository(session).start_or_resume_backfill(
+                game.id
+            )
+            assert report.status == "failed"
+            assert report.missing_sequence_count == 1
+            assert report.sample_problem_review_item_ids == (review.id,)
+            assert report.failure_message is not None
+            assert "SYMBOL_CELL_REVIEW_SEQUENCE_MISSING" in report.failure_message
+            session.commit()
+    finally:
+        engine.dispose()
 
 
 def test_manual_deferred_geometry_materializes_one_complete_review_projection(

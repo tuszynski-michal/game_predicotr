@@ -28,6 +28,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - TASK-0294 pozostaje `in_progress`: schemat, backfill, synchronizacja
   istniejącego Reviewera, API, operacje masowe i workspace Admina nie są jeszcze
   zaimplementowane. Nie ma jeszcze widocznej zmiany produktu ani danych w bazie.
+- Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
+  i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
+  keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
+  planszy. Ready wymaga dokładnie 15 bieżących cropów na planszę; brak sekwencji,
+  cropa lub rewizji geometrii jest kontrolowanym stanem `failed`, nie cichym
+  pominięciem. Backfill nie tworzy syntetycznych eventów. Nie jest jeszcze
+  podłączony do bieżących mutacji Reviewera ani uruchamiany na lokalnej bazie
+  produktu — to musi nastąpić po checkpointcie TASK 3.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

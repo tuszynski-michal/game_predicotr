@@ -99,3 +99,22 @@ skalowy z izolowaną PostgreSQL.
   moduł jest czysty przy `--follow-imports=skip`.
 - Nie dodano migracji, modelu ORM, endpointów, jobów ani UI — to pozostaje
   zakresem TASK 2+.
+
+### TASK 2 — ukończony w `v0.8.20`
+
+- Migracja `0066_image_symbol_review_cells` dodaje stan przebudowy per gra,
+  trwałe komórki review z constraintami i indeksami oraz append-only historię
+  zdarzeń. Cropy pozostają wyłącznie artefaktami filesystemu.
+- Dodano wznawialny, keysetowy backfill oraz skrypt
+  `scripts/rebuild_symbol_cell_reviews.py`. Backfill czyta wyłącznie bieżącego
+  właściciela logicznej planszy, korzysta ze wspólnego mappera cropów
+  Reviewera, rozróżnia geometrię bazową od poprawionej i fail-closed raportuje
+  brak `sequence_number`, niepełne cropy oraz drift rewizji.
+- Backfill nie generuje sztucznych eventów. Zabezpieczenie usuwania symbolu
+  uwzględnia już przypisania komórek i historyczne eventy.
+- Weryfikacja obejmuje migrację offline upgrade/downgrade, testy katalogu oraz
+  izolowany PostgreSQL: accepted/corrected tworzą po 15 `approved`, poprawiona
+  geometria wybiera aktualne `crop_artifacts`, restart wznawia po zapisanym
+  kursorze, a
+  aktywna plansza bez sekwencji kończy stanem kontrolowanego błędu.
+- Brak HTTP, jobów, mutacji komórek i UI pozostaje zakresem TASK 3+.

@@ -1702,6 +1702,230 @@ class ImageReviewResolutionEventModel(Base):
     )
 
 
+class ImageSymbolReviewStateModel(Base):
+    """Readiness and resumable progress of a game's symbol-cell backfill."""
+
+    __tablename__ = "image_symbol_review_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('rebuilding', 'ready', 'failed')",
+            name="ck_image_symbol_review_states_status",
+        ),
+        CheckConstraint(
+            "processed_review_item_count >= 0 AND cell_count >= 0 "
+            "AND missing_sequence_count >= 0 AND invalid_crop_count >= 0 "
+            "AND invalid_geometry_count >= 0",
+            name="ck_image_symbol_review_states_counts",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    processed_review_item_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    cell_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    missing_sequence_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    invalid_crop_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    invalid_geometry_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    last_review_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSymbolReviewCellModel(Base):
+    """Current human-review state for one checksum-bound symbol crop."""
+
+    __tablename__ = "image_symbol_review_cells"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
+            "AND row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4 "
+            "AND cell_index = row_index * 5 + column_index",
+            name="ck_image_symbol_review_cells_position",
+        ),
+        CheckConstraint(
+            "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_cells_checksums",
+        ),
+        CheckConstraint(
+            r"length(btrim(crop_relative_path)) > 0 "
+            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_symbol_review_cells_relative_path",
+        ),
+        CheckConstraint(
+            "geometry_revision >= 0 AND revision >= 0",
+            name="ck_image_symbol_review_cells_revisions",
+        ),
+        CheckConstraint(
+            "review_state IN ('pending', 'approved')",
+            name="ck_image_symbol_review_cells_state",
+        ),
+        CheckConstraint(
+            "assignment_source IN ('model', 'human', 'board_decision', 'backfill')",
+            name="ck_image_symbol_review_cells_source",
+        ),
+        CheckConstraint(
+            "NOT has_grid_issue OR review_state = 'pending'",
+            name="ck_image_symbol_review_cells_grid_issue_state",
+        ),
+        CheckConstraint(
+            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL",
+            name="ck_image_symbol_review_cells_approved_symbol",
+        ),
+        UniqueConstraint(
+            "review_item_id", "cell_index", name="uq_image_symbol_review_cells_item_cell"
+        ),
+        Index(
+            "ix_image_symbol_review_cells_game_symbol_sequence",
+            "game_id",
+            "assigned_symbol_id",
+            "sequence_number",
+            "cell_index",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_cells_game_symbol_state_sequence",
+            "game_id",
+            "assigned_symbol_id",
+            "review_state",
+            "sequence_number",
+            "cell_index",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_cells_grid_issue",
+            "review_item_id",
+            postgresql_where=text("has_grid_issue"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    prediction_symbol_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prediction_revision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_symbol_prediction_revisions.id", ondelete="RESTRICT"), nullable=True
+    )
+    assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    has_grid_issue: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    assignment_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    last_reviewed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    last_reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSymbolReviewEventModel(Base):
+    """Append-only audit trail for later symbol-cell mutations."""
+
+    __tablename__ = "image_symbol_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_events_checksums",
+        ),
+        CheckConstraint(
+            "geometry_revision >= 0 AND cell_revision >= 0",
+            name="ck_image_symbol_review_events_revisions",
+        ),
+        CheckConstraint(
+            "action IN ('approve', 'reassign', 'mark_grid_issue', "
+            "'board_synchronized', 'geometry_invalidated')",
+            name="ck_image_symbol_review_events_action",
+        ),
+        CheckConstraint(
+            "previous_review_state IN ('pending', 'approved') "
+            "AND review_state IN ('pending', 'approved')",
+            name="ck_image_symbol_review_events_states",
+        ),
+        Index("ix_image_symbol_review_events_cell_created", "cell_review_id", "created_at"),
+        Index("ix_image_symbol_review_events_review_item_created", "review_item_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    previous_assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    previous_review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    operation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ImageSequenceSourceOverrideEventModel(Base):
     __tablename__ = "image_sequence_source_override_events"
     __table_args__ = (

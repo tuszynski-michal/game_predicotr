@@ -87,6 +87,8 @@ class SymbolUsageSummary:
     pending_board_predictions: int = 0
     resolved_board_decisions: int = 0
     observation_predictions: int = 0
+    symbol_cell_assignments: int = 0
+    symbol_cell_review_events: int = 0
     training_cohorts: int = 0
     symbol_model_iterations: int = 0
     symbol_model_activations: int = 0
@@ -101,6 +103,8 @@ class SymbolUsageSummary:
             "pendingBoardPredictions": self.pending_board_predictions,
             "resolvedBoardDecisions": self.resolved_board_decisions,
             "observationPredictions": self.observation_predictions,
+            "symbolCellAssignments": self.symbol_cell_assignments,
+            "symbolCellReviewEvents": self.symbol_cell_review_events,
             "trainingCohorts": self.training_cohorts,
             "symbolModelIterations": self.symbol_model_iterations,
             "symbolModelActivations": self.symbol_model_activations,

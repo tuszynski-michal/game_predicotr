@@ -144,9 +144,7 @@ class MemoryCatalogRepository(CatalogRepository):
         self.symbols[symbol.id] = symbol
         return symbol
 
-    def symbol_usage_summary(
-        self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolUsageSummary | None:
+    def symbol_usage_summary(self, *, game_id: UUID, symbol_id: UUID) -> SymbolUsageSummary | None:
         symbol = self.get_symbol(game_id, symbol_id)
         if symbol is None:
             return None
@@ -237,8 +235,7 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         assert blocked.json()["details"]["rules"] == 1
         repository.rules_symbol_ids.clear()
         assert (
-            client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code
-            == 204
+            client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code == 204
         )
         assert client.delete(f"/api/v1/admin/games/{game_id}").status_code == 204
 
@@ -318,6 +315,8 @@ def test_delete_reports_each_durable_usage_blocker() -> None:
         "pending_board_predictions",
         "resolved_board_decisions",
         "observation_predictions",
+        "symbol_cell_assignments",
+        "symbol_cell_review_events",
         "training_cohorts",
         "symbol_model_iterations",
         "symbol_model_activations",
@@ -334,12 +333,8 @@ def test_delete_reports_each_durable_usage_blocker() -> None:
                 json={"name": f"Symbol {index}", "isWildcard": False},
             ).json()
             symbol_id = UUID(symbol["id"])
-            repository.usage_overrides[symbol_id] = replace(
-                SymbolUsageSummary(), **{field_name: 1}
-            )
-            blocked = client.delete(
-                f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}"
-            )
+            repository.usage_overrides[symbol_id] = replace(SymbolUsageSummary(), **{field_name: 1})
+            blocked = client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}")
 
             assert blocked.status_code == 409
             assert blocked.json()["code"] == "SYMBOL_DELETE_BLOCKED"

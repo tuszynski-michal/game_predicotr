@@ -3,6 +3,51 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('generated client pages and selects checksum-bound approved symbol reference candidates', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const symbolId = '22222222-2222-4222-8222-222222222222';
+  const observationId = '33333333-3333-4333-8333-333333333333';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [], nextCursor: null });
+    },
+  });
+
+  await client.listApprovedSymbolReferenceCandidates(
+    gameId,
+    symbolId,
+    'cursor-1',
+  );
+  await client.selectApprovedSymbolReferenceCandidate(
+    gameId,
+    symbolId,
+    observationId,
+    { expectedChecksumSha256: checksum, selectedBy: 'admin-local' },
+  );
+
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates`,
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('afterCursor'),
+    'cursor-1',
+  );
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${observationId}/selection`,
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+  );
+});
+
 test('generated client reads model quality and freezes the confirmed manifest', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

@@ -21,6 +21,7 @@ import {
   saveSymbol,
   type SymbolsClient,
 } from '@/features/symbols/symbol-catalog-actions';
+import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
 import {
   EMPTY_SYMBOL_DRAFT,
   selectGameId,
@@ -74,6 +75,9 @@ export function SymbolCatalog({
     null,
   );
   const [deleteError, setDeleteError] = useState('');
+  const [imagePickerSymbolId, setImagePickerSymbolId] = useState<string | null>(
+    null,
+  );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
@@ -82,6 +86,8 @@ export function SymbolCatalog({
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
   const deleteCandidate =
     symbols.find((symbol) => symbol.id === deleteCandidateId) ?? null;
+  const imagePickerSymbol =
+    symbols.find((symbol) => symbol.id === imagePickerSymbolId) ?? null;
 
   const loadGames = useCallback(async () => {
     const requestId = ++gamesRequestId.current;
@@ -192,6 +198,7 @@ export function SymbolCatalog({
     setFeedback(null);
     setDeleteCandidateId(null);
     setDeleteError('');
+    setImagePickerSymbolId(null);
   }
 
   function openCreateEditor() {
@@ -290,10 +297,8 @@ export function SymbolCatalog({
   }
 
   function requestImageSelection(symbol: SymbolResponse) {
-    setFeedback({
-      kind: 'success',
-      text: `Wybór zatwierdzonego cropa dla „${symbol.name}” zostanie otwarty w kolejnym kroku katalogu.`,
-    });
+    setFeedback(null);
+    setImagePickerSymbolId(symbol.id);
   }
 
   return (
@@ -432,6 +437,23 @@ export function SymbolCatalog({
               }}
               onConfirm={() => void confirmDelete(deleteCandidate)}
               symbol={deleteCandidate}
+            />
+          ) : null}
+
+          {selectedGameId && imagePickerSymbol ? (
+            <SymbolImagePickerModal
+              api={api}
+              gameId={selectedGameId}
+              onClose={() => setImagePickerSymbolId(null)}
+              onSelected={(savedSymbol) => {
+                setSymbols((current) => upsertSymbol(current, savedSymbol));
+                setImagePickerSymbolId(null);
+                setFeedback({
+                  kind: 'success',
+                  text: `Zapisano zatwierdzoną grafikę dla „${savedSymbol.name}”.`,
+                });
+              }}
+              symbol={imagePickerSymbol}
             />
           ) : null}
         </>

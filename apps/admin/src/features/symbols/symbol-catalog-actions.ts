@@ -13,7 +13,10 @@ export type SymbolsClient = Pick<
   | 'deleteSymbol'
   | 'createSymbol'
   | 'listGames'
+  | 'listApprovedSymbolReferenceCandidates'
   | 'listSymbols'
+  | 'approvedSymbolReferenceCandidateAssetUrl'
+  | 'selectApprovedSymbolReferenceCandidate'
   | 'symbolImageAssetUrl'
   | 'updateSymbol'
 >;

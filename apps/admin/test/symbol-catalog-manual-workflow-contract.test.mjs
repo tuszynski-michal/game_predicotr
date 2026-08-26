@@ -31,3 +31,9 @@ test('keeps every image tile actionable, including its question-mark placeholder
   assert.match(source, /onClick=\{\(\) => onImageSelection\(symbol\)\}/);
   assert.doesNotMatch(source, /disabled=\{symbol\.imagePath === null\}/);
 });
+
+test('opens the approved-crop picker and refreshes the catalog with its saved reference', () => {
+  assert.match(source, /<SymbolImagePickerModal/);
+  assert.match(source, /setImagePickerSymbolId\(symbol\.id\)/);
+  assert.match(source, /upsertSymbol\(current, savedSymbol\)/);
+});

@@ -866,19 +866,24 @@ sekwencji. Automatyczny wybór pozostaje odtwarzalny i jest porządkowany po
 confidence planszy, confidence numeru, rozdzielczości oraz UUID; ręczna decyzja
 nie nadpisuje metryk ani provenance źródła.
 
-### symbol_bootstrap_runs
+### symbol_reference_images
 
-Run TASK-0125 zamraża `expected_symbol_count`, liczbę wykrytych grup,
-`source_state_sha256`, status `ready | conflict | applied`, kandydatów i
-opcjonalne ręczne rozstrzygnięcie. Kandydat zachowuje kod predykcji, liczność,
-średnie confidence oraz ścieżkę i checksumę rzeczywistego reprezentatywnego
-cropu. Unikalne `(game_id, source_state_sha256, expected_symbol_count)` chroni
-idempotentny retry.
+Każdy symbol ma co najwyżej jedną aktywną, ręcznie wybraną referencję. Rekord
+wiąże `symbol_id` z `review_item_id`, `recognized_board_id`, `sequence_number`,
+`cell_index`, rewizją decyzji, rewizją geometrii, trwałą względną ścieżką,
+SHA-256, aktorem oraz czasem wyboru. Checksum i źródłowy crop są weryfikowane
+przed zapisem, a plik referencji jest content-addressed poza tabelą domenową.
 
-Status `applied` zawsze ma resolution i `applied_at`; pozostałe stany nie mogą
-ich mieć. Katalog jest tworzony atomowo z runem i kolejnymi `mobile_code`.
-Rozstrzygnięcie zachowuje wszystkie candidate ID, również gdy kilka grup jest
-scalanych albo jedna grupa jest źródłem ręcznego splitu.
+Referencja może pochodzić wyłącznie z aktualnego właściciela
+`image_sequence_canonical`, decyzji `accepted/corrected` i finalnego kodu
+komórki zatwierdzonego przez człowieka. Cropy pending, rejected, superseded,
+alternatywne źródła i predykcje modelu nie tworzą rekordów. Poprzednia
+referencja może zostać atomowo zastąpiona, ale obraz binarny pozostaje w
+zarządzanym storage do osobnego cleanupu.
+
+Historyczna migracja `0023_symbol_bootstrap` pozostaje audytowalna, lecz tabela
+`symbol_bootstrap_runs` została usunięta przez migrację `0065`; bieżący model
+nie posiada automatycznej ścieżki tworzenia katalogu ani referencji.
 
 ### image_board_geometry_revisions
 

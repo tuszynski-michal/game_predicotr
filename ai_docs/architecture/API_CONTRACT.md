@@ -1562,41 +1562,38 @@ override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru
 automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
 nie usuwa automatycznego rankingu ani historycznej decyzji.
 
-TASK-0125 dodaje game-scoped bootstrap symboli:
+Katalog symboli jest wyłącznie ręczny. `POST /games/{gameId}/symbols` przyjmuje
+jedynie `name` i `isWildcard`; backend nadaje niezmienny kod, następny numer
+mobilny oraz kolejność. `PATCH` może zmienić nazwę i Jokera, ale nie identyfikację
+symbolu. `DELETE /symbols/{symbolId}` jest fizycznym usunięciem tylko po
+kontroli zależności; `409 SYMBOL_DELETE_BLOCKED` zawiera liczniki reguł, plansz,
+predykcji, kohort, iteracji i aktywacji modelu. Automatyczny bootstrap katalogu
+nie ma endpointu ani kontraktu.
 
-```text
-GET  /api/v1/admin/games/{gameId}/symbol-bootstrap
-POST /api/v1/admin/games/{gameId}/symbol-bootstrap
-POST /api/v1/admin/games/{gameId}/symbol-bootstrap/{bootstrapId}/resolution
-```
-
-Start przyjmuje `expectedSymbolCount` i `createdBy`. Odpowiedź zawiera checksum
-stanu cropów, wykrytą liczbę grup, provenance kandydatów i status. Zgodna liczba
-grup daje `applied`; różnica daje `conflict` bez utworzenia symboli. Resolution
-musi zdefiniować dokładnie oczekiwaną liczbę symboli, użyć wszystkich
-kandydatów i zachować unikalne stabilne kody oraz `mobileCode`.
-
-TASK-0126 rozszerza katalog o checksum-bound wybór grafiki reprezentatywnej:
+Grafika referencyjna ma checksum-bound wybór z decyzji człowieka:
 
 ```text
 GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image/asset
-GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates
-GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/asset
-POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/selection
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{observationId}/asset
+POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{observationId}/selection
 ```
 
-Lista zwraca maksymalnie 10 rzeczywistych cropów grupy symbolu w kolejności
-confidence malejąco, checksum i UUID obserwacji. Opaque `afterCursor` jest
-związany z `gameId` i `symbolId`; nie można użyć go w innym katalogu. Klient
-nie otrzymuje ścieżki pliku kandydata. Endpoint assetu ponownie ustala
-obserwację w dokładnym zakresie symbolu, ogranicza plik do
-`<artifact-root>/data`, dopuszcza wyłącznie PNG/JPEG i porównuje SHA-256.
+Lista ma keyset `afterCursor` związany z `gameId` oraz `symbolId` i limit do 20.
+Zwraca tylko cropy kanonicznych plansz `accepted/corrected`, których końcowy
+`resolved_value.symbolCodes[cellIndex]` zgadza się z kodem symbolu. Kolejność
+nie używa confidence: ręcznie poprawiona geometria, `sequenceNumber`,
+`cellIndex`, UUID obserwacji. Wartość `geometryRevision > 0` wskazuje crop
+najnowszej zatwierdzonej geometrii. Klient nie otrzymuje ścieżki pliku.
 
-Selection przyjmuje tylko nową `name`; target grafiki wynika z identyfikatora
-obserwacji w URL. Zapis aktualizuje atomowo nazwę i `image_path`, ale nie może
-zmienić `code`, `mobileCode`, kolejności ani provenance bootstrapu. Bieżąca
-grafika kafelka jest odczytywana osobnym endpointem przez jej zachowaną
-obserwację i checksumę, a nie przez ścieżkę podaną przez przeglądarkę.
+Asset i selection ponownie sprawdzają kanonicznego właściciela, decyzję,
+symbol, rewizje i SHA-256. Selection przyjmuje `expectedChecksumSha256` i
+`selectedBy`, kopiuje bajty bez resamplingu do zarządzanego katalogu referencji
+i zwraca zaktualizowany `SymbolResponse`. Konflikt stanu daje
+`SYMBOL_REFERENCE_CANDIDATE_STALE`; brak lub podmiana pliku daje kontrolowany
+błąd checksumy/assetu. `GET /image/asset` serwuje wyłącznie trwałą, zatwierdzoną
+referencję — historyczne `image_path` bez proweniencji jest traktowane jako brak
+grafiki.
 
 TASK-0110 dodał osobną, jawną operację zamrożenia:
 

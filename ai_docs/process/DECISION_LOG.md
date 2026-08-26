@@ -5620,6 +5620,38 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   runtime join i skan całej tabeli na żądanie nie daje akceptowalnej wydajności;
   przechowywanie binarnych cropów w projekcji narusza model danych.
 
+## D-234 — Katalog i grafika symbolu wymagają jawnej decyzji człowieka
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** katalog symboli nowej gry jest definiowany ręcznie przez nazwę
+  i oznaczenie Jokera. API nadaje niezmienny `code`, `mobileCode` i kolejność.
+  Aktywna grafika symbolu nie jest predykcją ani wynikiem bootstrapu: powstaje
+  wyłącznie po świadomym wskazaniu cropa z kanonicznej planszy
+  `accepted/corrected`, którego końcowa etykieta człowieka odpowiada kodowi
+  symbolu. Referencja przechowuje pełną proweniencję, rewizje i SHA-256, a jej
+  bajty są kopiowane do content-addressed storage.
+- **Context:** istniejące grafiki symboli pochodziły z niekanonicznych
+  predykcji i mogły wskazywać przestarzały crop po korekcie geometrii. To
+  wprowadzało błędne obrazki do katalogu i palety wyszukiwania mimo wielu
+  zatwierdzonych plansz.
+- **Safety:** pending, rejected, superseded, alternatywne źródła i confidence
+  klasyfikatora nie mogą stworzyć katalogu ani grafiki referencyjnej. Symbol
+  bez referencji pokazuje placeholder. Używany symbol nie jest fizycznie
+  usuwalny; odpowiedź blokady zawiera liczniki reguł, plansz, predykcji,
+  kohort, iteracji oraz aktywacji. Usunięcie nie wykonuje kaskady tych danych.
+- **Consequences:** stary bootstrap, jego UI, API, klient i tabela zostały
+  usunięte. Historyczne `image_path` bez wpisu proweniencji nie jest aktywną
+  grafiką. Operator najpierw zatwierdza plansze, a potem ręcznie wybiera
+  reprezentatywny crop w stronicowanym pickerze.
+- **Supersedes:** dla bieżącego produktu zastępuje zachowanie TASK-0125 i
+  TASK-0126: automatyczną budowę katalogu oraz ranking cropów po confidence.
+  Ich migracje pozostają historycznie audytowalne.
+- **Alternatives:** automatyczne przypisanie najwyższej pewności, pozostawienie
+  starej grafiki bez proweniencji i archiwizowanie używanego symbolu odrzucono,
+  ponieważ nie gwarantują zgodności z decyzją człowieka ani bezpiecznej
+  integralności katalogu.
+
 ## Szablon nowej decyzji
 
 ```text

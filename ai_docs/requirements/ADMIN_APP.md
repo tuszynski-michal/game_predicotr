@@ -304,6 +304,31 @@ innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
 
+### Katalog symboli i grafiki referencyjne
+
+Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
+wymaga wyłącznie nazwy i oznaczenia Jokera; Admin API pod blokadą gry nadaje
+stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
+zmienić żadnego z tych identyfikatorów.
+
+Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
+otwiera picker cropów, lecz picker pokazuje wyłącznie rzeczywiste cropy komórek
+z kanonicznych plansz `accepted/corrected` tej samej gry, zgodne z końcową
+decyzją człowieka i zatwierdzoną rewizją geometrii. Nie pokazuje pełnej planszy,
+confidence modelu, predykcji ani oczekujących, odrzuconych lub superseded
+źródeł. Propozycje są stronicowane po maksymalnie 20 i uporządkowane: ręcznie
+poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
+
+Wybór cropa jest checksum-bound i zapisuje jego niezmienione bajty jako trwałą,
+content-addressed referencję. Stary `image_path` bez takiej proweniencji nie
+jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
+„Najpierw zatwierdź planszę zawierającą ten symbol”.
+
+Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
+planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
+wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje
+automatycznego bootstrapu katalogu ani archiwizowania symbolu.
+
 ### Minimalistyczne stanowisko zatwierdzania
 
 Operacyjne review dużego importu używa `image_review_items`, a nie ograniczonego

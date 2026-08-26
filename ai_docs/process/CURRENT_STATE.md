@@ -82,6 +82,31 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   ich szerokość jest ograniczona do 56 px, a na wąskim ekranie siatka nadal
   wypełnia dostępne miejsce bez zmiany kolejności pozycji.
 
+### Ręczne grafiki referencyjne symboli — TASK-0293
+
+- Od `v0.8.10` domena referencji symboli jest niezależna od historycznego
+  bootstrapu i zawiera checksum-bound kursor, kandydatów, weryfikację rewizji
+  oraz wybór trwałej referencji.
+- Od `v0.8.11` kandydaci pochodzą wyłącznie z kanonicznych decyzji
+  `accepted/corrected`, według końcowego symbolu zatwierdzonego przez człowieka
+  oraz cropa aktualnej geometrii; żadna predykcja ani confidence nie bierze
+  udziału w przynależności lub kolejności.
+- Od `v0.8.12` tabela `symbol_reference_images` i content-addressed storage
+  utrwalają kopię wybranego cropa. `SymbolResponse.imagePath` jest pusty bez
+  takiej proweniencji, więc stary crop nie jest pokazywany jako aktywna grafika.
+- Od `v0.8.13` katalog jest ręczny: utworzenie wymaga tylko nazwy i Jokera,
+  a API nadaje stabilny kod, kolejne `mobileCode` i `displayOrder`. Fizyczne
+  usunięcie jest blokowane, gdy symbol ma zależności.
+- Od `v0.8.14` automatyczny bootstrap symboli, jego endpointy, UI, migracyjna
+  tabela oraz klient nie są już częścią uruchamialnego systemu.
+- Od `v0.8.15` panel Admina udostępnia ręczny formularz oraz placeholder `?`,
+  osobne akcje edycji/usuwania i czytelne liczniki blokad.
+- Od `v0.8.16` kliknięcie kafla otwiera stronicowany picker maksymalnie 20
+  zatwierdzonych cropów; wybór zapisuje checksum-bound referencję, a błąd
+  pojedynczego assetu nie ukrywa pozostałych propozycji. TASK-0293 jest
+  ukończony; odbiór rzeczywistej gry wymaga danych z zatwierdzonymi planszami
+  w aktualnie podłączonej lokalnej bazie.
+
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
 - Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`

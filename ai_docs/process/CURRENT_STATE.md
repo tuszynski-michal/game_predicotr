@@ -49,6 +49,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   asset ponownie sprawdza SHA-256 pliku. OpenAPI oraz generowany klient są
   zgodne. Nie istnieją jeszcze mutacje komórek, job masowy ani workspace
   Admina — to pozostaje TASK 5+ i TASK 8+.
+- Od `v0.8.23` istnieje wewnętrzny, atomowy per plansza command path dla
+  `approve`, `reassign` i `mark_grid_issue`. Każda akcja ponownie sprawdza
+  aktualnego właściciela, rewizję oraz checksumę cropa pod blokadą, zapisuje
+  append-only event i agreguje dokładnie 15 bieżących cropów do istniejącej
+  decyzji canonical/staging/kolejki/job statusu. Flaga złej siatki otwiera
+  domkniętą planszę, ale zachowuje zatwierdzenia pozostałych 14 aktualnych
+  cropów; wyłącznie korekta geometrii resetuje komplet 15. Nie ma jeszcze
+  publicznej mutacji, durable joba ani UI — to zakres TASK 6+ i TASK 8+.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

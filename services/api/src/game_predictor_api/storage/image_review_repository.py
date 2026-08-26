@@ -1654,6 +1654,141 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         return updated, _geometry_revision_from_record(record), True
 
+    def reopen_for_symbol_cell_grid_issue(
+        self,
+        *,
+        review_item_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        command_sha256: str,
+        reopened_by: str,
+        reopened_at: datetime,
+    ) -> tuple[ImageReviewItem, bool]:
+        """Reopen a resolved board while preserving current cell-review evidence.
+
+        A bad-grid mark invalidates the parent decision and its canonical/staging
+        projections, but it does *not* create new geometry or overwrite the
+        remaining fourteen checksum-bound cell decisions.  Geometry correction
+        has its own stronger path in :meth:`save_geometry_revision`.
+        """
+
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=None,
+        )
+        locked = self.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            for_update=True,
+        )
+        if locked is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_ITEM_NOT_FOUND",
+                "The operational review item does not exist in this game and job.",
+            )
+        if locked.status == "superseded":
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SUPERSEDED",
+                "A superseded source cannot be reopened by a symbol-cell decision.",
+            )
+        if locked.status not in {"accepted", "corrected"}:
+            return locked, False
+
+        item = self._session.get(ImageReviewItemModel, review_item_id, with_for_update=True)
+        board = self._session.get(
+            RecognizedBoardModel,
+            locked.recognized_board_id,
+            with_for_update=True,
+        )
+        source = (
+            self._session.get(SourceImageModel, board.source_image_id, with_for_update=True)
+            if board is not None
+            else None
+        )
+        if item is None or board is None or source is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The operational review projection is incomplete.",
+            )
+        resolved = cast(Mapping[str, object] | None, item.resolved_value)
+        sequence_number = None if resolved is None else resolved.get("sequenceNumber")
+        if not isinstance(sequence_number, int) or isinstance(sequence_number, bool):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SEQUENCE_MISSING",
+                "A resolved board cannot be reopened without its sequence number.",
+            )
+
+        previous_status = item.status
+        revision = item.resolution_revision + 1
+        self._session.execute(
+            delete(ImageSequenceCanonicalModel).where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == sequence_number,
+                ImageSequenceCanonicalModel.review_item_id == review_item_id,
+            )
+        )
+        self._session.execute(
+            delete(ImageLayoutStagingRowModel).where(
+                ImageLayoutStagingRowModel.import_job_id == import_job_id,
+                ImageLayoutStagingRowModel.recognized_board_id == board.id,
+            )
+        )
+        self._apply_review_outcome(
+            item=item,
+            board=board,
+            status="pending",
+            resolved_value={},
+            resolved_by=reopened_by,
+            resolved_at=reopened_at,
+            revision=revision,
+        )
+        item.resolved_value = cast(Any, null())
+        item.resolved_by = None
+        item.resolved_at = None
+        board.status = "pending_review"
+        source.status = "waiting_for_review"
+        source.processed_at = reopened_at
+        self._append_resolution_event(
+            item=item,
+            revision=revision,
+            idempotency_key=idempotency_key,
+            action="reopened",
+            command_sha256=command_sha256,
+            resolved_value={
+                "action": "reopened",
+                "geometryRevision": board.geometry_revision,
+                "previousStatus": previous_status,
+                "reason": "symbol_cell_grid_issue",
+                "sequenceNumber": sequence_number,
+            },
+            resolved_by=reopened_by,
+            created_at=reopened_at,
+        )
+        self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        projection.sync_sequence_candidates(game_id, sequence_number)
+        # Do not call synchronize_after_board_reopened here.  It is designed
+        # for a whole-board invalidation and would discard the other fourteen
+        # human crop decisions.  The cell mutator updates only its own cell.
+        SymbolCellReviewWriteThroughCoordinator(
+            self._session
+        ).synchronize_after_projection_change(game_id=game_id)
+        updated = self.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        if updated is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The reopened review projection cannot be reloaded.",
+            )
+        return updated, True
+
     def _acquire_review_sequence_locks(
         self,
         *,

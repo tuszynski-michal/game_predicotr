@@ -165,3 +165,22 @@ skalowy z izolowaną PostgreSQL.
   fast-document ownera. OpenAPI i wygenerowany klient zostały odświeżone.
 - Nie dodano mutacji komórki, endpointów operacji masowych, workerów ani UI —
   pozostają wyłącznie zakresami TASK 5, 6 i 8+.
+
+### TASK 5 — ukończony w `v0.8.23`
+
+- Dodano wewnętrzny command path dla pojedynczego, checksum-bound cropa:
+  `approve`, `reassign` oraz `mark_grid_issue`. Adapter blokuje w stałej
+  kolejności sekwencję, planszę i komórkę, ponownie waliduje aktualnego
+  właściciela, rewizję i tożsamość cropa, po czym zapisuje append-only event.
+- Jedna transakcja obejmuje zmianę komórki, agregację kompletu 15 aktualnych
+  cropów, pełną decyzję, canonical, staging, fast-document, kolejkę review i
+  status joba. Komplet zatwierdzeń domyka planszę jako `accepted` lub
+  `corrected`; przypisanie innego symbolu aktualizuje istniejącą decyzję.
+- `mark_grid_issue` na zamkniętej planszy otwiera ją i usuwa canonical/staging,
+  zachowując pozostałe 14 zatwierdzeń niezmienionych cropów. Tylko nowa
+  geometria resetuje wszystkie 15 pozycji.
+- Weryfikacja izolowanym PostgreSQL obejmuje domknięcie ostatniej komórki,
+  korektę symbolu, kontrolowany konflikt checksumy, ponowne otwarcie ze stanem
+  joba/kolejki oraz zachowanie 14 decyzji; istniejący test geometrii nadal
+  potwierdza reset 15 cropów. Nie dodano endpointu mutacji, joba masowego ani
+  UI: to pozostaje wyłącznie w TASK 6 i TASK 8+.

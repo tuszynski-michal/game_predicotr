@@ -884,6 +884,13 @@ sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
 zawsze zastępuje wszystkie
 15 bieżących komórek nowymi cropami `pending` bez flagi siatki; reinferencja
 zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia człowieka.
+Pojedyncza akcja `approve`, `reassign` albo `mark_grid_issue` jest związana z
+dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
+15 aktualnych `approved` bez `?` oraz bez flagi siatki domyka planszę przez
+istniejący canonical flow jako `accepted` lub `corrected`. Oznaczenie złej
+siatki na domkniętej planszy usuwa canonical i staging, otwiera jej kolejkę
+oraz job importu, ale zachowuje pozostałe 14 zatwierdzeń dla niezmienionych
+cropów. Tylko zapis nowej geometrii unieważnia wszystkie 15 pozycji.
 Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.

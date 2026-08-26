@@ -231,6 +231,12 @@ class PendingSymbolReinferenceJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
 
 
+class SymbolCellReviewBulkJobPayload(ApiModel):
+    schema_version: Literal[1]
+    workflow: Literal["image_symbol_review_bulk"]
+    operation_id: UUID
+
+
 class BoardCellRecropJobSnapshotPayload(ApiModel):
     activation_version: str = Field(min_length=1, max_length=150)
     audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -318,6 +324,7 @@ JobPayloadResponse = (
     | SnapshotJobPayload
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
+    | SymbolCellReviewBulkJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -634,6 +641,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SnapshotJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.SYMBOL_TRAINING:
         return SymbolTrainingJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BULK:
+        return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

@@ -904,6 +904,31 @@ nie są widoczne jako aktywne cropy. `catalog_revision` jest częścią odpowied
 i pozwoli późniejszym mutacjom wykrywać drift katalogu; nie jest to wersja
 obrazu ani substytut checksumy cropa.
 
+### image_symbol_review_bulk_operations i image_symbol_review_bulk_targets
+
+Od `v0.8.24` masowa weryfikacja cropów jest trwałą operacją, a nie jednym
+requestem HTTP. `image_symbol_review_bulk_operations` utrwala grę, job typu
+`image_symbol_review_bulk`, akcję `approve` / `reassign` /
+`mark_grid_issue`, opcjonalny docelowy symbol, sposób zaznaczenia, aktora,
+idempotency key, canonical checksumę komendy, stan oraz liczniki
+`applied` / `conflict` / `failed`. Ten sam `game_id + idempotency_key` zwraca
+wyłącznie tę samą komendę; inna komenda z tym kluczem jest konfliktem.
+
+`image_symbol_review_bulk_targets` zamraża pozycje operacji bez binariów:
+klucz komórki, rodzica, planszę, sekwencję i pozycję, oczekiwaną rewizję,
+rewizję geometrii oraz sample id i SHA-256 cropa. Dla wyboru filtrem snapshot
+powstaje przez bazowe `INSERT … SELECT`, bez materializowania wielotysięcznej
+listy w pamięci procesu. Target ma jawny wynik `pending`, `applied`,
+`conflict` albo `failed`; retry joba dotyka wyłącznie `pending`.
+
+Worker general lane pobiera najwyżej 100 plansz na checkpoint. Wszystkie
+targety jednej planszy są ponownie walidowane i zapisywane w pojedynczej
+transakcji wraz z pełną decyzją, canonical, stagingiem, kolejką i projekcją
+wyszukiwania. W szczególności masowe `mark_grid_issue` nie może otworzyć
+planszy po pierwszym cropie i zgubić pozostałych targetów: otwarcie oraz
+agregacja następują dopiero po zmianie całej partii tej planszy. Awaria
+wycofuje wyłącznie bieżącą planszę; wcześniejsze wyniki pozostają audytowalne.
+
 ### image_sequence_source_override_events
 
 TASK-0124 utrwala wyłącznie jawne odstępstwa od automatycznego rankingu źródeł.

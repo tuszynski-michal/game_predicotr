@@ -77,6 +77,7 @@ SYMBOL_REFERENCE_IMAGES_REVISION = "0064_symbol_reference_images"
 REMOVE_SYMBOL_BOOTSTRAP_REVISION = "0065_remove_symbol_bootstrap"
 IMAGE_SYMBOL_REVIEW_CELLS_REVISION = "0066_image_symbol_review_cells"
 SYMBOL_CELL_REVIEW_CATALOG_REVISION = "0067_symbol_cell_review_catalog_revision"
+IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION = "0068_image_symbol_review_bulk_operations"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -603,6 +604,30 @@ def test_symbol_cell_review_catalog_revision_migration_is_reversible() -> None:
 
     assert "add column catalog_revision bigint" in upgrade_output.getvalue().lower()
     assert "drop column catalog_revision" in downgrade_output.getvalue().lower()
+
+
+def test_image_symbol_review_bulk_operations_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{SYMBOL_CELL_REVIEW_CATALOG_REVISION}:{IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION}:{SYMBOL_CELL_REVIEW_CATALOG_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "create table image_symbol_review_bulk_operations" in upgrade_sql
+    assert "create table image_symbol_review_bulk_targets" in upgrade_sql
+    assert "ix_image_symbol_review_bulk_targets_operation_sequence" in upgrade_sql
+    assert "fk_image_symbol_review_events_operation" in upgrade_sql
+    assert "drop table image_symbol_review_bulk_targets" in downgrade_sql
+    assert "drop table image_symbol_review_bulk_operations" in downgrade_sql
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

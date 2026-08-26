@@ -292,6 +292,9 @@ import type {
   GetSymbolCellReviewAssetData,
   GetSymbolCellReviewAssetErrors,
   GetSymbolCellReviewAssetResponses,
+  GetSymbolCellReviewBulkOperationData,
+  GetSymbolCellReviewBulkOperationErrors,
+  GetSymbolCellReviewBulkOperationResponses,
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolImageAssetData,
@@ -465,6 +468,9 @@ import type {
   PreviewRemoteManualSelectionFinalizationData,
   PreviewRemoteManualSelectionFinalizationErrors,
   PreviewRemoteManualSelectionFinalizationResponses,
+  PreviewSymbolCellReviewBulkOperationData,
+  PreviewSymbolCellReviewBulkOperationErrors,
+  PreviewSymbolCellReviewBulkOperationResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -573,6 +579,9 @@ import type {
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartSymbolCellReviewBulkOperationData,
+  StartSymbolCellReviewBulkOperationErrors,
+  StartSymbolCellReviewBulkOperationResponses,
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
@@ -1323,6 +1332,79 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Start an idempotent local symbol-cell review operation
+ */
+export const startSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartSymbolCellReviewBulkOperationData, ThrowOnError>,
+): RequestResult<
+  StartSymbolCellReviewBulkOperationResponses,
+  StartSymbolCellReviewBulkOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSymbolCellReviewBulkOperationResponses,
+    StartSymbolCellReviewBulkOperationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview a frozen local symbol-cell review operation
+ */
+export const previewSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolCellReviewBulkOperationData, ThrowOnError>,
+): RequestResult<
+  PreviewSymbolCellReviewBulkOperationResponses,
+  PreviewSymbolCellReviewBulkOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewSymbolCellReviewBulkOperationResponses,
+    PreviewSymbolCellReviewBulkOperationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get durable local symbol-cell review operation status
+ */
+export const getSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolCellReviewBulkOperationData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewBulkOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewBulkOperationResponses,
+    GetSymbolCellReviewBulkOperationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}',
+    ...options,
   });
 
 /**

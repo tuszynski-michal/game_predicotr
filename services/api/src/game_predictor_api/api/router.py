@@ -71,6 +71,7 @@ def create_api_router(
     reviewer_work_lifecycle_service_dependency: Callable[..., object],
     symbol_reference_service_dependency: Callable[..., object],
     symbol_cell_review_query_service_dependency: Callable[..., object],
+    symbol_cell_review_bulk_operation_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
@@ -125,6 +126,7 @@ def create_api_router(
     router.include_router(
         create_image_symbol_reviews_router(
             symbol_cell_review_query_service_dependency,
+            symbol_cell_review_bulk_operation_service_dependency,
             settings.artifact_root,
         )
     )

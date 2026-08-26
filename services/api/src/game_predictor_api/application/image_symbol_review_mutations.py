@@ -31,6 +31,7 @@ class SymbolCellReviewMutationCommand:
     expected_crop_checksum_sha256: str
     target_symbol_id: UUID | None
     actor: str
+    operation_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.expected_revision < 0 or self.expected_geometry_revision < 0:
@@ -91,6 +92,11 @@ class SymbolCellReviewMutationRepository(Protocol):
         self,
         command: SymbolCellReviewMutationCommand,
     ) -> SymbolCellReviewMutationResult: ...
+
+    def apply_board_mutations(
+        self,
+        commands: tuple[SymbolCellReviewMutationCommand, ...],
+    ) -> tuple[SymbolCellReviewMutationResult, ...]: ...
 
 
 class SymbolCellReviewMutationService:

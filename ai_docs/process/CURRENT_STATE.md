@@ -25,9 +25,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
   domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
   `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
-- TASK-0294 pozostaje `in_progress`: API listowania, mutacje pojedynczych
-  cropów, operacje masowe i workspace Admina nie są jeszcze zaimplementowane.
-  Nie ma jeszcze widocznej zmiany produktu.
+- TASK-0294 pozostaje `in_progress`: istnieje już odczyt, wewnętrzne mutacje
+  oraz trwałe operacje masowe cropów, ale workspace Admina i filtr złej siatki
+  w Reviewerze pozostają kolejnymi etapami. Nie ma jeszcze widocznej zakładki
+  produktu.
 - Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
   i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
   keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
@@ -57,6 +58,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   domkniętą planszę, ale zachowuje zatwierdzenia pozostałych 14 aktualnych
   cropów; wyłącznie korekta geometrii resetuje komplet 15. Nie ma jeszcze
   publicznej mutacji, durable joba ani UI — to zakres TASK 6+ i TASK 8+.
+- Od `v0.8.24` migracja `0068_image_symbol_review_bulk_operations` utrwala
+  idempotentne operacje `approve`, `reassign` i `mark_grid_issue`, ich
+  checksum-bound snapshoty targetów oraz częściowe wyniki. Worker general lane
+  pobiera maksymalnie 100 plansz na checkpoint, zapisuje jedną planszę w jednej
+  transakcji i po restarcie wznawia wyłącznie `pending`. Masowe oznaczenie złej
+  siatki aktualizuje wszystkie cropy danej planszy przed jej ponownym
+  otwarciem, więc canonical nie usuwa pozostałych targetów z tej samej partii.
+  OpenAPI i generowany klient są zgodne; UI workspace pozostaje TASK 8–9.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

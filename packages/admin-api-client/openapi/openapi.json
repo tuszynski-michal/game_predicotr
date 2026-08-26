@@ -6472,6 +6472,9 @@
                 "$ref": "#/components/schemas/SymbolTrainingJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -6573,7 +6576,8 @@
           "android_build",
           "symbol_training",
           "image_symbol_reinference",
-          "image_grid_reinference"
+          "image_grid_reinference",
+          "image_symbol_review_bulk"
         ],
         "title": "JobType",
         "type": "string"
@@ -12729,6 +12733,442 @@
         "title": "SnapshotJobPayload",
         "type": "object"
       },
+      "SymbolCellReviewAction": {
+        "enum": [
+          "approve",
+          "reassign",
+          "mark_grid_issue"
+        ],
+        "title": "SymbolCellReviewAction",
+        "type": "string"
+      },
+      "SymbolCellReviewBulkExplicitSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "explicit",
+            "title": "Kind",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolCellReviewBulkExplicitTargetRequest"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "targets"
+        ],
+        "title": "SymbolCellReviewBulkExplicitSelectionRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkExplicitTargetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "expectedCropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropchecksumsha256",
+            "type": "string"
+          },
+          "expectedCropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropsampleid",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "expectedRevision",
+          "expectedGeometryRevision",
+          "expectedCropSampleId",
+          "expectedCropChecksumSha256"
+        ],
+        "title": "SymbolCellReviewBulkExplicitTargetRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkFilterSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogRevision": {
+            "minimum": 0.0,
+            "title": "Catalogrevision",
+            "type": "integer"
+          },
+          "excludedCellReviewIds": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Excludedcellreviewids",
+            "type": "array"
+          },
+          "kind": {
+            "const": "filter",
+            "title": "Kind",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SymbolCellReviewFilterState",
+            "default": "all"
+          },
+          "symbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "const": "unknown",
+                "type": "string"
+              }
+            ],
+            "title": "Symbolid"
+          }
+        },
+        "required": [
+          "kind",
+          "symbolId",
+          "catalogRevision"
+        ],
+        "title": "SymbolCellReviewBulkFilterSelectionRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "workflow": {
+            "const": "image_symbol_review_bulk",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "workflow",
+          "operationId"
+        ],
+        "title": "SymbolCellReviewBulkJobPayload",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkOperationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SymbolCellReviewAction"
+          },
+          "selection": {
+            "discriminator": {
+              "mapping": {
+                "explicit": "#/components/schemas/SymbolCellReviewBulkExplicitSelectionRequest",
+                "filter": "#/components/schemas/SymbolCellReviewBulkFilterSelectionRequest"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkExplicitSelectionRequest"
+              },
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkFilterSelectionRequest"
+              }
+            ],
+            "title": "Selection"
+          },
+          "targetSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolid"
+          }
+        },
+        "required": [
+          "action",
+          "selection"
+        ],
+        "title": "SymbolCellReviewBulkOperationRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkOperationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SymbolCellReviewAction"
+          },
+          "appliedCount": {
+            "minimum": 0.0,
+            "title": "Appliedcount",
+            "type": "integer"
+          },
+          "catalogRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalogrevision"
+          },
+          "commandSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "conflictCount": {
+            "minimum": 0.0,
+            "title": "Conflictcount",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "failedCount": {
+            "minimum": 0.0,
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "pendingCount": {
+            "minimum": 0.0,
+            "title": "Pendingcount",
+            "type": "integer"
+          },
+          "selectionKind": {
+            "title": "Selectionkind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "targetCount": {
+            "minimum": 0.0,
+            "title": "Targetcount",
+            "type": "integer"
+          },
+          "targetSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolid"
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "gameId",
+          "action",
+          "targetSymbolId",
+          "selectionKind",
+          "status",
+          "targetCount",
+          "appliedCount",
+          "conflictCount",
+          "failedCount",
+          "pendingCount",
+          "errorCode",
+          "errorMessage",
+          "commandSha256"
+        ],
+        "title": "SymbolCellReviewBulkOperationResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkOperationStartRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SymbolCellReviewAction"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "selection": {
+            "discriminator": {
+              "mapping": {
+                "explicit": "#/components/schemas/SymbolCellReviewBulkExplicitSelectionRequest",
+                "filter": "#/components/schemas/SymbolCellReviewBulkFilterSelectionRequest"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkExplicitSelectionRequest"
+              },
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkFilterSelectionRequest"
+              }
+            ],
+            "title": "Selection"
+          },
+          "targetSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolid"
+          }
+        },
+        "required": [
+          "action",
+          "selection",
+          "idempotencyKey"
+        ],
+        "title": "SymbolCellReviewBulkOperationStartRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkOperationStartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/SymbolCellReviewBulkOperationResponse"
+          }
+        },
+        "required": [
+          "operation",
+          "created"
+        ],
+        "title": "SymbolCellReviewBulkOperationStartResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewBulkPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SymbolCellReviewAction"
+          },
+          "boardCount": {
+            "minimum": 0.0,
+            "title": "Boardcount",
+            "type": "integer"
+          },
+          "catalogRevision": {
+            "minimum": 0.0,
+            "title": "Catalogrevision",
+            "type": "integer"
+          },
+          "selectionKind": {
+            "title": "Selectionkind",
+            "type": "string"
+          },
+          "targetCount": {
+            "minimum": 0.0,
+            "title": "Targetcount",
+            "type": "integer"
+          },
+          "targetSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolid"
+          }
+        },
+        "required": [
+          "action",
+          "selectionKind",
+          "catalogRevision",
+          "targetCount",
+          "boardCount",
+          "targetSymbolId"
+        ],
+        "title": "SymbolCellReviewBulkPreviewResponse",
+        "type": "object"
+      },
       "SymbolCellReviewCountsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -17067,6 +17507,255 @@
         "summary": "Create draft rules version",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-review-operations": {
+      "post": {
+        "operationId": "startSymbolCellReviewBulkOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkOperationStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewBulkOperationStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start an idempotent local symbol-cell review operation",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview": {
+      "post": {
+        "operationId": "previewSymbolCellReviewBulkOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolCellReviewBulkOperationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewBulkPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview a frozen local symbol-cell review operation",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}": {
+      "get": {
+        "operationId": "getSymbolCellReviewBulkOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewBulkOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Get durable local symbol-cell review operation status",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

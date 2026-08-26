@@ -1922,10 +1922,168 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
     has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    operation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    operation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     actor: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageSymbolReviewBulkOperationModel(Base):
+    """Durable snapshot of a local-admin bulk cell-review command."""
+
+    __tablename__ = "image_symbol_review_bulk_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('approve', 'reassign', 'mark_grid_issue')",
+            name="ck_image_symbol_review_bulk_operations_action",
+        ),
+        CheckConstraint(
+            "selection_kind IN ('explicit', 'filter')",
+            name="ck_image_symbol_review_bulk_operations_selection_kind",
+        ),
+        CheckConstraint(
+            "status IN ('created', 'processing', 'completed', 'failed', 'cancelled')",
+            name="ck_image_symbol_review_bulk_operations_status",
+        ),
+        CheckConstraint(
+            "target_count >= 0 AND applied_count >= 0 AND conflict_count >= 0 "
+            "AND failed_count >= 0 AND applied_count + conflict_count + failed_count "
+            "<= target_count",
+            name="ck_image_symbol_review_bulk_operations_counts",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_bulk_operations_command",
+        ),
+        CheckConstraint(
+            "(selection_kind = 'filter' AND catalog_revision IS NOT NULL) OR "
+            "(selection_kind = 'explicit' AND catalog_revision IS NULL)",
+            name="ck_image_symbol_review_bulk_operations_catalog_revision",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_image_symbol_review_bulk_operations_game_idempotency",
+        ),
+        UniqueConstraint("job_id", name="uq_image_symbol_review_bulk_operations_job"),
+        Index(
+            "ix_image_symbol_review_bulk_operations_game_status_created",
+            "game_id",
+            "status",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    target_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    filter_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    filter_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    catalog_revision: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    applied_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    conflict_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    failed_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ImageSymbolReviewBulkTargetModel(Base):
+    """One frozen checksum-bound crop target in a bulk operation."""
+
+    __tablename__ = "image_symbol_review_bulk_targets"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 AND "
+            "expected_revision >= 0 AND expected_geometry_revision >= 0",
+            name="ck_image_symbol_review_bulk_targets_revisions",
+        ),
+        CheckConstraint(
+            "expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
+            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_bulk_targets_checksums",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'applied', 'conflict', 'failed')",
+            name="ck_image_symbol_review_bulk_targets_status",
+        ),
+        Index(
+            "ix_image_symbol_review_bulk_targets_operation_status_review",
+            "operation_id",
+            "status",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_bulk_targets_operation_sequence",
+            "operation_id",
+            "sequence_number",
+            "review_item_id",
+            "cell_index",
+        ),
+    )
+
+    operation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
+        primary_key=True,
+        nullable=False,
+    )
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"),
+        primary_key=True,
+        nullable=False,
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_cell_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
 

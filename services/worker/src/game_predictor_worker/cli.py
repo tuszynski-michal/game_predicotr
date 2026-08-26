@@ -106,6 +106,7 @@ from game_predictor_worker.snapshots import (
     ProductionSnapshotGenerator,
     SqlAlchemyProductionSnapshotStore,
 )
+from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
     SymbolTrainingJobHandler,
     SymbolTrainingJobStore,
@@ -395,6 +396,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory,
                 artifact_root,
             ),
+            JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

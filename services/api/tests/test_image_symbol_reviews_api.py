@@ -6,6 +6,13 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
+from game_predictor_api.application.image_symbol_review_bulk_operations import (
+    SymbolCellReviewBulkOperation,
+    SymbolCellReviewBulkOperationService,
+    SymbolCellReviewBulkOperationStatus,
+    SymbolCellReviewBulkPreview,
+    SymbolCellReviewBulkRequest,
+)
 from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryService,
@@ -113,6 +120,83 @@ class MemorySymbolCellReviewRepository:
         return self.asset_value if self.asset_value.cell_review_id == cell_review_id else None
 
 
+class MemorySymbolCellReviewBulkRepository:
+    def __init__(self, *, game_id: UUID) -> None:
+        self.game_id = game_id
+        self.requests: list[SymbolCellReviewBulkRequest] = []
+        self.operations: dict[UUID, SymbolCellReviewBulkOperation] = {}
+        self._idempotency: dict[UUID, SymbolCellReviewBulkOperation] = {}
+
+    def preview(
+        self,
+        *,
+        game_id: UUID,
+        request: SymbolCellReviewBulkRequest,
+    ) -> SymbolCellReviewBulkPreview:
+        assert game_id == self.game_id
+        self.requests.append(request)
+        return SymbolCellReviewBulkPreview(
+            action=request.action,
+            selection_kind=request.selection_kind,
+            catalog_revision=(
+                7
+                if request.filter_selection is None
+                else request.filter_selection.catalog_revision
+            ),
+            target_count=3,
+            board_count=1,
+            target_symbol_id=request.target_symbol_id,
+        )
+
+    def start(
+        self,
+        *,
+        game_id: UUID,
+        request: SymbolCellReviewBulkRequest,
+        idempotency_key: UUID,
+    ) -> tuple[SymbolCellReviewBulkOperation, bool]:
+        assert game_id == self.game_id
+        existing = self._idempotency.get(idempotency_key)
+        if existing is not None:
+            if existing.command_sha256 != request.command_sha256:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_BULK_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key already represents another bulk review command.",
+                )
+            return existing, False
+        self.requests.append(request)
+        operation = SymbolCellReviewBulkOperation(
+            id=uuid4(),
+            job_id=uuid4(),
+            game_id=game_id,
+            action=request.action,
+            target_symbol_id=request.target_symbol_id,
+            selection_kind=request.selection_kind,
+            status=SymbolCellReviewBulkOperationStatus.CREATED,
+            catalog_revision=(
+                None
+                if request.filter_selection is None
+                else request.filter_selection.catalog_revision
+            ),
+            target_count=3,
+            applied_count=0,
+            conflict_count=0,
+            failed_count=0,
+            pending_count=3,
+            error_code=None,
+            error_message=None,
+            command_sha256=request.command_sha256,
+        )
+        self.operations[operation.id] = operation
+        self._idempotency[idempotency_key] = operation
+        return operation, True
+
+    def get(self, *, game_id: UUID, operation_id: UUID) -> SymbolCellReviewBulkOperation | None:
+        if game_id != self.game_id:
+            return None
+        return self.operations.get(operation_id)
+
+
 def _item(
     *,
     game_id: UUID,
@@ -148,6 +232,7 @@ def _client(
     repository: MemorySymbolCellReviewRepository,
     *,
     artifact_root: Path,
+    bulk_repository: MemorySymbolCellReviewBulkRepository | None = None,
 ) -> TestClient:
     settings = replace(
         ApiSettings.from_environment(
@@ -159,6 +244,11 @@ def _client(
         settings,
         symbol_cell_review_query_service_dependency=lambda: SymbolCellReviewQueryService(
             repository
+        ),
+        symbol_cell_review_bulk_operation_service_dependency=(
+            None
+            if bulk_repository is None
+            else lambda: SymbolCellReviewBulkOperationService(bulk_repository)
         ),
     )
     return TestClient(app)
@@ -345,3 +435,77 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
     assert changed_file.status_code == 409
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
+
+
+def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+    idempotency_key = uuid4()
+    payload = {
+        "action": "reassign",
+        "targetSymbolId": str(target_symbol_id),
+        "selection": {
+            "kind": "filter",
+            "symbolId": str(source_symbol_id),
+            "state": "pending",
+            "catalogRevision": 17,
+            "excludedCellReviewIds": [],
+        },
+    }
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        preview = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json=payload,
+        )
+        created = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations",
+            json={**payload, "idempotencyKey": str(idempotency_key)},
+        )
+        repeated = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations",
+            json={**payload, "idempotencyKey": str(idempotency_key)},
+        )
+        operation_id = created.json()["operation"]["id"]
+        status = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}"
+        )
+
+    assert preview.status_code == 200
+    assert preview.json()["targetCount"] == 3
+    assert created.status_code == 200
+    assert created.json()["created"] is True
+    assert repeated.status_code == 200
+    assert repeated.json()["created"] is False
+    assert status.status_code == 200
+    assert status.json()["pendingCount"] == 3
+    assert {request.actor for request in bulk.requests} == {"local-admin"}
+
+
+def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    reviews = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=())
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "approve",
+                "selection": {
+                    "kind": "filter",
+                    "symbolId": "unknown",
+                    "state": "pending",
+                    "catalogRevision": 17,
+                    "excludedCellReviewIds": [],
+                },
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "SYMBOL_CELL_REVIEW_BULK_UNKNOWN_APPROVAL_FORBIDDEN"

@@ -9,6 +9,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 
+from game_predictor_api.application.image_symbol_review_bulk_operations import (
+    SymbolCellReviewBulkOperationService,
+)
 from game_predictor_api.application.image_symbol_reviews import (
     DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     SymbolCellReviewQueryService,
@@ -19,11 +22,21 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
+    SymbolCellReviewBulkOperationRequest,
+    SymbolCellReviewBulkOperationResponse,
+    SymbolCellReviewBulkOperationStartRequest,
+    SymbolCellReviewBulkOperationStartResponse,
+    SymbolCellReviewBulkPreviewResponse,
     SymbolCellReviewPageResponse,
+    to_symbol_cell_review_bulk_operation_response,
+    to_symbol_cell_review_bulk_preview_response,
+    to_symbol_cell_review_bulk_request,
     to_symbol_cell_review_page_response,
 )
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
+SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
+_LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Game or current crop not found"},
     409: {"model": ErrorResponse, "description": "Cursor, readiness, or crop conflict"},
@@ -33,10 +46,84 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 
 def create_image_symbol_reviews_router(
     service_dependency: SymbolCellReviewQueryServiceDependency,
+    bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
     service_parameter = Depends(service_dependency)
+    bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
+
+    @router.post(
+        "/{game_id}/symbol-cell-review-operations/preview",
+        response_model=SymbolCellReviewBulkPreviewResponse,
+        operation_id="previewSymbolCellReviewBulkOperation",
+        summary="Preview a frozen local symbol-cell review operation",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_symbol_cell_review_bulk_operation(
+        game_id: UUID,
+        request: SymbolCellReviewBulkOperationRequest,
+        service: Annotated[
+            SymbolCellReviewBulkOperationService,
+            bulk_operation_service_parameter,
+        ],
+    ) -> SymbolCellReviewBulkPreviewResponse:
+        return to_symbol_cell_review_bulk_preview_response(
+            service.preview(
+                game_id=game_id,
+                request=to_symbol_cell_review_bulk_request(
+                    request,
+                    actor=_LOCAL_ADMIN_ACTOR,
+                ),
+            )
+        )
+
+    @router.post(
+        "/{game_id}/symbol-cell-review-operations",
+        response_model=SymbolCellReviewBulkOperationStartResponse,
+        operation_id="startSymbolCellReviewBulkOperation",
+        summary="Start an idempotent local symbol-cell review operation",
+        responses=ERROR_RESPONSES,
+    )
+    def start_symbol_cell_review_bulk_operation(
+        game_id: UUID,
+        request: SymbolCellReviewBulkOperationStartRequest,
+        service: Annotated[
+            SymbolCellReviewBulkOperationService,
+            bulk_operation_service_parameter,
+        ],
+    ) -> SymbolCellReviewBulkOperationStartResponse:
+        operation, created = service.start(
+            game_id=game_id,
+            request=to_symbol_cell_review_bulk_request(
+                request,
+                actor=_LOCAL_ADMIN_ACTOR,
+            ),
+            idempotency_key=request.idempotency_key,
+        )
+        return SymbolCellReviewBulkOperationStartResponse(
+            operation=to_symbol_cell_review_bulk_operation_response(operation),
+            created=created,
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-review-operations/{operation_id}",
+        response_model=SymbolCellReviewBulkOperationResponse,
+        operation_id="getSymbolCellReviewBulkOperation",
+        summary="Get durable local symbol-cell review operation status",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_review_bulk_operation(
+        game_id: UUID,
+        operation_id: UUID,
+        service: Annotated[
+            SymbolCellReviewBulkOperationService,
+            bulk_operation_service_parameter,
+        ],
+    ) -> SymbolCellReviewBulkOperationResponse:
+        return to_symbol_cell_review_bulk_operation_response(
+            service.get(game_id=game_id, operation_id=operation_id)
+        )
 
     @router.get(
         "/{game_id}/symbol-cell-reviews",

@@ -52,6 +52,9 @@ from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
 )
+from game_predictor_api.application.image_symbol_review_bulk_operations import (
+    SymbolCellReviewBulkOperationService,
+)
 from game_predictor_api.application.image_symbol_reviews import SymbolCellReviewQueryService
 from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
 from game_predictor_api.application.jobs import (
@@ -233,6 +236,9 @@ from game_predictor_api.storage.image_selection_repository import (
 from game_predictor_api.storage.image_sequence_canonical_repository import (
     SqlAlchemyImageSequenceCanonicalRepository,
 )
+from game_predictor_api.storage.image_symbol_review_bulk_operation_repository import (
+    SqlAlchemySymbolCellReviewBulkOperationRepository,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
@@ -313,6 +319,7 @@ def create_app(
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
+    symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -400,6 +407,24 @@ def create_app(
     resolved_symbol_cell_review_query_dependency = (
         symbol_cell_review_query_service_dependency
         or default_symbol_cell_review_query_service_dependency
+    )
+
+    def default_symbol_cell_review_bulk_operation_service_dependency() -> Iterator[
+        SymbolCellReviewBulkOperationService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolCellReviewBulkOperationService(
+                    SqlAlchemySymbolCellReviewBulkOperationRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_cell_review_bulk_operation_dependency = (
+        symbol_cell_review_bulk_operation_service_dependency
+        or default_symbol_cell_review_bulk_operation_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -1011,6 +1036,7 @@ def create_app(
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
             resolved_symbol_cell_review_query_dependency,
+            resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,
@@ -1098,6 +1124,7 @@ def create_app(
             "GAME_NOT_FOUND",
             "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
             "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
+            "SYMBOL_CELL_REVIEW_BULK_OPERATION_NOT_FOUND",
         }:
             status_code = 404
         elif error.code in {
@@ -1106,6 +1133,10 @@ def create_app(
             "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
             "SYMBOL_CELL_REVIEW_CROP_DRIFT",
             "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
+            "SYMBOL_CELL_REVIEW_BULK_IDEMPOTENCY_CONFLICT",
+            "SYMBOL_CELL_REVIEW_BULK_FILTER_STALE",
+            "SYMBOL_CELL_REVIEW_BULK_TARGET_NOT_CURRENT",
+            "SYMBOL_CELL_REVIEW_BULK_TARGET_STALE",
         }:
             status_code = 409
         return JSONResponse(

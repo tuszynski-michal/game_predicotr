@@ -184,3 +184,28 @@ skalowy z izolowaną PostgreSQL.
   joba/kolejki oraz zachowanie 14 decyzji; istniejący test geometrii nadal
   potwierdza reset 15 cropów. Nie dodano endpointu mutacji, joba masowego ani
   UI: to pozostaje wyłącznie w TASK 6 i TASK 8+.
+
+### TASK 6 — ukończony w `v0.8.24`
+
+- Migracja `0068_image_symbol_review_bulk_operations` dodaje trwałe operacje
+  masowe i ich zamrożone, checksum-bound targety oraz wiąże append-only event
+  z operacją. `image_symbol_review_bulk` działa w istniejącym general lane;
+  nie dodano nowego workera, Redisa ani Celery.
+- Lokalne Admin API udostępnia preview, start i status. Zaznaczenie jest albo
+  jawne (maksymalnie 10 000 cropów), albo filtrowane z rewizją katalogu i
+  wykluczeniami. Start jest idempotentny względem gry, klucza i canonicalnej
+  komendy; filter snapshot zapisuje targety przez SQL bez pobierania pełnej
+  listy do procesu. `approve` na filtrze `unknown` jest blokowane.
+- Worker przetwarza najwyżej 100 plansz na checkpoint. Każda plansza
+  rewaliduje właściciela, rewizję, geometrię, checksumę i aktywność symbolu
+  docelowego, a następnie zapisuje wszystkie jej cropy, pełną decyzję,
+  canonical, staging, kolejkę oraz projekcję wyszukiwania w jednej transakcji.
+  Wynik targetu jest jawny: `applied`, `conflict`, `failed` albo `pending`;
+  retry po awarii wznawia wyłącznie pending.
+- Test izolowanego PostgreSQL potwierdza exact retry, konflikt idempotency,
+  snapshot filtra z wykluczeniem, wznowienie świeżym workerem po checkpointcie,
+  atomowe oznaczenie 14 cropów jednej planszy oraz kontrolowany konflikt całej
+  drugiej planszy po symulowanym drifcie geometrii. API, OpenAPI/generowany
+  klient, lint oraz istniejący test pojedynczej mutacji pozostają zgodne.
+- Nie dodano jeszcze filtra `Do poprawy siatki` Reviewerowi ani workspace’u
+  Admina z kartami, zaznaczeniem i toolbar: to pozostaje TASK 7–9.

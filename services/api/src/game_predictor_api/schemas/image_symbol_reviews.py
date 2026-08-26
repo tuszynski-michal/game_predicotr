@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from game_predictor_api.application.image_symbol_review_bulk_operations import (
+    MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
+    SymbolCellReviewBulkExplicitTarget,
+    SymbolCellReviewBulkFilterSelection,
+    SymbolCellReviewBulkOperation,
+    SymbolCellReviewBulkPreview,
+    SymbolCellReviewBulkRequest,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellReviewAction,
     SymbolCellReviewCounts,
+    SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
 )
@@ -49,6 +60,90 @@ class SymbolCellReviewPageResponse(ApiModel):
     previous_cursor: str | None
 
 
+class SymbolCellReviewBulkExplicitTargetRequest(ApiModel):
+    cell_review_id: UUID
+    expected_revision: int = Field(ge=0)
+    expected_geometry_revision: int = Field(ge=0)
+    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class SymbolCellReviewBulkExplicitSelectionRequest(ApiModel):
+    kind: Literal["explicit"]
+    targets: tuple[SymbolCellReviewBulkExplicitTargetRequest, ...] = Field(
+        min_length=1,
+        max_length=MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
+    )
+
+
+class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
+    kind: Literal["filter"]
+    symbol_id: UUID | Literal["unknown"]
+    state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL
+    catalog_revision: int = Field(ge=0)
+    excluded_cell_review_ids: tuple[UUID, ...] = Field(
+        default=(),
+        max_length=MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
+    )
+
+
+SymbolCellReviewBulkSelectionRequest = Annotated[
+    SymbolCellReviewBulkExplicitSelectionRequest | SymbolCellReviewBulkFilterSelectionRequest,
+    Field(discriminator="kind"),
+]
+
+
+class SymbolCellReviewBulkOperationRequest(ApiModel):
+    action: SymbolCellReviewAction
+    target_symbol_id: UUID | None = None
+    selection: SymbolCellReviewBulkSelectionRequest
+
+    @model_validator(mode="after")
+    def validate_action_target(self) -> SymbolCellReviewBulkOperationRequest:
+        if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
+            raise ValueError("targetSymbolId is required for reassign.")
+        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
+            raise ValueError("targetSymbolId is allowed only for reassign.")
+        return self
+
+
+class SymbolCellReviewBulkOperationStartRequest(SymbolCellReviewBulkOperationRequest):
+    idempotency_key: UUID
+
+
+class SymbolCellReviewBulkPreviewResponse(ApiModel):
+    action: SymbolCellReviewAction
+    selection_kind: str
+    catalog_revision: int = Field(ge=0)
+    target_count: int = Field(ge=0)
+    board_count: int = Field(ge=0)
+    target_symbol_id: UUID | None
+
+
+class SymbolCellReviewBulkOperationResponse(ApiModel):
+    id: UUID
+    job_id: UUID
+    game_id: UUID
+    action: SymbolCellReviewAction
+    target_symbol_id: UUID | None
+    selection_kind: str
+    status: str
+    catalog_revision: int | None = Field(default=None, ge=0)
+    target_count: int = Field(ge=0)
+    applied_count: int = Field(ge=0)
+    conflict_count: int = Field(ge=0)
+    failed_count: int = Field(ge=0)
+    pending_count: int = Field(ge=0)
+    error_code: str | None
+    error_message: str | None
+    command_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class SymbolCellReviewBulkOperationStartResponse(ApiModel):
+    operation: SymbolCellReviewBulkOperationResponse
+    created: bool
+
+
 def to_symbol_cell_review_page_response(
     page: SymbolCellReviewPage,
 ) -> SymbolCellReviewPageResponse:
@@ -58,6 +153,83 @@ def to_symbol_cell_review_page_response(
         catalog_revision=page.catalog_revision,
         next_cursor=page.next_cursor,
         previous_cursor=page.previous_cursor,
+    )
+
+
+def to_symbol_cell_review_bulk_request(
+    request: SymbolCellReviewBulkOperationRequest,
+    *,
+    actor: str,
+) -> SymbolCellReviewBulkRequest:
+    """Convert the local Admin contract without accepting an actor from HTTP."""
+
+    selection = request.selection
+    if isinstance(selection, SymbolCellReviewBulkExplicitSelectionRequest):
+        return SymbolCellReviewBulkRequest(
+            action=request.action,
+            target_symbol_id=request.target_symbol_id,
+            explicit_targets=tuple(
+                SymbolCellReviewBulkExplicitTarget(
+                    cell_review_id=target.cell_review_id,
+                    expected_revision=target.expected_revision,
+                    expected_geometry_revision=target.expected_geometry_revision,
+                    expected_crop_sample_id=target.expected_crop_sample_id,
+                    expected_crop_checksum_sha256=target.expected_crop_checksum_sha256,
+                )
+                for target in selection.targets
+            ),
+            filter_selection=None,
+            actor=actor,
+        )
+
+    symbol_id = selection.symbol_id if isinstance(selection.symbol_id, UUID) else None
+    return SymbolCellReviewBulkRequest(
+        action=request.action,
+        target_symbol_id=request.target_symbol_id,
+        explicit_targets=None,
+        filter_selection=SymbolCellReviewBulkFilterSelection(
+            symbol_id=symbol_id,
+            state=selection.state,
+            catalog_revision=selection.catalog_revision,
+            excluded_cell_review_ids=selection.excluded_cell_review_ids,
+        ),
+        actor=actor,
+    )
+
+
+def to_symbol_cell_review_bulk_preview_response(
+    preview: SymbolCellReviewBulkPreview,
+) -> SymbolCellReviewBulkPreviewResponse:
+    return SymbolCellReviewBulkPreviewResponse(
+        action=preview.action,
+        selection_kind=preview.selection_kind.value,
+        catalog_revision=preview.catalog_revision,
+        target_count=preview.target_count,
+        board_count=preview.board_count,
+        target_symbol_id=preview.target_symbol_id,
+    )
+
+
+def to_symbol_cell_review_bulk_operation_response(
+    operation: SymbolCellReviewBulkOperation,
+) -> SymbolCellReviewBulkOperationResponse:
+    return SymbolCellReviewBulkOperationResponse(
+        id=operation.id,
+        job_id=operation.job_id,
+        game_id=operation.game_id,
+        action=operation.action,
+        target_symbol_id=operation.target_symbol_id,
+        selection_kind=operation.selection_kind.value,
+        status=operation.status.value,
+        catalog_revision=operation.catalog_revision,
+        target_count=operation.target_count,
+        applied_count=operation.applied_count,
+        conflict_count=operation.conflict_count,
+        failed_count=operation.failed_count,
+        pending_count=operation.pending_count,
+        error_code=operation.error_code,
+        error_message=operation.error_message,
+        command_sha256=operation.command_sha256,
     )
 
 
@@ -93,8 +265,20 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
 
 
 __all__ = [
+    "SymbolCellReviewBulkExplicitSelectionRequest",
+    "SymbolCellReviewBulkExplicitTargetRequest",
+    "SymbolCellReviewBulkFilterSelectionRequest",
+    "SymbolCellReviewBulkOperationRequest",
+    "SymbolCellReviewBulkOperationResponse",
+    "SymbolCellReviewBulkOperationStartRequest",
+    "SymbolCellReviewBulkOperationStartResponse",
+    "SymbolCellReviewBulkPreviewResponse",
+    "SymbolCellReviewBulkSelectionRequest",
     "SymbolCellReviewCountsResponse",
     "SymbolCellReviewListItemResponse",
     "SymbolCellReviewPageResponse",
+    "to_symbol_cell_review_bulk_operation_response",
+    "to_symbol_cell_review_bulk_preview_response",
+    "to_symbol_cell_review_bulk_request",
     "to_symbol_cell_review_page_response",
 ]

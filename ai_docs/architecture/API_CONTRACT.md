@@ -137,6 +137,30 @@ sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
 zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
 filtr, checksum lub limit `422`.
 
+### Trwałe operacje masowe weryfikacji cropów
+
+```text
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-operations/preview
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-operations
+GET  /api/v1/admin/games/{gameId}/symbol-cell-review-operations/{operationId}
+```
+
+Te endpointy są wyłącznie częścią lokalnego Admin API; token zdalnego
+Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
+albo `mark_grid_issue` oraz jeden z dwóch modeli zaznaczenia: jawne cropy z
+oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
+`symbol + state + catalogRevision` wraz z wykluczeniami. `approve` nie jest
+dostępne dla filtra technicznego `unknown`.
+
+Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
+zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
+żądanie z tym samym kluczem i tą samą komendą zwraca istniejącą operację,
+natomiast inna komenda z tym kluczem zwraca konflikt. Status zwraca liczniki
+`pending`, `applied`, `conflict` i `failed`, identyfikator joba oraz
+kontrolowany komunikat błędu. Operacja ma częściową semantykę: każda plansza
+jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
+`applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
+
 ### Host base zdalnej ręcznej selekcji
 
 Lokalny Admin może otworzyć wyłącznie stały systemowy picker:

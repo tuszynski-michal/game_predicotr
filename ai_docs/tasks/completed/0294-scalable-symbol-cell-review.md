@@ -1,6 +1,6 @@
 ---
 title: TASK-0294 — Masowa weryfikacja pojedynczych symboli
-status: in_progress
+status: done
 last_updated: 2026-08-26
 ---
 
@@ -37,7 +37,8 @@ się w historii zadania Codex z 2026-08-26.
 - bounded API oraz lokalny workspace Admina,
 - durable operacje masowe w istniejącym general worker lane,
 - filtr `Do poprawy siatki` w Reviewerze,
-- benchmark 2 mln komórek i odbiór dokumentacyjny.
+- teoretyczna analiza profilu 2 mln komórek i odbiór dokumentacyjny; fizyczny
+  benchmark jest odroczony zgodnie z D-236.
 
 ## Out of scope
 
@@ -48,12 +49,12 @@ się w historii zadania Codex z 2026-08-26.
 
 ## Acceptance criteria
 
-- [ ] Stan pojedynczej komórki jest checksum-bound i audytowalny.
-- [ ] Wszystkie zatwierdzone plansze otrzymują po 15 zatwierdzonych komórek.
-- [ ] Zatwierdzenie 15 komórek bez `?` domyka planszę przez istniejący canonical flow.
-- [ ] Zła siatka jest flagą komórki i zasila filtr Reviewera bez drugiego źródła prawdy.
-- [ ] Listowanie działa keysetowo po 60 elementów i nie materializuje pełnego wyniku.
-- [ ] Masowe operacje są idempotentne, resumowalne i raportują konflikty jawnie.
+- [x] Stan pojedynczej komórki jest checksum-bound i audytowalny.
+- [x] Wszystkie zatwierdzone plansze otrzymują po 15 zatwierdzonych komórek.
+- [x] Zatwierdzenie 15 komórek bez `?` domyka planszę przez istniejący canonical flow.
+- [x] Zła siatka jest flagą komórki i zasila filtr Reviewera bez drugiego źródła prawdy.
+- [x] Listowanie działa keysetowo po 60 elementów i nie materializuje pełnego wyniku.
+- [x] Masowe operacje są idempotentne, resumowalne i raportują konflikty jawnie.
 
 ## Technical notes
 
@@ -75,8 +76,9 @@ się w historii zadania Codex z 2026-08-26.
 ## Verification
 
 Każdy pion uruchamia własne testy API/UI/worker oraz kontrolę typów. Końcowy
-odbiór uruchamia `npm run quality`, build Admina i Reviewera oraz benchmark
-skalowy z izolowaną PostgreSQL.
+odbiór uruchamia lekkie, celowane testy integralności i kontrole statyczne.
+Fizyczny benchmark skalowy z izolowaną PostgreSQL jest osobnym, jawnym
+checkpointem po zgodzie właściciela (D-236), a nie pracą w tle.
 
 ## Risks / open questions
 
@@ -270,3 +272,25 @@ skalowy z izolowaną PostgreSQL.
   test klienta, test API list response, typecheck/lint Admina i klienta,
   kontrola OpenAPI oraz build Admina. Benchmark i pełny odbiór pozostają
   wyłącznie w TASK 10.
+
+### TASK 10 — teoretyczny odbiór i dokumentacja
+
+- Fizyczny fixture dwóch milionów komórek nie jest uruchamiany na komputerze
+  operatora. Analiza `SYMBOL_CELL_REVIEW_SCALABILITY_ANALYSIS.md` wyprowadza
+  poprawny profil `2 000 010` komórek (dokładnie 15 na planszę), 33 334 strony
+  po 60, ograniczenie pamięci UI do 180 metadanych oraz 67 checkpointów dla
+  snapshotu 100 005 targetów.
+- Analiza nie udaje pomiaru: bramka `p95 <= 250 ms` pozostaje niezmierzona,
+  ponieważ odpowiedź listy agreguje obecnie liczniki po całym filtrze. D-236
+  dokumentuje odroczenie prawdziwego testu na osobną scratchową bazę po
+  wyraźnym zleceniu właściciela.
+- Odbiór integralności pozostaje oparty na istniejących testach keysetu,
+  checksum-bound assetów, `?`/błędu siatki, transakcji per plansza i resume
+  trwałej operacji. Nie uruchamia generatora rekordów, benchmarku ani
+  kontrolowanego crashu na tym komputerze.
+- Celowane kontrole po zmianie dokumentacji: domena `6 passed`, API `6 passed`,
+  Admin workspace `13 passed` oraz formatowanie sześciu zmienionych dokumentów.
+  Opt-in test integracyjny PostgreSQL recovery nie został powtórzony, ponieważ
+  wymagałby tworzenia osobnej bazy; jego wcześniejsze przejście jest zapisane w
+  outcome TASK 6. Nie uruchomiono pełnego `npm run quality`, buildów ani
+  benchmarku, aby nie przeciążać aktywnego komputera operatora.

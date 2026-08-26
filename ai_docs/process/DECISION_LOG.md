@@ -5679,6 +5679,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   zatwierdzanie nieznanego symbolu odrzucono jako niespójne z granularnym
   audytem i bezpieczeństwem geometrii.
 
+## D-236 — Skala weryfikacji symboli jest obecnie potwierdzana statycznie
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** zakończenie pionu masowej weryfikacji symboli nie uruchamia
+  automatycznie fizycznego benchmarku około dwóch milionów komórek na
+  komputerze operatora. Odbiór w tym momencie opiera się na analizie
+  algorytmicznej, testach integralności i ograniczeniach pamięci; pomiar czasu
+  zostaje odroczony do osobno zleconego testu na odizolowanej scratchowej bazie.
+- **Context:** komputer operatora wykonuje aktywne importy i review. Tworzenie
+  milionów rekordów oraz wymuszony crash obciążałoby bieżącą pracę, bez
+  dostarczenia wiarygodnego, przenośnego wyniku p95 dla innej konfiguracji
+  PostgreSQL i sprzętu.
+- **Safety:** odroczenie nie osłabia invariantów: keyset, checksum-bound
+  tożsamość, atomiczność per plansza, idempotency i recovery pozostają objęte
+  istniejącymi testami. Bramka `p95 <= 250 ms` jest jawnie niezmierzona i nie
+  może być raportowana jako zaliczona. Pełny test wymaga wyraźnej zgody,
+  osobnej bazy i cleanupu tylko własnych danych testowych.
+- **Consequences:** model referencyjny używa `2 000 010`, a nie dokładnie
+  `2 000 000` komórek, aby zachować invariant 15 cropów na planszę. Analiza
+  wskazuje również, że liczniki listy są obecnie agregowane po całym filtrze;
+  ewentualna optymalizacja nastąpi wyłącznie po rzeczywistym pomiarze.
+- **Alternatives:** uruchomienie benchmarku w tle, zaniżenie fixture’u przez
+  niepełne plansze lub deklarowanie p95 bez danych odrzucono.
+
 ## Szablon nowej decyzji
 
 ```text

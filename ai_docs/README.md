@@ -91,6 +91,8 @@ implementacyjnym.
 - [Test strategy](quality/TEST_STRATEGY.md)
 - [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
 - [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)
+- [Theoretical symbol-cell review scalability analysis](quality/SYMBOL_CELL_REVIEW_SCALABILITY_ANALYSIS.md)
+  — analiza granic pamięci i transakcji TASK-0294; nie jest pomiarem czasu.
 - [Remote source browser capability spike](quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md)
   — wynik TASK-0273 i bramka przed zdalnym modułem ręcznej selekcji.
 

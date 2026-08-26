@@ -10,6 +10,21 @@ last_updated: 2026-08-05
 
 Największe ryzyko znajduje się w logice domenowej, integralności kolejności, generowaniu wydania i wydajności offline. Testy algorytmów i danych są ważniejsze niż rozbudowane snapshoty UI.
 
+## Masowa weryfikacja symboli
+
+Pion `image_symbol_review` dowodzi integralności przez testy domenowe,
+checksum-bound API oraz izolowany PostgreSQL: keyset nie może duplikować ani
+pomijać rekordów, `?` i `has_grid_issue` nie mogą domknąć planszy, a retry
+trwałej operacji może wykonać wyłącznie targety `pending`. Admin utrzymuje
+najwyżej trzy strony po 60 metadanych i nie może pobierać całego filtra.
+
+Na decyzję właściciela z 2026-08-26 nie uruchamiamy automatycznie benchmarku
+dwóch milionów komórek na komputerze operatora. Teoretyczny model, jego
+ograniczenia oraz warunki ewentualnego przyszłego testu opisuje
+`SYMBOL_CELL_REVIEW_SCALABILITY_ANALYSIS.md`. Próg czasu p95 pozostaje
+niezmierzony, dopóki użytkownik nie zleci testu na odizolowanej bazie; nie wolno
+go zastępować deklaracją opartą wyłącznie na testach jednostkowych.
+
 ## Domain unit tests
 
 ### Matching

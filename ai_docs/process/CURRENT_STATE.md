@@ -25,9 +25,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
   domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
   `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
-- TASK-0294 pozostaje `in_progress`: istnieje odczyt, wewnętrzne mutacje,
+- TASK-0294 jest ukończony w `v0.8.28`: istnieje odczyt, wewnętrzne mutacje,
   trwałe operacje masowe cropów, filtr złej siatki w Reviewerze i lokalny
-  workspace Admina. Pozostaje benchmark oraz odbiór całego pionu.
+  workspace Admina. Odbiór dokumentuje teoretyczne granice pamięci i transakcji;
+  fizyczny benchmark jest odroczony decyzją D-236.
 - Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
   i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
   keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
@@ -87,6 +88,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Lista transportuje także `cropSampleId`, niezbędny do bezpiecznej jawnej
   mutacji. Polling jednej aktywnej operacji nie nakłada requestów, pokazuje
   `applied/conflict/failed` i po terminalnym wyniku odświeża bounded stronę.
+- Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
+  profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
+  cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i
+  100-planszowe checkpointy workerów. Nie potwierdza ona czasu p95 — liczniki
+  listy nadal agregują cały filtr — dlatego ewentualny pomiar wymaga osobnej
+  decyzji i odizolowanego środowiska zgodnie z D-236.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

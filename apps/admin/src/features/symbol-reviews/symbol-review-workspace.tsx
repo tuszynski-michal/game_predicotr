@@ -123,6 +123,7 @@ export function SymbolReviewWorkspace({
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
   const prefetchRequestId = useRef(0);
+  const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
 
   const filters = workspace.filters;
   const currentPage = workspace.pages.current;
@@ -141,13 +142,30 @@ export function SymbolReviewWorkspace({
     gamesState === 'error' || symbolsState === 'error' || pageState === 'error';
 
   const applyFilters = useCallback((nextFilters: SymbolReviewFilters) => {
+    const previousFilters = filtersRef.current;
+    filtersRef.current = nextFilters;
     pageRequestId.current += 1;
     prefetchRequestId.current += 1;
     setError('');
     setProjectionRebuilding(false);
     setSelection(createEmptySymbolReviewSelection());
     setReassignTargetSymbolId(null);
+    if (previousFilters.gameId !== nextFilters.gameId) {
+      setSymbols([]);
+      setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
+    }
+    setPageState(asPageFilters(nextFilters) === null ? 'ready' : 'loading');
     dispatch({ filters: nextFilters, type: 'filters_changed' });
+  }, []);
+
+  const reloadWorkspace = useCallback(() => {
+    const currentFilters = filtersRef.current;
+    setError('');
+    setProjectionRebuilding(false);
+    setGamesState('loading');
+    setSymbolsState(currentFilters.gameId === null ? 'ready' : 'loading');
+    setPageState(asPageFilters(currentFilters) === null ? 'ready' : 'loading');
+    setReloadRevision((revision) => revision + 1);
   }, []);
 
   const requestFilterChange = useCallback(
@@ -163,8 +181,6 @@ export function SymbolReviewWorkspace({
 
   useEffect(() => {
     const requestId = ++gamesRequestId.current;
-    setGamesState('loading');
-    setError('');
     void loadSymbolReviewGames(api).then((result) => {
       if (requestId !== gamesRequestId.current) return;
       if (!result.ok) {
@@ -174,14 +190,15 @@ export function SymbolReviewWorkspace({
       }
       setGames(result.games);
       setGamesState('ready');
+      const currentFilters = filtersRef.current;
       const selectedGameId = result.games.some(
-        (game) => game.id === workspace.filters.gameId,
+        (game) => game.id === currentFilters.gameId,
       )
-        ? workspace.filters.gameId
+        ? currentFilters.gameId
         : (result.games[0]?.id ?? null);
-      if (selectedGameId !== workspace.filters.gameId) {
+      if (selectedGameId !== currentFilters.gameId) {
         applyFilters({
-          ...workspace.filters,
+          ...currentFilters,
           gameId: selectedGameId,
           symbolId: null,
         });
@@ -193,14 +210,10 @@ export function SymbolReviewWorkspace({
   }, [api, applyFilters, reloadRevision]);
 
   useEffect(() => {
-    if (filters.gameId === null) {
-      setSymbols([]);
-      setSymbolsState('ready');
-      return;
-    }
+    if (filters.gameId === null) return;
+    const gameId = filters.gameId;
     const requestId = ++symbolsRequestId.current;
-    setSymbolsState('loading');
-    void loadSymbolReviewSymbols(api, filters.gameId).then((result) => {
+    void loadSymbolReviewSymbols(api, gameId).then((result) => {
       if (requestId !== symbolsRequestId.current) return;
       if (!result.ok) {
         setSymbolsState('error');
@@ -209,39 +222,27 @@ export function SymbolReviewWorkspace({
       }
       setSymbols(result.symbols);
       setSymbolsState('ready');
+      const currentFilters = filtersRef.current;
+      if (currentFilters.gameId !== gameId) return;
       const selectedSymbolId = result.symbols.some(
-        (symbol) => symbol.id === filters.symbolId,
+        (symbol) => symbol.id === currentFilters.symbolId,
       )
-        ? filters.symbolId
+        ? currentFilters.symbolId
         : (result.symbols[0]?.id ?? null);
-      if (selectedSymbolId !== filters.symbolId) {
-        applyFilters({ ...filters, symbolId: selectedSymbolId });
+      if (selectedSymbolId !== currentFilters.symbolId) {
+        applyFilters({ ...currentFilters, symbolId: selectedSymbolId });
       }
     });
     return () => {
       symbolsRequestId.current += 1;
     };
-  }, [
-    api,
-    applyFilters,
-    filters.gameId,
-    filters.symbolId,
-    filters.state,
-    reloadRevision,
-  ]);
+  }, [api, applyFilters, filters.gameId, reloadRevision]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
-    if (pageFilters === null) {
-      dispatch({ type: 'clear_pages' });
-      setPageState('ready');
-      return;
-    }
+    if (pageFilters === null) return;
     const requestId = ++pageRequestId.current;
     prefetchRequestId.current += 1;
-    setPageState('loading');
-    setError('');
-    setProjectionRebuilding(false);
     void loadSymbolReviewPage(api, pageFilters).then((result) => {
       if (requestId !== pageRequestId.current) return;
       if (!result.ok) {
@@ -415,7 +416,7 @@ export function SymbolReviewWorkspace({
       setActiveOperation(result.value);
       if (isSymbolReviewBulkOperationTerminal(result.value)) {
         setSelection(createEmptySymbolReviewSelection());
-        setReloadRevision((revision) => revision + 1);
+        reloadWorkspace();
         return;
       }
       timerId = window.setTimeout(() => void poll(), 2_000);
@@ -430,6 +431,7 @@ export function SymbolReviewWorkspace({
     activeOperationId,
     activeOperationIsTerminal,
     api,
+    reloadWorkspace,
   ]);
 
   return (
@@ -551,7 +553,7 @@ export function SymbolReviewWorkspace({
       ) : null}
       {hasLoadError ? (
         <SymbolReviewStatus
-          action={() => setReloadRevision((revision) => revision + 1)}
+          action={reloadWorkspace}
           error
           text={
             projectionRebuilding

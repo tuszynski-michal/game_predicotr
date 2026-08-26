@@ -80,9 +80,18 @@ export async function writeOperatorLocalSelection(
   outputDirectory: FileSystemDirectoryHandle,
   source: File,
   rangeStart: number,
+  rangeEnd: number = rangeStart + 8,
 ): Promise<OperatorLocalOutputResult> {
+  if (
+    !Number.isSafeInteger(rangeStart) ||
+    rangeStart < 1 ||
+    !Number.isSafeInteger(rangeEnd) ||
+    rangeEnd !== rangeStart + 8
+  ) {
+    throw new Error('Zakres zapisywanego zdjęcia musi obejmować 9 plansz.');
+  }
   const checksumSha256 = await sha256File(source);
-  const name = `seq_${rangeStart}-${rangeStart + 8}.jpg`;
+  const name = `seq_${rangeStart}-${rangeEnd}.jpg`;
   let existing: File | null = null;
   try {
     existing = await (await outputDirectory.getFileHandle(name)).getFile();

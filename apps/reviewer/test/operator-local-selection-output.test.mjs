@@ -129,6 +129,26 @@ test('writes original JPEG bytes idempotently into the operator output folder', 
   );
 });
 
+test('writes an explicitly edited nine-layout range and rejects invalid ranges', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const source = new File(['jpeg-original'], 'photo.jpg', {
+    type: 'image/jpeg',
+  });
+
+  const output = await writeOperatorLocalSelection(
+    directory,
+    source,
+    222913,
+    222921,
+  );
+
+  assert.equal(output.name, 'seq_222913-222921.jpg');
+  await assert.rejects(
+    writeOperatorLocalSelection(directory, source, 222913, 222920),
+    /musi obejmować 9 plansz/,
+  );
+});
+
 test('never overwrites or removes a foreign operator file', async () => {
   const directory = new MemoryDirectoryHandle();
   const foreign = new MemoryFileHandle(

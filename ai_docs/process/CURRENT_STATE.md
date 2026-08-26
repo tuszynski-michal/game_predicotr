@@ -15,6 +15,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.8 implementation: board search and review data quality`
 
+### Masowa weryfikacja pojedynczych symboli — TASK-0294
+
+- Od `v0.8.19` kontrakt domenowy `image_symbol_reviews` definiuje trwały w
+  przyszłości stan pojedynczego cropa: checksum-bound tożsamość, `pending` /
+  `approved`, niezależną flagę błędu siatki oraz pochodzenie przypisania.
+  Domena nie zależy od SQL, HTTP, UI ani jobów.
+- `?` jest reprezentowane jako brak przypisanego symbolu i nie może zostać
+  zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
+  domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
+  `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
+- TASK-0294 pozostaje `in_progress`: schemat, backfill, synchronizacja
+  istniejącego Reviewera, API, operacje masowe i workspace Admina nie są jeszcze
+  zaimplementowane. Nie ma jeszcze widocznej zmiany produktu ani danych w bazie.
+
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 
 - Tor `0.7` został zamknięty dla bieżących zmian produktu. TASK-0290 pozostaje

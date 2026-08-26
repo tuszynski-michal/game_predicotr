@@ -5652,6 +5652,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   ponieważ nie gwarantują zgodności z decyzją człowieka ani bezpiecznej
   integralności katalogu.
 
+## D-235 — Weryfikacja symboli ma trwały stan per aktualny crop
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** masowa weryfikacja symboli użyje jednej logicznej komórki dla
+  `review_item_id + cell_index`, zawsze związanej z dokładną checksummą i
+  rewizją geometrii bieżącego cropa. Komórka ma stan `pending` albo `approved`;
+  niezależny `has_grid_issue` wymaga `pending`. Brak symbolu jest technicznym
+  `?` (`NULL`) i nigdy nie może być zatwierdzony.
+- **Context:** pełna decyzja 15 symboli jest zbyt gruba dla szybkiej kontroli
+  wielu cropów, ale drugi, niesynchronizowany model planszy tworzyłby ryzyko
+  konfliktu z istniejącym Reviewerem, canonical stagingiem i wyszukiwaniem.
+- **Safety:** nowa geometria unieważnia wszystkie 15 decyzji komórek. Plansza
+  zostaje automatycznie domknięta tylko przy 15 aktualnych zatwierdzeniach bez
+  błędu siatki; zgodność z predykcją daje `accepted`, a każda zmiana symbolu
+  `corrected`. Zła siatka pozostaje wyłącznie flagą komórki, z której Reviewer
+  później obliczy filtr plansz.
+- **Consequences:** późniejsze repozytorium i API zapiszą historię append-only,
+  a write-through istniejących decyzji pełnej planszy będzie transakcyjny. Cropy
+  pozostają assetami filesystemu — baza zapisuje tylko bezpieczne ścieżki,
+  checksumy i metadane.
+- **Alternatives:** flaga błędnej siatki na planszy oraz automatyczne
+  zatwierdzanie nieznanego symbolu odrzucono jako niespójne z granularnym
+  audytem i bezpieczeństwem geometrii.
+
 ## Szablon nowej decyzji
 
 ```text

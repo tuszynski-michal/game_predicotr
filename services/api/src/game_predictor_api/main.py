@@ -116,6 +116,7 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
+from game_predictor_api.application.symbol_references import ApprovedSymbolReferenceService
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
@@ -269,6 +270,9 @@ from game_predictor_api.storage.symbol_model_registry_repository import (
 from game_predictor_api.storage.symbol_model_snapshot_resolver import (
     SqlAlchemySymbolModelSnapshotResolver,
 )
+from game_predictor_api.storage.symbol_references_repository import (
+    SqlAlchemyApprovedSymbolReferenceRepository,
+)
 from game_predictor_api.storage.verified_training_cohort_repository import (
     SqlAlchemyVerifiedTrainingCohortRepository,
 )
@@ -303,6 +307,7 @@ def create_app(
     reviewer_access_service_dependency: Callable[..., object] | None = None,
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
+    symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
@@ -358,6 +363,21 @@ def create_app(
                 raise
 
     resolved_cleanup_dependency = cleanup_service_dependency or default_cleanup_service_dependency
+
+    def default_symbol_reference_service_dependency() -> Iterator[ApprovedSymbolReferenceService]:
+        with session_factory() as session:
+            try:
+                yield ApprovedSymbolReferenceService(
+                    SqlAlchemyApprovedSymbolReferenceRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_reference_dependency = (
+        symbol_reference_service_dependency or default_symbol_reference_service_dependency
+    )
 
     def default_symbol_bootstrap_service_dependency() -> Iterator[SymbolBootstrapService]:
         with session_factory() as session:
@@ -979,6 +999,7 @@ def create_app(
             resolved_reviewer_access_dependency,
             resolved_reviewer_ingress_dependency,
             resolved_reviewer_work_lifecycle_dependency,
+            resolved_symbol_reference_dependency,
             resolved_symbol_bootstrap_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,

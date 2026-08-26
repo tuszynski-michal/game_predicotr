@@ -72,6 +72,7 @@ BOARD_SEARCH_KNOWN_EVIDENCE_POSITIONS_REVISION = "0059_board_search_known_eviden
 BOARD_SEARCH_MOBILE_CODE_PROJECTION_REVISION = "0060_board_search_mobile_code_projection"
 BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION = "0061_board_search_document_evidence"
 BOARD_SEARCH_FAST_DOCUMENTS_REVISION = "0062_board_search_fast_documents"
+SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION = "0063_symbol_reference_candidate_index"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -163,7 +164,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     board_search_document_evidence = script.get_revision(BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION)
     board_search_fast_documents = script.get_revision(BOARD_SEARCH_FAST_DOCUMENTS_REVISION)
-    assert script.get_heads() == [BOARD_SEARCH_FAST_DOCUMENTS_REVISION]
+    symbol_reference_candidate_index = script.get_revision(
+        SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION
+    )
+    assert script.get_heads() == [SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -305,6 +309,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     assert board_search_fast_documents is not None
     assert board_search_fast_documents.down_revision == BOARD_SEARCH_DOCUMENT_EVIDENCE_REVISION
+    assert symbol_reference_candidate_index is not None
+    assert (
+        symbol_reference_candidate_index.down_revision == BOARD_SEARCH_FAST_DOCUMENTS_REVISION
+    )
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -476,6 +484,29 @@ def test_board_search_fast_documents_migration_is_reversible() -> None:
     assert "insert into image_board_search_fast_documents" in upgrade_sql
     assert "primary_symbol_mobile_codes" in upgrade_sql
     assert "drop table image_board_search_fast_documents" in downgrade_sql
+
+
+def test_symbol_reference_candidate_index_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}:"
+        f"{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION}:"
+        f"{BOARD_SEARCH_FAST_DOCUMENTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "ix_image_review_items_resolved_symbols_gin" in upgrade_sql
+    assert "using gin" in upgrade_sql
+    assert "drop index ix_image_review_items_resolved_symbols_gin" in downgrade_sql
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

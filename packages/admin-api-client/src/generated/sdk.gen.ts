@@ -153,6 +153,9 @@ import type {
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
+  GetApprovedSymbolReferenceCandidateAssetData,
+  GetApprovedSymbolReferenceCandidateAssetErrors,
+  GetApprovedSymbolReferenceCandidateAssetResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -313,6 +316,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListApprovedSymbolReferenceCandidatesData,
+  ListApprovedSymbolReferenceCandidatesErrors,
+  ListApprovedSymbolReferenceCandidatesResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -1622,6 +1628,48 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List human-approved crop candidates for a symbol reference
+ */
+export const listApprovedSymbolReferenceCandidates = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListApprovedSymbolReferenceCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListApprovedSymbolReferenceCandidatesResponses,
+  ListApprovedSymbolReferenceCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListApprovedSymbolReferenceCandidatesResponses,
+    ListApprovedSymbolReferenceCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates',
+    ...options,
+  });
+
+/**
+ * Read one checksum-bound human-approved crop candidate
+ */
+export const getApprovedSymbolReferenceCandidateAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetApprovedSymbolReferenceCandidateAssetData, ThrowOnError>,
+): RequestResult<
+  GetApprovedSymbolReferenceCandidateAssetResponses,
+  GetApprovedSymbolReferenceCandidateAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetApprovedSymbolReferenceCandidateAssetResponses,
+    GetApprovedSymbolReferenceCandidateAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
+    ...options,
   });
 
 /**

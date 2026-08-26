@@ -48,6 +48,50 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * ApprovedSymbolReferenceCandidatePageResponse
+ */
+export type ApprovedSymbolReferenceCandidatePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<ApprovedSymbolReferenceCandidateResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * ApprovedSymbolReferenceCandidateResponse
+ */
+export type ApprovedSymbolReferenceCandidateResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Observationid
+   */
+  observationId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -10484,6 +10528,104 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type ListApprovedSymbolReferenceCandidatesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: {
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates';
+};
+
+export type ListApprovedSymbolReferenceCandidatesErrors = {
+  /**
+   * Game, symbol, or crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Candidate cursor conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListApprovedSymbolReferenceCandidatesError =
+  ListApprovedSymbolReferenceCandidatesErrors[keyof ListApprovedSymbolReferenceCandidatesErrors];
+
+export type ListApprovedSymbolReferenceCandidatesResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApprovedSymbolReferenceCandidatePageResponse;
+};
+
+export type ListApprovedSymbolReferenceCandidatesResponse =
+  ListApprovedSymbolReferenceCandidatesResponses[keyof ListApprovedSymbolReferenceCandidatesResponses];
+
+export type GetApprovedSymbolReferenceCandidateAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset';
+};
+
+export type GetApprovedSymbolReferenceCandidateAssetErrors = {
+  /**
+   * Game, symbol, or crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Candidate cursor conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetApprovedSymbolReferenceCandidateAssetError =
+  GetApprovedSymbolReferenceCandidateAssetErrors[keyof GetApprovedSymbolReferenceCandidateAssetErrors];
+
+export type GetApprovedSymbolReferenceCandidateAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListSymbolImageCandidatesData = {
   body?: never;

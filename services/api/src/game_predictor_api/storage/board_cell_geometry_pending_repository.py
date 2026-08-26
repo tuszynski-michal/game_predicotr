@@ -29,6 +29,9 @@ from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnaps
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryPendingModel,
@@ -605,6 +608,13 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         source.processed_at = created_at
         self._session.flush()
         SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(review.id)
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_geometry_change(
+            game_id=game_id,
+            review_item_id=review.id,
+            actor=projection.command.corrected_by,
+        )
+        coordinator.synchronize_after_projection_change(game_id=game_id)
         return BoardCellGeometryManualResolution(
             pending=_to_domain(row),
             review_item_id=review.id,

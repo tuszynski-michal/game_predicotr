@@ -25,17 +25,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
   domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
   `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
-- TASK-0294 pozostaje `in_progress`: schemat, backfill, synchronizacja
-  istniejącego Reviewera, API, operacje masowe i workspace Admina nie są jeszcze
-  zaimplementowane. Nie ma jeszcze widocznej zmiany produktu ani danych w bazie.
+- TASK-0294 pozostaje `in_progress`: API listowania, mutacje pojedynczych
+  cropów, operacje masowe i workspace Admina nie są jeszcze zaimplementowane.
+  Nie ma jeszcze widocznej zmiany produktu.
 - Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
   i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
   keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
   planszy. Ready wymaga dokładnie 15 bieżących cropów na planszę; brak sekwencji,
   cropa lub rewizji geometrii jest kontrolowanym stanem `failed`, nie cichym
-  pominięciem. Backfill nie tworzy syntetycznych eventów. Nie jest jeszcze
-  podłączony do bieżących mutacji Reviewera ani uruchamiany na lokalnej bazie
-  produktu — to musi nastąpić po checkpointcie TASK 3.
+  pominięciem. Backfill nie tworzy syntetycznych eventów.
+- Od `v0.8.21` istnieje transakcyjny write-through dla pełnej decyzji
+  Reviewera, korekty geometrii, ręcznego rozwiązania odroczonej geometrii,
+  reinferencji symboli/siatki, nowych elementów pipeline’u i zmiany właściciela
+  sekwencji. Migracja `0067_symbol_cell_review_catalog_revision` wprowadza
+  per-game `catalog_revision`, zwiększaną co najwyżej raz w pojedynczej
+  transakcji. Przed uruchomieniem produkcyjnego backfillu wymagany jest osobny
+  checkpoint transakcji canonical/staging/search oraz blokad współbieżności.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

@@ -52,6 +52,9 @@ from game_predictor_api.domain.verified_training_cohorts import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -79,6 +82,86 @@ ReviewRow = tuple[
     JobModel,
 ]
 OrderKey = tuple[int, int, str]
+
+
+def acquire_image_review_sequence_locks(
+    session: Session,
+    *,
+    game_id: UUID,
+    review_item_id: UUID,
+    requested_sequence_number: int | None,
+) -> None:
+    """Lock every sequence a full-board mutation can affect before its item.
+
+    This is shared by the operational Reviewer and the legacy worker-side
+    board resolver. Keeping the lookup and advisory locks here prevents either
+    writer from silently using a different lock order.
+    """
+
+    current_row = session.execute(
+        select(
+            ImageReviewItemModel.resolved_value,
+            RecognizedBoardModel.sequence_number,
+        )
+        .join(
+            RecognizedBoardModel,
+            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        )
+        .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+        .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+        .where(
+            ImageReviewItemModel.id == review_item_id,
+            JobModel.game_id == game_id,
+        )
+    ).one_or_none()
+    sequence_numbers: set[int] = set()
+    if isinstance(requested_sequence_number, int) and not isinstance(
+        requested_sequence_number, bool
+    ):
+        sequence_numbers.add(requested_sequence_number)
+    if current_row is None:
+        return
+    current, board_sequence_number = current_row
+    if isinstance(current, Mapping):
+        previous = current.get("sequenceNumber")
+        if isinstance(previous, int) and not isinstance(previous, bool) and previous > 0:
+            sequence_numbers.add(previous)
+    if (
+        isinstance(board_sequence_number, int)
+        and not isinstance(board_sequence_number, bool)
+        and board_sequence_number > 0
+    ):
+        sequence_numbers.add(board_sequence_number)
+    acquire_image_sequence_locks(
+        session,
+        game_id=game_id,
+        sequence_numbers=sequence_numbers,
+    )
+
+
+def acquire_image_sequence_locks(
+    session: Session,
+    *,
+    game_id: UUID,
+    sequence_numbers: Sequence[int] | set[int],
+) -> None:
+    """Acquire sorted transaction advisory locks for a known sequence set."""
+
+    valid_numbers = sorted(
+        {
+            sequence_number
+            for sequence_number in sequence_numbers
+            if isinstance(sequence_number, int)
+            and not isinstance(sequence_number, bool)
+            and sequence_number > 0
+        }
+    )
+    for sequence_number in valid_numbers:
+        session.execute(
+            select(
+                func.pg_advisory_xact_lock(_sequence_advisory_lock_key(game_id, sequence_number))
+            )
+        )
 
 
 class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -314,6 +397,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         review_item_id: UUID | None,
         selected_by: str,
     ) -> None:
+        self._acquire_sequence_lock(game_id, sequence_number)
         latest = self._session.scalar(
             select(func.max(ImageSequenceSourceOverrideEventModel.revision)).where(
                 ImageSequenceSourceOverrideEventModel.game_id == game_id,
@@ -331,6 +415,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         )
         self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_sequence_candidates(
+            game_id,
+            sequence_number,
+        )
+        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_projection_change(
+            game_id=game_id
+        )
 
     def list_items(
         self,
@@ -713,8 +804,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution: ValidatedImageReviewResolution,
         resolved_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
-        if resolution.action.value in {"accepted", "corrected"}:
-            self._acquire_sequence_lock(game_id, cast(int, resolution.sequence_number))
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=resolution.sequence_number,
+        )
         locked = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -957,6 +1051,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             resolution.sequence_number, bool
         ):
             projection.sync_sequence_candidates(game_id, resolution.sequence_number)
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_board_resolution(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=resolution.resolved_by,
+        )
+        coordinator.synchronize_after_projection_change(game_id=game_id)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1369,6 +1470,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         artifacts: ImageReviewGeometryArtifacts,
         created_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=None,
+        )
         locked = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1529,6 +1635,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         projection.sync_review_item(review_item_id)
         if isinstance(previous_sequence, int) and not isinstance(previous_sequence, bool):
             projection.sync_sequence_candidates(game_id, previous_sequence)
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_geometry_change(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=command.corrected_by,
+        )
+        coordinator.synchronize_after_projection_change(game_id=game_id)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1540,6 +1653,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The corrected geometry projection cannot be reloaded.",
             )
         return updated, _geometry_revision_from_record(record), True
+
+    def _acquire_review_sequence_locks(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        requested_sequence_number: int | None,
+    ) -> None:
+        acquire_image_review_sequence_locks(
+            self._session,
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=requested_sequence_number,
+        )
 
     def _mobile_codes(self, game_id: UUID, symbol_codes: Sequence[str]) -> list[int]:
         records = self._session.scalars(

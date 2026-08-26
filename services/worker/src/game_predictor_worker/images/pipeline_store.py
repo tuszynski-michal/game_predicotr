@@ -13,6 +13,13 @@ from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_review_repository import (
+    acquire_image_review_sequence_locks,
+    acquire_image_sequence_locks,
+)
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -412,6 +419,13 @@ class SqlAlchemyImagePipelineStore:
             SqlAlchemyBoardSearchProjectionRepository(session).sync_review_items(
                 tuple(changed_review_item_ids)
             )
+            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
+            for review_item_id in sorted(changed_review_item_ids, key=str):
+                coordinator.synchronize_after_prediction_refresh(
+                    game_id=job.game_id,
+                    review_item_id=review_item_id,
+                    actor="system:image-pipeline",
+                )
 
     def pending_review_count(self, candidate: ImageBatchCandidate) -> int:
         job_id = _job_id(candidate)
@@ -490,6 +504,30 @@ class SqlAlchemyImagePipelineStore:
                 "symbolCodes": list(symbol_codes),
             }
         with self._session_factory() as session, session.begin():
+            game_id = session.scalar(
+                select(JobModel.game_id)
+                .join(SourceImageModel, SourceImageModel.import_job_id == JobModel.id)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.source_image_id == SourceImageModel.id,
+                )
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                )
+                .where(ImageReviewItemModel.id == review_item_id)
+            )
+            if game_id is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_REVIEW_GAME_MISSING",
+                    "The image review item has no game context.",
+                )
+            acquire_image_review_sequence_locks(
+                session,
+                game_id=game_id,
+                review_item_id=review_item_id,
+                requested_sequence_number=sequence_number,
+            )
             item = session.get(ImageReviewItemModel, review_item_id, with_for_update=True)
             if item is None:
                 raise ImagePipelineStoreError(
@@ -581,6 +619,17 @@ class SqlAlchemyImagePipelineStore:
             item.resolution_revision = revision
             board.status = action
             session.flush()
+            projection = SqlAlchemyBoardSearchProjectionRepository(session)
+            projection.sync_review_item(review_item_id)
+            if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
+                projection.sync_sequence_candidates(game_id, sequence_number)
+            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
+            coordinator.synchronize_after_board_resolution(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                actor=actor,
+            )
+            coordinator.synchronize_after_projection_change(game_id=game_id)
 
     def materialize_resolved_staging(self, candidate: ImageBatchCandidate) -> int:
         job_id, lease_token, executed_at = _execution_context(candidate)
@@ -667,6 +716,22 @@ class SqlAlchemyImagePipelineStore:
                 lease_token=lease_token,
                 checked_at=executed_at,
             )
+            job = session.get(JobModel, job_id)
+            if job is None or job.game_id is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_PIPELINE_GAME_MISSING",
+                    "The image import job has no game projection.",
+                )
+            sequence_numbers = session.scalars(
+                select(ImageLayoutStagingRowModel.sequence_number).where(
+                    ImageLayoutStagingRowModel.import_job_id == job_id
+                )
+            ).all()
+            acquire_image_sequence_locks(
+                session,
+                game_id=job.game_id,
+                sequence_numbers=sequence_numbers,
+            )
             rows = session.execute(
                 select(
                     ImageLayoutStagingRowModel,
@@ -706,6 +771,8 @@ class SqlAlchemyImagePipelineStore:
             )
             reason_codes = sorted({issue.code for issue in issues})
             affected_executions: set[str] = set()
+            reopened_review_item_ids: set[UUID] = set()
+            reopened_sequence_numbers: set[int] = set()
             for staging, item, board, source in rows:
                 if staging.sequence_number not in affected_numbers:
                     continue
@@ -744,10 +811,19 @@ class SqlAlchemyImagePipelineStore:
                 source.status = "waiting_for_review"
                 source.processed_at = executed_at
                 affected_executions.add(source.file_execution_key)
+                reopened_review_item_ids.add(item.id)
+                reopened_sequence_numbers.add(staging.sequence_number)
                 session.execute(
                     delete(ImageLayoutStagingRowModel).where(
                         ImageLayoutStagingRowModel.import_job_id == job_id,
                         ImageLayoutStagingRowModel.recognized_board_id == board.id,
+                    )
+                )
+                session.execute(
+                    delete(ImageSequenceCanonicalModel).where(
+                        ImageSequenceCanonicalModel.game_id == job.game_id,
+                        ImageSequenceCanonicalModel.sequence_number == staging.sequence_number,
+                        ImageSequenceCanonicalModel.review_item_id == item.id,
                     )
                 )
             for execution_key in affected_executions:
@@ -780,6 +856,20 @@ class SqlAlchemyImagePipelineStore:
                 association.last_failed_at = None
                 association.updated_at = executed_at
             session.flush()
+            projection = SqlAlchemyBoardSearchProjectionRepository(session)
+            projection.sync_review_items(tuple(sorted(reopened_review_item_ids, key=str)))
+            for sequence_number in sorted(reopened_sequence_numbers):
+                projection.sync_sequence_candidates(
+                    game_id=job.game_id, sequence_number=sequence_number
+                )
+            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
+            for review_item_id in sorted(reopened_review_item_ids, key=str):
+                coordinator.synchronize_after_board_reopened(
+                    game_id=job.game_id,
+                    review_item_id=review_item_id,
+                    actor="system:continuity-validation",
+                )
+            coordinator.synchronize_after_projection_change(game_id=job.game_id)
             return issues
 
 

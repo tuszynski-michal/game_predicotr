@@ -5669,10 +5669,12 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   błędu siatki; zgodność z predykcją daje `accepted`, a każda zmiana symbolu
   `corrected`. Zła siatka pozostaje wyłącznie flagą komórki, z której Reviewer
   później obliczy filtr plansz.
-- **Consequences:** późniejsze repozytorium i API zapiszą historię append-only,
-  a write-through istniejących decyzji pełnej planszy będzie transakcyjny. Cropy
-  pozostają assetami filesystemu — baza zapisuje tylko bezpieczne ścieżki,
-  checksumy i metadane.
+- **Consequences:** repozytorium zapisuje historię append-only, a write-through
+  istniejących decyzji pełnej planszy, geometrii, reinferencji i zmiany
+  właściciela sekwencji jest transakcyjny. Cropy pozostają assetami filesystemu
+  — baza zapisuje tylko bezpieczne ścieżki, checksumy i metadane. Wersja
+  katalogu komórek rośnie najwyżej raz per transakcję gry, aby kolejne operacje
+  masowe mogły bezpiecznie zamrażać filtr.
 - **Alternatives:** flaga błędnej siatki na planszy oraz automatyczne
   zatwierdzanie nieznanego symbolu odrzucono jako niespójne z granularnym
   audytem i bezpieczeństwem geometrii.

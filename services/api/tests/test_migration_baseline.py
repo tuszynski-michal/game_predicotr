@@ -76,6 +76,7 @@ SYMBOL_REFERENCE_CANDIDATE_INDEX_REVISION = "0063_symbol_reference_candidate_ind
 SYMBOL_REFERENCE_IMAGES_REVISION = "0064_symbol_reference_images"
 REMOVE_SYMBOL_BOOTSTRAP_REVISION = "0065_remove_symbol_bootstrap"
 IMAGE_SYMBOL_REVIEW_CELLS_REVISION = "0066_image_symbol_review_cells"
+SYMBOL_CELL_REVIEW_CATALOG_REVISION = "0067_symbol_cell_review_catalog_revision"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -173,7 +174,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_reference_images = script.get_revision(SYMBOL_REFERENCE_IMAGES_REVISION)
     remove_symbol_bootstrap = script.get_revision(REMOVE_SYMBOL_BOOTSTRAP_REVISION)
     image_symbol_review_cells = script.get_revision(IMAGE_SYMBOL_REVIEW_CELLS_REVISION)
-    assert script.get_heads() == [IMAGE_SYMBOL_REVIEW_CELLS_REVISION]
+    symbol_cell_review_catalog = script.get_revision(SYMBOL_CELL_REVIEW_CATALOG_REVISION)
+    assert script.get_heads() == [SYMBOL_CELL_REVIEW_CATALOG_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -322,7 +324,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert remove_symbol_bootstrap is not None
     assert remove_symbol_bootstrap.down_revision == SYMBOL_REFERENCE_IMAGES_REVISION
     assert image_symbol_review_cells is not None
+    assert symbol_cell_review_catalog is not None
     assert image_symbol_review_cells.down_revision == REMOVE_SYMBOL_BOOTSTRAP_REVISION
+    assert symbol_cell_review_catalog.down_revision == IMAGE_SYMBOL_REVIEW_CELLS_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -581,6 +585,24 @@ def test_image_symbol_review_cells_migration_is_reversible() -> None:
     assert "ix_image_symbol_review_cells_grid_issue" in upgrade_sql
     assert "drop table image_symbol_review_cells" in downgrade_sql
     assert "drop table image_symbol_review_events" in downgrade_sql
+
+
+def test_symbol_cell_review_catalog_revision_migration_is_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SYMBOL_REVIEW_CELLS_REVISION}:{SYMBOL_CELL_REVIEW_CATALOG_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_CELL_REVIEW_CATALOG_REVISION}:{IMAGE_SYMBOL_REVIEW_CELLS_REVISION}",
+        sql=True,
+    )
+
+    assert "add column catalog_revision bigint" in upgrade_output.getvalue().lower()
+    assert "drop column catalog_revision" in downgrade_output.getvalue().lower()
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

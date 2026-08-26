@@ -118,3 +118,26 @@ skalowy z izolowaną PostgreSQL.
   kursorze, a
   aktywna plansza bez sekwencji kończy stanem kontrolowanego błędu.
 - Brak HTTP, jobów, mutacji komórek i UI pozostaje zakresem TASK 3+.
+
+### TASK 3 — ukończony w `v0.8.21`
+
+- Dodano wspólny koordynator write-through działający w transakcji istniejącego
+  Reviewera. Aktualizuje 15 bieżących komórek po pełnej decyzji, korekcie
+  geometrii, ręcznym rozwiązaniu odroczonej geometrii, reinferencji symboli i
+  siatki oraz przy utworzeniu/zmianie projekcji pipeline’u. Rezygnacja albo
+  `superseded` pozostawia komórki audytowalne, ale istniejący read model ukrywa
+  je poza aktualnym właścicielem.
+- Geometria zawsze unieważnia wszystkie 15 pozycji na nowe cropy `pending` bez
+  flagi siatki. Reinferencja aktualizuje sugestię i rewizję predykcji, ale nie
+  nadpisuje przypisania ani zatwierdzenia człowieka. Pełna decyzja zapisuje 15
+  `approved` z pochodzeniem `board_decision` i append-only eventami.
+- Migracja `0067_symbol_cell_review_catalog_revision` dodaje monotoniczną
+  rewizję katalogu per gra. Koordynator zwiększa ją najwyżej raz na transakcję,
+  również gdy synchronizowanych jest kilka plansz.
+- Weryfikacja: migracja lokalnej bazy do `0067` przeszła; statyczne upgrade /
+  downgrade migracji daje `50 passed`; izolowany PostgreSQL potwierdził pełną
+  decyzję, reinferencję bez nadpisania człowieka, geometrię resetującą 15
+  cropów i wykluczenie `superseded` (`3 passed`).
+- Checkpoint przed produkcyjnym backfillem pozostaje obowiązkowy: trzeba
+  osobno przejrzeć transakcje canonical/staging/search i kolejność blokad.
+  Operacje pojedynczych cropów, API i UI pozostają zakresem TASK 4+.

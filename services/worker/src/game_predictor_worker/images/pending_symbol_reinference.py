@@ -23,6 +23,9 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryRevisionModel,
@@ -119,6 +122,13 @@ class PendingSymbolReinferenceHandler:
                         )
                         session.flush()
                         SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
+                        SymbolCellReviewWriteThroughCoordinator(
+                            session
+                        ).synchronize_after_prediction_refresh(
+                            game_id=job.game_id,
+                            review_item_id=item.id,
+                            actor="system:pending-symbol-reinference",
+                        )
                     processed += 1
             context.checkpoint(
                 checkpoint_payload=_checkpoint_payload(processed=processed, skipped=skipped),

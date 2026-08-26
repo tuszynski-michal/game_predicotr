@@ -22,6 +22,9 @@ from game_predictor_api.domain.jobs import Job, JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
@@ -249,6 +252,13 @@ class PendingGridReinferenceHandler:
                         locked_board.board_checksum_sha256 = board_checksum
                         session.flush()
                         SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
+                        SymbolCellReviewWriteThroughCoordinator(
+                            session
+                        ).synchronize_after_geometry_change(
+                            game_id=job.game_id,
+                            review_item_id=item.id,
+                            actor="system:pending-grid-reinference-v1",
+                        )
                     processed += 1
             context.checkpoint(
                 checkpoint_payload={
@@ -589,6 +599,18 @@ class PendingGridReinferenceHandler:
             )
             locked_board.geometry_revision = revision
             locked_board.board_geometry = prepared.geometry
+            session.flush()
+            job = session.get(JobModel, snapshot.import_job_id)
+            if job is None or job.game_id is None:
+                raise ValueError("The v19 crop refresh lost its import-game context.")
+            SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(
+                snapshot.review_item_id
+            )
+            SymbolCellReviewWriteThroughCoordinator(session).synchronize_after_geometry_change(
+                game_id=job.game_id,
+                review_item_id=snapshot.review_item_id,
+                actor=_V19_CORRECTED_BY,
+            )
             return "processed"
 
     @staticmethod

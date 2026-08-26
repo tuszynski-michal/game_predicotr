@@ -858,8 +858,10 @@ wcześniejszej decyzji z audytu.
 TASK-0294 wprowadza trwały, checksum-bound stan pojedynczego cropa, bez
 przechowywania jego bajtów w PostgreSQL. `image_symbol_review_states` jest
 jednym rekordem per gra i ma stan `rebuilding`, `ready` albo `failed`, keysetowy
-kursor `last_review_item_id`, liczniki oraz kontrolowany raport braków numeru,
-cropów lub geometrii. Gra nie staje się `ready`, dopóki każdy aktualnie wybrany
+kursor `last_review_item_id`, monotoniczną `catalog_revision`, liczniki oraz
+kontrolowany raport braków numeru, cropów lub geometrii. Rewizja rośnie najwyżej
+raz na transakcję dla danej gry po zmianie widocznego katalogu komórek. Gra nie
+staje się `ready`, dopóki każdy aktualnie wybrany
 właściciel z `image_board_search_fast_documents` nie ma dokładnie 15 komórek z
 bieżącą rewizją geometrii i aktualną tożsamością cropa.
 
@@ -876,9 +878,15 @@ plansz mających problem siatki.
 Zapisuje oba stany, przypisania, dokładną tożsamość cropa, rewizje, aktora oraz
 opcjonalną operację masową. Początkowy backfill nie tworzy sztucznych eventów:
 jego pochodzenie jest zapisane w rekordzie komórki i raporcie przebudowy.
-Aktualizacja istniejącej geometrii albo decyzji pełnej planszy nie jest jeszcze
-obsługiwana przez tę projekcję — transakcyjny write-through jest zakresem
-następnego etapu TASK-0294.
+Pełna decyzja Reviewera, jej ponowne otwarcie, zmiana geometrii, wynik
+reinferencji, powstanie nowego elementu pipeline’u i zmiana właściciela
+sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
+zawsze zastępuje wszystkie
+15 bieżących komórek nowymi cropami `pending` bez flagi siatki; reinferencja
+zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia człowieka.
+Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
+backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
+niekompletnej, pozornej projekcji.
 
 ### image_sequence_source_override_events
 

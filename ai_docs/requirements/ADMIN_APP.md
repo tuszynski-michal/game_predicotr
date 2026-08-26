@@ -410,6 +410,14 @@ accepted/corrected z nawigacji sesji. Strzałki lewo/prawo przechodzą po tej
 pełnej kolejności; strzałka w lewo musi wrócić również do planszy zatwierdzonej
 chwilę wcześniej.
 
+Reviewer ma dodatkowy przełącznik `Wszystkie / Do poprawy siatki`. Drugi widok
+jest wyłącznie listą pending plansz, których bieżąca geometria ma co najmniej
+jedną komórkę oznaczoną jako zła siatka. Nie tworzy osobnej flagi planszy,
+nie dubluje planszy z wieloma oznaczeniami i nie wykonuje automatycznej korekty.
+Po zapisaniu nowej geometrii plansza znika z tego widoku, ponieważ wszystkie
+15 bieżących komórek wraca do stanu oczekującego bez flagi problemu. Kursory
+obu widoków są rozłączne.
+
 Status gotowego importu jest domykany razem z trwałą kolejką review. Import z
 co najmniej jedną planszą pozostaje `waiting_for_review`, dopóki licznik
 `pending` jest dodatni, i przechodzi do `completed` po rozwiązaniu ostatniej

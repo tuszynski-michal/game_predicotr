@@ -25,9 +25,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
   domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
   `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
-- TASK-0294 pozostaje `in_progress`: istnieje już odczyt, wewnętrzne mutacje
-  oraz trwałe operacje masowe cropów, ale workspace Admina i filtr złej siatki
-  w Reviewerze pozostają kolejnymi etapami. Nie ma jeszcze widocznej zakładki
+- TASK-0294 pozostaje `in_progress`: istnieje już odczyt, wewnętrzne mutacje,
+  trwałe operacje masowe cropów oraz filtr złej siatki w Reviewerze, ale
+  workspace Admina pozostaje kolejnym etapem. Nie ma jeszcze widocznej zakładki
   produktu.
 - Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
   i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
@@ -65,6 +65,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   transakcji i po restarcie wznawia wyłącznie `pending`. Masowe oznaczenie złej
   siatki aktualizuje wszystkie cropy danej planszy przed jej ponownym
   otwarciem, więc canonical nie usuwa pozostałych targetów z tej samej partii.
+- Od `v0.8.25` operacyjny Reviewer udostępnia rozłączny widok `Do poprawy
+  siatki`. Wykorzystuje on `EXISTS` po aktualnych `pending` komórkach z
+  `has_grid_issue`, więc jedna plansza z wieloma oznaczeniami występuje tylko
+  raz, a terminalne pozycje nie wyciekają do listy. Odpowiedź zwraca licznik
+  plansz wymagających korekty; kursor schema v3 wiąże także filtr i nie może
+  zostać użyty między widokami. Zapis nowej geometrii resetuje flagi 15 komórek
+  i odświeża Reviewer tak, aby plansza od razu zniknęła z filtra. Scope zdalnej
+  sesji nadal jest ograniczony do jej gry i importu.
   OpenAPI i generowany klient są zgodne; UI workspace pozostaje TASK 8–9.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292

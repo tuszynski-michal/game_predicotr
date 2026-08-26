@@ -209,3 +209,24 @@ skalowy z izolowaną PostgreSQL.
   klient, lint oraz istniejący test pojedynczej mutacji pozostają zgodne.
 - Nie dodano jeszcze filtra `Do poprawy siatki` Reviewerowi ani workspace’u
   Admina z kartami, zaznaczeniem i toolbar: to pozostaje TASK 7–9.
+
+### TASK 7 — ukończony w `v0.8.25`
+
+- Operacyjny endpoint Reviewera przyjmuje `gridIssueView = all | needs_grid_fix`
+  i zwraca niezależny `needsGridFixCount`. Widok wymagający korekty używa
+  skorelowanego `EXISTS` po bieżących komórkach `pending` z
+  `has_grid_issue = true`, dlatego wiele flag jednej planszy nie powoduje
+  duplikatów, a rejected/superseded nie trafiają do listy.
+- Keyset cursor schema v3 wiąże filtr złej siatki. Użycie kursora z innego
+  widoku kończy się kontrolowanym `IMAGE_REVIEW_CURSOR_SCOPE_INVALID`; scope
+  zdalnego Reviewera nadal jest ograniczony przez istniejący `gameId` i
+  `importJobId`.
+- Reviewer pokazuje przełącznik `Wszystkie / Do poprawy siatki` wraz z liczbą
+  plansz. Po rozwiązaniu lub zapisaniu geometrii w tym widoku odświeża kolejkę;
+  nowa geometria resetuje flagi wszystkich 15 komórek, więc plansza natychmiast
+  znika z listy.
+- Weryfikacja obejmuje test API cursorów i remote scope, test integracyjny
+  PostgreSQL dla wielu flag jednej planszy oraz jej usunięcia z filtra po
+  korekcie geometrii, a także testy Reviewera, typecheck i OpenAPI.
+- Workspace Admina z kartami cropów, zaznaczeniem i masowymi akcjami pozostaje
+  wyłącznie zakresem TASK 8–9.

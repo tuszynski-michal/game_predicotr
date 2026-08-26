@@ -141,8 +141,10 @@ test('loads exactly one scope-bound board from the stable all-status queue', asy
       total: 3000,
     },
     gameId: activeGame.id,
+    gridIssueView: 'needs_grid_fix',
     importJobId: 'job-1',
     items: [{ id: 'review-1500' }],
+    needsGridFixCount: 7,
     nextCursor: null,
     previousCursor: null,
     view: 'all',
@@ -157,6 +159,7 @@ test('loads exactly one scope-bound board from the stable all-status queue', asy
     {
       afterCursor: 'opaque-next',
       gameId: activeGame.id,
+      gridIssueView: 'needs_grid_fix',
       importJobId: 'job-1',
       resumeAtFirstPending: true,
       view: 'all',
@@ -165,6 +168,7 @@ test('loads exactly one scope-bound board from the stable all-status queue', asy
   assert.deepEqual(receivedOptions, {
     afterCursor: 'opaque-next',
     gameId: activeGame.id,
+    gridIssueView: 'needs_grid_fix',
     importJobId: 'job-1',
     limit: 1,
     resumeAtFirstPending: true,
@@ -188,6 +192,7 @@ test('marks stale cursor as a recoverable queue conflict', async () => {
     },
     {
       gameId: activeGame.id,
+      gridIssueView: 'all',
       importJobId: 'job-1',
       view: 'completed',
     },
@@ -212,8 +217,10 @@ test('prefetches one previous and two next pages with bounded one-item requests'
   const page = (id, previousCursor, nextCursor) => ({
     counts,
     gameId: activeGame.id,
+    gridIssueView: 'needs_grid_fix',
     importJobId: 'job-1',
     items: [{ id }],
+    needsGridFixCount: 5,
     nextCursor,
     previousCursor,
     queueVersion: 1,
@@ -240,7 +247,12 @@ test('prefetches one previous and two next pages with bounded one-item requests'
         return { data: responses.get(key) };
       },
     },
-    { gameId: activeGame.id, importJobId: 'job-1', view: 'all' },
+    {
+      gameId: activeGame.id,
+      gridIssueView: 'needs_grid_fix',
+      importJobId: 'job-1',
+      view: 'all',
+    },
     createOperationalReviewPageBuffer(current),
   );
 
@@ -254,6 +266,10 @@ test('prefetches one previous and two next pages with bounded one-item requests'
   assert.equal(received.length, 3);
   assert.equal(
     received.every((options) => options.limit === 1),
+    true,
+  );
+  assert.equal(
+    received.every((options) => options.gridIssueView === 'needs_grid_fix'),
     true,
   );
 });
@@ -270,6 +286,7 @@ test('prefetch fails closed only for cursor conflicts and keeps transport fallba
       total: 2,
     },
     gameId: activeGame.id,
+    gridIssueView: 'all',
     importJobId: 'job-1',
     items: [{ id: 'review-1' }],
     nextCursor: 'cursor-next',
@@ -280,6 +297,7 @@ test('prefetch fails closed only for cursor conflicts and keeps transport fallba
   const buffer = createOperationalReviewPageBuffer(current);
   const options = {
     gameId: activeGame.id,
+    gridIssueView: 'all',
     importJobId: 'job-1',
     view: 'all',
   };

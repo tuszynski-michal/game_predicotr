@@ -38,6 +38,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
+    ImageReviewGridIssueView,
     ImageReviewResolutionCell,
     ImageReviewView,
     validate_image_review_geometry_command,
@@ -1146,6 +1147,25 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 for index, cell in enumerate(cells)
                 if index != 1
             )
+            # Two flagged cells still identify one operational board.
+            cells[2].review_state = "pending"
+            cells[2].has_grid_issue = True
+            session.flush()
+            operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            grid_issue_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            assert [item.id for item in grid_issue_page.items] == [review_item_id]
+            assert grid_issue_page.needs_grid_fix_count == 1
             assert (
                 session.scalar(
                     select(func.count())
@@ -1168,6 +1188,63 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 )
                 == 1
             )
+            current = operational_repository.get_item(
+                review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+            )
+            assert current is not None
+            geometry_command = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=current.geometry_revision,
+                expected_resolution_revision=current.resolution_revision,
+                corrected_by="grid-issue-reviewer",
+            )
+            _updated, _revision, geometry_created = (
+                operational_repository.save_geometry_revision(
+                    review_item_id=review_item_id,
+                    game_id=game.id,
+                    import_job_id=job.id,
+                    idempotency_key=uuid4(),
+                    command=geometry_command,
+                    artifacts=ImageReviewGeometryArtifacts(
+                        geometry={"source": "grid-issue-filter-test"},
+                        board_relative_path="corrected/grid-issue.png",
+                        board_checksum_sha256="d" * 64,
+                        cropper_version="grid-issue-filter-test",
+                        cells=tuple(
+                            ImageReviewGeometryCellArtifact(
+                                row_index=index // 5,
+                                column_index=index % 5,
+                                crop_relative_path=f"corrected/grid-issue-{index}.png",
+                                crop_checksum_sha256=f"{6000 + index:064x}",
+                            )
+                            for index in range(15)
+                        ),
+                    ),
+                    created_at=now + timedelta(minutes=1),
+                )
+            )
+            assert geometry_created is True
+            cleared_grid_issue_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            assert cleared_grid_issue_page.items == ()
+            assert cleared_grid_issue_page.needs_grid_fix_count == 0
     finally:
         engine.dispose()
 

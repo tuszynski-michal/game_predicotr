@@ -206,6 +206,7 @@ import type {
   ImageSequenceSourceOverrideCommand,
   JobStatus,
   JobType,
+  ImageReviewGridIssueView,
   ImageReviewView,
   LayoutImportRowStatus,
   MockDatasetCreate,
@@ -344,6 +345,7 @@ export type {
   ImageStorageInventoryResponse,
   ImageStorageNamespaceResponse,
   ImageReviewAction,
+  ImageReviewGridIssueView,
   ImageReviewView,
   ImageSequenceSourceCandidateResponse,
   ImageSequenceSourceOverrideCommand,
@@ -510,6 +512,7 @@ export interface OperationalImageReviewContext {
 }
 
 export interface ListOperationalImageReviewItemsOptions extends OperationalImageReviewContext {
+  readonly gridIssueView?: ImageReviewGridIssueView;
   readonly view?: ImageReviewView;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
@@ -1184,6 +1187,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: {
           gameId: filters.gameId,
           importJobId: filters.importJobId,
+          ...(filters.gridIssueView === undefined
+            ? {}
+            : { gridIssueView: filters.gridIssueView }),
           ...(filters.view === undefined ? {} : { view: filters.view }),
           ...(filters.afterCursor === undefined
             ? {}

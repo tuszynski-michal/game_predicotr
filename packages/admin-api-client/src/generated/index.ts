@@ -787,6 +787,7 @@ export type {
   ImageJobOperationsResponse,
   ImageJobStageCountResponse,
   ImageReviewAction,
+  ImageReviewGridIssueView,
   ImageReviewView,
   ImageSelectionCandidateResponse,
   ImageSelectionCreate,

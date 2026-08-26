@@ -2438,6 +2438,13 @@ export type ImageJobStageCountResponse = {
 export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
 
 /**
+ * ImageReviewGridIssueView
+ *
+ * Optional restriction of an operational queue to unresolved grid issues.
+ */
+export type ImageReviewGridIssueView = 'all' | 'needs_grid_fix';
+
+/**
  * ImageReviewView
  */
 export type ImageReviewView = 'pending' | 'completed' | 'all';
@@ -4773,6 +4780,7 @@ export type OperationalImageReviewPageResponse = {
    * Gameid
    */
   gameId: string;
+  gridIssueView: ImageReviewGridIssueView;
   /**
    * Importjobid
    */
@@ -4781,6 +4789,10 @@ export type OperationalImageReviewPageResponse = {
    * Items
    */
   items: Array<OperationalImageReviewItemResponse>;
+  /**
+   * Needsgridfixcount
+   */
+  needsGridFixCount: number;
   /**
    * Nextcursor
    */
@@ -12242,6 +12254,7 @@ export type ListOperationalImageReviewItemsData = {
      */
     importJobId: string;
     view?: ImageReviewView;
+    gridIssueView?: ImageReviewGridIssueView;
     /**
      * Aftercursor
      */

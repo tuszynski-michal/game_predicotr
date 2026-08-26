@@ -20,6 +20,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewCounts,
     ImageReviewGeometryRevision,
+    ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewResolutionEvent,
     ImageReviewView,
@@ -93,8 +94,10 @@ class OperationalImageReviewPageResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID
     view: ImageReviewView
+    grid_issue_view: ImageReviewGridIssueView
     items: tuple[OperationalImageReviewItemResponse, ...]
     counts: OperationalImageReviewCountsResponse
+    needs_grid_fix_count: int = Field(ge=0)
     queue_version: int = Field(ge=0)
     previous_cursor: str | None
     next_cursor: str | None
@@ -349,8 +352,10 @@ def to_operational_page_response(
         game_id=page.game_id,
         import_job_id=page.import_job_id,
         view=page.view,
+        grid_issue_view=page.grid_issue_view,
         items=tuple(to_operational_item_response(item) for item in page.items),
         counts=to_operational_counts_response(page.counts),
+        needs_grid_fix_count=page.needs_grid_fix_count,
         queue_version=page.queue_version,
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,

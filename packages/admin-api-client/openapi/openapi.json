@@ -4243,6 +4243,15 @@
         "title": "ImageReviewAction",
         "type": "string"
       },
+      "ImageReviewGridIssueView": {
+        "description": "Optional restriction of an operational queue to unresolved grid issues.",
+        "enum": [
+          "all",
+          "needs_grid_fix"
+        ],
+        "title": "ImageReviewGridIssueView",
+        "type": "string"
+      },
       "ImageReviewView": {
         "enum": [
           "pending",
@@ -8384,6 +8393,9 @@
             "title": "Gameid",
             "type": "string"
           },
+          "gridIssueView": {
+            "$ref": "#/components/schemas/ImageReviewGridIssueView"
+          },
           "importJobId": {
             "format": "uuid",
             "title": "Importjobid",
@@ -8395,6 +8407,11 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "needsGridFixCount": {
+            "minimum": 0.0,
+            "title": "Needsgridfixcount",
+            "type": "integer"
           },
           "nextCursor": {
             "anyOf": [
@@ -8431,8 +8448,10 @@
           "gameId",
           "importJobId",
           "view",
+          "gridIssueView",
           "items",
           "counts",
+          "needsGridFixCount",
           "queueVersion",
           "previousCursor",
           "nextCursor"
@@ -21693,6 +21712,15 @@
             "schema": {
               "$ref": "#/components/schemas/ImageReviewView",
               "default": "pending"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gridIssueView",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImageReviewGridIssueView",
+              "default": "all"
             }
           },
           {

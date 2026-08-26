@@ -15,7 +15,7 @@ from uuid import UUID
 IMAGE_REVIEW_CELL_COUNT = 15
 MAX_IMAGE_REVIEW_ALTERNATIVES = 4
 MAX_IMAGE_REVIEW_PAGE_SIZE = 50
-IMAGE_REVIEW_CURSOR_VERSION = 2
+IMAGE_REVIEW_CURSOR_VERSION = 3
 BASE_GEOMETRY_REVISION = 0
 
 
@@ -23,6 +23,13 @@ class ImageReviewView(StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
     ALL = "all"
+
+
+class ImageReviewGridIssueView(StrEnum):
+    """Optional restriction of an operational queue to unresolved grid issues."""
+
+    ALL = "all"
+    NEEDS_GRID_FIX = "needs_grid_fix"
 
 
 class ImageReviewAction(StrEnum):
@@ -139,6 +146,7 @@ class ImageReviewPage:
     has_previous: bool
     has_next: bool
     queue_version: int | None = None
+    needs_grid_fix_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -409,6 +417,7 @@ def encode_image_review_cursor(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView,
+    grid_issue_view: ImageReviewGridIssueView,
     key: tuple[int, int, str],
     queue_version: int,
 ) -> str:
@@ -420,6 +429,7 @@ def encode_image_review_cursor(
             "queueVersion": queue_version,
             "version": IMAGE_REVIEW_CURSOR_VERSION,
             "view": view.value,
+            "gridIssueView": grid_issue_view.value,
         }
     )
     return base64.urlsafe_b64encode(payload).decode().rstrip("=")
@@ -431,6 +441,7 @@ def decode_image_review_cursor(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView,
+    grid_issue_view: ImageReviewGridIssueView,
 ) -> ImageReviewCursor:
     try:
         padding = "=" * (-len(value) % 4)
@@ -448,6 +459,7 @@ def decode_image_review_cursor(
         not isinstance(payload, dict)
         or payload.get("version") != IMAGE_REVIEW_CURSOR_VERSION
         or payload.get("view") != view.value
+        or payload.get("gridIssueView") != grid_issue_view.value
         or parsed_game_id != game_id
         or parsed_job_id != import_job_id
         or not isinstance(key, list)
@@ -640,6 +652,7 @@ __all__ = [
     "ImageReviewGeometryCellArtifact",
     "ImageReviewGeometryPoint",
     "ImageReviewGeometryRevision",
+    "ImageReviewGridIssueView",
     "ImageReviewItem",
     "ImageReviewNotFoundError",
     "ImageReviewPage",

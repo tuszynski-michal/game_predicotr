@@ -30,6 +30,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
     ImageReviewGeometryRevision,
+    ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
     ImageReviewPage,
@@ -68,6 +69,7 @@ from game_predictor_api.storage.models import (
     ImageSequenceCanonicalModel,
     ImageSequenceSourceOverrideEventModel,
     ImageSymbolPredictionRevisionModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -429,6 +431,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         after_key: OrderKey | None,
         before_key: OrderKey | None,
         expected_queue_version: int | None,
@@ -444,7 +447,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The operational review queue topology changed; reload the queue.",
             )
         order = _queue_order_expressions()
-        query = _base_query(game_id, import_job_id, view)
+        query = _base_query(game_id, import_job_id, view, grid_issue_view)
         if after_key is not None:
             query = query.where(_lexicographic_after(order, after_key))
         elif before_key is not None:
@@ -454,7 +457,12 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         elif resume_at_first_pending:
             pending_row = (
                 self._session.execute(
-                    _base_query(game_id, import_job_id, ImageReviewView.PENDING)
+                    _base_query(
+                        game_id,
+                        import_job_id,
+                        ImageReviewView.PENDING,
+                        grid_issue_view,
+                    )
                     .order_by(*[expression.asc() for expression in order])
                     .limit(1)
                 )
@@ -490,6 +498,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
+                    grid_issue_view,
                     items[0].queue_order_key,
                 )
             )
@@ -498,6 +507,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
+                    grid_issue_view,
                     items[-1].queue_order_key,
                 )
                 if descending
@@ -518,6 +528,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             has_previous=has_previous,
             has_next=has_next,
             queue_version=final_queue_version,
+            needs_grid_fix_count=self._needs_grid_fix_count(import_job_id),
         )
 
     def queue_snapshot(
@@ -1933,6 +1944,29 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             superseded=state.superseded_count,
         )
 
+    def _needs_grid_fix_count(self, import_job_id: UUID) -> int:
+        """Return current boards, rather than flagged cells, for the Reviewer toggle."""
+
+        return int(
+            self._session.scalar(
+                select(func.count(ImageReviewQueueItemModel.review_item_id))
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.id == ImageReviewQueueItemModel.review_item_id,
+                )
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .where(
+                    ImageReviewQueueItemModel.import_job_id == import_job_id,
+                    ImageReviewQueueItemModel.status == "pending",
+                    _current_grid_issue_exists(),
+                )
+            )
+            or 0
+        )
+
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
         """Return status counts across every import belonging to a game."""
 
@@ -2008,12 +2042,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         key: OrderKey,
     ) -> bool:
         order = _queue_order_expressions()
         return (
             self._session.execute(
-                _base_query(game_id, import_job_id, view)
+                _base_query(game_id, import_job_id, view, grid_issue_view)
                 .where(_lexicographic_before(order, key))
                 .limit(1)
             ).first()
@@ -2025,12 +2060,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         key: OrderKey,
     ) -> bool:
         order = _queue_order_expressions()
         return (
             self._session.execute(
-                _base_query(game_id, import_job_id, view)
+                _base_query(game_id, import_job_id, view, grid_issue_view)
                 .where(_lexicographic_after(order, key))
                 .limit(1)
             ).first()
@@ -2042,6 +2078,7 @@ def _base_query(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView | None,
+    grid_issue_view: ImageReviewGridIssueView = ImageReviewGridIssueView.ALL,
 ) -> Any:
     query = (
         select(
@@ -2070,7 +2107,34 @@ def _base_query(
         query = query.where(ImageReviewQueueItemModel.status == "pending")
     elif view is ImageReviewView.COMPLETED:
         query = query.where(ImageReviewQueueItemModel.status.in_(("accepted", "corrected")))
+    if grid_issue_view is ImageReviewGridIssueView.NEEDS_GRID_FIX:
+        query = query.where(
+            ImageReviewQueueItemModel.status == "pending",
+            _current_grid_issue_exists(),
+        )
     return query
+
+
+def _current_grid_issue_exists() -> ColumnElement[bool]:
+    """Match a board only when a current crop still carries a grid issue.
+
+    ``EXISTS`` deliberately preserves one operational queue row per board when
+    multiple cells were marked.  Requiring the active geometry revision keeps
+    stale crop state out of the geometry-correction workflow.
+    """
+
+    return cast(
+        ColumnElement[bool],
+        select(ImageSymbolReviewCellModel.id)
+        .where(
+            ImageSymbolReviewCellModel.review_item_id == ImageReviewItemModel.id,
+            ImageSymbolReviewCellModel.geometry_revision
+            == RecognizedBoardModel.geometry_revision,
+            ImageSymbolReviewCellModel.review_state == "pending",
+            ImageSymbolReviewCellModel.has_grid_issue.is_(True),
+        )
+        .exists(),
+    )
 
 
 def _base_game_query(game_id: UUID) -> Any:

@@ -1675,6 +1675,15 @@ zapisie. Kolejność jest zawsze deterministyczna po trwałym kluczu
 zaakceptowaniu `sequenceNumber`. Odpowiedź zawiera cursor poprzedni/następny,
 `queueVersion` oraz liczniki, ale nie całą kolejkę.
 
+Opcjonalny parametr `gridIssueView = all | needs_grid_fix` ogranicza ten sam
+scope `gameId + importJobId`. `needs_grid_fix` zwraca tylko pending plansze,
+których bieżąca rewizja geometrii ma przynajmniej jedną komórkę z flagą
+`has_grid_issue`; odpowiedź zawiera `needsGridFixCount`. Filtr wykorzystuje
+`EXISTS`, dlatego kilka flag jednej planszy nie tworzy duplikatu. Zapis nowej
+geometrii resetuje 15 komórek i usuwa planszę z tego widoku. Parametr nie daje
+zdalnemu Reviewerowi szerszego dostępu: nadal obowiązuje przypisany scope gry i
+importu.
+
 Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
 aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
 alternatywami. Binarne obrazy pozostają w item-scoped endpointach i są
@@ -1705,8 +1714,8 @@ i eventem `superseded`, a exact retry zachowuje idempotencję. Liczniki odpowied
 obejmują osobne pole `superseded`; `completed` nadal oznacza wyłącznie
 `accepted + corrected`.
 
-Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem oraz trwałym
-`queueVersion`. Schema cursora v2 zawiera dokładnie klucz
+Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem
+`gridIssueView` oraz trwałym `queueVersion`. Schema cursora v3 zawiera dokładnie klucz
 `(source_order_index, position_index, review_item_id)`; sortowanie, keyset,
 poprzedni/następny i resume używają tego samego klucza we wszystkich widokach.
 Status i `sequence_number` nie są częścią klucza. Zapis accepted/corrected nie

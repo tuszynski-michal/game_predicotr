@@ -841,6 +841,18 @@ klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu
 `image_review_queue_states`. Zmiana statusu może usunąć element z filtrowanego
 widoku, ale nie usuwa jego granicy z niezmiennej topologii.
 
+TASK-0294 dodaje do tego samego read modelu wirtualny widok
+`needs_grid_fix`. Nie jest to flaga planszy ani kolejna projekcja: element
+należy do widoku wyłącznie wtedy, gdy dla jego bieżącej rewizji geometrii
+istnieje co najmniej jedna `image_symbol_review_cells` z
+`review_state = pending` i `has_grid_issue = true`. Repozytorium używa
+skorelowanego `EXISTS`, dlatego wiele oznaczonych komórek nadal zwraca jedną
+planszę. Zapis nowej geometrii tworzy nową rewizję, resetuje wszystkie 15
+komórek i usuwa poprzednie flagi, więc plansza znika z tego widoku bez osobnego
+czyszczenia. Odpowiedź zwraca również licznik takich plansz. Kursor schematu
+v3 wiąże dodatkowo wybrany `grid_issue_view`; kursora `all` nie wolno użyć w
+`needs_grid_fix` ani odwrotnie.
+
 ### image_review_resolution_events
 
 Każda accepted/corrected/rejected decyzja, systemowe `superseded` oraz ponowne

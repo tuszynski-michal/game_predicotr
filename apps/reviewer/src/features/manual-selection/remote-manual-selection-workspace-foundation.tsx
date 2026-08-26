@@ -77,6 +77,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
     useState<FileSystemDirectoryHandle | null>(null);
   const [startScreenSourceSelected, setStartScreenSourceSelected] =
     useState(false);
+  const [startScreenOutputSelected, setStartScreenOutputSelected] =
+    useState(false);
   const [collectionName, setCollectionName] = useState('Zdjęcia');
   const [batchName, setBatchName] = useState('');
   const [firstLayout, setFirstLayout] = useState('1');
@@ -607,15 +609,6 @@ export function RemoteManualSelectionWorkspaceFoundation({
       return;
     }
     await refresh();
-    if (
-      updatedSession.outputHandle !== null &&
-      updatedSession.outputHandle !== undefined &&
-      input.batch.hostRegistered === true
-    ) {
-      setShowStartScreen(false);
-      setNotice('Folder został ponownie powiązany. Wznowiono zapisany postęp.');
-      return;
-    }
     setNotice('Katalog zdjęć został wybrany. Wybierz katalog do zapisu.');
   }
 
@@ -635,6 +628,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       currentBatch,
     );
     setStartScreenOutputParent(null);
+    setStartScreenOutputSelected(true);
     setFirstLayout(String(connection.batch.firstLayout));
     setDirection(connection.batch.direction);
     await refresh();
@@ -760,6 +754,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       });
       if (showStartScreen && !startScreenSourceSelected) {
         setStartScreenOutputParent(parent);
+        setStartScreenOutputSelected(true);
         setNotice(
           'Katalog do zapisu został zapamiętany. Wybierz katalog zdjęć, aby połączyć oba foldery.',
         );
@@ -870,6 +865,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
         await refresh();
         setStartScreenOutputParent(null);
         setStartScreenSourceSelected(false);
+        setStartScreenOutputSelected(false);
         setShowStartScreen(false);
         setNotice(
           `Wznowiono selekcję od zdjęcia ${resumed.cursorIndex + 1}; następny zakres to ${resumed.nextRangeStart}–${(resumed.nextRangeStart ?? resumed.firstLayout) + 8}.`,
@@ -911,6 +907,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       await refresh();
       setStartScreenOutputParent(null);
       setStartScreenSourceSelected(false);
+      setStartScreenOutputSelected(false);
       setShowStartScreen(false);
       setNotice(
         'Sesja lokalna jest aktywna. Decyzje i JPEG-i nie będą wysyłane na komputer właściciela linku.',
@@ -1065,21 +1062,20 @@ export function RemoteManualSelectionWorkspaceFoundation({
     }
   }
 
-  function returnToSelection() {
-    if (batch?.hostRegistered !== true) {
-      void activateBatch();
-      return;
-    }
-    setStartScreenOutputParent(null);
-    setStartScreenSourceSelected(false);
-    setShowStartScreen(false);
-  }
-
   function openStartScreen() {
     setStartScreenOutputParent(null);
     setStartScreenSourceSelected(false);
+    setStartScreenOutputSelected(false);
+    setSourceReader(null);
+    setError('');
+    setNotice('Wybierz ponownie katalog zdjęć i katalog do zapisu.');
     setShowStartScreen(true);
   }
+
+  const startScreenRequiresSource =
+    showStartScreen && !startScreenSourceSelected;
+  const startScreenRequiresOutput =
+    showStartScreen && !startScreenOutputSelected;
 
   if (
     batch?.hostRegistered &&
@@ -1243,16 +1239,17 @@ export function RemoteManualSelectionWorkspaceFoundation({
           równocześnie w drugiej karcie.
         </p>
       ) : null}
-      {showStartScreen && batch?.hostRegistered ? (
+      {showStartScreen ? (
         <p>
-          Możesz ponownie wskazać katalog zdjęć lub katalog do zapisu. Powrót do
-          ekranu startowego nie usuwa obecnych wyborów ani postępu.
+          Wskaż katalog zdjęć i katalog do zapisu. Zapisany postęp pozostanie
+          bez zmian, ale zostanie odtworzony dopiero po ponownym wskazaniu
+          zgodnej pary katalogów.
         </p>
       ) : null}
       <div className="remoteSelectionDirectoryCards">
         <article className="remoteSelectionDirectoryCard">
           <h3>Zdjęcia źródłowe</h3>
-          {batch === null ? (
+          {startScreenRequiresSource || batch === null ? (
             <p>Nie wybrano katalogu JPEG.</p>
           ) : sourceReader === null ? (
             <p>Folder został zapamiętany, ale wymaga ponownego dostępu.</p>
@@ -1270,7 +1267,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           >
             {busy
               ? 'Indeksowanie…'
-              : batch === null
+              : startScreenRequiresSource || batch === null
                 ? 'Wybierz katalog ze zdjęciami'
                 : 'Wybierz ponownie katalog ze zdjęciami'}
           </button>
@@ -1282,6 +1279,8 @@ export function RemoteManualSelectionWorkspaceFoundation({
               Wybrano katalog nadrzędny:{' '}
               <strong>{startScreenOutputParent.name}</strong>
             </p>
+          ) : startScreenRequiresOutput ? (
+            <p>Nie wybrano katalogu nadrzędnego dla wyniku.</p>
           ) : session?.outputDirectoryName ? (
             <p>
               Folder wynikowy: <strong>{session.outputDirectoryName}</strong>
@@ -1310,7 +1309,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
           otwarciu przeglądarki.
         </p>
       ) : null}
-      {batch !== null ? (
+      {batch !== null && (!showStartScreen || startScreenSourceSelected) ? (
         <div className="remoteSelectionSetup">
           <p>
             <strong>{batch.sourceDirectoryName}</strong> ·{' '}
@@ -1354,17 +1353,14 @@ export function RemoteManualSelectionWorkspaceFoundation({
               !canWrite ||
               busy ||
               sourceReader === null ||
+              (showStartScreen && !startScreenOutputSelected) ||
               session?.outputHandle === null ||
               session?.outputHandle === undefined
             }
-            onClick={returnToSelection}
+            onClick={() => void activateBatch()}
             type="button"
           >
-            {busy
-              ? 'Przygotowywanie…'
-              : batch.hostRegistered
-                ? 'Wróć do selekcji'
-                : 'Rozpocznij selekcję'}
+            {busy ? 'Przygotowywanie…' : 'Rozpocznij selekcję'}
           </button>
         </div>
       ) : null}

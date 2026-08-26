@@ -27,7 +27,9 @@ flowchart LR
   Uchwyt katalogu nadrzędnego może istnieć w lokalnej sesji przed indeksem
   źródła; po indeksowaniu Reviewer tworzy lub waliduje właściwy folder wyniku.
 - `Ekran startowy` jest wyłącznie lokalną nawigacją do tych pickerów. Nie
-  zmienia trwałego batcha ani outputu; ponowne otwarcie workspace'u zachowuje
+  zmienia trwałego batcha ani outputu, ale zawsze renderuje wizualnie czysty
+  konfigurator: oba katalogi są niewybrane i nie ma skrótu powrotu do
+  workspace'u. Dopiero ponowne wskazanie zgodnej pary katalogów odtwarza
   zapisane decyzje, kursor i zakres. Wybór innego źródła odnajduje jego
   poprzedni batch po nazwie i checksumie manifestu albo tworzy nowy; nie jest
   mylony z relinkowaniem aktualnego źródła.

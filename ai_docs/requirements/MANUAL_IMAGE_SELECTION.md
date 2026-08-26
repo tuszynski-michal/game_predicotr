@@ -126,9 +126,11 @@ zakres.
 
 Po rozpoczęciu selekcji główny przycisk `Ekran startowy`, umieszczony po lewej
 stronie obok wtórnego `Restart selekcji`, wraca do tego konfiguratora, aby
-operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
-manifestu, decyzji ani zapisanych JPEG-ów; `Wróć do selekcji` otwiera bieżący
-workspace bez zmiany kursora i zakresu.
+operator mógł ponownie wskazać katalogi. Po wejściu konfigurator ma zawsze
+wizualnie czysty stan początkowy: nie pokazuje poprzednio wybranych katalogów
+ani skrótu powrotu do workspace'u. Nie jest to reset: nie usuwa manifestu,
+decyzji ani zapisanych JPEG-ów. Ponowne wskazanie zgodnej pary katalogów
+odtwarza bieżący kursor i zakres.
 W tym trybie wybór innego katalogu zdjęć tworzy albo odnajduje jego własny
 lokalny batch. Ponowne wskazanie katalogów zgodnych z istniejącym wynikiem
 wznawia jego kursor i zakres; różnica źródła nie jest błędem relinkowania

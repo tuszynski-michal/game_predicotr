@@ -65,6 +65,14 @@ ani kopiowania JPEG-ów do repozytorium.
 
 ## Progress
 
+### v0.8.18 — czysty konfigurator po przejściu na ekran startowy
+
+- `Ekran startowy` nie prepopuluje już pickerów poprzednimi uchwytami ani nie
+  pokazuje przycisku powrotu do aktywnej selekcji.
+- Samo wejście nadal nie zmienia manifestu, decyzji ani JPEG-ów. Operator musi
+  ponownie wskazać oba katalogi; ich zgodna para dopiero wtedy wznawia zapisany
+  batch, kursor i zakres.
+
 ### v0.7.76 — priorytet ekranu startowego w workspace
 
 - Aktywny workspace ma po lewej główny przycisk `Ekran startowy`, który

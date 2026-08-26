@@ -109,6 +109,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
+- Od `v0.8.18` `Ekran startowy` otwiera zawsze wizualnie czysty konfigurator:
+  oba pickery są niewybrane, nie jest pokazywany skrót powrotu do bieżącego
+  workspace'u, a operator wskazuje ponownie katalog zdjęć oraz katalog zapisu.
+  Jest to nadal nawigacja niedestrukcyjna — zgodna para folderów odtwarza
+  zachowany manifest, decyzje, kursor i następny zakres.
+
 - Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`
   jako główną akcję po lewej stronie. `Restart selekcji` pozostaje po prawej
   jako akcja wtórna, która dopiero otwiera bezpieczny modal potwierdzenia.
@@ -124,9 +130,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów
   wznawia postęp zamiast zgłaszać `REMOTE_SELECTION_SOURCE_CHANGED`.
 
-- Od `v0.7.72` aktywny workspace ma przycisk `Ekran startowy` obok restartu.
-  Jest to nie-destrykcyjny powrót do dwóch pickerów; `Wróć do selekcji` otwiera
-  bieżący kursor i zakres bez usuwania wyniku.
+- Od `v0.7.72` aktywny workspace otrzymał przycisk `Ekran startowy` obok
+  restartu. Historyczny skrót `Wróć do selekcji` został zastąpiony w `v0.8.18`
+  ponownym, jawnym wyborem obu katalogów.
 
 - Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
   pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać

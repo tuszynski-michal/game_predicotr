@@ -73,6 +73,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   przy bramkach odpowiednio `500 ms` i `2 s`; raport:
   `ai_docs/quality/board-search-warm-benchmark-v08.json`. TASK-0292 jest
   ukończony.
+- Od `v0.8.8` paleta symboli w `Wyszukaj plansze` pokazuje grafikę referencyjną
+  oraz nazwę bez technicznego kodu w kaflu. Endpoint assetu odzyskuje również
+  checksum-bound crop zapisany w niezmiennym manifeście historycznego bootstrapu
+  katalogu, więc katalogi utworzone przed trwałymi obserwacjami cropów nie
+  zwracają już błędnie `404` dla istniejącej grafiki.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 

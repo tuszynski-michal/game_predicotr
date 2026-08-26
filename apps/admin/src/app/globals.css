@@ -8620,7 +8620,6 @@ div.imageJobInlineError {
   font-weight: 800;
 }
 
-.boardSearchSymbolButton > small,
 .boardSearchCell small {
   color: var(--muted);
   font-size: 8px;

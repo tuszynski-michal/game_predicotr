@@ -170,11 +170,11 @@ def create_symbol_bootstrap_router(
         symbol_id: UUID,
         service: Annotated[SymbolBootstrapService, service_parameter],
     ) -> FileResponse:
-        candidate = service.selected_image_candidate(game_id, symbol_id)
+        reference = service.symbol_reference_image(game_id, symbol_id)
         path = _resolve_candidate_asset(
             artifact_root,
-            candidate.crop_relative_path,
-            candidate.crop_checksum_sha256,
+            reference.crop_relative_path,
+            reference.crop_checksum_sha256,
         )
         media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
         return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
@@ -219,8 +219,19 @@ def _resolve_candidate_asset(root: Path, relative_value: str, checksum: str) -> 
             "The symbol image candidate path is unsafe.",
         )
     data_root = (root.resolve() / "data").resolve()
-    path = (root.resolve() / Path(*relative.parts)).resolve()
-    if not path.is_relative_to(data_root) or not path.is_file():
+    relative_path = Path(*relative.parts)
+    candidates = [(root.resolve() / relative_path).resolve()]
+    if relative.parts[0] != "data":
+        candidates.append((data_root / relative_path).resolve())
+    path = next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.is_relative_to(data_root) and candidate.is_file()
+        ),
+        None,
+    )
+    if path is None:
         raise CatalogNotFoundError(
             "SYMBOL_IMAGE_ASSET_NOT_FOUND",
             "The symbol image candidate file is unavailable.",

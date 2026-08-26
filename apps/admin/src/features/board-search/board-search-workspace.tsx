@@ -254,7 +254,6 @@ export function BoardSearchWorkspace({
                       />
                     ) : null}
                     <span>{symbol.name}</span>
-                    <small>{symbol.code}</small>
                   </button>
                 ))}
               </div>

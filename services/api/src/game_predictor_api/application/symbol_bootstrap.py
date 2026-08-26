@@ -21,6 +21,7 @@ from game_predictor_api.domain.symbol_bootstrap import (
     SymbolBootstrapStatus,
     SymbolImageCandidate,
     SymbolImageCandidatePage,
+    SymbolReferenceImage,
     automatic_definitions,
     build_symbol_candidates,
     decode_symbol_candidate_cursor,
@@ -74,9 +75,9 @@ class SymbolBootstrapRepository(Protocol):
         self, *, game_id: UUID, symbol_id: UUID, observation_id: UUID
     ) -> SymbolImageCandidate | None: ...
 
-    def get_selected_image_candidate(
+    def get_symbol_reference_image(
         self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolImageCandidate | None: ...
+    ) -> SymbolReferenceImage | None: ...
 
     def select_image_candidate(
         self,
@@ -253,18 +254,18 @@ class SymbolBootstrapService:
             name=validate_name(name),
         )
 
-    def selected_image_candidate(self, game_id: UUID, symbol_id: UUID) -> SymbolImageCandidate:
+    def symbol_reference_image(self, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage:
         self._require_game(game_id)
-        candidate = self._repository.get_selected_image_candidate(
+        reference = self._repository.get_symbol_reference_image(
             game_id=game_id,
             symbol_id=symbol_id,
         )
-        if candidate is None:
+        if reference is None:
             raise CatalogNotFoundError(
                 "SYMBOL_IMAGE_NOT_FOUND",
                 "The symbol has no available reference image.",
             )
-        return candidate
+        return reference
 
     def _require_game(self, game_id: UUID) -> None:
         if not self._repository.game_exists(game_id):

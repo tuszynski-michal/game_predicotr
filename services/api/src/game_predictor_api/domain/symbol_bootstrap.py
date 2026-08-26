@@ -82,6 +82,18 @@ class SymbolImageCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolReferenceImage:
+    """Checksum-bound image currently assigned to a catalog symbol.
+
+    It may originate from a current cell observation or from the immutable
+    bootstrap manifest that initially created the symbol catalog.
+    """
+
+    crop_relative_path: str
+    crop_checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class SymbolImageCandidatePage:
     items: tuple[SymbolImageCandidate, ...]
     next_cursor: str | None
@@ -324,6 +336,7 @@ __all__ = [
     "SymbolBootstrapStatus",
     "SymbolImageCandidate",
     "SymbolImageCandidatePage",
+    "SymbolReferenceImage",
     "automatic_definitions",
     "build_symbol_candidates",
     "decode_symbol_candidate_cursor",

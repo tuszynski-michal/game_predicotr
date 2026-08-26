@@ -25,6 +25,7 @@ from game_predictor_api.domain.symbol_bootstrap import (
     SymbolBootstrapRun,
     SymbolBootstrapStatus,
     SymbolImageCandidate,
+    SymbolReferenceImage,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -285,9 +286,9 @@ class SqlAlchemySymbolBootstrapRepository(SymbolBootstrapRepository):
             confidence=float(confidence_value),
         )
 
-    def get_selected_image_candidate(
+    def get_symbol_reference_image(
         self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolImageCandidate | None:
+    ) -> SymbolReferenceImage | None:
         symbol = self._session.scalar(
             select(SymbolModel).where(
                 SymbolModel.id == symbol_id,
@@ -321,14 +322,47 @@ class SqlAlchemySymbolBootstrapRepository(SymbolBootstrapRepository):
             .order_by(sql_cast(CellObservationModel.id, String))
             .limit(1)
         ).first()
-        if result is None:
-            return None
-        row, confidence_value = result
-        return SymbolImageCandidate(
-            observation_id=row.id,
-            crop_relative_path=row.crop_relative_path,
-            crop_checksum_sha256=row.crop_checksum_sha256,
-            confidence=float(confidence_value),
+        if result is not None:
+            row, _confidence_value = result
+            return SymbolReferenceImage(
+                crop_relative_path=row.crop_relative_path,
+                crop_checksum_sha256=row.crop_checksum_sha256,
+            )
+        return self._bootstrap_reference_image(
+            game_id=game_id,
+            symbol_code=symbol.code,
+            image_path=symbol.image_path,
+        )
+
+    def _bootstrap_reference_image(
+        self,
+        *,
+        game_id: UUID,
+        symbol_code: str,
+        image_path: str,
+    ) -> SymbolReferenceImage | None:
+        """Return a checksum from the immutable applied bootstrap manifest.
+
+        Catalogs created before persistent cell observations still have valid
+        representative crops.  Their only authoritative checksum is stored in
+        the applied bootstrap run that created the symbol definition.
+        """
+
+        records = self._session.scalars(
+            select(SymbolBootstrapRunModel)
+            .where(
+                SymbolBootstrapRunModel.game_id == game_id,
+                SymbolBootstrapRunModel.status == "applied",
+            )
+            .order_by(
+                SymbolBootstrapRunModel.applied_at.desc(),
+                sql_cast(SymbolBootstrapRunModel.id, String).desc(),
+            )
+        ).all()
+        return _bootstrap_reference_image_from_runs(
+            tuple(_to_run(record) for record in records),
+            symbol_code=symbol_code,
+            image_path=image_path,
         )
 
     def select_image_candidate(
@@ -469,6 +503,34 @@ def _definition_from_payload(raw: Mapping[str, object]) -> SymbolBootstrapDefini
         candidate_ids=tuple(cast(Sequence[str], raw["candidateIds"])),
         image_path=cast(str, raw["imagePath"]),
     )
+
+
+def _bootstrap_reference_image_from_runs(
+    runs: Sequence[SymbolBootstrapRun],
+    *,
+    symbol_code: str,
+    image_path: str,
+) -> SymbolReferenceImage | None:
+    for run in runs:
+        matching_definition = next(
+            (
+                definition
+                for definition in run.resolution
+                if definition.code == symbol_code and definition.image_path == image_path
+            ),
+            None,
+        )
+        if matching_definition is None:
+            continue
+        candidates = {candidate.candidate_id: candidate for candidate in run.candidates}
+        for candidate_id in matching_definition.candidate_ids:
+            candidate = candidates.get(candidate_id)
+            if candidate is not None and candidate.representative_crop_relative_path == image_path:
+                return SymbolReferenceImage(
+                    crop_relative_path=image_path,
+                    crop_checksum_sha256=candidate.representative_crop_checksum_sha256,
+                )
+    return None
 
 
 __all__ = ["SqlAlchemySymbolBootstrapRepository"]

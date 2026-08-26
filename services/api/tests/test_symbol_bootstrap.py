@@ -23,9 +23,13 @@ from game_predictor_api.domain.symbol_bootstrap import (
     SymbolBootstrapRun,
     SymbolBootstrapStatus,
     SymbolImageCandidate,
+    SymbolReferenceImage,
 )
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.models import SymbolBootstrapRunModel
+from game_predictor_api.storage.symbol_bootstrap_repository import (
+    _bootstrap_reference_image_from_runs,
+)
 from sqlalchemy.dialects import postgresql
 
 
@@ -130,19 +134,25 @@ class MemoryBootstrapRepository:
             None,
         )
 
-    def get_selected_image_candidate(
+    def get_symbol_reference_image(
         self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolImageCandidate | None:
+    ) -> SymbolReferenceImage | None:
         symbol = self.symbols.get(symbol_id)
         if symbol is None or symbol.game_id != game_id or symbol.image_path is None:
             return None
-        return next(
+        candidate = next(
             (
                 item
                 for item in self.image_candidates
                 if item.crop_relative_path == symbol.image_path
             ),
             None,
+        )
+        if candidate is None:
+            return None
+        return SymbolReferenceImage(
+            crop_relative_path=candidate.crop_relative_path,
+            crop_checksum_sha256=candidate.crop_checksum_sha256,
         )
 
     def select_image_candidate(
@@ -438,3 +448,66 @@ def test_http_image_picker_lists_reads_and_selects_scoped_crop(tmp_path) -> None
     assert selected.json()["name"] == "Fresh Lemon"
     assert selected.json()["code"] == "lemon"
     assert selected.json()["mobileCode"] == 1
+
+
+def test_symbol_reference_asset_accepts_bootstrap_legacy_relative_path(tmp_path) -> None:
+    content = b"legacy-bootstrap-crop"
+    crop = tmp_path / "data" / "crops" / "cherries.png"
+    crop.parent.mkdir(parents=True)
+    crop.write_bytes(content)
+
+    resolved = _resolve_candidate_asset(
+        tmp_path,
+        "crops/cherries.png",
+        hashlib.sha256(content).hexdigest(),
+    )
+
+    assert resolved == crop
+
+
+def test_bootstrap_reference_image_uses_matching_applied_definition() -> None:
+    game_id = uuid4()
+    path = "crops/runtime-v1/cherries.png"
+    checksum = hashlib.sha256(b"cherries").hexdigest()
+    candidate = SymbolBootstrapCandidate(
+        candidate_id="a" * 64,
+        predicted_symbol_code="cherries",
+        proposed_code="cherries",
+        proposed_name="Cherries",
+        sample_count=12,
+        mean_confidence=0.9,
+        representative_crop_relative_path=path,
+        representative_crop_checksum_sha256=checksum,
+    )
+    run = SymbolBootstrapRun(
+        id=uuid4(),
+        game_id=game_id,
+        expected_symbol_count=8,
+        detected_cluster_count=8,
+        source_state_sha256="b" * 64,
+        status=SymbolBootstrapStatus.APPLIED,
+        candidates=(candidate,),
+        resolution=(
+            SymbolBootstrapDefinition(
+                mobile_code=1,
+                code="cherries",
+                name="Cherries",
+                candidate_ids=(candidate.candidate_id,),
+                image_path=path,
+            ),
+        ),
+        created_by="test",
+        created_at=datetime(2026, 8, 26),
+        applied_at=datetime(2026, 8, 26),
+    )
+
+    reference = _bootstrap_reference_image_from_runs(
+        (run,),
+        symbol_code="cherries",
+        image_path=path,
+    )
+
+    assert reference == SymbolReferenceImage(
+        crop_relative_path=path,
+        crop_checksum_sha256=checksum,
+    )

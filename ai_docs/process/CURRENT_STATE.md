@@ -74,6 +74,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   i odświeża Reviewer tak, aby plansza od razu zniknęła z filtra. Scope zdalnej
   sesji nadal jest ograniczony do jej gry i importu.
   OpenAPI i generowany klient są zgodne; UI workspace pozostaje TASK 8–9.
+- Od `v0.8.26` Admin ma niezależną główną zakładkę `Weryfikacja symboli`.
+  Lokalny, read-only workspace wybiera grę, aktywny symbol lub techniczne `?`
+  oraz stan, czyta checksum-bound cropy keysetowo po 60, leniwie pobiera ich
+  assety i ogranicza pamięć do bieżącej strony oraz dwóch sąsiednich. Karta
+  pokazuje numer planszy, pozycję komórki, stan i flagę `Zła siatka`; brak
+  pojedynczego assetu nie usuwa metadanych. Wybór, toolbar i masowe decyzje
+  pozostają wyłącznie zakresem TASK 9.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

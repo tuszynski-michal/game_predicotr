@@ -324,6 +324,20 @@ content-addressed referencję. Stary `image_path` bez takiej proweniencji nie
 jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 „Najpierw zatwierdź planszę zawierającą ten symbol”.
 
+### Weryfikacja symboli
+
+`Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
+nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
+`Nierozpoznany (?)`) i stan `Wszystkie` / `Zatwierdzone` / `Oczekujące`.
+Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera keysetowo po 60
+aktualnych cropów i trzyma w pamięci najwyżej stronę bieżącą oraz jej dwóch
+bezpośrednich sąsiadów. Miniatury są ładowane leniwie spod checksum-bound
+lokalnego Admin API; brak jednego assetu pokazuje placeholder tylko tej karty.
+Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
+review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
+kontrolowany stan przebudowy, a nie mylący pusty wynik. Zaznaczanie i masowe
+operacje są osobnym, późniejszym etapem workflow.
+
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
 wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje

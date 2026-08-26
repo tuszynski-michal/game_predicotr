@@ -11,13 +11,19 @@ const shellSource = await readFile(
   'utf8',
 );
 
-test('preserves the three v0.2 workspaces and adds v0.4 image selection', () => {
+test('preserves existing workspaces and adds symbol verification as a main workspace', () => {
   assert.match(workspaceSource, /Zarządzanie grami/);
   assert.match(workspaceSource, /Wersje Android/);
   assert.match(workspaceSource, /Joby/);
   assert.match(workspaceSource, /Selekcja zdjęć/);
   assert.match(workspaceSource, /id: 'image-selection'/);
   assert.match(workspaceSource, /WORKSPACE_OPTIONS/);
+  assert.match(workspaceSource, /Weryfikacja symboli/);
+  assert.match(workspaceSource, /id: 'symbol-verification'/);
+  assert.match(
+    workspaceSource,
+    /<SymbolReviewWorkspace apiBaseUrl=\{apiBaseUrl\} \/>/,
+  );
 });
 
 test('uses a single controlled game context for dependent sections', () => {
@@ -41,7 +47,7 @@ test('keeps local manual image selection independent from game context', () => {
 
 test('does not expose duplicate Dataset or Manual Review workspaces', () => {
   assert.doesNotMatch(workspaceSource, /DatasetCatalog/);
-  assert.doesNotMatch(workspaceSource, /ReviewWorkspace/);
+  assert.doesNotMatch(workspaceSource, /\bReviewWorkspace\b/);
   assert.doesNotMatch(workspaceSource, /Manual Review/i);
   assert.match(workspaceSource, /ImageFolderImportPanel/);
   assert.match(workspaceSource, /ReviewerAccessLauncher/);

@@ -2063,6 +2063,48 @@ test('operational review client forwards resume-at-first-pending in the all queu
   assert.equal(query.get('resumeAtFirstPending'), 'true');
 });
 
+test('symbol cell review client binds the keyset filter and checksum asset URL', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const cellReviewId = '33333333-3333-4333-833333333333';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+
+  await client.listSymbolCellReviews({
+    afterCursor: 'cursor-after',
+    gameId,
+    limit: 60,
+    state: 'pending',
+    symbolId: 'unknown',
+  });
+
+  const requestUrl = new URL(requests[0].url);
+  assert.equal(
+    requestUrl.pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews`,
+  );
+  assert.equal(requestUrl.searchParams.get('symbolId'), 'unknown');
+  assert.equal(requestUrl.searchParams.get('state'), 'pending');
+  assert.equal(requestUrl.searchParams.get('afterCursor'), 'cursor-after');
+  assert.equal(requestUrl.searchParams.get('limit'), '60');
+  assert.equal(
+    client.symbolCellReviewAssetUrl(gameId, cellReviewId, checksum),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}`,
+  );
+});
+
 test('cleanup client binds previews and destructive calls to exact targets', async () => {
   const requests = [];
   const releaseId = '22222222-2222-4222-8222-222222222222';

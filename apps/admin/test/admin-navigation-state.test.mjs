@@ -48,6 +48,22 @@ test('restores the v0.4 image selection workspace with its game context', () => 
   );
 });
 
+test('restores the independent symbol verification workspace', () => {
+  assert.deepEqual(parseAdminNavigation('?workspace=symbol-verification'), {
+    workspace: 'symbol-verification',
+    gameId: null,
+    section: null,
+  });
+  assert.equal(
+    serializeAdminNavigation('', {
+      workspace: 'symbol-verification',
+      gameId: null,
+      section: null,
+    }),
+    '?workspace=symbol-verification',
+  );
+});
+
 test('does not restore a dependent section without a game', () => {
   assert.deepEqual(parseAdminNavigation('?section=symbols'), {
     workspace: 'games',

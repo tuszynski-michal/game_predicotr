@@ -230,3 +230,21 @@ skalowy z izolowaną PostgreSQL.
   korekcie geometrii, a także testy Reviewera, typecheck i OpenAPI.
 - Workspace Admina z kartami cropów, zaznaczeniem i masowymi akcjami pozostaje
   wyłącznie zakresem TASK 8–9.
+
+### TASK 8 — ukończony w `v0.8.26`
+
+- Admin otrzymał niezależny workspace `Weryfikacja symboli`. Wybiera on grę,
+  aktywny symbol lub techniczne `Nierozpoznany (?)` oraz stan `all`, `approved`
+  albo `pending`; aktywne symbole są deterministycznie uporządkowane po
+  `displayOrder`, a potem kodzie.
+- Widok pobiera stronę 60 cropów przez istniejący keyset API, prefetchuje tylko
+  następną i przechowuje najwyżej poprzednią, bieżącą i następną stronę.
+  Miniatury są lazy-loaded spod checksum-bound URL, a niedostępny pojedynczy
+  asset ma własny placeholder. Stan projekcji `rebuilding` jest komunikowany
+  jako kontrolowana blokada, nie pusty wynik.
+- Karty są wyłącznie read-only: zawierają obraz, symbol/`?`, numer planszy,
+  pozycję row/column, stan komórki i ewentualny badge `Zła siatka`. Nie dodano
+  zaznaczania, mutacji ani toolbara — to pozostaje TASK 9.
+- Weryfikacja: test reduktora trzech stron, keysetowego klienta i kontrolowanej
+  przebudowy, test kontraktowy workspace’u, test nawigacji, typecheck Admina i
+  klienta, lint Admina, kontrola OpenAPI oraz produkcyjny build Admina.

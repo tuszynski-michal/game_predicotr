@@ -120,6 +120,7 @@ import {
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
+  listSymbolCellReviews as listGeneratedSymbolCellReviews,
   listApprovedSymbolReferenceCandidates as listGeneratedApprovedSymbolReferenceCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
@@ -243,6 +244,7 @@ import type {
   SymbolUpdate,
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
+  SymbolCellReviewFilterState,
   WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
@@ -410,6 +412,10 @@ export type {
   SymbolModelActivationCommandResponse,
   SymbolModelActivationPreviewResponse,
   SymbolModelActivationResponse,
+  SymbolCellReviewCountsResponse,
+  SymbolCellReviewFilterState,
+  SymbolCellReviewListItemResponse,
+  SymbolCellReviewPageResponse,
   SymbolTrainingCoverageResponse,
   PaylineCreate,
   PaylineResponse,
@@ -518,6 +524,15 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly beforeCursor?: string;
   readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface ListSymbolCellReviewsOptions {
+  readonly gameId: string;
+  readonly symbolId: string | 'unknown';
+  readonly state?: SymbolCellReviewFilterState;
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
   readonly limit?: number;
 }
 
@@ -1493,6 +1508,30 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { review_item_id: reviewItemId },
         query: context,
       }),
+    listSymbolCellReviews: (options: ListSymbolCellReviewsOptions) =>
+      listGeneratedSymbolCellReviews({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          symbolId: options.symbolId,
+          ...(options.state === undefined ? {} : { state: options.state }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.beforeCursor === undefined
+            ? {}
+            : { beforeCursor: options.beforeCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    symbolCellReviewAssetUrl: (
+      gameId: string,
+      cellReviewId: string,
+      expectedCropChecksumSha256: string,
+    ) => {
+      const query = new URLSearchParams({ expectedCropChecksumSha256 });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
+    },
     listPendingBoardCellGeometry: (
       options: ListPendingBoardCellGeometryOptions,
     ) =>

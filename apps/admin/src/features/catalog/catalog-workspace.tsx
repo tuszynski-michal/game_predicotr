@@ -28,6 +28,7 @@ import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
+import { SymbolReviewWorkspace } from '@/features/symbol-reviews/symbol-review-workspace';
 
 interface CatalogWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -68,6 +69,12 @@ const WORKSPACE_OPTIONS: readonly {
     label: 'Ręczna selekcja',
     description: 'Sekwencyjne przypisywanie zdjęć do zakresów bez algorytmu.',
     index: '05',
+  },
+  {
+    id: 'symbol-verification',
+    label: 'Weryfikacja symboli',
+    description: 'Masowy przegląd cropów symboli i problemów siatki.',
+    index: '06',
   },
 ];
 
@@ -433,6 +440,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
           <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'symbol-verification' ? (
+          <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
       </div>
     </div>

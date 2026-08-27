@@ -339,6 +339,9 @@ aktualnych cropów. Dwukierunkowy infinite scroll używa górnego i dolnego
 sentinela, zachowuje kotwicę przy usunięciu odległej strony i trzyma w pamięci
 najwyżej trzy strony, czyli 180 rekordów. Miniatury są ładowane leniwie spod checksum-bound
 lokalnego Admin API; brak jednego assetu pokazuje placeholder tylko tej karty.
+Podsumowanie bieżącego filtra pokazuje liczbę unikalnych cropów aktualnie
+załadowanych do tego ograniczonego bufora oraz pełną liczbę wyników wybranego
+symbolu i stanu (`załadowane / wszystkie`).
 Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
 review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
@@ -350,7 +353,10 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   lub nieaktualne metadane cropów; nie uruchamia ponownie cięcia ani inferencji.
   Jeżeli general worker jest zajęty, dotychczasowa gotowa lista pozostaje
   dostępna, a przycisk pokazuje oczekiwanie w kolejce. Stan `rebuilding` zaczyna
-  się dopiero po faktycznym przejęciu joba przez worker.
+  się dopiero po faktycznym przejęciu joba przez worker. Reconciliacja utworzona
+  z kompletnej projekcji zachowuje odczyt oraz mutacje istniejących cropów także
+  podczas przetwarzania; początkowy lub niekompletny backfill pozostaje
+  fail-closed.
   Zaznaczanie i masowe
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
 zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import game_predictor_api.storage.image_symbol_review_backfill_repository as backfill_storage
 import pytest
@@ -36,3 +38,29 @@ def test_storage_metrics_keep_database_sizes_when_data_directory_is_inaccessible
     metrics = SqlAlchemySymbolCellReviewBackfillRepository(session)._storage_metrics()
 
     assert metrics == (12_345, 6_789, None)
+
+
+def test_start_marks_reconciliation_of_ready_projection_as_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = MagicMock()
+    session.get.return_value = SimpleNamespace(status="ready")
+    session.scalar.return_value = 0
+    repository = SqlAlchemySymbolCellReviewBackfillRepository(session)
+    monkeypatch.setattr(repository, "_require_game", MagicMock())
+    monkeypatch.setattr(repository, "_active_job", MagicMock(return_value=None))
+    monkeypatch.setattr(repository, "_storage_metrics", MagicMock(return_value=(1, 2, 3)))
+    monkeypatch.setattr(repository, "_status", MagicMock(return_value=MagicMock()))
+    projection = MagicMock()
+    projection.state_for_game.return_value = SimpleNamespace(status="ready")
+    monkeypatch.setattr(
+        backfill_storage,
+        "SqlAlchemyImageSymbolReviewRepository",
+        MagicMock(return_value=projection),
+    )
+
+    result = repository.start(uuid4())
+
+    assert result.created is True
+    record = session.add.call_args.args[0]
+    assert record.input_payload["preserve_ready_projection"] is True

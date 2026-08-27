@@ -5757,6 +5757,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   wybieranie właściciela wyłącznie w UI odrzucono jako nieaudytowalne albo
   nieskuteczne dla ponownych importów.
 
+## D-239 — Reconciliacja kompletnej projekcji nie blokuje istniejących cropów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** job `image_symbol_review_backfill` utworzony jawnie z projekcji
+  `ready` otrzymuje trwały znacznik `preserve_ready_projection`. Gdy taki job
+  jest aktywny, przejściowy stan `rebuilding` nie blokuje odczytu ani mutacji
+  istniejących checksum-bound cropów. Początkowy backfill oraz rebuilding bez
+  tego znacznika nadal są niedostępne.
+- **Context:** operator może uruchomić `Uzupełnij brakujące symbole` podczas
+  ręcznej weryfikacji. Dotychczas worker po przejęciu joba poprawnie zachowywał
+  dane, ale globalna bramka `status == ready` blokowała nawet zmianę istniejącej
+  zatwierdzonej komórki.
+- **Safety:** każda lista i mutacja nadal sprawdza aktualnego właściciela,
+  rewizję geometrii, rewizję komórki i checksumę cropa. Znacznik nie jest
+  nadawany pierwszemu lub niekompletnemu backfillowi i obowiązuje tylko przy
+  aktywnym jobie tej samej gry.
+- **Consequences:** bounded reconciliacja może uzupełniać nowe rekordy bez
+  przerywania pracy na już gotowych danych. Błąd lub zakończenie joba usuwa
+  podstawę wyjątku; projekcja musi wtedy ponownie osiągnąć `ready` albo pozostaje
+  kontrolowanie zablokowana.
+- **Alternatives:** blokowanie całego workspace'u na czas maintenance oraz
+  dopuszczenie każdego stanu `rebuilding` odrzucono odpowiednio jako zbędną
+  przerwę operatorską i osłabienie integralności pierwszego backfillu.
+
 ## Szablon nowej decyzji
 
 ```text

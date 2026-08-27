@@ -66,6 +66,9 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             game_id,
             with_for_update=True,
         )
+        preserve_ready_projection = (
+            current_state is not None and current_state.status == "ready"
+        )
         try:
             report = (
                 projection_repository.state_for_game(game_id)
@@ -102,6 +105,7 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
                 "schema_version": 1,
                 "workflow": _WORKFLOW,
                 "generation": generation,
+                "preserve_ready_projection": preserve_ready_projection,
                 "table_bytes_before": table_bytes,
                 "index_bytes_before": index_bytes,
                 "database_free_bytes_before": database_free_bytes,

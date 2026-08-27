@@ -113,6 +113,16 @@ export function symbolReviewBufferedPages(
   );
 }
 
+export function symbolReviewBufferedItemCount(
+  state: SymbolReviewWorkspaceState,
+): number {
+  return new Set(
+    symbolReviewBufferedPages(state).flatMap((page) =>
+      page.items.map((item) => item.id),
+    ),
+  ).size;
+}
+
 function emptySymbolReviewPageBuffer(): SymbolReviewPageBuffer {
   return { current: null, next: null, previous: null };
 }

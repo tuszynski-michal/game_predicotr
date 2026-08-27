@@ -120,7 +120,11 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do
 `rebuilding`, zachowuje dotychczasowy kursor i dane, a następnie wykonuje
-bounded reconciliację braków. Nie uruchamia pipeline'u obrazów.
+bounded reconciliację braków. Taki job ma trwały znacznik
+`preserve_ready_projection`; dopóki jest aktywny, lista, assety, preview i
+mutacje istniejących checksum-bound cropów pozostają dostępne. Rebuilding bez
+tego znacznika nadal zwraca `SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE`. Job nie
+uruchamia pipeline'u obrazów.
 
 Pierwsze dwa endpointy są lokalnym kontraktem przygotowania projekcji. Status
 zwraca oczekiwaną i przetworzoną liczbę plansz, oczekiwaną i zapisaną liczbę

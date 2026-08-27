@@ -53,6 +53,7 @@ import {
 } from './symbol-review-selection-state';
 import {
   createSymbolReviewWorkspaceState,
+  symbolReviewBufferedItemCount,
   symbolReviewBufferedPages,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
@@ -147,6 +148,7 @@ export function SymbolReviewWorkspace({
   const filters = workspace.filters;
   const currentPage = workspace.pages.current;
   const bufferedPages = symbolReviewBufferedPages(workspace);
+  const bufferedItemCount = symbolReviewBufferedItemCount(workspace);
   const currentItems = bufferedPages.flatMap((page) => page.items);
   const activeGame = games.find((game) => game.id === filters.gameId) ?? null;
   const activeOperationId = activeOperation?.id ?? null;
@@ -719,8 +721,8 @@ export function SymbolReviewWorkspace({
             </span>
             <div className={styles.summaryActions}>
               <span>
-                Wyniki: {currentPage.counts.allCount} · zatwierdzone:{' '}
-                {currentPage.counts.approvedCount} · oczekujące:{' '}
+                Załadowane: {bufferedItemCount} / {currentPage.counts.allCount}{' '}
+                · zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
                 {currentPage.counts.pendingCount}
               </span>
               <button

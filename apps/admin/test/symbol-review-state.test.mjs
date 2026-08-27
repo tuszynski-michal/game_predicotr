@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   createSymbolReviewWorkspaceState,
+  symbolReviewBufferedItemCount,
   symbolReviewBufferedPages,
   symbolReviewBufferedPageCount,
   symbolReviewWorkspaceReducer,
@@ -18,7 +19,7 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
   return {
     catalogRevision: 1,
     counts: { allCount: 180, approvedCount: 90, pendingCount: 90 },
-    items: [{ id }],
+    items: [{ cellReviewId: id, id }],
     nextCursor,
     previousCursor,
   };
@@ -54,6 +55,27 @@ test('keeps only the current page and its immediate neighbours in memory', () =>
   assert.equal(state.pages.current?.items[0]?.id, 'second');
   assert.equal(state.pages.next?.items[0]?.id, 'third');
   assert.equal(symbolReviewBufferedPageCount(state), 3);
+  assert.equal(symbolReviewBufferedItemCount(state), 3);
+});
+
+test('counts unique loaded crop records across the bounded page buffer', () => {
+  let state = createSymbolReviewWorkspaceState(filters);
+  state = symbolReviewWorkspaceReducer(state, {
+    page: {
+      ...page('first'),
+      items: [{ id: 'cell-1' }, { id: 'cell-2' }],
+    },
+    type: 'initial_page_loaded',
+  });
+  state = symbolReviewWorkspaceReducer(state, {
+    page: {
+      ...page('second'),
+      items: [{ id: 'cell-2' }, { id: 'cell-3' }],
+    },
+    type: 'next_page_prefetched',
+  });
+
+  assert.equal(symbolReviewBufferedItemCount(state), 3);
 });
 
 test('streams forward and backward without retaining distant pages', () => {

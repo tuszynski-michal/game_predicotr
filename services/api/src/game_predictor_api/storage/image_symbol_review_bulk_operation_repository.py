@@ -33,6 +33,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
@@ -583,7 +584,11 @@ def _require_ready_state(
     if for_update:
         statement = statement.with_for_update()
     state = session.scalar(statement)
-    if state is None or state.status != "ready":
+    if state is None or not symbol_cell_review_projection_is_available(
+        session,
+        game_id=game_id,
+        state=state,
+    ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
             "The symbol-cell review projection is not ready for this game.",

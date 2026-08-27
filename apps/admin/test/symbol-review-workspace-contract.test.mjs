@@ -60,4 +60,6 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /processedBoardCount/);
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);
+  assert.match(source, /Załadowane:/);
+  assert.match(source, /symbolReviewBufferedItemCount/);
 });

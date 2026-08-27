@@ -51,6 +51,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     mark_symbol_cell_grid_issue,
     reassign_symbol_cell_review,
 )
+from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -114,6 +115,28 @@ class SymbolCellReviewBackfillError(RuntimeError):
         self.invalid_geometry_count = invalid_geometry_count
 
 
+def symbol_cell_review_projection_is_available(
+    session: Session,
+    *,
+    game_id: UUID,
+    state: ImageSymbolReviewStateModel | None,
+) -> bool:
+    if state is None:
+        return False
+    if state.status == "ready":
+        return True
+    if state.status != "rebuilding":
+        return False
+    jobs = session.scalars(
+        select(JobModel).where(
+            JobModel.game_id == game_id,
+            JobModel.job_type == JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+            JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
+        )
+    ).all()
+    return any(job.input_payload.get("preserve_ready_projection") is True for job in jobs)
+
+
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewBackfillReport:
     game_id: UUID
@@ -161,7 +184,12 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 details={"gameId": str(game_id)},
             )
         state = self._session.get(ImageSymbolReviewStateModel, game_id)
-        if state is None or state.status != "ready":
+        projection_available = symbol_cell_review_projection_is_available(
+            self._session,
+            game_id=game_id,
+            state=state,
+        )
+        if state is None or not projection_available:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
                 "The symbol-cell review projection is not ready for this game.",
@@ -579,7 +607,11 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 details={"gameId": str(game_id)},
             )
         state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
-        if state is None or state.status != "ready":
+        if state is None or not symbol_cell_review_projection_is_available(
+            self._session,
+            game_id=game_id,
+            state=state,
+        ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
                 "The symbol-cell review projection is not ready for this game.",

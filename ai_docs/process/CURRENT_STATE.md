@@ -143,6 +143,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   nie uruchamia cięcia plansz ani rozpoznawania symboli. Jeżeli general lane
   jest zajęty, lista pozostaje dostępna, a stan `rebuilding` zaczyna się dopiero
   po przejęciu joba przez worker.
+- Reconciliacja uruchomiona z kompletnego `ready` zapisuje w jobie trwały
+  znacznik dostępności. Dzięki temu jej przejściowy stan `rebuilding` nie
+  blokuje zmiany symbolu ani pozostałych operacji na już istniejących,
+  checksum-bound cropach. Początkowy i niekompletny backfill nadal pozostają
+  zablokowane. Podsumowanie filtra pokazuje także liczbę unikalnych cropów w
+  bounded buforze względem pełnej liczby wyników wybranego symbolu.
 - Pierwszy kontrolowany backfill gry `777` zakończył się statusem `ready`:
   `125 431` plansz, `1 881 465` komórek i zero błędów integralności.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty

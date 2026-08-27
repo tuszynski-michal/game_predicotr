@@ -35,7 +35,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `superseded`; nie wracają do Reviewera ani Weryfikacji symboli.
 - Naprawa rzeczywistej bazy rozwiązała `114 676` zduplikowanych grup sekwencji
   i `159 754` nadmiarowe pozycje pending. Nie znaleziono pending nad
-  istniejącym canonical. Migracja zakończyła się na head `0069`.
+  istniejącym canonical. Migracja danych zakończyła się na `0069`; bieżący
+  head schematu po dodaniu trwałego przygotowania Weryfikacji symboli to `0070`.
 - Dropdown `Zatwierdzanie plansz` pokazuje odtąd wyłącznie importy
   `waiting_for_review`. Importy zakończone pozostają widoczne w historii Jobów,
   ale nie zaśmiecają operacyjnego wyboru.
@@ -113,6 +114,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Lista transportuje także `cropSampleId`, niezbędny do bezpiecznej jawnej
   mutacji. Polling jednej aktywnej operacji nie nakłada requestów, pokazuje
   `applied/conflict/failed` i po terminalnym wyniku odświeża bounded stronę.
+- Od `v0.8.35` przygotowanie projekcji nie zależy już od ręcznego skryptu.
+  Lokalny Admin API udostępnia status oraz idempotentny start trwałego joba
+  `image_symbol_review_backfill`. General worker zapisuje istniejące metadane
+  cropów w transakcjach po maksymalnie 200 plansz i wznawia pracę z trwałego
+  kursora `image_symbol_review_states`; nie kopiuje JPEG-ów ani cropów.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
   cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i

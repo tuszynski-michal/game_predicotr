@@ -102,6 +102,9 @@ których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 
 ```text
+GET  /api/v1/admin/games/{gameId}/symbol-cell-review-projection
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
+
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   ?symbolId={UUID|unknown}
   &state=all|approved|pending
@@ -112,6 +115,14 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
 ```
+
+Pierwsze dwa endpointy są lokalnym kontraktem przygotowania projekcji. Status
+zwraca oczekiwaną i przetworzoną liczbę plansz, oczekiwaną i zapisaną liczbę
+komórek, stan `not_started/rebuilding/ready/failed`, aktywny job oraz liczniki
+problemów integralności. Start jest idempotentny: jeśli job już czeka lub jest
+przetwarzany, zwraca jego identyfikator z `created=false`. Job działa na general
+lane w bounded partiach 200 plansz i wykorzystuje trwały kursor projekcji.
+
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne

@@ -6,6 +6,11 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
+from game_predictor_api.application.image_symbol_review_backfill import (
+    SymbolCellReviewBackfillService,
+    SymbolCellReviewProjectionStart,
+    SymbolCellReviewProjectionStatus,
+)
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperation,
     SymbolCellReviewBulkOperationService,
@@ -27,6 +32,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewListItem,
     SymbolCellReviewState,
 )
+from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.main import create_app
 
 
@@ -197,6 +203,50 @@ class MemorySymbolCellReviewBulkRepository:
         return self.operations.get(operation_id)
 
 
+class MemorySymbolCellReviewBackfillRepository:
+    def __init__(self, *, game_id: UUID) -> None:
+        self.game_id = game_id
+        self.job = None
+        self.start_count = 0
+
+    def status(self, game_id: UUID) -> SymbolCellReviewProjectionStatus:
+        assert game_id == self.game_id
+        return SymbolCellReviewProjectionStatus(
+            game_id=game_id,
+            status="not_started" if self.job is None else "rebuilding",
+            expected_board_count=2,
+            expected_cell_count=30,
+            processed_board_count=0,
+            persisted_cell_count=0,
+            missing_sequence_count=0,
+            invalid_crop_count=0,
+            invalid_geometry_count=0,
+            failure_message=None,
+            sample_problem_review_item_ids=(),
+            active_job_id=None if self.job is None else self.job.id,
+        )
+
+    def start(self, game_id: UUID) -> SymbolCellReviewProjectionStart:
+        assert game_id == self.game_id
+        created = self.job is None
+        if self.job is None:
+            self.start_count += 1
+            self.job = create_job(
+                JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "workflow": "image_symbol_review_backfill",
+                    "generation": 1,
+                },
+            )
+        return SymbolCellReviewProjectionStart(
+            status=self.status(game_id),
+            job=self.job,
+            created=created,
+        )
+
+
 def _item(
     *,
     game_id: UUID,
@@ -234,6 +284,7 @@ def _client(
     *,
     artifact_root: Path,
     bulk_repository: MemorySymbolCellReviewBulkRepository | None = None,
+    backfill_repository: MemorySymbolCellReviewBackfillRepository | None = None,
 ) -> TestClient:
     settings = replace(
         ApiSettings.from_environment(
@@ -251,8 +302,61 @@ def _client(
             if bulk_repository is None
             else lambda: SymbolCellReviewBulkOperationService(bulk_repository)
         ),
+        symbol_cell_review_backfill_service_dependency=(
+            None
+            if backfill_repository is None
+            else lambda: SymbolCellReviewBackfillService(backfill_repository)
+        ),
     )
     return TestClient(app)
+
+
+def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+    backfill = MemorySymbolCellReviewBackfillRepository(game_id=game_id)
+
+    with _client(
+        repository,
+        artifact_root=tmp_path,
+        backfill_repository=backfill,
+    ) as client:
+        initial = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
+        )
+        first = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
+        )
+        second = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
+        )
+
+    assert initial.status_code == 200
+    assert initial.json() == {
+        "gameId": str(game_id),
+        "status": "not_started",
+        "expectedBoardCount": 2,
+        "expectedCellCount": 30,
+        "processedBoardCount": 0,
+        "persistedCellCount": 0,
+        "missingSequenceCount": 0,
+        "invalidCropCount": 0,
+        "invalidGeometryCount": 0,
+        "failureMessage": None,
+        "sampleProblemReviewItemIds": [],
+        "activeJobId": None,
+    }
+    assert first.status_code == 200
+    assert first.json()["created"] is True
+    assert second.status_code == 200
+    assert second.json()["created"] is False
+    assert second.json()["jobId"] == first.json()["jobId"]
+    assert second.json()["projection"]["activeJobId"] == first.json()["jobId"]
+    assert backfill.start_count == 1
 
 
 def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) -> None:

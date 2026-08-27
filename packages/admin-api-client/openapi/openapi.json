@@ -6484,6 +6484,9 @@
                 "$ref": "#/components/schemas/SymbolCellReviewBulkJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SymbolCellReviewBackfillJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -6586,7 +6589,8 @@
           "symbol_training",
           "image_symbol_reinference",
           "image_grid_reinference",
-          "image_symbol_review_bulk"
+          "image_symbol_review_bulk",
+          "image_symbol_review_backfill"
         ],
         "title": "JobType",
         "type": "string"
@@ -12761,6 +12765,33 @@
         "title": "SymbolCellReviewAction",
         "type": "string"
       },
+      "SymbolCellReviewBackfillJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "workflow": {
+            "const": "image_symbol_review_backfill",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "workflow",
+          "generation"
+        ],
+        "title": "SymbolCellReviewBackfillJobPayload",
+        "type": "object"
+      },
       "SymbolCellReviewBulkExplicitSelectionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -13423,6 +13454,139 @@
           "previousCursor"
         ],
         "title": "SymbolCellReviewPageResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewProjectionStartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/SymbolCellReviewProjectionStatusResponse"
+          }
+        },
+        "required": [
+          "projection",
+          "jobId",
+          "created"
+        ],
+        "title": "SymbolCellReviewProjectionStartResponse",
+        "type": "object"
+      },
+      "SymbolCellReviewProjectionStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activejobid"
+          },
+          "expectedBoardCount": {
+            "minimum": 0.0,
+            "title": "Expectedboardcount",
+            "type": "integer"
+          },
+          "expectedCellCount": {
+            "minimum": 0.0,
+            "title": "Expectedcellcount",
+            "type": "integer"
+          },
+          "failureMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failuremessage"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "invalidCropCount": {
+            "minimum": 0.0,
+            "title": "Invalidcropcount",
+            "type": "integer"
+          },
+          "invalidGeometryCount": {
+            "minimum": 0.0,
+            "title": "Invalidgeometrycount",
+            "type": "integer"
+          },
+          "missingSequenceCount": {
+            "minimum": 0.0,
+            "title": "Missingsequencecount",
+            "type": "integer"
+          },
+          "persistedCellCount": {
+            "minimum": 0.0,
+            "title": "Persistedcellcount",
+            "type": "integer"
+          },
+          "processedBoardCount": {
+            "minimum": 0.0,
+            "title": "Processedboardcount",
+            "type": "integer"
+          },
+          "sampleProblemReviewItemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Sampleproblemreviewitemids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "not_started",
+              "rebuilding",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "status",
+          "expectedBoardCount",
+          "expectedCellCount",
+          "processedBoardCount",
+          "persistedCellCount",
+          "missingSequenceCount",
+          "invalidCropCount",
+          "invalidGeometryCount",
+          "failureMessage",
+          "sampleProblemReviewItemIds",
+          "activeJobId"
+        ],
+        "title": "SymbolCellReviewProjectionStatusResponse",
         "type": "object"
       },
       "SymbolCreate": {
@@ -17779,6 +17943,145 @@
           }
         },
         "summary": "Get durable local symbol-cell review operation status",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-review-projection": {
+      "get": {
+        "operationId": "getSymbolCellReviewProjectionStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewProjectionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Get symbol-cell review projection readiness and progress",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      },
+      "post": {
+        "operationId": "startSymbolCellReviewProjectionBackfill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewProjectionStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start or resume durable symbol-cell review projection preparation",
         "tags": [
           "symbol-cell-reviews"
         ]

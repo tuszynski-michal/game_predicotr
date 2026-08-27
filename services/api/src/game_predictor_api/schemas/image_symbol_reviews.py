@@ -7,6 +7,10 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from game_predictor_api.application.image_symbol_review_backfill import (
+    SymbolCellReviewProjectionStart,
+    SymbolCellReviewProjectionStatus,
+)
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
     SymbolCellReviewBulkExplicitTarget,
@@ -59,6 +63,27 @@ class SymbolCellReviewPageResponse(ApiModel):
     catalog_revision: int = Field(ge=0)
     next_cursor: str | None
     previous_cursor: str | None
+
+
+class SymbolCellReviewProjectionStatusResponse(ApiModel):
+    game_id: UUID
+    status: Literal["not_started", "rebuilding", "ready", "failed"]
+    expected_board_count: int = Field(ge=0)
+    expected_cell_count: int = Field(ge=0)
+    processed_board_count: int = Field(ge=0)
+    persisted_cell_count: int = Field(ge=0)
+    missing_sequence_count: int = Field(ge=0)
+    invalid_crop_count: int = Field(ge=0)
+    invalid_geometry_count: int = Field(ge=0)
+    failure_message: str | None
+    sample_problem_review_item_ids: tuple[UUID, ...]
+    active_job_id: UUID | None
+
+
+class SymbolCellReviewProjectionStartResponse(ApiModel):
+    projection: SymbolCellReviewProjectionStatusResponse
+    job_id: UUID | None
+    created: bool
 
 
 class SymbolCellReviewBulkExplicitTargetRequest(ApiModel):
@@ -154,6 +179,35 @@ def to_symbol_cell_review_page_response(
         catalog_revision=page.catalog_revision,
         next_cursor=page.next_cursor,
         previous_cursor=page.previous_cursor,
+    )
+
+
+def to_symbol_cell_review_projection_status_response(
+    status: SymbolCellReviewProjectionStatus,
+) -> SymbolCellReviewProjectionStatusResponse:
+    return SymbolCellReviewProjectionStatusResponse(
+        game_id=status.game_id,
+        status=status.status,
+        expected_board_count=status.expected_board_count,
+        expected_cell_count=status.expected_cell_count,
+        processed_board_count=status.processed_board_count,
+        persisted_cell_count=status.persisted_cell_count,
+        missing_sequence_count=status.missing_sequence_count,
+        invalid_crop_count=status.invalid_crop_count,
+        invalid_geometry_count=status.invalid_geometry_count,
+        failure_message=status.failure_message,
+        sample_problem_review_item_ids=status.sample_problem_review_item_ids,
+        active_job_id=status.active_job_id,
+    )
+
+
+def to_symbol_cell_review_projection_start_response(
+    result: SymbolCellReviewProjectionStart,
+) -> SymbolCellReviewProjectionStartResponse:
+    return SymbolCellReviewProjectionStartResponse(
+        projection=to_symbol_cell_review_projection_status_response(result.status),
+        job_id=None if result.job is None else result.job.id,
+        created=result.created,
     )
 
 
@@ -279,8 +333,12 @@ __all__ = [
     "SymbolCellReviewCountsResponse",
     "SymbolCellReviewListItemResponse",
     "SymbolCellReviewPageResponse",
+    "SymbolCellReviewProjectionStartResponse",
+    "SymbolCellReviewProjectionStatusResponse",
     "to_symbol_cell_review_bulk_operation_response",
     "to_symbol_cell_review_bulk_preview_response",
     "to_symbol_cell_review_bulk_request",
     "to_symbol_cell_review_page_response",
+    "to_symbol_cell_review_projection_start_response",
+    "to_symbol_cell_review_projection_status_response",
 ]

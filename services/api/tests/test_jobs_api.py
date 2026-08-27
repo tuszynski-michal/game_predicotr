@@ -581,6 +581,7 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.IMAGE_SYMBOL_REINFERENCE,
         JobType.IMAGE_GRID_REINFERENCE,
         JobType.IMAGE_SYMBOL_REVIEW_BULK,
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

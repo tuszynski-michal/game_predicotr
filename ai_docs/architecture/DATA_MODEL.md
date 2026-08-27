@@ -922,6 +922,13 @@ Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.
 
+Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
+`image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w
+`image_symbol_review_states`, dlatego restart workera nie cofa kursora.
+Checkpoint joba raportuje liczbę przetworzonych plansz i zapisanych komórek;
+jedna transakcja obejmuje najwyżej 200 plansz. Job nie tworzy ani nie kopiuje
+plików obrazów.
+
 Read path TASK-0294 nie tworzy drugiego read modelu cropów. Keysetowe API
 listuje najwyżej 100 rekordów jednocześnie po
 `(sequence_number, cell_index, review_item_id)`, zawsze łącząc komórkę z

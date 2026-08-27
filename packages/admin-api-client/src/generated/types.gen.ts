@@ -3650,6 +3650,7 @@ export type JobResponse = {
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
+    | SymbolCellReviewBackfillJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -3697,7 +3698,8 @@ export type JobType =
   | 'symbol_training'
   | 'image_symbol_reinference'
   | 'image_grid_reinference'
-  | 'image_symbol_review_bulk';
+  | 'image_symbol_review_bulk'
+  | 'image_symbol_review_backfill';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -7372,6 +7374,24 @@ export type SnapshotJobPayload = {
 export type SymbolCellReviewAction = 'approve' | 'reassign' | 'mark_grid_issue';
 
 /**
+ * SymbolCellReviewBackfillJobPayload
+ */
+export type SymbolCellReviewBackfillJobPayload = {
+  /**
+   * Generation
+   */
+  generation: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 1;
+  /**
+   * Workflow
+   */
+  workflow: 'image_symbol_review_backfill';
+};
+
+/**
  * SymbolCellReviewBulkExplicitSelectionRequest
  */
 export type SymbolCellReviewBulkExplicitSelectionRequest = {
@@ -7731,6 +7751,75 @@ export type SymbolCellReviewPageResponse = {
    * Previouscursor
    */
   previousCursor: string | null;
+};
+
+/**
+ * SymbolCellReviewProjectionStartResponse
+ */
+export type SymbolCellReviewProjectionStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  projection: SymbolCellReviewProjectionStatusResponse;
+};
+
+/**
+ * SymbolCellReviewProjectionStatusResponse
+ */
+export type SymbolCellReviewProjectionStatusResponse = {
+  /**
+   * Activejobid
+   */
+  activeJobId: string | null;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number;
+  /**
+   * Expectedcellcount
+   */
+  expectedCellCount: number;
+  /**
+   * Failuremessage
+   */
+  failureMessage: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Invalidcropcount
+   */
+  invalidCropCount: number;
+  /**
+   * Invalidgeometrycount
+   */
+  invalidGeometryCount: number;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Persistedcellcount
+   */
+  persistedCellCount: number;
+  /**
+   * Processedboardcount
+   */
+  processedBoardCount: number;
+  /**
+   * Sampleproblemreviewitemids
+   */
+  sampleProblemReviewItemIds: Array<string>;
+  /**
+   * Status
+   */
+  status: 'not_started' | 'rebuilding' | 'ready' | 'failed';
 };
 
 /**
@@ -10123,6 +10212,90 @@ export type GetSymbolCellReviewBulkOperationResponses = {
 
 export type GetSymbolCellReviewBulkOperationResponse =
   GetSymbolCellReviewBulkOperationResponses[keyof GetSymbolCellReviewBulkOperationResponses];
+
+export type GetSymbolCellReviewProjectionStatusData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection';
+};
+
+export type GetSymbolCellReviewProjectionStatusErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellReviewProjectionStatusError =
+  GetSymbolCellReviewProjectionStatusErrors[keyof GetSymbolCellReviewProjectionStatusErrors];
+
+export type GetSymbolCellReviewProjectionStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewProjectionStatusResponse;
+};
+
+export type GetSymbolCellReviewProjectionStatusResponse =
+  GetSymbolCellReviewProjectionStatusResponses[keyof GetSymbolCellReviewProjectionStatusResponses];
+
+export type StartSymbolCellReviewProjectionBackfillData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection';
+};
+
+export type StartSymbolCellReviewProjectionBackfillErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type StartSymbolCellReviewProjectionBackfillError =
+  StartSymbolCellReviewProjectionBackfillErrors[keyof StartSymbolCellReviewProjectionBackfillErrors];
+
+export type StartSymbolCellReviewProjectionBackfillResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewProjectionStartResponse;
+};
+
+export type StartSymbolCellReviewProjectionBackfillResponse =
+  StartSymbolCellReviewProjectionBackfillResponses[keyof StartSymbolCellReviewProjectionBackfillResponses];
 
 export type ListSymbolCellReviewsData = {
   body?: never;

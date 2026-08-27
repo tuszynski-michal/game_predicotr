@@ -295,6 +295,9 @@ import type {
   GetSymbolCellReviewBulkOperationData,
   GetSymbolCellReviewBulkOperationErrors,
   GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewProjectionStatusData,
+  GetSymbolCellReviewProjectionStatusErrors,
+  GetSymbolCellReviewProjectionStatusResponses,
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolImageAssetData,
@@ -582,6 +585,9 @@ import type {
   StartSymbolCellReviewBulkOperationData,
   StartSymbolCellReviewBulkOperationErrors,
   StartSymbolCellReviewBulkOperationResponses,
+  StartSymbolCellReviewProjectionBackfillData,
+  StartSymbolCellReviewProjectionBackfillErrors,
+  StartSymbolCellReviewProjectionBackfillResponses,
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
@@ -1404,6 +1410,49 @@ export const getSymbolCellReviewBulkOperation = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Get symbol-cell review projection readiness and progress
+ */
+export const getSymbolCellReviewProjectionStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolCellReviewProjectionStatusData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewProjectionStatusResponses,
+  GetSymbolCellReviewProjectionStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewProjectionStatusResponses,
+    GetSymbolCellReviewProjectionStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection',
+    ...options,
+  });
+
+/**
+ * Start or resume durable symbol-cell review projection preparation
+ */
+export const startSymbolCellReviewProjectionBackfill = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartSymbolCellReviewProjectionBackfillData, ThrowOnError>,
+): RequestResult<
+  StartSymbolCellReviewProjectionBackfillResponses,
+  StartSymbolCellReviewProjectionBackfillErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSymbolCellReviewProjectionBackfillResponses,
+    StartSymbolCellReviewProjectionBackfillErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection',
     ...options,
   });
 

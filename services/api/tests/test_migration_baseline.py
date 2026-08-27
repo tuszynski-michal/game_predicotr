@@ -79,6 +79,7 @@ IMAGE_SYMBOL_REVIEW_CELLS_REVISION = "0066_image_symbol_review_cells"
 SYMBOL_CELL_REVIEW_CATALOG_REVISION = "0067_symbol_cell_review_catalog_revision"
 IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION = "0068_image_symbol_review_bulk_operations"
 PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
+SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -181,7 +182,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
     )
     pending_sequence_ownership = script.get_revision(PENDING_SEQUENCE_OWNERSHIP_REVISION)
-    assert script.get_heads() == [PENDING_SEQUENCE_OWNERSHIP_REVISION]
+    symbol_cell_review_backfill_job = script.get_revision(
+        SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
+    )
+    assert script.get_heads() == [SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -337,6 +341,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_symbol_review_bulk_operations.down_revision == SYMBOL_CELL_REVIEW_CATALOG_REVISION
     assert pending_sequence_ownership is not None
     assert pending_sequence_ownership.down_revision == IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
+    assert symbol_cell_review_backfill_job is not None
+    assert symbol_cell_review_backfill_job.down_revision == PENDING_SEQUENCE_OWNERSHIP_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION

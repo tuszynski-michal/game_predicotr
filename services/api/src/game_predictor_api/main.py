@@ -52,6 +52,9 @@ from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
 )
+from game_predictor_api.application.image_symbol_review_backfill import (
+    SymbolCellReviewBackfillService,
+)
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperationService,
 )
@@ -236,6 +239,9 @@ from game_predictor_api.storage.image_selection_repository import (
 from game_predictor_api.storage.image_sequence_canonical_repository import (
     SqlAlchemyImageSequenceCanonicalRepository,
 )
+from game_predictor_api.storage.image_symbol_review_backfill_repository import (
+    SqlAlchemySymbolCellReviewBackfillRepository,
+)
 from game_predictor_api.storage.image_symbol_review_bulk_operation_repository import (
     SqlAlchemySymbolCellReviewBulkOperationRepository,
 )
@@ -320,6 +326,7 @@ def create_app(
     symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
+    symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -361,6 +368,7 @@ def create_app(
             symbol_reference_service_dependency,
             symbol_cell_review_query_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
+            symbol_cell_review_backfill_service_dependency,
             worker_lane_status_service_dependency,
             verified_training_cohort_service_dependency,
             symbol_model_iteration_service_dependency,
@@ -466,6 +474,24 @@ def create_app(
     resolved_symbol_cell_review_bulk_operation_dependency = (
         symbol_cell_review_bulk_operation_service_dependency
         or default_symbol_cell_review_bulk_operation_service_dependency
+    )
+
+    def default_symbol_cell_review_backfill_service_dependency() -> Iterator[
+        SymbolCellReviewBackfillService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolCellReviewBackfillService(
+                    SqlAlchemySymbolCellReviewBackfillRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_cell_review_backfill_dependency = (
+        symbol_cell_review_backfill_service_dependency
+        or default_symbol_cell_review_backfill_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -1078,6 +1104,7 @@ def create_app(
             resolved_symbol_reference_dependency,
             resolved_symbol_cell_review_query_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
+            resolved_symbol_cell_review_backfill_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,

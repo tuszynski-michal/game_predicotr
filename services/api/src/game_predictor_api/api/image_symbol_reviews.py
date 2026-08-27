@@ -9,6 +9,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 
+from game_predictor_api.application.image_symbol_review_backfill import (
+    SymbolCellReviewBackfillService,
+)
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperationService,
 )
@@ -28,14 +31,19 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     SymbolCellReviewBulkOperationStartResponse,
     SymbolCellReviewBulkPreviewResponse,
     SymbolCellReviewPageResponse,
+    SymbolCellReviewProjectionStartResponse,
+    SymbolCellReviewProjectionStatusResponse,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
     to_symbol_cell_review_page_response,
+    to_symbol_cell_review_projection_start_response,
+    to_symbol_cell_review_projection_status_response,
 )
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
 SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
+SymbolCellReviewBackfillServiceDependency = Callable[..., object]
 _LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Game or current crop not found"},
@@ -47,11 +55,39 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 def create_image_symbol_reviews_router(
     service_dependency: SymbolCellReviewQueryServiceDependency,
     bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
+    backfill_service_dependency: SymbolCellReviewBackfillServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
     service_parameter = Depends(service_dependency)
     bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
+    backfill_service_parameter = Depends(backfill_service_dependency)
+
+    @router.get(
+        "/{game_id}/symbol-cell-review-projection",
+        response_model=SymbolCellReviewProjectionStatusResponse,
+        operation_id="getSymbolCellReviewProjectionStatus",
+        summary="Get symbol-cell review projection readiness and progress",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_review_projection_status(
+        game_id: UUID,
+        service: Annotated[SymbolCellReviewBackfillService, backfill_service_parameter],
+    ) -> SymbolCellReviewProjectionStatusResponse:
+        return to_symbol_cell_review_projection_status_response(service.status(game_id))
+
+    @router.post(
+        "/{game_id}/symbol-cell-review-projection",
+        response_model=SymbolCellReviewProjectionStartResponse,
+        operation_id="startSymbolCellReviewProjectionBackfill",
+        summary="Start or resume durable symbol-cell review projection preparation",
+        responses=ERROR_RESPONSES,
+    )
+    def start_symbol_cell_review_projection_backfill(
+        game_id: UUID,
+        service: Annotated[SymbolCellReviewBackfillService, backfill_service_parameter],
+    ) -> SymbolCellReviewProjectionStartResponse:
+        return to_symbol_cell_review_projection_start_response(service.start(game_id))
 
     @router.post(
         "/{game_id}/symbol-cell-review-operations/preview",

@@ -224,6 +224,11 @@ class MemorySymbolCellReviewBackfillRepository:
             failure_message=None,
             sample_problem_review_item_ids=(),
             active_job_id=None if self.job is None else self.job.id,
+            table_bytes_before=0,
+            index_bytes_before=0,
+            table_bytes_current=0,
+            index_bytes_current=0,
+            database_free_bytes_current=1_000_000,
         )
 
     def start(self, game_id: UUID) -> SymbolCellReviewProjectionStart:
@@ -349,6 +354,11 @@ def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:
         "failureMessage": None,
         "sampleProblemReviewItemIds": [],
         "activeJobId": None,
+        "tableBytesBefore": 0,
+        "indexBytesBefore": 0,
+        "tableBytesCurrent": 0,
+        "indexBytesCurrent": 0,
+        "databaseFreeBytesCurrent": 1_000_000,
     }
     assert first.status_code == 200
     assert first.json()["created"] is True

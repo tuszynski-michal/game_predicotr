@@ -7378,13 +7378,25 @@ export type SymbolCellReviewAction = 'approve' | 'reassign' | 'mark_grid_issue';
  */
 export type SymbolCellReviewBackfillJobPayload = {
   /**
+   * Databasefreebytesbefore
+   */
+  databaseFreeBytesBefore?: number | null;
+  /**
    * Generation
    */
   generation: number;
   /**
+   * Indexbytesbefore
+   */
+  indexBytesBefore?: number | null;
+  /**
    * Schemaversion
    */
   schemaVersion: 1;
+  /**
+   * Tablebytesbefore
+   */
+  tableBytesBefore?: number | null;
   /**
    * Workflow
    */
@@ -7777,6 +7789,10 @@ export type SymbolCellReviewProjectionStatusResponse = {
    */
   activeJobId: string | null;
   /**
+   * Databasefreebytescurrent
+   */
+  databaseFreeBytesCurrent?: number | null;
+  /**
    * Expectedboardcount
    */
   expectedBoardCount: number;
@@ -7792,6 +7808,14 @@ export type SymbolCellReviewProjectionStatusResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Indexbytesbefore
+   */
+  indexBytesBefore?: number | null;
+  /**
+   * Indexbytescurrent
+   */
+  indexBytesCurrent?: number | null;
   /**
    * Invalidcropcount
    */
@@ -7820,6 +7844,14 @@ export type SymbolCellReviewProjectionStatusResponse = {
    * Status
    */
   status: 'not_started' | 'rebuilding' | 'ready' | 'failed';
+  /**
+   * Tablebytesbefore
+   */
+  tableBytesBefore?: number | null;
+  /**
+   * Tablebytescurrent
+   */
+  tableBytesCurrent?: number | null;
 };
 
 /**

@@ -929,6 +929,15 @@ Checkpoint joba raportuje liczbę przetworzonych plansz i zapisanych komórek;
 jedna transakcja obejmuje najwyżej 200 plansz. Job nie tworzy ani nie kopiuje
 plików obrazów.
 
+Po skanie worker wykonuje do trzech reconciliacji aktualnych właścicieli.
+Brakujący zestaw bez decyzji człowieka może zostać odbudowany z bieżących
+cropów; niepełny zestaw zawierający decyzję człowieka blokuje finalizację.
+Zmiana geometrii zastępuje komplet 15 cropów przez istniejący write-through,
+a zmiana właściciela pozostawia historyczne rekordy niewidoczne i tworzy jeden
+aktywny zestaw dla właściciela z fast-document. Finalizacja oraz write-through
+blokują ten sam stan gry, więc `ready` nie może zostać zapisane pomiędzy
+niezgodnymi transakcjami.
+
 Read path TASK-0294 nie tworzy drugiego read modelu cropów. Keysetowe API
 listuje najwyżej 100 rekordów jednocześnie po
 `(sequence_number, cell_index, review_item_id)`, zawsze łącząc komórkę z

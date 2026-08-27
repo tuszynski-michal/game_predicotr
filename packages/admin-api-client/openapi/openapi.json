@@ -12768,15 +12768,51 @@
       "SymbolCellReviewBackfillJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "databaseFreeBytesBefore": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databasefreebytesbefore"
+          },
           "generation": {
             "minimum": 1.0,
             "title": "Generation",
             "type": "integer"
           },
+          "indexBytesBefore": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexbytesbefore"
+          },
           "schemaVersion": {
             "const": 1,
             "title": "Schemaversion",
             "type": "integer"
+          },
+          "tableBytesBefore": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tablebytesbefore"
           },
           "workflow": {
             "const": "image_symbol_review_backfill",
@@ -13502,6 +13538,18 @@
             ],
             "title": "Activejobid"
           },
+          "databaseFreeBytesCurrent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databasefreebytescurrent"
+          },
           "expectedBoardCount": {
             "minimum": 0.0,
             "title": "Expectedboardcount",
@@ -13527,6 +13575,30 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "indexBytesBefore": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexbytesbefore"
+          },
+          "indexBytesCurrent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexbytescurrent"
           },
           "invalidCropCount": {
             "minimum": 0.0,
@@ -13570,6 +13642,30 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "tableBytesBefore": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tablebytesbefore"
+          },
+          "tableBytesCurrent": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tablebytescurrent"
           }
         },
         "required": [

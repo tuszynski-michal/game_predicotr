@@ -241,6 +241,9 @@ class SymbolCellReviewBackfillJobPayload(ApiModel):
     schema_version: Literal[1]
     workflow: Literal["image_symbol_review_backfill"]
     generation: int = Field(ge=1)
+    table_bytes_before: int | None = Field(default=None, ge=0)
+    index_bytes_before: int | None = Field(default=None, ge=0)
+    database_free_bytes_before: int | None = Field(default=None, ge=0)
 
 
 class BoardCellRecropJobSnapshotPayload(ApiModel):

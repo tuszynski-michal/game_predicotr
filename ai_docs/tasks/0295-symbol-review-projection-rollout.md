@@ -49,8 +49,8 @@ pokazuje wyłącznie stan przygotowania.
 
 - [x] Backfill jest trwałym, idempotentnym jobem general lane.
 - [x] Restart wznawia pracę od checkpointu w partiach maksymalnie 200 plansz.
-- [ ] Stan `ready` wymaga 15 aktualnych komórek dla każdego właściciela planszy.
-- [ ] Nowe i zmienione plansze są objęte write-through i końcową reconciliacją.
+- [x] Stan `ready` wymaga 15 aktualnych komórek dla każdego właściciela planszy.
+- [x] Nowe i zmienione plansze są objęte write-through i końcową reconciliacją.
 - [ ] Admin pokazuje status, progres, diagnostykę i akcję wznowienia.
 - [ ] Infinite scroll pobiera po 60 i przechowuje maksymalnie 180 rekordów.
 - [ ] Nie uruchomiono benchmarku ani syntetycznego fixture'u wielomilionowego.
@@ -89,6 +89,9 @@ npm run typecheck
 
 - TASK 1: dodano trwały typ joba, lokalne API status/start, idempotentne
   kolejkowanie i general-lane handler pracujący w partiach 200 plansz.
+- TASK 2: dodano maksymalnie trzy bounded przebiegi reconciliacji, ochronę
+  decyzji człowieka, końcową kontrolę 15 cropów oraz metryki miejsca bez
+  benchmarku.
 
 ### Verification results
 
@@ -99,7 +102,7 @@ npm run typecheck
 
 ### Not completed
 
-- TASK 2 i TASK 3 oraz kontrolowane uruchomienie.
+- TASK 3 oraz kontrolowane uruchomienie.
 
 ### Documentation updates
 
@@ -107,4 +110,4 @@ npm run typecheck
 
 ### Recommended next task
 
-- TASK 2 — bounded reconciliacja zmian równoległych i metryki miejsca.
+- TASK 3 — progres i bounded infinite scroll w Adminie.

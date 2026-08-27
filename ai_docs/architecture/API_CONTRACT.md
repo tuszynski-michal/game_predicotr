@@ -122,6 +122,9 @@ komórek, stan `not_started/rebuilding/ready/failed`, aktywny job oraz liczniki
 problemów integralności. Start jest idempotentny: jeśli job już czeka lub jest
 przetwarzany, zwraca jego identyfikator z `created=false`. Job działa na general
 lane w bounded partiach 200 plansz i wykorzystuje trwały kursor projekcji.
+Status zawiera również rozmiar tabeli i indeksów przed uruchomieniem oraz ich
+bieżący rozmiar; wolne miejsce może być `null`, jeśli proces API nie ma dostępu
+do katalogu danych PostgreSQL.
 
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez

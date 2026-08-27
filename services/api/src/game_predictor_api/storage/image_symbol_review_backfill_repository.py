@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.image_symbol_review_backfill import (
@@ -33,6 +36,10 @@ from game_predictor_api.storage.models import (
 
 _WORKFLOW = "image_symbol_review_backfill"
 _ACTIVE_JOB_STATUSES = (JobStatus.CREATED, JobStatus.PROCESSING)
+
+
+def _optional_non_negative_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
 class SqlAlchemySymbolCellReviewBackfillRepository:
@@ -81,6 +88,7 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             )
             or 0
         ) + 1
+        table_bytes, index_bytes, database_free_bytes = self._storage_metrics()
         job = create_job(
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
             game_id=game_id,
@@ -88,6 +96,9 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
                 "schema_version": 1,
                 "workflow": _WORKFLOW,
                 "generation": generation,
+                "table_bytes_before": table_bytes,
+                "index_bytes_before": index_bytes,
+                "database_free_bytes_before": database_free_bytes,
             },
         )
         record = job_record_from_domain(job)
@@ -118,6 +129,22 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             or 0
         )
         active = self._active_job(game_id)
+        latest = active if active is not None else self._latest_job_record(game_id)
+        baseline = {} if latest is None else latest.input_payload
+        checkpoint = (
+            {}
+            if latest is None or latest.checkpoint_payload is None
+            else latest.checkpoint_payload
+        )
+        problem_ids: list[UUID] = []
+        raw_problem_ids = checkpoint.get("problem_review_item_ids")
+        if isinstance(raw_problem_ids, list):
+            for value in raw_problem_ids[:100]:
+                try:
+                    problem_ids.append(UUID(str(value)))
+                except (TypeError, ValueError):
+                    continue
+        table_bytes, index_bytes, database_free_bytes = self._storage_metrics()
         return SymbolCellReviewProjectionStatus(
             game_id=game_id,
             status=(
@@ -135,8 +162,17 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             invalid_crop_count=(0 if state is None else int(state.invalid_crop_count)),
             invalid_geometry_count=(0 if state is None else int(state.invalid_geometry_count)),
             failure_message=None if state is None else state.failure_message,
-            sample_problem_review_item_ids=(),
+            sample_problem_review_item_ids=tuple(problem_ids),
             active_job_id=None if active is None else active.id,
+            table_bytes_before=_optional_non_negative_int(
+                baseline.get("table_bytes_before")
+            ),
+            index_bytes_before=_optional_non_negative_int(
+                baseline.get("index_bytes_before")
+            ),
+            table_bytes_current=table_bytes,
+            index_bytes_current=index_bytes,
+            database_free_bytes_current=database_free_bytes,
         )
 
     def _active_job(self, game_id: UUID) -> JobModel | None:
@@ -152,7 +188,11 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
         )
 
     def _latest_job(self, game_id: UUID) -> Job | None:
-        record = self._session.scalar(
+        record = self._latest_job_record(game_id)
+        return None if record is None else job_from_record(record)
+
+    def _latest_job_record(self, game_id: UUID) -> JobModel | None:
+        return self._session.scalar(
             select(JobModel)
             .where(
                 JobModel.game_id == game_id,
@@ -161,7 +201,32 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             .order_by(JobModel.created_at.desc(), JobModel.id.desc())
             .limit(1)
         )
-        return None if record is None else job_from_record(record)
+
+    def _storage_metrics(self) -> tuple[int | None, int | None, int | None]:
+        if self._session.bind is None or self._session.bind.dialect.name != "postgresql":
+            return None, None, None
+        try:
+            table_bytes = int(
+                self._session.scalar(
+                    text("SELECT pg_relation_size('image_symbol_review_cells')")
+                )
+                or 0
+            )
+            index_bytes = int(
+                self._session.scalar(
+                    text("SELECT pg_indexes_size('image_symbol_review_cells')")
+                )
+                or 0
+            )
+            data_directory = self._session.scalar(text("SHOW data_directory"))
+            free_bytes = (
+                None
+                if not isinstance(data_directory, str) or not data_directory
+                else int(shutil.disk_usage(Path(data_directory)).free)
+            )
+            return table_bytes, index_bytes, free_bytes
+        except (OSError, SQLAlchemyError, ValueError):
+            return None, None, None
 
     def _require_game(self, game_id: UUID, *, lock: bool) -> None:
         statement = select(GameModel.id).where(GameModel.id == game_id)

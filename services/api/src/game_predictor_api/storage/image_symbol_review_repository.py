@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, and_, func, or_, select
+from sqlalchemy import String, and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import ColumnElement, Select
@@ -120,6 +120,13 @@ class SymbolCellReviewBackfillReport:
 
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewBackfillStep:
+    report: SymbolCellReviewBackfillReport
+    processed_review_item_count: int
+    has_more: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewReconciliationStep:
     report: SymbolCellReviewBackfillReport
     processed_review_item_count: int
     has_more: bool
@@ -838,6 +845,22 @@ class SymbolCellReviewWriteThroughCoordinator:
         self._touch_catalog_revision(state)
         return True
 
+    def synchronize_for_backfill_reconciliation(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+    ) -> bool:
+        """Repair one current owner without overwriting human crop decisions."""
+
+        return self._synchronize(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            reason="backfill_reconciliation",
+            actor=_BACKFILL_ACTOR,
+            repair_incomplete_backfill=True,
+        )
+
     def _synchronize(
         self,
         *,
@@ -845,6 +868,7 @@ class SymbolCellReviewWriteThroughCoordinator:
         review_item_id: UUID,
         reason: str,
         actor: str,
+        repair_incomplete_backfill: bool = False,
     ) -> bool:
         state = self._state_if_initialized(game_id)
         if state is None:
@@ -898,12 +922,23 @@ class SymbolCellReviewWriteThroughCoordinator:
             )
         }
         if existing and set(existing) != set(range(15)):
-            self._mark_integrity_failure(
-                state,
-                "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
-                "Existing symbol-cell review state does not contain exactly 15 row-major cells.",
-            )
-            return False
+            if repair_incomplete_backfill and not any(
+                _is_human_cell_decision(cell) for cell in existing.values()
+            ):
+                self._session.execute(
+                    delete(ImageSymbolReviewCellModel).where(
+                        ImageSymbolReviewCellModel.review_item_id == review_item_id
+                    )
+                )
+                existing = {}
+            else:
+                self._mark_integrity_failure(
+                    state,
+                    "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
+                    "Existing symbol-cell review state does not contain exactly "
+                    "15 row-major cells.",
+                )
+                return False
 
         active_symbol_ids = {
             code: symbol_id
@@ -1558,6 +1593,7 @@ class SqlAlchemyImageSymbolReviewRepository:
         game_id: UUID,
         *,
         batch_size: int = _DEFAULT_BATCH_SIZE,
+        finalize_when_exhausted: bool = True,
     ) -> SymbolCellReviewBackfillStep:
         if not 1 <= batch_size <= 500:
             raise ValueError("batch_size must be between 1 and 500")
@@ -1568,7 +1604,11 @@ class SqlAlchemyImageSymbolReviewRepository:
             limit=batch_size,
         )
         if not rows:
-            report = self.finalize_backfill(game_id)
+            report = (
+                self.finalize_backfill(game_id)
+                if finalize_when_exhausted
+                else self._report_from_state(state)
+            )
             return SymbolCellReviewBackfillStep(
                 report=report,
                 processed_review_item_count=0,
@@ -1606,6 +1646,61 @@ class SqlAlchemyImageSymbolReviewRepository:
             report=self._report_from_state(state),
             processed_review_item_count=len(rows),
             has_more=len(rows) == batch_size,
+        )
+
+    def begin_reconciliation_pass(self, game_id: UUID) -> SymbolCellReviewBackfillReport:
+        state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
+        if state is None:
+            raise SymbolCellReviewBackfillError(
+                "SYMBOL_CELL_REVIEW_BACKFILL_NOT_STARTED",
+                "Start the symbol-cell review backfill before reconciliation.",
+            )
+        state.status = "rebuilding"
+        state.missing_sequence_count = 0
+        state.invalid_crop_count = 0
+        state.invalid_geometry_count = 0
+        state.failure_message = None
+        self._session.flush()
+        return self._report_from_state(state)
+
+    def reconcile_next_batch(
+        self,
+        game_id: UUID,
+        *,
+        batch_size: int = _DEFAULT_BATCH_SIZE,
+    ) -> SymbolCellReviewReconciliationStep:
+        if not 1 <= batch_size <= 500:
+            raise ValueError("batch_size must be between 1 and 500")
+        state = self._require_rebuilding_state(game_id)
+        problem_ids = self._selected_problem_items(game_id)[:batch_size]
+        if not problem_ids:
+            return SymbolCellReviewReconciliationStep(
+                report=self._report_from_state(state),
+                processed_review_item_count=0,
+                has_more=False,
+            )
+
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        processed = 0
+        for review_item_id in problem_ids:
+            coordinator.synchronize_for_backfill_reconciliation(
+                game_id=game_id,
+                review_item_id=review_item_id,
+            )
+            processed += 1
+            if state.status == "failed":
+                break
+        state.cell_count = self._current_selected_cell_count(game_id)
+        self._session.flush()
+        return SymbolCellReviewReconciliationStep(
+            report=self._report_from_state(
+                state,
+                sample_problem_review_item_ids=(
+                    problem_ids if state.status == "failed" else ()
+                ),
+            ),
+            processed_review_item_count=processed,
+            has_more=state.status == "rebuilding" and len(problem_ids) == batch_size,
         )
 
     def finalize_backfill(self, game_id: UUID) -> SymbolCellReviewBackfillReport:
@@ -2011,6 +2106,16 @@ class SqlAlchemyImageSymbolReviewRepository:
             .order_by(ImageSymbolReviewCellModel.review_item_id)
         )
         return tuple(self._session.scalars(statement))
+
+    def _selected_problem_items(self, game_id: UUID) -> tuple[UUID, ...]:
+        return tuple(
+            sorted(
+                set(self._selected_items_without_exactly_fifteen_cells(game_id))
+                | set(self._selected_items_with_stale_geometry(game_id))
+                | set(self._selected_items_with_stale_base_crop(game_id)),
+                key=str,
+            )
+        )
 
     def _current_selected_cell_count(self, game_id: UUID) -> int:
         return int(

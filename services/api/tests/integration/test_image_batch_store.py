@@ -549,6 +549,25 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             ]
             assert all(cell.review_state == "pending" for cell in pending_cells)
             assert all(cell.assigned_symbol_id is None for cell in pending_cells)
+            session.execute(
+                delete(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == pending_review_id
+                )
+            )
+            backfill = SqlAlchemyImageSymbolReviewRepository(session)
+            assert backfill.begin_reconciliation_pass(game.id).status == "rebuilding"
+            reconciliation = backfill.reconcile_next_batch(game.id, batch_size=10)
+            assert reconciliation.processed_review_item_count == 1
+            assert reconciliation.report.status == "rebuilding"
+            assert backfill.finalize_backfill(game.id).status == "ready"
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewCellModel)
+                    .where(ImageSymbolReviewCellModel.review_item_id == pending_review_id)
+                )
+                == 15
+            )
             assert (
                 session.scalar(
                     select(func.count())

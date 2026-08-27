@@ -27,6 +27,11 @@ class SymbolCellReviewProjectionStatus:
     failure_message: str | None
     sample_problem_review_item_ids: tuple[UUID, ...]
     active_job_id: UUID | None
+    table_bytes_before: int | None
+    index_bytes_before: int | None
+    table_bytes_current: int | None
+    index_bytes_current: int | None
+    database_free_bytes_current: int | None
 
 
 @dataclass(frozen=True, slots=True)

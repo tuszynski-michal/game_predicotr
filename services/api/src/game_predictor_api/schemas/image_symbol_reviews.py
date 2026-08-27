@@ -78,6 +78,11 @@ class SymbolCellReviewProjectionStatusResponse(ApiModel):
     failure_message: str | None
     sample_problem_review_item_ids: tuple[UUID, ...]
     active_job_id: UUID | None
+    table_bytes_before: int | None = Field(default=None, ge=0)
+    index_bytes_before: int | None = Field(default=None, ge=0)
+    table_bytes_current: int | None = Field(default=None, ge=0)
+    index_bytes_current: int | None = Field(default=None, ge=0)
+    database_free_bytes_current: int | None = Field(default=None, ge=0)
 
 
 class SymbolCellReviewProjectionStartResponse(ApiModel):
@@ -198,6 +203,11 @@ def to_symbol_cell_review_projection_status_response(
         failure_message=status.failure_message,
         sample_problem_review_item_ids=status.sample_problem_review_item_ids,
         active_job_id=status.active_job_id,
+        table_bytes_before=status.table_bytes_before,
+        index_bytes_before=status.index_bytes_before,
+        table_bytes_current=status.table_bytes_current,
+        index_bytes_current=status.index_bytes_current,
+        database_free_bytes_current=status.database_free_bytes_current,
     )
 
 

@@ -119,6 +119,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `image_symbol_review_backfill`. General worker zapisuje istniejące metadane
   cropów w transakcjach po maksymalnie 200 plansz i wznawia pracę z trwałego
   kursora `image_symbol_review_states`; nie kopiuje JPEG-ów ani cropów.
+- Od `v0.8.36` po skanie job wykonuje maksymalnie trzy bounded przebiegi
+  reconciliacji bieżących właścicieli. Uzupełnia plansze powstałe po minięciu
+  kursora i odświeża zmianę geometrii, ale nigdy nie nadpisuje częściowej
+  decyzji człowieka. `ready` nadal wymaga 15 aktualnych cropów per właściciel.
+  Status raportuje rozmiar tabeli, indeksów i — gdy katalog danych PostgreSQL
+  jest dostępny lokalnie — bieżące wolne miejsce; nie uruchamia benchmarku.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
   cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i

@@ -468,10 +468,20 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
 
 def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) -> None:
     game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=(index // 15) + 1,
+            cell_index=index % 15,
+            review_item_id=UUID(int=index + 1),
+        )
+        for index in range(500)
+    )
     repository = MemorySymbolCellReviewRepository(
         game_id=game_id,
         symbol_id=symbol_id,
-        items=(),
+        items=items,
     )
 
     with _client(repository, artifact_root=tmp_path) as client:
@@ -485,6 +495,7 @@ def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) 
         )
 
     assert accepted.status_code == 200
+    assert len(accepted.json()["items"]) == 500
     assert repository.limits == [500]
     assert rejected.status_code == 422
 

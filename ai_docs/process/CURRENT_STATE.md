@@ -161,6 +161,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Nadal istnieje dokładnie jeden aktywny general job. Jawne
   `npm run workers:start:all` przywraca historyczny bezpieczny profil 2+5,
   jeżeli automatyczna selekcja ponownie będzie potrzebna.
+- `v0.8.47` naprawia kontrakt odpowiedzi strony Weryfikacji symboli. Request i
+  repozytorium obsługiwały ustalony limit 500, ale schema odpowiedzi nadal
+  odrzucała więcej niż 100 elementów, przez co kompletna strona kończyła się
+  HTTP 500. Limit requestu, odpowiedzi i OpenAPI korzysta teraz z jednego
+  application constant; regresja serializuje rzeczywistą stronę 500 cropów.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy

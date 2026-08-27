@@ -22,6 +22,9 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
 from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationResult,
 )
+from game_predictor_api.application.image_symbol_reviews import (
+    MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewCounts,
@@ -61,7 +64,9 @@ class SymbolCellReviewListItemResponse(ApiModel):
 
 
 class SymbolCellReviewPageResponse(ApiModel):
-    items: tuple[SymbolCellReviewListItemResponse, ...] = Field(max_length=100)
+    items: tuple[SymbolCellReviewListItemResponse, ...] = Field(
+        max_length=MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE
+    )
     counts: SymbolCellReviewCountsResponse
     catalog_revision: int = Field(ge=0)
     next_cursor: str | None

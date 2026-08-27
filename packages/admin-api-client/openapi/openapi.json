@@ -13588,7 +13588,7 @@
             "items": {
               "$ref": "#/components/schemas/SymbolCellReviewListItemResponse"
             },
-            "maxItems": 100,
+            "maxItems": 500,
             "title": "Items",
             "type": "array"
           },

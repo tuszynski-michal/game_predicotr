@@ -35,7 +35,7 @@ test('uses lazy, checksum-bound assets with a local fallback per failed image', 
   assert.match(source, /Brak aktualnego cropa/);
 });
 
-test('keeps one bounded five-hundred-item page with safe bulk review controls', () => {
+test('keeps one bounded five-hundred-item page with background bulk controls', () => {
   assert.doesNotMatch(source, /IntersectionObserver/);
   assert.doesNotMatch(source, /prefetchingCursorRef/);
   assert.match(source, /pagePositionRef/);
@@ -47,11 +47,18 @@ test('keeps one bounded five-hundred-item page with safe bulk review controls', 
   assert.match(styles, /height: 100px/);
   assert.match(source, /Zaznacz całą stronę/);
   assert.doesNotMatch(source, /Zaznacz wszystkie wyniki filtra/);
-  assert.match(source, /disabled=\{interactionBusy\}/);
+  assert.match(
+    source,
+    /disabled=\{interactionBusy \|\| pendingCellIds\.has\(item\.id\)\}/,
+  );
   assert.match(source, /Oznacz złą siatkę/);
   assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
+  assert.match(source, /activeOperations/);
+  assert.match(source, /Operacje masowe w tle/);
+  assert.match(source, /Operacja została przekazana do przetwarzania w tle/);
+  assert.doesNotMatch(source, /pageRefreshRevision/);
   assert.doesNotMatch(source, /setInterval/);
   assert.doesNotMatch(source, /Edytuj siatkę/);
   assert.match(styles, /position: sticky/);
@@ -68,6 +75,9 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /applySingleSymbolReviewDecision/);
   assert.match(source, /Symbol został zmieniony/);
   assert.match(styles, /\.toastSuccess/);
+  assert.match(styles, /bottom: 50px/);
+  assert.match(styles, /left: 50px/);
+  assert.match(styles, /\.operationLoader/);
 });
 
 test('shows durable projection preparation states and progress', () => {

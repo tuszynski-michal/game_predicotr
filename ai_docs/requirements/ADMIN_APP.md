@@ -369,23 +369,27 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
 zaznaczać pojedyncze karty albo całą bieżącą stronę; Admin nie oferuje
 zaznaczenia niewidocznego całego filtra. Zmiana gry, symbolu, stanu lub strony
-czyści zaznaczenie. W czasie aktywnej decyzji przyciski działań i nawigacji są
-zablokowane.
+czyści zaznaczenie. Wysłana operacja masowa przechodzi do tła: jej dokładne
+targety pozostają wyszarzone ze spinnerem, ale operator może przejść na inną
+stronę i uruchomić kolejną niezależną operację. Zablokowane pozostają wyłącznie
+targety już wysłane oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
 symbol` i `Oznacz złą siatkę`. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
-polling nie wysyła nakładających się requestów i po terminalnym wyniku odświeża
-tę samą stronę od jej wejściowego kursora. Rekordy, które przestały pasować do
-filtra, wypadają, a świeże zapytanie keysetowe uzupełnia stronę kolejnymi
-pozycjami do 500 bez osobnego cache i bez duplikatów.
+polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
+usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
+uzupełniania strony kolejnymi rekordami. Konflikt lub częściowy błąd pozostawia
+targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
+indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
 Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
 bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
-zaznaczenie, pokazuje krótki komunikat i odświeża stronę; po konflikcie
-przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów z bieżącej
-strony nadal korzysta z preview i trwałego joba.
+zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;
+po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów
+z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
+toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

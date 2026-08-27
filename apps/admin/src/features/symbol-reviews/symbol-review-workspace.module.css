@@ -7,9 +7,9 @@
 .toast {
   position: fixed;
   z-index: 20;
-  top: 18px;
-  right: 18px;
-  max-width: min(420px, calc(100vw - 36px));
+  bottom: 50px;
+  left: 50px;
+  max-width: min(420px, calc(100vw - 100px));
   padding: 12px 16px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
@@ -184,7 +184,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cardLoader {
+  .cardLoader,
+  .operationLoader {
     animation-duration: 1.6s;
   }
 }
@@ -288,6 +289,27 @@
   background: var(--panel-soft);
 }
 
+.operations {
+  display: grid;
+  gap: 8px;
+}
+
+.operationHeading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.operationLoader {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: symbolReviewSpin 0.7s linear infinite;
+}
+
 .operationProgress span,
 .operationProgress p {
   margin: 0;
@@ -351,6 +373,13 @@
 }
 
 @media (max-width: 820px) {
+  .toast {
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
+    max-width: none;
+  }
+
   .filters {
     grid-template-columns: 1fr;
   }

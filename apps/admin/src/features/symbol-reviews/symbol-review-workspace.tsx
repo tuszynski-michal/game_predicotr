@@ -99,6 +99,11 @@ interface SymbolReviewToast {
   readonly message: string;
 }
 
+interface TrackedSymbolReviewOperation {
+  readonly operation: SymbolCellReviewBulkOperationResponse;
+  readonly submittedCellIds: readonly string[];
+}
+
 export function SymbolReviewWorkspace({
   apiBaseUrl,
   client,
@@ -124,10 +129,9 @@ export function SymbolReviewWorkspace({
   const [projectionStarting, setProjectionStarting] = useState(false);
   const [paging, setPaging] = useState(false);
   const [reloadRevision, setReloadRevision] = useState(0);
-  const [pageRefreshRevision, setPageRefreshRevision] = useState(0);
-  const [pendingCellIds, setPendingCellIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const [directPendingCellIds, setDirectPendingCellIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [hiddenCellIds, setHiddenCellIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -138,8 +142,9 @@ export function SymbolReviewWorkspace({
     useState<SymbolReviewFilters | null>(null);
   const [operationDialog, setOperationDialog] =
     useState<SymbolReviewOperationDialog | null>(null);
-  const [activeOperation, setActiveOperation] =
-    useState<SymbolCellReviewBulkOperationResponse | null>(null);
+  const [activeOperations, setActiveOperations] = useState<
+    Readonly<Record<string, TrackedSymbolReviewOperation>>
+  >({});
   const [isStartingOperation, setIsStartingOperation] = useState(false);
   const [toast, setToast] = useState<SymbolReviewToast | null>(null);
   const [reassignTargetSymbolId, setReassignTargetSymbolId] = useState<
@@ -152,7 +157,6 @@ export function SymbolReviewWorkspace({
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
-  const submittedCellIdsRef = useRef<readonly string[]>([]);
 
   const filters = workspace.filters;
   const currentPage = workspace.currentPage?.page ?? null;
@@ -161,11 +165,17 @@ export function SymbolReviewWorkspace({
     (item) => !hiddenCellIds.has(item.id),
   );
   const activeGame = games.find((game) => game.id === filters.gameId) ?? null;
-  const activeOperationId = activeOperation?.id ?? null;
-  const activeOperationGameId = activeOperation?.gameId ?? null;
-  const activeOperationIsTerminal =
-    activeOperation === null ||
-    isSymbolReviewBulkOperationTerminal(activeOperation);
+  const trackedOperations = useMemo(
+    () => Object.values(activeOperations),
+    [activeOperations],
+  );
+  const pendingCellIds = useMemo(() => {
+    const ids = new Set(directPendingCellIds);
+    for (const tracked of trackedOperations) {
+      for (const cellId of tracked.submittedCellIds) ids.add(cellId);
+    }
+    return ids;
+  }, [directPendingCellIds, trackedOperations]);
   const selectedCount =
     currentPage === null ? 0 : selectedSymbolReviewCount(selection);
   const hasLoadError =
@@ -174,8 +184,7 @@ export function SymbolReviewWorkspace({
     projectionState === 'error' ||
     pageState === 'error';
   const interactionBusy =
-    pendingCellIds.size > 0 ||
-    !activeOperationIsTerminal ||
+    directPendingCellIds.size > 0 ||
     isStartingOperation ||
     operationDialog !== null ||
     paging;
@@ -187,8 +196,6 @@ export function SymbolReviewWorkspace({
     pagePositionRef.current = { number: 1 };
     setError('');
     setSelection(createEmptySymbolReviewSelection());
-    submittedCellIdsRef.current = [];
-    setPendingCellIds(new Set());
     setHiddenCellIds(new Set());
     setReassignTargetSymbolId(null);
     if (previousFilters.gameId !== nextFilters.gameId) {
@@ -370,13 +377,7 @@ export function SymbolReviewWorkspace({
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
-  }, [
-    api,
-    filters,
-    pageRefreshRevision,
-    projectionStatus?.status,
-    reloadRevision,
-  ]);
+  }, [api, filters, projectionStatus?.status, reloadRevision]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {
@@ -455,7 +456,7 @@ export function SymbolReviewWorkspace({
     const targets = Object.values(selection.targetsById);
     if (targets.length === 1) {
       const target = targets[0]!;
-      setPendingCellIds(new Set([target.cellReviewId]));
+      setDirectPendingCellIds(new Set([target.cellReviewId]));
       const result = await applySingleSymbolReviewDecision(
         api,
         gameId,
@@ -463,22 +464,13 @@ export function SymbolReviewWorkspace({
         target,
         action === 'reassign' ? reassignTargetSymbolId : null,
       );
-      setPendingCellIds(new Set());
+      setDirectPendingCellIds(new Set());
       if (!result.ok) {
         setToast({ kind: 'error', message: result.error });
         return;
       }
       setSelection(createEmptySymbolReviewSelection());
-      if (
-        !symbolReviewMutationMatchesFilter(
-          result.value.reviewState,
-          result.value.assignedSymbolId,
-          filters,
-        )
-      ) {
-        setHiddenCellIds(new Set([target.cellReviewId]));
-      }
-      setPageRefreshRevision((revision) => revision + 1);
+      setHiddenCellIds((current) => new Set([...current, target.cellReviewId]));
       setToast({
         kind: 'success',
         message:
@@ -515,24 +507,38 @@ export function SymbolReviewWorkspace({
   }
 
   const finishOperation = useCallback(
-    (operation: SymbolCellReviewBulkOperationResponse) => {
-      if (
+    (
+      tracked: TrackedSymbolReviewOperation,
+      operation: SymbolCellReviewBulkOperationResponse,
+    ) => {
+      const completelyApplied =
+        operation.status === 'completed' &&
         operation.appliedCount === operation.targetCount &&
         operation.conflictCount === 0 &&
-        operation.failedCount === 0 &&
-        (operation.action === 'reassign' ||
-          (operation.action === 'approve' && filters.state === 'pending') ||
-          (operation.action === 'mark_grid_issue' &&
-            filters.state === 'approved'))
-      ) {
-        setHiddenCellIds(new Set(submittedCellIdsRef.current));
+        operation.failedCount === 0;
+      if (completelyApplied) {
+        setHiddenCellIds(
+          (current) => new Set([...current, ...tracked.submittedCellIds]),
+        );
       }
-      submittedCellIdsRef.current = [];
-      setPendingCellIds(new Set());
-      setSelection(createEmptySymbolReviewSelection());
-      setPageRefreshRevision((revision) => revision + 1);
+      setActiveOperations((current) => {
+        const next = { ...current };
+        delete next[operation.id];
+        return next;
+      });
+      setToast(
+        completelyApplied
+          ? {
+              kind: 'success',
+              message: `Operacja zakończona: ${operation.appliedCount} symboli.`,
+            }
+          : {
+              kind: 'error',
+              message: `Operacja zakończona częściowo: zastosowano ${operation.appliedCount}, konflikty ${operation.conflictCount}, błędy ${operation.failedCount}.`,
+            },
+      );
     },
-    [filters.state],
+    [],
   );
 
   async function startPreviewedOperation() {
@@ -546,8 +552,6 @@ export function SymbolReviewWorkspace({
     const submittedCellIds = currentItems
       .filter((item) => isSymbolReviewItemSelected(selection, item))
       .map((item) => item.id);
-    submittedCellIdsRef.current = submittedCellIds;
-    setPendingCellIds(new Set(submittedCellIds));
     setIsStartingOperation(true);
     const result = await startSymbolReviewBulkOperation(
       api,
@@ -557,63 +561,28 @@ export function SymbolReviewWorkspace({
     );
     setIsStartingOperation(false);
     if (!result.ok) {
-      submittedCellIdsRef.current = [];
-      setPendingCellIds(new Set());
       setOperationDialog({ error: result.error, kind: 'error' });
       return;
     }
-    setActiveOperation(result.value);
+    const tracked: TrackedSymbolReviewOperation = {
+      operation: result.value,
+      submittedCellIds,
+    };
     setOperationDialog(null);
+    setSelection(createEmptySymbolReviewSelection());
     if (isSymbolReviewBulkOperationTerminal(result.value)) {
-      finishOperation(result.value);
-    }
-  }
-
-  useEffect(() => {
-    if (
-      activeOperationId === null ||
-      activeOperationGameId === null ||
-      activeOperationIsTerminal
-    ) {
+      finishOperation(tracked, result.value);
       return;
     }
-    let cancelled = false;
-    let inFlight = false;
-    let timerId: number | null = null;
-    const poll = async () => {
-      if (cancelled || inFlight) return;
-      inFlight = true;
-      const result = await getSymbolReviewBulkOperation(
-        api,
-        activeOperationGameId,
-        activeOperationId,
-      );
-      inFlight = false;
-      if (cancelled) return;
-      if (!result.ok) {
-        setError(result.error);
-        timerId = window.setTimeout(() => void poll(), 2_000);
-        return;
-      }
-      setActiveOperation(result.value);
-      if (isSymbolReviewBulkOperationTerminal(result.value)) {
-        finishOperation(result.value);
-        return;
-      }
-      timerId = window.setTimeout(() => void poll(), 2_000);
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timerId !== null) window.clearTimeout(timerId);
-    };
-  }, [
-    activeOperationGameId,
-    activeOperationId,
-    activeOperationIsTerminal,
-    api,
-    finishOperation,
-  ]);
+    setActiveOperations((current) => ({
+      ...current,
+      [result.value.id]: tracked,
+    }));
+    setToast({
+      kind: 'success',
+      message: 'Operacja została przekazana do przetwarzania w tle.',
+    });
+  }
 
   return (
     <section aria-label="Weryfikacja symboli" className={styles.workspace}>
@@ -738,8 +707,20 @@ export function SymbolReviewWorkspace({
         />
       ) : null}
 
-      {activeOperation !== null ? (
-        <SymbolReviewOperationProgress operation={activeOperation} />
+      {trackedOperations.length > 0 ? (
+        <section
+          aria-label="Operacje masowe w tle"
+          className={styles.operations}
+        >
+          {trackedOperations.map((tracked) => (
+            <SymbolReviewBackgroundOperation
+              api={api}
+              key={tracked.operation.id}
+              onFinish={finishOperation}
+              tracked={tracked}
+            />
+          ))}
+        </section>
       ) : null}
 
       {gamesState === 'loading' ||
@@ -812,7 +793,7 @@ export function SymbolReviewWorkspace({
                     item={item}
                     key={item.id}
                     onToggle={() => toggleItem(item)}
-                    disabled={interactionBusy}
+                    disabled={interactionBusy || pendingCellIds.has(item.id)}
                     pending={pendingCellIds.has(item.id)}
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
@@ -1059,19 +1040,84 @@ function SymbolReviewSelectionToolbar({
   );
 }
 
+function SymbolReviewBackgroundOperation({
+  api,
+  onFinish,
+  tracked,
+}: {
+  readonly api: SymbolReviewBulkClient;
+  readonly onFinish: (
+    tracked: TrackedSymbolReviewOperation,
+    operation: SymbolCellReviewBulkOperationResponse,
+  ) => void;
+  readonly tracked: TrackedSymbolReviewOperation;
+}) {
+  const [operation, setOperation] = useState(tracked.operation);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSymbolReviewBulkOperationTerminal(operation)) {
+      onFinish(tracked, operation);
+      return;
+    }
+    let cancelled = false;
+    let inFlight = false;
+    let timerId: number | null = null;
+    const poll = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      const result = await getSymbolReviewBulkOperation(
+        api,
+        operation.gameId,
+        operation.id,
+      );
+      inFlight = false;
+      if (cancelled) return;
+      if (!result.ok) {
+        setPollingError(result.error);
+        timerId = window.setTimeout(() => void poll(), 2_000);
+        return;
+      }
+      setPollingError(null);
+      setOperation(result.value);
+    };
+    timerId = window.setTimeout(() => void poll(), 2_000);
+    return () => {
+      cancelled = true;
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [api, onFinish, operation, tracked]);
+
+  return (
+    <SymbolReviewOperationProgress
+      operation={operation}
+      pollingError={pollingError}
+    />
+  );
+}
+
 function SymbolReviewOperationProgress({
   operation,
+  pollingError,
 }: {
   readonly operation: SymbolCellReviewBulkOperationResponse;
+  readonly pollingError: string | null;
 }) {
+  const processing = !isSymbolReviewBulkOperationTerminal(operation);
   return (
     <section aria-live="polite" className={styles.operationProgress}>
-      <strong>Operacja masowa: {operationLabel(operation.action)}</strong>
+      <div className={styles.operationHeading}>
+        {processing ? (
+          <span aria-hidden className={styles.operationLoader} />
+        ) : null}
+        <strong>Operacja masowa: {operationLabel(operation.action)}</strong>
+      </div>
       <span>
-        {operation.status} · zastosowano {operation.appliedCount} /{' '}
-        {operation.targetCount} · konflikty {operation.conflictCount} · błędy{' '}
-        {operation.failedCount}
+        {operationStatusLabel(operation.status)} · zastosowano{' '}
+        {operation.appliedCount} / {operation.targetCount} · konflikty{' '}
+        {operation.conflictCount} · błędy {operation.failedCount}
       </span>
+      {pollingError ? <p>{pollingError}</p> : null}
       {operation.errorMessage ? <p>{operation.errorMessage}</p> : null}
     </section>
   );
@@ -1282,21 +1328,6 @@ function filteredSymbolReviewCount(
   return page.counts.allCount;
 }
 
-function symbolReviewMutationMatchesFilter(
-  reviewState: string,
-  assignedSymbolId: string | null,
-  filters: SymbolReviewFilters,
-): boolean {
-  if (filters.symbolId === null) return false;
-  const symbolMatches =
-    filters.symbolId === 'unknown'
-      ? assignedSymbolId === null
-      : assignedSymbolId === filters.symbolId;
-  return (
-    symbolMatches && (filters.state === 'all' || filters.state === reviewState)
-  );
-}
-
 function formatBytes(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'niedostępne';
   if (value < 1024) return `${value} B`;
@@ -1311,6 +1342,16 @@ function operationLabel(
   if (action === 'approve') return 'Zatwierdzenie';
   if (action === 'reassign') return 'Zmiana symbolu';
   return 'Oznaczenie złej siatki';
+}
+
+function operationStatusLabel(
+  status: SymbolCellReviewBulkOperationResponse['status'],
+): string {
+  if (status === 'created') return 'Oczekuje w kolejce';
+  if (status === 'processing') return 'Przetwarzanie w toku';
+  if (status === 'completed') return 'Zakończono';
+  if (status === 'cancelled') return 'Anulowano';
+  return 'Niepowodzenie';
 }
 
 function symbolLabel(

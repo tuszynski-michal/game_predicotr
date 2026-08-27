@@ -166,6 +166,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   odrzucała więcej niż 100 elementów, przez co kompletna strona kończyła się
   HTTP 500. Limit requestu, odpowiedzi i OpenAPI korzysta teraz z jednego
   application constant; regresja serializuje rzeczywistą stronę 500 cropów.
+- `v0.8.48` przenosi page-local operacje masowe Weryfikacji symboli do tła UI.
+  Każdy trwały job zachowuje osobny status i spinner na swoich targetach, ale
+  nie blokuje przejścia na inną stronę ani wysłania kolejnej operacji. Pełny
+  sukces usuwa przetworzone karty bez kosztownego uzupełniania strony; wynik
+  częściowy pozostawia je do świadomego ponowienia. Toast jest stały 50 px od
+  lewego i dolnego brzegu zamiast zasłaniać sticky toolbar.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy

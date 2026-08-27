@@ -103,6 +103,9 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.pending_sequence_ownership import (
+    create_owned_pending_review_item,
+)
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPrediction,
 )
@@ -1205,30 +1208,28 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 expected_resolution_revision=current.resolution_revision,
                 corrected_by="grid-issue-reviewer",
             )
-            _updated, _revision, geometry_created = (
-                operational_repository.save_geometry_revision(
-                    review_item_id=review_item_id,
-                    game_id=game.id,
-                    import_job_id=job.id,
-                    idempotency_key=uuid4(),
-                    command=geometry_command,
-                    artifacts=ImageReviewGeometryArtifacts(
-                        geometry={"source": "grid-issue-filter-test"},
-                        board_relative_path="corrected/grid-issue.png",
-                        board_checksum_sha256="d" * 64,
-                        cropper_version="grid-issue-filter-test",
-                        cells=tuple(
-                            ImageReviewGeometryCellArtifact(
-                                row_index=index // 5,
-                                column_index=index % 5,
-                                crop_relative_path=f"corrected/grid-issue-{index}.png",
-                                crop_checksum_sha256=f"{6000 + index:064x}",
-                            )
-                            for index in range(15)
-                        ),
+            _updated, _revision, geometry_created = operational_repository.save_geometry_revision(
+                review_item_id=review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+                idempotency_key=uuid4(),
+                command=geometry_command,
+                artifacts=ImageReviewGeometryArtifacts(
+                    geometry={"source": "grid-issue-filter-test"},
+                    board_relative_path="corrected/grid-issue.png",
+                    board_checksum_sha256="d" * 64,
+                    cropper_version="grid-issue-filter-test",
+                    cells=tuple(
+                        ImageReviewGeometryCellArtifact(
+                            row_index=index // 5,
+                            column_index=index % 5,
+                            crop_relative_path=f"corrected/grid-issue-{index}.png",
+                            crop_checksum_sha256=f"{6000 + index:064x}",
+                        )
+                        for index in range(15)
                     ),
-                    created_at=now + timedelta(minutes=1),
-                )
+                ),
+                created_at=now + timedelta(minutes=1),
             )
             assert geometry_created is True
             cleared_grid_issue_page = operational_repository.list_items(
@@ -2511,6 +2512,123 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                     created_at=now + timedelta(minutes=1),
                 )
             assert protected.value.code == "IMAGE_REVIEW_SUPERSEDED"
+    finally:
+        engine.dispose()
+
+
+def test_pending_sequence_owner_is_always_the_newest_import(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 27, 8, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="pending-sequence-owner",
+                name="Pending sequence owner",
+                status=GameStatus.ACTIVE,
+            )
+            older_job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, "1" * 64, now))
+            newer_job = SqlAlchemyJobRepository(session).add_job(
+                _image_job(game.id, "2" * 64, now + timedelta(seconds=1))
+            )
+            newest_job = SqlAlchemyJobRepository(session).add_job(
+                _image_job(game.id, "3" * 64, now + timedelta(seconds=2))
+            )
+            session.commit()
+
+        executions = {
+            job.id: image_store.register_file(
+                job.id,
+                source_checksum_sha256=checksum * 64,
+                pipeline_fingerprint=checksum * 64,
+                source_relative_path=f"source-{checksum}.jpg",
+                order_index=0,
+                registered_at=job.created_at,
+            )
+            for job, checksum in (
+                (older_job, "1"),
+                (newer_job, "2"),
+                (newest_job, "3"),
+            )
+        }
+
+        with Session(engine, expire_on_commit=False) as session, session.begin():
+            jobs = {
+                job_id: session.get(JobModel, job_id)
+                for job_id in (older_job.id, newer_job.id, newest_job.id)
+            }
+
+            def create_candidate(job: Job, checksum: str) -> ImageReviewItemModel:
+                job_record = jobs[job.id]
+                assert job_record is not None
+                source = SourceImageModel(
+                    import_job_id=job.id,
+                    file_execution_key=executions[job.id].file_execution_key,
+                    relative_path=f"source-{checksum}.jpg",
+                    checksum_sha256=checksum * 64,
+                    width=1920,
+                    height=1080,
+                    status="waiting_for_review",
+                    created_at=job.created_at,
+                )
+                session.add(source)
+                session.flush()
+                board = RecognizedBoardModel(
+                    source_image_id=source.id,
+                    position_index=0,
+                    sequence_number_raw="10",
+                    sequence_number=10,
+                    sequence_confidence=1.0,
+                    board_geometry={"source": "pending-owner-test"},
+                    board_relative_path=f"board-{checksum}.png",
+                    board_checksum_sha256=checksum * 64,
+                    cells_prediction={"cells": []},
+                    board_confidence=1.0,
+                    pipeline_fingerprint=checksum * 64,
+                    status="pending_review",
+                    created_at=job.created_at,
+                )
+                session.add(board)
+                session.flush()
+                review, _changed = create_owned_pending_review_item(
+                    session,
+                    board=board,
+                    game_id=game.id,
+                    import_job=job_record,
+                    snapshot={"sequenceNumber": 10},
+                    created_at=job.created_at,
+                )
+                return review
+
+            newer_review = create_candidate(newer_job, "2")
+            older_review = create_candidate(older_job, "1")
+            newest_review = create_candidate(newest_job, "3")
+
+        with Session(engine) as session:
+            reviews = {
+                review.id: session.get(ImageReviewItemModel, review.id)
+                for review in (older_review, newer_review, newest_review)
+            }
+            assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
+            assert reviews[newer_review.id].status == "superseded"  # type: ignore[union-attr]
+            assert reviews[newest_review.id].status == "pending"  # type: ignore[union-attr]
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewItemModel)
+                    .where(
+                        ImageReviewItemModel.game_id == game.id,
+                        ImageReviewItemModel.sequence_number == 10,
+                        ImageReviewItemModel.status == "pending",
+                    )
+                )
+                == 1
+            )
     finally:
         engine.dispose()
 

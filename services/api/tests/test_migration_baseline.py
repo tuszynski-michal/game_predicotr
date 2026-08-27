@@ -78,6 +78,7 @@ REMOVE_SYMBOL_BOOTSTRAP_REVISION = "0065_remove_symbol_bootstrap"
 IMAGE_SYMBOL_REVIEW_CELLS_REVISION = "0066_image_symbol_review_cells"
 SYMBOL_CELL_REVIEW_CATALOG_REVISION = "0067_symbol_cell_review_catalog_revision"
 IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION = "0068_image_symbol_review_bulk_operations"
+PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -179,7 +180,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     image_symbol_review_bulk_operations = script.get_revision(
         IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
     )
-    assert script.get_heads() == [IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION]
+    pending_sequence_ownership = script.get_revision(PENDING_SEQUENCE_OWNERSHIP_REVISION)
+    assert script.get_heads() == [PENDING_SEQUENCE_OWNERSHIP_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -332,10 +334,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert image_symbol_review_cells.down_revision == REMOVE_SYMBOL_BOOTSTRAP_REVISION
     assert symbol_cell_review_catalog.down_revision == IMAGE_SYMBOL_REVIEW_CELLS_REVISION
     assert image_symbol_review_bulk_operations is not None
-    assert (
-        image_symbol_review_bulk_operations.down_revision
-        == SYMBOL_CELL_REVIEW_CATALOG_REVISION
-    )
+    assert image_symbol_review_bulk_operations.down_revision == SYMBOL_CELL_REVIEW_CATALOG_REVISION
+    assert pending_sequence_ownership is not None
+    assert pending_sequence_ownership.down_revision == IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION
@@ -636,6 +637,29 @@ def test_image_symbol_review_bulk_operations_migration_is_reversible() -> None:
     assert "fk_image_symbol_review_events_operation" in upgrade_sql
     assert "drop table image_symbol_review_bulk_targets" in downgrade_sql
     assert "drop table image_symbol_review_bulk_operations" in downgrade_sql
+
+
+def test_pending_sequence_ownership_migration_is_scoped_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION}:{PENDING_SEQUENCE_OWNERSHIP_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{PENDING_SEQUENCE_OWNERSHIP_REVISION}:{IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "pending_sequence_repair_targets" in upgrade_sql
+    assert "uq_image_review_items_pending_game_sequence" in upgrade_sql
+    assert "populate_image_review_item_sequence_scope" in upgrade_sql
+    assert "synchronize_image_review_item_sequence_number" in upgrade_sql
+    assert "drop column sequence_number" in downgrade_sql
 
 
 def test_image_board_geometry_pending_migration_is_scoped_and_reversible() -> None:

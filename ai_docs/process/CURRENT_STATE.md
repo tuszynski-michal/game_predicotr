@@ -15,6 +15,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.8 implementation: board search and review data quality`
 
+### Jeden właściciel oczekującej planszy — TASK-0291
+
+- `v0.8.33` domyka trwałą ochronę przed duplikatami oczekujących plansz dla
+  `game_id + sequence_number`. Migracja `0069_pending_sequence_ownership`
+  denormalizuje zakres właścicielski na `image_review_items`, synchronizuje go
+  triggerami i dodaje częściowy indeks unikalny dla `pending`.
+- Kanoniczne `accepted/corrected` pozostaje bezwzględnym właścicielem numeru.
+  Bez canonical najnowszy import według `(job.created_at, job.id)` przejmuje
+  nierozwiązany numer, a starsze pending zostają zachowane jako audytowalne
+  `superseded`; nie wracają do Reviewera ani Weryfikacji symboli.
+- Naprawa rzeczywistej bazy rozwiązała `114 676` zduplikowanych grup sekwencji
+  i `159 754` nadmiarowe pozycje pending. Nie znaleziono pending nad
+  istniejącym canonical. Migracja zakończyła się na head `0069`.
+- Dropdown `Zatwierdzanie plansz` pokazuje odtąd wyłącznie importy
+  `waiting_for_review`. Importy zakończone pozostają widoczne w historii Jobów,
+  ale nie zaśmiecają operacyjnego wyboru.
+
 ### Masowa weryfikacja pojedynczych symboli — TASK-0294
 
 - Od `v0.8.19` kontrakt domenowy `image_symbol_reviews` definiuje trwały w
@@ -114,9 +131,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   wagę, alternatywy pending są słabszym dowodem, a przyszły `?` nie daje punktu
   ani kary. Obrazy pozostają wyłącznie assetami filesystemu; do bazy trafia
   zwarta projekcja metadanych i kodów symboli.
-- TASK-0291 pozostaje osobnym blockerem trwałego zapobiegania duplikatom
-  `pending` z ponownych importów. Wyszukiwarka nie maskuje tych danych przez
-  arbitralne łączenie ich w wiele kart.
+- TASK-0291 jest ukończony w `v0.8.33`. Projekcja wyszukiwania, operacyjne
+  review i Weryfikacja symboli korzystają z jednego właściciela numeru, a baza
+  blokuje utworzenie drugiej aktywnej pozycji `pending`.
 - Od `v0.8.1` semantyka częściowego wzoru jest zamknięta w czystym kontrakcie
   `partial-board-ranking-v1`: primary match = `1.0`, alternatywy pending =
   `0.60/0.40/0.25/0.15`, a `?` oznacza brak dowodu. Zero-evidence candidates

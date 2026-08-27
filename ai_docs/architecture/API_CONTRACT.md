@@ -1599,6 +1599,13 @@ stored in PostgreSQL.
 M6.5 używa job-local `image_review_items`, a nie bounded batchy
 active-learning. TASK-0106 wdrożył osobną grupę Admin API:
 
+Listowanie operacyjnego review nie zwraca starszych aktywnych kopii tego samego
+`game + sequence_number`. Kanoniczna decyzja `accepted/corrected` pozostaje
+chroniona, a przy jej braku jeden oczekujący właściciel pochodzi z najnowszego
+importu według `(job.created_at, job.id)`. Starsze źródła są audytowalnym
+`superseded`, nie kolejną pozycją do zatwierdzenia. Nie zmienia to kształtu
+kontraktu HTTP ani scope'u zdalnej sesji.
+
 ```text
 GET  /api/v1/admin/image-review-items
 GET  /api/v1/admin/image-review-items/{reviewItemId}

@@ -1543,9 +1543,30 @@ class ImageReviewItemModel(Base):
             "recognized_board_id",
             name="uq_image_review_items_board",
         ),
+        Index(
+            "uq_image_review_items_pending_game_sequence",
+            "game_id",
+            "sequence_number",
+            unique=True,
+            postgresql_where=text("status = 'pending' AND sequence_number IS NOT NULL"),
+        ),
+        Index(
+            "ix_image_review_items_import_status",
+            "import_job_id",
+            "status",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     recognized_board_id: Mapped[UUID] = mapped_column(
         ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
         nullable=False,

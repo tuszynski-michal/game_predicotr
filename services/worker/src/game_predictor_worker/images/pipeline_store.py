@@ -37,6 +37,9 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.pending_sequence_ownership import (
+    create_owned_pending_review_item,
+)
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -394,18 +397,20 @@ class SqlAlchemyImagePipelineStore:
                         cropper_version=cropper_version,
                         created_at=executed_at,
                     )
-                review_item = _upsert_review_item(
+                review_item, ownership_changes = _upsert_review_item(
                     session,
                     board,
                     source,
+                    job,
                     sequence,
                     detected,
                     cropped,
                     prediction,
                     created_at=executed_at,
                 )
-                changed_review_item_ids.add(review_item.id)
-                projected_positions += 1
+                changed_review_item_ids.update(ownership_changes)
+                if review_item.status == "pending":
+                    projected_positions += 1
             deferred_positions = _pending_board_geometry_count(
                 session,
                 job_id=job_id,
@@ -1143,13 +1148,14 @@ def _upsert_review_item(
     session: Session,
     board: RecognizedBoardModel,
     source: SourceImageModel,
+    job: JobModel,
     sequence: Mapping[str, object],
     detected: Mapping[str, object],
     cropped: Mapping[str, object],
     prediction: Mapping[str, object],
     *,
     created_at: datetime,
-) -> ImageReviewItemModel:
+) -> tuple[ImageReviewItemModel, tuple[UUID, ...]]:
     snapshot = {
         "boardChecksumSha256": cropped["boardChecksumSha256"],
         "boardRelativePath": cropped["boardRelativePath"],
@@ -1167,22 +1173,25 @@ def _upsert_review_item(
         .with_for_update()
     )
     if item is None:
-        item = ImageReviewItemModel(
-            recognized_board_id=board.id,
-            status="pending",
+        if job.game_id is None:
+            raise ImagePipelineStoreError(
+                "IMAGE_PIPELINE_GAME_MISSING",
+                "Image review requires a game-scoped import job.",
+            )
+        return create_owned_pending_review_item(
+            session,
+            board=board,
+            game_id=job.game_id,
+            import_job=job,
             snapshot=snapshot,
-            resolution_revision=0,
             created_at=created_at,
         )
-        session.add(item)
-        session.flush()
-        return item
     if canonical_json_bytes(item.snapshot) != canonical_json_bytes(snapshot):
         raise ImagePipelineStoreError(
             "IMAGE_REVIEW_SNAPSHOT_CONFLICT",
             "The immutable image review snapshot already has different content.",
         )
-    return item
+    return item, (item.id,)
 
 
 def _require_active_symbol_codes(

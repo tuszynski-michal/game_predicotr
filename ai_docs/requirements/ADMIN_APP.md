@@ -329,6 +329,11 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
 `Nierozpoznany (?)`) i stan `Wszystkie` / `Zatwierdzone` / `Oczekujące`.
+Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
+operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
+a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
+starszych, pokrywających się stagingów oznaczonych `superseded` nie są
+prezentowane ani dostępne do masowych decyzji.
 Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera keysetowo po 60
 aktualnych cropów i trzyma w pamięci najwyżej stronę bieżącą oraz jej dwóch
 bezpośrednich sąsiadów. Miniatury są ładowane leniwie spod checksum-bound
@@ -360,6 +365,12 @@ Operacyjne review dużego importu używa `image_review_items`, a nie ograniczone
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
+- pokazywać w dropdownie `Gotowy import plansz` wyłącznie importy mające
+  nierozwiązane pozycje (`waiting_for_review`); zakończone importy pozostają
+  audytowalne w `Jobach`, ale nie zaśmiecają operacyjnego wyboru,
+- dla nakładających się importów pozostawić w review wyłącznie najnowszą
+  oczekującą planszę danego numeru; zatwierdzona albo poprawiona plansza
+  kanoniczna jest chroniona i nie wraca do review po kolejnym imporcie,
 - prezentować gotowe stagingi w `Import plansz` według liczbowego początku
   zakresu z nazwy katalogu; nazwy bez prefiksu `<liczba>-` są umieszczane za
   zakresami w stabilnej kolejności,

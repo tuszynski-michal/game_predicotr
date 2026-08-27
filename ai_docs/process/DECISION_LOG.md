@@ -5730,6 +5730,33 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   przenumerowywanie poprzednich decyzji odrzucono, ponieważ groziły utratą
   świadomych korekt operatora.
 
+## D-238 — Najnowszy import zastępuje wyłącznie nierozwiązaną planszę
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** dla jednej gry i znanego `sequence_number` może istnieć najwyżej
+  jedna aktywna pozycja `pending`. Plansza kanoniczna `accepted/corrected` jest
+  chroniona i kolejny import nie otwiera jej ponownie. Gdy canonical nie
+  istnieje, właścicielem zostaje najnowszy import według deterministycznego
+  porządku `(job.created_at, job.id)`, a starsze pending przechodzą do
+  audytowalnego `superseded`.
+- **Context:** nakładające się stagingi tworzyły wiele pozycji do zatwierdzenia
+  tego samego numeru oraz powtarzały ich cropy w widokach operacyjnych. Sam
+  read model wybierający jedną kartę nie usuwał przyczyny ani nie chronił
+  pozostałych ścieżek zapisu.
+- **Safety:** częściowy indeks unikalny w PostgreSQL blokuje dwa pending dla
+  `game_id + sequence_number`; wszystkie ścieżki materializacji używają jednej
+  blokady sekwencji i tej samej polityki. Historyczne źródła i eventy nie są
+  usuwane. Sekwencje bez jednoznacznego numeru pozostają poza tym invariantem i
+  nadal muszą zakończyć się kontrolowanym review integralności.
+- **Consequences:** zakończone importy nie występują w dropdownie operacyjnego
+  Reviewera, ale pozostają w Jobach. Weryfikacja symboli i wyszukiwanie plansz
+  dziedziczą tego samego właściciela z fast-document, więc starsze nakładające
+  się stagingi nie dostarczają równoległych cropów.
+- **Alternatives:** usuwanie historycznych importów, first-write-wins oraz
+  wybieranie właściciela wyłącznie w UI odrzucono jako nieaudytowalne albo
+  nieskuteczne dla ponownych importów.
+
 ## Szablon nowej decyzji
 
 ```text

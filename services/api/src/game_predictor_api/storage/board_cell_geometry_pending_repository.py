@@ -43,6 +43,9 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.pending_sequence_ownership import (
+    create_owned_pending_review_item,
+)
 
 
 class SqlAlchemyBoardCellGeometryPendingRepository:
@@ -546,9 +549,11 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                     created_at=created_at,
                 )
             )
-        review = ImageReviewItemModel(
-            recognized_board_id=board.id,
-            status="pending",
+        review, ownership_changes = create_owned_pending_review_item(
+            self._session,
+            board=board,
+            game_id=game_id,
+            import_job=job,
             snapshot={
                 "boardChecksumSha256": artifacts.board_checksum_sha256,
                 "boardRelativePath": artifacts.board_relative_path,
@@ -567,11 +572,9 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                 "sourceChecksumSha256": source.checksum_sha256,
                 "sourceRelativePath": source.relative_path,
             },
-            resolution_revision=row.expected_review_resolution_revision,
             created_at=created_at,
+            resolution_revision=row.expected_review_resolution_revision,
         )
-        self._session.add(review)
-        self._session.flush()
         revision = board.geometry_revision
         self._session.add(
             ImageBoardGeometryRevisionModel(
@@ -604,16 +607,19 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         row.resolved_geometry_revision = revision
         row.resolved_at = created_at
         row.updated_at = created_at
-        source.status = "waiting_for_review"
+        source.status = "waiting_for_review" if review.status == "pending" else "completed"
         source.processed_at = created_at
         self._session.flush()
-        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(review.id)
-        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
-        coordinator.synchronize_after_geometry_change(
-            game_id=game_id,
-            review_item_id=review.id,
-            actor=projection.command.corrected_by,
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_items(
+            ownership_changes
         )
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        for changed_review_item_id in ownership_changes:
+            coordinator.synchronize_after_geometry_change(
+                game_id=game_id,
+                review_item_id=changed_review_item_id,
+                actor=projection.command.corrected_by,
+            )
         coordinator.synchronize_after_projection_change(game_id=game_id)
         return BoardCellGeometryManualResolution(
             pending=_to_domain(row),

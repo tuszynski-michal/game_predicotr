@@ -798,6 +798,21 @@ Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
 niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
 katalogu i może być znacznie większy.
 
+TASK-0291 denormalizuje na rekordzie operacyjnego review zakres właścicielski
+`game_id`, `import_job_id` i `sequence_number`. Częściowy indeks unikalny
+egzekwuje najwyżej jeden rekord `pending` dla
+`(game_id, sequence_number)`, gdy numer jest znany. Wartości są wyprowadzane i
+synchronizowane w bazie z recognized board, source i joba, dzięki czemu także
+legacy zapisy nie mogą ominąć invariantu.
+
+Właściciel nierozwiązanej sekwencji jest wybierany deterministycznie według
+malejącego `(job.created_at, job.id)`. Nowszy import oznacza starsze oczekujące
+źródła jako `superseded`, usuwa ich operacyjny staging i pozostawia historię
+oraz event decyzji do audytu. Jeżeli istnieje kanoniczna plansza
+`accepted/corrected`, żaden nowy pending nie przejmuje numeru. Migracja `0069`
+naprawia istniejące duplikaty według tej samej reguły i odbudowuje projekcję
+wyszukiwania tak, aby wskazywała tego samego właściciela.
+
 ### image_review_queue_items i image_review_queue_states
 
 TASK-0249 utrwala osobną projekcję topologii operacyjnej kolejki per import.

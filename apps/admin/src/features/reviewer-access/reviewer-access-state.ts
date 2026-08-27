@@ -8,7 +8,6 @@ import type {
 
 const REVIEW_READY_STATUSES = new Set<JobResponse['status']>([
   'waiting_for_review',
-  'completed',
 ]);
 
 export function reviewableGames(

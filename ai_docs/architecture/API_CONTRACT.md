@@ -2064,11 +2064,12 @@ wersji 0.2.
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
 Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
-zweryfikowanych plansz ogółem i pozycje zmienione od ostatniej kohorty,
+próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,
 pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
-ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta porównuje checksumy
-pełnych pozycji, dlatego zmieniona etykieta jest nowym elementem również wtedy,
-gdy liczba plansz się nie zmieniła. Aktywny job `created` albo `processing` tej
+ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta v1 porównuje checksumy
+pełnych plansz, a v2 checksumy wybranych manifestów komórek. Zmieniona etykieta,
+rewizja albo crop jest nowym elementem również wtedy, gdy liczba plansz się nie
+zmieniła. Aktywny job `created` albo `processing` tej
 samej gry ustawia `activeHeavyJob = true` i czasowo blokuje freeze. Ostrzeżenie
 o małym pokryciu klasy pojawia się poniżej 10 cropów symbolu, a ostrzeżenie o
 małej różnorodności źródeł poniżej 3 zdjęć; oba progi są doradcze i nie blokują
@@ -2076,23 +2077,24 @@ operacji.
 
 ### GET `/api/v1/admin/games/{game_id}/verified-training-cohorts/preview`
 
-Zwraca dokładne liczniki elementów kwalifikujących, wykluczonych i chronionych,
+Zwraca dokładne liczniki wybranych elementów, źródeł i ostrzeżeń,
 checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
 `incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
 
-GET jest odczytem bez `FOR UPDATE`. Backend zachowuje pełną checksumę manifestu,
-ale nie pobiera geometrii ani cropów dla elementów `pending`, `rejected` i
-`superseded`; kompletne dane obrazu są potrzebne tylko rozstrzygnięciom
-`accepted/corrected`. Blokowany snapshot pozostaje częścią wyłącznie jawnego
-POST zamrażającego kohortę.
+GET jest odczytem bez `FOR UPDATE`. Dla v2 pobiera bounded pulę aktualnych
+komórek `approved`, ponownie sprawdza checksumy cropów i wylicza dHash w
+ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
+równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
+stary właściciel sekwencji nie są odczytywane. Jawny POST blokuje grę i
+ponownie weryfikuje bajty przed zapisem.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
 Body zawiera `idempotencyKey`, `createdBy` i
 `expectedManifestChecksumSha256` pochodzące z jawnie potwierdzonego preview.
-Komenda zamraża pełną, skumulowaną kohortę jednej gry. Zmiana stanu po preview
+Komenda zamraża ograniczoną, różnorodną kohortę cropów jednej gry. Zmiana stanu po preview
 zwraca `VERIFIED_TRAINING_COHORT_PREVIEW_STALE`, a aktywna ciężka operacja tej
 gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Identyczny stan zwraca
 istniejącą kohortę, a zmiana stanu tworzy kolejną iterację. Nie uruchamia

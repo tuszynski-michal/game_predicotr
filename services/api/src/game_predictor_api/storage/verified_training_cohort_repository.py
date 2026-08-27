@@ -23,6 +23,7 @@ from game_predictor_api.domain.verified_training_cohorts import (
     VerifiedTrainingCohortSource,
 )
 from game_predictor_api.storage.models import (
+    VerifiedTrainingCohortCellModel,
     VerifiedTrainingCohortItemModel,
     VerifiedTrainingCohortModel,
 )
@@ -63,11 +64,19 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
         )
         if record is None:
             return None
+        checksum_column = (
+            VerifiedTrainingCohortCellModel.sample_checksum_sha256
+            if record.dataset_kind == "verified-symbol-cell-training-cohort-v2"
+            else VerifiedTrainingCohortItemModel.item_checksum_sha256
+        )
+        checksum_model = (
+            VerifiedTrainingCohortCellModel
+            if record.dataset_kind == "verified-symbol-cell-training-cohort-v2"
+            else VerifiedTrainingCohortItemModel
+        )
         item_checksums = frozenset(
             self._session.scalars(
-                select(VerifiedTrainingCohortItemModel.item_checksum_sha256).where(
-                    VerifiedTrainingCohortItemModel.cohort_id == record.id
-                )
+                select(checksum_column).where(checksum_model.cohort_id == record.id)
             ).all()
         )
         return VerifiedTrainingCohortSnapshot(
@@ -157,6 +166,26 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
                             canonical_image_review_bytes(board_manifest)
                         ).hexdigest(),
                         board_manifest=board_manifest,
+                    )
+                )
+            for sample_order, cell in enumerate(source.cells):
+                cell_manifest = dict(cell)
+                self._session.add(
+                    VerifiedTrainingCohortCellModel(
+                        cohort_id=record.id,
+                        sample_order=sample_order,
+                        cell_review_id=UUID(cast(str, cell["cellReviewId"])),
+                        review_item_id=UUID(cast(str, cell["reviewItemId"])),
+                        recognized_board_id=UUID(cast(str, cell["recognizedBoardId"])),
+                        source_image_id=UUID(cast(str, cell["sourceImageId"])),
+                        sequence_number=cast(int, cell["sequenceNumber"]),
+                        cell_index=cast(int, cell["cellIndex"]),
+                        symbol_code=cast(str, cell["symbolCode"]),
+                        crop_checksum_sha256=cast(str, cell["cropChecksumSha256"]),
+                        sample_checksum_sha256=hashlib.sha256(
+                            canonical_image_review_bytes(cell_manifest)
+                        ).hexdigest(),
+                        cell_manifest=cell_manifest,
                     )
                 )
             self._session.flush()

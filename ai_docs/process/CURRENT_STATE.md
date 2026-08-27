@@ -25,7 +25,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   źródła oraz ogranicza wynik do celu 1000 i maksimum 2000 per symbol. Worker
   nadal odtwarza v1 i używa istniejącego CNN, splitów źródłowych, ONNX i bramki.
 - Migracja `0071_symbol_cell_training_cohorts` utrwala rodzaj datasetu i
-  dopuszcza kohortę komórkową. Lokalna baza została podniesiona do `0071`.
+  dopuszcza kohortę komórkową. Migracja `0072_verified_training_cohort_cells`
+  zapisuje wybrane próbki i ich checksumy, dzięki czemu delta kolejnej kohorty
+  nie wraca błędnie do pełnej liczby cropów. Lokalna baza jest na `0072`.
 - Admin pokazuje dwa jawnie niezależne workflowy: `Rozpoznawanie symboli` oraz
   `Cięcie siatki`. Aktywacja jednego nie aktywuje drugiego.
 - Nie wykonano dużego benchmarku. Test zlicza ograniczoną liczbę porównań LSH;
@@ -36,6 +38,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Dla 1000 plansz selektor zwrócił docelowe 8000 próbek (1000 × 8 symboli).
   Pomiar nie obejmuje odczytu JPEG/PNG z dysku ani treningu CNN; potwierdza, że
   sam dobór nie jest wąskim gardłem i nie ma wzrostu kwadratowego.
+- Read-only odbiór rzeczywistej gry zakwalifikował 10 736 aktualnych cropów i
+  wybrał 4629 różnorodnych próbek z ośmiu klas. Pierwszy równoległy odczyt,
+  kontrola checksum i dHash trwały 18,861 s; zwykły proces API utrzymuje
+  ograniczony cache 32 768 deskryptorów, natomiast zamrożenie ponownie sprawdza
+  bajty. Transakcyjny test zapisu/rollbacku potwierdził jeden rekord projekcji
+  v2 dla jednej próbki bez pozostawienia danych audytowych.
 
 ### Duże browserowe importy plansz
 

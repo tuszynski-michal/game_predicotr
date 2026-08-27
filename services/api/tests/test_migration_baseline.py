@@ -81,6 +81,7 @@ IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION = "0068_image_symbol_review_bulk_op
 PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
 SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job"
 SYMBOL_CELL_TRAINING_COHORTS_REVISION = "0071_symbol_cell_training_cohorts"
+VERIFIED_TRAINING_COHORT_CELLS_REVISION = "0072_verified_training_cohort_cells"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -183,19 +184,15 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
     )
     pending_sequence_ownership = script.get_revision(PENDING_SEQUENCE_OWNERSHIP_REVISION)
-    symbol_cell_review_backfill_job = script.get_revision(
-        SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
-    )
-    symbol_cell_training_cohorts = script.get_revision(
-        SYMBOL_CELL_TRAINING_COHORTS_REVISION
-    )
-    assert script.get_heads() == [SYMBOL_CELL_TRAINING_COHORTS_REVISION]
+    symbol_cell_review_backfill_job = script.get_revision(SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION)
+    symbol_cell_training_cohorts = script.get_revision(SYMBOL_CELL_TRAINING_COHORTS_REVISION)
+    verified_training_cohort_cells = script.get_revision(VERIFIED_TRAINING_COHORT_CELLS_REVISION)
+    assert script.get_heads() == [VERIFIED_TRAINING_COHORT_CELLS_REVISION]
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
-    assert (
-        symbol_cell_training_cohorts.down_revision
-        == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
-    )
+    assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
+    assert verified_training_cohort_cells is not None
+    assert verified_training_cohort_cells.down_revision == SYMBOL_CELL_TRAINING_COHORTS_REVISION
     assert baseline.down_revision is None
     assert catalog is not None
     assert catalog.down_revision == BASELINE_REVISION
@@ -1572,3 +1569,27 @@ def test_review_feedback_migration_adds_audit_and_immutable_exports() -> None:
     assert "drop table review_feedback_exports" in downgrade_sql
     assert "drop table review_resolutions" in downgrade_sql
     assert "drop type review_resolution_action" in downgrade_sql
+
+
+def test_verified_training_cohort_cells_migration_adds_v2_sample_projection() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{VERIFIED_TRAINING_COHORT_CELLS_REVISION}:{SYMBOL_CELL_TRAINING_COHORTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table verified_training_cohort_cells" in upgrade_sql
+    assert "uq_verified_training_cohort_cells_review" in upgrade_sql
+    assert "ix_verified_training_cohort_cells_cohort_symbol" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table verified_training_cohort_cells" in downgrade_sql

@@ -79,3 +79,10 @@ for 1,500 candidates and 0.3552 s for 15,000 candidates, selecting the bounded
 8,000-sample cohort for the latter. Repository-wide formatting remains blocked
 only by pre-existing formatting drift in Reviewer/Admin generated or unrelated
 files.
+
+Completion audit added migration `0072_verified_training_cohort_cells` so v2
+sample checksums participate in subsequent-cohort deltas. On the real game,
+10,736 eligible cells produced 4,629 diverse samples in 18.861 seconds on a
+cold process. A transactionally rolled-back persistence audit confirmed the v2
+cell projection. The Admin workflow groups now contain their own controls; the
+symbol actions precede and no longer appear below the grid panel.

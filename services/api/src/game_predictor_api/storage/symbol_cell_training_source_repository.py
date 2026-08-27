@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -25,6 +28,7 @@ from game_predictor_api.storage.models import GameModel, SymbolModel
 
 _SOURCE_SAMPLE_CAP = 64
 _SYMBOL_PREPOOL_CAP = 4_000
+_MAX_DESCRIPTOR_WORKERS = 7
 
 
 class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepository):
@@ -55,9 +59,10 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
                 "The selected training cohort game does not exist.",
             )
-        rows = self._session.execute(
-            text(
-                """
+        rows = tuple(
+            self._session.execute(
+                text(
+                    """
                 WITH eligible AS (
                   SELECT c.*, s.code AS symbol_code,
                          rb.source_image_id AS source_image_id,
@@ -91,16 +96,33 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 SELECT * FROM pooled WHERE symbol_rank <= :symbol_cap
                 ORDER BY symbol_code, symbol_rank
                 """
-            ),
-            {
-                "game_id": game_id,
-                "source_cap": _SOURCE_SAMPLE_CAP,
-                "symbol_cap": _SYMBOL_PREPOOL_CAP,
-            },
-        ).mappings()
-        return tuple(self._candidate(row) for row in rows)
+                ),
+                {
+                    "game_id": game_id,
+                    "source_cap": _SOURCE_SAMPLE_CAP,
+                    "symbol_cap": _SYMBOL_PREPOOL_CAP,
+                },
+            ).mappings()
+        )
+        worker_count = min(
+            _MAX_DESCRIPTOR_WORKERS,
+            max(1, os.cpu_count() or 1),
+            max(1, len(rows)),
+        )
+        with ThreadPoolExecutor(
+            max_workers=worker_count,
+            thread_name_prefix="symbol-cohort-descriptor",
+        ) as executor:
+            return tuple(
+                executor.map(
+                    lambda row: self._candidate(row, allow_cached=not lock_game),
+                    rows,
+                )
+            )
 
-    def _candidate(self, values: Mapping[str, Any]) -> ApprovedSymbolCellCandidate:
+    def _candidate(
+        self, values: Mapping[str, Any], *, allow_cached: bool
+    ) -> ApprovedSymbolCellCandidate:
         relative_text = str(values["crop_relative_path"])
         relative = PurePosixPath(relative_text)
         if relative.is_absolute() or ".." in relative.parts or "\\" in relative_text:
@@ -114,20 +136,12 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
                 "An approved symbol crop is outside managed storage.",
             )
-        try:
-            content = path.read_bytes()
-        except OSError as error:
-            raise ImageReviewConflictError(
-                "SYMBOL_CELL_TRAINING_CROP_MISSING",
-                "An approved symbol crop cannot be read.",
-            ) from error
         expected = str(values["crop_checksum_sha256"])
-        if hashlib.sha256(content).hexdigest() != expected:
-            raise ImageReviewConflictError(
-                "SYMBOL_CELL_TRAINING_CROP_CHANGED",
-                "An approved symbol crop differs from its persisted checksum.",
-            )
-        perceptual_hash, mean_rgb = _visual_descriptor(content)
+        perceptual_hash, mean_rgb = (
+            _cached_verified_visual_descriptor(str(path), expected)
+            if allow_cached
+            else _verified_visual_descriptor(path, expected)
+        )
         return ApprovedSymbolCellCandidate(
             cell_review_id=values["id"],
             review_item_id=values["review_item_id"],
@@ -157,7 +171,7 @@ def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
         with Image.open(BytesIO(content)) as image:
             rgb = image.convert("RGB")
             grayscale = rgb.convert("L").resize((9, 8), Image.Resampling.BILINEAR)
-            pixels = tuple(grayscale.getdata())
+            pixels = tuple(grayscale.get_flattened_data())
             value = 0
             for row in range(8):
                 for column in range(8):
@@ -171,6 +185,31 @@ def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
             "An approved symbol crop is not a decodable image.",
         ) from error
     return value, tuple(round(channel) for channel in mean)  # type: ignore[return-value]
+
+
+def _verified_visual_descriptor(
+    path: Path, expected_checksum_sha256: str
+) -> tuple[int, tuple[int, int, int]]:
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_MISSING",
+            "An approved symbol crop cannot be read.",
+        ) from error
+    if hashlib.sha256(content).hexdigest() != expected_checksum_sha256:
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_CHANGED",
+            "An approved symbol crop differs from its persisted checksum.",
+        )
+    return _visual_descriptor(content)
+
+
+@lru_cache(maxsize=32_768)
+def _cached_verified_visual_descriptor(
+    path_text: str, expected_checksum_sha256: str
+) -> tuple[int, tuple[int, int, int]]:
+    return _verified_visual_descriptor(Path(path_text), expected_checksum_sha256)
 
 
 __all__ = ["SqlAlchemySymbolCellTrainingSourceRepository"]

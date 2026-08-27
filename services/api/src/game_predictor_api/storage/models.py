@@ -2761,6 +2761,63 @@ class VerifiedTrainingCohortItemModel(Base):
     board_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
 
 
+class VerifiedTrainingCohortCellModel(Base):
+    """One immutable selected cell belonging to a v2 training cohort."""
+
+    __tablename__ = "verified_training_cohort_cells"
+    __table_args__ = (
+        CheckConstraint(
+            "sample_order >= 0 AND sequence_number > 0 AND cell_index BETWEEN 0 AND 14",
+            name="ck_verified_training_cohort_cells_position",
+        ),
+        CheckConstraint(
+            "sample_checksum_sha256 ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohort_cells_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(cell_manifest) = 'object'",
+            name="ck_verified_training_cohort_cells_manifest",
+        ),
+        UniqueConstraint(
+            "cohort_id", "sample_order", name="uq_verified_training_cohort_cells_order"
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "cell_review_id",
+            name="uq_verified_training_cohort_cells_review",
+        ),
+        Index(
+            "ix_verified_training_cohort_cells_cohort_symbol",
+            "cohort_id",
+            "symbol_code",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    sample_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    symbol_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    sample_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    cell_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+
 class SymbolModelIterationModel(Base):
     __tablename__ = "symbol_model_iterations"
     __table_args__ = (

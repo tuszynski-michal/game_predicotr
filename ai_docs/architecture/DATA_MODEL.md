@@ -1358,6 +1358,7 @@ id UUID PRIMARY KEY
 game_id UUID NOT NULL REFERENCES games(id)
 iteration_number INTEGER NOT NULL
 manifest_schema_version INTEGER NOT NULL
+dataset_kind VARCHAR(100) NOT NULL
 manifest_checksum_sha256 TEXT NOT NULL
 idempotency_key UUID NOT NULL
 command_sha256 TEXT NOT NULL
@@ -1404,6 +1405,33 @@ symbolu człowieka, zdjęcie źródłowe, import oraz pipeline. Nie zawiera bina
 Kohorta jest append-only. `accepted` i `corrected` mogą wejść do treningu;
 `rejected`, `superseded`, `pending` i niekompletne decyzje pozostają policzone w manifeście
 stanu, ale nie tworzą pozycji treningowych.
+
+### verified_training_cohort_cells
+
+Projekcja próbek manifestu v2. Nie zastępuje historycznych
+`verified_training_cohort_items`; obie reprezentacje pozostają odtwarzalne.
+
+```text
+id UUID PRIMARY KEY
+cohort_id UUID NOT NULL REFERENCES verified_training_cohorts(id)
+sample_order INTEGER NOT NULL
+cell_review_id UUID NOT NULL REFERENCES image_symbol_review_cells(id)
+review_item_id UUID NOT NULL REFERENCES image_review_items(id)
+recognized_board_id UUID NOT NULL REFERENCES recognized_boards(id)
+source_image_id UUID NOT NULL REFERENCES source_images(id)
+sequence_number BIGINT NOT NULL
+cell_index SMALLINT NOT NULL
+symbol_code VARCHAR(64) NOT NULL
+crop_checksum_sha256 CHAR(64) NOT NULL
+sample_checksum_sha256 CHAR(64) NOT NULL
+cell_manifest JSONB NOT NULL
+UNIQUE (cohort_id, sample_order)
+UNIQUE (cohort_id, cell_review_id)
+```
+
+`sample_checksum_sha256` jest tożsamością delty kolejnej kohorty. Manifest
+komórki wiąże aktualnego właściciela sekwencji, rewizje, crop, checksumę,
+etykietę człowieka i źródło; nie zawiera binariów.
 
 ### symbol_model_iterations
 

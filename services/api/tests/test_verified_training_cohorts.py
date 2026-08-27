@@ -22,6 +22,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewCell,
     ImageReviewConflictError,
     ImageReviewItem,
+    canonical_image_review_bytes,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
@@ -29,11 +30,67 @@ from game_predictor_api.domain.verified_training_cohorts import (
     VerifiedTrainingCohortSnapshot,
     VerifiedTrainingCohortSource,
     VerifiedTrainingReviewState,
+    build_model_quality_summary,
     build_verified_training_cohort_source,
     require_pending_model_prediction_target,
 )
 from game_predictor_api.main import create_app
 
+
+def test_v2_quality_delta_uses_persisted_cell_sample_checksums() -> None:
+    game_id = uuid4()
+    cell = {
+        "cellReviewId": str(uuid4()),
+        "cropChecksumSha256": "a" * 64,
+        "symbolCode": "lemon",
+    }
+    source = VerifiedTrainingCohortSource(
+        game_id=game_id,
+        manifest={"cells": [cell]},
+        manifest_bytes=b"{}\n",
+        manifest_checksum_sha256=hashlib.sha256(b"{}\n").hexdigest(),
+        boards=(),
+        resolved_layout_count=1,
+        cell_sample_count=1,
+        source_image_count=1,
+        pending_item_count=0,
+        rejected_item_count=0,
+        incomplete_item_count=0,
+        warnings=(),
+        dataset_kind="verified-symbol-cell-training-cohort-v2",
+        manifest_schema_version=2,
+        cells=(cell,),
+    )
+    cohort = VerifiedTrainingCohort(
+        id=uuid4(),
+        game_id=game_id,
+        iteration_number=1,
+        manifest_schema_version=2,
+        manifest_checksum_sha256=source.manifest_checksum_sha256,
+        resolved_layout_count=1,
+        cell_sample_count=1,
+        source_image_count=1,
+        pending_item_count=0,
+        rejected_item_count=0,
+        incomplete_item_count=0,
+        artifact_relative_path="training/cohort.json",
+        created_by="owner",
+        created_at=datetime.now(UTC),
+    )
+    checksum = hashlib.sha256(canonical_image_review_bytes(cell)).hexdigest()
+
+    summary = build_model_quality_summary(
+        source=source,
+        active_symbol_codes=("lemon",),
+        latest_snapshot=VerifiedTrainingCohortSnapshot(
+            cohort=cohort,
+            item_checksums=frozenset({checksum}),
+        ),
+        active_heavy_job=False,
+    )
+
+    assert summary.new_verified_layout_count == 0
+    assert summary.symbol_coverage[0].sample_count == 1
 
 class MemorySourceRepository(VerifiedTrainingCohortSourceRepository):
     def __init__(self, game_id: UUID, items: Sequence[ImageReviewItem]) -> None:

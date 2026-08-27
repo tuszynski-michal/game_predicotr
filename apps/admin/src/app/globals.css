@@ -21,6 +21,11 @@
   gap: 20px;
 }
 
+.modelQualityWorkflowGroup {
+  display: grid;
+  gap: 20px;
+}
+
 .modelQualityWorkflowHeader {
   display: grid;
   gap: 0.35rem;

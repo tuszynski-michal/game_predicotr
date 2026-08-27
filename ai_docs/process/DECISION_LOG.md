@@ -5782,6 +5782,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   dopuszczenie każdego stanu `rebuilding` odrzucono odpowiednio jako zbędną
   przerwę operatorską i osłabienie integralności pierwszego backfillu.
 
+## D-240 — Pojedyncza decyzja symbolu nie wymaga trwałego joba masowego
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** jedna jawna, checksum-bound decyzja komórki jest wykonywana
+  synchronicznie przez istniejący atomowy command path planszy. Trwała operacja
+  i job `image_symbol_review_bulk` pozostają wymagane dla co najmniej dwóch
+  jawnych targetów oraz snapshotu całego filtra.
+- **Context:** ręczna korekta symbol po symbolu tworzyła dużą liczbę małych
+  jobów oczekujących na general worker, mimo że klient zna dokładny
+  `cellReviewId`, rewizję, geometrię i checksumę. Opóźniało to feedback oraz
+  zaśmiecało operacyjną historię Jobów.
+- **Safety:** szybka ścieżka używa tego samego repozytorium mutacji, blokady
+  właściciela, kontroli rewizji i cropa, append-only eventu oraz agregacji
+  planszy. Nie omija transakcji domenowej; pomija wyłącznie orkiestrację joba,
+  która nie daje korzyści dla jednego targetu.
+- **Consequences:** pojedyncza zmiana kończy się w jednym requestcie i daje
+  natychmiastowy feedback. Operacje wielotysięczne nadal mają checkpoint,
+  recovery, idempotencję i częściowy raport. Istniejące historyczne joby nie są
+  usuwane automatycznie.
+- **Alternatives:** utrzymanie joba dla każdej komórki oraz wykonywanie całych
+  filtrów synchronicznie odrzucono odpowiednio z powodu narzutu operatorskiego
+  i ryzyka długich transakcji HTTP.
+
 ## Szablon nowej decyzji
 
 ```text

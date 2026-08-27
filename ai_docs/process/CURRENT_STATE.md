@@ -137,6 +137,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   bez opisów. Target wysłanej operacji jest przygaszony i pokazuje spinner, a
   poprawnie przypisany do innego symbolu crop znika przed bounded odświeżeniem
   danych z serwera.
+- Od `v0.8.44` karty pobierają checksum-bound miniatury WebP mieszczące się w
+  100 × 100 px zamiast transferować pełne cropy; URL wiąże checksumę i rozmiar,
+  a przeglądarka używa rocznego prywatnego cache `immutable`. Jedna jawnie
+  zaznaczona decyzja `approve`, `reassign` lub `mark_grid_issue` przechodzi
+  bezpośrednio przez istniejącą atomową mutację planszy i nie tworzy joba.
+  Sukces czyści zaznaczenie, reassign od razu ukrywa crop z bieżącego filtra,
+  a konflikt przywraca kartę i pokazuje toast. Bulk job pozostaje dla wielu
+  targetów i snapshotu całego filtra.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy

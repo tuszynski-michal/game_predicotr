@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -17,6 +18,11 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperationStatus,
     SymbolCellReviewBulkPreview,
     SymbolCellReviewBulkRequest,
+)
+from game_predictor_api.application.image_symbol_review_mutations import (
+    SymbolCellReviewMutationCommand,
+    SymbolCellReviewMutationResult,
+    SymbolCellReviewMutationService,
 )
 from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewListSlice,
@@ -34,6 +40,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.main import create_app
+from PIL import Image
 
 
 class MemorySymbolCellReviewRepository:
@@ -145,9 +152,7 @@ class MemorySymbolCellReviewBulkRepository:
             action=request.action,
             selection_kind=request.selection_kind,
             catalog_revision=(
-                7
-                if request.filter_selection is None
-                else request.filter_selection.catalog_revision
+                7 if request.filter_selection is None else request.filter_selection.catalog_revision
             ),
             target_count=3,
             board_count=1,
@@ -201,6 +206,39 @@ class MemorySymbolCellReviewBulkRepository:
         if game_id != self.game_id:
             return None
         return self.operations.get(operation_id)
+
+
+class MemorySymbolCellReviewMutationRepository:
+    def __init__(self, *, error: SymbolCellReviewError | None = None) -> None:
+        self.commands: list[SymbolCellReviewMutationCommand] = []
+        self.error = error
+
+    def apply_mutation(
+        self,
+        command: SymbolCellReviewMutationCommand,
+    ) -> SymbolCellReviewMutationResult:
+        self.commands.append(command)
+        if self.error is not None:
+            raise self.error
+        return SymbolCellReviewMutationResult(
+            cell_review_id=command.cell_review_id,
+            review_item_id=uuid4(),
+            sequence_number=10,
+            cell_revision=command.expected_revision + 1,
+            review_state=SymbolCellReviewState.APPROVED,
+            assigned_symbol_id=command.target_symbol_id,
+            has_grid_issue=False,
+            board_status="pending",
+            board_resolution_action=None,
+            board_reopened=False,
+            catalog_revision=18,
+        )
+
+    def apply_board_mutations(
+        self,
+        commands: tuple[SymbolCellReviewMutationCommand, ...],
+    ) -> tuple[SymbolCellReviewMutationResult, ...]:
+        return tuple(self.apply_mutation(command) for command in commands)
 
 
 class MemorySymbolCellReviewBackfillRepository:
@@ -289,6 +327,7 @@ def _client(
     *,
     artifact_root: Path,
     bulk_repository: MemorySymbolCellReviewBulkRepository | None = None,
+    mutation_repository: MemorySymbolCellReviewMutationRepository | None = None,
     backfill_repository: MemorySymbolCellReviewBackfillRepository | None = None,
 ) -> TestClient:
     settings = replace(
@@ -301,6 +340,11 @@ def _client(
         settings,
         symbol_cell_review_query_service_dependency=lambda: SymbolCellReviewQueryService(
             repository
+        ),
+        symbol_cell_review_mutation_service_dependency=(
+            None
+            if mutation_repository is None
+            else lambda: SymbolCellReviewMutationService(mutation_repository)
         ),
         symbol_cell_review_bulk_operation_service_dependency=(
             None
@@ -330,15 +374,9 @@ def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:
         artifact_root=tmp_path,
         backfill_repository=backfill,
     ) as client:
-        initial = client.get(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
-        )
-        first = client.post(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
-        )
-        second = client.post(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection"
-        )
+        initial = client.get(f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection")
+        first = client.post(f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection")
+        second = client.post(f"/api/v1/admin/games/{game_id}/symbol-cell-review-projection")
 
     assert initial.status_code == 200
     assert initial.json() == {
@@ -378,17 +416,11 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
             sequence_number=sequence,
             cell_index=cell_index,
             review_item_id=UUID(int=index + 1),
-            state=(
-                SymbolCellReviewState.APPROVED
-                if index == 2
-                else SymbolCellReviewState.PENDING
-            ),
+            state=(SymbolCellReviewState.APPROVED if index == 2 else SymbolCellReviewState.PENDING),
         )
         for index, (sequence, cell_index) in enumerate(((1, 0), (1, 1), (2, 0)), start=1)
     )
-    repository = MemorySymbolCellReviewRepository(
-        game_id=game_id, symbol_id=symbol_id, items=items
-    )
+    repository = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=items)
 
     with _client(repository, artifact_root=tmp_path) as client:
         first = client.get(
@@ -506,10 +538,10 @@ def test_list_endpoint_reports_projection_not_ready(tmp_path: Path) -> None:
 
 
 def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> None:
-    content = b"current-crop"
     crop = tmp_path / "data" / "crops" / "cell.png"
     crop.parent.mkdir(parents=True)
-    crop.write_bytes(content)
+    Image.new("RGB", (420, 260), color=(180, 10, 30)).save(crop, format="PNG")
+    content = crop.read_bytes()
     checksum = hashlib.sha256(content).hexdigest()
     game_id, symbol_id = uuid4(), uuid4()
     item = _item(
@@ -546,11 +578,100 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
         )
 
     assert success.status_code == 200
-    assert success.content == content
+    assert success.headers["content-type"] == "image/webp"
+    assert success.headers["cache-control"] == "private, immutable, max-age=31536000"
+    with Image.open(BytesIO(success.content)) as thumbnail:
+        assert thumbnail.width <= 100
+        assert thumbnail.height <= 100
+    assert len(success.content) < len(content)
     assert stale.status_code == 409
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
     assert changed_file.status_code == 409
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
+
+
+def test_single_cell_decision_applies_directly_without_bulk_job(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "reassign",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                "targetSymbolId": str(target_symbol_id),
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["cellReviewId"] == str(item.cell_review_id)
+    assert response.json()["assignedSymbolId"] == str(target_symbol_id)
+    assert response.json()["cellRevision"] == item.revision + 1
+    assert len(mutations.commands) == 1
+    assert mutations.commands[0].actor == "local-admin"
+    assert mutations.commands[0].target_symbol_id == target_symbol_id
+
+
+def test_single_cell_decision_returns_conflict_for_stale_revision(tmp_path: Path) -> None:
+    game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=source_symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository(
+        error=SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_REVISION_CONFLICT",
+            "The symbol-cell review changed after it was loaded.",
+        )
+    )
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "reassign",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                "targetSymbolId": str(target_symbol_id),
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SYMBOL_CELL_REVIEW_REVISION_CONFLICT"
 
 
 def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path: Path) -> None:

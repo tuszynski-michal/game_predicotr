@@ -19,6 +19,9 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkPreview,
     SymbolCellReviewBulkRequest,
 )
+from game_predictor_api.application.image_symbol_review_mutations import (
+    SymbolCellReviewMutationResult,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewCounts,
@@ -175,6 +178,37 @@ class SymbolCellReviewBulkOperationStartResponse(ApiModel):
     created: bool
 
 
+class SymbolCellReviewMutationRequest(ApiModel):
+    action: SymbolCellReviewAction
+    expected_revision: int = Field(ge=0)
+    expected_geometry_revision: int = Field(ge=0)
+    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    target_symbol_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_action_target(self) -> SymbolCellReviewMutationRequest:
+        if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
+            raise ValueError("targetSymbolId is required for reassign.")
+        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
+            raise ValueError("targetSymbolId is allowed only for reassign.")
+        return self
+
+
+class SymbolCellReviewMutationResponse(ApiModel):
+    cell_review_id: UUID
+    review_item_id: UUID
+    sequence_number: int = Field(ge=1)
+    cell_revision: int = Field(ge=0)
+    review_state: str
+    assigned_symbol_id: UUID | None
+    has_grid_issue: bool
+    board_status: str
+    board_resolution_action: str | None
+    board_reopened: bool
+    catalog_revision: int = Field(ge=0)
+
+
 def to_symbol_cell_review_page_response(
     page: SymbolCellReviewPage,
 ) -> SymbolCellReviewPageResponse:
@@ -184,6 +218,24 @@ def to_symbol_cell_review_page_response(
         catalog_revision=page.catalog_revision,
         next_cursor=page.next_cursor,
         previous_cursor=page.previous_cursor,
+    )
+
+
+def to_symbol_cell_review_mutation_response(
+    result: SymbolCellReviewMutationResult,
+) -> SymbolCellReviewMutationResponse:
+    return SymbolCellReviewMutationResponse(
+        cell_review_id=result.cell_review_id,
+        review_item_id=result.review_item_id,
+        sequence_number=result.sequence_number,
+        cell_revision=result.cell_revision,
+        review_state=result.review_state.value,
+        assigned_symbol_id=result.assigned_symbol_id,
+        has_grid_issue=result.has_grid_issue,
+        board_status=result.board_status,
+        board_resolution_action=result.board_resolution_action,
+        board_reopened=result.board_reopened,
+        catalog_revision=result.catalog_revision,
     )
 
 
@@ -342,12 +394,15 @@ __all__ = [
     "SymbolCellReviewBulkSelectionRequest",
     "SymbolCellReviewCountsResponse",
     "SymbolCellReviewListItemResponse",
+    "SymbolCellReviewMutationRequest",
+    "SymbolCellReviewMutationResponse",
     "SymbolCellReviewPageResponse",
     "SymbolCellReviewProjectionStartResponse",
     "SymbolCellReviewProjectionStatusResponse",
     "to_symbol_cell_review_bulk_operation_response",
     "to_symbol_cell_review_bulk_preview_response",
     "to_symbol_cell_review_bulk_request",
+    "to_symbol_cell_review_mutation_response",
     "to_symbol_cell_review_page_response",
     "to_symbol_cell_review_projection_start_response",
     "to_symbol_cell_review_projection_status_response",

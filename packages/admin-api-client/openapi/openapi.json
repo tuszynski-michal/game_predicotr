@@ -13440,6 +13440,139 @@
         "title": "SymbolCellReviewListItemResponse",
         "type": "object"
       },
+      "SymbolCellReviewMutationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/SymbolCellReviewAction"
+          },
+          "expectedCropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropchecksumsha256",
+            "type": "string"
+          },
+          "expectedCropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropsampleid",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "targetSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolid"
+          }
+        },
+        "required": [
+          "action",
+          "expectedRevision",
+          "expectedGeometryRevision",
+          "expectedCropSampleId",
+          "expectedCropChecksumSha256"
+        ],
+        "title": "SymbolCellReviewMutationRequest",
+        "type": "object"
+      },
+      "SymbolCellReviewMutationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolid"
+          },
+          "boardReopened": {
+            "title": "Boardreopened",
+            "type": "boolean"
+          },
+          "boardResolutionAction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardresolutionaction"
+          },
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "catalogRevision": {
+            "minimum": 0.0,
+            "title": "Catalogrevision",
+            "type": "integer"
+          },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "cellRevision": {
+            "minimum": 0.0,
+            "title": "Cellrevision",
+            "type": "integer"
+          },
+          "hasGridIssue": {
+            "title": "Hasgridissue",
+            "type": "boolean"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "reviewItemId",
+          "sequenceNumber",
+          "cellRevision",
+          "reviewState",
+          "assignedSymbolId",
+          "hasGridIssue",
+          "boardStatus",
+          "boardResolutionAction",
+          "boardReopened",
+          "catalogRevision"
+        ],
+        "title": "SymbolCellReviewMutationResponse",
+        "type": "object"
+      },
       "SymbolCellReviewPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -18340,6 +18473,18 @@
               "title": "Expectedcropchecksumsha256",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "thumbnailSize",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 256,
+              "minimum": 32,
+              "title": "Thumbnailsize",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -18378,6 +18523,104 @@
           }
         },
         "summary": "Read one current checksum-bound symbol-cell crop",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision": {
+      "post": {
+        "operationId": "applySymbolCellReviewDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cell Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolCellReviewMutationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Apply one atomic checksum-bound symbol-cell review decision",
         "tags": [
           "symbol-cell-reviews"
         ]

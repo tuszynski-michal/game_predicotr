@@ -18,6 +18,9 @@ import type {
   ApplyRemoteManualSelectionOperationData,
   ApplyRemoteManualSelectionOperationErrors,
   ApplyRemoteManualSelectionOperationResponses,
+  ApplySymbolCellReviewDecisionData,
+  ApplySymbolCellReviewDecisionErrors,
+  ApplySymbolCellReviewDecisionResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -1489,6 +1492,32 @@ export const getSymbolCellReviewAsset = <ThrowOnError extends boolean = false>(
   >({
     url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset',
     ...options,
+  });
+
+/**
+ * Apply one atomic checksum-bound symbol-cell review decision
+ */
+export const applySymbolCellReviewDecision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApplySymbolCellReviewDecisionData, ThrowOnError>,
+): RequestResult<
+  ApplySymbolCellReviewDecisionResponses,
+  ApplySymbolCellReviewDecisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApplySymbolCellReviewDecisionResponses,
+    ApplySymbolCellReviewDecisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

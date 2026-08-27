@@ -43,6 +43,10 @@ import {
   type SymbolReviewBulkCommand,
 } from './symbol-review-bulk-actions';
 import {
+  applySingleSymbolReviewDecision,
+  type SymbolReviewMutationClient,
+} from './symbol-review-mutation-actions';
+import {
   createEmptySymbolReviewSelection,
   createSymbolReviewFilterSelection,
   isSymbolReviewItemSelected,
@@ -64,6 +68,8 @@ import styles from './symbol-review-workspace.module.css';
 type LoadState = 'error' | 'loading' | 'ready';
 
 type SymbolReviewWorkspaceClient = SymbolReviewClient & SymbolReviewBulkClient;
+type SymbolReviewFullClient = SymbolReviewWorkspaceClient &
+  SymbolReviewMutationClient;
 
 type SymbolReviewOperationDialog =
   | {
@@ -88,7 +94,12 @@ const INITIAL_FILTERS: SymbolReviewFilters = {
 
 interface SymbolReviewWorkspaceProps {
   readonly apiBaseUrl: string;
-  readonly client?: SymbolReviewWorkspaceClient;
+  readonly client?: SymbolReviewFullClient;
+}
+
+interface SymbolReviewToast {
+  readonly kind: 'error' | 'success';
+  readonly message: string;
 }
 
 export function SymbolReviewWorkspace({
@@ -133,6 +144,7 @@ export function SymbolReviewWorkspace({
   const [activeOperation, setActiveOperation] =
     useState<SymbolCellReviewBulkOperationResponse | null>(null);
   const [isStartingOperation, setIsStartingOperation] = useState(false);
+  const [toast, setToast] = useState<SymbolReviewToast | null>(null);
   const [reassignTargetSymbolId, setReassignTargetSymbolId] = useState<
     string | null
   >(null);
@@ -221,6 +233,12 @@ export function SymbolReviewWorkspace({
     },
     [applyFilters, selectedCount],
   );
+
+  useEffect(() => {
+    if (toast === null) return;
+    const timerId = window.setTimeout(() => setToast(null), 4_000);
+    return () => window.clearTimeout(timerId);
+  }, [toast]);
 
   useEffect(() => {
     const requestId = ++gamesRequestId.current;
@@ -542,6 +560,40 @@ export function SymbolReviewWorkspace({
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
+    if (selection.kind === 'explicit') {
+      const targets = Object.values(selection.targetsById);
+      if (targets.length === 1) {
+        const target = targets[0]!;
+        setPendingCellIds(new Set([target.cellReviewId]));
+        const result = await applySingleSymbolReviewDecision(
+          api,
+          gameId,
+          action,
+          target,
+          action === 'reassign' ? reassignTargetSymbolId : null,
+        );
+        setPendingCellIds(new Set());
+        if (!result.ok) {
+          setToast({ kind: 'error', message: result.error });
+          return;
+        }
+        setSelection(createEmptySymbolReviewSelection());
+        if (action === 'reassign') {
+          setHiddenCellIds(new Set([target.cellReviewId]));
+        }
+        setPageRefreshRevision((revision) => revision + 1);
+        setToast({
+          kind: 'success',
+          message:
+            action === 'reassign'
+              ? 'Symbol został zmieniony.'
+              : action === 'approve'
+                ? 'Symbol został zatwierdzony.'
+                : 'Symbol został oznaczony jako problem siatki.',
+        });
+        return;
+      }
+    }
     const command = createSymbolReviewBulkCommand(
       action,
       selection,
@@ -677,6 +729,16 @@ export function SymbolReviewWorkspace({
         </div>
       </header>
 
+      {toast !== null ? (
+        <div
+          aria-live="polite"
+          className={`${styles.toast} ${toast.kind === 'success' ? styles.toastSuccess : styles.toastError}`}
+          role="status"
+        >
+          {toast.message}
+        </div>
+      ) : null}
+
       <div className={styles.filters}>
         <label>
           Gra
@@ -753,7 +815,11 @@ export function SymbolReviewWorkspace({
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
-          busy={!activeOperationIsTerminal || isStartingOperation}
+          busy={
+            pendingCellIds.size > 0 ||
+            !activeOperationIsTerminal ||
+            isStartingOperation
+          }
           canApprove={filters.symbolId !== 'unknown'}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}

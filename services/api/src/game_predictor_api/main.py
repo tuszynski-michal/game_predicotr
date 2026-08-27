@@ -58,6 +58,9 @@ from game_predictor_api.application.image_symbol_review_backfill import (
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperationService,
 )
+from game_predictor_api.application.image_symbol_review_mutations import (
+    SymbolCellReviewMutationService,
+)
 from game_predictor_api.application.image_symbol_reviews import SymbolCellReviewQueryService
 from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
 from game_predictor_api.application.jobs import (
@@ -246,6 +249,7 @@ from game_predictor_api.storage.image_symbol_review_bulk_operation_repository im
     SqlAlchemySymbolCellReviewBulkOperationRepository,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemySymbolCellReviewMutationRepository,
     SqlAlchemySymbolCellReviewQueryRepository,
 )
 from game_predictor_api.storage.iterative_image_import_repository import (
@@ -325,6 +329,7 @@ def create_app(
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
+    symbol_cell_review_mutation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
@@ -367,6 +372,7 @@ def create_app(
             reviewer_work_lifecycle_service_dependency,
             symbol_reference_service_dependency,
             symbol_cell_review_query_service_dependency,
+            symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
             worker_lane_status_service_dependency,
@@ -474,6 +480,24 @@ def create_app(
     resolved_symbol_cell_review_bulk_operation_dependency = (
         symbol_cell_review_bulk_operation_service_dependency
         or default_symbol_cell_review_bulk_operation_service_dependency
+    )
+
+    def default_symbol_cell_review_mutation_service_dependency() -> Iterator[
+        SymbolCellReviewMutationService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolCellReviewMutationService(
+                    SqlAlchemySymbolCellReviewMutationRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_cell_review_mutation_dependency = (
+        symbol_cell_review_mutation_service_dependency
+        or default_symbol_cell_review_mutation_service_dependency
     )
 
     def default_symbol_cell_review_backfill_service_dependency() -> Iterator[
@@ -1103,6 +1127,7 @@ def create_app(
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
             resolved_symbol_cell_review_query_dependency,
+            resolved_symbol_cell_review_mutation_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_symbol_cell_review_backfill_dependency,
             resolved_worker_lane_status_dependency,
@@ -1199,6 +1224,8 @@ def create_app(
             "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
             "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
+            "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT",
+            "SYMBOL_CELL_REVIEW_REVISION_CONFLICT",
             "SYMBOL_CELL_REVIEW_CROP_DRIFT",
             "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
             "SYMBOL_CELL_REVIEW_BULK_IDEMPOTENCY_CONFLICT",

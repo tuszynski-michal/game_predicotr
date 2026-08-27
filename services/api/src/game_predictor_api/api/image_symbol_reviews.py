@@ -2,12 +2,14 @@
 
 import hashlib
 from collections.abc import Callable
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from PIL import Image, UnidentifiedImageError
 
 from game_predictor_api.application.image_symbol_review_backfill import (
     SymbolCellReviewBackfillService,
@@ -15,11 +17,15 @@ from game_predictor_api.application.image_symbol_review_backfill import (
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkOperationService,
 )
+from game_predictor_api.application.image_symbol_review_mutations import (
+    SymbolCellReviewMutationService,
+)
 from game_predictor_api.application.image_symbol_reviews import (
     DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     SymbolCellReviewQueryService,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
 )
@@ -30,12 +36,15 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     SymbolCellReviewBulkOperationStartRequest,
     SymbolCellReviewBulkOperationStartResponse,
     SymbolCellReviewBulkPreviewResponse,
+    SymbolCellReviewMutationRequest,
+    SymbolCellReviewMutationResponse,
     SymbolCellReviewPageResponse,
     SymbolCellReviewProjectionStartResponse,
     SymbolCellReviewProjectionStatusResponse,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
+    to_symbol_cell_review_mutation_response,
     to_symbol_cell_review_page_response,
     to_symbol_cell_review_projection_start_response,
     to_symbol_cell_review_projection_status_response,
@@ -43,6 +52,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
 SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
+SymbolCellReviewMutationServiceDependency = Callable[..., object]
 SymbolCellReviewBackfillServiceDependency = Callable[..., object]
 _LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -54,12 +64,14 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 
 def create_image_symbol_reviews_router(
     service_dependency: SymbolCellReviewQueryServiceDependency,
+    mutation_service_dependency: SymbolCellReviewMutationServiceDependency,
     bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
     backfill_service_dependency: SymbolCellReviewBackfillServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
     service_parameter = Depends(service_dependency)
+    mutation_service_parameter = Depends(mutation_service_dependency)
     bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
     backfill_service_parameter = Depends(backfill_service_dependency)
 
@@ -113,6 +125,53 @@ def create_image_symbol_reviews_router(
                 ),
             )
         )
+
+    @router.post(
+        "/{game_id}/symbol-cell-reviews/{cell_review_id}/decision",
+        response_model=SymbolCellReviewMutationResponse,
+        operation_id="applySymbolCellReviewDecision",
+        summary="Apply one atomic checksum-bound symbol-cell review decision",
+        responses=ERROR_RESPONSES,
+    )
+    def apply_symbol_cell_review_decision(
+        game_id: UUID,
+        cell_review_id: UUID,
+        request: SymbolCellReviewMutationRequest,
+        service: Annotated[SymbolCellReviewMutationService, mutation_service_parameter],
+    ) -> SymbolCellReviewMutationResponse:
+        if request.action is SymbolCellReviewAction.REASSIGN:
+            assert request.target_symbol_id is not None
+            result = service.reassign(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                target_symbol_id=request.target_symbol_id,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        elif request.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
+            result = service.mark_grid_issue(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        else:
+            result = service.approve(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        return to_symbol_cell_review_mutation_response(result)
 
     @router.post(
         "/{game_id}/symbol-cell-review-operations",
@@ -175,9 +234,7 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
-        limit: Annotated[
-            int, Query(ge=1, le=100)
-        ] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+        limit: Annotated[int, Query(ge=1, le=100)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
         return to_symbol_cell_review_page_response(
             service.list(
@@ -201,32 +258,37 @@ def create_image_symbol_reviews_router(
         game_id: UUID,
         cell_review_id: UUID,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
-        expected_crop_checksum_sha256: Annotated[
-            str, Query(alias="expectedCropChecksumSha256")
-        ],
-    ) -> FileResponse:
+        expected_crop_checksum_sha256: Annotated[str, Query(alias="expectedCropChecksumSha256")],
+        thumbnail_size: Annotated[int, Query(alias="thumbnailSize", ge=32, le=256)] = 100,
+    ) -> Response:
         asset = service.asset(
             game_id=game_id,
             cell_review_id=cell_review_id,
             expected_crop_checksum_sha256=expected_crop_checksum_sha256,
         )
-        path = resolve_symbol_cell_review_asset(
+        _path, content = read_symbol_cell_review_asset(
             artifact_root,
             asset.crop_relative_path,
             asset.crop_checksum_sha256,
         )
-        media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-        return FileResponse(
-            path,
-            media_type=media_type,
-            headers={"Cache-Control": "private, immutable, max-age=31536000"},
-        )
+        return symbol_cell_review_thumbnail_response(content, thumbnail_size)
 
     return router
 
 
 def resolve_symbol_cell_review_asset(root: Path, relative_value: str, checksum: str) -> Path:
     """Resolve a read-only crop below managed data and re-check its bytes."""
+
+    path, _content = read_symbol_cell_review_asset(root, relative_value, checksum)
+    return path
+
+
+def read_symbol_cell_review_asset(
+    root: Path,
+    relative_value: str,
+    checksum: str,
+) -> tuple[Path, bytes]:
+    """Read and verify one managed crop exactly once."""
 
     relative = PurePosixPath(relative_value)
     if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
@@ -259,12 +321,38 @@ def resolve_symbol_cell_review_asset(root: Path, relative_value: str, checksum: 
             "SYMBOL_CELL_REVIEW_ASSET_TYPE_INVALID",
             "The symbol-cell crop must be a PNG or JPEG file.",
         )
-    if hashlib.sha256(path.read_bytes()).hexdigest() != checksum:
+    content = path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != checksum:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
             "The current symbol-cell crop bytes do not match their checksum.",
         )
-    return path
+    return path, content
+
+
+def symbol_cell_review_thumbnail_response(content: bytes, size: int) -> Response:
+    """Render one bounded card thumbnail and let the browser cache it immutably."""
+
+    try:
+        with Image.open(BytesIO(content)) as source:
+            image = source.convert("RGB")
+            image.thumbnail((size, size), Image.Resampling.LANCZOS)
+            output = BytesIO()
+            image.save(output, format="WEBP", quality=82, method=4)
+    except (OSError, UnidentifiedImageError) as error:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+            "The current symbol-cell crop cannot be rendered as a thumbnail.",
+        ) from error
+    content = output.getvalue()
+    return Response(
+        content=content,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, immutable, max-age=31536000",
+            "Content-Length": str(len(content)),
+        },
+    )
 
 
 def _parse_symbol_filter(value: str) -> UUID | None:
@@ -279,4 +367,9 @@ def _parse_symbol_filter(value: str) -> UUID | None:
         ) from error
 
 
-__all__ = ["create_image_symbol_reviews_router", "resolve_symbol_cell_review_asset"]
+__all__ = [
+    "create_image_symbol_reviews_router",
+    "read_symbol_cell_review_asset",
+    "resolve_symbol_cell_review_asset",
+    "symbol_cell_review_thumbnail_response",
+]

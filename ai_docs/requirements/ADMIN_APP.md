@@ -349,6 +349,9 @@ Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
 przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
+Karta pobiera checksum-bound thumbnail WebP o maksymalnym rozmiarze 100 × 100,
+nie pełny crop ani base64 w odpowiedzi listy. Przeglądarka utrwala go przez
+content-addressed cache `immutable`.
 Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
@@ -376,6 +379,11 @@ liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling nie wysyła nakładających się requestów i po terminalnym wyniku odświeża
 bounded listę oraz liczniki.
+Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
+bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
+zaznaczenie, pokazuje krótki komunikat i odświeża stronę; po konflikcie
+przywraca kartę oraz pokazuje błąd. Dwa lub więcej cropów oraz cały filtr nadal
+korzystają z preview i trwałego joba.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

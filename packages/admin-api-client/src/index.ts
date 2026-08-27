@@ -2,6 +2,7 @@ import { createClient as createGeneratedClient } from './generated/client';
 import {
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
+  applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -256,6 +257,8 @@ import type {
   SymbolCellReviewBulkOperationStartRequest,
   SymbolCellReviewBulkOperationStartResponse,
   SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewMutationRequest,
+  SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
   WorkerLaneStatusResponse,
@@ -439,6 +442,8 @@ export type {
   SymbolCellReviewProjectionStatusResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
+  SymbolCellReviewMutationRequest,
+  SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
   SymbolTrainingCoverageResponse,
   PaylineCreate,
@@ -1566,9 +1571,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       cellReviewId: string,
       expectedCropChecksumSha256: string,
     ) => {
-      const query = new URLSearchParams({ expectedCropChecksumSha256 });
+      const query = new URLSearchParams({
+        expectedCropChecksumSha256,
+        thumbnailSize: '100',
+      });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
     },
+    applySymbolCellReviewDecision: (
+      gameId: string,
+      cellReviewId: string,
+      body: SymbolCellReviewMutationRequest,
+    ) =>
+      applyGeneratedSymbolCellReviewDecision({
+        body,
+        client,
+        path: { cell_review_id: cellReviewId, game_id: gameId },
+      }),
     previewSymbolCellReviewBulkOperation: (
       gameId: string,
       body: SymbolCellReviewBulkOperationRequest,

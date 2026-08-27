@@ -63,6 +63,9 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /hiddenCellIds/);
   assert.match(styles, /\.cardPending/);
   assert.match(styles, /symbolReviewSpin/);
+  assert.match(source, /applySingleSymbolReviewDecision/);
+  assert.match(source, /Symbol został zmieniony/);
+  assert.match(styles, /\.toastSuccess/);
 });
 
 test('shows durable projection preparation states and progress', () => {

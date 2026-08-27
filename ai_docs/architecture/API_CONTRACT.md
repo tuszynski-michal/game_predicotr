@@ -114,6 +114,9 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
+  &thumbnailSize=100
+
+POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
 ```
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
@@ -158,11 +161,22 @@ wyniku w pamięci.
 Endpoint assetu wymaga checksumy odczytanej z listy. Przed wysłaniem pliku
 ponownie sprawdza scope gry i aktualnego właściciela, rewizję geometrii,
 bezpieczną ścieżkę pod zarządzanym katalogiem `data/`, rozszerzenie oraz
-SHA-256 bajtów. Nie zwraca ścieżki filesystemu. Niedokończona projekcja zwraca
+SHA-256 bajtów. Dla kart Admina zwraca ograniczony thumbnail WebP mieszczący
+się w 100 × 100 px, a URL nadal zawiera checksumę i rozmiar oraz ma roczny
+prywatny cache `immutable`. Lista nie osadza base64 ani binariów i endpoint nie
+zwraca ścieżki filesystemu. Niedokończona projekcja zwraca
 `409 SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE`; cursor z obcego scope albo
 sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
 zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
 filtr, checksum lub limit `422`.
+
+`POST .../{cellReviewId}/decision` jest szybką ścieżką wyłącznie dla jednego
+jawnego cropa. Request zawiera akcję, oczekiwaną rewizję komórki i geometrii,
+`cropSampleId`, checksumę oraz opcjonalny docelowy symbol dla `reassign`.
+Backend korzysta z tej samej atomowej transakcji planszy, blokady właściciela i
+append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
+Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
+kontekstu serwera.
 
 ### Trwałe operacje masowe weryfikacji cropów
 
@@ -189,6 +203,10 @@ jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
 `applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
 Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
 sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
+Admin używa tej trwałej ścieżki wyłącznie dla co najmniej dwóch jawnych cropów
+albo snapshotu całego filtra. Jeden jawny crop korzysta z bezpośredniej decyzji
+opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po symbolu nie zapełnia
+historii Jobów.
 
 ### Host base zdalnej ręcznej selekcji
 

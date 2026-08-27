@@ -7743,6 +7743,83 @@ export type SymbolCellReviewListItemResponse = {
 };
 
 /**
+ * SymbolCellReviewMutationRequest
+ */
+export type SymbolCellReviewMutationRequest = {
+  action: SymbolCellReviewAction;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedcropsampleid
+   */
+  expectedCropSampleId: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Targetsymbolid
+   */
+  targetSymbolId?: string | null;
+};
+
+/**
+ * SymbolCellReviewMutationResponse
+ */
+export type SymbolCellReviewMutationResponse = {
+  /**
+   * Assignedsymbolid
+   */
+  assignedSymbolId: string | null;
+  /**
+   * Boardreopened
+   */
+  boardReopened: boolean;
+  /**
+   * Boardresolutionaction
+   */
+  boardResolutionAction: string | null;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Cellrevision
+   */
+  cellRevision: number;
+  /**
+   * Hasgridissue
+   */
+  hasGridIssue: boolean;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
  * SymbolCellReviewPageResponse
  */
 export type SymbolCellReviewPageResponse = {
@@ -10404,6 +10481,10 @@ export type GetSymbolCellReviewAssetData = {
      * Expectedcropchecksumsha256
      */
     expectedCropChecksumSha256: string;
+    /**
+     * Thumbnailsize
+     */
+    thumbnailSize?: number;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset';
 };
@@ -10432,6 +10513,54 @@ export type GetSymbolCellReviewAssetResponses = {
    */
   200: unknown;
 };
+
+export type ApplySymbolCellReviewDecisionData = {
+  body: SymbolCellReviewMutationRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cell Review Id
+     */
+    cell_review_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision';
+};
+
+export type ApplySymbolCellReviewDecisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type ApplySymbolCellReviewDecisionError =
+  ApplySymbolCellReviewDecisionErrors[keyof ApplySymbolCellReviewDecisionErrors];
+
+export type ApplySymbolCellReviewDecisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewMutationResponse;
+};
+
+export type ApplySymbolCellReviewDecisionResponse =
+  ApplySymbolCellReviewDecisionResponses[keyof ApplySymbolCellReviewDecisionResponses];
 
 export type ListSymbolModelIterationsData = {
   body?: never;

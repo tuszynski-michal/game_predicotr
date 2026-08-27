@@ -57,6 +57,35 @@ test('generated client previews, starts and reads durable symbol review operatio
   );
 });
 
+test('generated client applies one symbol-cell decision without a bulk job', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const cellReviewId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ cellReviewId });
+    },
+  });
+
+  await client.applySymbolCellReviewDecision(gameId, cellReviewId, {
+    action: 'reassign',
+    expectedCropChecksumSha256: 'a'.repeat(64),
+    expectedCropSampleId: 'b'.repeat(64),
+    expectedGeometryRevision: 0,
+    expectedRevision: 2,
+    targetSymbolId: '44444444-4444-4444-8444-444444444444',
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/decision`,
+  );
+});
+
 test('generated client pages and selects checksum-bound approved symbol reference candidates', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -2155,7 +2184,7 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
   assert.equal(requestUrl.searchParams.get('limit'), '60');
   assert.equal(
     client.symbolCellReviewAssetUrl(gameId, cellReviewId, checksum),
-    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}`,
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}&thumbnailSize=100`,
   );
 });
 

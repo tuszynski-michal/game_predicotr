@@ -80,12 +80,14 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, 100px);
+  gap: 8px;
 }
 
 .card {
   display: grid;
+  width: 100px;
+  height: 100px;
   overflow: hidden;
   min-width: 0;
   border: 1px solid var(--line);
@@ -98,8 +100,15 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
+.cardPending {
+  opacity: 0.45;
+}
+
 .cardToggle {
+  position: relative;
   display: grid;
+  width: 100px;
+  height: 100px;
   min-width: 0;
   padding: 0;
   overflow: hidden;
@@ -107,6 +116,10 @@
   border-radius: 0;
   background: transparent;
   cursor: pointer;
+}
+
+.cardToggle:disabled {
+  cursor: progress;
 }
 
 .cardToggle:focus-visible {
@@ -117,8 +130,8 @@
 .card img,
 .assetFallback {
   display: grid;
-  width: 100%;
-  aspect-ratio: 1;
+  width: 100px;
+  height: 100px;
   place-items: center;
   object-fit: contain;
   background: #050b14;
@@ -129,32 +142,30 @@
   font-size: 2rem;
 }
 
-.cardBody {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
+.cardLoader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 3px solid rgb(255 255 255 / 38%);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: symbolReviewSpin 0.7s linear infinite;
+  pointer-events: none;
 }
 
-.cardBody strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@keyframes symbolReviewSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.cardBody span {
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.cardBody em {
-  width: fit-content;
-  padding: 2px 6px;
-  border-radius: 999px;
-  color: var(--danger);
-  background: var(--danger-soft);
-  font-size: 0.72rem;
-  font-style: normal;
-  font-weight: 700;
+@media (prefers-reduced-motion: reduce) {
+  .cardLoader {
+    animation-duration: 1.6s;
+  }
 }
 
 .scrollViewport {

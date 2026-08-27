@@ -3,9 +3,11 @@ import test from 'node:test';
 
 import {
   createSymbolReviewWorkspaceState,
+  SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT,
   symbolReviewBufferedItemCount,
   symbolReviewBufferedPages,
   symbolReviewBufferedPageCount,
+  symbolReviewCachedPages,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
@@ -25,7 +27,7 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
   };
 }
 
-test('keeps only the current page and its immediate neighbours in memory', () => {
+test('renders only the current page and its immediate neighbours', () => {
   const first = page('first', { nextCursor: 'after-first' });
   const second = page('second', {
     nextCursor: 'after-second',
@@ -53,9 +55,38 @@ test('keeps only the current page and its immediate neighbours in memory', () =>
 
   assert.equal(state.pages.previous?.items[0]?.id, 'first');
   assert.equal(state.pages.current?.items[0]?.id, 'second');
-  assert.equal(state.pages.next?.items[0]?.id, 'third');
+  assert.equal(state.pages.next[0]?.items[0]?.id, 'third');
   assert.equal(symbolReviewBufferedPageCount(state), 3);
   assert.equal(symbolReviewBufferedItemCount(state), 3);
+});
+
+test('queues up to four future pages in deterministic cursor order', () => {
+  let state = createSymbolReviewWorkspaceState(filters);
+  state = symbolReviewWorkspaceReducer(state, {
+    page: page('first', { nextCursor: 'after-first' }),
+    type: 'initial_page_loaded',
+  });
+
+  for (const id of ['second', 'third', 'fourth', 'fifth', 'sixth']) {
+    state = symbolReviewWorkspaceReducer(state, {
+      page: page(id),
+      type: 'next_page_prefetched',
+    });
+  }
+
+  assert.equal(state.pages.next.length, SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT);
+  assert.deepEqual(
+    state.pages.next.map((value) => value.items[0]?.id),
+    ['second', 'third', 'fourth', 'fifth'],
+  );
+  assert.deepEqual(
+    symbolReviewBufferedPages(state).map((value) => value.items[0]?.id),
+    ['first', 'second'],
+  );
+  assert.deepEqual(
+    symbolReviewCachedPages(state).map((value) => value.items[0]?.id),
+    ['first', 'second', 'third', 'fourth', 'fifth'],
+  );
 });
 
 test('counts unique loaded crop records across the bounded page buffer', () => {
@@ -137,7 +168,7 @@ test('moves backwards through the cached neighbour and discards distant pages', 
   });
 
   assert.equal(state.pages.current?.items[0]?.id, 'first');
-  assert.equal(state.pages.next?.items[0]?.id, 'second');
+  assert.equal(state.pages.next[0]?.items[0]?.id, 'second');
   assert.equal(state.pages.previous, null);
   assert.equal(symbolReviewBufferedPageCount(state), 2);
 });

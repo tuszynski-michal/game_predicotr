@@ -334,16 +334,22 @@ operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
-Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera keysetowo po 60
-aktualnych cropów. Dwukierunkowy infinite scroll używa górnego i dolnego
-sentinela, zachowuje kotwicę przy usunięciu odległej strony i trzyma w pamięci
-najwyżej trzy strony, czyli 180 rekordów. Miniatury są ładowane leniwie spod checksum-bound
-lokalnego Admin API; brak jednego assetu pokazuje placeholder tylko tej karty.
+Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera pierwszą stronę
+60 aktualnych cropów, a następnie sekwencyjnie, po jednym requestcie, odczytuje
+do czterech kolejnych stron metadanych w porządku keyset. Dwukierunkowy infinite
+scroll używa górnego i dolnego sentinela oraz zachowuje kotwicę przy usunięciu
+odległej strony. W DOM pozostają najwyżej trzy strony, czyli 180 kart; strony
+read-ahead nie pobierają assetów przed zamontowaniem. Miniatury są ładowane
+leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu pokazuje
+placeholder tylko tej karty.
 Podsumowanie bieżącego filtra pokazuje liczbę unikalnych cropów aktualnie
 załadowanych do tego ograniczonego bufora oraz pełną liczbę wyników wybranego
 symbolu i stanu (`załadowane / wszystkie`).
-Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
-review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
+Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
+numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
+decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
+przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
+Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
   `Przygotuj weryfikację symboli` albo `Wznów przygotowanie`. Polling jednego joba

@@ -36,10 +36,14 @@ test('uses lazy, checksum-bound assets with a local fallback per failed image', 
 
 test('keeps a bounded responsive page grid with safe bulk review controls', () => {
   assert.match(source, /IntersectionObserver/);
+  assert.match(source, /SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT/);
+  assert.match(source, /prefetchingCursorRef/);
   assert.match(source, /maks\. 180 cropów/);
   assert.match(source, /topSentinelRef/);
   assert.match(source, /bottomSentinelRef/);
-  assert.match(styles, /repeat\(auto-fill, minmax\(144px, 1fr\)\)/);
+  assert.match(styles, /repeat\(auto-fill, 100px\)/);
+  assert.match(styles, /width: 100px/);
+  assert.match(styles, /height: 100px/);
   assert.match(source, /Zaznacz widoczną stronę/);
   assert.match(source, /Zaznacz wszystkie wyniki filtra/);
   assert.match(source, /Oznacz złą siatkę/);
@@ -50,6 +54,15 @@ test('keeps a bounded responsive page grid with safe bulk review controls', () =
   assert.doesNotMatch(source, /Edytuj siatkę/);
   assert.match(styles, /position: sticky/);
   assert.match(styles, /overflow-y: auto/);
+});
+
+test('shows only crop thumbnails and exposes durable mutation feedback', () => {
+  assert.doesNotMatch(source, /className=\{styles\.cardBody\}/);
+  assert.match(source, /Zapisywanie zmiany/);
+  assert.match(source, /pendingCellIds/);
+  assert.match(source, /hiddenCellIds/);
+  assert.match(styles, /\.cardPending/);
+  assert.match(styles, /symbolReviewSpin/);
 });
 
 test('shows durable projection preparation states and progress', () => {

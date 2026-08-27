@@ -4,6 +4,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 export const SYMBOL_REVIEW_PAGE_SIZE = 60;
+export const SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT = 4;
 
 export interface SymbolReviewFilters {
   readonly gameId: string | null;
@@ -13,7 +14,7 @@ export interface SymbolReviewFilters {
 
 export interface SymbolReviewPageBuffer {
   readonly current: SymbolCellReviewPageResponse | null;
-  readonly next: SymbolCellReviewPageResponse | null;
+  readonly next: readonly SymbolCellReviewPageResponse[];
   readonly previous: SymbolCellReviewPageResponse | null;
 }
 
@@ -60,23 +61,36 @@ export function symbolReviewWorkspaceReducer(
     case 'initial_page_loaded':
       return {
         ...state,
-        pages: { current: action.page, next: null, previous: null },
+        pages: { current: action.page, next: [], previous: null },
       };
     case 'next_page_prefetched':
-      return state.pages.current === null
-        ? state
-        : { ...state, pages: { ...state.pages, next: action.page } };
+      if (
+        state.pages.current === null ||
+        state.pages.next.length >= SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT ||
+        state.pages.next.some((page) => sameSymbolReviewPage(page, action.page))
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        pages: {
+          ...state.pages,
+          next: [...state.pages.next, action.page],
+        },
+      };
     case 'next_page_loaded':
       return state.pages.current === null
         ? {
             ...state,
-            pages: { current: action.page, next: null, previous: null },
+            pages: { current: action.page, next: [], previous: null },
           }
         : {
             ...state,
             pages: {
               current: action.page,
-              next: null,
+              next: state.pages.next.filter(
+                (page) => !sameSymbolReviewPage(page, action.page),
+              ),
               previous: state.pages.current,
             },
           };
@@ -84,13 +98,16 @@ export function symbolReviewWorkspaceReducer(
       return state.pages.current === null
         ? {
             ...state,
-            pages: { current: action.page, next: null, previous: null },
+            pages: { current: action.page, next: [], previous: null },
           }
         : {
             ...state,
             pages: {
               current: action.page,
-              next: state.pages.current,
+              next: [state.pages.current, ...state.pages.next].slice(
+                0,
+                SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT,
+              ),
               previous: null,
             },
           };
@@ -100,29 +117,53 @@ export function symbolReviewWorkspaceReducer(
 export function symbolReviewBufferedPageCount(
   state: SymbolReviewWorkspaceState,
 ): number {
-  return [state.pages.previous, state.pages.current, state.pages.next].filter(
-    (page) => page !== null,
-  ).length;
+  return [
+    state.pages.previous,
+    state.pages.current,
+    state.pages.next[0] ?? null,
+  ].filter((page) => page !== null).length;
 }
 
 export function symbolReviewBufferedPages(
   state: SymbolReviewWorkspaceState,
 ): readonly SymbolCellReviewPageResponse[] {
-  return [state.pages.previous, state.pages.current, state.pages.next].filter(
-    (page): page is SymbolCellReviewPageResponse => page !== null,
-  );
+  return [
+    state.pages.previous,
+    state.pages.current,
+    state.pages.next[0] ?? null,
+  ].filter((page): page is SymbolCellReviewPageResponse => page !== null);
 }
 
 export function symbolReviewBufferedItemCount(
   state: SymbolReviewWorkspaceState,
 ): number {
   return new Set(
-    symbolReviewBufferedPages(state).flatMap((page) =>
+    symbolReviewCachedPages(state).flatMap((page) =>
       page.items.map((item) => item.id),
     ),
   ).size;
 }
 
 function emptySymbolReviewPageBuffer(): SymbolReviewPageBuffer {
-  return { current: null, next: null, previous: null };
+  return { current: null, next: [], previous: null };
+}
+
+export function symbolReviewCachedPages(
+  state: SymbolReviewWorkspaceState,
+): readonly SymbolCellReviewPageResponse[] {
+  return [
+    state.pages.previous,
+    state.pages.current,
+    ...state.pages.next,
+  ].filter((page): page is SymbolCellReviewPageResponse => page !== null);
+}
+
+function sameSymbolReviewPage(
+  left: SymbolCellReviewPageResponse,
+  right: SymbolCellReviewPageResponse,
+): boolean {
+  return (
+    left.items[0]?.id === right.items[0]?.id &&
+    left.items.length === right.items.length
+  );
 }

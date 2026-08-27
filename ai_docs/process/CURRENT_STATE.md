@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-26
+last_updated: 2026-08-27
 ---
 
 # Current State
@@ -2933,6 +2933,14 @@ stronami, `7` źródłami pominiętymi przez kanoniczne numery `1–63` i `0` st
 do korekty. Używa manifestu geometrii
 `61e8c5b2ec489aa8c18f4d7ec57008d90b9305a50092feb78c5a9a23932e6cf4` i trwał
 `10 min 37 s`, więc spełnia bramkę `≤15 min`.
+
+W `v0.8.32` worker preflightu akceptuje opcjonalne metadane prezentacyjne
+`source_display_name`, które API zgodnie z kontraktem przypina do nowych jobów,
+ale nadal odrzuca nieznane pola oraz pustą lub zbyt długą etykietę. Rozjazd
+zamkniętych list pól powodował, że poprawne joby stagingu
+`124129 - 149634` kończyły się przed pierwszym zdjęciem błędem
+`INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD`. Dane stagingu, profil rejestracji i
+manifest źródłowy nie były przyczyną błędu.
 
 Stary job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` został anulowany jako
 zastąpiony. Świeży job `b2d9b299-a851-4e17-9ba3-dacaa7966978` zachowuje ten

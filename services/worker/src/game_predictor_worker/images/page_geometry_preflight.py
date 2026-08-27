@@ -455,12 +455,14 @@ def _input(job: Job) -> dict[str, object]:
         "page_geometry_overrides",
         "canonical_sequence_numbers",
     }
+    optional = {"preflight_policy_version", "source_display_name"}
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
-    allowed_keys = {frozenset(required), frozenset(required | {"preflight_policy_version"})}
+    payload_keys = frozenset(payload)
     if (
         job.job_type is not JobType.VALIDATE
         or job.game_id is None
-        or frozenset(payload) not in allowed_keys
+        or not required.issubset(payload_keys)
+        or not payload_keys.issubset(required | optional)
         or payload.get("schema_version") != 2
         or payload.get("validation_kind") != "page_geometry_preflight"
     ):
@@ -474,6 +476,7 @@ def _input(job: Job) -> dict[str, object]:
     profile = payload.get("page_registration_profile")
     overrides = payload.get("page_geometry_overrides")
     canonical = payload.get("canonical_sequence_numbers")
+    source_display_name = payload.get("source_display_name")
     if (
         not isinstance(selection, str)
         or not isinstance(directory, str)
@@ -483,6 +486,14 @@ def _input(job: Job) -> dict[str, object]:
         or profile.get("policy") != PAGE_REGISTRATION_VERSION
         or not isinstance(overrides, Mapping)
         or not isinstance(canonical, list)
+        or (
+            source_display_name is not None
+            and (
+                not isinstance(source_display_name, str)
+                or not source_display_name.strip()
+                or len(source_display_name) > 255
+            )
+        )
         or policy
         not in {
             LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION,

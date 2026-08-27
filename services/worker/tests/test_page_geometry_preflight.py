@@ -108,6 +108,7 @@ def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) 
             "validation_kind": "page_geometry_preflight",
             "source_selection_id": str(selection_id),
             "source_directory": str(staged),
+            "source_display_name": "10-18",
             "source_manifest_sha256": hashlib.sha256(browser_manifest).hexdigest(),
             "page_registration_profile": profile,
             "page_geometry_overrides": {},

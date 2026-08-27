@@ -1,6 +1,6 @@
 ---
 title: Symbol-cell training cohort and independent quality controls
-status: in_progress
+status: done
 release: "0.8"
 ---
 
@@ -61,4 +61,19 @@ deterministic diverse cohort.
 
 ## Outcome
 
-Pending.
+Implemented in `v0.8.50–v0.8.54`:
+
+- deterministic source-diverse selection with correction priority, exact and
+  bounded near-duplicate removal, target 1000 and hard maximum 2000 per symbol,
+- v2 immutable cell manifests and migration `0071`, while v1 remains readable,
+- production sourcing from current canonical `approved` cells without grid
+  issues, with path and checksum verification,
+- existing CNN/dataset/ONNX pipeline accepts individual cells without a
+  complete board,
+- Admin separates symbol recognition from grid geometry controls.
+
+Focused API/worker/Admin tests, Ruff, mypy, Admin lint/typecheck and production
+build pass. The bounded-comparison test proves linear candidate traversal; no
+large physical benchmark was run. Repository-wide formatting remains blocked
+only by pre-existing formatting drift in Reviewer/Admin generated or unrelated
+files.

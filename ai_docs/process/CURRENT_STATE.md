@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-27
+last_updated: 2026-08-28
 ---
 
 # Current State
@@ -14,6 +14,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.8 implementation: board search and review data quality`
+
+### Niezależne ulepszanie symboli i siatki — TASK-0303
+
+- `v0.8.50–v0.8.54` przełącza nowe kohorty symboli z pełnych plansz na
+  pojedyncze, aktualne komórki `approved`. `?`, błąd siatki, nieaktywny symbol,
+  stary właściciel sekwencji i zmieniona check­suma są wykluczane fail-closed.
+- Kohorta `verified-symbol-cell-training-cohort-v2` priorytetyzuje korekty,
+  deduplikuje identyczne i bliskie wizualnie cropy, rozkłada próbki między
+  źródła oraz ogranicza wynik do celu 1000 i maksimum 2000 per symbol. Worker
+  nadal odtwarza v1 i używa istniejącego CNN, splitów źródłowych, ONNX i bramki.
+- Migracja `0071_symbol_cell_training_cohorts` utrwala rodzaj datasetu i
+  dopuszcza kohortę komórkową. Lokalna baza została podniesiona do `0071`.
+- Admin pokazuje dwa jawnie niezależne workflowy: `Rozpoznawanie symboli` oraz
+  `Cięcie siatki`. Aktywacja jednego nie aktywuje drugiego.
+- Nie wykonano dużego benchmarku. Test zlicza ograniczoną liczbę porównań LSH;
+  pula SQL, pamięć selektora i trening są liniowe względem liczby dopuszczonych
+  próbek, a sam trening jest dodatkowo ograniczony hard maxem kohorty.
 
 ### Duże browserowe importy plansz
 
@@ -36,7 +53,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Naprawa rzeczywistej bazy rozwiązała `114 676` zduplikowanych grup sekwencji
   i `159 754` nadmiarowe pozycje pending. Nie znaleziono pending nad
   istniejącym canonical. Migracja danych zakończyła się na `0069`; bieżący
-  head schematu po dodaniu trwałego przygotowania Weryfikacji symboli to `0070`.
+  head schematu po dodaniu kohort komórkowych symboli to `0071`.
 - Dropdown `Zatwierdzanie plansz` pokazuje odtąd wyłącznie importy
   `waiting_for_review`. Importy zakończone pozostają widoczne w historii Jobów,
   ale nie zaśmiecają operacyjnego wyboru.

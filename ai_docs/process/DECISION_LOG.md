@@ -5854,6 +5854,27 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   dotychczasowych tasków oraz równoległe wykonywanie wielu general jobów
   odrzucono odpowiednio z powodu nadsubskrypcji i ryzyka konfliktów projekcji.
 
+## D-243 — Model symboli uczy się z zatwierdzonych cropów, nie pełnych plansz
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** nowa kohorta symboli v2 kwalifikuje indywidualne, aktualne
+  komórki `approved` bez błędu siatki. Korekty mają pierwszeństwo, podobne
+  przykłady są redukowane, a liczność jest ograniczona do celu 1000 i maksimum
+  2000 per aktywny symbol. Kalibracja siatki pozostaje osobnym workflowem.
+- **Context:** kompletność całej planszy nie jest potrzebna do nauczenia
+  klasyfikatora jednego cropa, a tysiące niemal identycznych przykładów
+  zwiększałyby czas bez proporcjonalnej wartości.
+- **Safety:** tożsamość próbki wiąże aktualnego właściciela sekwencji, rewizję
+  komórki i geometrii, crop, checksumę oraz źródło. Splity nadal są rozłączne
+  po rodzinie źródła. Historyczne kohorty v1 pozostają odtwarzalne.
+- **Consequences:** można ulepszyć model po częściowej weryfikacji plansz;
+  koszt selekcji jest liniowy i ograniczony, a koszt treningu nie rośnie po
+  osiągnięciu limitu kohorty.
+- **Alternatives:** uczenie z pełnych plansz i porównywanie każdego cropa z
+  każdym odrzucono odpowiednio z powodu sztucznego blokowania feedbacku oraz
+  kwadratowego kosztu.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.domain.image_review_cohorts import validate_cohort_actor
@@ -324,7 +324,9 @@ class VerifiedTrainingCohortService:
             warnings=warnings,
             dataset_kind="verified-symbol-cell-training-cohort-v2",
             manifest_schema_version=2,
-            cells=tuple(manifest["cells"]),
+            cells=tuple(
+                cast(Sequence[Mapping[str, object]], manifest["cells"])
+            ),
         )
 
     def authorize_model_prediction_write(

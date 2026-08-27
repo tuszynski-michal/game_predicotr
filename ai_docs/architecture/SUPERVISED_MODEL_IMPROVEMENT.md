@@ -22,7 +22,7 @@ aktywować ani zmieniać profilu siatki.
 
 ```mermaid
 flowchart LR
-    A["Ręcznie rozwiązane plansze"] --> B["Niezmienna kohorta gry"]
+    A["Ręcznie zatwierdzone cropy symboli"] --> B["Ograniczona kohorta gry"]
     B --> C["Deterministyczny dataset"]
     C --> D["Trening od początku"]
     D --> E["ONNX, kalibracja i bramka"]
@@ -40,7 +40,8 @@ należą do `DATA_MODEL.md`.
 
 ### `verified_training_cohorts`
 
-Niezmienny manifest pełnych, ręcznie zweryfikowanych plansz jednej gry.
+Niezmienny manifest v1 pełnych plansz albo v2 pojedynczych, zatwierdzonych
+cropów symboli jednej gry.
 Zawiera co najmniej `game_id`, numer iteracji, checksumę manifestu, liczności,
 identyfikatory źródeł oraz czas i aktora zamrożenia.
 
@@ -75,14 +76,23 @@ przed oraz po treningu, aktywacji i masowej inferencji.
 
 ## Budowa skumulowanego datasetu
 
-Builder czyta wyłącznie pełne rozstrzygnięcia `accepted` i `corrected` z
-zaakceptowaną geometrią oraz kompletem komórek. Zamrożony manifest wiąże:
+Builder v2 czyta bieżącą projekcję `image_symbol_review_cells` i kwalifikuje
+wyłącznie `approved` aktualnego właściciela sekwencji, bez flagi złej siatki.
+Nie wymaga kompletnej decyzji całej planszy. Zamrożony manifest wiąże:
 
 - identyfikator i rewizję planszy,
 - `cropSampleId` oraz checksumę każdego cropu,
 - kod symbolu ustalony przez człowieka,
 - zdjęcie źródłowe i import,
 - wersję geometrii oraz pipeline'u.
+
+Zapytanie tworzy ograniczoną pulę do 4000 kandydatów per symbol, z limitem 64
+na zdjęcie źródłowe. Selekcja exact-dedup oraz 64-bit dHash w czterech pasmach
+LSH wykonuje najwyżej ograniczoną liczbę porównań na kandydata. Korekty etykiety
+są rozpatrywane przed zwykłymi zatwierdzeniami, a round-robin źródeł zapobiega
+zdominowaniu kohorty przez jedną stronę. Cel to 1000, hard max 2000 przykładów
+na aktywny symbol. Historyczne manifesty pełnych plansz v1 pozostają
+odtwarzalne i nadal są obsługiwane przez builder datasetu.
 
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast

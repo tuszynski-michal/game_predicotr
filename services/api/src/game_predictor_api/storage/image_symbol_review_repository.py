@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -70,6 +70,7 @@ from game_predictor_api.storage.models import (
 
 _ACTIVE_REVIEW_STATUSES = frozenset({"pending", "accepted", "corrected"})
 _DEFAULT_BATCH_SIZE = 200
+_MAX_CELL_ROWS_PER_INSERT = 1_000
 _BACKFILL_ACTOR = "system:symbol-cell-backfill"
 _WRITE_THROUGH_ACTOR = "system:symbol-cell-write-through"
 _CELL_REVIEW_TRANSACTION_MARKER = "symbol_cell_review_catalog_revision_transaction"
@@ -82,6 +83,15 @@ BackfillRow = tuple[
     ImageReviewQueueItemModel,
     JobModel,
 ]
+
+
+def _iter_cell_insert_chunks(
+    values: Sequence[dict[str, object]],
+) -> Iterator[Sequence[dict[str, object]]]:
+    """Keep each PostgreSQL INSERT safely below psycopg's parameter limit."""
+
+    for offset in range(0, len(values), _MAX_CELL_ROWS_PER_INSERT):
+        yield values[offset : offset + _MAX_CELL_ROWS_PER_INSERT]
 
 
 class SymbolCellReviewBackfillError(RuntimeError):
@@ -1628,8 +1638,8 @@ class SqlAlchemyImageSymbolReviewRepository:
                 has_more=False,
             )
 
-        if values:
-            statement = postgresql_insert(ImageSymbolReviewCellModel).values(values)
+        for chunk in _iter_cell_insert_chunks(values):
+            statement = postgresql_insert(ImageSymbolReviewCellModel).values(chunk)
             self._session.execute(
                 statement.on_conflict_do_nothing(
                     index_elements=[

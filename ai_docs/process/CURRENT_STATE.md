@@ -130,6 +130,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   stron zostały zastąpione dwukierunkowym infinite scrollem na keysetach po 60;
   bufor pozostaje ograniczony do maksymalnie 180 rekordów, a usuwanie odległej
   strony zachowuje kotwicę scrolla. Assety nadal są lazy-loaded.
+- Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
+  komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
+  Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy
+  bezpieczne INSERT-y po 1000 rekordów; pierwszy błąd wystąpił przed zapisem.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
   cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i

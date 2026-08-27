@@ -89,6 +89,9 @@ npm run typecheck
 
 - TASK 1: dodano trwały typ joba, lokalne API status/start, idempotentne
   kolejkowanie i general-lane handler pracujący w partiach 200 plansz.
+- Kontrolowane uruchomienie ujawniło limit 65 535 parametrów psycopg dla
+  pojedynczego INSERT-u 3000 komórek. Zapis komórek jest teraz dzielony na
+  trzy mniejsze INSERT-y w tej samej transakcji 200 plansz.
 - TASK 2: dodano maksymalnie trzy bounded przebiegi reconciliacji, ochronę
   decyzji człowieka, końcową kontrolę 15 cropów oraz metryki miejsca bez
   benchmarku.
@@ -106,7 +109,9 @@ npm run typecheck
 
 ### Not completed
 
-- Kontrolowane uruchomienie na grze `777`.
+- Kontrolowane uruchomienie na grze `777` trwa; pierwszy job bezpiecznie
+  zakończył się przed zapisem z powodu limitu parametrów i zostanie wznowiony
+  po wdrożeniu poprawki.
 
 ### Documentation updates
 

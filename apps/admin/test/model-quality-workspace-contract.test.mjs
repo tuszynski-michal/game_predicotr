@@ -34,6 +34,9 @@ test('shows active model, deltas, all symbol coverage and advisory thresholds', 
 
 test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(source, /GridQualityPanel/);
+  assert.match(source, /Rozpoznawanie symboli/);
+  assert.match(source, /Cięcie siatki/);
+  assert.match(source, /preview\.cellSampleCount/);
   assert.match(gridSource, /Kalibracja siatki/);
   assert.match(gridSource, /Ulepsz cięcie siatki/);
   assert.match(gridSource, /Aktywuj kandydata/);

@@ -21,6 +21,38 @@
   gap: 20px;
 }
 
+.modelQualityWorkflowHeader {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel-soft);
+}
+
+.modelQualityWorkflowHeader span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modelQualityWorkflowHeader h2,
+.modelQualityWorkflowHeader p {
+  margin: 0;
+}
+
+.modelQualityWorkflowHeader p {
+  color: var(--muted);
+}
+
+.modelQualityWorkflowDivider {
+  height: 1px;
+  margin: 0.5rem 0;
+  background: var(--line);
+}
+
 .modelQualitySummaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

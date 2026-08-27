@@ -264,6 +264,14 @@ export function ModelQualityWorkspace({
 
   return (
     <section className="modelQualityWorkspace">
+      <header className="modelQualityWorkflowHeader">
+        <span>Ulepszanie modelu symboli</span>
+        <h2>Rozpoznawanie symboli</h2>
+        <p>
+          Kohorta powstaje z pojedynczych zatwierdzonych cropów. Nie wymaga
+          zatwierdzenia całej planszy i nie zmienia profilu cięcia siatki.
+        </p>
+      </header>
       <div className="modelQualitySummaryGrid">
         <article>
           <span>Aktywny model</span>
@@ -279,9 +287,9 @@ export function ModelQualityWorkspace({
           </code>
         </article>
         <article>
-          <span>Zweryfikowane plansze</span>
+          <span>Plansze reprezentowane w kohorcie</span>
           <strong>{quality.resolvedLayoutCount.toLocaleString('pl-PL')}</strong>
-          <small>Nowe od kohorty: {quality.newVerifiedLayoutCount}</small>
+          <small>Nowe cropy od kohorty: {quality.newVerifiedLayoutCount}</small>
         </article>
         <article>
           <span>Zdjęcia źródłowe</span>
@@ -534,6 +542,15 @@ export function ModelQualityWorkspace({
         ) : null}
       </section>
 
+      <div className="modelQualityWorkflowDivider" aria-hidden="true" />
+      <header className="modelQualityWorkflowHeader">
+        <span>Ulepszanie geometrii</span>
+        <h2>Cięcie siatki</h2>
+        <p>
+          Profil geometrii jest trenowany i aktywowany niezależnie od modelu
+          symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
+        </p>
+      </header>
       <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
 
       {quality.warnings.length > 0 ? (
@@ -598,7 +615,7 @@ export function ModelQualityWorkspace({
           <dl>
             <div>
               <dt>Do treningu</dt>
-              <dd>{preview.resolvedLayoutCount}</dd>
+              <dd>{preview.cellSampleCount}</dd>
             </div>
             <div>
               <dt>Oczekujące</dt>

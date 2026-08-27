@@ -3,22 +3,12 @@ import test from 'node:test';
 
 import {
   createEmptySymbolReviewSelection,
-  createSymbolReviewFilterSelection,
   isSymbolReviewItemSelected,
+  MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION,
   selectVisibleSymbolReviewItems,
   selectedSymbolReviewCount,
   toggleSymbolReviewItem,
 } from '../src/features/symbol-reviews/symbol-review-selection-state.ts';
-
-const filters = { gameId: 'game-1', state: 'all', symbolId: 'symbol-1' };
-const counts = { allCount: 3, approvedCount: 2, pendingCount: 1 };
-const page = {
-  catalogRevision: 9,
-  counts,
-  items: [],
-  nextCursor: null,
-  previousCursor: null,
-};
 
 function item(id, sequenceNumber = 1) {
   return {
@@ -44,7 +34,7 @@ function item(id, sequenceNumber = 1) {
   };
 }
 
-test('keeps explicit checksum-bound selections across pages', () => {
+test('selects only explicit items from the current five-hundred-item page', () => {
   const first = item('cell-1', 1);
   const second = item('cell-2', 2);
   let selection = createEmptySymbolReviewSelection();
@@ -52,7 +42,8 @@ test('keeps explicit checksum-bound selections across pages', () => {
   selection = toggleSymbolReviewItem(selection, first).selection;
   selection = selectVisibleSymbolReviewItems(selection, [second]).selection;
 
-  assert.equal(selectedSymbolReviewCount(selection, counts), 2);
+  assert.equal(MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION, 500);
+  assert.equal(selectedSymbolReviewCount(selection), 2);
   assert.equal(isSymbolReviewItemSelected(selection, first), true);
   assert.equal(
     selection.targetsById['cell-1'].expectedCropSampleId,
@@ -62,19 +53,18 @@ test('keeps explicit checksum-bound selections across pages', () => {
     selection.targetsById['cell-2'].expectedCropChecksumSha256,
     'a'.repeat(64),
   );
+  assert.equal(selection.kind, 'explicit');
 });
 
-test('selecting every filtered result uses exclusions instead of materializing all ids', () => {
-  const first = item('cell-1');
-  const selection = createSymbolReviewFilterSelection(filters, page);
-  assert.notEqual(selection, null);
-  const deselected = toggleSymbolReviewItem(selection, first).selection;
-  const restored = selectVisibleSymbolReviewItems(deselected, [
-    first,
-  ]).selection;
+test('page-local selection never exceeds five hundred exact targets', () => {
+  const items = Array.from({ length: 501 }, (_, index) =>
+    item(`cell-${index}`, index),
+  );
+  const result = selectVisibleSymbolReviewItems(
+    createEmptySymbolReviewSelection(),
+    items,
+  );
 
-  assert.equal(selectedSymbolReviewCount(deselected, counts), 2);
-  assert.equal(isSymbolReviewItemSelected(deselected, first), false);
-  assert.equal(selectedSymbolReviewCount(restored, counts), 3);
-  assert.deepEqual(restored.excludedCellReviewIds, []);
+  assert.equal(selectedSymbolReviewCount(result.selection), 500);
+  assert.equal(result.rejectedCount, 1);
 });

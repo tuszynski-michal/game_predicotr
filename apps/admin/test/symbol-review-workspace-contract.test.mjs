@@ -22,6 +22,7 @@ test('provides game, symbol, state and unknown filters', () => {
   assert.match(source, /Nierozpoznany \(\?\)/);
   assert.match(source, /Zatwierdzone/);
   assert.match(source, /Oczekujące/);
+  assert.match(source, /state: 'pending'/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
 });
@@ -34,18 +35,19 @@ test('uses lazy, checksum-bound assets with a local fallback per failed image', 
   assert.match(source, /Brak aktualnego cropa/);
 });
 
-test('keeps a bounded responsive page grid with safe bulk review controls', () => {
-  assert.match(source, /IntersectionObserver/);
-  assert.match(source, /SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT/);
-  assert.match(source, /prefetchingCursorRef/);
-  assert.match(source, /maks\. 180 cropów/);
-  assert.match(source, /topSentinelRef/);
-  assert.match(source, /bottomSentinelRef/);
+test('keeps one bounded five-hundred-item page with safe bulk review controls', () => {
+  assert.doesNotMatch(source, /IntersectionObserver/);
+  assert.doesNotMatch(source, /prefetchingCursorRef/);
+  assert.match(source, /pagePositionRef/);
+  assert.match(source, /maks\. 500 symboli/);
+  assert.match(source, /Poprzednia strona/);
+  assert.match(source, /Następna strona/);
   assert.match(styles, /repeat\(auto-fill, 100px\)/);
   assert.match(styles, /width: 100px/);
   assert.match(styles, /height: 100px/);
-  assert.match(source, /Zaznacz widoczną stronę/);
-  assert.match(source, /Zaznacz wszystkie wyniki filtra/);
+  assert.match(source, /Zaznacz całą stronę/);
+  assert.doesNotMatch(source, /Zaznacz wszystkie wyniki filtra/);
+  assert.match(source, /disabled=\{interactionBusy\}/);
   assert.match(source, /Oznacz złą siatkę/);
   assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
@@ -53,7 +55,7 @@ test('keeps a bounded responsive page grid with safe bulk review controls', () =
   assert.doesNotMatch(source, /setInterval/);
   assert.doesNotMatch(source, /Edytuj siatkę/);
   assert.match(styles, /position: sticky/);
-  assert.match(styles, /overflow-y: auto/);
+  assert.match(styles, /\.pagination/);
 });
 
 test('shows only crop thumbnails and exposes durable mutation feedback', () => {
@@ -76,6 +78,6 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /processedBoardCount/);
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);
-  assert.match(source, /Załadowane:/);
-  assert.match(source, /symbolReviewBufferedItemCount/);
+  assert.match(source, /Strona \{currentPageNumber\}/);
+  assert.match(source, /filteredSymbolReviewCount/);
 });

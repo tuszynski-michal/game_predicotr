@@ -145,6 +145,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Sukces czyści zaznaczenie, reassign od razu ukrywa crop z bieżącego filtra,
   a konflikt przywraca kartę i pokazuje toast. Bulk job pozostaje dla wielu
   targetów i snapshotu całego filtra.
+- `v0.8.45` zastępuje infinite scroll i read-ahead klasyczną, keysetową stroną
+  500 cropów. Admin utrzymuje wyłącznie bieżącą stronę metadanych, domyślnie
+  filtruje `Oczekujące` i pozwala zaznaczyć wyłącznie pojedyncze cropy albo
+  całą widoczną stronę. Po udanej bezpośredniej lub masowej decyzji ponawia
+  zapytanie od zapamiętanego kursora wejściowego strony; rekordy niepasujące do
+  filtra wypadają, a backend uzupełnia jej koniec do 500. Nie powstaje osobny
+  cache stron ani endpoint merge po ID. Immutable cache miniaturek WebP
+  pozostaje jako ochrona transferu. Aktywna decyzja blokuje kolejne akcje i
+  nawigację do chwili terminalnego wyniku.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy
@@ -168,8 +177,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `125 431` plansz, `1 881 465` komórek i zero błędów integralności.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
-  cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i
-  100-planszowe checkpointy workerów. Nie potwierdza ona czasu p95 — liczniki
+  cropów; analiza wykazała bounded keyset i 100-planszowe checkpointy workerów.
+  Historyczne założenie bufora 180 metadanych zostało zastąpione w `v0.8.45`
+  pojedynczą stroną 500 rekordów. Analiza nie potwierdza czasu p95 — liczniki
   listy nadal agregują cały filtr — dlatego ewentualny pomiar wymaga osobnej
   decyzji i odizolowanego środowiska zgodnie z D-236.
 - `v0.8.30` przywraca zielone bramki jakości bez uruchamiania benchmarków.

@@ -5806,6 +5806,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   filtrów synchronicznie odrzucono odpowiednio z powodu narzutu operatorskiego
   i ryzyka długich transakcji HTTP.
 
+## D-241 — Weryfikacja symboli utrzymuje jedną keysetową stronę 500 cropów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** Admin pokazuje jedną stronę maksymalnie 500 cropów, domyślnie w
+  stanie `pending`. Nie prefetchuje i nie przechowuje stron sąsiednich. Operator
+  może zaznaczyć wyłącznie jawne elementy bieżącej strony; snapshot całego
+  niewidocznego filtra nie jest dostępny w UI.
+- **Context:** infinite scroll i read-ahead zwiększały liczbę requestów oraz
+  utrudniały przewidywanie, które elementy należą do jednej masowej decyzji.
+  Operator preferuje większą, stabilną stronę i jawny zakres zaznaczenia.
+- **Safety:** po decyzji Admin nie scala lokalnie pozostałości z odpowiedzią
+  uzupełniającą po ID. Powtarza świeże zapytanie od zapamiętanego kursora
+  wejściowego strony, dzięki czemu jeden backendowy keyset odpowiada za
+  kolejność, brak duplikatów i dopełnienie do 500. W czasie operacji akcje oraz
+  nawigacja są zablokowane.
+- **Consequences:** w pamięci aplikacji znajduje się najwyżej 500 metadanych.
+  Cache HTTP checksum-bound miniaturek pozostaje niezależny od danych strony i
+  ogranicza ponowny transfer. Backend nadal wspiera filtr snapshotowy jako
+  kontrakt kompatybilności, ale Admin go nie tworzy.
+- **Alternatives:** osobny endpoint `changedIds -> replacements`, lokalne
+  scalanie cache oraz utrzymanie infinite scrolla odrzucono z powodu ryzyka
+  rozjazdu rewizji, duplikatów i niepotrzebnej złożoności.
+
 ## Szablon nowej decyzji
 
 ```text

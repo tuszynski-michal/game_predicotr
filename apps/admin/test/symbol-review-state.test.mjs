@@ -3,195 +3,86 @@ import test from 'node:test';
 
 import {
   createSymbolReviewWorkspaceState,
-  SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT,
-  symbolReviewBufferedItemCount,
-  symbolReviewBufferedPages,
-  symbolReviewBufferedPageCount,
-  symbolReviewCachedPages,
+  SYMBOL_REVIEW_PAGE_SIZE,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
 const filters = {
   gameId: 'game-1',
-  state: 'all',
+  state: 'pending',
   symbolId: 'symbol-1',
 };
 
 function page(id, { nextCursor = null, previousCursor = null } = {}) {
   return {
     catalogRevision: 1,
-    counts: { allCount: 180, approvedCount: 90, pendingCount: 90 },
+    counts: { allCount: 900, approvedCount: 400, pendingCount: 500 },
     items: [{ cellReviewId: id, id }],
     nextCursor,
     previousCursor,
   };
 }
 
-test('renders only the current page and its immediate neighbours', () => {
-  const first = page('first', { nextCursor: 'after-first' });
-  const second = page('second', {
-    nextCursor: 'after-second',
-    previousCursor: 'before-second',
-  });
-  const third = page('third', { previousCursor: 'before-third' });
-  let state = createSymbolReviewWorkspaceState(filters);
-
-  state = symbolReviewWorkspaceReducer(state, {
-    page: first,
-    type: 'initial_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: second,
-    type: 'next_page_prefetched',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: second,
-    type: 'next_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: third,
-    type: 'next_page_prefetched',
-  });
-
-  assert.equal(state.pages.previous?.items[0]?.id, 'first');
-  assert.equal(state.pages.current?.items[0]?.id, 'second');
-  assert.equal(state.pages.next[0]?.items[0]?.id, 'third');
-  assert.equal(symbolReviewBufferedPageCount(state), 3);
-  assert.equal(symbolReviewBufferedItemCount(state), 3);
-});
-
-test('queues up to four future pages in deterministic cursor order', () => {
+test('uses a single bounded five-hundred-item page without adjacent data cache', () => {
+  assert.equal(SYMBOL_REVIEW_PAGE_SIZE, 500);
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
     page: page('first', { nextCursor: 'after-first' }),
-    type: 'initial_page_loaded',
+    position: { number: 1 },
+    type: 'page_loaded',
+  });
+  state = symbolReviewWorkspaceReducer(state, {
+    page: page('second', { previousCursor: 'before-second' }),
+    position: { afterCursor: 'after-first', number: 2 },
+    type: 'page_loaded',
   });
 
-  for (const id of ['second', 'third', 'fourth', 'fifth', 'sixth']) {
-    state = symbolReviewWorkspaceReducer(state, {
-      page: page(id),
-      type: 'next_page_prefetched',
-    });
-  }
-
-  assert.equal(state.pages.next.length, SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT);
-  assert.deepEqual(
-    state.pages.next.map((value) => value.items[0]?.id),
-    ['second', 'third', 'fourth', 'fifth'],
-  );
-  assert.deepEqual(
-    symbolReviewBufferedPages(state).map((value) => value.items[0]?.id),
-    ['first', 'second'],
-  );
-  assert.deepEqual(
-    symbolReviewCachedPages(state).map((value) => value.items[0]?.id),
-    ['first', 'second', 'third', 'fourth', 'fifth'],
-  );
+  assert.equal(state.currentPage.page.items[0].id, 'second');
+  assert.deepEqual(state.currentPage.position, {
+    afterCursor: 'after-first',
+    number: 2,
+  });
+  assert.equal('pages' in state, false);
 });
 
-test('counts unique loaded crop records across the bounded page buffer', () => {
+test('changing filters and explicit clearing discard the current page', () => {
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
-    page: {
-      ...page('first'),
-      items: [{ id: 'cell-1' }, { id: 'cell-2' }],
-    },
-    type: 'initial_page_loaded',
+    page: page('first'),
+    position: { number: 1 },
+    type: 'page_loaded',
   });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: {
-      ...page('second'),
-      items: [{ id: 'cell-2' }, { id: 'cell-3' }],
-    },
-    type: 'next_page_prefetched',
-  });
-
-  assert.equal(symbolReviewBufferedItemCount(state), 3);
-});
-
-test('streams forward and backward without retaining distant pages', () => {
-  const first = page('first', { nextCursor: 'after-first' });
-  const second = page('second', {
-    nextCursor: 'after-second',
-    previousCursor: 'before-second',
-  });
-  const third = page('third', {
-    nextCursor: 'after-third',
-    previousCursor: 'before-third',
-  });
-  let state = createSymbolReviewWorkspaceState(filters);
-  state = symbolReviewWorkspaceReducer(state, {
-    page: first,
-    type: 'initial_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: second,
-    type: 'next_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: third,
-    type: 'next_page_loaded',
-  });
-
-  assert.deepEqual(
-    symbolReviewBufferedPages(state).map((value) => value.items[0]?.id),
-    ['second', 'third'],
-  );
-  assert.ok(symbolReviewBufferedPageCount(state) <= 3);
+  state = symbolReviewWorkspaceReducer(state, { type: 'clear_page' });
+  assert.equal(state.currentPage, null);
 
   state = symbolReviewWorkspaceReducer(state, {
-    page: second,
-    type: 'previous_page_loaded',
-  });
-  assert.deepEqual(
-    symbolReviewBufferedPages(state).map((value) => value.items[0]?.id),
-    ['second', 'third'],
-  );
-});
-
-test('moves backwards through the cached neighbour and discards distant pages', () => {
-  const first = page('first', { nextCursor: 'after-first' });
-  const second = page('second', { previousCursor: 'before-second' });
-  let state = createSymbolReviewWorkspaceState(filters);
-
-  state = symbolReviewWorkspaceReducer(state, {
-    page: first,
-    type: 'initial_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: second,
-    type: 'next_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: first,
-    type: 'previous_page_loaded',
-  });
-
-  assert.equal(state.pages.current?.items[0]?.id, 'first');
-  assert.equal(state.pages.next[0]?.items[0]?.id, 'second');
-  assert.equal(state.pages.previous, null);
-  assert.equal(symbolReviewBufferedPageCount(state), 2);
-});
-
-test('changing game, symbol or review state clears every cached page', () => {
-  let state = createSymbolReviewWorkspaceState(filters);
-  state = symbolReviewWorkspaceReducer(state, {
-    page: page('first', { nextCursor: 'after-first' }),
-    type: 'initial_page_loaded',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    page: page('second'),
-    type: 'next_page_prefetched',
-  });
-  state = symbolReviewWorkspaceReducer(state, {
-    filters: { ...filters, state: 'pending', symbolId: 'symbol-2' },
+    filters: { ...filters, symbolId: 'symbol-2' },
     type: 'filters_changed',
   });
+  assert.deepEqual(state.filters, { ...filters, symbolId: 'symbol-2' });
+  assert.equal(state.currentPage, null);
+});
 
-  assert.deepEqual(state.filters, {
-    gameId: 'game-1',
-    state: 'pending',
-    symbolId: 'symbol-2',
+test('fresh keyset reload replaces changed rows instead of merging a page cache', () => {
+  const position = { afterCursor: 'after-previous-page', number: 2 };
+  let state = createSymbolReviewWorkspaceState(filters);
+  state = symbolReviewWorkspaceReducer(state, {
+    page: { ...page('changed'), items: [{ id: 'changed' }] },
+    position,
+    type: 'page_loaded',
   });
-  assert.equal(symbolReviewBufferedPageCount(state), 0);
+  state = symbolReviewWorkspaceReducer(state, {
+    page: {
+      ...page('replacement'),
+      items: [{ id: 'replacement' }, { id: 'next' }],
+    },
+    position,
+    type: 'page_loaded',
+  });
+
+  assert.deepEqual(
+    state.currentPage.page.items.map((item) => item.id),
+    ['replacement', 'next'],
+  );
+  assert.deepEqual(state.currentPage.position, position);
 });

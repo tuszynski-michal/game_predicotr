@@ -130,7 +130,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
   assert.deepEqual(request, {
     afterCursor: 'after-page',
     gameId,
-    limit: 60,
+    limit: 500,
     state: 'pending',
     symbolId: 'unknown',
   });

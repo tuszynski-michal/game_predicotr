@@ -234,7 +234,7 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
-        limit: Annotated[int, Query(ge=1, le=100)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+        limit: Annotated[int, Query(ge=1, le=500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
         return to_symbol_cell_review_page_response(
             service.list(

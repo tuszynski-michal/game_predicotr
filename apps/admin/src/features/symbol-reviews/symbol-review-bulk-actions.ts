@@ -33,34 +33,14 @@ export function createSymbolReviewBulkCommand(
   targetSymbolId: string | null,
 ): SymbolReviewBulkCommand | null {
   if (action === 'reassign' && targetSymbolId === null) return null;
-  if (
-    action === 'approve' &&
-    selection.kind === 'filter' &&
-    selection.symbolId === 'unknown'
-  ) {
-    return null;
-  }
   return {
     action,
     request: {
       action,
-      selection:
-        selection.kind === 'explicit'
-          ? {
-              kind: 'explicit',
-              targets: Object.values(selection.targetsById),
-            }
-          : {
-              catalogRevision: selection.catalogRevision,
-              ...(selection.excludedCellReviewIds.length === 0
-                ? {}
-                : {
-                    excludedCellReviewIds: [...selection.excludedCellReviewIds],
-                  }),
-              kind: 'filter',
-              state: selection.state,
-              symbolId: selection.symbolId,
-            },
+      selection: {
+        kind: 'explicit',
+        targets: Object.values(selection.targetsById),
+      },
       ...(action === 'reassign' ? { targetSymbolId } : {}),
     },
   };

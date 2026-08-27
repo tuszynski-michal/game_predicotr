@@ -110,7 +110,7 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   &state=all|approved|pending
   &afterCursor=...
   &beforeCursor=...
-  &limit=1..100
+  &limit=1..500
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
@@ -142,8 +142,8 @@ do katalogu danych PostgreSQL.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
-`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 60 elementów, a limit 100
-jest twardym maksimum. Lista używa keysetu
+`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów i jest to
+również twarde maksimum. Lista używa keysetu
 `(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
 symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
 scope.
@@ -169,6 +169,13 @@ zwraca ścieżki filesystemu. Niedokończona projekcja zwraca
 sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
 zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
 filtr, checksum lub limit `422`.
+
+Admin przechowuje tylko jedną odpowiedź strony. Po udanej decyzji ponownie
+wywołuje ten sam endpoint z kursorem, którym otworzył bieżącą stronę. Serwer
+wykonuje wtedy świeże zapytanie keysetowe i naturalnie uzupełnia usunięte z
+filtra pozycje kolejnymi rekordami do limitu 500. Nie istnieje osobny endpoint
+łączenia braków po przesłanych ID, ponieważ taki merge powielałby semantykę
+keysetu i mógłby mieszać rewizje katalogu.
 
 `POST .../{cellReviewId}/decision` jest szybką ścieżką wyłącznie dla jednego
 jawnego cropa. Request zawiera akcję, oczekiwaną rewizję komórki i geometrii,
@@ -204,9 +211,10 @@ jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
 Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
 sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
 Admin używa tej trwałej ścieżki wyłącznie dla co najmniej dwóch jawnych cropów
-albo snapshotu całego filtra. Jeden jawny crop korzysta z bezpośredniej decyzji
-opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po symbolu nie zapełnia
-historii Jobów.
+bieżącej strony. Kontrakt snapshotu całego filtra pozostaje kompatybilny dla
+innych klientów, ale bieżący Admin go nie tworzy. Jeden jawny crop korzysta z
+bezpośredniej decyzji opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po
+symbolu nie zapełnia historii Jobów.
 
 ### Host base zdalnej ręcznej selekcji
 

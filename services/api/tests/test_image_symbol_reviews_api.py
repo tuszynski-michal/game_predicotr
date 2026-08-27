@@ -59,6 +59,7 @@ class MemorySymbolCellReviewRepository:
         self.asset_value = asset
         self.ready = ready
         self.filters: list[SymbolCellReviewListFilter] = []
+        self.limits: list[int] = []
 
     def require_ready_game(self, game_id: UUID) -> int:
         if game_id != self.game_id:
@@ -79,6 +80,7 @@ class MemorySymbolCellReviewRepository:
         limit: int,
     ) -> SymbolCellReviewListSlice:
         self.filters.append(review_filter)
+        self.limits.append(limit)
         filtered = tuple(
             item
             for item in self.items
@@ -462,6 +464,29 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
 
     assert approved.status_code == 200
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
+
+
+def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        accepted = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "limit": 500},
+        )
+        rejected = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "limit": 501},
+        )
+
+    assert accepted.status_code == 200
+    assert repository.limits == [500]
+    assert rejected.status_code == 422
 
 
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:

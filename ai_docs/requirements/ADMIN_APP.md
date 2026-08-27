@@ -334,17 +334,16 @@ operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
-Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera pierwszą stronę
-60 aktualnych cropów, a następnie sekwencyjnie, po jednym requestcie, odczytuje
-do czterech kolejnych stron metadanych w porządku keyset. Dwukierunkowy infinite
-scroll używa górnego i dolnego sentinela oraz zachowuje kotwicę przy usunięciu
-odległej strony. W DOM pozostają najwyżej trzy strony, czyli 180 kart; strony
-read-ahead nie pobierają assetów przed zamontowaniem. Miniatury są ładowane
-leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu pokazuje
-placeholder tylko tej karty.
-Podsumowanie bieżącego filtra pokazuje liczbę unikalnych cropów aktualnie
-załadowanych do tego ograniczonego bufora oraz pełną liczbę wyników wybranego
-symbolu i stanu (`załadowane / wszystkie`).
+Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
+`Oczekujące`. Widok pobiera jedną stronę maksymalnie 500 aktualnych cropów i
+udostępnia jawne przyciski poprzedniej/następnej strony. Nie wykonuje read-ahead,
+nie utrzymuje stron sąsiednich ani nie scala danych z cache aplikacji. Miniatury
+są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu
+pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
+pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
+stanie aplikacji.
+Podsumowanie pokazuje numer strony, liczbę widocznych cropów i pełną liczbę
+wyników wybranego symbolu i stanu.
 Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
@@ -368,9 +367,10 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   fail-closed.
   Zaznaczanie i masowe
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
-zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w
-tryb snapshotu z listą wykluczeń. Zmiana gry, symbolu albo stanu przed
-potwierdzeniem wyraźnie ostrzega i czyści wyłącznie zaznaczenie.
+zaznaczać pojedyncze karty albo całą bieżącą stronę; Admin nie oferuje
+zaznaczenia niewidocznego całego filtra. Zmiana gry, symbolu, stanu lub strony
+czyści zaznaczenie. W czasie aktywnej decyzji przyciski działań i nawigacji są
+zablokowane.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
 symbol` i `Oznacz złą siatkę`. Każda akcja najpierw pokazuje niezmienny preview
@@ -378,12 +378,14 @@ liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling nie wysyła nakładających się requestów i po terminalnym wyniku odświeża
-bounded listę oraz liczniki.
+tę samą stronę od jej wejściowego kursora. Rekordy, które przestały pasować do
+filtra, wypadają, a świeże zapytanie keysetowe uzupełnia stronę kolejnymi
+pozycjami do 500 bez osobnego cache i bez duplikatów.
 Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
 bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
 zaznaczenie, pokazuje krótki komunikat i odświeża stronę; po konflikcie
-przywraca kartę oraz pokazuje błąd. Dwa lub więcej cropów oraz cały filtr nadal
-korzystają z preview i trwałego joba.
+przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów z bieżącej
+strony nadal korzysta z preview i trwałego joba.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

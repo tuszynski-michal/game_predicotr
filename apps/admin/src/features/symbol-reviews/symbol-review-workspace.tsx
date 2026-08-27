@@ -9,13 +9,13 @@ import type {
   SymbolCellReviewListItemResponse,
   SymbolCellReviewBulkOperationResponse,
   SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStatusResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -48,7 +48,6 @@ import {
 } from './symbol-review-mutation-actions';
 import {
   createEmptySymbolReviewSelection,
-  createSymbolReviewFilterSelection,
   isSymbolReviewItemSelected,
   selectVisibleSymbolReviewItems,
   selectedSymbolReviewCount,
@@ -57,11 +56,9 @@ import {
 } from './symbol-review-selection-state';
 import {
   createSymbolReviewWorkspaceState,
-  SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT,
-  symbolReviewBufferedItemCount,
-  symbolReviewBufferedPages,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
+  type SymbolReviewPagePosition,
 } from './symbol-review-state';
 import styles from './symbol-review-workspace.module.css';
 
@@ -88,7 +85,7 @@ type SymbolReviewOperationDialog =
 
 const INITIAL_FILTERS: SymbolReviewFilters = {
   gameId: null,
-  state: 'all',
+  state: 'pending',
   symbolId: null,
 };
 
@@ -154,26 +151,15 @@ export function SymbolReviewWorkspace({
   const projectionRequestId = useRef(0);
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
   const pagingRef = useRef(false);
-  const prefetchingCursorRef = useRef<string | null>(null);
+  const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
   const submittedCellIdsRef = useRef<readonly string[]>([]);
-  const scrollViewportRef = useRef<HTMLDivElement | null>(null);
-  const topSentinelRef = useRef<HTMLDivElement | null>(null);
-  const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
-  const pageElementsRef = useRef(new Map<string, HTMLElement>());
-  const scrollAnchorRef = useRef<{
-    readonly key: string;
-    readonly top: number;
-  } | null>(null);
-  const lastScrollTopRef = useRef(0);
-  const scrollDirectionRef = useRef<-1 | 1>(1);
 
   const filters = workspace.filters;
-  const currentPage = workspace.pages.current;
-  const bufferedPages = symbolReviewBufferedPages(workspace);
-  const bufferedItemCount = symbolReviewBufferedItemCount(workspace);
-  const currentItems = bufferedPages
-    .flatMap((page) => page.items)
-    .filter((item) => !hiddenCellIds.has(item.id));
+  const currentPage = workspace.currentPage?.page ?? null;
+  const currentPageNumber = workspace.currentPage?.position.number ?? 1;
+  const currentItems = (currentPage?.items ?? []).filter(
+    (item) => !hiddenCellIds.has(item.id),
+  );
   const activeGame = games.find((game) => game.id === filters.gameId) ?? null;
   const activeOperationId = activeOperation?.id ?? null;
   const activeOperationGameId = activeOperation?.gameId ?? null;
@@ -181,20 +167,24 @@ export function SymbolReviewWorkspace({
     activeOperation === null ||
     isSymbolReviewBulkOperationTerminal(activeOperation);
   const selectedCount =
-    currentPage === null
-      ? 0
-      : selectedSymbolReviewCount(selection, currentPage.counts);
+    currentPage === null ? 0 : selectedSymbolReviewCount(selection);
   const hasLoadError =
     gamesState === 'error' ||
     symbolsState === 'error' ||
     projectionState === 'error' ||
     pageState === 'error';
+  const interactionBusy =
+    pendingCellIds.size > 0 ||
+    !activeOperationIsTerminal ||
+    isStartingOperation ||
+    operationDialog !== null ||
+    paging;
 
   const applyFilters = useCallback((nextFilters: SymbolReviewFilters) => {
     const previousFilters = filtersRef.current;
     filtersRef.current = nextFilters;
     pageRequestId.current += 1;
-    prefetchingCursorRef.current = null;
+    pagePositionRef.current = { number: 1 };
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     submittedCellIdsRef.current = [];
@@ -219,7 +209,8 @@ export function SymbolReviewWorkspace({
     setProjectionState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionStatus(null);
     setPageState('ready');
-    dispatch({ type: 'clear_pages' });
+    pagePositionRef.current = { number: 1 };
+    dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
   }, []);
 
@@ -364,14 +355,18 @@ export function SymbolReviewWorkspace({
     const pageFilters = asPageFilters(filters);
     if (pageFilters === null || projectionStatus?.status !== 'ready') return;
     const requestId = ++pageRequestId.current;
-    void loadSymbolReviewPage(api, pageFilters).then((result) => {
+    const position = pagePositionRef.current;
+    void loadSymbolReviewPage(api, {
+      ...pageFilters,
+      ...symbolReviewPageCursorOptions(position),
+    }).then((result) => {
       if (requestId !== pageRequestId.current) return;
       if (!result.ok) {
         setPageState('error');
         setError(result.error);
         return;
       }
-      dispatch({ page: result.page, type: 'initial_page_loaded' });
+      dispatch({ page: result.page, position, type: 'page_loaded' });
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
@@ -383,139 +378,42 @@ export function SymbolReviewWorkspace({
     reloadRevision,
   ]);
 
-  useEffect(() => {
-    const pageFilters = asPageFilters(filters);
-    if (
-      pageFilters === null ||
-      projectionStatus?.status !== 'ready' ||
-      currentPage === null ||
-      workspace.pages.next.length >= SYMBOL_REVIEW_READ_AHEAD_PAGE_COUNT
-    ) {
-      return;
-    }
-    const tail = workspace.pages.next.at(-1) ?? currentPage;
-    const cursor = tail.nextCursor;
-    if (cursor === null || prefetchingCursorRef.current === cursor) return;
-    const requestId = pageRequestId.current;
-    prefetchingCursorRef.current = cursor;
-    void loadSymbolReviewPage(api, {
-      ...pageFilters,
-      afterCursor: cursor,
-    }).then((result) => {
-      if (prefetchingCursorRef.current === cursor) {
-        prefetchingCursorRef.current = null;
-      }
-      if (requestId !== pageRequestId.current || !result.ok) return;
-      dispatch({ page: result.page, type: 'next_page_prefetched' });
-    });
-  }, [
-    api,
-    currentPage,
-    filters,
-    projectionStatus?.status,
-    workspace.pages.next,
-  ]);
-
   const movePage = useCallback(
     async (direction: -1 | 1) => {
       const pageFilters = asPageFilters(filters);
       if (pagingRef.current || pageFilters === null || currentPage === null) {
         return;
       }
-      const cached =
-        direction === 1
-          ? (workspace.pages.next[0] ?? null)
-          : workspace.pages.previous;
-      const anchorKey = symbolReviewPageKey(currentPage);
-      const anchorElement = pageElementsRef.current.get(anchorKey);
-      scrollAnchorRef.current =
-        anchorElement === undefined
-          ? null
-          : { key: anchorKey, top: anchorElement.offsetTop };
-      if (cached !== null) {
-        dispatch({
-          page: cached,
-          type: direction === 1 ? 'next_page_loaded' : 'previous_page_loaded',
-        });
-        return;
-      }
       const cursor =
         direction === 1 ? currentPage.nextCursor : currentPage.previousCursor;
-      if (cursor === null) {
-        scrollAnchorRef.current = null;
-        return;
-      }
-      if (prefetchingCursorRef.current !== null) {
-        scrollAnchorRef.current = null;
-        return;
-      }
+      if (cursor === null) return;
+      const position: SymbolReviewPagePosition =
+        direction === 1
+          ? { afterCursor: cursor, number: currentPageNumber + 1 }
+          : {
+              beforeCursor: cursor,
+              number: Math.max(1, currentPageNumber - 1),
+            };
       pagingRef.current = true;
       setPaging(true);
       setError('');
       const result = await loadSymbolReviewPage(api, {
         ...pageFilters,
-        ...(direction === 1
-          ? { afterCursor: cursor }
-          : { beforeCursor: cursor }),
+        ...symbolReviewPageCursorOptions(position),
       });
       pagingRef.current = false;
       setPaging(false);
       if (!result.ok) {
         setError(result.error);
-        scrollAnchorRef.current = null;
         return;
       }
-      dispatch({
-        page: result.page,
-        type: direction === 1 ? 'next_page_loaded' : 'previous_page_loaded',
-      });
+      pagePositionRef.current = position;
+      dispatch({ page: result.page, position, type: 'page_loaded' });
+      setSelection(createEmptySymbolReviewSelection());
+      setHiddenCellIds(new Set());
     },
-    [api, currentPage, filters, workspace.pages.next, workspace.pages.previous],
+    [api, currentPage, currentPageNumber, filters],
   );
-
-  useLayoutEffect(() => {
-    const anchor = scrollAnchorRef.current;
-    const viewport = scrollViewportRef.current;
-    if (anchor === null || viewport === null) return;
-    const element = pageElementsRef.current.get(anchor.key);
-    scrollAnchorRef.current = null;
-    if (element !== undefined) {
-      viewport.scrollTop += element.offsetTop - anchor.top;
-      lastScrollTopRef.current = viewport.scrollTop;
-    }
-  }, [bufferedPages]);
-
-  useEffect(() => {
-    const viewport = scrollViewportRef.current;
-    const topSentinel = topSentinelRef.current;
-    const bottomSentinel = bottomSentinelRef.current;
-    if (viewport === null || topSentinel === null || bottomSentinel === null) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          if (
-            entry.target === bottomSentinel &&
-            scrollDirectionRef.current === 1
-          ) {
-            void movePage(1);
-          }
-          if (
-            entry.target === topSentinel &&
-            scrollDirectionRef.current === -1
-          ) {
-            void movePage(-1);
-          }
-        }
-      },
-      { root: viewport, rootMargin: '180px 0px' },
-    );
-    observer.observe(topSentinel);
-    observer.observe(bottomSentinel);
-    return () => observer.disconnect();
-  }, [movePage]);
 
   async function prepareProjection() {
     if (filters.gameId === null || projectionStarting) return;
@@ -541,12 +439,6 @@ export function SymbolReviewWorkspace({
     }
   }
 
-  function selectAllFilteredResults() {
-    if (currentPage === null) return;
-    const next = createSymbolReviewFilterSelection(filters, currentPage);
-    if (next !== null) setSelection(next);
-  }
-
   function toggleItem(item: SymbolCellReviewListItemResponse) {
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
@@ -560,39 +452,43 @@ export function SymbolReviewWorkspace({
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
-    if (selection.kind === 'explicit') {
-      const targets = Object.values(selection.targetsById);
-      if (targets.length === 1) {
-        const target = targets[0]!;
-        setPendingCellIds(new Set([target.cellReviewId]));
-        const result = await applySingleSymbolReviewDecision(
-          api,
-          gameId,
-          action,
-          target,
-          action === 'reassign' ? reassignTargetSymbolId : null,
-        );
-        setPendingCellIds(new Set());
-        if (!result.ok) {
-          setToast({ kind: 'error', message: result.error });
-          return;
-        }
-        setSelection(createEmptySymbolReviewSelection());
-        if (action === 'reassign') {
-          setHiddenCellIds(new Set([target.cellReviewId]));
-        }
-        setPageRefreshRevision((revision) => revision + 1);
-        setToast({
-          kind: 'success',
-          message:
-            action === 'reassign'
-              ? 'Symbol został zmieniony.'
-              : action === 'approve'
-                ? 'Symbol został zatwierdzony.'
-                : 'Symbol został oznaczony jako problem siatki.',
-        });
+    const targets = Object.values(selection.targetsById);
+    if (targets.length === 1) {
+      const target = targets[0]!;
+      setPendingCellIds(new Set([target.cellReviewId]));
+      const result = await applySingleSymbolReviewDecision(
+        api,
+        gameId,
+        action,
+        target,
+        action === 'reassign' ? reassignTargetSymbolId : null,
+      );
+      setPendingCellIds(new Set());
+      if (!result.ok) {
+        setToast({ kind: 'error', message: result.error });
         return;
       }
+      setSelection(createEmptySymbolReviewSelection());
+      if (
+        !symbolReviewMutationMatchesFilter(
+          result.value.reviewState,
+          result.value.assignedSymbolId,
+          filters,
+        )
+      ) {
+        setHiddenCellIds(new Set([target.cellReviewId]));
+      }
+      setPageRefreshRevision((revision) => revision + 1);
+      setToast({
+        kind: 'success',
+        message:
+          action === 'reassign'
+            ? 'Symbol został zmieniony.'
+            : action === 'approve'
+              ? 'Symbol został zatwierdzony.'
+              : 'Symbol został oznaczony jako problem siatki.',
+      });
+      return;
     }
     const command = createSymbolReviewBulkCommand(
       action,
@@ -621,10 +517,13 @@ export function SymbolReviewWorkspace({
   const finishOperation = useCallback(
     (operation: SymbolCellReviewBulkOperationResponse) => {
       if (
-        operation.action === 'reassign' &&
         operation.appliedCount === operation.targetCount &&
         operation.conflictCount === 0 &&
-        operation.failedCount === 0
+        operation.failedCount === 0 &&
+        (operation.action === 'reassign' ||
+          (operation.action === 'approve' && filters.state === 'pending') ||
+          (operation.action === 'mark_grid_issue' &&
+            filters.state === 'approved'))
       ) {
         setHiddenCellIds(new Set(submittedCellIdsRef.current));
       }
@@ -633,7 +532,7 @@ export function SymbolReviewWorkspace({
       setSelection(createEmptySymbolReviewSelection());
       setPageRefreshRevision((revision) => revision + 1);
     },
-    [],
+    [filters.state],
   );
 
   async function startPreviewedOperation() {
@@ -743,7 +642,7 @@ export function SymbolReviewWorkspace({
         <label>
           Gra
           <select
-            disabled={gamesState !== 'ready'}
+            disabled={gamesState !== 'ready' || interactionBusy}
             onChange={(event) =>
               requestFilterChange({
                 ...filters,
@@ -764,7 +663,11 @@ export function SymbolReviewWorkspace({
         <label>
           Symbol
           <select
-            disabled={filters.gameId === null || symbolsState !== 'ready'}
+            disabled={
+              filters.gameId === null ||
+              symbolsState !== 'ready' ||
+              interactionBusy
+            }
             onChange={(event) =>
               requestFilterChange({
                 ...filters,
@@ -785,7 +688,11 @@ export function SymbolReviewWorkspace({
           </select>
         </label>
         <fieldset
-          disabled={filters.gameId === null || symbolsState !== 'ready'}
+          disabled={
+            filters.gameId === null ||
+            symbolsState !== 'ready' ||
+            interactionBusy
+          }
         >
           <legend>Stan</legend>
           <SymbolReviewStateOption
@@ -815,11 +722,7 @@ export function SymbolReviewWorkspace({
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
-          busy={
-            pendingCellIds.size > 0 ||
-            !activeOperationIsTerminal ||
-            isStartingOperation
-          }
+          busy={interactionBusy}
           canApprove={filters.symbolId !== 'unknown'}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
@@ -827,7 +730,6 @@ export function SymbolReviewWorkspace({
           onClear={() => setSelection(createEmptySymbolReviewSelection())}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onReassign={() => void previewOperation('reassign')}
-          onSelectAll={selectAllFilteredResults}
           onSelectVisible={selectVisiblePage}
           onTargetSymbolChange={setReassignTargetSymbolId}
           reassignTargetSymbolId={reassignTargetSymbolId}
@@ -877,8 +779,9 @@ export function SymbolReviewWorkspace({
             </span>
             <div className={styles.summaryActions}>
               <span>
-                Załadowane: {bufferedItemCount} / {currentPage.counts.allCount}{' '}
-                · zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
+                Strona {currentPageNumber} · {currentItems.length} /{' '}
+                {filteredSymbolReviewCount(currentPage, filters.state)} ·
+                zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
                 {currentPage.counts.pendingCount}
               </span>
               <button
@@ -897,71 +800,51 @@ export function SymbolReviewWorkspace({
               </button>
             </div>
           </div>
-          {currentItems.length === 0 ? (
-            <SymbolReviewEmpty />
-          ) : (
-            <div
-              className={styles.scrollViewport}
-              onScroll={(event) => {
-                const nextTop = event.currentTarget.scrollTop;
-                if (nextTop !== lastScrollTopRef.current) {
-                  scrollDirectionRef.current =
-                    nextTop > lastScrollTopRef.current ? 1 : -1;
-                  lastScrollTopRef.current = nextTop;
-                }
-              }}
-              ref={scrollViewportRef}
-            >
-              <div
-                aria-hidden="true"
-                className={styles.sentinel}
-                ref={topSentinelRef}
-              />
-              {bufferedPages.map((page) => {
-                const key = symbolReviewPageKey(page);
-                return (
-                  <section
-                    className={styles.bufferedPage}
-                    data-page-key={key}
-                    key={key}
-                    ref={(element) => {
-                      if (element === null) pageElementsRef.current.delete(key);
-                      else pageElementsRef.current.set(key, element);
-                    }}
-                  >
-                    <div className={styles.grid}>
-                      {page.items
-                        .filter((item) => !hiddenCellIds.has(item.id))
-                        .map((item) => (
-                          <SymbolReviewCard
-                            api={api}
-                            gameId={filters.gameId!}
-                            item={item}
-                            key={item.id}
-                            onToggle={() => toggleItem(item)}
-                            pending={pendingCellIds.has(item.id)}
-                            selected={isSymbolReviewItemSelected(
-                              selection,
-                              item,
-                            )}
-                          />
-                        ))}
-                    </div>
-                  </section>
-                );
-              })}
-              <div
-                aria-hidden="true"
-                className={styles.sentinel}
-                ref={bottomSentinelRef}
-              />
-              <div className={styles.streamStatus}>
-                {paging
-                  ? 'Wczytywanie kolejnych cropów…'
-                  : `W pamięci: ${currentItems.length} / maks. 180 cropów`}
+          <div className={styles.pageWorkspace}>
+            {currentItems.length === 0 ? (
+              <SymbolReviewEmpty />
+            ) : (
+              <div className={styles.grid}>
+                {currentItems.map((item) => (
+                  <SymbolReviewCard
+                    api={api}
+                    gameId={filters.gameId!}
+                    item={item}
+                    key={item.id}
+                    onToggle={() => toggleItem(item)}
+                    disabled={interactionBusy}
+                    pending={pendingCellIds.has(item.id)}
+                    selected={isSymbolReviewItemSelected(selection, item)}
+                  />
+                ))}
               </div>
+            )}
+            <div className={styles.pagination}>
+              <button
+                className="secondaryButton"
+                disabled={
+                  interactionBusy || currentPage.previousCursor === null
+                }
+                onClick={() => void movePage(-1)}
+                type="button"
+              >
+                Poprzednia strona
+              </button>
+              <span>
+                {paging
+                  ? 'Wczytywanie strony…'
+                  : `Strona ${currentPageNumber} · maks. 500 symboli`}
+              </span>
+              <button
+                className="secondaryButton"
+                disabled={interactionBusy || currentPage.nextCursor === null}
+                onClick={() => void movePage(1)}
+                type="button"
+              >
+                Następna strona
+              </button>
             </div>
-          )}
+          </div>
         </>
       ) : null}
 
@@ -1014,6 +897,7 @@ function SymbolReviewStateOption({
 
 function SymbolReviewCard({
   api,
+  disabled,
   gameId,
   item,
   onToggle,
@@ -1021,6 +905,7 @@ function SymbolReviewCard({
   selected,
 }: {
   readonly api: SymbolReviewClient;
+  readonly disabled: boolean;
   readonly gameId: string;
   readonly item: SymbolCellReviewListItemResponse;
   readonly onToggle: () => void;
@@ -1041,7 +926,7 @@ function SymbolReviewCard({
         aria-label={`${selected ? 'Odznacz' : 'Zaznacz'} crop z planszy ${item.sequenceNumber}, pozycja ${item.rowIndex + 1}/${item.columnIndex + 1}`}
         aria-pressed={selected}
         className={styles.cardToggle}
-        disabled={pending}
+        disabled={disabled}
         onClick={onToggle}
         type="button"
       >
@@ -1082,7 +967,6 @@ function SymbolReviewSelectionToolbar({
   onClear,
   onMarkGridIssue,
   onReassign,
-  onSelectAll,
   onSelectVisible,
   onTargetSymbolChange,
   reassignTargetSymbolId,
@@ -1097,7 +981,6 @@ function SymbolReviewSelectionToolbar({
   readonly onClear: () => void;
   readonly onMarkGridIssue: () => void;
   readonly onReassign: () => void;
-  readonly onSelectAll: () => void;
   readonly onSelectVisible: () => void;
   readonly onTargetSymbolChange: (symbolId: string | null) => void;
   readonly reassignTargetSymbolId: string | null;
@@ -1118,15 +1001,7 @@ function SymbolReviewSelectionToolbar({
           onClick={onSelectVisible}
           type="button"
         >
-          Zaznacz widoczną stronę
-        </button>
-        <button
-          className="secondaryButton"
-          disabled={busy || !canSelectVisible}
-          onClick={onSelectAll}
-          type="button"
-        >
-          Zaznacz wszystkie wyniki filtra
+          Zaznacz całą stronę
         </button>
         <button
           className="secondaryButton"
@@ -1398,12 +1273,28 @@ function stateLabel(state: SymbolCellReviewFilterState): string {
   return 'wszystkie';
 }
 
-function symbolReviewPageKey(page: {
-  readonly items: readonly { readonly id: string }[];
-}): string {
-  const first = page.items[0]?.id ?? 'empty';
-  const last = page.items.at(-1)?.id ?? 'empty';
-  return `${first}:${last}`;
+function filteredSymbolReviewCount(
+  page: SymbolCellReviewPageResponse,
+  state: SymbolCellReviewFilterState,
+): number {
+  if (state === 'approved') return page.counts.approvedCount;
+  if (state === 'pending') return page.counts.pendingCount;
+  return page.counts.allCount;
+}
+
+function symbolReviewMutationMatchesFilter(
+  reviewState: string,
+  assignedSymbolId: string | null,
+  filters: SymbolReviewFilters,
+): boolean {
+  if (filters.symbolId === null) return false;
+  const symbolMatches =
+    filters.symbolId === 'unknown'
+      ? assignedSymbolId === null
+      : assignedSymbolId === filters.symbolId;
+  return (
+    symbolMatches && (filters.state === 'all' || filters.state === reviewState)
+  );
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -1440,5 +1331,18 @@ function asPageFilters(
     gameId: filters.gameId,
     state: filters.state,
     symbolId: filters.symbolId,
+  };
+}
+
+function symbolReviewPageCursorOptions(
+  position: SymbolReviewPagePosition,
+): Pick<LoadSymbolReviewPageOptions, 'afterCursor' | 'beforeCursor'> {
+  return {
+    ...(position.afterCursor === undefined
+      ? {}
+      : { afterCursor: position.afterCursor }),
+    ...(position.beforeCursor === undefined
+      ? {}
+      : { beforeCursor: position.beforeCursor }),
   };
 }

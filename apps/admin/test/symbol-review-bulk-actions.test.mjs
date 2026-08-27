@@ -9,7 +9,6 @@ import {
 } from '../src/features/symbol-reviews/symbol-review-bulk-actions.ts';
 import {
   createEmptySymbolReviewSelection,
-  createSymbolReviewFilterSelection,
   toggleSymbolReviewItem,
 } from '../src/features/symbol-reviews/symbol-review-selection-state.ts';
 
@@ -21,7 +20,7 @@ const item = {
   revision: 4,
 };
 
-test('builds explicit crop-bound and filter snapshot commands', () => {
+test('builds only explicit page-local crop-bound commands', () => {
   const explicit = toggleSymbolReviewItem(
     createEmptySymbolReviewSelection(),
     item,
@@ -31,17 +30,6 @@ test('builds explicit crop-bound and filter snapshot commands', () => {
     explicit,
     null,
   );
-  const filter = createSymbolReviewFilterSelection(
-    { gameId: 'game-1', state: 'pending', symbolId: 'unknown' },
-    {
-      catalogRevision: 7,
-      counts: { allCount: 2, approvedCount: 0, pendingCount: 2 },
-      items: [],
-      nextCursor: null,
-      previousCursor: null,
-    },
-  );
-
   assert.deepEqual(explicitCommand?.request.selection, {
     kind: 'explicit',
     targets: [
@@ -54,17 +42,6 @@ test('builds explicit crop-bound and filter snapshot commands', () => {
       },
     ],
   });
-  assert.equal(createSymbolReviewBulkCommand('approve', filter, null), null);
-  assert.deepEqual(
-    createSymbolReviewBulkCommand('mark_grid_issue', filter, null)?.request
-      .selection,
-    {
-      catalogRevision: 7,
-      kind: 'filter',
-      state: 'pending',
-      symbolId: 'unknown',
-    },
-  );
   assert.deepEqual(
     createSymbolReviewBulkCommand('reassign', explicit, 'symbol-2')?.request,
     {

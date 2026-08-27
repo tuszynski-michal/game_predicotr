@@ -1,6 +1,6 @@
 ---
 title: Symbol review projection rollout
-status: in_progress
+status: done
 last_updated: 2026-08-27
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-08-27
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -52,6 +52,7 @@ pokazuje wyłącznie stan przygotowania.
 - [x] Stan `ready` wymaga 15 aktualnych komórek dla każdego właściciela planszy.
 - [x] Nowe i zmienione plansze są objęte write-through i końcową reconciliacją.
 - [x] Admin pokazuje status, progres, diagnostykę i akcję wznowienia.
+- [x] Gotowy widok pozwala operatorowi jawnie uzupełnić brakujące komórki.
 - [x] Infinite scroll pobiera po 60 i przechowuje maksymalnie 180 rekordów.
 - [x] Nie uruchomiono benchmarku ani syntetycznego fixture'u wielomilionowego.
 
@@ -99,6 +100,8 @@ npm run typecheck
   benchmarku.
 - TASK 3: dodano UI startu/wznowienia i progresu, bounded polling oraz
   dwukierunkowy infinite scroll z zachowaniem kotwicy i limitem 180 rekordów.
+- Gotowy widok ma stałą akcję `Uzupełnij brakujące symbole`; ponowne
+  uruchomienie zachowuje dane i wykonuje wyłącznie reconciliację projekcji.
 
 ### Verification results
 
@@ -111,9 +114,15 @@ npm run typecheck
 
 ### Not completed
 
-- Kontrolowane uruchomienie na grze `777` trwa; pierwszy job bezpiecznie
-  zakończył się przed zapisem z powodu limitu parametrów i zostanie wznowiony
-  po wdrożeniu poprawki.
+- Brak. Nie uruchomiono benchmarku ani ponownego pipeline'u obrazów zgodnie z
+  zakresem zadania.
+
+### Controlled rollout
+
+- Projekcja gry `777` osiągnęła `ready`: `125 431 / 125 431` plansz oraz
+  `1 881 465 / 1 881 465` komórek.
+- Końcowa diagnostyka: `0` brakujących sekwencji, `0` wadliwych cropów i
+  `0` wadliwych rewizji geometrii.
 
 ### Documentation updates
 

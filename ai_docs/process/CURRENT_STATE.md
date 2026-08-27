@@ -137,6 +137,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Jeżeli katalog danych PostgreSQL nie jest widoczny dla procesu API, rozmiar
   tabeli i indeksów nadal jest raportowany, a pusta pozostaje tylko metryka
   wolnego miejsca systemu plików.
+- Gotowy workspace udostępnia operatorowi akcję `Uzupełnij brakujące symbole`.
+  Ponowne uruchomienie zachowuje istniejące komórki i kursor, a general worker
+  wykonuje idempotentną reconciliację brakujących lub nieaktualnych rekordów;
+  nie uruchamia cięcia plansz ani rozpoznawania symboli.
+- Pierwszy kontrolowany backfill gry `777` zakończył się statusem `ready`:
+  `125 431` plansz, `1 881 465` komórek i zero błędów integralności.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
   cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i

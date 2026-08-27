@@ -708,11 +708,23 @@ export function SymbolReviewWorkspace({
               {activeGame?.name ?? 'Gra'} · {stateLabel(filters.state)} ·{' '}
               {symbolLabel(filters.symbolId, symbols)}
             </span>
-            <span>
-              Wyniki: {currentPage.counts.allCount} · zatwierdzone:{' '}
-              {currentPage.counts.approvedCount} · oczekujące:{' '}
-              {currentPage.counts.pendingCount}
-            </span>
+            <div className={styles.summaryActions}>
+              <span>
+                Wyniki: {currentPage.counts.allCount} · zatwierdzone:{' '}
+                {currentPage.counts.approvedCount} · oczekujące:{' '}
+                {currentPage.counts.pendingCount}
+              </span>
+              <button
+                className="secondaryButton"
+                disabled={projectionStarting}
+                onClick={() => void prepareProjection()}
+                type="button"
+              >
+                {projectionStarting
+                  ? 'Uruchamianie…'
+                  : 'Uzupełnij brakujące symbole'}
+              </button>
+            </div>
           </div>
           {currentItems.length === 0 ? (
             <SymbolReviewEmpty />

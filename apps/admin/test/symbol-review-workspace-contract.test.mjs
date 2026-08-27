@@ -55,6 +55,7 @@ test('keeps a bounded responsive page grid with safe bulk review controls', () =
 test('shows durable projection preparation states and progress', () => {
   assert.match(source, /Przygotuj weryfikację symboli/);
   assert.match(source, /Wznów przygotowanie/);
+  assert.match(source, /Uzupełnij brakujące symbole/);
   assert.match(source, /processedBoardCount/);
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);

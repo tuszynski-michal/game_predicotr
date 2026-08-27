@@ -555,7 +555,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
                 )
             )
             backfill = SqlAlchemyImageSymbolReviewRepository(session)
-            assert backfill.begin_reconciliation_pass(game.id).status == "rebuilding"
+            assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
             reconciliation = backfill.reconcile_next_batch(game.id, batch_size=10)
             assert reconciliation.processed_review_item_count == 1
             assert reconciliation.report.status == "rebuilding"

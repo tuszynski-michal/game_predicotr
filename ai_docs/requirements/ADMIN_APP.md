@@ -343,9 +343,12 @@ Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
 review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
-`Przygotuj weryfikację symboli` albo `Wznów przygotowanie`. Polling jednego joba
-nie nakłada requestów, a po `ready` automatycznie otwiera bounded listę cropów.
-Zaznaczanie i masowe
+  `Przygotuj weryfikację symboli` albo `Wznów przygotowanie`. Polling jednego joba
+  nie nakłada requestów, a po `ready` automatycznie otwiera bounded listę cropów.
+  Po osiągnięciu `ready` stale dostępna akcja `Uzupełnij brakujące symbole`
+  uruchamia idempotentną reconciliację projekcji. Uzupełnia wyłącznie brakujące
+  lub nieaktualne metadane cropów; nie uruchamia ponownie cięcia ani inferencji.
+  Zaznaczanie i masowe
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
 zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w
 tryb snapshotu z listą wykluczeń. Zmiana gry, symbolu albo stanu przed

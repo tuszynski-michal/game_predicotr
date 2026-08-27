@@ -81,6 +81,35 @@ test('loads projection readiness and starts the durable preparation job', async 
   assert.equal(starts, 1);
 });
 
+test('starts a missing-cell reconciliation from an already ready projection', async () => {
+  const status = {
+    activeJobId: null,
+    gameId,
+    status: 'ready',
+  };
+  let starts = 0;
+  const api = client({
+    startSymbolCellReviewProjectionBackfill: async () => {
+      starts += 1;
+      return {
+        data: {
+          created: true,
+          jobId: '33333333-3333-4333-8333-333333333333',
+          projection: { ...status, status: 'rebuilding' },
+        },
+      };
+    },
+  });
+
+  const started = await startSymbolReviewProjection(api, gameId);
+
+  assert.equal(started.ok, true);
+  assert.equal(starts, 1);
+  if (started.ok) {
+    assert.equal(started.value.projection.status, 'rebuilding');
+  }
+});
+
 test('loads a bounded, checksum-independent metadata page with its keyset cursor', async () => {
   let request;
   const result = await loadSymbolReviewPage(

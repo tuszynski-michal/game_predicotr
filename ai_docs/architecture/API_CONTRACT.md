@@ -116,6 +116,11 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
 ```
 
+`POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
+Dla projekcji `ready` jawne wywołanie przełącza ją do `rebuilding`, zachowuje
+dotychczasowy kursor i dane, a następnie wykonuje bounded reconciliację braków.
+Nie uruchamia pipeline'u obrazów.
+
 Pierwsze dwa endpointy są lokalnym kontraktem przygotowania projekcji. Status
 zwraca oczekiwaną i przetworzoną liczbę plansz, oczekiwaną i zapisaną liczbę
 komórek, stan `not_started/rebuilding/ready/failed`, aktywny job oraz liczniki

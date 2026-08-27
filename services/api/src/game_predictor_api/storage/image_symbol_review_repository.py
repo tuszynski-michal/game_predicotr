@@ -1581,7 +1581,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 failure_message=None,
             )
             self._session.add(state)
-        elif state.status != "ready":
+        else:
             state.status = "rebuilding"
             state.failure_message = None
 

@@ -67,6 +67,17 @@
   padding: 0 2px;
 }
 
+.summaryActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.summaryActions button {
+  white-space: nowrap;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
@@ -325,6 +336,11 @@
 
   .summary,
   .projectionStatus {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summaryActions {
     align-items: stretch;
     flex-direction: column;
   }

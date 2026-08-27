@@ -92,6 +92,8 @@ npm run typecheck
 - Kontrolowane uruchomienie ujawniło limit 65 535 parametrów psycopg dla
   pojedynczego INSERT-u 3000 komórek. Zapis komórek jest teraz dzielony na
   trzy mniejsze INSERT-y w tej samej transakcji 200 plansz.
+- Niedostępny z procesu API katalog danych PostgreSQL nie ukrywa już rozmiaru
+  tabeli i indeksów; wyłącznie metryka wolnego miejsca pozostaje wtedy pusta.
 - TASK 2: dodano maksymalnie trzy bounded przebiegi reconciliacji, ochronę
   decyzji człowieka, końcową kontrolę 15 cropów oraz metryki miejsca bez
   benchmarku.

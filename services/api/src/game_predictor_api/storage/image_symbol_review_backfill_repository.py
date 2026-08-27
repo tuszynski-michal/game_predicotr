@@ -219,14 +219,17 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
                 or 0
             )
             data_directory = self._session.scalar(text("SHOW data_directory"))
+        except (SQLAlchemyError, ValueError):
+            return None, None, None
+        try:
             free_bytes = (
                 None
                 if not isinstance(data_directory, str) or not data_directory
                 else int(shutil.disk_usage(Path(data_directory)).free)
             )
-            return table_bytes, index_bytes, free_bytes
-        except (OSError, SQLAlchemyError, ValueError):
-            return None, None, None
+        except OSError:
+            free_bytes = None
+        return table_bytes, index_bytes, free_bytes
 
     def _require_game(self, game_id: UUID, *, lock: bool) -> None:
         statement = select(GameModel.id).where(GameModel.id == game_id)

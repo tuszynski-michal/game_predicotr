@@ -140,7 +140,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Gotowy workspace udostępnia operatorowi akcję `Uzupełnij brakujące symbole`.
   Ponowne uruchomienie zachowuje istniejące komórki i kursor, a general worker
   wykonuje idempotentną reconciliację brakujących lub nieaktualnych rekordów;
-  nie uruchamia cięcia plansz ani rozpoznawania symboli.
+  nie uruchamia cięcia plansz ani rozpoznawania symboli. Jeżeli general lane
+  jest zajęty, lista pozostaje dostępna, a stan `rebuilding` zaczyna się dopiero
+  po przejęciu joba przez worker.
 - Pierwszy kontrolowany backfill gry `777` zakończył się statusem `ready`:
   `125 431` plansz, `1 881 465` komórek i zero błędów integralności.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty

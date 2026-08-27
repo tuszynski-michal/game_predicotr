@@ -27,6 +27,10 @@ class SymbolCellReviewBackfillHandler:
                 "The symbol-cell backfill handler received another job type.",
             )
         try:
+            with self._session_factory.begin() as session:
+                SqlAlchemyImageSymbolReviewRepository(
+                    session
+                ).start_or_resume_backfill(job.game_id)
             current = int(job.progress_current)
             success_count = int(job.success_count)
             failure_count = int(job.failure_count)

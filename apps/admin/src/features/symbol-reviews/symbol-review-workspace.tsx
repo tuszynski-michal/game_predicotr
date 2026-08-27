@@ -284,7 +284,11 @@ export function SymbolReviewWorkspace({
   }, [api, filters.gameId, reloadRevision]);
 
   useEffect(() => {
-    if (filters.gameId === null || projectionStatus?.status !== 'rebuilding') {
+    if (
+      filters.gameId === null ||
+      (projectionStatus?.status !== 'rebuilding' &&
+        projectionStatus?.activeJobId === null)
+    ) {
       return;
     }
     const gameId = filters.gameId;
@@ -313,7 +317,12 @@ export function SymbolReviewWorkspace({
       cancelled = true;
       if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [api, filters.gameId, projectionStatus?.status]);
+  }, [
+    api,
+    filters.gameId,
+    projectionStatus?.activeJobId,
+    projectionStatus?.status,
+  ]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
@@ -716,13 +725,17 @@ export function SymbolReviewWorkspace({
               </span>
               <button
                 className="secondaryButton"
-                disabled={projectionStarting}
+                disabled={
+                  projectionStarting || projectionStatus.activeJobId !== null
+                }
                 onClick={() => void prepareProjection()}
                 type="button"
               >
                 {projectionStarting
                   ? 'Uruchamianie…'
-                  : 'Uzupełnij brakujące symbole'}
+                  : projectionStatus.activeJobId !== null
+                    ? 'Uzupełnianie oczekuje w kolejce'
+                    : 'Uzupełnij brakujące symbole'}
               </button>
             </div>
           </div>

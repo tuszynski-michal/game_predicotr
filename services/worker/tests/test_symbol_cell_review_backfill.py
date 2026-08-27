@@ -75,6 +75,10 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
         def __init__(self, _session: object) -> None:
             pass
 
+        def start_or_resume_backfill(self, _game_id: UUID):
+            assert _game_id == game_id
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
+
         def backfill_next_batch(
             self,
             _game_id: UUID,
@@ -133,6 +137,10 @@ def test_handler_reports_controlled_integrity_failure(monkeypatch: Any) -> None:
         def __init__(self, _session: object) -> None:
             pass
 
+        def start_or_resume_backfill(self, _game_id: UUID):
+            assert _game_id == game_id
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
+
         def backfill_next_batch(
             self,
             _game_id: UUID,
@@ -178,6 +186,10 @@ def test_handler_stops_after_three_failed_reconciliation_passes(monkeypatch: Any
     class _Repository:
         def __init__(self, _session: object) -> None:
             pass
+
+        def start_or_resume_backfill(self, _game_id: UUID):
+            assert _game_id == game_id
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
 
         def backfill_next_batch(
             self,

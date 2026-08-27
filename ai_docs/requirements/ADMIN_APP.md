@@ -348,6 +348,9 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   Po osiągnięciu `ready` stale dostępna akcja `Uzupełnij brakujące symbole`
   uruchamia idempotentną reconciliację projekcji. Uzupełnia wyłącznie brakujące
   lub nieaktualne metadane cropów; nie uruchamia ponownie cięcia ani inferencji.
+  Jeżeli general worker jest zajęty, dotychczasowa gotowa lista pozostaje
+  dostępna, a przycisk pokazuje oczekiwanie w kolejce. Stan `rebuilding` zaczyna
+  się dopiero po faktycznym przejęciu joba przez worker.
   Zaznaczanie i masowe
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
 zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w

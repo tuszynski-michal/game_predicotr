@@ -60,25 +60,31 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
                 created=False,
             )
 
+        projection_repository = SqlAlchemyImageSymbolReviewRepository(self._session)
+        current_state = self._session.get(
+            ImageSymbolReviewStateModel,
+            game_id,
+            with_for_update=True,
+        )
         try:
-            report = SqlAlchemyImageSymbolReviewRepository(
-                self._session
-            ).start_or_resume_backfill(game_id)
+            report = (
+                projection_repository.state_for_game(game_id)
+                if current_state is not None and current_state.status == "ready"
+                else projection_repository.start_or_resume_backfill(game_id)
+            )
         except SymbolCellReviewBackfillError as error:
             raise SymbolCellReviewError(error.code, str(error)) from error
+        if report is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BACKFILL_STATE_INVALID",
+                "The symbol-cell review projection state is unavailable.",
+            )
         if report.status == "failed":
             return SymbolCellReviewProjectionStart(
                 status=self._status(game_id),
                 job=None,
                 created=False,
             )
-        if report.status == "ready":
-            return SymbolCellReviewProjectionStart(
-                status=self._status(game_id),
-                job=self._latest_job(game_id),
-                created=False,
-            )
-
         generation = int(
             self._session.scalar(
                 select(func.count(JobModel.id)).where(

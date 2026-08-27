@@ -102,6 +102,7 @@ npm run typecheck
   dwukierunkowy infinite scroll z zachowaniem kotwicy i limitem 180 rekordów.
 - Gotowy widok ma stałą akcję `Uzupełnij brakujące symbole`; ponowne
   uruchomienie zachowuje dane i wykonuje wyłącznie reconciliację projekcji.
+  Gotowa lista pozostaje dostępna, dopóki job czeka na zajętym general lane.
 
 ### Verification results
 

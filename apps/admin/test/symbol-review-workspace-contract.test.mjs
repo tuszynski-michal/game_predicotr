@@ -56,6 +56,7 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /Przygotuj weryfikację symboli/);
   assert.match(source, /Wznów przygotowanie/);
   assert.match(source, /Uzupełnij brakujące symbole/);
+  assert.match(source, /Uzupełnianie oczekuje w kolejce/);
   assert.match(source, /processedBoardCount/);
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);

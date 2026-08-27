@@ -784,7 +784,7 @@ def _verify_existing(
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     try:
-        if manifest_path.read_bytes() != manifest_bytes:
+        if long_path_aware(manifest_path).read_bytes() != manifest_bytes:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_COLLISION",
                 "An existing dataset directory contains another manifest.",
@@ -866,7 +866,8 @@ def build_cumulative_training_dataset(
     artifact_directory = data_root.joinpath(*relative_directory.parts)
     manifest_relative_path = relative_directory / "manifests" / f"{manifest_checksum}.json"
     manifest_path = data_root.joinpath(*manifest_relative_path.parts)
-    reused = manifest_path.exists()
+    filesystem_manifest_path = long_path_aware(manifest_path)
+    reused = filesystem_manifest_path.exists()
     if reused:
         _verify_existing(
             artifact_directory,
@@ -894,9 +895,9 @@ def build_cumulative_training_dataset(
                 )
                 if progress_callback is not None:
                     progress_callback(len(copied), total_assets)
-            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            filesystem_manifest_path.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
-                dir=manifest_path.parent,
+                dir=filesystem_manifest_path.parent,
                 prefix=".tmp-",
                 delete=False,
             ) as handle:
@@ -904,7 +905,7 @@ def build_cumulative_training_dataset(
                 handle.write(manifest_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary_manifest, manifest_path)
+            os.replace(temporary_manifest, filesystem_manifest_path)
             temporary_manifest = None
             _verify_existing(
                 artifact_directory,

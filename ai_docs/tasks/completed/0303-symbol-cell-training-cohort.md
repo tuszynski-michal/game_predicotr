@@ -86,3 +86,9 @@ sample checksums participate in subsequent-cohort deltas. On the real game,
 cold process. A transactionally rolled-back persistence audit confirmed the v2
 cell projection. The Admin workflow groups now contain their own controls; the
 symbol actions precede and no longer appear below the grid panel.
+
+The final execution gate in `v0.8.58` builds a v2 dataset from individually
+approved cells and runs the real one-epoch training, ONNX export and candidate
+gate. This regression also covers Windows paths longer than the legacy
+`MAX_PATH`; both the immutable dataset manifest writer and classifier image
+loader now use the shared long-path-aware filesystem contract.

@@ -44,6 +44,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   ograniczony cache 32 768 deskryptorów, natomiast zamrożenie ponownie sprawdza
   bajty. Transakcyjny test zapisu/rollbacku potwierdził jeden rekord projekcji
   v2 dla jednej próbki bez pozostawienia danych audytowych.
+- `v0.8.58` domyka bramkę wykonawczą kohorty v2: mała kohorta pojedynczych
+  cropów przechodzi rzeczywisty trening, eksport ONNX i gate kandydata. Test
+  ujawnił również dwa miejsca zależne od limitu `MAX_PATH`; zapis manifestu
+  datasetu i odczyt obrazu przez klasyfikator używają teraz wspólnej obsługi
+  długich ścieżek Windows.
 
 ### Duże browserowe importy plansz
 
@@ -66,7 +71,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Naprawa rzeczywistej bazy rozwiązała `114 676` zduplikowanych grup sekwencji
   i `159 754` nadmiarowe pozycje pending. Nie znaleziono pending nad
   istniejącym canonical. Migracja danych zakończyła się na `0069`; bieżący
-  head schematu po dodaniu kohort komórkowych symboli to `0071`.
+  head schematu po dodaniu kohort komórkowych symboli to `0072`.
 - Dropdown `Zatwierdzanie plansz` pokazuje odtąd wyłącznie importy
   `waiting_for_review`. Importy zakończone pozostają widoczne w historii Jobów,
   ale nie zaśmiecają operacyjnego wyboru.

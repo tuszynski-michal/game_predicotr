@@ -20,6 +20,7 @@ from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import functional as vision_functional  # type: ignore[import-untyped]
 
+from ..filesystem import long_path_aware
 from .dataset_split import DATASET_SPLIT_VERSION, build_symbol_dataset_split
 
 CLASSIFIER_VERSION = "bootstrap-symbol-cnn-v1"
@@ -345,7 +346,7 @@ def load_image_tensor(path: Path, input_size: int) -> Tensor:
     """Apply the immutable classifier preprocessing contract to one crop."""
 
     try:
-        with Image.open(path) as image:
+        with Image.open(long_path_aware(path)) as image:
             rgb = image.convert("RGB")
             tensor = vision_functional.pil_to_tensor(rgb).to(dtype=torch.float32)
     except OSError as error:

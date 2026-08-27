@@ -281,6 +281,9 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.symbol_cell_training_source_repository import (
+    SqlAlchemySymbolCellTrainingSourceRepository,
+)
 from game_predictor_api.storage.symbol_model_iteration_repository import (
     SqlAlchemySymbolModelIterationRepository,
 )
@@ -875,6 +878,9 @@ def create_app(
                     SqlAlchemyOperationalImageReviewRepository(session),
                     SqlAlchemyVerifiedTrainingCohortRepository(session),
                     VerifiedTrainingCohortArtifactStore(resolved_settings.artifact_root),
+                    SqlAlchemySymbolCellTrainingSourceRepository(
+                        session, resolved_settings.artifact_root
+                    ),
                 )
                 session.commit()
             except BaseException:

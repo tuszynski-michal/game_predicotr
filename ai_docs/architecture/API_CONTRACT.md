@@ -988,6 +988,10 @@ Rozpoczyna kontrolowany upload folderu wybranego standardowym selektorem
 przeglądarki. Przyjmuje nazwę prezentacyjną katalogu, dokładną liczbę JPEG-ów i
 ich łączny rozmiar. Zwraca `uploadId` oraz liczniki postępu. Nie przyjmuje
 lokalnej ścieżki bezwzględnej i nie uruchamia procesu systemowego.
+Folder `layout_import` podlega osobnemu konfigurowalnemu limitowi, domyślnie
+20 GiB; przekroczenie zwraca `IMAGE_BROWSER_SELECTION_SIZE_INVALID` wraz z
+zadeklarowanym i maksymalnym rozmiarem. Niezależnie obowiązuje kontrola wolnego
+miejsca z rezerwą 512 MiB.
 
 ### PUT `/api/v1/admin/image-imports/browser-selections/{uploadId}/files/{fileIndex}`
 

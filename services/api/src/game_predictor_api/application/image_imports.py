@@ -407,6 +407,11 @@ class BrowserImageSelectionService:
             raise JobError(
                 "IMAGE_BROWSER_SELECTION_SIZE_INVALID",
                 "The browser selection exceeds the configured import size limit.",
+                details={
+                    "declaredBytes": expected_total_bytes,
+                    "maximumBytes": max_bytes,
+                    "purpose": purpose.value,
+                },
             )
         if purpose is ImageSelectionPurpose.PHOTO_SELECTION and game_id is None:
             raise JobError(

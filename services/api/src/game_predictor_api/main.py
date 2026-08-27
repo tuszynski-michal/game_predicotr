@@ -556,7 +556,7 @@ def create_app(
     default_browser_image_selection_service = BrowserImageSelectionService(
         default_image_folder_selection_service,
         resolved_settings.import_root,
-        max_bytes=resolved_settings.import_max_bytes,
+        max_bytes=resolved_settings.browser_layout_import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (

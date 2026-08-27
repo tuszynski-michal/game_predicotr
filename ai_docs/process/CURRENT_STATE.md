@@ -15,6 +15,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.8 implementation: board search and review data quality`
 
+### Duże browserowe importy plansz
+
+- Browserowy staging `seq_*` używa osobnego limitu
+  `GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES`, domyślnie 20 GiB. Historyczny
+  limit 1 GiB pozostaje wyłącznie dla ręcznych plików CSV/JSONL, a selekcja
+  zdjęć zachowuje własny limit 128 GiB. API nadal wymaga rezerwy 512 MiB wolnego
+  dysku i zwraca w błędzie limitu deklarowany oraz maksymalny rozmiar.
+
 ### Jeden właściciel oczekującej planszy — TASK-0291
 
 - `v0.8.33` domyka trwałą ochronę przed duplikatami oczekujących plansz dla

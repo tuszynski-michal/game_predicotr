@@ -1,5 +1,8 @@
 'use client';
 
+/* Manual selection renders browser-local object URLs and must preserve their native bytes. */
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -100,6 +103,9 @@ function LocalManualImageSelectionWorkspace() {
   const [imageUrlIndex, setImageUrlIndex] = useState(-1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [rangeEditorOpen, setRangeEditorOpen] = useState(false);
+  const [rangeStartDraft, setRangeStartDraft] = useState('');
+  const [rangeEndDraft, setRangeEndDraft] = useState('');
   const [loadedImageSize, setLoadedImageSize] =
     useState<LoadedImageSize | null>(null);
   const [imageViewportSize, setImageViewportSize] =
@@ -586,6 +592,38 @@ function LocalManualImageSelectionWorkspace() {
     await save;
   }
 
+  function openRangeEditor(): void {
+    const currentState = stateRef.current;
+    if (currentState === null) return;
+    const currentRange = rangeForStart(currentState.nextRangeStart);
+    setRangeStartDraft(String(currentRange.start));
+    setRangeEndDraft(String(currentRange.end));
+    setRangeEditorOpen(true);
+  }
+
+  async function applyRangeEdit(): Promise<void> {
+    const currentState = stateRef.current;
+    const rangeStart = Number(rangeStartDraft);
+    const rangeEnd = Number(rangeEndDraft);
+    if (
+      currentState === null ||
+      !Number.isSafeInteger(rangeStart) ||
+      !Number.isSafeInteger(rangeEnd) ||
+      rangeStart < 1 ||
+      rangeEnd !== rangeStart + 8
+    ) {
+      setError('Zakres musi zawierać dokładnie 9 kolejnych plansz.');
+      return;
+    }
+    setError(null);
+    await persist({
+      ...currentState,
+      nextRangeStart: rangeStart,
+      updatedAt: new Date().toISOString(),
+    });
+    setRangeEditorOpen(false);
+  }
+
   async function acceptCurrent(): Promise<void> {
     if (
       record === null ||
@@ -848,7 +886,7 @@ function LocalManualImageSelectionWorkspace() {
   useEffect(() => {
     if (state === null) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (busyRef.current) return;
+      if (busyRef.current || rangeEditorOpen) return;
       const action = resolveManualSelectionShortcut({
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
@@ -1027,11 +1065,61 @@ function LocalManualImageSelectionWorkspace() {
           <h1 id="manual-image-selection-title">Ręczna selekcja zdjęć</h1>
           <p>
             Zakres{' '}
-            <strong>
+            <button
+              className="manualImageSelectionRangeButton"
+              disabled={busy}
+              onClick={openRangeEditor}
+              type="button"
+            >
               {range.start}–{range.end}
-            </strong>{' '}
+            </button>{' '}
             · zdjęcie {state.currentIndex + 1} / {images.length}
           </p>
+          {rangeEditorOpen ? (
+            <form
+              className="manualImageSelectionRangeEditor"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void applyRangeEdit().catch((cause) =>
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : 'Nie udało się zapisać zakresu.',
+                  ),
+                );
+              }}
+              role="dialog"
+            >
+              <label>
+                Od
+                <input
+                  min="1"
+                  onChange={(event) => setRangeStartDraft(event.target.value)}
+                  type="number"
+                  value={rangeStartDraft}
+                />
+              </label>
+              <label>
+                Do
+                <input
+                  min="1"
+                  onChange={(event) => setRangeEndDraft(event.target.value)}
+                  type="number"
+                  value={rangeEndDraft}
+                />
+              </label>
+              <button className="primaryButton" type="submit">
+                Ustaw
+              </button>
+              <button
+                className="secondaryButton"
+                onClick={() => setRangeEditorOpen(false)}
+                type="button"
+              >
+                Anuluj
+              </button>
+            </form>
+          ) : null}
         </div>
         <div className="manualImageSelectionCounters" aria-live="polite">
           <span>

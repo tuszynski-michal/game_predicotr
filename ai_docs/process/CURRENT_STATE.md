@@ -234,6 +234,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   aktualizuje pierwszy i następny zakres bez ponownego kopiowania JPEG-ów;
   niezgodny manifest blokuje wznowienie.
 
+- Od `v0.8.31` lokalny i operator-local workspace pozwalają kliknąć bieżący
+  zakres i zapisać wyłącznie dodatni przedział `start–start+8`. Po decyzji
+  kolejny zakres jest wyliczany względem ręcznie podanej wartości zgodnie z
+  kierunkiem sesji. Manifest odtwarza takie świadome luki dokładnie, bez
+  cichego wypełniania lub przenumerowywania historii.
+
 - Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
   historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
   `v19`; źródłem etykiety jest niezmienny snapshot joba.

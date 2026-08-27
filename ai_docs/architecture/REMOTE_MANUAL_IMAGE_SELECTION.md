@@ -44,6 +44,10 @@ flowchart LR
 - Checksum-bound ownership blokuje nadpisanie lub usunięcie obcego pliku.
 - Kursor, zakres i decyzje są transakcyjne w IndexedDB operatora; zoom oraz obie
   osie scrolla są per session+batch w localStorage operatora.
+- Bieżący zakres można jawnie skorygować w formularzu `Od`/`Do`. Zmiana wymaga
+  dodatniego przedziału dokładnie dziewięciu plansz, zapisuje wyłącznie lokalny
+  `nextRangeStart` i nie renumeruje historii. Przy wznowieniu każda decyzja
+  zachowuje własny poprawny zakres, także gdy operator celowo pozostawił lukę.
 - Interakcje są szeregowane. Zmiana licznika następuje dopiero po zapisie JPEG-a
   oraz trwałej decyzji, więc sieć i control-plane nie mogą rozsynchroniczować
   wyborów.

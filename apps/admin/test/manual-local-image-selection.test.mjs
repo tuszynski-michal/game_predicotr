@@ -164,6 +164,16 @@ test('derives each inclusive nine-layout range from its first number', () => {
   assert.deepEqual(rangeForStart(352), { start: 352, end: 360 });
 });
 
+test('offers an explicit nine-layout range correction without enabling shortcuts in its editor', () => {
+  assert.match(workspaceSource, /manualImageSelectionRangeButton/);
+  assert.match(workspaceSource, /openRangeEditor/);
+  assert.match(workspaceSource, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspaceSource, /nextRangeStart: rangeStart/);
+  assert.match(workspaceSource, /busyRef\.current \|\| rangeEditorOpen/);
+  assert.match(stylesSource, /\.manualImageSelectionRangeEditor\s*\{/);
+  assert.match(stylesSource, /\.manualImageSelectionRangeButton\s*\{/);
+});
+
 test('resumes only after synchronizing a matching output manifest', () => {
   assert.equal(
     typeof reconcileManualSelectionStateWithOutputManifest,

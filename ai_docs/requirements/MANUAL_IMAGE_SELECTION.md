@@ -25,7 +25,13 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
 - Zakres jest inkluzywny i zawsze ma dziewięć pozycji: `start–start+8`.
-  Po zaakceptowaniu następny zakres zaczyna się od `start+9`.
+  Domyślnie po decyzji następny zakres zaczyna się od `start+9` dla kolejności
+  rosnącej albo od `start-9` dla malejącej; wartość nie spada poniżej `1`.
+  Operator może kliknąć bieżący zakres i jawnie podać nowe `Od` oraz `Do`.
+  Formularz przyjmuje wyłącznie dodatni zakres dziewięciu kolejnych plansz.
+  Jest to świadoma korekta numeracji: luka między decyzjami może zostać
+  zachowana, ale aplikacja nigdy nie uzupełnia jej ani nie zmienia zakresów
+  poprzednich decyzji po cichu.
 - `Enter` zapisuje bieżące zdjęcie jako `seq_<start>-<end>.jpg` w wybranym
   folderze i przechodzi do następnego zdjęcia oraz zakresu.
 - `Tab` pomija bieżące zdjęcie dla zakresu i przechodzi do następnego zakresu,
@@ -63,11 +69,14 @@ uprawnień przez przeglądarkę.
 
 Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
 `manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów
-został świadomie przenumerowany przy zachowaniu tych samych źródłowych ścieżek
-i sum kontrolnych, sesja jest atomowo synchronizowana z manifestem: zmienia pierwszy
-oraz następny zakres i nazwy własnych decyzji, nie zmieniając indeksu zdjęcia
-ani plików. Niezgodny manifest, inna sesja, źródło, kierunek, checksumy lub
-nieciągły stan blokują wznowienie zamiast nadpisać wynik błędną numeracją.
+został świadomie przenumerowany jednym przesunięciem przy zachowaniu tych samych
+źródłowych ścieżek i sum kontrolnych, sesja jest atomowo synchronizowana z
+manifestem: zmienia pierwszy oraz następny zakres i nazwy własnych decyzji, nie
+zmieniając indeksu zdjęcia ani plików. Jawnie poprawione, nieciągłe zakresy są
+odtwarzane dokładnie tak, jak zapisano je w manifestie, pod warunkiem że każda
+decyzja ma dodatni zakres `start–start+8`. Niezgodny manifest, inna sesja,
+źródło, kierunek, checksumy, niepoprawny pojedynczy zakres lub próba nadpisania
+obcego pliku blokują wznowienie zamiast nadpisać wynik błędną numeracją.
 
 Jeżeli zapisany uchwyt wskazuje folder usunięty, przeniesiony albo utworzony
 ponownie pod tą samą ścieżką, workspace nie może porzucić sesji ani tworzyć
@@ -170,6 +179,10 @@ pozycje są przechwytywane bezpośrednio przed zmianą kursora React, po trwały
 zapisie decyzji, i odtwarzane po załadowaniu docelowego podglądu. Oczekujące
 odtworzenie jest przypięte do docelowego ordinalu; render stanu `busy` na
 poprzednim zdjęciu nie może go skonsumować.
+Kliknięcie bieżącego zakresu otwiera ten sam walidowany edytor `Od`/`Do` co w
+lokalnym workspace. Zapis zakresu jest lokalny dla urządzenia operatora,
+natychmiast aktualizuje manifest i wstrzymuje skróty workspace'u do zamknięcia
+formularza.
 Ścieżka zatwierdzenia przechwytuje pozycję wewnętrznego viewportu zdjęcia już w
 momencie komendy Enter/F/klik, przed zapisem pliku i stanem `busy`; automatyczny
 scroll wywołany później przez Chrome nie może nadpisać tego snapshotu. Podczas

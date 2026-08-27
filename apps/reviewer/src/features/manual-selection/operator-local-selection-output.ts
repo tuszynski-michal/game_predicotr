@@ -364,24 +364,10 @@ function parseOperatorLocalManifest(
   const decisions = parsed.decisions.map((decision, index) =>
     parseDecision(decision, index),
   );
-  const firstLayout =
-    typeof parsed.firstLayout === 'number'
-      ? parsed.firstLayout
-      : (decisions[0]?.rangeStart ?? (parsed.nextRangeStart as number));
-  for (const [index, decision] of decisions.entries()) {
-    const expectedStart = firstLayout + index * 9;
-    if (
-      decision.rangeStart !== expectedStart ||
-      decision.rangeEnd !== expectedStart + 8
-    ) {
-      throw new Error('Manifest zawiera nieciągłą kolejność zakresów.');
-    }
-  }
   if (
-    (parsed.nextRangeStart as number) !==
-    firstLayout + decisions.length * 9
+    decisions.some((decision) => decision.rangeEnd !== decision.rangeStart + 8)
   ) {
-    throw new Error('Manifest zawiera niespójny następny zakres.');
+    throw new Error('Manifest zawiera nieprawidłowy zakres.');
   }
   return {
     ...(parsed as unknown as OperatorLocalOutputManifestV1),
@@ -404,6 +390,7 @@ function parseDecision(
     !Number.isSafeInteger(decision.sourceIndex) ||
     (decision.sourceIndex as number) < 0 ||
     !Number.isSafeInteger(decision.rangeStart) ||
+    (decision.rangeStart as number) < 1 ||
     !Number.isSafeInteger(decision.rangeEnd) ||
     decision.rangeEnd !== (decision.rangeStart as number) + 8 ||
     !Number.isSafeInteger(decision.selectionGeneration) ||

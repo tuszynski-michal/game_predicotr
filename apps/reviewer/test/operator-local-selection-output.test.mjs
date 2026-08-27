@@ -149,6 +149,35 @@ test('writes an explicitly edited nine-layout range and rejects invalid ranges',
   );
 });
 
+test('rejects a persisted range that is not positive even when it spans nine layouts', async () => {
+  const directory = new MemoryDirectoryHandle();
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      decisions: [
+        {
+          action: 'skipped',
+          fileId: null,
+          imageChecksumSha256: null,
+          imagePath: null,
+          operationId: 'invalid-range',
+          outputName: null,
+          rangeEnd: 8,
+          rangeStart: 0,
+          selectionGeneration: 1,
+          sourceIndex: 0,
+        },
+      ],
+      nextRangeStart: 9,
+    }),
+  );
+
+  await assert.rejects(
+    inspectOperatorLocalOutputDirectory(directory),
+    /nieprawidłową decyzję/,
+  );
+});
+
 test('never overwrites or removes a foreign operator file', async () => {
   const directory = new MemoryDirectoryHandle();
   const foreign = new MemoryFileHandle(
@@ -451,6 +480,104 @@ test('resumes on the saved source photo and next range across access sessions', 
   assert.equal(resumed.nextRangeStart, 10);
   assert.equal(resumed.decisions[0].fileId, 'new-file-id');
   assert.equal(resumed.hostRegistered, true);
+});
+
+test('resumes deliberately edited non-contiguous ranges without renumbering them', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const firstSource = new File(['first'], 'first.jpg', { type: 'image/jpeg' });
+  const correctedSource = new File(['corrected'], 'corrected.jpg', {
+    type: 'image/jpeg',
+  });
+  const first = await writeOperatorLocalSelection(directory, firstSource, 1);
+  const corrected = await writeOperatorLocalSelection(
+    directory,
+    correctedSource,
+    100,
+  );
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 4,
+      decisions: [
+        {
+          action: 'accepted',
+          fileId: 'old-first-file',
+          imageChecksumSha256: first.checksumSha256,
+          imagePath: 'first.jpg',
+          operationId: 'decision-1',
+          outputName: first.name,
+          rangeEnd: 9,
+          rangeStart: 1,
+          selectionGeneration: 1,
+          sourceIndex: 0,
+        },
+        {
+          action: 'accepted',
+          fileId: 'old-corrected-file',
+          imageChecksumSha256: corrected.checksumSha256,
+          imagePath: 'corrected.jpg',
+          operationId: 'decision-2',
+          outputName: corrected.name,
+          rangeEnd: 108,
+          rangeStart: 100,
+          selectionGeneration: 2,
+          sourceIndex: 3,
+        },
+      ],
+      nextRangeStart: 109,
+    }),
+  );
+
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  if (state.kind !== 'resumable') return;
+  const resumed = await resumeOperatorLocalBatch(
+    state.manifest,
+    {
+      batchId: 'new-batch',
+      cursorIndex: 0,
+      direction: 'ascending',
+      fileCount: 10,
+      firstLayout: 1,
+      navigationStep: 1,
+      nextRangeStart: 1,
+      schemaVersion: 1,
+      sessionId: 'new-session',
+      sourceDirectoryName: '1 - 19',
+      sourceKind: 'directory_handle',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+      totalBytes: 100,
+      updatedAt: '2026-08-27T00:00:00.000Z',
+    },
+    async (ordinal) => {
+      const source =
+        ordinal === 0
+          ? { fileId: 'new-first-file', name: 'first.jpg' }
+          : ordinal === 3
+            ? { fileId: 'new-corrected-file', name: 'corrected.jpg' }
+            : null;
+      return source === null
+        ? null
+        : {
+            batchId: 'new-batch',
+            fileId: source.fileId,
+            lastModifiedMs: 1,
+            mimeType: 'image/jpeg',
+            name: source.name,
+            ordinal,
+            relativePath: source.name,
+            schemaVersion: 1,
+            sessionId: 'new-session',
+            sizeBytes: 8,
+          };
+    },
+  );
+
+  assert.equal(resumed.nextRangeStart, 109);
+  assert.deepEqual(
+    resumed.decisions.map((decision) => decision.rangeStart),
+    [1, 100],
+  );
 });
 
 test('blocks a resumable folder from a different indexed source', async () => {

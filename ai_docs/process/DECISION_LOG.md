@@ -5704,6 +5704,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** uruchomienie benchmarku w tle, zaniżenie fixture’u przez
   niepełne plansze lub deklarowanie p95 bez danych odrzucono.
 
+## D-237 — Ręczna korekta zakresu nie normalizuje historii wyborów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** lokalna oraz operator-local zdalna ręczna selekcja pozwalają
+  operatorowi kliknąć bieżący zakres i podać wyłącznie dodatni przedział
+  `start–start+8`. Zapis zmienia tylko `nextRangeStart`; istniejące decyzje i
+  zapisane pliki pozostają dokładnie takie, jak zostały zatwierdzone. Domyślny
+  kolejny zakres jest wyliczany o dziewięć pozycji zgodnie z kierunkiem sesji,
+  z dolną granicą `1` dla kolejności malejącej.
+- **Context:** operator musi móc poprawić pomyłkę numeracji w trakcie selekcji
+  bez ponownego kopiowania już wybranych JPEG-ów. Wymuszanie ciągłości między
+  decyzjami usuwało tę możliwość oraz błędnie traktowało świadomą lukę jako
+  uszkodzenie manifestu.
+- **Safety:** każda decyzja niezależnie waliduje dodatni zakres dokładnie
+  dziewięciu plansz. Zgodność źródła, checksum, tożsamości manifestu i ochrona
+  obcych plików pozostają fail-closed. Aplikacja nie uzupełnia luk, nie zmienia
+  poprzednich zakresów i nie renumeruje historii bez jawnej operacji całego
+  manifestu.
+- **Consequences:** wznowienie odtwarza ręcznie poprawione, nieciągłe zakresy
+  dokładnie z manifestu. Legacy batch bez trwałego `nextRangeStart` wyznacza
+  kolejny zakres z ostatniej rzeczywistej decyzji, nie z liczby decyzji.
+- **Alternatives:** wymuszenie pełnej ciągłości albo automatyczne
+  przenumerowywanie poprzednich decyzji odrzucono, ponieważ groziły utratą
+  świadomych korekt operatora.
+
 ## Szablon nowej decyzji
 
 ```text

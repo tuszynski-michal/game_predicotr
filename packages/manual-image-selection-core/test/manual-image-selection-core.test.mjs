@@ -11,6 +11,7 @@ import {
   createManualSelectionState,
   fitManualImageToViewport,
   manualPreviewWindow,
+  nextManualRangeStart,
   naturalCompare,
   nextManualSelectionState,
   previousManualSelectionState,
@@ -55,6 +56,32 @@ test('keeps the deterministic nine-layout range and undo state machine', () => {
   assert.equal(selected.nextRangeStart, 10);
   assert.equal(selected.currentIndex, 1);
   assert.equal(previousManualSelectionState(selected)?.nextRangeStart, 1);
+});
+
+test('advances an explicitly corrected range in the configured direction', () => {
+  assert.equal(nextManualRangeStart('ascending', 222913), 222922);
+  assert.equal(nextManualRangeStart('descending', 222922), 222913);
+  assert.equal(nextManualRangeStart('descending', 1), 1);
+
+  const corrected = {
+    ...createManualSelectionState(1, 'ascending'),
+    nextRangeStart: 222913,
+  };
+  const selected = nextManualSelectionState(
+    corrected,
+    {
+      action: 'accepted',
+      imageChecksum: 'c'.repeat(64),
+      imagePath: 'corrected.jpg',
+      outputName: 'seq_222913-222921.jpg',
+      rangeEnd: 222921,
+      rangeStart: 222913,
+    },
+    1,
+  );
+
+  assert.equal(selected.nextRangeStart, 222922);
+  assert.equal(previousManualSelectionState(selected)?.nextRangeStart, 222913);
 });
 
 test('reconciles a corrected output manifest before resuming a local session', () => {
@@ -119,6 +146,72 @@ test('reconciles a corrected output manifest before resuming a local session', (
   assert.equal(reconciled.nextRangeStart, 222940);
   assert.equal(reconciled.decisions[1]?.rangeStart, 222922);
   assert.equal(reconciled.decisions[2]?.outputName, 'seq_222931-222939.jpg');
+});
+
+test('preserves deliberate gaps while resuming an edited range sequence', () => {
+  const state = {
+    ...createManualSelectionState(1, 'ascending'),
+    currentIndex: 3,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '001.jpg',
+        outputName: 'seq_1-9.jpg',
+        rangeEnd: 9,
+        rangeStart: 1,
+      },
+      {
+        action: 'skipped',
+        imageChecksum: null,
+        imagePath: null,
+        outputName: null,
+        rangeEnd: 18,
+        rangeStart: 10,
+      },
+      {
+        action: 'accepted',
+        imageChecksum: 'b'.repeat(64),
+        imagePath: '004.jpg',
+        outputName: 'seq_100-108.jpg',
+        rangeEnd: 108,
+        rangeStart: 100,
+      },
+    ],
+    nextRangeStart: 109,
+  };
+
+  const reconciled = reconcileManualSelectionStateWithOutputManifest(state, {
+    schemaVersion: 1,
+    gameId: 'local-independent-manual-image-selection',
+    sessionKey: 'session-1',
+    sourceDirectoryName: 'source',
+    direction: 'ascending',
+    firstLayout: 1,
+    updatedAt: '2026-08-27T12:00:00.000Z',
+    items: [
+      {
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '001.jpg',
+        outputName: 'seq_1-9.jpg',
+        rangeEnd: 9,
+        rangeStart: 1,
+      },
+      {
+        imageChecksum: 'b'.repeat(64),
+        imagePath: '004.jpg',
+        outputName: 'seq_100-108.jpg',
+        rangeEnd: 108,
+        rangeStart: 100,
+      },
+    ],
+  });
+
+  assert.equal(reconciled.nextRangeStart, 109);
+  assert.deepEqual(
+    reconciled.decisions.map((decision) => decision.rangeStart),
+    [1, 10, 100],
+  );
 });
 
 test('rejects a corrected manifest whose selected files do not match the session', () => {

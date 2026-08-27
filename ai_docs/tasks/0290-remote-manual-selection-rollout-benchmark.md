@@ -1,7 +1,7 @@
 ---
 title: TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
 status: blocked
-last_updated: 2026-08-25
+last_updated: 2026-08-27
 ---
 
 # TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
@@ -64,6 +64,17 @@ ani kopiowania JPEG-ów do repozytorium.
 - [ ] Etap 4/5 nie może zostać uruchomiony ani zaliczony przypadkiem.
 
 ## Progress
+
+### v0.8.31 — jawna korekta bieżącego zakresu
+
+- Lokalny oraz operator-local workspace pozwalają kliknąć aktualny zakres i
+  zapisać jedynie dodatni przedział dziewięciu plansz `Od–Do`.
+- Po zaakceptowaniu decyzji następny zakres wynika z ręcznie podanej wartości i
+  kierunku sesji; wznowienie legacy batcha bez zapisanego kursora używa ostatniej
+  rzeczywistej decyzji, a nie liczby decyzji.
+- Manifest może zawierać świadomą lukę między poprawnymi zakresami. Walidacja
+  nadal odrzuca ujemne, zerowe i nie-dziewięciopozycyjne zakresy, obce pliki oraz
+  niezgodne checksumy.
 
 ### v0.8.18 — czysty konfigurator po przejściu na ekran startowy
 

@@ -36,6 +36,13 @@ sesji, z tym samym źródłem, kierunkiem, kolejnością wybranych plików i
 checksumami może przesunąć numerację wszystkich decyzji o jeden stały offset.
 Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
 nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
+Operator może także jawnie zmienić wyłącznie bieżący `nextRangeStart` przez
+zakres `start–start+8`. Taka korekta nie zmienia `firstLayout`, poprzednich
+decyzji ani plików, a po akceptacji następny zakres jest liczony od ręcznie
+podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzają
+każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
+Niepoprawny zakres, obca nazwa `seq_*` lub niezgodna checksum pozostają
+fail-closed.
 
 Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
 jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym

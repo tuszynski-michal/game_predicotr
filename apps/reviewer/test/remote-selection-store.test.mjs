@@ -497,6 +497,55 @@ test('operator-local decisions persist without creating a host outbox', async ()
   assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
 });
 
+test('resumes an edited descending range from its last decision, not decision count', async () => {
+  const { store } = await fixture(4);
+  const existing = await store.loadBatch('session-1', 'batch-1');
+  await store.saveBatch({
+    ...existing,
+    cursorIndex: 3,
+    decisions: [
+      {
+        action: 'accepted',
+        fileId: 'first-file',
+        imageChecksumSha256: 'a'.repeat(64),
+        imagePath: '4.jpg',
+        operationId: 'first-decision',
+        outputName: 'seq_28-36.jpg',
+        rangeEnd: 36,
+        rangeStart: 28,
+        selectionGeneration: 1,
+        sourceIndex: 3,
+      },
+    ],
+    direction: 'descending',
+    firstLayout: 28,
+    nextRangeStart: undefined,
+  });
+
+  const restored = await store.loadBatch('session-1', 'batch-1');
+  assert.equal(remoteSelectionWorkspaceState(restored).nextRangeStart, 19);
+
+  const next = await store.appendLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    decision: {
+      action: 'skipped',
+      fileId: null,
+      imageChecksumSha256: null,
+      imagePath: null,
+      operationId: 'second-decision',
+      outputName: null,
+      rangeEnd: 27,
+      rangeStart: 19,
+      selectionGeneration: 2,
+      sourceIndex: 3,
+    },
+    nextCursorIndex: 2,
+  });
+
+  assert.equal(remoteSelectionWorkspaceState(next).nextRangeStart, 10);
+});
+
 test('restarts an operator-local batch at the first directional image and first range', async () => {
   const { store } = await fixture(3);
   const source = await store.loadSourceItem('session-1', 'batch-1', 0);

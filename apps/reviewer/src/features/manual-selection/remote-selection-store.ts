@@ -4,6 +4,7 @@ import {
   MANUAL_IMAGE_NAVIGATION_STEPS,
   buildRemoteSourceManifestV1,
   canonicalRemoteChecksumSha256,
+  nextManualRangeStart,
   normalizeRemoteSourcePath,
   type RemoteManualSelectionDirection,
   type RemoteManualSelectionOperationCommandV1,
@@ -198,6 +199,7 @@ export function remoteSelectionWorkspaceState(
   batch: RemoteSelectionLocalBatchRecord,
 ): RemoteSelectionWorkspaceState {
   const decisions = batch.decisions ?? [];
+  const lastDecision = decisions.at(-1);
   const navigationStep = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
     batch.navigationStep as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
   )
@@ -208,7 +210,10 @@ export function remoteSelectionWorkspaceState(
     decisions,
     navigationStep,
     nextRangeStart:
-      batch.nextRangeStart ?? batch.firstLayout + decisions.length * 9,
+      batch.nextRangeStart ??
+      (lastDecision === undefined
+        ? batch.firstLayout
+        : nextManualRangeStart(batch.direction, lastDecision.rangeStart)),
   };
 }
 
@@ -601,7 +606,10 @@ export class RemoteSelectionIndexedDbStore {
         cursorIndex: input.nextCursorIndex,
         decisions: [...workspace.decisions, decision],
         navigationStep: workspace.navigationStep,
-        nextRangeStart: decision.rangeStart + 9,
+        nextRangeStart: nextManualRangeStart(
+          batch.direction,
+          decision.rangeStart,
+        ),
         updatedAt: queuedAt,
       };
       validateWorkspaceBatch(next);
@@ -657,7 +665,10 @@ export class RemoteSelectionIndexedDbStore {
         cursorIndex: input.nextCursorIndex,
         decisions: [...workspace.decisions, input.decision],
         navigationStep: workspace.navigationStep,
-        nextRangeStart: input.decision.rangeStart + 9,
+        nextRangeStart: nextManualRangeStart(
+          batch.direction,
+          input.decision.rangeStart,
+        ),
         updatedAt,
       };
       validateWorkspaceBatch(next);
@@ -1800,6 +1811,8 @@ function validateWorkspaceDecision(
         decision.imageChecksumSha256 !== null ||
         decision.outputName !== null ||
         command.fileId !== null)) ||
+    !Number.isSafeInteger(decision.rangeStart) ||
+    decision.rangeStart < 1 ||
     decision.rangeEnd !== decision.rangeStart + 8 ||
     !Number.isSafeInteger(decision.sourceIndex) ||
     decision.sourceIndex < 0
@@ -1820,15 +1833,14 @@ function validateWorkspaceBatch(record: RemoteSelectionLocalBatchRecord): void {
     !Number.isSafeInteger(workspace.nextRangeStart) ||
     workspace.nextRangeStart < 1 ||
     workspace.decisions.some(
-      (decision, index) =>
-        decision.rangeStart !== record.firstLayout + index * 9 ||
+      (decision) =>
+        !Number.isSafeInteger(decision.rangeStart) ||
+        decision.rangeStart < 1 ||
         decision.rangeEnd !== decision.rangeStart + 8 ||
         !Number.isSafeInteger(decision.sourceIndex) ||
         decision.sourceIndex < 0 ||
         decision.sourceIndex >= record.fileCount,
     ) ||
-    workspace.nextRangeStart !==
-      record.firstLayout + workspace.decisions.length * 9 ||
     (record.serverRevision !== undefined &&
       (!Number.isSafeInteger(record.serverRevision) ||
         record.serverRevision < 0)) ||

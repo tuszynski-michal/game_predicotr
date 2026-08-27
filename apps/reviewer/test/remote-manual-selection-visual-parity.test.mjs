@@ -22,6 +22,20 @@ test('remote workspace reuses the local manual-selection visual system', async (
   assert.doesNotMatch(workspace, /type="range"/);
 });
 
+test('remote workspace persists an explicit nine-layout range correction', async () => {
+  const workspace = await readFile(workspacePath, 'utf8');
+  const css = await readFile(reviewerCssPath, 'utf8');
+
+  assert.match(workspace, /manualImageSelectionRangeButton/);
+  assert.match(workspace, /openRangeEditor/);
+  assert.match(workspace, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspace, /nextRangeStart: rangeStart/);
+  assert.match(workspace, /await persistOperatorLocalManifest\(next\)/);
+  assert.match(workspace, /interactionPaused \|\| rangeEditorOpen/);
+  assert.match(css, /\.manualImageSelectionRangeEditor\s*\{/);
+  assert.match(css, /\.manualImageSelectionRangeButton\s*\{/);
+});
+
 test('remote preview scrolls and restores both axes after layout', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const css = await readFile(reviewerCssPath, 'utf8');

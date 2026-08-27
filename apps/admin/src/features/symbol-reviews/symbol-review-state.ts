@@ -5,6 +5,11 @@ import type {
 
 export const SYMBOL_REVIEW_PAGE_SIZE = 500;
 
+export interface SymbolReviewPageRange {
+  readonly end: number;
+  readonly start: number;
+}
+
 export interface SymbolReviewFilters {
   readonly gameId: string | null;
   readonly state: SymbolCellReviewFilterState;
@@ -40,6 +45,20 @@ export function createSymbolReviewWorkspaceState(
   filters: SymbolReviewFilters,
 ): SymbolReviewWorkspaceState {
   return { currentPage: null, filters };
+}
+
+export function symbolReviewPageRange(
+  pageNumber: number,
+  itemCount: number,
+  totalCount: number,
+): SymbolReviewPageRange | null {
+  if (pageNumber < 1 || itemCount < 1 || totalCount < 1) return null;
+  const start = (pageNumber - 1) * SYMBOL_REVIEW_PAGE_SIZE + 1;
+  if (start > totalCount) return null;
+  return {
+    end: Math.min(start + itemCount - 1, totalCount),
+    start,
+  };
 }
 
 export function symbolReviewWorkspaceReducer(

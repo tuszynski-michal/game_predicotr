@@ -56,6 +56,7 @@ import {
 } from './symbol-review-selection-state';
 import {
   createSymbolReviewWorkspaceState,
+  symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
   type SymbolReviewPagePosition,
@@ -178,6 +179,15 @@ export function SymbolReviewWorkspace({
   }, [directPendingCellIds, trackedOperations]);
   const selectedCount =
     currentPage === null ? 0 : selectedSymbolReviewCount(selection);
+  const currentFilteredCount =
+    currentPage === null
+      ? 0
+      : filteredSymbolReviewCount(currentPage, filters.state);
+  const currentPageRange = symbolReviewPageRange(
+    currentPageNumber,
+    currentPage?.items.length ?? 0,
+    currentFilteredCount,
+  );
   const hasLoadError =
     gamesState === 'error' ||
     symbolsState === 'error' ||
@@ -760,9 +770,11 @@ export function SymbolReviewWorkspace({
             </span>
             <div className={styles.summaryActions}>
               <span>
-                Strona {currentPageNumber} · {currentItems.length} /{' '}
-                {filteredSymbolReviewCount(currentPage, filters.state)} ·
-                zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
+                Strona {currentPageNumber} · zakres{' '}
+                {currentPageRange === null
+                  ? 'brak wyników'
+                  : `${currentPageRange.start}–${currentPageRange.end}`}{' '}
+                · zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
                 {currentPage.counts.pendingCount}
               </span>
               <button

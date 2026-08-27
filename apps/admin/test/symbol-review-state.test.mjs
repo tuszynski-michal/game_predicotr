@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createSymbolReviewWorkspaceState,
   SYMBOL_REVIEW_PAGE_SIZE,
+  symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
@@ -85,4 +86,20 @@ test('fresh keyset reload replaces changed rows instead of merging a page cache'
     ['replacement', 'next'],
   );
   assert.deepEqual(state.currentPage.position, position);
+});
+
+test('reports the one-based range represented by a bounded page', () => {
+  assert.deepEqual(symbolReviewPageRange(1, 500, 1_240), {
+    start: 1,
+    end: 500,
+  });
+  assert.deepEqual(symbolReviewPageRange(2, 500, 1_240), {
+    start: 501,
+    end: 1_000,
+  });
+  assert.deepEqual(symbolReviewPageRange(3, 240, 1_240), {
+    start: 1_001,
+    end: 1_240,
+  });
+  assert.equal(symbolReviewPageRange(1, 0, 0), null);
 });

@@ -172,6 +172,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   sukces usuwa przetworzone karty bez kosztownego uzupełniania strony; wynik
   częściowy pozostawia je do świadomego ponowienia. Toast jest stały 50 px od
   lewego i dolnego brzegu zamiast zasłaniać sticky toolbar.
+- `v0.8.49` porządkuje podsumowanie strony Weryfikacji symboli. Operator widzi
+  numer strony, jednoznaczny zakres pozycji `1–500`, `501–1000` itd. oraz pełne
+  liczniki zatwierdzonych i oczekujących cropów; ostatni zakres jest ograniczony
+  do rzeczywistej liczby wyników.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy

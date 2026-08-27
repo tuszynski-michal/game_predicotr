@@ -342,8 +342,10 @@ są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego asse
 pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
 pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
 stanie aplikacji.
-Podsumowanie pokazuje numer strony, liczbę widocznych cropów i pełną liczbę
-wyników wybranego symbolu i stanu.
+Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji (np.
+`1–500`, `501–1000`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
+wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
+wyników.
 Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie

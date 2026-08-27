@@ -89,5 +89,8 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /persistedCellCount/);
   assert.match(source, /activeJobId/);
   assert.match(source, /Strona \{currentPageNumber\}/);
+  assert.match(source, /currentPageRange\.start/);
+  assert.match(source, /currentPageRange\.end/);
+  assert.match(source, /zakres/);
   assert.match(source, /filteredSymbolReviewCount/);
 });

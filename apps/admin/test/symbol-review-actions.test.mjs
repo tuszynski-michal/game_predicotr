@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  loadSymbolReviewProjection,
   loadSymbolReviewPage,
   loadSymbolReviewSymbols,
+  startSymbolReviewProjection,
 } from '../src/features/symbol-reviews/symbol-review-actions.ts';
 
 const gameId = '11111111-1111-4111-8111-111111111111';
@@ -20,10 +22,64 @@ function client(overrides = {}) {
     listGames: async () => ({ data: [] }),
     listSymbolCellReviews: async () => ({ data: page }),
     listSymbols: async () => ({ data: [] }),
+    getSymbolCellReviewProjectionStatus: async () => ({
+      data: { gameId, status: 'not_started' },
+    }),
+    startSymbolCellReviewProjectionBackfill: async () => ({
+      data: {
+        created: true,
+        jobId: 'job-1',
+        projection: { gameId, status: 'rebuilding' },
+      },
+    }),
     symbolCellReviewAssetUrl: () => '',
     ...overrides,
   };
 }
+
+test('loads projection readiness and starts the durable preparation job', async () => {
+  const status = {
+    activeJobId: null,
+    databaseFreeBytesCurrent: 1_000,
+    expectedBoardCount: 2,
+    expectedCellCount: 30,
+    failureMessage: null,
+    gameId,
+    indexBytesBefore: 0,
+    indexBytesCurrent: 0,
+    invalidCropCount: 0,
+    invalidGeometryCount: 0,
+    missingSequenceCount: 0,
+    persistedCellCount: 0,
+    processedBoardCount: 0,
+    sampleProblemReviewItemIds: [],
+    status: 'not_started',
+    tableBytesBefore: 0,
+    tableBytesCurrent: 0,
+  };
+  let starts = 0;
+  const api = client({
+    getSymbolCellReviewProjectionStatus: async () => ({ data: status }),
+    startSymbolCellReviewProjectionBackfill: async () => {
+      starts += 1;
+      return {
+        data: {
+          created: true,
+          jobId: '22222222-2222-4222-8222-222222222222',
+          projection: { ...status, status: 'rebuilding' },
+        },
+      };
+    },
+  });
+
+  assert.deepEqual(await loadSymbolReviewProjection(api, gameId), {
+    ok: true,
+    status,
+  });
+  const started = await startSymbolReviewProjection(api, gameId);
+  assert.equal(started.ok, true);
+  assert.equal(starts, 1);
+});
 
 test('loads a bounded, checksum-independent metadata page with its keyset cursor', async () => {
   let request;

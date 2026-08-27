@@ -35,8 +35,10 @@ test('uses lazy, checksum-bound assets with a local fallback per failed image', 
 });
 
 test('keeps a bounded responsive page grid with safe bulk review controls', () => {
-  assert.match(source, /Po 60 cropów · w pamięci najwyżej 3 strony/);
-  assert.match(source, /next_page_prefetched/);
+  assert.match(source, /IntersectionObserver/);
+  assert.match(source, /maks\. 180 cropów/);
+  assert.match(source, /topSentinelRef/);
+  assert.match(source, /bottomSentinelRef/);
   assert.match(styles, /repeat\(auto-fill, minmax\(144px, 1fr\)\)/);
   assert.match(source, /Zaznacz widoczną stronę/);
   assert.match(source, /Zaznacz wszystkie wyniki filtra/);
@@ -47,4 +49,13 @@ test('keeps a bounded responsive page grid with safe bulk review controls', () =
   assert.doesNotMatch(source, /setInterval/);
   assert.doesNotMatch(source, /Edytuj siatkę/);
   assert.match(styles, /position: sticky/);
+  assert.match(styles, /overflow-y: auto/);
+});
+
+test('shows durable projection preparation states and progress', () => {
+  assert.match(source, /Przygotuj weryfikację symboli/);
+  assert.match(source, /Wznów przygotowanie/);
+  assert.match(source, /processedBoardCount/);
+  assert.match(source, /persistedCellCount/);
+  assert.match(source, /activeJobId/);
 });

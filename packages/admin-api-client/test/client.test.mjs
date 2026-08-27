@@ -2159,6 +2159,51 @@ test('symbol cell review client binds the keyset filter and checksum asset URL',
   );
 });
 
+test('symbol cell review client reads and starts durable projection preparation', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        activeJobId: null,
+        databaseFreeBytesCurrent: 1_000,
+        expectedBoardCount: 2,
+        expectedCellCount: 30,
+        failureMessage: null,
+        gameId,
+        indexBytesBefore: 0,
+        indexBytesCurrent: 0,
+        invalidCropCount: 0,
+        invalidGeometryCount: 0,
+        missingSequenceCount: 0,
+        persistedCellCount: 0,
+        processedBoardCount: 0,
+        sampleProblemReviewItemIds: [],
+        status: 'not_started',
+        tableBytesBefore: 0,
+        tableBytesCurrent: 0,
+      });
+    },
+  });
+
+  await client.getSymbolCellReviewProjectionStatus(gameId);
+  await client.startSymbolCellReviewProjectionBackfill(gameId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/symbol-cell-review-projection`],
+      ['POST', `/api/v1/admin/games/${gameId}/symbol-cell-review-projection`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `symbol-cell-review-projection:${gameId}`,
+  );
+});
+
 test('cleanup client binds previews and destructive calls to exact targets', async () => {
   const requests = [];
   const releaseId = '22222222-2222-4222-8222-222222222222';

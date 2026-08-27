@@ -335,12 +335,17 @@ a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
 Pierwsza aktywna pozycja katalogu jest domyślna. Widok pobiera keysetowo po 60
-aktualnych cropów i trzyma w pamięci najwyżej stronę bieżącą oraz jej dwóch
-bezpośrednich sąsiadów. Miniatury są ładowane leniwie spod checksum-bound
+aktualnych cropów. Dwukierunkowy infinite scroll używa górnego i dolnego
+sentinela, zachowuje kotwicę przy usunięciu odległej strony i trzyma w pamięci
+najwyżej trzy strony, czyli 180 rekordów. Miniatury są ładowane leniwie spod checksum-bound
 lokalnego Admin API; brak jednego assetu pokazuje placeholder tylko tej karty.
 Karta zawiera nazwę przypisania, numer planszy, pozycję wiersz/kolumna, stan
 review oraz badge `Zła siatka`. Do czasu gotowości projekcji gra pokazuje
-kontrolowany stan przebudowy, a nie mylący pusty wynik. Zaznaczanie i masowe
+kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
+oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
+`Przygotuj weryfikację symboli` albo `Wznów przygotowanie`. Polling jednego joba
+nie nakłada requestów, a po `ready` automatycznie otwiera bounded listę cropów.
+Zaznaczanie i masowe
 operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
 zaznaczać pojedyncze karty lub widoczną stronę, a dla całego filtra przejść w
 tryb snapshotu z listą wykluczeń. Zmiana gry, symbolu albo stanu przed

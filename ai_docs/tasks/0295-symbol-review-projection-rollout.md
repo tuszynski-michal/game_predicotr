@@ -51,9 +51,9 @@ pokazuje wyłącznie stan przygotowania.
 - [x] Restart wznawia pracę od checkpointu w partiach maksymalnie 200 plansz.
 - [x] Stan `ready` wymaga 15 aktualnych komórek dla każdego właściciela planszy.
 - [x] Nowe i zmienione plansze są objęte write-through i końcową reconciliacją.
-- [ ] Admin pokazuje status, progres, diagnostykę i akcję wznowienia.
-- [ ] Infinite scroll pobiera po 60 i przechowuje maksymalnie 180 rekordów.
-- [ ] Nie uruchomiono benchmarku ani syntetycznego fixture'u wielomilionowego.
+- [x] Admin pokazuje status, progres, diagnostykę i akcję wznowienia.
+- [x] Infinite scroll pobiera po 60 i przechowuje maksymalnie 180 rekordów.
+- [x] Nie uruchomiono benchmarku ani syntetycznego fixture'u wielomilionowego.
 
 ## Technical notes
 
@@ -92,6 +92,8 @@ npm run typecheck
 - TASK 2: dodano maksymalnie trzy bounded przebiegi reconciliacji, ochronę
   decyzji człowieka, końcową kontrolę 15 cropów oraz metryki miejsca bez
   benchmarku.
+- TASK 3: dodano UI startu/wznowienia i progresu, bounded polling oraz
+  dwukierunkowy infinite scroll z zachowaniem kotwicy i limitem 180 rekordów.
 
 ### Verification results
 
@@ -99,10 +101,12 @@ npm run typecheck
 - Istniejący test integracyjny PostgreSQL wznowienia został wskazany, ale w
   bieżącym środowisku pozostaje pominięty bez
   `GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`.
+- Admin: 281 testów, lint, typecheck i build zaliczone. Klient API: 45 testów,
+  lint, typecheck, build oraz OpenAPI check zaliczone.
 
 ### Not completed
 
-- TASK 3 oraz kontrolowane uruchomienie.
+- Kontrolowane uruchomienie na grze `777`.
 
 ### Documentation updates
 
@@ -110,4 +114,5 @@ npm run typecheck
 
 ### Recommended next task
 
-- TASK 3 — progres i bounded infinite scroll w Adminie.
+- Migracja `0070`, kontrolowany start po zakończeniu bieżącego preflightu i
+  monitorowanie rzeczywistych liczników bez benchmarku.

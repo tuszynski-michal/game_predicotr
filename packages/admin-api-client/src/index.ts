@@ -66,6 +66,7 @@ import {
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
+  getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
@@ -167,6 +168,7 @@ import {
   searchGameBoards as searchGeneratedGameBoards,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
+  startSymbolCellReviewProjectionBackfill as startGeneratedSymbolCellReviewProjectionBackfill,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
@@ -254,6 +256,8 @@ import type {
   SymbolCellReviewBulkOperationStartRequest,
   SymbolCellReviewBulkOperationStartResponse,
   SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewProjectionStartResponse,
+  SymbolCellReviewProjectionStatusResponse,
   WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
@@ -431,6 +435,8 @@ export type {
   SymbolCellReviewBulkOperationStartRequest,
   SymbolCellReviewBulkOperationStartResponse,
   SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewProjectionStartResponse,
+  SymbolCellReviewProjectionStatusResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewPageResponse,
@@ -1525,6 +1531,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    getSymbolCellReviewProjectionStatus: (gameId: string) =>
+      getGeneratedSymbolCellReviewProjectionStatus({
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolCellReviewProjectionBackfill: (gameId: string) =>
+      startGeneratedSymbolCellReviewProjectionBackfill({
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-cell-review-projection:${gameId}`,
+        ),
+        path: { game_id: gameId },
       }),
     listSymbolCellReviews: (options: ListSymbolCellReviewsOptions) =>
       listGeneratedSymbolCellReviews({

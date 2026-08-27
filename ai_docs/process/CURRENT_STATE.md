@@ -125,6 +125,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   decyzji człowieka. `ready` nadal wymaga 15 aktualnych cropów per właściciel.
   Status raportuje rozmiar tabeli, indeksów i — gdy katalog danych PostgreSQL
   jest dostępny lokalnie — bieżące wolne miejsce; nie uruchamia benchmarku.
+- Od `v0.8.37` workspace Admina pokazuje start, wznowienie, ID i progres tego
+  joba oraz automatycznie przechodzi do cropów po `ready`. Ręczne przyciski
+  stron zostały zastąpione dwukierunkowym infinite scrollem na keysetach po 60;
+  bufor pozostaje ograniczony do maksymalnie 180 rekordów, a usuwanie odległej
+  strony zachowuje kotwicę scrolla. Assety nadal są lazy-loaded.
 - Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
   profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
   cropów; analiza wykazuje bounded keyset, 180 metadanych po stronie Admina i

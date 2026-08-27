@@ -105,6 +105,14 @@ export function symbolReviewBufferedPageCount(
   ).length;
 }
 
+export function symbolReviewBufferedPages(
+  state: SymbolReviewWorkspaceState,
+): readonly SymbolCellReviewPageResponse[] {
+  return [state.pages.previous, state.pages.current, state.pages.next].filter(
+    (page): page is SymbolCellReviewPageResponse => page !== null,
+  );
+}
+
 function emptySymbolReviewPageBuffer(): SymbolReviewPageBuffer {
   return { current: null, next: null, previous: null };
 }

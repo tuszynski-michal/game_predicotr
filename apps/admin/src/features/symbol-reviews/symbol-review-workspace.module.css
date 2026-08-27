@@ -54,8 +54,7 @@
   white-space: nowrap;
 }
 
-.summary,
-.pagination {
+.summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -147,12 +146,65 @@
   font-weight: 700;
 }
 
-.pagination {
-  padding-top: 2px;
+.scrollViewport {
+  display: grid;
+  max-height: min(70vh, 920px);
+  gap: 12px;
+  padding: 2px 6px 8px 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
-.pagination span {
-  text-align: center;
+.bufferedPage {
+  min-width: 0;
+}
+
+.sentinel {
+  height: 1px;
+}
+
+.streamStatus {
+  position: sticky;
+  bottom: 0;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  font-size: 0.76rem;
+}
+
+.projectionStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.projectionStatus h2,
+.projectionStatus p {
+  margin: 0;
+}
+
+.projectionStatus h2 {
+  margin-bottom: 7px;
+  font-size: 1rem;
+}
+
+.projectionStatus p {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.projectionStatus button {
+  flex: 0 0 auto;
 }
 
 .toolbar {
@@ -272,13 +324,9 @@
   }
 
   .summary,
-  .pagination {
+  .projectionStatus {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .pagination button {
-    width: 100%;
   }
 
   .toolbar {

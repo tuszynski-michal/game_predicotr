@@ -2,6 +2,8 @@ import type {
   GameResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewProjectionStartResponse,
+  SymbolCellReviewProjectionStatusResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -16,8 +18,71 @@ export type SymbolReviewClient = Pick<
   | 'listGames'
   | 'listSymbols'
   | 'listSymbolCellReviews'
+  | 'getSymbolCellReviewProjectionStatus'
+  | 'startSymbolCellReviewProjectionBackfill'
   | 'symbolCellReviewAssetUrl'
 >;
+
+export type SymbolReviewProjectionResult =
+  | {
+      readonly ok: true;
+      readonly status: SymbolCellReviewProjectionStatusResponse;
+    }
+  | { readonly error: string; readonly ok: false };
+
+export async function loadSymbolReviewProjection(
+  api: SymbolReviewClient,
+  gameId: string,
+): Promise<SymbolReviewProjectionResult> {
+  try {
+    const result = await api.getSymbolCellReviewProjectionStatus(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać stanu przygotowania weryfikacji symboli.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, status: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function startSymbolReviewProjection(
+  api: SymbolReviewClient,
+  gameId: string,
+): Promise<
+  | {
+      readonly ok: true;
+      readonly value: SymbolCellReviewProjectionStartResponse;
+    }
+  | { readonly error: string; readonly ok: false }
+> {
+  try {
+    const result = await api.startSymbolCellReviewProjectionBackfill(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się rozpocząć przygotowania weryfikacji symboli.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, value: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
 
 export interface LoadSymbolReviewPageOptions {
   readonly afterCursor?: string;

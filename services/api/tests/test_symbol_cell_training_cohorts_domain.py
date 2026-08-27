@@ -7,6 +7,7 @@ from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.domain.symbol_cell_training_cohorts import (
     ApprovedSymbolCellCandidate,
     SymbolCellSelectionConfig,
+    build_symbol_cell_training_manifest,
     select_symbol_cell_training_samples,
 )
 
@@ -37,6 +38,7 @@ def _candidate(
         crop_relative_path=f"crops/{index}.jpg",
         crop_checksum_sha256=checksum or f"{index + 1:064x}",
         source_checksum_sha256=f"{index + 10_000:064x}",
+        source_relative_path=f"originals/{index}.jpg",
         cropper_version="cropper-v1",
         prediction_symbol_code=predicted,
         perceptual_hash_64=index if perceptual_hash is None else perceptual_hash,
@@ -178,3 +180,22 @@ def test_candidate_traversal_performs_a_bounded_number_of_similarity_checks(
     )
 
     assert comparisons <= candidate_count * 4 * 8
+
+
+def test_manifest_contains_individual_cells_without_requiring_a_complete_board() -> None:
+    game_id = uuid4()
+    selection = select_symbol_cell_training_samples(
+        candidates=[_candidate(0), _candidate(1, symbol_code="plum", predicted="cherry")],
+        active_symbol_codes=("cherry", "plum"),
+    )
+
+    manifest, content, checksum = build_symbol_cell_training_manifest(
+        game_id=game_id, selection=selection
+    )
+
+    assert manifest["schemaVersion"] == 2
+    assert manifest["datasetKind"] == "verified-symbol-cell-training-cohort-v2"
+    assert len(manifest["cells"]) == 2
+    assert "boards" not in manifest
+    assert len(content) > 0
+    assert len(checksum) == 64

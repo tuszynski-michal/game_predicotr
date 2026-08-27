@@ -41,6 +41,9 @@ class VerifiedTrainingCohortSource:
     rejected_item_count: int
     incomplete_item_count: int
     warnings: tuple[str, ...]
+    dataset_kind: str = VERIFIED_TRAINING_COHORT_DATASET_KIND
+    manifest_schema_version: int = VERIFIED_TRAINING_COHORT_SCHEMA_VERSION
+    cells: tuple[Mapping[str, object], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

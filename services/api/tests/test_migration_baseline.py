@@ -80,6 +80,7 @@ SYMBOL_CELL_REVIEW_CATALOG_REVISION = "0067_symbol_cell_review_catalog_revision"
 IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION = "0068_image_symbol_review_bulk_operations"
 PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
 SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job"
+SYMBOL_CELL_TRAINING_COHORTS_REVISION = "0071_symbol_cell_training_cohorts"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -185,8 +186,16 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_cell_review_backfill_job = script.get_revision(
         SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
     )
-    assert script.get_heads() == [SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION]
+    symbol_cell_training_cohorts = script.get_revision(
+        SYMBOL_CELL_TRAINING_COHORTS_REVISION
+    )
+    assert script.get_heads() == [SYMBOL_CELL_TRAINING_COHORTS_REVISION]
     assert baseline is not None
+    assert symbol_cell_training_cohorts is not None
+    assert (
+        symbol_cell_training_cohorts.down_revision
+        == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
+    )
     assert baseline.down_revision is None
     assert catalog is not None
     assert catalog.down_revision == BASELINE_REVISION

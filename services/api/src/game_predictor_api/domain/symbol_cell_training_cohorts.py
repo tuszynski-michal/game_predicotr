@@ -35,6 +35,7 @@ class ApprovedSymbolCellCandidate:
     crop_relative_path: str
     crop_checksum_sha256: str
     source_checksum_sha256: str
+    source_relative_path: str
     cropper_version: str
     prediction_symbol_code: str | None
     perceptual_hash_64: int
@@ -67,6 +68,68 @@ class SymbolCellSelectionCoverage:
 class SymbolCellTrainingSelection:
     samples: tuple[SelectedSymbolCellSample, ...]
     coverage: tuple[SymbolCellSelectionCoverage, ...]
+
+
+def build_symbol_cell_training_manifest(
+    *, game_id: UUID, selection: SymbolCellTrainingSelection
+) -> tuple[dict[str, object], bytes, str]:
+    """Materialize one immutable v2 manifest from a completed selection."""
+
+    import hashlib
+
+    from game_predictor_api.domain.image_reviews import canonical_image_review_bytes
+
+    cells: list[dict[str, object]] = []
+    for sample in selection.samples:
+        candidate = sample.candidate
+        cells.append(
+            {
+                "cellIndex": candidate.cell_index,
+                "cellReviewId": str(candidate.cell_review_id),
+                "cellRevision": candidate.cell_revision,
+                "cropChecksumSha256": candidate.crop_checksum_sha256,
+                "cropRelativePath": candidate.crop_relative_path,
+                "cropSampleId": candidate.crop_sample_id,
+                "cropperVersion": candidate.cropper_version,
+                "geometryRevision": candidate.geometry_revision,
+                "importJobId": str(candidate.import_job_id),
+                "recognizedBoardId": str(candidate.recognized_board_id),
+                "reviewItemId": str(candidate.review_item_id),
+                "selectionReason": sample.selection_reason,
+                "sequenceNumber": candidate.sequence_number,
+                "source": {
+                    "checksumSha256": candidate.source_checksum_sha256,
+                    "relativePath": candidate.source_relative_path,
+                },
+                "sourceImageId": str(candidate.source_image_id),
+                "symbolCode": candidate.symbol_code,
+            }
+        )
+    manifest: dict[str, object] = {
+        "cells": cells,
+        "counts": {
+            "cellSamples": len(cells),
+            "sourceImages": len({sample.candidate.source_image_id for sample in selection.samples}),
+        },
+        "coverage": [
+            {
+                "correctedEligible": item.corrected_eligible_count,
+                "eligible": item.eligible_count,
+                "exactDuplicates": item.exact_duplicate_count,
+                "nearDuplicates": item.near_duplicate_count,
+                "representedSources": item.represented_source_count,
+                "selected": item.selected_count,
+                "selectedCorrections": item.selected_correction_count,
+                "symbolCode": item.symbol_code,
+            }
+            for item in selection.coverage
+        ],
+        "datasetKind": SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND,
+        "gameId": str(game_id),
+        "schemaVersion": SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
+    }
+    content = canonical_image_review_bytes(manifest)
+    return manifest, content, hashlib.sha256(content).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,5 +360,6 @@ __all__ = [
     "SymbolCellSelectionConfig",
     "SymbolCellSelectionCoverage",
     "SymbolCellTrainingSelection",
+    "build_symbol_cell_training_manifest",
     "select_symbol_cell_training_samples",
 ]

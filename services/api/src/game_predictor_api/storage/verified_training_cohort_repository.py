@@ -18,7 +18,6 @@ from game_predictor_api.domain.image_reviews import (
     canonical_image_review_bytes,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
-    VERIFIED_TRAINING_COHORT_SCHEMA_VERSION,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
     VerifiedTrainingCohortSource,
@@ -116,7 +115,8 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
         record = VerifiedTrainingCohortModel(
             game_id=source.game_id,
             iteration_number=iteration_number,
-            manifest_schema_version=VERIFIED_TRAINING_COHORT_SCHEMA_VERSION,
+            manifest_schema_version=source.manifest_schema_version,
+            dataset_kind=source.dataset_kind,
             manifest_checksum_sha256=source.manifest_checksum_sha256,
             idempotency_key=idempotency_key,
             command_sha256=command_sha256,

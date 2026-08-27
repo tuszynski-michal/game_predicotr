@@ -2635,7 +2635,7 @@ class VerifiedTrainingCohortModel(Base):
         ),
         CheckConstraint(
             "resolved_layout_count > 0 "
-            "AND cell_sample_count = resolved_layout_count * 15 "
+            "AND cell_sample_count > 0 "
             "AND source_image_count > 0 "
             "AND pending_item_count >= 0 "
             "AND rejected_item_count >= 0 "
@@ -2671,6 +2671,9 @@ class VerifiedTrainingCohortModel(Base):
     )
     iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
     manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_kind: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="verified-training-cohort-v1"
+    )
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
     command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)

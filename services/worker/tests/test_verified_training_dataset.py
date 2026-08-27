@@ -129,6 +129,70 @@ def _symbols() -> tuple[TrainingSymbol, ...]:
     )
 
 
+def _cell_cohort(artifact_root: Path) -> tuple[Path, str]:
+    data_root = artifact_root / "data"
+    cells: list[dict[str, object]] = []
+    for index, code in enumerate(("A", "B", "A", "B")):
+        content = f"approved-cell-{index}".encode()
+        crop_checksum = hashlib.sha256(content).hexdigest()
+        crop_relative = f"working/crops/{crop_checksum}.png"
+        destination = data_root / Path(*crop_relative.split("/"))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+        source_checksum = hashlib.sha256(f"source-{index // 2}".encode()).hexdigest()
+        cells.append(
+            {
+                "cellIndex": index,
+                "cellReviewId": f"cell-review-{index}",
+                "cellRevision": 2,
+                "cropChecksumSha256": crop_checksum,
+                "cropRelativePath": crop_relative,
+                "cropSampleId": hashlib.sha256(f"sample-v2-{index}".encode()).hexdigest(),
+                "cropperVersion": "cropper-v2",
+                "geometryRevision": 1,
+                "importJobId": "import-v2",
+                "recognizedBoardId": f"board-{index // 2}",
+                "reviewItemId": f"review-{index // 2}",
+                "selectionReason": "human_correction" if index == 0 else "diverse_approval",
+                "sequenceNumber": index // 2 + 1,
+                "source": {
+                    "checksumSha256": source_checksum,
+                    "relativePath": f"originals/{source_checksum}.jpg",
+                },
+                "sourceImageId": f"source-image-{index // 2}",
+                "symbolCode": code,
+            }
+        )
+    payload = {
+        "cells": cells,
+        "counts": {"cellSamples": 4, "sourceImages": 2},
+        "datasetKind": "verified-symbol-cell-training-cohort-v2",
+        "gameId": "00000000-0000-0000-0000-000000000001",
+        "schemaVersion": 2,
+    }
+    content = _canonical(payload)
+    path = data_root / "training" / "fixture-cell-cohort.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    return path, hashlib.sha256(content).hexdigest()
+
+
+def test_cell_cohort_trains_without_a_complete_board(work_root: Path) -> None:
+    cohort_path, cohort_checksum = _cell_cohort(work_root)
+
+    result = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=cohort_checksum,
+        artifact_root=work_root,
+        game_code="fixture-game-v2",
+        symbols=_symbols(),
+    )
+
+    assert result.sample_count == 4
+    assert result.source_family_count == 2
+    assert {sample["symbolCode"] for sample in result.manifest["samples"]} == {"A", "B"}
+
+
 def test_build_is_deterministic_content_addressed_and_source_disjoint(
     work_root: Path,
 ) -> None:

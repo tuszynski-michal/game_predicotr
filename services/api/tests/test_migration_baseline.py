@@ -176,7 +176,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     remove_symbol_bootstrap = script.get_revision(REMOVE_SYMBOL_BOOTSTRAP_REVISION)
     image_symbol_review_cells = script.get_revision(IMAGE_SYMBOL_REVIEW_CELLS_REVISION)
     symbol_cell_review_catalog = script.get_revision(SYMBOL_CELL_REVIEW_CATALOG_REVISION)
-    assert script.get_heads() == [SYMBOL_CELL_REVIEW_CATALOG_REVISION]
+    image_symbol_review_bulk_operations = script.get_revision(
+        IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION
+    )
+    assert script.get_heads() == [IMAGE_SYMBOL_REVIEW_BULK_OPERATIONS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -328,6 +331,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert symbol_cell_review_catalog is not None
     assert image_symbol_review_cells.down_revision == REMOVE_SYMBOL_BOOTSTRAP_REVISION
     assert symbol_cell_review_catalog.down_revision == IMAGE_SYMBOL_REVIEW_CELLS_REVISION
+    assert image_symbol_review_bulk_operations is not None
+    assert (
+        image_symbol_review_bulk_operations.down_revision
+        == SYMBOL_CELL_REVIEW_CATALOG_REVISION
+    )
     assert (
         remote_manual_selection_persistence.down_revision
         == BOARD_CELL_GEOMETRY_PIPELINE_STAGE_REVISION

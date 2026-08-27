@@ -25,7 +25,12 @@ def upgrade() -> None:
         sa.Column("model_checksum_sha256", sa.String(length=64), nullable=False),
         sa.Column("crop_manifest_checksum_sha256", sa.String(length=64), nullable=False),
         sa.Column("predictions", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "length(btrim(model_version)) > 0 AND model_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_symbol_prediction_revisions_model",
@@ -35,10 +40,18 @@ def upgrade() -> None:
             name="ck_image_symbol_prediction_revisions_crop_manifest",
         ),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["recognized_board_id"], ["recognized_boards.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["recognized_board_id"], ["recognized_boards.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(["source_job_id"], ["jobs.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["model_iteration_id"], ["symbol_model_iterations.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["model_iteration_id"],
+            ["symbol_model_iterations.id"],
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "review_item_id",

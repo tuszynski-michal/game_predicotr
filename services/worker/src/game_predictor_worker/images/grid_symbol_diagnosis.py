@@ -187,15 +187,19 @@ def build_diagnostic_document(
             "corrected": corrected,
             "delta": {
                 "meanManualCorrectionsPerBoard": round(
-                    corrected["meanManualCorrectionsPerBoard"]
-                    - baseline["meanManualCorrectionsPerBoard"],
+                    _numeric_metric(corrected, "meanManualCorrectionsPerBoard")
+                    - _numeric_metric(baseline, "meanManualCorrectionsPerBoard"),
                     8,
                 ),
                 "symbolAccuracy": round(
-                    corrected["symbolAccuracy"] - baseline["symbolAccuracy"], 8
+                    _numeric_metric(corrected, "symbolAccuracy")
+                    - _numeric_metric(baseline, "symbolAccuracy"),
+                    8,
                 ),
                 "wholeBoardAccuracy": round(
-                    corrected["wholeBoardAccuracy"] - baseline["wholeBoardAccuracy"], 8
+                    _numeric_metric(corrected, "wholeBoardAccuracy")
+                    - _numeric_metric(baseline, "wholeBoardAccuracy"),
+                    8,
                 ),
             },
             "byStaging": by_staging,
@@ -262,6 +266,16 @@ def _metrics(boards: Sequence[DiagnosticBoard], *, variant: str) -> dict[str, ob
 
 def _mean(values: Sequence[float]) -> float | None:
     return None if not values else round(fmean(values), 8)
+
+
+def _numeric_metric(metrics: Mapping[str, object], key: str) -> float:
+    value = metrics[key]
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise GridSymbolDiagnosisError(
+            "GRID_SYMBOL_DIAGNOSIS_METRIC_INVALID",
+            f"Diagnostic metric {key} must be numeric.",
+        )
+    return float(value)
 
 
 __all__ = [

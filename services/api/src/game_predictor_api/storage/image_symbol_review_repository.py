@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import String, and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql import ColumnElement, Select
 
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
 from game_predictor_api.application.image_symbol_review_mutations import (
@@ -246,7 +247,9 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             current_geometry_revision=int(current_geometry_revision),
         )
 
-    def _list_statement(self, *, review_filter: SymbolCellReviewListFilter):
+    def _list_statement(
+        self, *, review_filter: SymbolCellReviewListFilter
+    ) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         assigned_symbol = aliased(SymbolModel)
         return self._visible_statement(review_filter=review_filter).add_columns(
@@ -256,7 +259,9 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             assigned_symbol.name.label("assigned_symbol_name"),
         ).outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
 
-    def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter):
+    def _visible_statement(
+        self, *, review_filter: SymbolCellReviewListFilter
+    ) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
         statement = (
@@ -1241,7 +1246,7 @@ def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
     return cell.sequence_number, cell.cell_index, cell.review_item_id.cast(String)
 
 
-def _symbol_cell_review_after_key(key: tuple[int, int, str]):
+def _symbol_cell_review_after_key(key: tuple[int, int, str]) -> ColumnElement[bool]:
     sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
     return or_(
         sequence > key[0],
@@ -1250,7 +1255,7 @@ def _symbol_cell_review_after_key(key: tuple[int, int, str]):
     )
 
 
-def _symbol_cell_review_before_key(key: tuple[int, int, str]):
+def _symbol_cell_review_before_key(key: tuple[int, int, str]) -> ColumnElement[bool]:
     sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
     return or_(
         sequence < key[0],
@@ -1742,7 +1747,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             .with_for_update(of=ImageReviewItemModel)
             .limit(limit)
         )
-        return tuple(cast(BackfillRow, row) for row in self._session.execute(statement).tuples())
+        return tuple(self._session.execute(statement).tuples())
 
     def _cell_values(self, rows: Sequence[BackfillRow]) -> list[dict[str, object]]:
         # Kept local so the operational Reviewer can use the write-through
@@ -1765,7 +1770,7 @@ class SqlAlchemyImageSymbolReviewRepository:
         ):
             observations_by_board[observation.recognized_board_id].append(observation)
         revisions_by_board: dict[UUID, ImageBoardGeometryRevisionModel] = {}
-        for geometry in self._session.scalars(
+        for geometry_revision_record in self._session.scalars(
             select(ImageBoardGeometryRevisionModel)
             .where(ImageBoardGeometryRevisionModel.recognized_board_id.in_(board_ids))
             .order_by(
@@ -1773,7 +1778,9 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ImageBoardGeometryRevisionModel.revision,
             )
         ):
-            revisions_by_board[geometry.recognized_board_id] = geometry
+            revisions_by_board[
+                geometry_revision_record.recognized_board_id
+            ] = geometry_revision_record
         prediction_by_item: dict[UUID, ImageSymbolPredictionRevisionModel] = {}
         for prediction in self._session.scalars(
             select(ImageSymbolPredictionRevisionModel)
@@ -1801,7 +1808,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             prediction_override = (
                 None if prediction_revision is None else list(prediction_revision.predictions)
             )
-            geometry = revisions_by_board.get(board.id)
+            current_geometry = revisions_by_board.get(board.id)
             observations = observations_by_board[board.id]
             try:
                 current_cells = materialize_current_image_review_cells(
@@ -1811,13 +1818,13 @@ class SqlAlchemyImageSymbolReviewRepository:
                     queue_item=queue_item,
                     job=job,
                     observations=observations,
-                    geometry_revision=geometry,
+                    geometry_revision=current_geometry,
                     prediction_override=prediction_override,
                 )
                 cropper_version = _current_cropper_version(
                     board=board,
                     observations=observations,
-                    geometry=geometry,
+                    geometry=current_geometry,
                 )
                 mapped = map_current_symbol_cell_reviews(
                     cells=current_cells,
@@ -1964,7 +1971,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             .distinct()
             .order_by(ImageSymbolReviewCellModel.review_item_id)
         )
-        return tuple(cast(UUID, value) for value in self._session.scalars(statement))
+        return tuple(self._session.scalars(statement))
 
     def _selected_items_with_stale_base_crop(self, game_id: UUID) -> tuple[UUID, ...]:
         statement = (
@@ -2003,7 +2010,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             .distinct()
             .order_by(ImageSymbolReviewCellModel.review_item_id)
         )
-        return tuple(cast(UUID, value) for value in self._session.scalars(statement))
+        return tuple(self._session.scalars(statement))
 
     def _current_selected_cell_count(self, game_id: UUID) -> int:
         return int(
@@ -2065,7 +2072,7 @@ def _current_cropper_version(
                 "The current board geometry revision is missing.",
                 invalid_geometry_count=1,
             )
-        return cast(str, geometry.cropper_version)
+        return geometry.cropper_version
     versions = {observation.cropper_version for observation in observations}
     if len(versions) != 1:
         raise SymbolCellReviewBackfillError(
@@ -2073,7 +2080,7 @@ def _current_cropper_version(
             "The base board observations do not have one current cropper version.",
             invalid_crop_count=1,
         )
-    return cast(str, next(iter(versions)))
+    return next(iter(versions))
 
 
 __all__ = [

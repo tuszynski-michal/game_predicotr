@@ -334,6 +334,47 @@ def create_app(
     remote_manual_selection_recovery_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
+    custom_service_dependency_supplied = any(
+        dependency is not None
+        for dependency in (
+            catalog_service_dependency,
+            board_search_service_dependency,
+            cleanup_service_dependency,
+            rules_service_dependency,
+            dataset_service_dependency,
+            job_service_dependency,
+            image_selection_service_dependency,
+            image_job_service_dependency,
+            image_folder_selection_service_dependency,
+            browser_image_selection_service_dependency,
+            image_sequence_canonical_service_dependency,
+            iterative_image_import_service_dependency,
+            image_storage_service_dependency,
+            image_review_service_dependency,
+            image_review_cohort_service_dependency,
+            layout_import_report_service_dependency,
+            mobile_release_service_dependency,
+            review_service_dependency,
+            reviewer_access_service_dependency,
+            reviewer_ingress_service_dependency,
+            reviewer_work_lifecycle_service_dependency,
+            symbol_reference_service_dependency,
+            symbol_cell_review_query_service_dependency,
+            symbol_cell_review_bulk_operation_service_dependency,
+            worker_lane_status_service_dependency,
+            verified_training_cohort_service_dependency,
+            symbol_model_iteration_service_dependency,
+            symbol_model_registry_service_dependency,
+            grid_calibration_service_dependency,
+            page_geometry_override_service_dependency,
+            board_cell_geometry_pending_service_dependency,
+            remote_manual_selection_host_service_dependency,
+            remote_manual_selection_access_service_dependency,
+            remote_manual_selection_control_service_dependency,
+            remote_manual_selection_transfer_service_dependency,
+            remote_manual_selection_recovery_service_dependency,
+        )
+    )
     database_engine = create_database_engine(resolved_settings)
     session_factory = create_session_factory(database_engine)
 
@@ -1052,7 +1093,7 @@ def create_app(
             resolved_settings.artifact_root,
         )
     )
-    if remote_manual_selection_recovery_service_dependency is None:
+    if not custom_service_dependency_supplied:
         startup_recovery = RemoteManualSelectionRecoveryRunner(
             session_factory,
             default_remote_manual_selection_host_service,

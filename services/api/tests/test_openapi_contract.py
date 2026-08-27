@@ -439,6 +439,7 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "gameId",
         "importJobId",
         "view",
+        "gridIssueView",
         "afterCursor",
         "beforeCursor",
         "sequenceNumber",
@@ -452,6 +453,10 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "pending",
         "completed",
         "all",
+    }
+    assert set(schema["components"]["schemas"]["ImageReviewGridIssueView"]["enum"]) == {
+        "all",
+        "needs_grid_fix",
     }
     page_schema = schema["components"]["schemas"]["OperationalImageReviewPageResponse"]
     assert "queueVersion" in page_schema["required"]

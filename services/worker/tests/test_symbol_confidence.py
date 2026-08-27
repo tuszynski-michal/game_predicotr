@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from game_predictor_worker.images.symbol_confidence import (
+    TEMPERATURE_MINIMUM,
     ActiveLearningBoard,
     ActiveLearningCell,
     SymbolConfidenceError,
-    TEMPERATURE_MINIMUM,
     build_confidence_policy,
     calibrated_probabilities,
     calibration_metrics,

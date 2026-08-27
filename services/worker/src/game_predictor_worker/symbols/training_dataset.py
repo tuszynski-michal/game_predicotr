@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
 
+from game_predictor_worker.filesystem import long_path_aware
+
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
 TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
@@ -624,9 +626,11 @@ def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
 
 
 def _copy_asset(source: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.exists():
-        if hashlib.sha256(destination.read_bytes()).hexdigest() != source.stem:
+    filesystem_source = long_path_aware(source)
+    filesystem_destination = long_path_aware(destination)
+    filesystem_destination.parent.mkdir(parents=True, exist_ok=True)
+    if filesystem_destination.exists():
+        if hashlib.sha256(filesystem_destination.read_bytes()).hexdigest() != source.stem:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ASSET_COLLISION",
                 "An existing content-addressed asset has different bytes.",
@@ -635,14 +639,14 @@ def _copy_asset(source: Path, destination: Path) -> None:
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=destination.parent,
+            dir=filesystem_destination.parent,
             prefix=".tmp-",
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
         assert temporary is not None
-        shutil.copyfile(source, temporary)
-        os.replace(temporary, destination)
+        shutil.copyfile(filesystem_source, temporary)
+        os.replace(temporary, filesystem_destination)
         temporary = None
     except OSError as error:
         raise TrainingDatasetBuildError(
@@ -680,7 +684,7 @@ def _verify_existing(
             *PurePosixPath(_asset_relative_path(sample, config)).parts
         )
         try:
-            observed = hashlib.sha256(asset.read_bytes()).hexdigest()
+            observed = hashlib.sha256(long_path_aware(asset).read_bytes()).hexdigest()
         except OSError as error:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_INCOMPLETE",

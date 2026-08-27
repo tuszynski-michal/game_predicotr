@@ -94,6 +94,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   100-planszowe checkpointy workerów. Nie potwierdza ona czasu p95 — liczniki
   listy nadal agregują cały filtr — dlatego ewentualny pomiar wymaga osobnej
   decyzji i odizolowanego środowiska zgodnie z D-236.
+- `v0.8.30` przywraca zielone bramki jakości bez uruchamiania benchmarków.
+  Izolowane instancje API z wstrzykniętymi zależnościami nie wykonują
+  produkcyjnego recovery przy starcie, połączenie PostgreSQL ma ograniczony czas
+  zestawiania, a worker zapisuje checksum-bound cropy przez ścieżki odporne na
+  historyczny limit `MAX_PATH` Windows. Zaktualizowano także kontrakty testowe
+  dla joba masowej weryfikacji, migracji `0068` i filtra złej siatki.
 
 ### Wyszukiwanie plansz częściowym układem — TASK-0292
 

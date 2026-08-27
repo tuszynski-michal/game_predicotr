@@ -5,12 +5,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.config import ApiSettings
 
+_DATABASE_CONNECT_TIMEOUT_SECONDS = 5
+
 
 def create_database_engine(settings: ApiSettings, *, echo: bool = False) -> Engine:
     """Create an engine without opening a database connection."""
 
     return create_engine(
         settings.database_url,
+        connect_args={"connect_timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
         echo=echo,
         pool_pre_ping=True,
     )

@@ -516,12 +516,9 @@ class PendingGridReinferenceHandler:
         if hashlib.sha256(source_content).hexdigest() != snapshot.source_checksum_sha256:
             raise ValueError("The pending board source checksum changed before recropping.")
         with Image.open(io.BytesIO(source_content)) as image:
-            rgb = cast(
-                np.ndarray,
-                np.asarray(
-                    ImageOps.exif_transpose(image).convert("RGB"),
-                    dtype=np.uint8,
-                ),
+            rgb = np.asarray(
+                ImageOps.exif_transpose(image).convert("RGB"),
+                dtype=np.uint8,
             )
         image_height, image_width = rgb.shape[:2]
         if (image_width, image_height) != (snapshot.source_width, snapshot.source_height):
@@ -970,7 +967,7 @@ def _cell_output_size_from_payload(job: Job) -> int:
             "IMAGE_GRID_REINFERENCE_CELL_SIZE_INVALID",
             "The pending grid crop output size is invalid.",
         )
-    return cast(int, value)
+    return value
 
 
 __all__ = ["PendingGridReinferenceHandler"]

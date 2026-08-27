@@ -36,6 +36,7 @@ from game_predictor_worker.images.board_cell_geometry_audit import (
 from game_predictor_worker.images.board_cell_geometry_contract import (
     BoardCellGeometryEntry,
     BoardCellQuad,
+    Quad,
     canonical_json_bytes,
 )
 from game_predictor_worker.images.board_cell_geometry_crops import (
@@ -704,7 +705,7 @@ def _manual_cells(value: object) -> tuple[BoardCellQuad, ...] | None:
     return ordered
 
 
-def _float_quad(value: object) -> tuple[tuple[float, float], ...] | None:
+def _float_quad(value: object) -> Quad | None:
     if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
         return None
     points: list[tuple[float, float]] = []
@@ -721,7 +722,7 @@ def _float_quad(value: object) -> tuple[tuple[float, float], ...] | None:
         ):
             return None
         points.append((float(x), float(y)))
-    return tuple(points)
+    return cast(Quad, tuple(points))
 
 
 def _load_managed_source(

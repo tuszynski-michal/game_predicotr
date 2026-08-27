@@ -154,6 +154,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   cache stron ani endpoint merge po ID. Immutable cache miniaturek WebP
   pozostaje jako ochrona transferu. Aktywna decyzja blokuje kolejne akcje i
   nawigację do chwili terminalnego wyniku.
+- `v0.8.46` przenosi domyślny lokalny budżet wykonawczy z nieużywanej
+  automatycznej Selekcji zdjęć do general workera. `npm run workers:start`
+  uruchamia tylko general z budżetem 7; preflight geometrii przetwarza do
+  siedmiu stron równolegle, a OpenCV/BLAS pozostają jednowątkowe na stronę.
+  Nadal istnieje dokładnie jeden aktywny general job. Jawne
+  `npm run workers:start:all` przywraca historyczny bezpieczny profil 2+5,
+  jeżeli automatyczna selekcja ponownie będzie potrzebna.
 - Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
   komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
   Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy

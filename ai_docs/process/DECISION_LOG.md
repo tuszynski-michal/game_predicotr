@@ -5830,6 +5830,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   scalanie cache oraz utrzymanie infinite scrolla odrzucono z powodu ryzyka
   rozjazdu rewizji, duplikatów i niepotrzebnej złożoności.
 
+## D-242 — Domyślny profil workera przeznacza siedem wątków na general
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** `npm run workers:start` uruchamia wyłącznie general lane z
+  kooperacyjnym budżetem siedmiu wątków. Rejestracja geometrii wiąże liczbę
+  równoległych stron z tym budżetem, natomiast biblioteki natywne używają po
+  jednym wątku. Image-selection lane nie startuje domyślnie, ale pozostaje
+  dostępny przez jawny profil `workers:start:all` z podziałem 2+5.
+- **Context:** automatyczna selekcja zdjęć została zastąpiona ręcznym wyborem,
+  podczas gdy kolejka general zawiera kosztowne preflighty geometrii. Komputer
+  ma osiem logicznych procesorów. Dotychczasowy ekran pokazywał budżety 2 i 5,
+  lecz nie były to wymienne procesy jobów: general nadal ma jeden trwały slot.
+- **Safety:** nie zwiększono liczby równocześnie mutujących general jobów i nie
+  zmieniono lease, checkpointów ani execution slotów. Jednowątkowe OpenCV/BLAS
+  zapobiega zagnieżdżonemu fan-outowi do 49 wątków.
+- **Consequences:** preflight może obrabiać do siedmiu stron równolegle, a
+  proces selekcji nie zużywa RAM ani CPU w bezczynności. Joby bez adaptera
+  równoległego nie przyspieszą tylko od większej liczby w budżecie. Wznowienie
+  automatycznej selekcji wymaga świadomego użycia profilu obu lane.
+- **Alternatives:** ustawienie siedmiu natywnych wątków na każdy z czterech
+  dotychczasowych tasków oraz równoległe wykonywanie wielu general jobów
+  odrzucono odpowiednio z powodu nadsubskrypcji i ryzyka konfliktów projekcji.
+
 ## Szablon nowej decyzji
 
 ```text

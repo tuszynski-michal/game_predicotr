@@ -160,8 +160,9 @@ Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
 general workera. Ten sam general worker wykonuje także bounded host actions
 zdalnej ręcznej selekcji przed próbą pobrania zwykłego joba; po restarcie
 reconciliuje istniejące verified uploady i publikuje brakujące `seq_*`.
-`Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
-komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
+`Selekcja zdjęć` ma odrębny lane i drugi proces. Domyślna komenda uruchamia
+obecnie wyłącznie general workera w kontrolowanym tle i natychmiast zwraca
+terminal:
 
 ```powershell
 npm run workers:start
@@ -174,22 +175,27 @@ startu, budżet wątków oraz osobne ścieżki logów każdego lane:
 npm run workers:status
 ```
 
-Oba procesy korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
+Oba lane korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
 blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
 równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
 niż wtedy, gdy jest jedynym obciążeniem komputera.
 
-Domyślny budżet wynosi 2 wątki dla general i 5 dla Selekcji. Można go zmienić
-przy starcie, nadal w zakresie 1–64:
+Profil `npm run workers:start` oznacza `general=7` oraz zatrzymany lane
+image-selection. General nadal przejmuje tylko jeden job naraz; budżet siedmiu
+przyspiesza adaptery mające własną bounded równoległość, w szczególności
+rejestrację geometrii stron. Biblioteki natywne pozostają jednowątkowe wewnątrz
+każdej strony, aby nie tworzyć zagnieżdżonej nadsubskrypcji.
+
+Jeżeli automatyczna Selekcja zdjęć będzie ponownie potrzebna, uruchom historyczny
+bezpieczny profil `general=2`, `image-selection=5`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 5
+npm run workers:start:all
 ```
 
 Nie przekazuj tych parametrów przez `npm run workers:start -- ...`: npm na
 Windows może usunąć nazwy argumentów i PowerShell zwiąże wartość `2` z
-parametrem `Lane`. Zwykłe `npm run workers:start` zawsze stosuje domyślne
-budżety `2/5`.
+parametrem `Lane`.
 
 Workspace `Joby` pokazuje oba procesy niezależnie jako `Działa`, `Brak świeżego
 sygnału` albo `Zatrzymany`, również gdy nie ma żadnego joba w kolejce. Status
@@ -203,7 +209,8 @@ npm run workers:stop
 
 Po restarcie komputera procesy nie uruchamiają się automatycznie. Wystarczy
 ponownie wykonać `npm run workers:start`; supervisor rozpozna nieaktywny stan z
-poprzedniej sesji. Aby zarządzać tylko jednym lane, dopisz argument:
+poprzedniej sesji. Jawne zarządzanie historycznym lane selekcji pozostaje
+dostępne:
 
 ```powershell
 npm run workers:start -- -Lane general

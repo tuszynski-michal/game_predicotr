@@ -74,6 +74,8 @@ Implemented in `v0.8.50–v0.8.54`:
 
 Focused API/worker/Admin tests, Ruff, mypy, Admin lint/typecheck and production
 build pass. The bounded-comparison test proves linear candidate traversal; no
-large physical benchmark was run. Repository-wide formatting remains blocked
+large physical benchmark was run. A small in-memory measurement took 0.0482 s
+for 1,500 candidates and 0.3552 s for 15,000 candidates, selecting the bounded
+8,000-sample cohort for the latter. Repository-wide formatting remains blocked
 only by pre-existing formatting drift in Reviewer/Admin generated or unrelated
 files.

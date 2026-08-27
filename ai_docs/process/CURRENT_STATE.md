@@ -31,6 +31,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Nie wykonano dużego benchmarku. Test zlicza ograniczoną liczbę porównań LSH;
   pula SQL, pamięć selektora i trening są liniowe względem liczby dopuszczonych
   próbek, a sam trening jest dodatkowo ograniczony hard maxem kohorty.
+- Mały pomiar czystej selekcji w pamięci na obecnym komputerze: 1500 cropów
+  (odpowiednik 100 plansz) `0,0482 s`, 15 000 cropów (1000 plansz) `0,3552 s`.
+  Dla 1000 plansz selektor zwrócił docelowe 8000 próbek (1000 × 8 symboli).
+  Pomiar nie obejmuje odczytu JPEG/PNG z dysku ani treningu CNN; potwierdza, że
+  sam dobór nie jest wąskim gardłem i nie ma wzrostu kwadratowego.
 
 ### Duże browserowe importy plansz
 

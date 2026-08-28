@@ -21,6 +21,7 @@ export interface ManualImageFile extends ManualImageDescriptor {
 }
 
 export interface ManualSelectionSessionRecord extends ManualSelectionSessionMetadata {
+  readonly cursorSemantics?: 'source_ordinal_v1';
   readonly outputDirectory: FileSystemDirectoryHandle;
   readonly sourceDirectory: FileSystemDirectoryHandle;
   readonly state: ManualSelectionState;

@@ -49,6 +49,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   ujawnił również dwa miejsca zależne od limitu `MAX_PATH`; zapis manifestu
   datasetu i odczyt obrazu przez klasyfikator używają teraz wspólnej obsługi
   długich ścieżek Windows.
+- `v0.8.59` stabilizuje wznowienie lokalnej ręcznej selekcji w kierunku
+  malejącym. Źródło ma odtąd jeden trwały, naturalny porządek, a kierunek
+  steruje wyłącznie kursem. Historyczne rekordy są jednorazowo normalizowane
+  z użyciem append-only trace, aby po `Wznów poprzednią sesję` nie wskazać
+  lustrzanego JPEG-a. Zdalny workspace już używał ordinalu źródła i nie wymaga
+  zmiany.
 
 ### Duże browserowe importy plansz
 

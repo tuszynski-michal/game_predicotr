@@ -31,6 +31,13 @@ import {
   type ManualImageFile,
   type ManualSelectionSessionRecord,
 } from './manual-image-selection-fsa-adapter';
+import {
+  initialManualSelectionCursor,
+  MANUAL_SELECTION_CURSOR_SEMANTICS,
+  manualSelectionDisplayPosition,
+  moveManualSelectionCursor,
+  resumeManualSelectionCursor,
+} from './manual-image-selection-cursor';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
 import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
 
@@ -112,6 +119,14 @@ function LocalManualImageSelectionWorkspace() {
     useState<ManualImageSize | null>(null);
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
+  const currentImagePosition =
+    state === null
+      ? 0
+      : manualSelectionDisplayPosition(
+          state.currentIndex,
+          state.direction,
+          images.length,
+        );
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
@@ -407,7 +422,7 @@ function LocalManualImageSelectionWorkspace() {
       if (found.length === 0)
         throw new Error('Wybrany folder nie zawiera plików JPG/JPEG.');
       setSourceDirectory(directory);
-      setImages(direction === 'ascending' ? found : [...found].reverse());
+      setImages(found);
       setRecord(null);
       setState(null);
       stateRef.current = null;
@@ -453,8 +468,13 @@ function LocalManualImageSelectionWorkspace() {
       setError('Wybierz folder źródłowy i wynikowy.');
       return;
     }
-    const next = createManualSelectionState(parsed, direction);
+    const initialState = createManualSelectionState(parsed, direction);
+    const next = {
+      ...initialState,
+      currentIndex: initialManualSelectionCursor(direction, images.length),
+    };
     const nextRecord: ManualSelectionSessionRecord = {
+      cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
       gameId: workspaceId,
       key: `${workspaceId}:${Date.now()}`,
       outputDirectory,
@@ -529,24 +549,36 @@ function LocalManualImageSelectionWorkspace() {
           'Manifest folderu wynikowego nie należy do zapisywanej sesji ręcznej selekcji.',
         );
       }
-      const resumedState =
+      const reconciledState =
         manifest === null
           ? savedRecord.state
           : reconcileManualSelectionStateWithOutputManifest(
               savedRecord.state,
               manifest,
             );
-      const synchronizedRecord = { ...repairedRecord, state: resumedState };
+      const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
+      const resumedCursor = resumeManualSelectionCursor({
+        cursorSemantics: savedRecord.cursorSemantics,
+        currentIndex: reconciledState.currentIndex,
+        direction: reconciledState.direction,
+        images: found,
+        traceEvents: events,
+      });
+      const resumedState = {
+        ...reconciledState,
+        currentIndex: resumedCursor.currentIndex,
+      };
+      const synchronizedRecord = {
+        ...repairedRecord,
+        cursorSemantics: resumedCursor.cursorSemantics,
+        state: resumedState,
+      };
       await store.save(synchronizedRecord);
       setResumeRecovery(null);
       setSavedRecord(synchronizedRecord);
       setSourceDirectory(sourceHandle);
       setOutputDirectory(outputHandle);
-      setImages(
-        savedRecord.state.direction === 'ascending'
-          ? found
-          : [...found].reverse(),
-      );
+      setImages(found);
       setRecord(synchronizedRecord);
       setState(resumedState);
       stateRef.current = resumedState;
@@ -558,7 +590,6 @@ function LocalManualImageSelectionWorkspace() {
           `Numeracja została zsynchronizowana z manifestem. Następny zakres: ${resumedState.nextRangeStart}–${resumedState.nextRangeStart + 8}.`,
         );
       }
-      const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
       traceEventIndexRef.current =
         events.reduce(
           (highest, event) => Math.max(highest, event.eventIndex),
@@ -654,7 +685,12 @@ function LocalManualImageSelectionWorkspace() {
       const nextState = nextManualSelectionState(
         currentState,
         decision,
-        Math.min(currentState.currentIndex + 1, images.length - 1),
+        moveManualSelectionCursor(
+          currentState.currentIndex,
+          currentState.direction,
+          images.length,
+          1,
+        ),
       );
       await persist(nextState);
       await new FileSystemManualSelectionOutputAdapter(
@@ -821,12 +857,11 @@ function LocalManualImageSelectionWorkspace() {
     const currentState = stateRef.current;
     if (currentState === null || busyRef.current || images.length === 0) return;
     const navigationStep = normalizeNavigationStep(currentState.navigationStep);
-    const nextIndex = Math.max(
-      0,
-      Math.min(
-        images.length - 1,
-        currentState.currentIndex + delta * navigationStep,
-      ),
+    const nextIndex = moveManualSelectionCursor(
+      currentState.currentIndex,
+      currentState.direction,
+      images.length,
+      delta * navigationStep,
     );
     if (nextIndex === currentState.currentIndex || record === null) return;
     void persist({
@@ -1073,7 +1108,7 @@ function LocalManualImageSelectionWorkspace() {
             >
               {range.start}–{range.end}
             </button>{' '}
-            · zdjęcie {state.currentIndex + 1} / {images.length}
+            · zdjęcie {currentImagePosition} / {images.length}
           </p>
           {rangeEditorOpen ? (
             <form
@@ -1199,7 +1234,7 @@ function LocalManualImageSelectionWorkspace() {
             Zakres {range.start}–{range.end}
           </strong>
           <span>
-            zdjęcie {state.currentIndex + 1} / {images.length}
+            zdjęcie {currentImagePosition} / {images.length}
           </span>
           <span>skok strzałki: {navigationStep}</span>
           <span>{current?.relativePath ?? 'brak zdjęcia'}</span>
@@ -1207,7 +1242,14 @@ function LocalManualImageSelectionWorkspace() {
         <button
           aria-label="Poprzednie zdjęcie"
           className="manualImageSelectionNav"
-          disabled={state.currentIndex === 0 || busy}
+          disabled={
+            moveManualSelectionCursor(
+              state.currentIndex,
+              state.direction,
+              images.length,
+              -1,
+            ) === state.currentIndex || busy
+          }
           onClick={() => moveImage(-1)}
           type="button"
         >
@@ -1260,7 +1302,14 @@ function LocalManualImageSelectionWorkspace() {
         <button
           aria-label="Następne zdjęcie"
           className="manualImageSelectionNav"
-          disabled={state.currentIndex >= images.length - 1 || busy}
+          disabled={
+            moveManualSelectionCursor(
+              state.currentIndex,
+              state.direction,
+              images.length,
+              1,
+            ) === state.currentIndex || busy
+          }
           onClick={() => moveImage(1)}
           type="button"
         >

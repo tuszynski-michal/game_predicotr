@@ -23,6 +23,12 @@ import {
   latestLegacyManualSelectionSession,
   migrateLegacyManualSelectionSession,
 } from '../src/features/manual-image-selection/manual-image-selection-store.ts';
+import {
+  initialManualSelectionCursor,
+  manualSelectionDisplayPosition,
+  moveManualSelectionCursor,
+  resumeManualSelectionCursor,
+} from '../src/features/manual-image-selection/manual-image-selection-cursor.ts';
 
 const workspaceSource = await readFile(
   new URL(
@@ -58,6 +64,93 @@ test('sorts image names in the same numeric order as Explorer', () => {
     '1_10.jpg',
     '1_20.jpg',
   ]);
+});
+
+test('keeps source ordering canonical while descending selection moves from the end', () => {
+  assert.equal(initialManualSelectionCursor('ascending', 15_000), 0);
+  assert.equal(initialManualSelectionCursor('descending', 15_000), 14_999);
+  assert.equal(
+    moveManualSelectionCursor(14_999, 'descending', 15_000, 10_000),
+    4_999,
+  );
+  assert.equal(
+    manualSelectionDisplayPosition(4_999, 'descending', 15_000),
+    10_001,
+  );
+  assert.equal(
+    moveManualSelectionCursor(4_999, 'descending', 15_000, -1),
+    5_000,
+  );
+});
+
+test('migrates a legacy descending cursor according to its trace order', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const naturallyPresented = resumeManualSelectionCursor({
+    currentIndex: 1,
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '002.jpg',
+        kind: 'viewed',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const reversedPresented = resumeManualSelectionCursor({
+    currentIndex: 1,
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '003.jpg',
+        kind: 'viewed',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const untracedLegacy = resumeManualSelectionCursor({
+    currentIndex: 1,
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+  const canonicalSession = resumeManualSelectionCursor({
+    cursorSemantics: 'source_ordinal_v1',
+    currentIndex: 1,
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(naturallyPresented.currentIndex, 1);
+  assert.equal(reversedPresented.currentIndex, 2);
+  assert.equal(untracedLegacy.currentIndex, 2);
+  assert.equal(canonicalSession.currentIndex, 1);
+  assert.equal(naturallyPresented.migratedLegacyCursor, true);
+  assert.equal(canonicalSession.migratedLegacyCursor, false);
+  assert.equal(reversedPresented.cursorSemantics, 'source_ordinal_v1');
 });
 
 test('adopts the newest legacy game-scoped session for the independent workspace', () => {

@@ -13,6 +13,10 @@ sortowanie są czystą logiką w `manual-image-selection.ts`. Indeks przechowuje
 uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej
 strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
+Lista `images` zawsze pozostaje w naturalnym porządku. `currentIndex` jest
+trwałym ordinalem tego źródła, a kierunek selekcji mapuje wyłącznie początek i
+delta nawigacji. Dzięki temu IndexedDB, cache, trace i wznowienie wskazują ten
+sam fizyczny JPEG także dla kierunku malejącego.
 
 Sesje są przechowywane w osobnej bazie IndexedDB
 `game-predictor-manual-image-selection`, w magazynie `sessions`. Historyczne
@@ -43,6 +47,13 @@ podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzaj�
 każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
 Niepoprawny zakres, obca nazwa `seq_*` lub niezgodna checksum pozostają
 fail-closed.
+
+Rekord lokalnej sesji zapisuje `cursorSemantics: source_ordinal_v1`. Historyczne
+rekordy bez pola są migrowane przy wznowieniu: trace wiąże zapisany indeks z
+naturalną ścieżką obrazu i rozstrzyga, czy dawny indeks był ordinalem źródła,
+czy indeksu odwróconego widoku. Bez takiego śladu zachowujemy historycznie
+udokumentowaną semantykę odwróconego widoku. Wynik migracji jest natychmiast
+utrwalany, więc kolejne wznowienie nie wykonuje ponownej konwersji.
 
 Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
 jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym

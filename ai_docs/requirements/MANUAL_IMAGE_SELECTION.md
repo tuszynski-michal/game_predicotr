@@ -20,7 +20,9 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
   wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
-  nazwach plików), z możliwością odwrócenia kolejności.
+  nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
+  sesji i indeksu w IndexedDB; kierunek nie odwraca tablicy plików, tylko
+  wyznacza pierwszy indeks oraz zwrot nawigacji i przejścia po zatwierdzeniu.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
@@ -66,6 +68,12 @@ pierwszym wejściu po zmianie najnowsza historyczna sesja zapisana wcześniej pe
 gra jest kopiowana do niezależnego namespace'u razem ze swoim śladem; rekord
 historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
 uprawnień przez przeglądarkę.
+
+`currentIndex` lokalnej sesji jest zawsze ordinalem naturalnie posortowanego
+źródła. Dla kierunku malejącego pierwszy obraz ma ordinal `liczba_plików - 1`,
+a pozycja pokazywana operatorowi jest liczona w kierunku pracy. Przy wznowieniu
+historyczna sesja bez tego oznaczenia jest jednorazowo normalizowana na
+podstawie jej śladu; nie odwraca to ponownie listy źródłowej.
 
 Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
 `manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów

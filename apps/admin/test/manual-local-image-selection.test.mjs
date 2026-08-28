@@ -92,6 +92,81 @@ test('migrates a legacy descending cursor according to its trace order', () => {
   ];
   const naturallyPresented = resumeManualSelectionCursor({
     currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '002.jpg',
+        kind: 'accepted',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const reversedPresented = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '003.jpg',
+        kind: 'accepted',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const untracedLegacy = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+  const canonicalSession = resumeManualSelectionCursor({
+    cursorSemantics: 'source_ordinal_v1',
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(naturallyPresented.currentIndex, 1);
+  assert.equal(reversedPresented.currentIndex, 2);
+  assert.equal(untracedLegacy.currentIndex, 2);
+  assert.equal(canonicalSession.currentIndex, 1);
+  assert.equal(naturallyPresented.migratedLegacyCursor, true);
+  assert.equal(canonicalSession.migratedLegacyCursor, true);
+  assert.equal(reversedPresented.cursorSemantics, 'source_path_v2');
+});
+
+test('does not treat a viewed trace as proof of an old descending cursor order', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
     direction: 'descending',
     images,
     traceEvents: [
@@ -110,47 +185,77 @@ test('migrates a legacy descending cursor according to its trace order', () => {
       },
     ],
   });
-  const reversedPresented = resumeManualSelectionCursor({
-    currentIndex: 1,
-    direction: 'descending',
-    images,
-    traceEvents: [
-      {
-        decoded: true,
-        eventIndex: 0,
-        gameId: 'local',
-        imagePath: '003.jpg',
-        kind: 'viewed',
-        rangeEnd: 9,
-        rangeStart: 1,
-        recordedAt: '2026-08-28T10:00:00.000Z',
-        sessionKey: 'session',
-        sourceIndex: 1,
-        visibleMilliseconds: 300,
-      },
-    ],
-  });
-  const untracedLegacy = resumeManualSelectionCursor({
-    currentIndex: 1,
-    direction: 'descending',
-    images,
-    traceEvents: [],
-  });
-  const canonicalSession = resumeManualSelectionCursor({
-    cursorSemantics: 'source_ordinal_v1',
-    currentIndex: 1,
+
+  assert.equal(resumed.currentIndex, 2);
+});
+
+test('resumes descending selections by the persisted source path, not an ordinal', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_path_v2',
+    currentImagePath: '002.jpg',
+    currentIndex: 3,
+    decisions: [],
     direction: 'descending',
     images,
     traceEvents: [],
   });
 
-  assert.equal(naturallyPresented.currentIndex, 1);
-  assert.equal(reversedPresented.currentIndex, 2);
-  assert.equal(untracedLegacy.currentIndex, 2);
-  assert.equal(canonicalSession.currentIndex, 1);
-  assert.equal(naturallyPresented.migratedLegacyCursor, true);
-  assert.equal(canonicalSession.migratedLegacyCursor, false);
-  assert.equal(reversedPresented.cursorSemantics, 'source_ordinal_v1');
+  assert.equal(resumed.currentIndex, 1);
+  assert.equal(resumed.currentImagePath, '002.jpg');
+  assert.equal(resumed.migratedLegacyCursor, false);
+});
+
+test('repairs a previously promoted descending v1 cursor from its last accepted file', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_ordinal_v1',
+    currentIndex: 2,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '003.jpg',
+        outputName: 'seq_1-9.jpg',
+        rangeEnd: 9,
+        rangeStart: 1,
+      },
+    ],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(resumed.currentIndex, 1);
+  assert.equal(resumed.currentImagePath, '002.jpg');
+  assert.equal(resumed.cursorSemantics, 'source_path_v2');
+  assert.equal(resumed.migratedLegacyCursor, true);
+});
+
+test('fails closed when a persisted cursor image no longer exists in the source', () => {
+  assert.throws(
+    () =>
+      resumeManualSelectionCursor({
+        cursorSemantics: 'source_path_v2',
+        currentImagePath: 'missing.jpg',
+        currentIndex: 0,
+        decisions: [],
+        direction: 'descending',
+        images: [{ name: '001.jpg', relativePath: '001.jpg' }],
+        traceEvents: [],
+      }),
+    /MANUAL_SELECTION_CURSOR_IMAGE_MISSING/,
+  );
 });
 
 test('adopts the newest legacy game-scoped session for the independent workspace', () => {

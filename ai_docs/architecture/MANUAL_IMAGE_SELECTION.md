@@ -48,12 +48,16 @@ każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzja
 Niepoprawny zakres, obca nazwa `seq_*` lub niezgodna checksum pozostają
 fail-closed.
 
-Rekord lokalnej sesji zapisuje `cursorSemantics: source_ordinal_v1`. Historyczne
-rekordy bez pola są migrowane przy wznowieniu: trace wiąże zapisany indeks z
-naturalną ścieżką obrazu i rozstrzyga, czy dawny indeks był ordinalem źródła,
-czy indeksu odwróconego widoku. Bez takiego śladu zachowujemy historycznie
-udokumentowaną semantykę odwróconego widoku. Wynik migracji jest natychmiast
-utrwalany, więc kolejne wznowienie nie wykonuje ponownej konwersji.
+Rekord lokalnej sesji zapisuje `cursorSemantics: source_path_v2` oraz
+`cursorImagePath`. Ta ścieżka jest trwałą tożsamością bieżącego JPEG-a i przy
+wznowieniu jest ponownie mapowana w naturalnie posortowanym źródle; indeks
+pozostaje wyłącznie pomocniczym ordinalem cache i nawigacji. Rekordy
+historyczne bez ścieżki są jednorazowo migrowane. Dla malejącej sesji ostatni
+zatwierdzony plik jest silniejszą kotwicą niż historyczny indeks, który mógł
+odnosić się do odwróconego widoku; trace `viewed` nie jest dowodem formatu,
+ponieważ mógł powstać już po błędnym wznowieniu. Brak zapisanej ścieżki w
+źródle blokuje wznowienie zamiast wskazać niewłaściwy JPEG. Wynik migracji jest
+utrwalany przed pokazaniem zdjęcia.
 
 Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
 jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym

@@ -71,9 +71,12 @@ uprawnień przez przeglądarkę.
 
 `currentIndex` lokalnej sesji jest zawsze ordinalem naturalnie posortowanego
 źródła. Dla kierunku malejącego pierwszy obraz ma ordinal `liczba_plików - 1`,
-a pozycja pokazywana operatorowi jest liczona w kierunku pracy. Przy wznowieniu
-historyczna sesja bez tego oznaczenia jest jednorazowo normalizowana na
-podstawie jej śladu; nie odwraca to ponownie listy źródłowej.
+a pozycja pokazywana operatorowi jest liczona w kierunku pracy. Nowe sesje
+utrwalają także względną ścieżkę bieżącego JPEG-a; wznowienie najpierw mapuje
+ten plik w bieżącej naturalnej liście, a indeks pozostaje wyłącznie pomocą dla
+starych rekordów. Historyczna sesja malejąca bez ścieżki odzyskuje pozycję z
+ostatniego zatwierdzonego pliku i dopiero potem utrwala nowy format. Brak
+zapisanego JPEG-a blokuje wznowienie zamiast otworzyć inne zdjęcie.
 
 Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
 `manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów

@@ -59,6 +59,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   strony `waiting_for_review` nie są już kosztownie rehydratowane i zapisywane
   ponownie po restarcie workera. Niedokończone źródła `processing` przechodzą
   jako pierwsze, a trwałe checkpointy review pozostają źródłem prawdy.
+- `v0.8.61` utrwala kursor lokalnej ręcznej selekcji jako względną ścieżkę
+  JPEG-a (`source_path_v2`), nie tylko indeks. Przy wznowieniu malejącego
+  rekordu historycznego ostatnio zatwierdzony plik jest kotwicą naprawczą dla
+  błędnie wcześniej utrwalonego indeksu; brak tej ścieżki blokuje wznowienie
+  fail-closed zamiast wskazać lustrzane zdjęcie.
 
 ### Duże browserowe importy plansz
 

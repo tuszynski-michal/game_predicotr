@@ -474,6 +474,7 @@ function LocalManualImageSelectionWorkspace() {
       currentIndex: initialManualSelectionCursor(direction, images.length),
     };
     const nextRecord: ManualSelectionSessionRecord = {
+      cursorImagePath: images[next.currentIndex]?.relativePath,
       cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
       gameId: workspaceId,
       key: `${workspaceId}:${Date.now()}`,
@@ -558,8 +559,10 @@ function LocalManualImageSelectionWorkspace() {
             );
       const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
       const resumedCursor = resumeManualSelectionCursor({
+        currentImagePath: savedRecord.cursorImagePath,
         cursorSemantics: savedRecord.cursorSemantics,
         currentIndex: reconciledState.currentIndex,
+        decisions: reconciledState.decisions,
         direction: reconciledState.direction,
         images: found,
         traceEvents: events,
@@ -570,6 +573,7 @@ function LocalManualImageSelectionWorkspace() {
       };
       const synchronizedRecord = {
         ...repairedRecord,
+        cursorImagePath: resumedCursor.currentImagePath ?? undefined,
         cursorSemantics: resumedCursor.cursorSemantics,
         state: resumedState,
       };
@@ -612,7 +616,13 @@ function LocalManualImageSelectionWorkspace() {
         imageViewportRef.current?.scrollTop ?? imageScrollTopRef.current;
       pendingImageScrollRestoreRef.current = true;
     }
-    const nextRecord = { ...record, state: next };
+    const nextRecord = {
+      ...record,
+      cursorImagePath:
+        images[next.currentIndex]?.relativePath ?? record.cursorImagePath,
+      cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
+      state: next,
+    };
     stateRef.current = next;
     setRecord(nextRecord);
     setState(next);

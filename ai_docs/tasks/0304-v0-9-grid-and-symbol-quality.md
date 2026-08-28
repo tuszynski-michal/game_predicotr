@@ -270,6 +270,30 @@ nieczytelnych realnym symbolem albo logicznym `?`.
 - OpenAPI oraz generowany klient są zgodne. Nie uruchamiano migracji ani
   pipeline'u na danych użytkownika.
 
-## Następny etap po TASK 8
+### v0.9.9 — unknown jako brak dowodu w wyszukiwaniu
 
-TASK 9 — semantyka `?` jako braku dowodu w wyszukiwaniu plansz.
+- Ranking `partial-board-ranking-v2-unknown-missing-evidence` usuwa `?` z
+  zapytania przed wyliczeniem denominatora.
+- Literalne `cell=index:?` jest akceptowane przez API, ale wzór bez choć jednego
+  znanego symbolu zwraca `BOARD_SEARCH_QUERY_EMPTY`.
+- Unknown zapisane w planszy nie jest exact match ani mismatch; znany symbol
+  zapytania otrzymuje dla tej pozycji zero dowodu.
+- Admin pozwala umieścić `?` w edytorze, obejmuje je historią i resetem oraz nie
+  wysyła go jako znanej pozycji wyszukiwania.
+
+#### Outcome TASK 9
+
+- Testy domeny/API/projekcji: `20 passed`; testy Admina: `296 passed`; testy
+  klienta: `47 passed`.
+- Ruff, lint i typecheck obu pakietów TypeScript, OpenAPI check oraz produkcyjny
+  build Admina przechodzą.
+- Pełny mypy API nadal jest blokowany przez wcześniejsze brakujące markery
+  `py.typed` workera i niezwiązany błąd typu w repozytorium kohort. TASK 9 nie
+  zmienia tych modułów.
+- Nie dodano migracji i nie uruchamiano pipeline'u ani operacji na danych
+  użytkownika.
+
+## Następny etap po TASK 9
+
+TASK 10 — dataset, snapshot v4 i payout z unknown. Nie rozpoczęto go w ramach
+TASK 9.

@@ -15,7 +15,7 @@ from uuid import UUID
 
 BOARD_SEARCH_CELL_COUNT = 15
 BOARD_SEARCH_ALTERNATIVE_WEIGHTS: tuple[float, ...] = (0.60, 0.40, 0.25, 0.15)
-BOARD_SEARCH_ALGORITHM_VERSION = "partial-board-ranking-v1"
+BOARD_SEARCH_ALGORITHM_VERSION = "partial-board-ranking-v2-unknown-missing-evidence"
 UNKNOWN_SYMBOL_CODE = "?"
 _SEARCHABLE_STATUSES = frozenset({"pending", "accepted", "corrected"})
 _APPROVED_STATUSES = frozenset({"accepted", "corrected"})
@@ -38,7 +38,7 @@ class BoardSearchError(ValueError):
 @dataclass(frozen=True, slots=True)
 class BoardSearchQueryCell:
     cell_index: int
-    symbol_code: str
+    symbol_code: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,19 +173,15 @@ def validate_board_search_query(
 ) -> tuple[BoardSearchQueryCell, ...]:
     """Validate and normalize an intentionally partial board query.
 
-    Empty board cells are omitted by the caller.  ``?`` is a persisted absence
-    marker, not a search symbol, so accepting it would silently change its
-    domain meaning.
+    Empty cells and logical ``?`` values carry no evidence.  They may be
+    supplied by a client so the complete editor state remains representable,
+    but are removed before scoring and therefore never enter the denominator.
     """
 
-    normalized = tuple(sorted(cells, key=lambda cell: cell.cell_index))
-    if not normalized:
-        raise BoardSearchError(
-            "BOARD_SEARCH_QUERY_EMPTY",
-            "Select at least one known symbol before searching boards.",
-        )
+    supplied = tuple(sorted(cells, key=lambda cell: cell.cell_index))
     seen_indices: set[int] = set()
-    for cell in normalized:
+    normalized: list[BoardSearchQueryCell] = []
+    for cell in supplied:
         if not 0 <= cell.cell_index < BOARD_SEARCH_CELL_COUNT:
             raise BoardSearchError(
                 "BOARD_SEARCH_CELL_INVALID",
@@ -197,12 +193,21 @@ def validate_board_search_query(
                 "Each board-search cell can be selected only once.",
             )
         seen_indices.add(cell.cell_index)
-        if not cell.symbol_code or cell.symbol_code == UNKNOWN_SYMBOL_CODE:
+        symbol_code = cell.symbol_code.strip() if cell.symbol_code is not None else None
+        if symbol_code in {None, UNKNOWN_SYMBOL_CODE}:
+            continue
+        if not symbol_code:
             raise BoardSearchError(
                 "BOARD_SEARCH_SYMBOL_INVALID",
                 "A board-search symbol must be a known catalog code.",
             )
-    return normalized
+        normalized.append(BoardSearchQueryCell(cell_index=cell.cell_index, symbol_code=symbol_code))
+    if not normalized:
+        raise BoardSearchError(
+            "BOARD_SEARCH_QUERY_EMPTY",
+            "Select at least one known symbol before searching boards.",
+        )
+    return tuple(normalized)
 
 
 def score_board_search_candidate(
@@ -216,6 +221,14 @@ def score_board_search_candidate(
     resolved code is the only evidence eligible for search.
     """
 
+    normalized_query = validate_board_search_query(query)
+    return _score_validated_board_search_candidate(normalized_query, candidate)
+
+
+def _score_validated_board_search_candidate(
+    query: Sequence[BoardSearchQueryCell],
+    candidate: BoardSearchCandidate,
+) -> BoardSearchScore:
     exact_match_count = 0
     alternative_match_count = 0
     weighted_alternative_score = 0.0
@@ -279,7 +292,7 @@ def rank_board_search_candidates(
     for candidate in candidates:
         if scope is BoardSearchScope.APPROVED_ONLY and candidate.status not in _APPROVED_STATUSES:
             continue
-        score = score_board_search_candidate(query, candidate)
+        score = _score_validated_board_search_candidate(query, candidate)
         if score.has_positive_evidence:
             ranked.append(RankedBoardSearchCandidate(candidate=candidate, score=score))
 

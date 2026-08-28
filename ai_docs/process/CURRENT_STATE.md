@@ -3531,3 +3531,15 @@ canonical flow. Dla `?` szybki właściciel i audyt pozostają aktywne, ale stag
 datasetu jest celowo pomijany do TASK 10, który wprowadzi sentinel 0, migrację
 0074 i snapshot v4. Test izolowanego PostgreSQL potwierdził reopen, recrop,
 rozwiązanie unknown, canonical oraz brak nieprawidłowego stagingu.
+
+Commit `v0.9.9` wersjonuje wyszukiwanie jako
+`partial-board-ranking-v2-unknown-missing-evidence`. Edytor wzoru pozwala
+jawnie wstawić `?`, zachowuje je w undo/reset i wizualizacji, lecz do API wysyła
+wyłącznie znane symbole. API akceptuje także literalne `cell=index:?` od innych
+klientów i usuwa je przed rankingiem; wzór bez znanego symbolu kończy się
+`BOARD_SEARCH_QUERY_EMPTY`.
+
+Zapisane unknown pozostaje w szybkiej projekcji jako brak dowodu. Nie daje
+punktu, exact match ani mismatch, a denominator obejmuje wyłącznie znane pola
+zapytania. Kolejność remisów w domenie i SQL pozostaje zgodna: score, exact,
+ważone alternatywy, mniej sprzeczności, zatwierdzony status, sekwencja i UUID.

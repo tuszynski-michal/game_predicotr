@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 from game_predictor_api.domain.board_search import (
+    BOARD_SEARCH_ALGORITHM_VERSION,
     BoardSearchCandidate,
     BoardSearchError,
     BoardSearchProjectionPayload,
@@ -79,6 +80,31 @@ def test_unknown_is_neither_a_match_nor_a_mismatch() -> None:
     assert score.exact_match_count == 1
     assert score.mismatch_count == 0
     assert score.unknown_count == 1
+
+
+def test_query_unknown_is_removed_from_scoring_denominator() -> None:
+    query = (
+        BoardSearchQueryCell(cell_index=0, symbol_code="seven"),
+        BoardSearchQueryCell(cell_index=1, symbol_code="?"),
+        BoardSearchQueryCell(cell_index=2, symbol_code=None),
+    )
+    candidate = _candidate(
+        identifier=1,
+        sequence_number=1,
+        primary=("seven", "bell", "lemon", *(["orange"] * 12)),
+    )
+
+    ranked = rank_board_search_candidates(
+        query,
+        (candidate,),
+        scope=BoardSearchScope.ALL_SEARCHABLE,
+    )
+
+    assert BOARD_SEARCH_ALGORITHM_VERSION == "partial-board-ranking-v2-unknown-missing-evidence"
+    assert ranked[0].score.score == 100.0
+    assert ranked[0].score.exact_match_count == 1
+    assert ranked[0].score.mismatch_count == 0
+    assert ranked[0].score.unknown_count == 0
 
 
 def test_approved_scope_excludes_pending_and_approved_ignores_alternatives() -> None:
@@ -218,7 +244,8 @@ def test_projection_tokens_exclude_unknown_symbols() -> None:
             "BOARD_SEARCH_CELL_DUPLICATE",
         ),
         ((BoardSearchQueryCell(cell_index=15, symbol_code="seven"),), "BOARD_SEARCH_CELL_INVALID"),
-        ((BoardSearchQueryCell(cell_index=0, symbol_code="?"),), "BOARD_SEARCH_SYMBOL_INVALID"),
+        ((BoardSearchQueryCell(cell_index=0, symbol_code="?"),), "BOARD_SEARCH_QUERY_EMPTY"),
+        ((BoardSearchQueryCell(cell_index=0, symbol_code=None),), "BOARD_SEARCH_QUERY_EMPTY"),
     ],
 )
 def test_partial_query_validation_is_fail_closed(

@@ -8832,6 +8832,11 @@ div.imageJobInlineError {
   font-weight: 800;
 }
 
+.boardSearchUnknownButton > strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
 .boardSearchCell small {
   color: var(--muted);
   font-size: 8px;

@@ -1777,6 +1777,11 @@ ani innych danych binarnych. Dzięki temu ranking częściowego wzoru wykonuje
 deterministyczny odczyt tylko niezbędnych kolumn także wtedy, gdy dodatni wzór
 jest zbyt częsty, aby indeks tokenów skutecznie zawężał zbiór.
 
+Logiczne `?` jest zapisane jako brak kodu mobilnego w odpowiedniej pozycji i
+nie trafia do `known_evidence_positions`. Ranking v2 nie uznaje takiej pozycji
+ani za dopasowanie, ani za sprzeczność. W zapytaniu `?` również nie jest
+symbolem katalogowym i zostaje usunięte przed wyliczeniem denominatora.
+
 Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
 `review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.
 Migracja najpierw kopiuje istniejące dokumenty, a synchronizator zapisuje oba

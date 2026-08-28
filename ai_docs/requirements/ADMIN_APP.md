@@ -304,6 +304,20 @@ innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
 
+### Wyszukiwanie plansz z niepełnym wzorem
+
+Edytor wzoru pozwala wskazać aktywny symbol, pozostawić pole puste albo jawnie
+oznaczyć je jako `?`. Puste pole i `?` są dla rankingu równoważnym brakiem
+dowodu: pozostają widoczne w lokalnym wzorze i historii `Cofnij`, ale nie są
+wysyłane jako znana pozycja i nie wchodzą do denominatora. Wzór zawierający
+wyłącznie puste pola lub `?` nie może uruchomić wyszukiwania.
+
+Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
+dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
+jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:
+score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
+`sequence_number` i UUID.
+
 ### Walidacja cięcia siatki 0.9
 
 Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami

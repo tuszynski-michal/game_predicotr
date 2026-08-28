@@ -1,6 +1,7 @@
 export const BOARD_SEARCH_ROWS = 3;
 export const BOARD_SEARCH_COLUMNS = 5;
 export const BOARD_SEARCH_CELL_COUNT = BOARD_SEARCH_ROWS * BOARD_SEARCH_COLUMNS;
+export const BOARD_SEARCH_UNKNOWN = '?';
 
 export interface BoardSearchEditorSnapshot {
   readonly cells: readonly (string | null)[];
@@ -103,6 +104,17 @@ export function placeBoardSearchSymbol(
   ]);
 }
 
+export function placeBoardSearchUnknown(
+  state: BoardSearchEditorState,
+): BoardSearchEditorState {
+  const cells = [...state.cells];
+  cells[state.selectedCellIndex] = BOARD_SEARCH_UNKNOWN;
+  return createState(cells, firstEmptyAfter(cells, state.selectedCellIndex), [
+    ...state.history,
+    currentSnapshot(state),
+  ]);
+}
+
 export function undoBoardSearchEdit(
   state: BoardSearchEditorState,
 ): BoardSearchEditorState {
@@ -133,6 +145,14 @@ export function selectedBoardSearchCells(
   state: BoardSearchEditorState,
 ): readonly { readonly cellIndex: number; readonly symbolCode: string }[] {
   return state.cells.flatMap((symbolCode, cellIndex) =>
-    symbolCode === null ? [] : [{ cellIndex, symbolCode }],
+    symbolCode === null || symbolCode === BOARD_SEARCH_UNKNOWN
+      ? []
+      : [{ cellIndex, symbolCode }],
   );
+}
+
+export function boardSearchPatternCellCount(
+  state: BoardSearchEditorState,
+): number {
+  return state.cells.filter((symbolCode) => symbolCode !== null).length;
 }

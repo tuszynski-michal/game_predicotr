@@ -263,6 +263,11 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 )
             ).tuples()
         }
+        if any(cell.symbol_code is None for cell in query):
+            raise BoardSearchError(
+                "BOARD_SEARCH_QUERY_EMPTY",
+                "Select at least one known symbol before searching boards.",
+            )
         if any(cell.symbol_code not in active_mobile_codes for cell in query):
             raise BoardSearchError(
                 "BOARD_SEARCH_SYMBOL_INVALID",
@@ -271,7 +276,9 @@ class SqlAlchemyBoardSearchProjectionRepository:
 
         document = ImageBoardSearchFastDocumentModel
         mobile_codes_by_cell = {
-            cell.cell_index: int(active_mobile_codes[cell.symbol_code]) for cell in query
+            cell.cell_index: int(active_mobile_codes[cell.symbol_code])
+            for cell in query
+            if cell.symbol_code is not None
         }
         positive_evidence = _positive_evidence_expression(
             document,

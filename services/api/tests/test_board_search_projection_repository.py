@@ -123,6 +123,28 @@ def test_resolved_projection_uses_human_symbols_and_discards_predictions() -> No
     assert payload.known_evidence_positions == tuple(str(index) for index in range(15))
 
 
+def test_resolved_projection_preserves_unknown_as_missing_evidence() -> None:
+    symbols: list[str | None] = ["seven", None, *(["lemon"] * 13)]
+    item, board, source, job = _records(
+        status="corrected",
+        resolved_value={"sequenceNumber": 20, "symbolCodes": symbols},
+    )
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=(),
+        prediction_override=None,
+    )
+
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes[1] is None
+    assert "1" not in payload.known_evidence_positions
+    assert all(not token.startswith("1:") for token in payload.primary_match_tokens)
+
+
 def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
     item, board, source, job = _records(status="pending")
 

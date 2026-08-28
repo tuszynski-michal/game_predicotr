@@ -2535,6 +2535,7 @@ test('board search forwards a partial pattern and scope through the generated cl
     cells: [
       { cellIndex: 1, symbolCode: 'bell' },
       { cellIndex: 14, symbolCode: 'seven' },
+      { cellIndex: 8, symbolCode: null },
     ],
     limit: 20,
     scope: 'approved_only',
@@ -2547,6 +2548,7 @@ test('board search forwards a partial pattern and scope through the generated cl
   assert.deepEqual(new URL(requests[0].url).searchParams.getAll('cell'), [
     '1:bell',
     '14:seven',
+    '8:?',
   ]);
   assert.equal(
     new URL(requests[0].url).searchParams.get('scope'),

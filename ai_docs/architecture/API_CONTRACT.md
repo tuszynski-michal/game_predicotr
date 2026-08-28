@@ -75,12 +75,14 @@ Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do 
 ### Wyszukiwanie plansz częściowym układem
 
 ```text
-GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode}&limit=1..100
+GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode|?}&limit=1..100
 ```
 
-Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem i
-określa tylko znane pozycje układu 3 × 5; co najmniej jedna pozycja jest
-wymagana. `?` nigdy nie jest prawidłowym symbolem zapytania. `all_searchable`
+Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem układu
+3 × 5. Znany symbol tworzy dowód, natomiast literalne `?` jest akceptowane jako
+brak wartości, usuwane przed rankingiem i nie trafia do denominatora. Co
+najmniej jedna znana pozycja pozostaje wymagana; same `?` zwracają
+`BOARD_SEARCH_QUERY_EMPTY`. `all_searchable`
 zwraca deterministycznie wybrany dokument logicznej planszy dla każdego numeru
 sekwencji (accepted/corrected albo oczekujący), a `approved_only` ogranicza
 wyniki do decyzji accepted/corrected.
@@ -98,6 +100,11 @@ Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
 zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
+Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
+`NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
+rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
+sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 

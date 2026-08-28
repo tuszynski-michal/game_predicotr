@@ -634,7 +634,7 @@ export interface SearchGameBoardsOptions {
 
 export interface BoardSearchQueryCell {
   readonly cellIndex: number;
-  readonly symbolCode: string;
+  readonly symbolCode: string | null;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -1250,7 +1250,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { game_id: gameId },
         query: {
           cell: options.cells.map(
-            (cell) => `${cell.cellIndex}:${cell.symbolCode}`,
+            (cell) => `${cell.cellIndex}:${cell.symbolCode ?? '?'}`,
           ),
           ...(options.scope === undefined ? {} : { scope: options.scope }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),

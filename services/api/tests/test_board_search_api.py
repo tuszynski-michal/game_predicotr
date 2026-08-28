@@ -102,6 +102,21 @@ def test_board_search_endpoint_parses_cells_and_returns_score() -> None:
     ]
 
 
+def test_board_search_endpoint_accepts_unknown_as_missing_evidence() -> None:
+    game_id = uuid4()
+    repository = MemoryBoardSearchRepository(game_id)
+
+    with _client(repository) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search",
+            params=[("cell", "0:?"), ("cell", "7:cherry")],
+        )
+
+    assert response.status_code == 200
+    assert response.json()["queryCellCount"] == 1
+    assert repository.calls[0][0] == (BoardSearchQueryCell(cell_index=7, symbol_code="cherry"),)
+
+
 def test_board_search_endpoint_returns_stable_query_errors() -> None:
     game_id = uuid4()
     repository = MemoryBoardSearchRepository(game_id)
@@ -116,6 +131,10 @@ def test_board_search_endpoint_returns_stable_query_errors() -> None:
             f"/api/v1/admin/games/{game_id}/board-search",
             params={"cell": "middle:orange"},
         )
+        unknown_only = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search",
+            params=[("cell", "0:?"), ("cell", "1:?")],
+        )
 
     assert empty.status_code == 422
     assert empty.json()["code"] == "BOARD_SEARCH_QUERY_EMPTY"
@@ -123,6 +142,8 @@ def test_board_search_endpoint_returns_stable_query_errors() -> None:
     assert duplicate.json()["code"] == "BOARD_SEARCH_CELL_DUPLICATE"
     assert invalid.status_code == 422
     assert invalid.json()["code"] == "BOARD_SEARCH_CELL_INVALID"
+    assert unknown_only.status_code == 422
+    assert unknown_only.json()["code"] == "BOARD_SEARCH_QUERY_EMPTY"
 
 
 def test_board_search_endpoint_maps_projection_not_ready_to_conflict() -> None:

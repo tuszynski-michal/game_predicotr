@@ -16,7 +16,10 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   BOARD_SEARCH_COLUMNS,
   BOARD_SEARCH_ROWS,
+  BOARD_SEARCH_UNKNOWN,
+  boardSearchPatternCellCount,
   createBoardSearchEditorState,
+  placeBoardSearchUnknown,
   placeBoardSearchSymbol,
   resetBoardSearchEditor,
   selectBoardSearchCell,
@@ -65,6 +68,8 @@ export function BoardSearchWorkspace({
   const searchRequestId = useRef(0);
 
   const selectedCells = selectedBoardSearchCells(editor);
+  const patternCellCount = boardSearchPatternCellCount(editor);
+  const unknownCellCount = patternCellCount - selectedCells.length;
   const activeSymbols = useMemo(
     () =>
       [...symbols]
@@ -122,6 +127,11 @@ export function BoardSearchWorkspace({
 
   function placeSymbol(symbolCode: string) {
     setEditor((current) => placeBoardSearchSymbol(current, symbolCode));
+    setSearchState({ kind: 'idle' });
+  }
+
+  function placeUnknown() {
+    setEditor((current) => placeBoardSearchUnknown(current));
     setSearchState({ kind: 'idle' });
   }
 
@@ -256,6 +266,15 @@ export function BoardSearchWorkspace({
                     <span>{symbol.name}</span>
                   </button>
                 ))}
+                <button
+                  className="boardSearchSymbolButton boardSearchUnknownButton"
+                  onClick={placeUnknown}
+                  title="Nieznany symbol — brak dowodu"
+                  type="button"
+                >
+                  <strong>?</strong>
+                  <span>Nieznany</span>
+                </button>
               </div>
             )}
           </aside>
@@ -264,9 +283,9 @@ export function BoardSearchWorkspace({
             <header>
               <h2>Twój wzór</h2>
               <p>
-                {selectedCells.length === 0
+                {patternCellCount === 0
                   ? 'Wybierz pole albo symbol, aby rozpocząć.'
-                  : `${selectedCells.length} z 15 znanych pozycji.`}
+                  : `${selectedCells.length} z 15 znanych pozycji${unknownCellCount > 0 ? ` · ${unknownCellCount} bez dowodu (?)` : ''}.`}
               </p>
             </header>
             <div
@@ -281,13 +300,15 @@ export function BoardSearchWorkspace({
                     const cellIndex =
                       rowIndex * BOARD_SEARCH_COLUMNS + columnIndex;
                     const symbolCode = editor.cells[cellIndex];
-                    const symbol = symbolCode
-                      ? symbolByCode.get(symbolCode)
-                      : undefined;
+                    const isUnknown = symbolCode === BOARD_SEARCH_UNKNOWN;
+                    const symbol =
+                      symbolCode && !isUnknown
+                        ? symbolByCode.get(symbolCode)
+                        : undefined;
                     const isSelected = editor.selectedCellIndex === cellIndex;
                     return (
                       <button
-                        aria-label={`Wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}${symbol ? `: ${symbol.name}` : ', puste'}`}
+                        aria-label={`Wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}${symbol ? `: ${symbol.name}` : isUnknown ? ': nieznany symbol, bez dowodu' : ', puste'}`}
                         aria-pressed={isSelected}
                         className={
                           isSelected
@@ -304,7 +325,9 @@ export function BoardSearchWorkspace({
                             src={api.symbolImageAssetUrl(gameId, symbol.id)}
                           />
                         ) : null}
-                        <strong>{symbol?.name ?? '—'}</strong>
+                        <strong>
+                          {isUnknown ? '?' : (symbol?.name ?? '—')}
+                        </strong>
                         <small>{symbolCode ?? `Pole ${cellIndex + 1}`}</small>
                       </button>
                     );
@@ -323,7 +346,7 @@ export function BoardSearchWorkspace({
               </button>
               <button
                 className="secondaryButton"
-                disabled={selectedCells.length === 0}
+                disabled={patternCellCount === 0}
                 onClick={reset}
                 type="button"
               >

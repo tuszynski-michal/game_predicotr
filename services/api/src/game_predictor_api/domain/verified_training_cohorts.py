@@ -28,6 +28,28 @@ MODEL_QUALITY_LOW_SOURCE_THRESHOLD = 3
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolCellTrainingExclusionCounts:
+    unknown: int = 0
+    unreadable: int = 0
+    grid_issue: int = 0
+    changed_crop: int = 0
+    missing_asset: int = 0
+
+    def __post_init__(self) -> None:
+        if (
+            min(
+                self.unknown,
+                self.unreadable,
+                self.grid_issue,
+                self.changed_crop,
+                self.missing_asset,
+            )
+            < 0
+        ):
+            raise ValueError("symbol training exclusion counts cannot be negative")
+
+
+@dataclass(frozen=True, slots=True)
 class VerifiedTrainingCohortSource:
     game_id: UUID
     manifest: Mapping[str, object]
@@ -44,6 +66,7 @@ class VerifiedTrainingCohortSource:
     dataset_kind: str = VERIFIED_TRAINING_COHORT_DATASET_KIND
     manifest_schema_version: int = VERIFIED_TRAINING_COHORT_SCHEMA_VERSION
     cells: tuple[Mapping[str, object], ...] = ()
+    training_exclusions: SymbolCellTrainingExclusionCounts = SymbolCellTrainingExclusionCounts()
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +134,7 @@ class ModelQualitySummary:
     active_model_version: str | None
     active_model_checksum_sha256: str | None
     latest_cohort: VerifiedTrainingCohort | None
+    manifest_schema_version: int
     manifest_checksum_sha256: str
     resolved_layout_count: int
     new_verified_layout_count: int
@@ -125,6 +149,7 @@ class ModelQualitySummary:
     warnings: tuple[str, ...]
     active_heavy_job: bool
     can_freeze: bool
+    training_exclusions: SymbolCellTrainingExclusionCounts = SymbolCellTrainingExclusionCounts()
 
 
 def build_verified_training_cohort_source(
@@ -346,6 +371,7 @@ def build_model_quality_summary(
         active_model_version=None,
         active_model_checksum_sha256=None,
         latest_cohort=None if latest_snapshot is None else latest_snapshot.cohort,
+        manifest_schema_version=source.manifest_schema_version,
         manifest_checksum_sha256=source.manifest_checksum_sha256,
         resolved_layout_count=source.resolved_layout_count,
         new_verified_layout_count=len(current_checksums - previous_checksums),
@@ -371,6 +397,7 @@ def build_model_quality_summary(
         warnings=tuple(dict.fromkeys(warnings)),
         active_heavy_job=active_heavy_job,
         can_freeze=source.resolved_layout_count > 0 and not active_heavy_job,
+        training_exclusions=source.training_exclusions,
     )
 
 
@@ -406,6 +433,7 @@ __all__ = [
     "ModelQualityAdvisoryThreshold",
     "ModelQualitySummary",
     "SymbolTrainingCoverage",
+    "SymbolCellTrainingExclusionCounts",
     "VerifiedTrainingCohort",
     "VerifiedTrainingCohortSnapshot",
     "VerifiedTrainingCohortSource",

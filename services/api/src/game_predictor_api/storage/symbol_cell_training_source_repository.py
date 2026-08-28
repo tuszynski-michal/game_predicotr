@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from PIL import Image, ImageStat
@@ -17,12 +17,24 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.verified_training_cohorts import (
+    SymbolCellTrainingSourceInventory,
     SymbolCellTrainingSourceRepository,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellApprovedCropIdentity,
+    SymbolCellAssignmentSource,
+    SymbolCellCropIdentity,
+    SymbolCellReview,
+    SymbolCellReviewState,
+    is_symbol_cell_training_eligible,
+)
 from game_predictor_api.domain.symbol_cell_training_cohorts import (
     ApprovedSymbolCellCandidate,
+)
+from game_predictor_api.domain.verified_training_cohorts import (
+    SymbolCellTrainingExclusionCounts,
 )
 from game_predictor_api.storage.models import GameModel, SymbolModel
 
@@ -48,9 +60,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             ).all()
         )
 
-    def candidates(
-        self, *, game_id: UUID, lock_game: bool
-    ) -> tuple[ApprovedSymbolCellCandidate, ...]:
+    def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory:
         game_query = select(GameModel).where(GameModel.id == game_id)
         if lock_game:
             game_query = game_query.with_for_update()
@@ -59,6 +69,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
                 "The selected training cohort game does not exist.",
             )
+        exclusions = self._exclusion_counts(game_id)
         rows = tuple(
             self._session.execute(
                 text(
@@ -85,6 +96,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                     AND c.review_state = 'approved'
                     AND c.has_grid_issue = false
                     AND c.quality_issue IS NULL
+                    AND c.approved_crop_sample_id = c.crop_sample_id
+                    AND c.approved_crop_checksum_sha256 = c.crop_checksum_sha256
+                    AND c.approved_geometry_revision = c.geometry_revision
                     AND s.status = 'active'
                 ), pooled AS (
                   SELECT *, row_number() OVER (
@@ -114,12 +128,98 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             max_workers=worker_count,
             thread_name_prefix="symbol-cohort-descriptor",
         ) as executor:
-            return tuple(
-                executor.map(
-                    lambda row: self._candidate(row, allow_cached=not lock_game),
+            candidates = tuple(
+                candidate
+                for candidate in executor.map(
+                    lambda row: self._candidate_or_missing(row, allow_cached=not lock_game),
                     rows,
                 )
+                if candidate is not None
             )
+        return SymbolCellTrainingSourceInventory(
+            candidates=candidates,
+            exclusions=SymbolCellTrainingExclusionCounts(
+                unknown=exclusions.unknown,
+                unreadable=exclusions.unreadable,
+                grid_issue=exclusions.grid_issue,
+                changed_crop=exclusions.changed_crop,
+                missing_asset=exclusions.missing_asset + (len(rows) - len(candidates)),
+            ),
+        )
+
+    def _exclusion_counts(self, game_id: UUID) -> SymbolCellTrainingExclusionCounts:
+        values = (
+            self._session.execute(
+                text(
+                    """
+                WITH current_cells AS (
+                  SELECT c.*, s.status AS symbol_status
+                  FROM image_symbol_review_cells c
+                  JOIN image_board_search_fast_documents d
+                    ON d.game_id = c.game_id
+                   AND d.sequence_number = c.sequence_number
+                   AND d.review_item_id = c.review_item_id
+                  LEFT JOIN symbols s ON s.id = c.assigned_symbol_id
+                  WHERE c.game_id = :game_id
+                )
+                SELECT
+                  count(*) FILTER (
+                    WHERE quality_issue IS NULL
+                      AND has_grid_issue = false
+                      AND assigned_symbol_id IS NULL
+                  ) AS unknown_count,
+                  count(*) FILTER (WHERE quality_issue = 'unreadable') AS unreadable_count,
+                  count(*) FILTER (
+                    WHERE quality_issue = 'grid_issue'
+                       OR (quality_issue IS NULL AND has_grid_issue = true)
+                  ) AS grid_issue_count,
+                  count(*) FILTER (
+                    WHERE review_state = 'approved'
+                      AND quality_issue IS NULL
+                      AND has_grid_issue = false
+                      AND assigned_symbol_id IS NOT NULL
+                      AND symbol_status = 'active'
+                      AND (
+                        approved_crop_sample_id IS DISTINCT FROM crop_sample_id
+                        OR approved_crop_checksum_sha256 IS DISTINCT FROM crop_checksum_sha256
+                        OR approved_geometry_revision IS DISTINCT FROM geometry_revision
+                      )
+                  ) AS changed_crop_count
+                FROM current_cells
+                """
+                ),
+                {"game_id": game_id},
+            )
+            .mappings()
+            .one()
+        )
+        return SymbolCellTrainingExclusionCounts(
+            unknown=int(values["unknown_count"]),
+            unreadable=int(values["unreadable_count"]),
+            grid_issue=int(values["grid_issue_count"]),
+            changed_crop=int(values["changed_crop_count"]),
+        )
+
+    def _candidate_or_missing(
+        self, values: Mapping[str, Any], *, allow_cached: bool
+    ) -> ApprovedSymbolCellCandidate | None:
+        try:
+            return self._candidate(values, allow_cached=allow_cached)
+        except ImageReviewConflictError as error:
+            if error.code in {
+                "SYMBOL_CELL_TRAINING_CROP_MISSING",
+                "SYMBOL_CELL_TRAINING_CROP_CHANGED",
+                "SYMBOL_CELL_TRAINING_CROP_INVALID",
+            }:
+                return None
+            raise
+
+    def candidates(
+        self, *, game_id: UUID, lock_game: bool
+    ) -> tuple[ApprovedSymbolCellCandidate, ...]:
+        """Compatibility adapter for callers that do not need diagnostics."""
+
+        return self.inventory(game_id=game_id, lock_game=lock_game).candidates
 
     def _candidate(
         self, values: Mapping[str, Any], *, allow_cached: bool
@@ -143,7 +243,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             if allow_cached
             else _verified_visual_descriptor(path, expected)
         )
-        return ApprovedSymbolCellCandidate(
+        candidate = ApprovedSymbolCellCandidate(
             cell_review_id=values["id"],
             review_item_id=values["review_item_id"],
             recognized_board_id=values["recognized_board_id"],
@@ -158,6 +258,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             crop_sample_id=str(values["crop_sample_id"]),
             crop_relative_path=relative.as_posix(),
             crop_checksum_sha256=expected,
+            approved_crop_sample_id=str(values["approved_crop_sample_id"]),
+            approved_crop_checksum_sha256=str(values["approved_crop_checksum_sha256"]),
+            approved_geometry_revision=int(values["approved_geometry_revision"]),
             source_checksum_sha256=str(values["source_checksum_sha256"]),
             source_relative_path=str(values["source_relative_path"]),
             cropper_version=str(values["cropper_version"]),
@@ -165,6 +268,38 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             perceptual_hash_64=perceptual_hash,
             mean_rgb=mean_rgb,
         )
+        review = SymbolCellReview(
+            crop=SymbolCellCropIdentity(
+                cell_index=candidate.cell_index,
+                crop_sample_id=candidate.crop_sample_id,
+                crop_relative_path=candidate.crop_relative_path,
+                crop_checksum_sha256=candidate.crop_checksum_sha256,
+                geometry_revision=candidate.geometry_revision,
+                cropper_version=candidate.cropper_version,
+            ),
+            predicted_symbol_code=candidate.prediction_symbol_code,
+            assigned_symbol_code=candidate.symbol_code,
+            review_state=SymbolCellReviewState.APPROVED,
+            has_grid_issue=False,
+            assignment_source=SymbolCellAssignmentSource.HUMAN,
+            revision=candidate.cell_revision,
+            approved_crop=SymbolCellApprovedCropIdentity(
+                crop_sample_id=candidate.approved_crop_sample_id,
+                crop_checksum_sha256=candidate.approved_crop_checksum_sha256,
+                geometry_revision=candidate.approved_geometry_revision,
+            ),
+        )
+        if not is_symbol_cell_training_eligible(
+            review,
+            active_symbol_codes=(candidate.symbol_code,),
+            is_current_owner=True,
+            asset_checksum_verified=True,
+        ):
+            raise ImageReviewConflictError(
+                "SYMBOL_CELL_TRAINING_ELIGIBILITY_DRIFT",
+                "A persisted candidate failed the shared training-eligibility predicate.",
+            )
+        return candidate
 
 
 def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
@@ -172,20 +307,20 @@ def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
         with Image.open(BytesIO(content)) as image:
             rgb = image.convert("RGB")
             grayscale = rgb.convert("L").resize((9, 8), Image.Resampling.BILINEAR)
-            pixels = tuple(grayscale.get_flattened_data())
+            pixels = tuple(cast(Sequence[int], grayscale.get_flattened_data()))
             value = 0
             for row in range(8):
                 for column in range(8):
                     value = (value << 1) | int(
                         pixels[row * 9 + column] > pixels[row * 9 + column + 1]
                     )
-            mean = ImageStat.Stat(rgb.resize((1, 1))).mean
+            red, green, blue = ImageStat.Stat(rgb.resize((1, 1))).mean
     except OSError as error:
         raise ImageReviewConflictError(
             "SYMBOL_CELL_TRAINING_CROP_INVALID",
             "An approved symbol crop is not a decodable image.",
         ) from error
-    return value, tuple(round(channel) for channel in mean)  # type: ignore[return-value]
+    return value, (round(red), round(green), round(blue))
 
 
 def _verified_visual_descriptor(

@@ -6,6 +6,7 @@ import hashlib
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
@@ -23,6 +24,7 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
     ModelQualitySummary,
+    SymbolCellTrainingExclusionCounts,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
     VerifiedTrainingCohortSource,
@@ -94,12 +96,16 @@ class VerifiedTrainingCohortRepository(Protocol):
     ) -> VerifiedTrainingCohort: ...
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolCellTrainingSourceInventory:
+    candidates: tuple[ApprovedSymbolCellCandidate, ...]
+    exclusions: SymbolCellTrainingExclusionCounts
+
+
 class SymbolCellTrainingSourceRepository(Protocol):
     def active_symbol_codes(self, game_id: UUID) -> Sequence[str]: ...
 
-    def candidates(
-        self, *, game_id: UUID, lock_game: bool
-    ) -> Sequence[ApprovedSymbolCellCandidate]: ...
+    def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory: ...
 
 
 class VerifiedTrainingCohortArtifactStore:
@@ -294,13 +300,21 @@ class VerifiedTrainingCohortService:
         repository = self._symbol_cell_source_repository
         if repository is None:
             raise AssertionError("The symbol-cell source repository is not configured.")
+        inventory = repository.inventory(game_id=game_id, lock_game=lock_game)
         selection = select_symbol_cell_training_samples(
-            candidates=repository.candidates(game_id=game_id, lock_game=lock_game),
+            candidates=inventory.candidates,
             active_symbol_codes=repository.active_symbol_codes(game_id),
         )
         manifest, content, checksum = build_symbol_cell_training_manifest(
             game_id=game_id,
             selection=selection,
+            exclusion_counts={
+                "changedCrop": inventory.exclusions.changed_crop,
+                "gridIssue": inventory.exclusions.grid_issue,
+                "missingAsset": inventory.exclusions.missing_asset,
+                "unknown": inventory.exclusions.unknown,
+                "unreadable": inventory.exclusions.unreadable,
+            },
         )
         represented_boards = {sample.candidate.recognized_board_id for sample in selection.samples}
         represented_sources = {sample.candidate.source_image_id for sample in selection.samples}
@@ -324,9 +338,8 @@ class VerifiedTrainingCohortService:
             warnings=warnings,
             dataset_kind="verified-symbol-cell-training-cohort-v2",
             manifest_schema_version=2,
-            cells=tuple(
-                cast(Sequence[Mapping[str, object]], manifest["cells"])
-            ),
+            cells=tuple(cast(Sequence[Mapping[str, object]], manifest["cells"])),
+            training_exclusions=inventory.exclusions,
         )
 
     def authorize_model_prediction_write(
@@ -349,4 +362,5 @@ __all__ = [
     "VerifiedTrainingCohortService",
     "VerifiedTrainingCohortSourceRepository",
     "SymbolCellTrainingSourceRepository",
+    "SymbolCellTrainingSourceInventory",
 ]

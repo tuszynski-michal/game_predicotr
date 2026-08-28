@@ -938,6 +938,14 @@ wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop nie kasuje
 zatwierdzonej etykiety, ale do czasu ponownej weryfikacji nowych pikseli blokuje
 ich udział w treningu.
 
+Źródło bieżącej kohorty symboli stosuje wspólny predykat
+`symbol-cell-training-eligible-v1`. Oprócz aktywnej etykiety, braku problemu
+jakości i aktualnego właściciela wymaga dokładnej zgodności
+`crop_sample_id/crop_checksum_sha256/geometry_revision` z polami
+`approved_*` oraz ponownej kontroli pliku. Manifest
+`verified-symbol-cell-training-cohort-v3-crop-provenance` utrwala obie
+tożsamości i zbiorcze przyczyny wykluczeń; nie kopiuje obrazów do bazy.
+
 Wymiary komórek nie są własnością tej projekcji. Pochodzą z
 `rules_versions.rows/columns`, są przypinane przez grę przed pierwszym importem
 i snapshotowane na rozpoznanej planszy. Wartość `NULL` przypisania może stać

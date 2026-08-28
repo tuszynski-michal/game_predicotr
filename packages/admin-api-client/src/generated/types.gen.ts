@@ -4739,6 +4739,10 @@ export type ModelQualityResponse = {
    */
   manifestChecksumSha256: string;
   /**
+   * Manifestschemaversion
+   */
+  manifestSchemaVersion: number;
+  /**
    * Newverifiedlayoutcount
    */
   newVerifiedLayoutCount: number;
@@ -4766,6 +4770,7 @@ export type ModelQualityResponse = {
    * Symbolcoverage
    */
   symbolCoverage: Array<SymbolTrainingCoverageResponse>;
+  trainingExclusions: SymbolTrainingExclusionCountsResponse;
   /**
    * Warnings
    */
@@ -8763,6 +8768,32 @@ export type SymbolTrainingCoverageResponse = {
 };
 
 /**
+ * SymbolTrainingExclusionCountsResponse
+ */
+export type SymbolTrainingExclusionCountsResponse = {
+  /**
+   * Changedcrop
+   */
+  changedCrop: number;
+  /**
+   * Gridissue
+   */
+  gridIssue: number;
+  /**
+   * Missingasset
+   */
+  missingAsset: number;
+  /**
+   * Unknown
+   */
+  unknown: number;
+  /**
+   * Unreadable
+   */
+  unreadable: number;
+};
+
+/**
  * SymbolTrainingJobPayload
  */
 export type SymbolTrainingJobPayload = {
@@ -9208,6 +9239,7 @@ export type VerifiedTrainingCohortPreviewResponse = {
    * Sourceimagecount
    */
   sourceImageCount: number;
+  trainingExclusions: SymbolTrainingExclusionCountsResponse;
   /**
    * Warnings
    */

@@ -445,12 +445,13 @@ function modelQualityPreview(
     gameId: quality.gameId,
     incompleteItemCount: quality.incompleteItemCount,
     manifestChecksumSha256: quality.manifestChecksumSha256,
-    manifestSchemaVersion: 1,
+    manifestSchemaVersion: quality.manifestSchemaVersion,
     pendingItemCount: quality.pendingItemCount,
     protectedItemCount: quality.protectedItemCount,
     rejectedItemCount: quality.rejectedItemCount,
     resolvedLayoutCount: quality.resolvedLayoutCount,
     sourceImageCount: quality.sourceImageCount,
+    trainingExclusions: quality.trainingExclusions,
     warnings: quality.warnings,
   };
 }

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 
-SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION = 2
-SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND = "verified-symbol-cell-training-cohort-v2"
+SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION = 3
+SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND = "verified-symbol-cell-training-cohort-v3-crop-provenance"
 DEFAULT_TARGET_SAMPLES_PER_SYMBOL = 1_000
 DEFAULT_MAX_SAMPLES_PER_SYMBOL = 2_000
 DEFAULT_MAX_SIMILARITY_COMPARISONS_PER_BAND = 32
@@ -34,6 +34,9 @@ class ApprovedSymbolCellCandidate:
     crop_sample_id: str
     crop_relative_path: str
     crop_checksum_sha256: str
+    approved_crop_sample_id: str
+    approved_crop_checksum_sha256: str
+    approved_geometry_revision: int
     source_checksum_sha256: str
     source_relative_path: str
     cropper_version: str
@@ -71,9 +74,12 @@ class SymbolCellTrainingSelection:
 
 
 def build_symbol_cell_training_manifest(
-    *, game_id: UUID, selection: SymbolCellTrainingSelection
+    *,
+    game_id: UUID,
+    selection: SymbolCellTrainingSelection,
+    exclusion_counts: Mapping[str, int] | None = None,
 ) -> tuple[dict[str, object], bytes, str]:
-    """Materialize one immutable v2 manifest from a completed selection."""
+    """Materialize one immutable v3 manifest from a completed selection."""
 
     import hashlib
 
@@ -90,6 +96,11 @@ def build_symbol_cell_training_manifest(
                 "cropChecksumSha256": candidate.crop_checksum_sha256,
                 "cropRelativePath": candidate.crop_relative_path,
                 "cropSampleId": candidate.crop_sample_id,
+                "approvedCrop": {
+                    "cropChecksumSha256": candidate.approved_crop_checksum_sha256,
+                    "cropSampleId": candidate.approved_crop_sample_id,
+                    "geometryRevision": candidate.approved_geometry_revision,
+                },
                 "cropperVersion": candidate.cropper_version,
                 "geometryRevision": candidate.geometry_revision,
                 "importJobId": str(candidate.import_job_id),
@@ -125,8 +136,10 @@ def build_symbol_cell_training_manifest(
             for item in selection.coverage
         ],
         "datasetKind": SYMBOL_CELL_TRAINING_COHORT_DATASET_KIND,
+        "exclusions": dict(sorted((exclusion_counts or {}).items())),
         "gameId": str(game_id),
         "schemaVersion": SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
+        "trainingEligibilityVersion": "symbol-cell-training-eligible-v1",
     }
     content = canonical_image_review_bytes(manifest)
     return manifest, content, hashlib.sha256(content).hexdigest()
@@ -237,8 +250,18 @@ def _validate_candidate(
             "SYMBOL_CELL_TRAINING_REVISION_INVALID",
             "A symbol-cell training candidate has an invalid revision.",
         )
+    if (
+        candidate.approved_crop_sample_id != candidate.crop_sample_id
+        or candidate.approved_crop_checksum_sha256 != candidate.crop_checksum_sha256
+        or candidate.approved_geometry_revision != candidate.geometry_revision
+    ):
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_NOT_APPROVED",
+            "A symbol-cell training candidate does not match its approved crop identity.",
+        )
     for checksum in (
         candidate.crop_checksum_sha256,
+        candidate.approved_crop_checksum_sha256,
         candidate.source_checksum_sha256,
     ):
         if len(checksum) != 64 or any(

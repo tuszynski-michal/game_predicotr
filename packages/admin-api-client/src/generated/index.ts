@@ -1534,6 +1534,7 @@ export type {
   SymbolStatus,
   SymbolTrainingConfigurationCommand,
   SymbolTrainingCoverageResponse,
+  SymbolTrainingExclusionCountsResponse,
   SymbolTrainingJobPayload,
   SymbolUpdate,
   TakeoverRemoteManualSelectionWriterLeaseData,

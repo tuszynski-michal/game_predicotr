@@ -8378,6 +8378,11 @@
             "title": "Manifestchecksumsha256",
             "type": "string"
           },
+          "manifestSchemaVersion": {
+            "minimum": 1.0,
+            "title": "Manifestschemaversion",
+            "type": "integer"
+          },
           "newVerifiedLayoutCount": {
             "minimum": 0.0,
             "title": "Newverifiedlayoutcount",
@@ -8415,6 +8420,9 @@
             "title": "Symbolcoverage",
             "type": "array"
           },
+          "trainingExclusions": {
+            "$ref": "#/components/schemas/SymbolTrainingExclusionCountsResponse"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -8427,6 +8435,7 @@
           "gameId",
           "activeModel",
           "latestCohort",
+          "manifestSchemaVersion",
           "manifestChecksumSha256",
           "resolvedLayoutCount",
           "newVerifiedLayoutCount",
@@ -8440,7 +8449,8 @@
           "advisoryThresholds",
           "warnings",
           "activeHeavyJob",
-          "canFreeze"
+          "canFreeze",
+          "trainingExclusions"
         ],
         "title": "ModelQualityResponse",
         "type": "object"
@@ -15285,6 +15295,45 @@
         "title": "SymbolTrainingCoverageResponse",
         "type": "object"
       },
+      "SymbolTrainingExclusionCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changedCrop": {
+            "minimum": 0.0,
+            "title": "Changedcrop",
+            "type": "integer"
+          },
+          "gridIssue": {
+            "minimum": 0.0,
+            "title": "Gridissue",
+            "type": "integer"
+          },
+          "missingAsset": {
+            "minimum": 0.0,
+            "title": "Missingasset",
+            "type": "integer"
+          },
+          "unknown": {
+            "minimum": 0.0,
+            "title": "Unknown",
+            "type": "integer"
+          },
+          "unreadable": {
+            "minimum": 0.0,
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unknown",
+          "unreadable",
+          "gridIssue",
+          "changedCrop",
+          "missingAsset"
+        ],
+        "title": "SymbolTrainingExclusionCountsResponse",
+        "type": "object"
+      },
       "SymbolTrainingJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -15995,6 +16044,9 @@
             "title": "Sourceimagecount",
             "type": "integer"
           },
+          "trainingExclusions": {
+            "$ref": "#/components/schemas/SymbolTrainingExclusionCountsResponse"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -16014,7 +16066,8 @@
           "rejectedItemCount",
           "incompleteItemCount",
           "protectedItemCount",
-          "warnings"
+          "warnings",
+          "trainingExclusions"
         ],
         "title": "VerifiedTrainingCohortPreviewResponse",
         "type": "object"

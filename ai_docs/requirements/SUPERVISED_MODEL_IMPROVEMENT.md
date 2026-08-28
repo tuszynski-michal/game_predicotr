@@ -56,12 +56,18 @@ Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
 4. tworzy niezmienny manifest wejścia,
 5. trenuje od początku na całej skumulowanej kohorcie danej gry.
 
-Kohorta v2 wybiera deterministycznie różnorodne przykłady osobno dla każdego
+Kohorta v3 wybiera deterministycznie różnorodne przykłady osobno dla każdego
 aktywnego symbolu. Korekty człowieka mają pierwszeństwo, identyczne i bliskie
 wizualnie cropy są redukowane bez macierzy porównań każdy-z-każdym. Cel wynosi
 1000 próbek na symbol, a twarde maksimum 2000; większa liczba zatwierdzeń nie
 powiększa bez końca kosztu jednej iteracji. Jedynym progiem startu pozostaje co
 najmniej jeden kwalifikujący crop.
+
+Manifest v3 zapisuje bieżącą oraz zatwierdzoną tożsamość cropa. Obie muszą mieć
+ten sam sample ID, SHA-256 i rewizję geometrii. Preview raportuje osobno cropy
+wykluczone jako unknown, unreadable, grid issue, zmienione po zatwierdzeniu albo
+pozbawione poprawnego assetu. Historyczne manifesty v1/v2 pozostają obsługiwane
+wyłącznie w celu reprodukcji istniejących iteracji.
 
 ## Podział danych i brak przecieku
 

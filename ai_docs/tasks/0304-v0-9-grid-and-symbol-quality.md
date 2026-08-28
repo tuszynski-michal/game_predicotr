@@ -330,3 +330,31 @@ TASK 9.
 
 TASK 11 — bezpieczne kohorty treningowe po recropie. Nie rozpoczęto go w ramach
 TASK 10.
+
+### v0.9.11 — bezpieczne kohorty treningowe po recropie
+
+- Bieżąca kohorta symboli ma schema v3 i utrwala zarówno aktualną, jak i
+  zatwierdzoną tożsamość cropa.
+- Do treningu trafia wyłącznie crop aktualnego właściciela, bez problemu
+  jakości, z realnym aktywnym symbolem, którego sample ID, check­suma i rewizja
+  geometrii są identyczne z zatwierdzoną proweniencją.
+- Odczyt pliku ponownie sprawdza bezpieczną ścieżkę i SHA-256. Drift jest
+  wykluczeniem, a nie cichym użyciem nowych pikseli ze starą etykietą.
+- Preview kohorty raportuje unknown, unreadable, grid issue, changed crop i
+  missing asset.
+- Kohorta geometrii wymaga zatwierdzonej bieżącej rewizji geometrii i
+  aktualnego właściciela, ale nie zależy od etykiet symboli.
+- Historyczne manifesty v1/v2 pozostają obsługiwane do reprodukcji.
+
+#### Outcome TASK 11
+
+- Celowane testy domeny, repozytoriów, API oraz loadera workera potwierdzają
+  odrzucenie cropa zmienionego po zatwierdzeniu i zachowanie historycznych
+  manifestów.
+- Admin pokazuje liczniki przyczyn wykluczeń oraz wersję schematu manifestu.
+- Nie zmieniono modelu ML, schematu bazy ani danych użytkownika.
+
+## Następny etap po TASK 11
+
+TASK 12 — usunięcie zbędnej projekcji i indeksów. Nie rozpoczęto go w ramach
+TASK 11; przed destrukcyjną migracją wymagany jest osobny checkpoint.

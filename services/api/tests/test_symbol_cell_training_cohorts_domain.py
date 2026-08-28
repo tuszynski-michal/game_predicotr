@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 import pytest
@@ -22,6 +23,8 @@ def _candidate(
     perceptual_hash: int | None = None,
     mean_rgb: tuple[int, int, int] = (100, 110, 120),
 ) -> ApprovedSymbolCellCandidate:
+    crop_sample_id = f"{index + 50_000:064x}"
+    crop_checksum = checksum or f"{index + 1:064x}"
     return ApprovedSymbolCellCandidate(
         cell_review_id=UUID(int=index + 1),
         review_item_id=uuid4(),
@@ -34,9 +37,12 @@ def _candidate(
         cell_index=index % 15,
         cell_revision=1,
         geometry_revision=0,
-        crop_sample_id=f"crop-{index}",
+        crop_sample_id=crop_sample_id,
         crop_relative_path=f"crops/{index}.jpg",
-        crop_checksum_sha256=checksum or f"{index + 1:064x}",
+        crop_checksum_sha256=crop_checksum,
+        approved_crop_sample_id=crop_sample_id,
+        approved_crop_checksum_sha256=crop_checksum,
+        approved_geometry_revision=0,
         source_checksum_sha256=f"{index + 10_000:064x}",
         source_relative_path=f"originals/{index}.jpg",
         cropper_version="cropper-v1",
@@ -193,9 +199,25 @@ def test_manifest_contains_individual_cells_without_requiring_a_complete_board()
         game_id=game_id, selection=selection
     )
 
-    assert manifest["schemaVersion"] == 2
-    assert manifest["datasetKind"] == "verified-symbol-cell-training-cohort-v2"
+    assert manifest["schemaVersion"] == 3
+    assert manifest["datasetKind"] == "verified-symbol-cell-training-cohort-v3-crop-provenance"
     assert len(manifest["cells"]) == 2
+    assert (
+        manifest["cells"][0]["approvedCrop"]["cropSampleId"] == manifest["cells"][0]["cropSampleId"]
+    )
     assert "boards" not in manifest
     assert len(content) > 0
     assert len(checksum) == 64
+
+
+def test_changed_crop_is_rejected_before_manifest_creation() -> None:
+    candidate = _candidate(0)
+    candidate = replace(candidate, approved_crop_checksum_sha256="f" * 64)
+
+    with pytest.raises(ImageReviewConflictError) as conflict:
+        select_symbol_cell_training_samples(
+            candidates=[candidate],
+            active_symbol_codes=("cherry",),
+        )
+
+    assert conflict.value.code == "SYMBOL_CELL_TRAINING_CROP_NOT_APPROVED"

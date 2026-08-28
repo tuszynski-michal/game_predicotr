@@ -35,6 +35,7 @@ const quality = {
   gameId,
   incompleteItemCount: 0,
   latestCohort: null,
+  manifestSchemaVersion: 3,
   manifestChecksumSha256: checksum,
   newVerifiedLayoutCount: 100,
   pendingItemCount: 2,
@@ -43,6 +44,13 @@ const quality = {
   resolvedLayoutCount: 100,
   sourceImageCount: 12,
   symbolCoverage: [{ sampleCount: 150, symbolCode: 'lemon' }],
+  trainingExclusions: {
+    changedCrop: 3,
+    gridIssue: 2,
+    missingAsset: 1,
+    unknown: 4,
+    unreadable: 5,
+  },
   warnings: [],
 };
 const preview = {
@@ -50,12 +58,13 @@ const preview = {
   gameId,
   incompleteItemCount: 0,
   manifestChecksumSha256: checksum,
-  manifestSchemaVersion: 1,
+  manifestSchemaVersion: 3,
   pendingItemCount: 2,
   protectedItemCount: 101,
   rejectedItemCount: 1,
   resolvedLayoutCount: 100,
   sourceImageCount: 12,
+  trainingExclusions: quality.trainingExclusions,
   warnings: [],
 };
 

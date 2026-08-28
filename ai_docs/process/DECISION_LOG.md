@@ -5959,6 +5959,24 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** unknown może przejść przez staging, dataset, snapshot i UI,
   nie stając się klasą modelu ani symbolem możliwym do ręcznego wpisania.
 
+## D-248 — Crop treningowy wymaga zatwierdzonej tożsamości pikseli
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** bieżąca kohorta symboli v3 dopuszcza próbkę tylko wtedy, gdy
+  aktualny sample ID, SHA-256 i rewizja geometrii są identyczne z proweniencją
+  cropa zatwierdzonego przez człowieka oraz plik przechodzi ponowną kontrolę
+  ścieżki i checksummy. Kohorta geometrii jest wybierana według zatwierdzonej
+  rewizji geometrii, niezależnie od logicznej etykiety symbolu.
+- **Context:** recrop zachowuje zatwierdzoną etykietę, lecz tworzy nowe piksele.
+  Sam status `approved` nie dowodzi więc, że aktualny crop został obejrzany i
+  może bezpiecznie wejść do treningu klasyfikatora.
+- **Safety:** unknown, unreadable, grid issue, changed crop i missing asset są
+  jawnie raportowanymi wykluczeniami. Manifesty v1/v2 pozostają tylko do
+  reprodukcji istniejących iteracji.
+- **Consequences:** nowy crop wymaga ponownego zatwierdzenia przed treningiem;
+  korekta etykiety nie blokuje uczenia geometrii z zatwierdzonego quada.
+
 ## Szablon nowej decyzji
 
 ```text

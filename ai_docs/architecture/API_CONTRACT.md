@@ -2128,7 +2128,8 @@ wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
-Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
+Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), wersję
+manifestu, liczby
 próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,
 pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
 ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta v1 porównuje checksumy
@@ -2145,14 +2146,17 @@ operacji.
 Zwraca dokładne liczniki wybranych elementów, źródeł i ostrzeżeń,
 checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
-`incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
+`incompleteItemCount` i `protectedItemCount`. Pole `trainingExclusions`
+raportuje `unknown`, `unreadable`, `gridIssue`, `changedCrop` i `missingAsset`.
+Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
 
-GET jest odczytem bez `FOR UPDATE`. Dla v2 pobiera bounded pulę aktualnych
-komórek `approved`, ponownie sprawdza checksumy cropów i wylicza dHash w
+GET jest odczytem bez `FOR UPDATE`. Dla v3 pobiera bounded pulę aktualnych
+komórek `approved`, których bieżąca i zatwierdzona tożsamość cropa jest
+identyczna, ponownie sprawdza checksumy plików i wylicza dHash w
 ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
 równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
-stary właściciel sekwencji nie są odczytywane. Jawny POST blokuje grę i
+stary właściciel sekwencji nie są wybierane. Jawny POST blokuje grę i
 ponownie weryfikuje bajty przed zapisem.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`

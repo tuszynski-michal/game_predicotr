@@ -3555,3 +3555,16 @@ Nowe snapshoty produkcyjne mają schema v4 i deklarują
 zero jako `?`. `payout-v3-unknown-prefix-stop` kończy prefiks na pierwszym
 unknown, zachowując kwalifikującą wygraną sprzed niego i ignorując sufiks.
 Historyczne joby payout-v2 pozostają obsługiwane do replayu.
+
+Commit `v0.9.11` uszczelnia źródło kohort treningowych symboli po recropie.
+Nowa kohorta `verified-symbol-cell-training-cohort-v3-crop-provenance` wymaga
+zgodności bieżącego `cropSampleId`, checksummy i rewizji geometrii z dokładną
+tożsamością cropa zatwierdzonego przez człowieka. Plik jest ponownie
+weryfikowany przed materializacją manifestu. Historyczne manifesty v1 i v2
+pozostają odtwarzalne, ale nie są tworzone przez bieżący workflow.
+
+Preview jakości raportuje wykluczenia `unknown`, `unreadable`, `grid_issue`,
+`changed_crop` i `missing_asset`. Kohorta geometrii korzysta wyłącznie z
+bieżącego właściciela logicznej planszy oraz zatwierdzonej rewizji geometrii;
+nie zależy od statusu ani treści etykiet symboli. Nie zmieniono architektury
+modelu ML, nie uruchomiono treningu ani operacji na danych użytkownika.

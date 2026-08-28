@@ -32,6 +32,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     GridCalibrationProfileModel,
     GridGeometryCohortModel,
+    ImageBoardSearchFastDocumentModel,
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
     JobModel,
@@ -119,6 +120,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 RecognizedBoardModel,
                 SourceImageModel,
                 ImagePipelineStageResultModel,
+                ImageBoardSearchFastDocumentModel,
             )
             .join(
                 RecognizedBoardModel,
@@ -126,6 +128,11 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
             .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                (ImageBoardSearchFastDocumentModel.game_id == JobModel.game_id)
+                & (ImageBoardSearchFastDocumentModel.review_item_id == ImageReviewItemModel.id),
+            )
             .outerjoin(
                 ImagePipelineStageResultModel,
                 (
@@ -136,19 +143,18 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             .where(
                 JobModel.game_id == game_id,
-                ImageReviewItemModel.status.in_(("accepted", "corrected")),
+                RecognizedBoardModel.approved_geometry_revision
+                == RecognizedBoardModel.geometry_revision,
+                ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
             )
         ).all()
         accepted = corrected = missing_detection = incomplete = eligible = 0
         reasons: Counter[str] = Counter()
         sources: set[UUID] = set()
         sequences: list[int] = []
-        for review, board, source, stage in rows:
+        for _review, board, source, stage, document in rows:
             sources.add(source.id)
-            resolved = review.resolved_value if isinstance(review.resolved_value, dict) else {}
-            value = resolved.get("sequenceNumber")
-            if isinstance(value, int) and value > 0:
-                sequences.append(value)
+            sequences.append(document.sequence_number)
             if board.geometry_revision > 0:
                 corrected += 1
             else:
@@ -295,6 +301,7 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 SourceImageModel,
                 JobModel,
                 ImagePipelineStageResultModel,
+                ImageBoardSearchFastDocumentModel,
             )
             .join(
                 RecognizedBoardModel,
@@ -302,6 +309,11 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
             .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                (ImageBoardSearchFastDocumentModel.game_id == JobModel.game_id)
+                & (ImageBoardSearchFastDocumentModel.review_item_id == ImageReviewItemModel.id),
+            )
             .join(
                 ImagePipelineStageResultModel,
                 (
@@ -312,12 +324,14 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
             )
             .where(
                 JobModel.game_id == game_id,
-                ImageReviewItemModel.status.in_(("accepted", "corrected")),
+                RecognizedBoardModel.approved_geometry_revision
+                == RecognizedBoardModel.geometry_revision,
+                ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
             )
             .order_by(SourceImageModel.checksum_sha256, RecognizedBoardModel.position_index)
         ).all()
         output: list[VerifiedGeometrySample] = []
-        for review, board, source, job, stage in rows:
+        for review, board, source, job, stage, _document in rows:
             run_id = _uuid(job.input_payload.get("image_selection_run_id"))
             detected = _detected_quad(stage.result_payload, board.position_index)
             final = _quad(

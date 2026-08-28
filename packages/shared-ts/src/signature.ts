@@ -2,6 +2,7 @@ import { DomainValidationError } from './errors.js';
 
 export const MAX_SIGNATURE_CELL_WIDTH = 5;
 export const MAX_SYMBOL_MOBILE_CODE = 32_767;
+export const UNKNOWN_LAYOUT_MOBILE_CODE = 0;
 
 function validateCellWidth(cellWidth: number): void {
   if (
@@ -45,6 +46,20 @@ export function encodeSignature(
 ): string {
   validateCellWidth(cellWidth);
   return cells.map((cell) => encodeCell(cell, cellWidth)).join('');
+}
+
+export function encodeLayoutSignature(
+  cells: readonly number[],
+  cellWidth: number,
+): string {
+  validateCellWidth(cellWidth);
+  return cells
+    .map((cell) =>
+      cell === UNKNOWN_LAYOUT_MOBILE_CODE
+        ? '0'.padStart(cellWidth, '0')
+        : encodeCell(cell, cellWidth),
+    )
+    .join('');
 }
 
 export function encodeSignaturePrefix(
@@ -115,5 +130,46 @@ export function decodeSignature(
     cells.push(symbolCode);
   }
 
+  return cells;
+}
+
+export function decodeLayoutSignature(
+  signature: string,
+  cellWidth: number,
+  expectedCellCount?: number,
+): readonly number[] {
+  validateCellWidth(cellWidth);
+  if (signature.length % cellWidth !== 0 || !/^[0-9]*$/.test(signature)) {
+    throw new DomainValidationError(
+      'invalid_signature',
+      'Signature must contain complete fixed-width decimal cells.',
+    );
+  }
+  const cellCount = signature.length / cellWidth;
+  if (
+    expectedCellCount !== undefined &&
+    (!Number.isInteger(expectedCellCount) ||
+      expectedCellCount < 0 ||
+      cellCount !== expectedCellCount)
+  ) {
+    throw new DomainValidationError(
+      'invalid_signature',
+      `Signature contains ${cellCount} cells; expected ${expectedCellCount}.`,
+    );
+  }
+  const cells: number[] = [];
+  for (let offset = 0; offset < signature.length; offset += cellWidth) {
+    const mobileCode = Number.parseInt(
+      signature.slice(offset, offset + cellWidth),
+      10,
+    );
+    if (!Number.isSafeInteger(mobileCode) || mobileCode < 0) {
+      throw new DomainValidationError(
+        'invalid_signature',
+        'Signature contains an invalid layout cell code.',
+      );
+    }
+    cells.push(mobileCode);
+  }
   return cells;
 }

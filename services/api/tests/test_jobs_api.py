@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
+    PAYOUT_ALGORITHM_VERSION,
     ImageSelectionJobDeletionReference,
     JobService,
     LayoutImportRulesReference,
@@ -572,7 +573,7 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
                 "schemaVersion": 1,
                 "datasetVersionId": str(payout_dataset_id),
                 "rulesVersionId": str(payout_rules_id),
-                "algorithmVersion": "payout-v2",
+                "algorithmVersion": PAYOUT_ALGORITHM_VERSION,
             },
         ),
         ("snapshot", None, {"schemaVersion": 1, "mobileReleaseId": str(release_id)}),
@@ -643,7 +644,7 @@ def test_payout_job_rejects_incomplete_dataset_before_queueing(tmp_path: Path) -
                     "schemaVersion": 1,
                     "datasetVersionId": str(dataset_id),
                     "rulesVersionId": str(rules_id),
-                    "algorithmVersion": "payout-v2",
+                    "algorithmVersion": PAYOUT_ALGORITHM_VERSION,
                 },
             },
         )

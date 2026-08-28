@@ -3230,7 +3230,7 @@ class ImageLayoutStagingRowModel(Base):
             name="ck_image_layout_staging_sequence_positive",
         ),
         CheckConstraint(
-            "cardinality(cells) = 15 AND 1 <= ALL(cells) AND 32767 >= ALL(cells)",
+            "cardinality(cells) > 0 AND 0 <= ALL(cells) AND 32767 >= ALL(cells)",
             name="ck_image_layout_staging_cells",
         ),
         UniqueConstraint(
@@ -3288,7 +3288,7 @@ class LayoutImportRowModel(Base):
             name="ck_layout_import_rows_cells_not_empty",
         ),
         CheckConstraint(
-            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            "cells IS NULL OR (0 <= ALL(cells) AND 32767 >= ALL(cells))",
             name="ck_layout_import_rows_cells_mobile_code_range",
         ),
         CheckConstraint(
@@ -3346,7 +3346,7 @@ class LayoutImportNormalizedRowModel(Base):
             name="ck_layout_import_normalized_rows_cells_not_empty",
         ),
         CheckConstraint(
-            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            "cells IS NULL OR (0 <= ALL(cells) AND 32767 >= ALL(cells))",
             name="ck_layout_import_normalized_rows_cells_code_range",
         ),
         CheckConstraint(
@@ -3505,7 +3505,7 @@ class LayoutModel(Base):
             name="ck_layouts_cells_not_empty",
         ),
         CheckConstraint(
-            "1 <= ALL(cells) AND 32767 >= ALL(cells)",
+            "0 <= ALL(cells) AND 32767 >= ALL(cells)",
             name="ck_layouts_cells_mobile_code_range",
         ),
         UniqueConstraint(

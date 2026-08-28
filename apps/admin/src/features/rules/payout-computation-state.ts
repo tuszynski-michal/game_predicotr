@@ -4,7 +4,7 @@ import type {
   RulesVersionResponse,
 } from '@game-predictor/admin-api-client';
 
-export const PAYOUT_ALGORITHM_VERSION = 'payout-v2';
+export const PAYOUT_ALGORITHM_VERSION = 'payout-v3-unknown-prefix-stop';
 
 export type PayoutReadiness =
   | { readonly ready: true; readonly dataset: DatasetVersionResponse }

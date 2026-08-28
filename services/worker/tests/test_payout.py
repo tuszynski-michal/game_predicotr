@@ -152,6 +152,33 @@ def test_payout_evaluation_is_deterministic_and_does_not_mutate_inputs() -> None
     assert (game, cells, paylines, payout_symbols, rules) == original_inputs
 
 
+@pytest.mark.parametrize(
+    ("top_row", "expected_total", "expected_length"),
+    (
+        ((0, 1, 1, 1, 1), 0, None),
+        ((1, 1, 0, 1, 1), 5, 2),
+        ((1, 9, 0, 2, 2), 5, 2),
+        ((1, 1, 1, 0, 2), 10, 3),
+    ),
+)
+def test_payout_v3_stops_at_unknown_and_ignores_the_suffix(
+    top_row: tuple[int, ...],
+    expected_total: int,
+    expected_length: int | None,
+) -> None:
+    fixture = _load_fixture()
+    game = _game_from_fixture(fixture["game"])
+    payline = _paylines_from_fixture(fixture["paylines"][:1])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = _rules_from_fixture(fixture["payoutRules"])
+    cells = (*top_row, *((2,) * 10))
+
+    result = evaluate_payout(game, cells, payline, payout_symbols, rules)
+
+    assert result.total_payout == expected_total
+    assert (result.matches[0].matched_length if result.matches else None) == expected_length
+
+
 def test_precomputing_rejects_duplicate_payout_rule() -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])

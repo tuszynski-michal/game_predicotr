@@ -5,10 +5,13 @@ import test from 'node:test';
 import {
   DomainValidationError,
   decodeSignature,
+  decodeLayoutSignature,
   encodeSignature,
+  encodeLayoutSignature,
   encodeSignaturePrefix,
   validateBoardPrefix,
   validateFullBoard,
+  validateLayoutBoard,
   validateGameConfig,
   validatePaylines,
   validatePayoutRules,
@@ -77,6 +80,24 @@ test('signature codec reports stable validation codes', () => {
       ),
     );
   }
+});
+
+test('layout codec reserves zero without allowing it on player boards', () => {
+  const game = fixture.validation.game;
+  const cells = [0, ...fixture.validation.fullBoard.slice(1)];
+  const signature = encodeLayoutSignature(cells, game.signatureCellWidth);
+
+  assert.deepEqual(
+    decodeLayoutSignature(signature, game.signatureCellWidth, cells.length),
+    cells,
+  );
+  validateLayoutBoard(cells, game);
+  assertDomainError('invalid_symbol_code', () =>
+    encodeSignature(cells, game.signatureCellWidth),
+  );
+  assertDomainError('invalid_board_symbol', () =>
+    validateFullBoard(cells, game),
+  );
 });
 
 test('valid shared game, board, paylines and payout rules pass validation', () => {

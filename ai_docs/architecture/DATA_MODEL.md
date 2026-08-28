@@ -1229,7 +1229,7 @@ obrazów ani ścieżek absolutnych.
 | recognized_board_id | UUID | FK board, część PK |
 | review_item_id | UUID | unikalny FK rozwiązanej decyzji |
 | sequence_number | bigint | zaakceptowany dodatni numer |
-| cells | smallint[15] | aktywne `mobile_code`, row-major |
+| cells | smallint[] | `rows × columns`, aktywne `mobile_code` albo `0` jako unknown, row-major |
 | created_at | timestamptz | |
 
 Predykcja automatyczna nigdy nie tworzy wiersza. Materializacja następuje
@@ -1599,6 +1599,13 @@ wyłącznie przez dodanie opcjonalnych etykiet `name_pl` i `name_en` do tabeli
 `symbols`. Generator, manifest i mobile muszą zgadzać się co do schema v3;
 starsze APK nadal używają własnego niezmiennego snapshotu schema v2.
 
+Wersja 0.9 wprowadza `snapshot_schema_version = 4` i
+`PRAGMA user_version = 4`. Kod `0` w sygnaturze layoutu oznacza wyłącznie
+logical unknown i jest jawnie zapisany w metadata jako
+`unknown_layout_mobile_code = 0`. Tabela `symbols` nadal dopuszcza wyłącznie
+`mobile_code` z zakresu `1..32767`. Aktualna aplikacja obsługuje snapshoty v3
+i v4; aplikacja znająca tylko v3 nie może zostać zbudowana z wydaniem v4.
+
 ### metadata
 
 ```text
@@ -1613,6 +1620,7 @@ Obowiązkowe klucze:
 - `algorithm_version`,
 - `created_at`,
 - `content_checksum`.
+- dla schema v4: `unknown_layout_mobile_code = 0`.
 
 Snapshot M1 zapisuje dodatkowo `fixture_version`, `fixture_fingerprint`,
 `dataset_version`, `rules_version`, `game_count` i `layout_count`. Zewnętrzny

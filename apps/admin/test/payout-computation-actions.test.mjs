@@ -32,7 +32,7 @@ test('starts an explicitly versioned payout job through the typed client', async
   assert.deepEqual(request, {
     gameId,
     inputPayload: {
-      algorithmVersion: 'payout-v2',
+      algorithmVersion: 'payout-v3-unknown-prefix-stop',
       datasetVersionId: datasetId,
       rulesVersionId: rulesId,
       schemaVersion: 1,

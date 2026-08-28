@@ -153,6 +153,22 @@ export function validateFullBoard(
   cells.forEach((cell) => validatePopulatedCell(cell, allowedCodes));
 }
 
+export function validateLayoutBoard(
+  cells: readonly number[],
+  game: GameConfig,
+): void {
+  validateGameConfig(game);
+  const expectedLength = game.rows * game.columns;
+  if (cells.length !== expectedLength) {
+    throw new DomainValidationError(
+      'invalid_board_length',
+      `Board contains ${cells.length} cells; expected ${expectedLength}.`,
+    );
+  }
+  const allowedCodes = new Set([0, ...allowedSymbolCodes(game)]);
+  cells.forEach((cell) => validatePopulatedCell(cell, allowedCodes));
+}
+
 export function validateBoardPrefix(
   cells: readonly (number | null)[],
   game: GameConfig,

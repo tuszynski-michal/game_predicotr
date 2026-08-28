@@ -1,4 +1,5 @@
 import {
+  decodeLayoutSignature,
   decodeSignature,
   TARGET_SCAN_LIMIT_ENGINE_MIN,
   TARGET_SCAN_LIMIT_MAX,
@@ -6,6 +7,7 @@ import {
   type SequencePayout,
   type SymbolDefinition,
   validateFullBoard,
+  validateLayoutBoard,
   validateGameConfig,
 } from '@game-predictor/shared-ts';
 import type { SQLiteBindParams } from 'expo-sqlite';
@@ -278,12 +280,12 @@ function readCandidate(
   }
 
   const signature = requireString(row.signature, 'Layout signature');
-  const cells = decodeSignature(
+  const cells = decodeLayoutSignature(
     signature,
     game.signatureCellWidth,
     game.rows * game.columns,
   );
-  validateFullBoard(cells, game);
+  validateLayoutBoard(cells, game);
 
   return Object.freeze({
     cells: Object.freeze([...cells]),
@@ -303,12 +305,12 @@ function readLayoutContent(
   }
 
   const signature = requireString(row.signature, 'Layout signature');
-  const cells = decodeSignature(
+  const cells = decodeLayoutSignature(
     signature,
     game.signatureCellWidth,
     game.rows * game.columns,
   );
-  validateFullBoard(cells, game);
+  validateLayoutBoard(cells, game);
 
   return Object.freeze({
     cells: Object.freeze([...cells]),

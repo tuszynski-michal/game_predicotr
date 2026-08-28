@@ -297,3 +297,36 @@ nieczytelnych realnym symbolem albo logicznym `?`.
 
 TASK 10 — dataset, snapshot v4 i payout z unknown. Nie rozpoczęto go w ramach
 TASK 9.
+
+### v0.9.10 — dataset, snapshot v4 i payout z unknown
+
+- Dodano odrębne kodeki trwałych layoutów w Pythonie i TypeScript. Dopuszczają
+  sentinel `0`, podczas gdy dotychczasowy kodek planszy gracza nadal go
+  odrzuca.
+- Migracja 0074 dopuszcza zero w stagingu/importach/datasetach i pozostawia
+  katalog symboli bez zmian. Rozwiązana plansza z logical unknown tworzy
+  staging z `0`, zamiast tracić gotowy layout.
+- Produkcyjny snapshot v4 deklaruje `unknown_layout_mobile_code = 0`; mobile
+  obsługuje v3/v4 i renderuje zero jako `?`.
+- Nowy `payout-v3-unknown-prefix-stop` kończy analizę na pierwszym unknown.
+  Historyczne joby `payout-v2` są nadal obsługiwane wersjonowanym adapterem.
+
+#### Outcome TASK 10
+
+- Celowane testy workera dla domeny, payoutu i snapshotu: `55 passed`; pełny
+  zestaw testów Admina: `296 passed`; wspólne kontrakty TypeScript: `25 passed`.
+- Dodatkowe zestawy API, datasetu i migracji: `71 passed` oraz `66 passed`;
+  testy snapshotu produkcyjnego i artefaktu: `25 passed`; celowane testy Mobile:
+  `30 passed`.
+- Ruff, lint Admina i Mobile, typecheck Shared/Mobile/Admin, OpenAPI check oraz
+  produkcyjny build Admina przechodzą. Globalny `format:check` nadal wskazuje
+  wyłącznie wcześniejsze, niezwiązane pliki `next-env.d.ts` i test dostępu
+  Reviewera; pełny mypy nadal ma wcześniejszy błąd repozytorium kohort.
+- Test wspólnego kodeka TypeScript oraz test renderowania Mobile potwierdzają,
+  że zero działa tylko w odczycie layoutu, a wejście gracza pozostaje strict.
+- Migracji 0074 nie uruchamiano na bazie użytkownika.
+
+## Następny etap po TASK 10
+
+TASK 11 — bezpieczne kohorty treningowe po recropie. Nie rozpoczęto go w ramach
+TASK 10.

@@ -1512,13 +1512,12 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 {"game_id": game.id, "sequence_number": 1},
             )
             assert canonical is not None and canonical.review_item_id == review_item_id
-            assert (
-                session.get(
-                    ImageLayoutStagingRowModel,
-                    {"import_job_id": job.id, "recognized_board_id": board_id},
-                )
-                is None
+            staging = session.get(
+                ImageLayoutStagingRowModel,
+                {"import_job_id": job.id, "recognized_board_id": board_id},
             )
+            assert staging is not None
+            assert staging.cells == [1, 0] + [1] * 13
             target = session.scalar(
                 select(ImageSymbolReviewCellModel).where(
                     ImageSymbolReviewCellModel.review_item_id == review_item_id,

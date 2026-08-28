@@ -98,7 +98,7 @@ type CountRow = {
   layout_count: number;
 };
 
-const EXPECTED_SCHEMA_VERSION = 3;
+const SUPPORTED_SCHEMA_VERSIONS = new Set([3, 4]);
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 export const snapshotManifest = manifestJson satisfies SnapshotManifest;
@@ -129,7 +129,7 @@ export function validateSnapshotMetadata(
     );
   }
   const manifestSchemaVersion = schemaVersion(manifest);
-  if (manifestSchemaVersion !== EXPECTED_SCHEMA_VERSION) {
+  if (!SUPPORTED_SCHEMA_VERSIONS.has(manifestSchemaVersion)) {
     throw new LocalDataError(
       `Unsupported manifest schema version: ${manifestSchemaVersion}.`,
     );
@@ -143,6 +143,7 @@ export function validateSnapshotMetadata(
     layout_count: String(manifest.layoutCount),
     release_version: manifest.releaseVersion,
     snapshot_schema_version: String(manifestSchemaVersion),
+    ...(manifestSchemaVersion >= 4 ? { unknown_layout_mobile_code: '0' } : {}),
     ...('fixtureVersion' in manifest
       ? {
           dataset_version: String(manifest.datasetVersion),

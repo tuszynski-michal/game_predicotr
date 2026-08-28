@@ -3543,3 +3543,15 @@ Zapisane unknown pozostaje w szybkiej projekcji jako brak dowodu. Nie daje
 punktu, exact match ani mismatch, a denominator obejmuje wyłącznie znane pola
 zapytania. Kolejność remisów w domenie i SQL pozostaje zgodna: score, exact,
 ważone alternatywy, mniej sprzeczności, zatwierdzony status, sekwencja i UUID.
+
+Commit `v0.9.10` wprowadza sentinel `mobileCode = 0` wyłącznie dla trwałych
+layoutów. Migracja 0074 dopuszcza zero w stagingu, imporcie i datasetach oraz
+usuwa constraint stałej liczby 15 komórek ze stagingu; walidacja aplikacyjna
+pozostaje zależna od `rows × columns`. Katalog symboli i plansza użytkownika
+nadal odrzucają zero.
+
+Nowe snapshoty produkcyjne mają schema v4 i deklarują
+`unknown_layout_mobile_code = 0`. Aktualny mobile czyta schema v3/v4 i renderuje
+zero jako `?`. `payout-v3-unknown-prefix-stop` kończy prefiks na pierwszym
+unknown, zachowując kwalifikującą wygraną sprzed niego i ignorując sufiks.
+Historyczne joby payout-v2 pozostają obsługiwane do replayu.

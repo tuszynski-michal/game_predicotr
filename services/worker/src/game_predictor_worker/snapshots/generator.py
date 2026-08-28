@@ -30,7 +30,7 @@ from game_predictor_worker.snapshots.integrity import (
     file_sha256,
 )
 
-PRODUCTION_SNAPSHOT_SCHEMA_VERSION: Final = 3
+PRODUCTION_SNAPSHOT_SCHEMA_VERSION: Final = 4
 SQLITE_APPLICATION_ID: Final = 0x47505244
 DEFAULT_SNAPSHOT_BATCH_SIZE: Final = 1000
 SIGNATURE_INDEX_NAME: Final = "idx_layouts_game_signature"
@@ -257,6 +257,7 @@ class ProductionSnapshotGenerator:
                             "created_at": created_at,
                             "game_count": str(len(game_rows)),
                             "layout_count": str(layout_count),
+                            "unknown_layout_mobile_code": "0",
                             "release_version": release_version,
                             "snapshot_schema_version": str(PRODUCTION_SNAPSHOT_SCHEMA_VERSION),
                         }.items()

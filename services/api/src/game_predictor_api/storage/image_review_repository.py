@@ -939,10 +939,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         else:
             symbols = tuple(cell.symbol_code for cell in resolution.cells)
-            has_unknown = any(symbol is None for symbol in symbols)
-            mobile_codes = (
-                None if has_unknown else self._mobile_codes(game_id, cast(tuple[str, ...], symbols))
-            )
+            known_symbols = tuple(symbol for symbol in symbols if symbol is not None)
+            known_mobile_codes = iter(self._mobile_codes(game_id, known_symbols))
+            mobile_codes = [0 if symbol is None else next(known_mobile_codes) for symbol in symbols]
+            expected_cell_count = (board.grid_rows or 3) * (board.grid_columns or 5)
+            if len(mobile_codes) != expected_cell_count:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_CELL_COUNT_INVALID",
+                    "The resolved layout does not match the board topology.",
+                )
             resolved_sequence = cast(int, resolution.sequence_number)
             canonical = self._claim_canonical_sequence(
                 game_id=game_id,
@@ -983,10 +988,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     resolved_at=resolved_at,
                     revision=revision,
                 )
-                if has_unknown:
-                    if staging is not None:
-                        self._session.delete(staging)
-                elif staging is None:
+                if staging is None:
                     self._session.add(
                         ImageLayoutStagingRowModel(
                             import_job_id=import_job_id,
@@ -1004,7 +1006,6 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     )
                 else:
                     staging.sequence_number = resolved_sequence
-                    assert mobile_codes is not None
                     staging.cells = mobile_codes
                 canonical.status = resolution.action.value
                 canonical.resolution_revision = revision

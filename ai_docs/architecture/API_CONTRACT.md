@@ -212,9 +212,10 @@ Rozwiązanie jest rozłączne: `{kind: symbol, symbolId}` albo `{kind: unknown}`
 Request wymaga oczekiwanej rewizji komórki i geometrii, crop sample ID oraz
 SHA-256. Mutacja używa tej samej blokady i agregacji planszy co decyzja
 pojedynczego cropa, zachowuje `quality_issue = unreadable` i nie kwalifikuje
-obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`. Do migracji
-0074 i snapshotu v4 taka plansza nie tworzy wiersza `image_layout_staging_rows`;
-canonical, audyt i szybki bieżący właściciel pozostają aktualne.
+obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`, a w stagingu
+datasetu materializuje odpowiadającą komórkę jako sentinel `mobileCode = 0`.
+Canonical, audyt i szybki bieżący właściciel pozostają aktualne. Sentinel nie
+jest dozwolony w katalogu symboli ani w planszy wprowadzanej przez gracza.
 
 ### Trwałe operacje masowe weryfikacji cropów
 

@@ -5941,6 +5941,24 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** mapowanie game-wide endpointów przez publiczny proxy
   odrzucono z powodu zbyt szerokiego scope i ryzyka ujawnienia innych importów.
 
+## D-247 — Unknown jest sentinelowym kodem layoutu, nie symbolem katalogu
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** snapshot schema v4 i trwałe layouty używają `mobileCode = 0`
+  wyłącznie jako logicznego unknown. Kodek layoutu dopuszcza zero, natomiast
+  katalog symboli, plansza użytkownika i prefix wejściowy nadal wymagają
+  realnych kodów `1..32767`. `payout-v3-unknown-prefix-stop` kończy linię na
+  pierwszym zero i ignoruje dalszy sufiks.
+- **Context:** nieczytelna komórka może być poprawną, zatwierdzoną decyzją
+  logiczną, ale nie wolno tworzyć dla niej fałszywego symbolu ani traktować jej
+  jak jokera.
+- **Safety:** schema v4 deklaruje sentinel w metadata; aktualny mobile wspiera
+  v3 i v4, a stare klienty v3 nie otrzymują release'u v4. Historyczny payout
+  v2 oraz jego artefakty pozostają odtwarzalne.
+- **Consequences:** unknown może przejść przez staging, dataset, snapshot i UI,
+  nie stając się klasą modelu ani symbolem możliwym do ręcznego wpisania.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from game_predictor_worker.domain import DomainValidationError, decode_signature
+from game_predictor_worker.domain import DomainValidationError, decode_layout_signature
 from game_predictor_worker.snapshots.generator import (
     PRODUCTION_SNAPSHOT_SCHEMA_VERSION,
     SIGNATURE_INDEX_NAME,
@@ -72,6 +72,7 @@ _EXPECTED_METADATA_KEYS = {
     "created_at",
     "game_count",
     "layout_count",
+    "unknown_layout_mobile_code",
     "release_version",
     "snapshot_schema_version",
 }
@@ -339,6 +340,7 @@ def _validate_metadata(
         "created_at": manifest.created_at,
         "game_count": str(manifest.game_count),
         "layout_count": str(manifest.layout_count),
+        "unknown_layout_mobile_code": "0",
         "release_version": manifest.release_version,
         "snapshot_schema_version": str(manifest.snapshot_schema_version),
     }
@@ -492,7 +494,7 @@ def _validate_layouts(
                     "A SQLite layout signature or payout is invalid.",
                 )
             try:
-                cells = decode_signature(
+                cells = decode_layout_signature(
                     signature,
                     game[6],
                     expected_cell_count=game[3] * game[4],
@@ -502,7 +504,7 @@ def _validate_layouts(
                     "SNAPSHOT_SIGNATURE_INVALID",
                     "A SQLite layout signature is invalid.",
                 ) from error
-            if any(cell not in symbol_codes[game_id] for cell in cells):
+            if any(cell != 0 and cell not in symbol_codes[game_id] for cell in cells):
                 raise SnapshotArtifactError(
                     "SNAPSHOT_SYMBOL_REFERENCE_INVALID",
                     "A SQLite layout signature references an unknown symbol.",

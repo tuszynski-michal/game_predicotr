@@ -1,4 +1,4 @@
-"""Resumable payout-v2 job handler."""
+"""Resumable versioned payout job handler."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from game_predictor_api.domain.rules import RulesVersionStatus
 
 from game_predictor_worker.domain.contracts import PayoutEvaluation
 from game_predictor_worker.domain.errors import DomainValidationError
-from game_predictor_worker.domain.payout import evaluate_payout
+from game_predictor_worker.domain.payout import evaluate_payout, evaluate_payout_v2
 from game_predictor_worker.jobs.runtime import (
     JobExecutionContext,
     JobHandlerError,
@@ -26,7 +26,11 @@ from game_predictor_worker.payouts.contracts import (
     PayoutStore,
 )
 
-PAYOUT_ALGORITHM_VERSION = "payout-v2"
+PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
+LEGACY_PAYOUT_ALGORITHM_VERSION = "payout-v2"
+SUPPORTED_PAYOUT_ALGORITHM_VERSIONS = frozenset(
+    {LEGACY_PAYOUT_ALGORITHM_VERSION, PAYOUT_ALGORITHM_VERSION}
+)
 DEFAULT_PAYOUT_BATCH_SIZE = 1000
 
 
@@ -77,7 +81,7 @@ class PayoutBatchHandler:
             audited = tuple(
                 AuditedPayout(
                     layout=layout,
-                    evaluation=_evaluate(source, layout),
+                    evaluation=_evaluate(source, layout, algorithm_version=algorithm_version),
                 )
                 for layout in layouts
             )
@@ -143,10 +147,13 @@ def _parse_job(job: Job) -> tuple[UUID, UUID, str]:
             "The payout job requires valid dataset and rules version IDs.",
         ) from error
     algorithm_version = payload.get("algorithm_version")
-    if not isinstance(algorithm_version, str) or algorithm_version != PAYOUT_ALGORITHM_VERSION:
+    if (
+        not isinstance(algorithm_version, str)
+        or algorithm_version not in SUPPORTED_PAYOUT_ALGORITHM_VERSIONS
+    ):
         raise JobHandlerError(
             "UNSUPPORTED_PAYOUT_ALGORITHM",
-            f"Only {PAYOUT_ALGORITHM_VERSION} is supported.",
+            "The requested payout algorithm is not supported.",
         )
     return dataset_id, rules_id, algorithm_version
 
@@ -177,10 +184,10 @@ def _validate_source(
             "PAYOUT_DIMENSIONS_MISMATCH",
             "The payout dataset and rules dimensions must match.",
         )
-    if algorithm_version != PAYOUT_ALGORITHM_VERSION:
+    if algorithm_version not in SUPPORTED_PAYOUT_ALGORITHM_VERSIONS:
         raise JobHandlerError(
             "UNSUPPORTED_PAYOUT_ALGORITHM",
-            f"Only {PAYOUT_ALGORITHM_VERSION} is supported.",
+            "The requested payout algorithm is not supported.",
         )
     if source.layout_count <= 0:
         raise JobHandlerError(
@@ -258,9 +265,16 @@ def _validate_layout_batch(
 def _evaluate(
     source: PayoutSource,
     layout: PayoutLayout,
+    *,
+    algorithm_version: str,
 ) -> PayoutEvaluation:
     try:
-        return evaluate_payout(
+        evaluator = (
+            evaluate_payout_v2
+            if algorithm_version == LEGACY_PAYOUT_ALGORITHM_VERSION
+            else evaluate_payout
+        )
+        return evaluator(
             source.game,
             layout.cells,
             source.paylines,

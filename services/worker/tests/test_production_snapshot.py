@@ -98,7 +98,7 @@ ZETA_SOURCE = _source(
 ALPHA_LAYOUTS = (
     SnapshotLayout(1, "0102", 0),
     SnapshotLayout(2, "0102", 30),
-    SnapshotLayout(3, "0201", 5),
+    SnapshotLayout(3, "0001", 5),
 )
 ZETA_LAYOUTS = (
     SnapshotLayout(1, "0202", 7),
@@ -251,6 +251,9 @@ def test_generator_writes_production_schema_and_bounded_ordered_content(
             ORDER BY sequence_number
             """
         ).fetchall()
+        alpha_unknown = connection.execute(
+            "SELECT sequence_number FROM layouts WHERE game_id = 1 AND signature = '0001'"
+        ).fetchall()
         alpha_cycle = connection.execute(
             """
             SELECT sequence_number, payout
@@ -293,7 +296,8 @@ def test_generator_writes_production_schema_and_bounded_ordered_content(
         "game_count": "2",
         "layout_count": "5",
         "release_version": "release-2026.07.27",
-        "snapshot_schema_version": "3",
+        "snapshot_schema_version": "4",
+        "unknown_layout_mobile_code": "0",
     }
     assert not any(key.startswith("fixture_") for key in metadata)
     assert games == [(1, "alpha", 11, 21, 3), (2, "zeta", 12, 22, 2)]
@@ -305,6 +309,7 @@ def test_generator_writes_production_schema_and_bounded_ordered_content(
     ]
     assert alpha_duplicates == [(1,), (2,)]
     assert alpha_prefix == [(1,), (2,)]
+    assert alpha_unknown == [(3,)]
     assert alpha_cycle == [(3, 5), (1, 0)]
     assert index_sql is not None
     assert "ON layouts(game_id, signature)" in index_sql[0]

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.jobs import (
+    PAYOUT_ALGORITHM_VERSION,
     BoardTopologyJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
@@ -614,7 +615,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
             game_id=game_id,
             dataset_version_id=dataset_id,
             rules_version_id=rules_id,
-            algorithm_version="payout-v2",
+            algorithm_version=PAYOUT_ALGORITHM_VERSION,
         )
     assert incomplete.value.code == "PAYOUT_DATASET_INCOMPLETE"
 
@@ -630,7 +631,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
         game_id=game_id,
         dataset_version_id=dataset_id,
         rules_version_id=rules_id,
-        algorithm_version="payout-v2",
+        algorithm_version=PAYOUT_ALGORITHM_VERSION,
     )
 
     assert created.job_type is JobType.PAYOUT
@@ -638,7 +639,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
         "schema_version": 1,
         "dataset_version_id": str(dataset_id),
         "rules_version_id": str(rules_id),
-        "algorithm_version": "payout-v2",
+        "algorithm_version": PAYOUT_ALGORITHM_VERSION,
     }
 
 

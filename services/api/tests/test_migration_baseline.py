@@ -83,6 +83,7 @@ SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job
 SYMBOL_CELL_TRAINING_COHORTS_REVISION = "0071_symbol_cell_training_cohorts"
 VERIFIED_TRAINING_COHORT_CELLS_REVISION = "0072_verified_training_cohort_cells"
 TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION = "0073_topology_geometry_crop_provenance"
+UNKNOWN_LAYOUT_CELLS_REVISION = "0074_unknown_layout_cells"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -191,7 +192,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     topology_geometry_crop_provenance = script.get_revision(
         TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION
     )
-    assert script.get_heads() == [TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION]
+    unknown_layout_cells = script.get_revision(UNKNOWN_LAYOUT_CELLS_REVISION)
+    assert script.get_heads() == [UNKNOWN_LAYOUT_CELLS_REVISION]
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
@@ -201,6 +203,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert (
         topology_geometry_crop_provenance.down_revision == VERIFIED_TRAINING_COHORT_CELLS_REVISION
     )
+    assert unknown_layout_cells is not None
+    assert unknown_layout_cells.down_revision == TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION
     assert baseline.down_revision is None
     assert catalog is not None
     assert catalog.down_revision == BASELINE_REVISION

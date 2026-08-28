@@ -38,7 +38,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     bootstrap_symbol_model_snapshot,
 )
 
-PAYOUT_ALGORITHM_VERSION = "payout-v2"
+PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
 
 
 @dataclass(frozen=True, slots=True)

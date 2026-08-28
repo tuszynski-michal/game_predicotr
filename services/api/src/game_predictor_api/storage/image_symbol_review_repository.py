@@ -25,6 +25,15 @@ from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryRepository,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    ResolveUnreadableCellCommand,
+    UnreadableBoardReviewCell,
+    UnreadableBoardReviewDetail,
+    UnreadableBoardReviewListItem,
+    UnreadableBoardReviewRepository,
+    UnreadableBoardReviewSlice,
+    UnreadableBoardReviewView,
+)
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_grid_reviews import (
@@ -59,6 +68,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     mark_symbol_cell_grid_issue,
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
+    resolve_unreadable_symbol_cell_review,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.models import (
@@ -568,7 +578,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 ImageReviewResolutionCell(
                     cell_index=review.cell_index,
                     crop_sample_id=review.crop.crop_sample_id,
-                    symbol_code=review.assigned_symbol_code or "",
+                    symbol_code=review.assigned_symbol_code,
                 )
                 for review in current_board_reviews
             )
@@ -586,6 +596,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 cells=cells,
                 rejection_reason=None,
                 resolved_by=commands[0].actor.strip(),
+                allow_unknown_cells=any(cell.symbol_code is None for cell in cells),
             )
             board_status = updated.status
             board_resolution_action = aggregate_action.value
@@ -802,6 +813,220 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             geometry_revision=geometry_revision,
             symbol_code_by_id=symbol_code_by_id,
             topology=_board_topology(board),
+        )
+
+
+class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository):
+    """Current-owner board queue built directly from unreadable cell state."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def require_ready_game(self, game_id: UUID) -> None:
+        SqlAlchemySymbolCellReviewQueryRepository(self._session).require_ready_game(game_id)
+
+    def list_boards(
+        self,
+        *,
+        game_id: UUID,
+        view: UnreadableBoardReviewView,
+        after_key: tuple[int, str] | None,
+        limit: int,
+    ) -> UnreadableBoardReviewSlice:
+        cell = ImageSymbolReviewCellModel
+        document = ImageBoardSearchFastDocumentModel
+        unreadable_count = (
+            select(func.count(cell.id))
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == document.review_item_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+                cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
+            )
+            .correlate(document, RecognizedBoardModel)
+            .scalar_subquery()
+        )
+        pending_count = (
+            select(func.count(cell.id))
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == document.review_item_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+                cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
+                cell.review_state == SymbolCellReviewState.PENDING.value,
+            )
+            .correlate(document, RecognizedBoardModel)
+            .scalar_subquery()
+        )
+        statement = (
+            select(
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
+                document.sequence_number,
+                document.status,
+                RecognizedBoardModel.grid_rows,
+                RecognizedBoardModel.grid_columns,
+                unreadable_count.label("unreadable_count"),
+                pending_count.label("pending_count"),
+            )
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == document.recognized_board_id)
+            .where(document.game_id == game_id, unreadable_count > 0)
+        )
+        if view is UnreadableBoardReviewView.PENDING:
+            statement = statement.where(pending_count > 0)
+        if after_key is not None:
+            statement = statement.where(
+                or_(
+                    document.sequence_number > after_key[0],
+                    and_(
+                        document.sequence_number == after_key[0],
+                        document.review_item_id.cast(String) > after_key[1],
+                    ),
+                )
+            )
+        rows = self._session.execute(
+            statement.order_by(document.sequence_number, document.review_item_id).limit(limit + 1)
+        ).all()
+        visible = rows[:limit]
+        return UnreadableBoardReviewSlice(
+            items=tuple(
+                UnreadableBoardReviewListItem(
+                    review_item_id=row.review_item_id,
+                    recognized_board_id=row.recognized_board_id,
+                    import_job_id=row.import_job_id,
+                    sequence_number=int(row.sequence_number),
+                    board_status=str(row.status),
+                    grid_rows=int(row.grid_rows or 3),
+                    grid_columns=int(row.grid_columns or 5),
+                    unreadable_count=int(row.unreadable_count),
+                    pending_unreadable_count=int(row.pending_count),
+                )
+                for row in visible
+            ),
+            has_next=len(rows) > limit,
+        )
+
+    def get_board(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+    ) -> UnreadableBoardReviewDetail | None:
+        document = ImageBoardSearchFastDocumentModel
+        board_row = self._session.execute(
+            select(document, RecognizedBoardModel)
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == document.recognized_board_id)
+            .where(
+                document.game_id == game_id,
+                document.review_item_id == review_item_id,
+                select(ImageSymbolReviewCellModel.id)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.geometry_revision
+                    == RecognizedBoardModel.geometry_revision,
+                    ImageSymbolReviewCellModel.quality_issue
+                    == SymbolCellQualityIssue.UNREADABLE.value,
+                )
+                .exists(),
+            )
+        ).one_or_none()
+        if board_row is None:
+            return None
+        current, board = board_row
+        assigned = aliased(SymbolModel)
+        rows = self._session.execute(
+            select(ImageSymbolReviewCellModel, assigned)
+            .outerjoin(assigned, assigned.id == ImageSymbolReviewCellModel.assigned_symbol_id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                ImageSymbolReviewCellModel.recognized_board_id == board.id,
+                ImageSymbolReviewCellModel.geometry_revision == board.geometry_revision,
+            )
+            .order_by(ImageSymbolReviewCellModel.cell_index)
+        ).all()
+        topology = _board_topology(board)
+        if len(rows) != topology.cell_count:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+                "The unreadable board does not contain every current topology cell.",
+            )
+        return UnreadableBoardReviewDetail(
+            review_item_id=current.review_item_id,
+            recognized_board_id=current.recognized_board_id,
+            import_job_id=current.import_job_id,
+            sequence_number=int(current.sequence_number),
+            board_status=str(current.status),
+            grid_rows=topology.rows,
+            grid_columns=topology.columns,
+            cells=tuple(
+                UnreadableBoardReviewCell(
+                    cell_review_id=cell_row.id,
+                    cell_index=int(cell_row.cell_index),
+                    row_index=int(cell_row.row_index),
+                    column_index=int(cell_row.column_index),
+                    assigned_symbol_id=cell_row.assigned_symbol_id,
+                    assigned_symbol_code=None if symbol is None else symbol.code,
+                    assigned_symbol_name=None if symbol is None else symbol.name,
+                    prediction_symbol_code=_known_symbol_code(cell_row.prediction_symbol_code),
+                    review_state=cell_row.review_state,
+                    quality_issue=_quality_issue_from_model(cell_row),
+                    revision=int(cell_row.revision),
+                    geometry_revision=int(cell_row.geometry_revision),
+                    crop_sample_id=cell_row.crop_sample_id,
+                    crop_checksum_sha256=cell_row.crop_checksum_sha256,
+                )
+                for cell_row, symbol in rows
+            ),
+        )
+
+    def resolve_cell(
+        self,
+        command: ResolveUnreadableCellCommand,
+    ) -> SymbolCellReviewMutationResult:
+        cell_id = self._session.scalar(
+            select(ImageSymbolReviewCellModel.id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                and_(
+                    ImageBoardSearchFastDocumentModel.game_id == ImageSymbolReviewCellModel.game_id,
+                    ImageBoardSearchFastDocumentModel.review_item_id
+                    == ImageSymbolReviewCellModel.review_item_id,
+                    ImageBoardSearchFastDocumentModel.recognized_board_id
+                    == ImageSymbolReviewCellModel.recognized_board_id,
+                ),
+            )
+            .where(
+                ImageSymbolReviewCellModel.game_id == command.game_id,
+                ImageSymbolReviewCellModel.review_item_id == command.review_item_id,
+                ImageSymbolReviewCellModel.cell_index == command.cell_index,
+            )
+        )
+        if cell_id is None:
+            raise SymbolCellReviewError(
+                "UNREADABLE_BOARD_REVIEW_CELL_NOT_FOUND",
+                "The selected unreadable cell is not part of the current logical board.",
+            )
+        action = (
+            SymbolCellReviewAction.APPROVE
+            if command.target_symbol_id is None
+            else SymbolCellReviewAction.REASSIGN
+        )
+        return SqlAlchemySymbolCellReviewMutationRepository(self._session).apply_mutation(
+            SymbolCellReviewMutationCommand(
+                game_id=command.game_id,
+                cell_review_id=cell_id,
+                action=action,
+                expected_revision=command.expected_revision,
+                expected_geometry_revision=command.expected_geometry_revision,
+                expected_crop_sample_id=command.expected_crop_sample_id,
+                expected_crop_checksum_sha256=command.expected_crop_checksum_sha256,
+                target_symbol_id=command.target_symbol_id,
+                actor=command.actor,
+                resolve_unreadable=True,
+            )
         )
 
 
@@ -1071,12 +1296,13 @@ class SymbolCellReviewWriteThroughCoordinator:
                 ImageReviewResolutionCell(
                     cell_index=review.cell_index,
                     crop_sample_id=review.crop.crop_sample_id,
-                    symbol_code=review.assigned_symbol_code or "",
+                    symbol_code=review.assigned_symbol_code,
                 )
                 for review in reviews
             ),
             rejection_reason=None,
             resolved_by=actor,
+            allow_unknown_cells=any(review.assigned_symbol_code is None for review in reviews),
         )
         return True
 
@@ -1524,20 +1750,19 @@ class SymbolCellReviewWriteThroughCoordinator:
         item: ImageReviewItemModel,
         active_symbol_ids: Mapping[str, UUID],
         cell_count: int,
-    ) -> tuple[UUID, ...] | None:
+    ) -> tuple[UUID | None, ...] | None:
         if item.status not in {"accepted", "corrected"}:
             return None
         resolved = cast(Mapping[str, object] | None, item.resolved_value)
         raw_codes = None if resolved is None else resolved.get("symbolCodes")
         if not isinstance(raw_codes, list | tuple) or len(raw_codes) != cell_count:
             return None
-        symbol_ids = tuple(
-            active_symbol_ids.get(code) if isinstance(code, str) else None for code in raw_codes
-        )
-        return (
-            None
-            if any(symbol_id is None for symbol_id in symbol_ids)
-            else cast(tuple[UUID, ...], symbol_ids)
+        if any(code is not None and not isinstance(code, str) for code in raw_codes):
+            return None
+        if any(isinstance(code, str) and code not in active_symbol_ids for code in raw_codes):
+            return None
+        return tuple(
+            None if code is None else active_symbol_ids[cast(str, code)] for code in raw_codes
         )
 
     def _append_event(
@@ -1790,6 +2015,22 @@ def _apply_symbol_cell_command(
     active_symbol_codes: Sequence[str],
     symbol_code_by_id: Mapping[UUID, str],
 ) -> SymbolCellReviewTransition:
+    if command.resolve_unreadable:
+        target_symbol_code = (
+            None
+            if command.target_symbol_id is None
+            else symbol_code_by_id.get(command.target_symbol_id)
+        )
+        if command.target_symbol_id is not None and target_symbol_code is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID",
+                "The target symbol is not active for this game.",
+            )
+        return resolve_unreadable_symbol_cell_review(
+            review,
+            target_symbol_code=target_symbol_code,
+            active_symbol_codes=active_symbol_codes,
+        )
     if command.action is SymbolCellReviewAction.APPROVE:
         return approve_symbol_cell_review(review, active_symbol_codes=active_symbol_codes)
     if command.action is SymbolCellReviewAction.REASSIGN:
@@ -2659,6 +2900,7 @@ def _current_cropper_version(
 __all__ = [
     "SqlAlchemySymbolCellReviewQueryRepository",
     "SqlAlchemySymbolCellReviewMutationRepository",
+    "SqlAlchemyUnreadableBoardReviewRepository",
     "SymbolCellReviewWriteThroughCoordinator",
     "SqlAlchemyImageSymbolReviewRepository",
     "SymbolCellReviewBackfillError",

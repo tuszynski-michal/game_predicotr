@@ -3517,3 +3517,17 @@ strony. Źródło kohort symboli wymaga teraz `quality_issue IS NULL`, dzięki c
 nieczytelny crop nie trafia do treningu. Migracja 0073 uwzględnia akcję
 `mark_unreadable` w constraintcie append-only eventów; cykl migracji i dwa
 scenariusze transakcyjne przeszły na izolowanej bazie PostgreSQL.
+
+Commit `v0.9.8` dodaje w grze sekcję `Weryfikacja symbolu na planszy`.
+Bounded kolejka `Do ustalenia / Wszystkie nieczytelne` wybiera wyłącznie
+bieżącego właściciela logicznej planszy i renderuje komplet komórek według
+snapshotu topologii. Operator rozwiązuje nieczytelne pole aktywnym symbolem
+albo domenowym `?`; request jest związany z rewizją oraz dokładną tożsamością i
+checksumą cropa.
+
+Rozwiązane pole pozostaje `quality_issue = unreadable`, więc słaby crop nigdy
+nie staje się treningowy. Ostatnie pole domyka planszę atomowo przez istniejący
+canonical flow. Dla `?` szybki właściciel i audyt pozostają aktywne, ale staging
+datasetu jest celowo pomijany do TASK 10, który wprowadzi sentinel 0, migrację
+0074 i snapshot v4. Test izolowanego PostgreSQL potwierdził reopen, recrop,
+rozwiązanie unknown, canonical oraz brak nieprawidłowego stagingu.

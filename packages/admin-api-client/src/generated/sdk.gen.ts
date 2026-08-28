@@ -319,6 +319,9 @@ import type {
   GetSymbolModelIterationErrors,
   GetSymbolModelIterationResponses,
   GetSymbolResponses,
+  GetUnreadableBoardReviewData,
+  GetUnreadableBoardReviewErrors,
+  GetUnreadableBoardReviewResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
@@ -442,6 +445,9 @@ import type {
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
+  ListUnreadableBoardReviewsData,
+  ListUnreadableBoardReviewsErrors,
+  ListUnreadableBoardReviewsResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
@@ -546,6 +552,9 @@ import type {
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
+  ResolveUnreadableBoardReviewCellData,
+  ResolveUnreadableBoardReviewCellErrors,
+  ResolveUnreadableBoardReviewCellResponses,
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
@@ -1868,6 +1877,72 @@ export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
   >({
     url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset',
     ...options,
+  });
+
+/**
+ * List current logical boards containing unreadable symbol crops
+ */
+export const listUnreadableBoardReviews = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListUnreadableBoardReviewsData, ThrowOnError>,
+): RequestResult<
+  ListUnreadableBoardReviewsResponses,
+  ListUnreadableBoardReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListUnreadableBoardReviewsResponses,
+    ListUnreadableBoardReviewsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews',
+    ...options,
+  });
+
+/**
+ * Read one current board with all topology-aware symbol cells
+ */
+export const getUnreadableBoardReview = <ThrowOnError extends boolean = false>(
+  options: Options<GetUnreadableBoardReviewData, ThrowOnError>,
+): RequestResult<
+  GetUnreadableBoardReviewResponses,
+  GetUnreadableBoardReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetUnreadableBoardReviewResponses,
+    GetUnreadableBoardReviewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}',
+    ...options,
+  });
+
+/**
+ * Resolve one unreadable crop as an active symbol or logical unknown
+ */
+export const resolveUnreadableBoardReviewCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResolveUnreadableBoardReviewCellData, ThrowOnError>,
+): RequestResult<
+  ResolveUnreadableBoardReviewCellResponses,
+  ResolveUnreadableBoardReviewCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveUnreadableBoardReviewCellResponses,
+    ResolveUnreadableBoardReviewCellErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

@@ -27,6 +27,10 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
 from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    UnreadableBoardReviewService,
+    UnreadableBoardReviewView,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
@@ -85,6 +89,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyImageSymbolReviewRepository,
     SqlAlchemySymbolCellReviewMutationRepository,
     SqlAlchemySymbolCellReviewQueryRepository,
+    SqlAlchemyUnreadableBoardReviewRepository,
     SymbolCellReviewWriteThroughCoordinator,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
@@ -1433,6 +1438,118 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             )
             assert cleared_grid_issue_page.items == ()
             assert cleared_grid_issue_page.needs_grid_fix_count == 0
+
+            # Resolve the remaining recropped cell, then exercise the dedicated
+            # whole-board unreadable workflow with logical unknown as the last
+            # decision needed to close the board.
+            recropped_grid_cell = refreshed_cells[2]
+            SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            ).reassign(
+                game_id=game.id,
+                cell_review_id=recropped_grid_cell.id,
+                expected_revision=recropped_grid_cell.revision,
+                expected_geometry_revision=recropped_grid_cell.geometry_revision,
+                expected_crop_sample_id=recropped_grid_cell.crop_sample_id,
+                expected_crop_checksum_sha256=recropped_grid_cell.crop_checksum_sha256,
+                target_symbol_id=first_symbol.id,
+                actor="symbol-cell-operator",
+            )
+            session.flush()
+            unreadable_result = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            ).mark_unreadable(
+                game_id=game.id,
+                cell_review_id=recropped.id,
+                expected_revision=recropped.revision,
+                expected_geometry_revision=recropped.geometry_revision,
+                expected_crop_sample_id=recropped.crop_sample_id,
+                expected_crop_checksum_sha256=recropped.crop_checksum_sha256,
+                actor="symbol-cell-operator",
+            )
+            assert unreadable_result.board_status == "pending"
+            session.flush()
+
+            unreadable_service = UnreadableBoardReviewService(
+                SqlAlchemyUnreadableBoardReviewRepository(session)
+            )
+            pending_page = unreadable_service.list(
+                game_id=game.id,
+                view=UnreadableBoardReviewView.PENDING,
+                after_cursor=None,
+                limit=10,
+            )
+            assert [item.review_item_id for item in pending_page.items] == [review_item_id]
+            unreadable_detail = unreadable_service.detail(
+                game_id=game.id,
+                review_item_id=review_item_id,
+            )
+            assert len(unreadable_detail.cells) == 15
+            target = unreadable_detail.cells[1]
+            resolved_unknown = unreadable_service.resolve(
+                game_id=game.id,
+                review_item_id=review_item_id,
+                cell_index=target.cell_index,
+                expected_revision=target.revision,
+                expected_geometry_revision=target.geometry_revision,
+                expected_crop_sample_id=target.crop_sample_id,
+                expected_crop_checksum_sha256=target.crop_checksum_sha256,
+                target_symbol_id=None,
+                actor="unreadable-board-reviewer",
+            )
+            assert resolved_unknown.board_status == "corrected"
+            assert resolved_unknown.board_resolution_action == "corrected"
+            assert resolved_unknown.quality_issue is SymbolCellQualityIssue.UNREADABLE
+            session.commit()
+
+        with Session(engine) as session:
+            review = session.get(ImageReviewItemModel, review_item_id)
+            assert review is not None and review.status == "corrected"
+            assert review.resolved_value is not None
+            assert review.resolved_value["symbolCodes"][1] is None
+            canonical = session.get(
+                ImageSequenceCanonicalModel,
+                {"game_id": game.id, "sequence_number": 1},
+            )
+            assert canonical is not None and canonical.review_item_id == review_item_id
+            assert (
+                session.get(
+                    ImageLayoutStagingRowModel,
+                    {"import_job_id": job.id, "recognized_board_id": board_id},
+                )
+                is None
+            )
+            target = session.scalar(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index == 1,
+                )
+            )
+            assert target is not None
+            assert target.review_state == "approved"
+            assert target.assigned_symbol_id is None
+            assert target.quality_issue == "unreadable"
+            assert target.approved_crop_sample_id == target.crop_sample_id
+            assert target.approved_crop_checksum_sha256 == target.crop_checksum_sha256
+            unreadable_service = UnreadableBoardReviewService(
+                SqlAlchemyUnreadableBoardReviewRepository(session)
+            )
+            assert (
+                unreadable_service.list(
+                    game_id=game.id,
+                    view=UnreadableBoardReviewView.PENDING,
+                    after_cursor=None,
+                    limit=10,
+                ).items
+                == ()
+            )
+            all_page = unreadable_service.list(
+                game_id=game.id,
+                view=UnreadableBoardReviewView.ALL,
+                after_cursor=None,
+                limit=10,
+            )
+            assert [item.review_item_id for item in all_page.items] == [review_item_id]
     finally:
         engine.dispose()
 

@@ -429,6 +429,29 @@ po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cro
 z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
 toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
+### Weryfikacja symbolu na planszy
+
+Sekcja w obrębie wybranej gry rozwiązuje cropy oznaczone jako nieczytelne w
+kontekście całej logicznej planszy. Domyślny widok `Do ustalenia` zawiera tylko
+bieżących właścicieli mających co najmniej jedno `unreadable + pending`;
+`Wszystkie nieczytelne` zachowuje audyt również po rozwiązaniu pól. Kolejka jest
+bounded i keysetowa, a wiele problematycznych komórek nadal tworzy jedną pozycję
+planszy.
+
+Plansza renderuje dokładnie `rows × columns` z przypiętej topologii i pokazuje
+crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. Dla nierozwiązanego
+nieczytelnego pola operator wybiera aktywny symbol albo logiczne `?`. Zapis jest
+związany z rewizją komórki i geometrii, crop sample ID oraz SHA-256. Podczas
+zapisu pozostałe akcje są zablokowane, a konflikt wymaga ponownego pobrania
+bieżącej planszy.
+
+Rozwiązanie zachowuje `quality_issue = unreadable`, dlatego crop pozostaje poza
+treningiem niezależnie od wybranej etykiety. Ostatnia decyzja może domknąć
+planszę jako `corrected`; `?` pozostaje wartością domenową i nie tworzy symbolu
+katalogowego. Do wdrożenia snapshotu v4 w TASK 10 plansza zawierająca `?` nie
+jest publikowana do stagingu datasetu, ale zachowuje kanonicznego właściciela i
+pełny audyt decyzji.
+
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
 wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje

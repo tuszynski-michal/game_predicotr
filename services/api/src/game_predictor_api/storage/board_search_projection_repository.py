@@ -803,7 +803,10 @@ def _payload_from_records(
             or not _is_complete_symbol_codes(raw_symbols)
         ):
             return None
-        primary = tuple(cast(str, symbol) for symbol in cast(Sequence[object], raw_symbols))
+        primary = tuple(
+            cast(str, symbol) if symbol is not None else None
+            for symbol in cast(Sequence[object], raw_symbols)
+        )
         alternatives = ((),) * BOARD_SEARCH_CELL_COUNT
         sequence_number = raw_sequence
     else:
@@ -872,7 +875,7 @@ def _is_complete_symbol_codes(value: object) -> bool:
         isinstance(value, Sequence)
         and not isinstance(value, str | bytes)
         and len(value) == BOARD_SEARCH_CELL_COUNT
-        and all(isinstance(symbol, str) and symbol.strip() for symbol in value)
+        and all(symbol is None or (isinstance(symbol, str) and symbol.strip()) for symbol in value)
     )
 
 

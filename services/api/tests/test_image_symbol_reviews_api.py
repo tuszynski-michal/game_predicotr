@@ -28,6 +28,15 @@ from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryService,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    ResolveUnreadableCellCommand,
+    UnreadableBoardReviewCell,
+    UnreadableBoardReviewDetail,
+    UnreadableBoardReviewListItem,
+    UnreadableBoardReviewService,
+    UnreadableBoardReviewSlice,
+    UnreadableBoardReviewView,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
@@ -299,6 +308,103 @@ class MemorySymbolCellReviewBackfillRepository:
         )
 
 
+class MemoryUnreadableBoardReviewRepository:
+    def __init__(self, *, game_id: UUID) -> None:
+        self.game_id = game_id
+        self.review_item_id = uuid4()
+        self.board_id = uuid4()
+        self.import_job_id = uuid4()
+        self.commands: list[ResolveUnreadableCellCommand] = []
+
+    def require_ready_game(self, game_id: UUID) -> None:
+        assert game_id == self.game_id
+
+    def list_boards(
+        self,
+        *,
+        game_id: UUID,
+        view: UnreadableBoardReviewView,
+        after_key: tuple[int, str] | None,
+        limit: int,
+    ) -> UnreadableBoardReviewSlice:
+        assert game_id == self.game_id
+        assert after_key is None
+        assert limit == 25
+        return UnreadableBoardReviewSlice(
+            items=(
+                UnreadableBoardReviewListItem(
+                    review_item_id=self.review_item_id,
+                    recognized_board_id=self.board_id,
+                    import_job_id=self.import_job_id,
+                    sequence_number=41,
+                    board_status="pending",
+                    grid_rows=2,
+                    grid_columns=4,
+                    unreadable_count=1,
+                    pending_unreadable_count=1 if view is UnreadableBoardReviewView.PENDING else 0,
+                ),
+            ),
+            has_next=False,
+        )
+
+    def get_board(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+    ) -> UnreadableBoardReviewDetail | None:
+        if game_id != self.game_id or review_item_id != self.review_item_id:
+            return None
+        return UnreadableBoardReviewDetail(
+            review_item_id=review_item_id,
+            recognized_board_id=self.board_id,
+            import_job_id=self.import_job_id,
+            sequence_number=41,
+            board_status="pending",
+            grid_rows=2,
+            grid_columns=4,
+            cells=tuple(
+                UnreadableBoardReviewCell(
+                    cell_review_id=uuid4(),
+                    cell_index=index,
+                    row_index=index // 4,
+                    column_index=index % 4,
+                    assigned_symbol_id=None,
+                    assigned_symbol_code=None,
+                    assigned_symbol_name=None,
+                    prediction_symbol_code="cherry",
+                    review_state="pending" if index == 3 else "approved",
+                    quality_issue="unreadable" if index == 3 else None,
+                    revision=2,
+                    geometry_revision=1,
+                    crop_sample_id="b" * 64,
+                    crop_checksum_sha256="a" * 64,
+                )
+                for index in range(8)
+            ),
+        )
+
+    def resolve_cell(
+        self,
+        command: ResolveUnreadableCellCommand,
+    ) -> SymbolCellReviewMutationResult:
+        self.commands.append(command)
+        return SymbolCellReviewMutationResult(
+            cell_review_id=uuid4(),
+            review_item_id=command.review_item_id,
+            sequence_number=41,
+            cell_revision=command.expected_revision + 1,
+            review_state=SymbolCellReviewState.APPROVED,
+            assigned_symbol_id=command.target_symbol_id,
+            has_grid_issue=False,
+            quality_issue=SymbolCellQualityIssue.UNREADABLE,
+            board_status="corrected",
+            board_resolution_action="corrected",
+            board_reopened=False,
+            catalog_revision=19,
+        )
+
+
 def _item(
     *,
     game_id: UUID,
@@ -340,6 +446,7 @@ def _client(
     bulk_repository: MemorySymbolCellReviewBulkRepository | None = None,
     mutation_repository: MemorySymbolCellReviewMutationRepository | None = None,
     backfill_repository: MemorySymbolCellReviewBackfillRepository | None = None,
+    unreadable_repository: MemoryUnreadableBoardReviewRepository | None = None,
 ) -> TestClient:
     settings = replace(
         ApiSettings.from_environment(
@@ -367,8 +474,67 @@ def _client(
             if backfill_repository is None
             else lambda: SymbolCellReviewBackfillService(backfill_repository)
         ),
+        unreadable_board_review_service_dependency=(
+            None
+            if unreadable_repository is None
+            else lambda: UnreadableBoardReviewService(unreadable_repository)
+        ),
     )
     return TestClient(app)
+
+
+def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+    unreadable = MemoryUnreadableBoardReviewRepository(game_id=game_id)
+    with _client(
+        repository,
+        artifact_root=tmp_path,
+        unreadable_repository=unreadable,
+    ) as client:
+        page = client.get(f"/api/v1/admin/games/{game_id}/unreadable-board-reviews")
+        detail = client.get(
+            f"/api/v1/admin/games/{game_id}/unreadable-board-reviews/{unreadable.review_item_id}"
+        )
+        unknown = client.post(
+            f"/api/v1/admin/games/{game_id}/unreadable-board-reviews/"
+            f"{unreadable.review_item_id}/cells/3/resolve",
+            json={
+                "assignment": {"kind": "unknown"},
+                "expectedRevision": 2,
+                "expectedGeometryRevision": 1,
+                "expectedCropSampleId": "b" * 64,
+                "expectedCropChecksumSha256": "a" * 64,
+            },
+        )
+        symbol = client.post(
+            f"/api/v1/admin/games/{game_id}/unreadable-board-reviews/"
+            f"{unreadable.review_item_id}/cells/3/resolve",
+            json={
+                "assignment": {"kind": "symbol", "symbolId": str(symbol_id)},
+                "expectedRevision": 2,
+                "expectedGeometryRevision": 1,
+                "expectedCropSampleId": "b" * 64,
+                "expectedCropChecksumSha256": "a" * 64,
+            },
+        )
+
+    assert page.status_code == 200
+    assert page.json()["items"][0]["pendingUnreadableCount"] == 1
+    assert detail.status_code == 200
+    assert detail.json()["gridRows"] == 2
+    assert detail.json()["gridColumns"] == 4
+    assert len(detail.json()["cells"]) == 8
+    assert unknown.status_code == 200
+    assert symbol.status_code == 200
+    assert unreadable.commands[0].target_symbol_id is None
+    assert unreadable.commands[1].target_symbol_id == symbol_id
 
 
 def test_projection_status_and_start_are_idempotent(tmp_path: Path) -> None:

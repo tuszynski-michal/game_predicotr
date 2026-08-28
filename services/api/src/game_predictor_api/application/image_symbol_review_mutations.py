@@ -33,6 +33,7 @@ class SymbolCellReviewMutationCommand:
     target_symbol_id: UUID | None
     actor: str
     operation_id: UUID | None = None
+    resolve_unreadable: bool = False
 
     def __post_init__(self) -> None:
         if self.expected_revision < 0 or self.expected_geometry_revision < 0:
@@ -62,6 +63,14 @@ class SymbolCellReviewMutationCommand:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_UNEXPECTED",
                 "Only a symbol reassignment may specify a target symbol.",
+            )
+        if self.resolve_unreadable and self.action not in {
+            SymbolCellReviewAction.APPROVE,
+            SymbolCellReviewAction.REASSIGN,
+        }:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_UNREADABLE_ACTION_INVALID",
+                "Unreadable cells can be resolved only as a symbol or logical unknown.",
             )
 
 

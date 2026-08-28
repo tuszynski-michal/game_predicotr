@@ -6693,6 +6693,38 @@ export type RemoteSelectionReopenedResponse = {
 export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
 
 /**
+ * ResolveUnreadableCellRequest
+ */
+export type ResolveUnreadableCellRequest = {
+  /**
+   * Assignment
+   */
+  assignment:
+    | ({
+        kind: 'symbol';
+      } & UnreadableSymbolAssignmentRequest)
+    | ({
+        kind: 'unknown';
+      } & UnreadableUnknownAssignmentRequest);
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedcropsampleid
+   */
+  expectedCropSampleId: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
  * ReviewAlternative
  */
 export type ReviewAlternative = {
@@ -8774,6 +8806,191 @@ export type SymbolUpdate = {
    * Name
    */
   name?: string | null;
+};
+
+/**
+ * UnreadableBoardReviewCellResponse
+ */
+export type UnreadableBoardReviewCellResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Assignedsymbolid
+   */
+  assignedSymbolId: string | null;
+  /**
+   * Assignedsymbolname
+   */
+  assignedSymbolName: string | null;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Predictionsymbolcode
+   */
+  predictionSymbolCode: string | null;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+};
+
+/**
+ * UnreadableBoardReviewDetailResponse
+ */
+export type UnreadableBoardReviewDetailResponse = {
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cells
+   */
+  cells: Array<UnreadableBoardReviewCellResponse>;
+  /**
+   * Gridcolumns
+   */
+  gridColumns: number;
+  /**
+   * Gridrows
+   */
+  gridRows: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * UnreadableBoardReviewListItemResponse
+ */
+export type UnreadableBoardReviewListItemResponse = {
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Gridcolumns
+   */
+  gridColumns: number;
+  /**
+   * Gridrows
+   */
+  gridRows: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Pendingunreadablecount
+   */
+  pendingUnreadableCount: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Unreadablecount
+   */
+  unreadableCount: number;
+};
+
+/**
+ * UnreadableBoardReviewPageResponse
+ */
+export type UnreadableBoardReviewPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<UnreadableBoardReviewListItemResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * UnreadableBoardReviewView
+ */
+export type UnreadableBoardReviewView = 'pending' | 'all';
+
+/**
+ * UnreadableSymbolAssignmentRequest
+ */
+export type UnreadableSymbolAssignmentRequest = {
+  /**
+   * Kind
+   */
+  kind: 'symbol';
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
+ * UnreadableUnknownAssignmentRequest
+ */
+export type UnreadableUnknownAssignmentRequest = {
+  /**
+   * Kind
+   */
+  kind: 'unknown';
 };
 
 /**
@@ -11769,6 +11986,152 @@ export type GetSymbolImageAssetResponses = {
    */
   200: unknown;
 };
+
+export type ListUnreadableBoardReviewsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    view?: UnreadableBoardReviewView;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews';
+};
+
+export type ListUnreadableBoardReviewsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type ListUnreadableBoardReviewsError =
+  ListUnreadableBoardReviewsErrors[keyof ListUnreadableBoardReviewsErrors];
+
+export type ListUnreadableBoardReviewsResponses = {
+  /**
+   * Successful Response
+   */
+  200: UnreadableBoardReviewPageResponse;
+};
+
+export type ListUnreadableBoardReviewsResponse =
+  ListUnreadableBoardReviewsResponses[keyof ListUnreadableBoardReviewsResponses];
+
+export type GetUnreadableBoardReviewData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}';
+};
+
+export type GetUnreadableBoardReviewErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetUnreadableBoardReviewError =
+  GetUnreadableBoardReviewErrors[keyof GetUnreadableBoardReviewErrors];
+
+export type GetUnreadableBoardReviewResponses = {
+  /**
+   * Successful Response
+   */
+  200: UnreadableBoardReviewDetailResponse;
+};
+
+export type GetUnreadableBoardReviewResponse =
+  GetUnreadableBoardReviewResponses[keyof GetUnreadableBoardReviewResponses];
+
+export type ResolveUnreadableBoardReviewCellData = {
+  body: ResolveUnreadableCellRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve';
+};
+
+export type ResolveUnreadableBoardReviewCellErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type ResolveUnreadableBoardReviewCellError =
+  ResolveUnreadableBoardReviewCellErrors[keyof ResolveUnreadableBoardReviewCellErrors];
+
+export type ResolveUnreadableBoardReviewCellResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewMutationResponse;
+};
+
+export type ResolveUnreadableBoardReviewCellResponse =
+  ResolveUnreadableBoardReviewCellResponses[keyof ResolveUnreadableBoardReviewCellResponses];
 
 export type FreezeVerifiedTrainingCohortData = {
   body: VerifiedTrainingCohortFreezeCommand;

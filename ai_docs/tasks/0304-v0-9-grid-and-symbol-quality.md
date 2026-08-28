@@ -245,3 +245,31 @@ TASK 7 — rozdzielenie `Nieczytelnego symbolu` od `Złej siatki`.
 
 TASK 8 — `Weryfikacja symbolu na planszy` dla ręcznego rozwiązania pól
 nieczytelnych realnym symbolem albo logicznym `?`.
+
+### v0.9.8 — weryfikacja symbolu na planszy
+
+- Lokalna kolejka gry ma widoki `Do ustalenia` oraz `Wszystkie nieczytelne`,
+  bounded keyset `(sequence_number, review_item_id)` i wyłącznie bieżących
+  właścicieli z szybkiej projekcji.
+- Detail zwraca wszystkie komórki zgodnie z topologią planszy; operator może
+  rozwiązać pending unreadable aktywnym symbolem albo domenowym `?`.
+- Mutacja jest checksum-bound, korzysta z istniejących blokad, eventów i
+  agregacji rodzica. Nie tworzy nowego joba ani tabeli kolejki.
+- Jakość `unreadable` pozostaje po rozwiązaniu, więc crop nie trafia do
+  treningu. Ostatnia decyzja może domknąć planszę jako corrected.
+- Unknown zachowuje canonical i szybki read model, lecz do TASK 10 nie tworzy
+  stagingu datasetu, którego bieżący constraint nie obsługuje jeszcze kodu 0.
+- Admin renderuje dynamiczne `rows × columns`, pozwala poruszać się po bounded
+  kolejce i blokuje podwójne decyzje podczas zapisu.
+
+#### Outcome TASK 8
+
+- Testy domeny/API/Reviewera: `43 passed`; testy Admina: `295 passed`.
+- Izolowany PostgreSQL potwierdził pełną transakcję realnego workflowu,
+  rozwiązanie `?`, canonical ownership i brak niezgodnego stagingu.
+- OpenAPI oraz generowany klient są zgodne. Nie uruchamiano migracji ani
+  pipeline'u na danych użytkownika.
+
+## Następny etap po TASK 8
+
+TASK 9 — semantyka `?` jako braku dowodu w wyszukiwaniu plansz.

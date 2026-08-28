@@ -117,6 +117,15 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   &thumbnailSize=100
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
+
+GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
+  ?view=pending|all
+  &afterCursor=...
+  &limit=1..100
+
+GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
+
+POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
 ```
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
@@ -184,6 +193,21 @@ Backend korzysta z tej samej atomowej transakcji planszy, blokady właściciela 
 append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
 Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
 kontekstu serwera.
+
+Endpointy `unreadable-board-reviews` są lokalną, game-wide kolejką aktualnych
+właścicieli logicznych plansz. `pending` wymaga co najmniej jednej komórki
+`quality_issue = unreadable` i `review_state = pending`; `all` obejmuje również
+rozwiązane nieczytelne pola. Lista używa keysetu
+`(sequence_number, review_item_id)`, a detail zwraca wszystkie komórki bieżącej
+topologii, nie tylko nieczytelne.
+
+Rozwiązanie jest rozłączne: `{kind: symbol, symbolId}` albo `{kind: unknown}`.
+Request wymaga oczekiwanej rewizji komórki i geometrii, crop sample ID oraz
+SHA-256. Mutacja używa tej samej blokady i agregacji planszy co decyzja
+pojedynczego cropa, zachowuje `quality_issue = unreadable` i nie kwalifikuje
+obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`. Do migracji
+0074 i snapshotu v4 taka plansza nie tworzy wiersza `image_layout_staging_rows`;
+canonical, audyt i szybki bieżący właściciel pozostają aktualne.
 
 ### Trwałe operacje masowe weryfikacji cropów
 

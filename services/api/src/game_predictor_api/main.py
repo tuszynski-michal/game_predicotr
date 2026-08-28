@@ -130,6 +130,7 @@ from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
     ManagedSymbolReferenceArtifactStore,
 )
+from game_predictor_api.application.unreadable_board_reviews import UnreadableBoardReviewService
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
@@ -256,6 +257,7 @@ from game_predictor_api.storage.image_symbol_review_bulk_operation_repository im
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
     SqlAlchemySymbolCellReviewQueryRepository,
+    SqlAlchemyUnreadableBoardReviewRepository,
 )
 from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
@@ -341,6 +343,7 @@ def create_app(
     symbol_cell_review_mutation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
+    unreadable_board_review_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -385,6 +388,7 @@ def create_app(
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
+            unreadable_board_review_service_dependency,
             worker_lane_status_service_dependency,
             verified_training_cohort_service_dependency,
             symbol_model_iteration_service_dependency,
@@ -526,6 +530,24 @@ def create_app(
     resolved_symbol_cell_review_backfill_dependency = (
         symbol_cell_review_backfill_service_dependency
         or default_symbol_cell_review_backfill_service_dependency
+    )
+
+    def default_unreadable_board_review_service_dependency() -> Iterator[
+        UnreadableBoardReviewService
+    ]:
+        with session_factory() as session:
+            try:
+                yield UnreadableBoardReviewService(
+                    SqlAlchemyUnreadableBoardReviewRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_unreadable_board_review_dependency = (
+        unreadable_board_review_service_dependency
+        or default_unreadable_board_review_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -1157,6 +1179,7 @@ def create_app(
             resolved_symbol_cell_review_mutation_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_symbol_cell_review_backfill_dependency,
+            resolved_unreadable_board_review_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,

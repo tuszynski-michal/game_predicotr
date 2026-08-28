@@ -896,8 +896,9 @@ bieżącą rewizją geometrii i aktualną tożsamością cropa.
 zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
 `0..14`, `crop_sample_id`, bezpieczną ścieżkę, SHA-256, rewizję geometrii,
 wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
-`NULL` w przypisaniu oznacza techniczne `?`; `approved` wymaga realnego
-symbolu. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
+`NULL` w przypisaniu oznacza techniczne `?`; zwykłe `approve` wymaga realnego
+symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domenowe
+`?`. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
 
@@ -961,6 +962,21 @@ Migracja dodaje również `image_board_geometry_review_events` jako append-only
 audyt zatwierdzenia geometrii. Nie przechowuje obrazów ani overlayów. Migracja
 0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths;
 usunięcie `has_grid_issue` pozostaje zakresem późniejszej migracji 0075.
+
+Kolejka nieczytelnych plansz nie ma osobnej tabeli. Jest wyliczana przez
+`EXISTS` po bieżących `image_symbol_review_cells` i łączona z
+`image_board_search_fast_documents`, dlatego zwraca tylko jednego aktualnego
+właściciela numeru. Rozwiązanie realnym symbolem albo `NULL` pozostawia
+`quality_issue = unreadable` jako trwałą informację o jakości i zapisuje
+istniejący append-only event komórki. Bieżąca tożsamość cropa może zostać
+zapisana jako zatwierdzona, ale `trainingEligible` nadal jest fałszywe z powodu
+problemu jakości.
+
+Plansza zawierająca zatwierdzone `NULL` może zostać logicznie domknięta i
+odzyskać `image_sequence_canonical`. Do migracji 0074 nie powstaje dla niej
+wiersz stagingu layoutu, ponieważ obecny codec datasetu nie dopuszcza jeszcze
+sentinela `mobileCode = 0`. Nie jest to utrata decyzji: pełne `resolved_value`,
+canonical i eventy pozostają źródłem późniejszej publikacji przez TASK 10.
 
 Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
 `image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w

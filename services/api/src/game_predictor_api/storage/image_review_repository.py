@@ -882,6 +882,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             rejection_reason=resolution.rejection_reason,
             resolved_by=resolution.resolved_by,
             active_symbol_codes=active_codes,
+            allow_unknown_cells=resolution.allow_unknown_cells,
         )
         if revalidated.command_sha256 != resolution.command_sha256:
             raise ImageReviewConflictError(
@@ -938,7 +939,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         else:
             symbols = tuple(cell.symbol_code for cell in resolution.cells)
-            mobile_codes = self._mobile_codes(game_id, symbols)
+            has_unknown = any(symbol is None for symbol in symbols)
+            mobile_codes = (
+                None if has_unknown else self._mobile_codes(game_id, cast(tuple[str, ...], symbols))
+            )
             resolved_sequence = cast(int, resolution.sequence_number)
             canonical = self._claim_canonical_sequence(
                 game_id=game_id,
@@ -979,7 +983,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     resolved_at=resolved_at,
                     revision=revision,
                 )
-                if staging is None:
+                if has_unknown:
+                    if staging is not None:
+                        self._session.delete(staging)
+                elif staging is None:
                     self._session.add(
                         ImageLayoutStagingRowModel(
                             import_job_id=import_job_id,
@@ -997,6 +1004,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     )
                 else:
                     staging.sequence_number = resolved_sequence
+                    assert mobile_codes is not None
                     staging.cells = mobile_codes
                 canonical.status = resolution.action.value
                 canonical.resolution_revision = revision

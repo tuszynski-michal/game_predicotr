@@ -11670,6 +11670,58 @@
         "title": "RemoteSourceKind",
         "type": "string"
       },
+      "ResolveUnreadableCellRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment": {
+            "discriminator": {
+              "mapping": {
+                "symbol": "#/components/schemas/UnreadableSymbolAssignmentRequest",
+                "unknown": "#/components/schemas/UnreadableUnknownAssignmentRequest"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UnreadableSymbolAssignmentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/UnreadableUnknownAssignmentRequest"
+              }
+            ],
+            "title": "Assignment"
+          },
+          "expectedCropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropchecksumsha256",
+            "type": "string"
+          },
+          "expectedCropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropsampleid",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignment",
+          "expectedRevision",
+          "expectedGeometryRevision",
+          "expectedCropSampleId",
+          "expectedCropChecksumSha256"
+        ],
+        "title": "ResolveUnreadableCellRequest",
+        "type": "object"
+      },
       "ReviewAlternative": {
         "additionalProperties": false,
         "properties": {
@@ -15310,6 +15362,322 @@
           }
         },
         "title": "SymbolUpdate",
+        "type": "object"
+      },
+      "UnreadableBoardReviewCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolcode"
+          },
+          "assignedSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolid"
+          },
+          "assignedSymbolName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolname"
+          },
+          "cellIndex": {
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "columnIndex": {
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "cropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropchecksumsha256",
+            "type": "string"
+          },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "predictionSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictionsymbolcode"
+          },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "rowIndex": {
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "assignedSymbolId",
+          "assignedSymbolCode",
+          "assignedSymbolName",
+          "predictionSymbolCode",
+          "reviewState",
+          "qualityIssue",
+          "revision",
+          "geometryRevision",
+          "cropSampleId",
+          "cropChecksumSha256"
+        ],
+        "title": "UnreadableBoardReviewCellResponse",
+        "type": "object"
+      },
+      "UnreadableBoardReviewDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/UnreadableBoardReviewCellResponse"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "gridColumns": {
+            "minimum": 1.0,
+            "title": "Gridcolumns",
+            "type": "integer"
+          },
+          "gridRows": {
+            "minimum": 1.0,
+            "title": "Gridrows",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sequenceNumber",
+          "boardStatus",
+          "gridRows",
+          "gridColumns",
+          "cells"
+        ],
+        "title": "UnreadableBoardReviewDetailResponse",
+        "type": "object"
+      },
+      "UnreadableBoardReviewListItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "gridColumns": {
+            "minimum": 1.0,
+            "title": "Gridcolumns",
+            "type": "integer"
+          },
+          "gridRows": {
+            "minimum": 1.0,
+            "title": "Gridrows",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "pendingUnreadableCount": {
+            "minimum": 0.0,
+            "title": "Pendingunreadablecount",
+            "type": "integer"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "unreadableCount": {
+            "minimum": 1.0,
+            "title": "Unreadablecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sequenceNumber",
+          "boardStatus",
+          "gridRows",
+          "gridColumns",
+          "unreadableCount",
+          "pendingUnreadableCount"
+        ],
+        "title": "UnreadableBoardReviewListItemResponse",
+        "type": "object"
+      },
+      "UnreadableBoardReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UnreadableBoardReviewListItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "UnreadableBoardReviewPageResponse",
+        "type": "object"
+      },
+      "UnreadableBoardReviewView": {
+        "enum": [
+          "pending",
+          "all"
+        ],
+        "title": "UnreadableBoardReviewView",
+        "type": "string"
+      },
+      "UnreadableSymbolAssignmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "symbol",
+            "title": "Kind",
+            "type": "string"
+          },
+          "symbolId": {
+            "format": "uuid",
+            "title": "Symbolid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "symbolId"
+        ],
+        "title": "UnreadableSymbolAssignmentRequest",
+        "type": "object"
+      },
+      "UnreadableUnknownAssignmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "unknown",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "UnreadableUnknownAssignmentRequest",
         "type": "object"
       },
       "ValidateJobCreate": {
@@ -20844,6 +21212,286 @@
         "summary": "Read the current human-approved symbol reference image",
         "tags": [
           "symbol-references"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/unreadable-board-reviews": {
+      "get": {
+        "operationId": "listUnreadableBoardReviews",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UnreadableBoardReviewView",
+              "default": "pending"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftercursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadableBoardReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "List current logical boards containing unreadable symbol crops",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}": {
+      "get": {
+        "operationId": "getUnreadableBoardReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadableBoardReviewDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Read one current board with all topology-aware symbol cells",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve": {
+      "post": {
+        "operationId": "resolveUnreadableBoardReviewCell",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_index",
+            "required": true,
+            "schema": {
+              "title": "Cell Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveUnreadableCellRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resolve one unreadable crop as an active symbol or logical unknown",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

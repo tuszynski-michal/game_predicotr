@@ -76,6 +76,7 @@ def create_api_router(
     symbol_cell_review_mutation_service_dependency: Callable[..., object],
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object],
     symbol_cell_review_backfill_service_dependency: Callable[..., object],
+    unreadable_board_review_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
@@ -133,6 +134,7 @@ def create_api_router(
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
+            unreadable_board_review_service_dependency,
             settings.artifact_root,
         )
     )

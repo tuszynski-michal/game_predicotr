@@ -430,6 +430,7 @@ class OperationalImageReviewService:
         cells: Sequence[ImageReviewResolutionCell],
         rejection_reason: str | None,
         resolved_by: str,
+        allow_unknown_cells: bool = False,
     ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
         if expected_revision < 0:
             raise ImageReviewConflictError(
@@ -461,6 +462,7 @@ class OperationalImageReviewService:
             rejection_reason=rejection_reason,
             resolved_by=resolved_by,
             active_symbol_codes=self._repository.active_symbol_codes(game_id),
+            allow_unknown_cells=allow_unknown_cells,
         )
         return self._repository.save_resolution(
             review_item_id=review_item_id,

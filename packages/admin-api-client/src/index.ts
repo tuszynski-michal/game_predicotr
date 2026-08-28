@@ -71,6 +71,7 @@ import {
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
+  getUnreadableBoardReview as getGeneratedUnreadableBoardReview,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
@@ -128,6 +129,7 @@ import {
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
+  listUnreadableBoardReviews as listGeneratedUnreadableBoardReviews,
   listApprovedSymbolReferenceCandidates as listGeneratedApprovedSymbolReferenceCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
@@ -166,6 +168,7 @@ import {
   reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
+  resolveUnreadableBoardReviewCell as resolveGeneratedUnreadableBoardReviewCell,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
@@ -270,6 +273,12 @@ import type {
   SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  ResolveUnreadableCellRequest,
+  UnreadableBoardReviewDetailResponse,
+  UnreadableBoardReviewCellResponse,
+  UnreadableBoardReviewListItemResponse,
+  UnreadableBoardReviewPageResponse,
+  UnreadableBoardReviewView,
   WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
@@ -463,6 +472,12 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  ResolveUnreadableCellRequest,
+  UnreadableBoardReviewCellResponse,
+  UnreadableBoardReviewDetailResponse,
+  UnreadableBoardReviewListItemResponse,
+  UnreadableBoardReviewPageResponse,
+  UnreadableBoardReviewView,
   SymbolTrainingCoverageResponse,
   PaylineCreate,
   PaylineResponse,
@@ -591,6 +606,13 @@ export interface ListSymbolCellReviewsOptions {
   readonly state?: SymbolCellReviewFilterState;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
+  readonly limit?: number;
+}
+
+export interface ListUnreadableBoardReviewsOptions {
+  readonly gameId: string;
+  readonly view?: UnreadableBoardReviewView;
+  readonly afterCursor?: string;
   readonly limit?: number;
 }
 
@@ -1678,6 +1700,38 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
     },
+    listUnreadableBoardReviews: (options: ListUnreadableBoardReviewsOptions) =>
+      listGeneratedUnreadableBoardReviews({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.view === undefined ? {} : { view: options.view }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getUnreadableBoardReview: (gameId: string, reviewItemId: string) =>
+      getGeneratedUnreadableBoardReview({
+        client,
+        path: { game_id: gameId, review_item_id: reviewItemId },
+      }),
+    resolveUnreadableBoardReviewCell: (
+      gameId: string,
+      reviewItemId: string,
+      cellIndex: number,
+      body: ResolveUnreadableCellRequest,
+    ) =>
+      resolveGeneratedUnreadableBoardReviewCell({
+        body,
+        client,
+        path: {
+          cell_index: cellIndex,
+          game_id: gameId,
+          review_item_id: reviewItemId,
+        },
+      }),
     applySymbolCellReviewDecision: (
       gameId: string,
       cellReviewId: string,

@@ -183,3 +183,36 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
 Checkpoint operacyjny TASK 2 pozostaje: migracja 0073 i bounded backfill na
 danych użytkownika dopiero po zakończeniu aktywnych pipeline'ów. Następny etap
 implementacyjny to TASK 6 — UI „Zatwierdzanie cięcia siatki”.
+
+### v0.9.6 — UI „Zatwierdzanie cięcia siatki”
+
+- Lokalny Reviewer korzysta z game-wide kolejki TASK 5 zawężonej do wybranego
+  importu. Dostępne są widoki `needs_validation`, `needs_correction` i `all`.
+- Jeden checksum-bound oryginał jest renderowany w canvasie z dynamicznym
+  overlayem. Skróty `Enter` i `F` zatwierdzają i przechodzą dalej; blokada
+  klienta zapobiega podwójnemu submitowi.
+- Korekta obsługuje cztery kliknięcia LT/PT/PD/LD, drag narożnika, drag całej
+  siatki, undo, reset oraz topology-aware preview `rows × columns`.
+- Widok geometrii nie pobiera katalogu ani nie edytuje symboli. Nie zapisuje
+  osobnego obrazu overlay.
+- Zdalny Reviewer pozostaje na dotychczasowej ścieżce scope-bound. Jego proxy
+  nie dostało dostępu do nowych endpointów Admin API. Lokalny legacy workflow
+  pozostaje do odbioru za `REVIEWER_GRID_VALIDATION=legacy`.
+
+#### Outcome TASK 6
+
+- Dodano 7 celowanych testów stanu i kontraktu nowego workspace'u; wszystkie
+  przechodzą.
+- Reviewer lint, typecheck i produkcyjny build przechodzą.
+- Build Admina pozostaje zablokowany przez wcześniejszą, niezwiązaną
+  niekompletność TASK 7: `operationLabel` nie obsługuje jeszcze akcji
+  `mark_unreadable` w `symbol-review-workspace.tsx`. Plik nie był zmieniany w
+  TASK 6.
+- Pełny zestaw Reviewera zachowuje wcześniejszą, niezwiązaną regresję testu
+  nawigacji malejącej zdalnej selekcji. Pozostałe testy, w tym nowy pion,
+  przechodzą.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
+## Następny etap po TASK 6
+
+TASK 7 — rozdzielenie `Nieczytelnego symbolu` od `Złej siatki`.

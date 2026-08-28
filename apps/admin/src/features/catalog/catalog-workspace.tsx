@@ -105,8 +105,8 @@ const GAME_SECTION_OPTIONS: readonly {
   },
   {
     id: 'reviews',
-    title: 'Zatwierdzanie plansz',
-    description: 'Dostęp do osobnej aplikacji Reviewer.',
+    title: 'Zatwierdzanie cięcia siatki',
+    description: 'Walidacja i korekta geometrii plansz w aplikacji Reviewer.',
   },
   {
     id: 'model-quality',

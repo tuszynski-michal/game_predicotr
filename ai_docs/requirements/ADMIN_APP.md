@@ -320,8 +320,21 @@ checksum-bound i nie ujawnia ścieżki systemowej.
 Preview oraz zapis korekty otrzymują cztery narożniki w przestrzeni obrazu
 źródłowego i topologię gry. Liczba zwracanych cropów wynika z `rows × columns`,
 nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
-kontekstu Admin API. Sam ekran i skróty operatorskie są wdrażane w następnym
-etapie; obecny pion dostarcza jego stabilny kontrakt HTTP.
+kontekstu Admin API.
+
+Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
+oryginalnym obrazem i canvasowym overlayem. Filtry mają kolejność `Do
+walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
+zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Korekta
+pozwala wskazać kolejno LT, PT, PD i LD, przeciągać narożniki lub całą siatkę,
+cofać punkt, resetować szkic oraz obejrzeć dynamiczne `rows × columns` cropy
+przed atomowym zapisem i zatwierdzeniem rewizji. Ekran nie pozwala edytować
+symboli i nie zapisuje JPEG-a z overlayem.
+
+Nowy workflow jest lokalny. Zdalna sesja Reviewera zachowuje wąsko ograniczoną
+ścieżkę legacy i nie otrzymuje game-wide endpointów administracyjnych. Do czasu
+odbioru ustawienie `REVIEWER_GRID_VALIDATION=legacy` przywraca lokalnie
+poprzedni widok bez zmiany danych.
 
 ### Katalog symboli i grafiki referencyjne
 

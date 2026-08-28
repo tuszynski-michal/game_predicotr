@@ -3491,3 +3491,15 @@ wymiary źródła oraz snapshot topologii. Aktor zapisu pochodzi z lokalnego
 kontekstu API. Nowa odpowiedź rewizji nie dziedziczy historycznego limitu 15:
 zwraca dynamiczne `rows × columns` i oblicza indeks row-major z bieżącej liczby
 kolumn. OpenAPI i generowany klient TypeScript są zgodne. UI pozostaje TASK 6.
+
+Commit `v0.9.6` przełącza lokalnego Reviewera na `Zatwierdzanie cięcia siatki`.
+Widok pobiera po jednej pozycji bounded keysetem, ma filtry `Do walidacji`, `Do
+poprawy`, `Wszystkie`, checksum-bound oryginał z canvasowym overlayem oraz
+zatwierdzanie `Enter`/`F` z blokadą podwójnego zapisu i automatycznym przejściem.
+
+Edytor przyjmuje cztery punkty LT/PT/PD/LD, pozwala przeciągać narożnik albo
+całą siatkę, cofać i resetować szkic oraz generuje preview zależne od
+`rows × columns`. Zapis używa source-direct endpointu TASK 5 i jednocześnie
+zatwierdza nową rewizję. Nie edytuje symboli i nie tworzy pliku overlay.
+Zdalny Reviewer pozostaje na ograniczonej ścieżce legacy; lokalny rollback jest
+dostępny przez `REVIEWER_GRID_VALIDATION=legacy`.

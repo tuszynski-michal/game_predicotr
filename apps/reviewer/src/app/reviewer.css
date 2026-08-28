@@ -903,3 +903,164 @@
   color: var(--danger);
   font-size: 12px;
 }
+
+.gridReviewWorkspace {
+  display: grid;
+  gap: 16px;
+}
+
+.gridReviewHeader,
+.gridReviewCanvasHeading,
+.gridReviewActions,
+.gridReviewEditControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gridReviewHeader h1,
+.gridReviewCanvasHeading h2,
+.gridReviewCanvasHeading h3,
+.gridReviewEditControls p {
+  margin: 0;
+}
+
+.gridReviewCounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.gridReviewCounts > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.gridReviewCounts dt,
+.gridReviewCounts dd {
+  margin: 0;
+}
+
+.gridReviewCounts dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gridReviewCounts dd {
+  margin-top: 3px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.gridReviewFilters {
+  display: flex;
+  gap: 8px;
+}
+
+.gridReviewFilters button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(5, 12, 22, 0.72);
+  color: var(--muted);
+}
+
+.gridReviewFilters button.isActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.gridReviewEditor,
+.gridReviewState,
+.gridReviewError {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.gridReviewCanvasPanel {
+  min-width: 0;
+}
+
+.gridReviewCanvas {
+  display: block;
+  width: 100%;
+  max-height: 68vh;
+  margin-top: 12px;
+  border-radius: 10px;
+  background: #03070d;
+  object-fit: contain;
+  touch-action: none;
+}
+
+.gridReviewCanvas.isEditing {
+  cursor: crosshair;
+  outline: 2px solid rgba(244, 211, 94, 0.45);
+}
+
+.gridReviewEditControls,
+.gridReviewPreviewPanel,
+.gridReviewActions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.gridReviewEditControls > div {
+  display: flex;
+  gap: 8px;
+}
+
+.gridReviewPreviewPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.gridReviewCropPreview {
+  display: grid;
+  gap: 5px;
+}
+
+.gridReviewCropPreview > div {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background-repeat: no-repeat;
+}
+
+.gridReviewApprove {
+  min-width: 240px;
+}
+
+.gridReviewError p,
+.gridReviewState p {
+  margin: 0 0 10px;
+}
+
+@media (max-width: 760px) {
+  .gridReviewHeader,
+  .gridReviewCanvasHeading,
+  .gridReviewActions,
+  .gridReviewEditControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gridReviewCounts {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .gridReviewFilters {
+    overflow-x: auto;
+  }
+}

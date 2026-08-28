@@ -161,6 +161,16 @@ def create_image_symbol_reviews_router(
                 expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
                 actor=_LOCAL_ADMIN_ACTOR,
             )
+        elif request.action is SymbolCellReviewAction.MARK_UNREADABLE:
+            result = service.mark_unreadable(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
         else:
             result = service.approve(
                 game_id=game_id,

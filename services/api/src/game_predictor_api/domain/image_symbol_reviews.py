@@ -122,6 +122,8 @@ class SymbolCellReviewListItem:
     prediction_symbol_code: str | None
     review_state: SymbolCellReviewState
     has_grid_issue: bool
+    quality_issue: SymbolCellQualityIssue | None
+    crop_approval_state: SymbolCellCropApprovalState
     revision: int
     geometry_revision: int
     crop_sample_id: str
@@ -143,6 +145,10 @@ class SymbolCellReviewListItem:
     @property
     def cursor_key(self) -> tuple[int, int, str]:
         return (self.sequence_number, self.cell_index, str(self.review_item_id))
+
+    @property
+    def is_unknown(self) -> bool:
+        return self.assigned_symbol_id is None
 
 
 @dataclass(frozen=True, slots=True)

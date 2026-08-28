@@ -56,6 +56,9 @@ class SymbolCellReviewListItemResponse(ApiModel):
     prediction_symbol_code: str | None
     review_state: str
     has_grid_issue: bool
+    quality_issue: str | None
+    is_unknown: bool
+    crop_approval_state: str
     revision: int = Field(ge=0)
     geometry_revision: int = Field(ge=0)
     crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -208,6 +211,7 @@ class SymbolCellReviewMutationResponse(ApiModel):
     review_state: str
     assigned_symbol_id: UUID | None
     has_grid_issue: bool
+    quality_issue: str | None
     board_status: str
     board_resolution_action: str | None
     board_reopened: bool
@@ -237,6 +241,7 @@ def to_symbol_cell_review_mutation_response(
         review_state=result.review_state.value,
         assigned_symbol_id=result.assigned_symbol_id,
         has_grid_issue=result.has_grid_issue,
+        quality_issue=(None if result.quality_issue is None else result.quality_issue.value),
         board_status=result.board_status,
         board_resolution_action=result.board_resolution_action,
         board_reopened=result.board_reopened,
@@ -379,6 +384,9 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         prediction_symbol_code=item.prediction_symbol_code,
         review_state=item.review_state.value,
         has_grid_issue=item.has_grid_issue,
+        quality_issue=(None if item.quality_issue is None else item.quality_issue.value),
+        is_unknown=item.is_unknown,
+        crop_approval_state=item.crop_approval_state.value,
         revision=item.revision,
         geometry_revision=item.geometry_revision,
         crop_sample_id=item.crop_sample_id,

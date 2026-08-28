@@ -84,6 +84,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                   WHERE c.game_id = :game_id
                     AND c.review_state = 'approved'
                     AND c.has_grid_issue = false
+                    AND c.quality_issue IS NULL
                     AND s.status = 'active'
                 ), pooled AS (
                   SELECT *, row_number() OVER (

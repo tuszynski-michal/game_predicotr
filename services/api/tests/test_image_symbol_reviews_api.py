@@ -30,6 +30,8 @@ from game_predictor_api.application.image_symbol_reviews import (
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellCropApprovalState,
+    SymbolCellQualityIssue,
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
     SymbolCellReviewError,
@@ -230,6 +232,11 @@ class MemorySymbolCellReviewMutationRepository:
             review_state=SymbolCellReviewState.APPROVED,
             assigned_symbol_id=command.target_symbol_id,
             has_grid_issue=False,
+            quality_issue=(
+                SymbolCellQualityIssue.UNREADABLE
+                if command.action.value == "mark_unreadable"
+                else None
+            ),
             board_status="pending",
             board_resolution_action=None,
             board_reopened=False,
@@ -316,6 +323,8 @@ def _item(
         prediction_symbol_code="cherry",
         review_state=state,
         has_grid_issue=False,
+        quality_issue=None,
+        crop_approval_state=SymbolCellCropApprovalState.UNVERIFIED,
         revision=2,
         geometry_revision=0,
         crop_sample_id="b" * 64,
@@ -546,6 +555,9 @@ def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path:
 
     assert unknown_response.status_code == 200
     assert unknown_response.json()["items"][0]["assignedSymbolId"] is None
+    assert unknown_response.json()["items"][0]["isUnknown"] is True
+    assert unknown_response.json()["items"][0]["qualityIssue"] is None
+    assert unknown_response.json()["items"][0]["cropApprovalState"] == "unverified"
     assert repository.filters[0].symbol_id is None
     assert wrong_scope.status_code == 409
     assert wrong_scope.json()["code"] in {
@@ -668,6 +680,46 @@ def test_single_cell_decision_applies_directly_without_bulk_job(tmp_path: Path) 
     assert mutations.commands[0].target_symbol_id == target_symbol_id
 
 
+def test_single_cell_decision_routes_mark_unreadable_without_unknown_assignment(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "mark_unreadable",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["qualityIssue"] == "unreadable"
+    assert mutations.commands[0].action.value == "mark_unreadable"
+    assert mutations.commands[0].target_symbol_id is None
+
+
 def test_single_cell_decision_returns_conflict_for_stale_revision(tmp_path: Path) -> None:
     game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
     item = _item(
@@ -782,3 +834,44 @@ def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> No
 
     assert response.status_code == 422
     assert response.json()["code"] == "SYMBOL_CELL_REVIEW_BULK_UNKNOWN_APPROVAL_FORBIDDEN"
+
+
+def test_bulk_operation_accepts_mark_unreadable_action(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "mark_unreadable",
+                "selection": {
+                    "kind": "explicit",
+                    "targets": [
+                        {
+                            "cellReviewId": str(item.cell_review_id),
+                            "expectedRevision": item.revision,
+                            "expectedGeometryRevision": item.geometry_revision,
+                            "expectedCropSampleId": item.crop_sample_id,
+                            "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                        }
+                    ],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "mark_unreadable"
+    assert bulk.requests[0].action.value == "mark_unreadable"

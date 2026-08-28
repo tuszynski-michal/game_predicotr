@@ -177,6 +177,24 @@
   pointer-events: none;
 }
 
+.cardBadge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  max-width: calc(100% - 8px);
+  padding: 2px 5px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgb(5 11 20 / 86%);
+  color: var(--text);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 @keyframes symbolReviewSpin {
   to {
     transform: rotate(360deg);

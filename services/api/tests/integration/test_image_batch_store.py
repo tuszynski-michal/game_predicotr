@@ -50,6 +50,7 @@ from game_predictor_api.domain.image_reviews import (
     validate_image_review_geometry_command,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellQualityIssue,
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
@@ -1213,7 +1214,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             service = SymbolCellReviewMutationService(
                 SqlAlchemySymbolCellReviewMutationRepository(session)
             )
-            result = service.mark_grid_issue(
+            result = service.mark_unreadable(
                 game_id=game.id,
                 cell_review_id=cell.id,
                 expected_revision=cell.revision,
@@ -1225,6 +1226,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert result.board_status == "pending"
             assert result.board_resolution_action is None
             assert result.board_reopened is True
+            assert result.quality_issue is SymbolCellQualityIssue.UNREADABLE
             session.commit()
 
         with Session(engine) as session:
@@ -1261,15 +1263,27 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 .order_by(ImageSymbolReviewCellModel.cell_index)
             ).all()
             assert cells[1].review_state == "pending"
-            assert cells[1].has_grid_issue is True
+            assert cells[1].has_grid_issue is False
+            assert cells[1].quality_issue == "unreadable"
             assert all(
                 cell.review_state == "approved" and cell.has_grid_issue is False
                 for index, cell in enumerate(cells)
                 if index != 1
             )
-            # Two flagged cells still identify one operational board.
-            cells[2].review_state = "pending"
-            cells[2].has_grid_issue = True
+            service = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            grid_result = service.mark_grid_issue(
+                game_id=game.id,
+                cell_review_id=cells[2].id,
+                expected_revision=cells[2].revision,
+                expected_geometry_revision=cells[2].geometry_revision,
+                expected_crop_sample_id=cells[2].crop_sample_id,
+                expected_crop_checksum_sha256=cells[2].crop_checksum_sha256,
+                actor="symbol-cell-operator",
+            )
+            assert grid_result.board_reopened is False
+            assert grid_result.quality_issue is SymbolCellQualityIssue.GRID_ISSUE
             session.flush()
             operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
             grid_issue_page = operational_repository.list_items(
@@ -1293,6 +1307,17 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                     .where(
                         ImageSymbolReviewEventModel.review_item_id == review_item_id,
                         ImageSymbolReviewEventModel.action == "mark_grid_issue",
+                    )
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewEventModel)
+                    .where(
+                        ImageSymbolReviewEventModel.review_item_id == review_item_id,
+                        ImageSymbolReviewEventModel.action == "mark_unreadable",
                     )
                 )
                 == 1
@@ -1459,7 +1484,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             registered_at=now,
         )
         with Session(engine, expire_on_commit=False) as session:
-            _add_review_projection_source(
+            first_review_item_id, _first_board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
                 file_execution_key=first_execution.file_execution_key,
@@ -1470,7 +1495,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
                 status="pending",
                 created_at=now,
             )
-            _add_review_projection_source(
+            second_review_item_id, _second_board_id = _add_review_projection_source(
                 session,
                 job_id=job.id,
                 file_execution_key=second_execution.file_execution_key,
@@ -1492,6 +1517,15 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             backfill.start_or_resume_backfill(game.id)
             assert backfill.backfill_next_batch(game.id, batch_size=50).has_more is False
             assert backfill.backfill_next_batch(game.id, batch_size=50).report.status == "ready"
+            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
+            for review_item_id in (first_review_item_id, second_review_item_id):
+                assert coordinator.approve_current_geometry(
+                    game_id=game.id,
+                    review_item_id=review_item_id,
+                    expected_geometry_revision=0,
+                    actor="grid-reviewer",
+                    approved_at=now + timedelta(seconds=1),
+                )
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.game_id == game.id)
@@ -1601,7 +1635,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             ).start(
                 game_id=game.id,
                 request=SymbolCellReviewBulkRequest(
-                    action=SymbolCellReviewAction.MARK_GRID_ISSUE,
+                    action=SymbolCellReviewAction.MARK_UNREADABLE,
                     target_symbol_id=None,
                     explicit_targets=None,
                     filter_selection=SymbolCellReviewBulkFilterSelection(
@@ -1628,15 +1662,15 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             assert filter_job is not None
             session.commit()
 
-        # Marking many crops on an already completed board must reopen that
+        # Marking many crops unreadable on an already completed board must reopen that
         # board only after all target cells were updated.  Otherwise removing
         # canonical ownership after the first crop would make the remaining
         # targets conflict with their own bulk operation.
-        grid_worker = SqlAlchemySymbolCellReviewBulkOperationWorker(session_factory)
-        grid_progress = grid_worker.process_next_batch(job=filter_job, max_boards=1)
-        assert grid_progress.has_pending_targets is True
-        assert grid_progress.operation.applied_count == 14
-        assert grid_progress.operation.pending_count == 15
+        unreadable_worker = SqlAlchemySymbolCellReviewBulkOperationWorker(session_factory)
+        unreadable_progress = unreadable_worker.process_next_batch(job=filter_job, max_boards=1)
+        assert unreadable_progress.has_pending_targets is True
+        assert unreadable_progress.operation.applied_count == 14
+        assert unreadable_progress.operation.pending_count == 15
 
         with Session(engine) as session:
             first_board = session.scalar(
@@ -1662,7 +1696,8 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
                     ImageSymbolReviewCellModel.review_item_id == first_board.id
                 )
             ).all()
-            assert sum(cell.has_grid_issue for cell in first_board_cells) == 14
+            assert sum(cell.has_grid_issue for cell in first_board_cells) == 0
+            assert sum(cell.quality_issue == "unreadable" for cell in first_board_cells) == 14
 
             # Model a concurrent full-page geometry save before the next
             # board is processed.  Frozen target identity must turn that
@@ -1679,7 +1714,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             second_board_cell.crop_checksum_sha256 = "f" * 64
             session.commit()
 
-        conflict_progress = grid_worker.process_next_batch(job=filter_job, max_boards=1)
+        conflict_progress = unreadable_worker.process_next_batch(job=filter_job, max_boards=1)
         assert conflict_progress.has_pending_targets is False
         assert conflict_progress.operation.status is SymbolCellReviewBulkOperationStatus.COMPLETED
         assert conflict_progress.operation.applied_count == 14

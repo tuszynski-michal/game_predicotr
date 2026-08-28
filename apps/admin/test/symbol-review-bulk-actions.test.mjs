@@ -50,6 +50,11 @@ test('builds only explicit page-local crop-bound commands', () => {
       targetSymbolId: 'symbol-2',
     },
   );
+  assert.equal(
+    createSymbolReviewBulkCommand('mark_unreadable', explicit, null)?.request
+      .action,
+    'mark_unreadable',
+  );
 });
 
 test('delegates preview and start to the local client with one idempotency key', async () => {

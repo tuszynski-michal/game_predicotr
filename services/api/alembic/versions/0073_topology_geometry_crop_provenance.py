@@ -16,6 +16,27 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    op.drop_constraint(
+        "ck_image_symbol_review_bulk_operations_action",
+        "image_symbol_review_bulk_operations",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_image_symbol_review_bulk_operations_action",
+        "image_symbol_review_bulk_operations",
+        "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable')",
+    )
+    op.drop_constraint(
+        "ck_image_symbol_review_events_action",
+        "image_symbol_review_events",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_image_symbol_review_events_action",
+        "image_symbol_review_events",
+        "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable', "
+        "'board_synchronized', 'geometry_invalidated')",
+    )
     op.add_column("games", sa.Column("board_topology_rules_version_id", sa.Uuid(), nullable=True))
     op.create_foreign_key(
         "fk_games_board_topology_rules_version",
@@ -228,6 +249,28 @@ def downgrade() -> None:
         table_name="image_board_geometry_review_events",
     )
     op.drop_table("image_board_geometry_review_events")
+
+    op.drop_constraint(
+        "ck_image_symbol_review_events_action",
+        "image_symbol_review_events",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_image_symbol_review_events_action",
+        "image_symbol_review_events",
+        "action IN ('approve', 'reassign', 'mark_grid_issue', "
+        "'board_synchronized', 'geometry_invalidated')",
+    )
+    op.drop_constraint(
+        "ck_image_symbol_review_bulk_operations_action",
+        "image_symbol_review_bulk_operations",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_image_symbol_review_bulk_operations_action",
+        "image_symbol_review_bulk_operations",
+        "action IN ('approve', 'reassign', 'mark_grid_issue')",
+    )
 
     op.drop_constraint(
         "ck_image_symbol_review_events_current_approved_crop_identity",

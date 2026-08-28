@@ -14018,6 +14018,10 @@
             "title": "Columnindex",
             "type": "integer"
           },
+          "cropApprovalState": {
+            "title": "Cropapprovalstate",
+            "type": "string"
+          },
           "cropChecksumSha256": {
             "pattern": "^[a-f0-9]{64}$",
             "title": "Cropchecksumsha256",
@@ -14047,6 +14051,10 @@
             "title": "Importjobid",
             "type": "string"
           },
+          "isUnknown": {
+            "title": "Isunknown",
+            "type": "boolean"
+          },
           "predictionSymbolCode": {
             "anyOf": [
               {
@@ -14057,6 +14065,17 @@
               }
             ],
             "title": "Predictionsymbolcode"
+          },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
           },
           "recognizedBoardId": {
             "format": "uuid",
@@ -14104,6 +14123,9 @@
           "predictionSymbolCode",
           "reviewState",
           "hasGridIssue",
+          "qualityIssue",
+          "isUnknown",
+          "cropApprovalState",
           "revision",
           "geometryRevision",
           "cropSampleId",
@@ -14215,6 +14237,17 @@
             "title": "Hasgridissue",
             "type": "boolean"
           },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
+          },
           "reviewItemId": {
             "format": "uuid",
             "title": "Reviewitemid",
@@ -14238,6 +14271,7 @@
           "reviewState",
           "assignedSymbolId",
           "hasGridIssue",
+          "qualityIssue",
           "boardStatus",
           "boardResolutionAction",
           "boardReopened",

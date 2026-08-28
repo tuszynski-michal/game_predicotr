@@ -8080,6 +8080,10 @@ export type SymbolCellReviewListItemResponse = {
    */
   columnIndex: number;
   /**
+   * Cropapprovalstate
+   */
+  cropApprovalState: string;
+  /**
    * Cropchecksumsha256
    */
   cropChecksumSha256: string;
@@ -8104,9 +8108,17 @@ export type SymbolCellReviewListItemResponse = {
    */
   importJobId: string;
   /**
+   * Isunknown
+   */
+  isUnknown: boolean;
+  /**
    * Predictionsymbolcode
    */
   predictionSymbolCode: string | null;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
   /**
    * Recognizedboardid
    */
@@ -8196,6 +8208,10 @@ export type SymbolCellReviewMutationResponse = {
    * Hasgridissue
    */
   hasGridIssue: boolean;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
   /**
    * Reviewitemid
    */

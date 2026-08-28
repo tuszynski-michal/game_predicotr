@@ -1986,7 +1986,7 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_revisions",
         ),
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue', "
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable', "
             "'board_synchronized', 'geometry_invalidated')",
             name="ck_image_symbol_review_events_action",
         ),
@@ -2076,7 +2076,7 @@ class ImageSymbolReviewBulkOperationModel(Base):
     __tablename__ = "image_symbol_review_bulk_operations"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue')",
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable')",
             name="ck_image_symbol_review_bulk_operations_action",
         ),
         CheckConstraint(

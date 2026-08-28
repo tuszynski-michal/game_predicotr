@@ -12,6 +12,7 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellQualityIssue,
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewState,
@@ -52,18 +53,12 @@ class SymbolCellReviewMutationCommand:
                 "SYMBOL_CELL_REVIEW_ACTOR_INVALID",
                 "actor must identify the local administrator.",
             )
-        if (
-            self.action is SymbolCellReviewAction.REASSIGN
-            and self.target_symbol_id is None
-        ):
+        if self.action is SymbolCellReviewAction.REASSIGN and self.target_symbol_id is None:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_REQUIRED",
                 "Changing a crop symbol requires an active target symbol.",
             )
-        if (
-            self.action is not SymbolCellReviewAction.REASSIGN
-            and self.target_symbol_id is not None
-        ):
+        if self.action is not SymbolCellReviewAction.REASSIGN and self.target_symbol_id is not None:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_UNEXPECTED",
                 "Only a symbol reassignment may specify a target symbol.",
@@ -81,6 +76,7 @@ class SymbolCellReviewMutationResult:
     review_state: SymbolCellReviewState
     assigned_symbol_id: UUID | None
     has_grid_issue: bool
+    quality_issue: SymbolCellQualityIssue | None
     board_status: str
     board_resolution_action: str | None
     board_reopened: bool
@@ -100,7 +96,7 @@ class SymbolCellReviewMutationRepository(Protocol):
 
 
 class SymbolCellReviewMutationService:
-    """Expose the three domain actions without coupling them to HTTP or jobs."""
+    """Expose checksum-bound domain actions without coupling them to HTTP or jobs."""
 
     def __init__(self, repository: SymbolCellReviewMutationRepository) -> None:
         self._repository = repository
@@ -172,6 +168,31 @@ class SymbolCellReviewMutationService:
                 game_id=game_id,
                 cell_review_id=cell_review_id,
                 action=SymbolCellReviewAction.MARK_GRID_ISSUE,
+                expected_revision=expected_revision,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_crop_sample_id=expected_crop_sample_id,
+                expected_crop_checksum_sha256=expected_crop_checksum_sha256,
+                target_symbol_id=None,
+                actor=actor,
+            )
+        )
+
+    def mark_unreadable(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_id: UUID,
+        expected_revision: int,
+        expected_geometry_revision: int,
+        expected_crop_sample_id: str,
+        expected_crop_checksum_sha256: str,
+        actor: str,
+    ) -> SymbolCellReviewMutationResult:
+        return self._apply(
+            SymbolCellReviewMutationCommand(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                action=SymbolCellReviewAction.MARK_UNREADABLE,
                 expected_revision=expected_revision,
                 expected_geometry_revision=expected_geometry_revision,
                 expected_crop_sample_id=expected_crop_sample_id,

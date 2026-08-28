@@ -3503,3 +3503,17 @@ całą siatkę, cofać i resetować szkic oraz generuje preview zależne od
 zatwierdza nową rewizję. Nie edytuje symboli i nie tworzy pliku overlay.
 Zdalny Reviewer pozostaje na ograniczonej ścieżce legacy; lokalny rollback jest
 dostępny przez `REVIEWER_GRID_VALIDATION=legacy`.
+
+Commit `v0.9.7` rozdziela w `Weryfikacji symboli` dwa problemy jakościowe.
+`Zła siatka` zapisuje `quality_issue = grid_issue` i kieruje planszę do kolejki
+geometrii. `Nieczytelny symbol` zapisuje `quality_issue = unreadable`, pozostawia
+przypisaną etykietę wyłącznie jako audyt i nie pojawia się w kolejce geometrii.
+Obie akcje są checksum-bound, działają bezpośrednio dla jednego cropa oraz przez
+trwałą operację masową dla większego zaznaczenia.
+
+Lista API zwraca jakość, logiczne `isUnknown` oraz stan proweniencji cropa.
+Admin pokazuje odpowiednie badge'e, a po sukcesie usuwa targety z bieżącej
+strony. Źródło kohort symboli wymaga teraz `quality_issue IS NULL`, dzięki czemu
+nieczytelny crop nie trafia do treningu. Migracja 0073 uwzględnia akcję
+`mark_unreadable` w constraintcie append-only eventów; cykl migracji i dwa
+scenariusze transakcyjne przeszły na izolowanej bazie PostgreSQL.

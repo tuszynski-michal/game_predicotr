@@ -57,6 +57,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     invalidate_symbol_cell_reviews_for_geometry,
     map_current_symbol_cell_reviews,
     mark_symbol_cell_grid_issue,
+    mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
@@ -522,7 +523,11 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             (
                 command
                 for command in commands
-                if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE
+                if command.action
+                in {
+                    SymbolCellReviewAction.MARK_GRID_ISSUE,
+                    SymbolCellReviewAction.MARK_UNREADABLE,
+                }
                 and changed_by_cell_id[command.cell_review_id]
             ),
             None,
@@ -530,7 +535,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         if reopen_command is not None and item.status in {"accepted", "corrected"}:
             updated, board_reopened = SqlAlchemyOperationalImageReviewRepository(
                 self._session
-            ).reopen_for_symbol_cell_grid_issue(
+            ).reopen_for_symbol_cell_issue(
                 review_item_id=item.id,
                 game_id=game_id,
                 import_job_id=source.import_job_id,
@@ -538,6 +543,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 command_sha256=_symbol_cell_mutation_checksum(reopen_command),
                 reopened_by=reopen_command.actor.strip(),
                 reopened_at=datetime.now(UTC),
+                reason=reopen_command.action.value,
             )
             board_status = updated.status
         elif board_resolution is not None and (any_changed or item.status == "pending"):
@@ -602,6 +608,16 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 ),
                 assigned_symbol_id=row_by_cell_id[command.cell_review_id][0].assigned_symbol_id,
                 has_grid_issue=bool(row_by_cell_id[command.cell_review_id][0].has_grid_issue),
+                quality_issue=(
+                    None
+                    if (
+                        issue := _quality_issue_from_model(
+                            row_by_cell_id[command.cell_review_id][0]
+                        )
+                    )
+                    is None
+                    else SymbolCellQualityIssue(issue)
+                ),
                 board_status=board_status,
                 board_resolution_action=board_resolution_action,
                 board_reopened=board_reopened,
@@ -1692,6 +1708,12 @@ def _symbol_cell_review_before_key(key: tuple[int, int, str]) -> ColumnElement[b
 
 def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
     cell = cast(ImageSymbolReviewCellModel, row[0])
+    review = _symbol_cell_review_from_model(
+        cell,
+        symbol_code_by_id=(
+            {} if row[2] is None or row[3] is None else {cast(UUID, row[2]): cast(str, row[3])}
+        ),
+    )
     return SymbolCellReviewListItem(
         cell_review_id=cell.id,
         review_item_id=cell.review_item_id,
@@ -1707,6 +1729,8 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         prediction_symbol_code=cell.prediction_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
         has_grid_issue=bool(cell.has_grid_issue),
+        quality_issue=review.quality_issue,
+        crop_approval_state=review.crop_approval_state,
         revision=int(cell.revision),
         geometry_revision=int(cell.geometry_revision),
         crop_sample_id=cell.crop_sample_id,
@@ -1785,6 +1809,8 @@ def _apply_symbol_cell_command(
         )
     if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
         return mark_symbol_cell_grid_issue(review)
+    if command.action is SymbolCellReviewAction.MARK_UNREADABLE:
+        return mark_symbol_cell_unreadable(review)
     raise SymbolCellReviewError(
         "SYMBOL_CELL_REVIEW_ACTION_INVALID",
         "The symbol-cell review action is not supported.",

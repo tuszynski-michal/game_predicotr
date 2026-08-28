@@ -216,3 +216,32 @@ implementacyjny to TASK 6 — UI „Zatwierdzanie cięcia siatki”.
 ## Następny etap po TASK 6
 
 TASK 7 — rozdzielenie `Nieczytelnego symbolu` od `Złej siatki`.
+
+### v0.9.7 — nieczytelny symbol a błąd siatki
+
+- Bezpośrednia i masowa mutacja obsługują `mark_unreadable` z tą samą kontrolą
+  rewizji, crop sample ID i checksummy co pozostałe akcje.
+- `mark_unreadable` ustawia pole jako pending z `quality_issue = unreadable`,
+  nie tworzy logicznego `?` i nie kwalifikuje planszy do korekty geometrii.
+- Domknięta plansza jest ponownie otwierana dla obu nierozwiązanych problemów,
+  a append-only event zapisuje dokładny rodzaj akcji i przyczynę reopen.
+- Lista API ujawnia `qualityIssue`, `isUnknown` i `cropApprovalState`; Admin
+  pokazuje badge jakości/proweniencji oraz osobne akcje `Zła siatka` i
+  `Nieczytelny symbol`.
+- Kandydaci kohorty treningowej wymagają braku dowolnego `quality_issue`.
+- Constraint migracji 0073 dopuszcza `mark_unreadable`; upgrade/downgrade oraz
+  bezpośrednia i masowa ścieżka przeszły na izolowanym PostgreSQL.
+
+#### Outcome TASK 7
+
+- Celowane testy domeny i API: `23 passed`.
+- Izolowane testy PostgreSQL bezpośredniej i masowej mutacji oraz cyklu
+  migracji 0073: `3 passed`.
+- Admin typecheck, pełny zestaw `292 passed` i produkcyjny build przechodzą;
+  10 celowanych testów sprawdza dodatkowo dokładny request `mark_unreadable`.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
+## Następny etap po TASK 7
+
+TASK 8 — `Weryfikacja symbolu na planszy` dla ręcznego rozwiązania pól
+nieczytelnych realnym symbolem albo logicznym `?`.

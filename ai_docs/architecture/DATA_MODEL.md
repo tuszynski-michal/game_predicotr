@@ -913,7 +913,8 @@ pozostaje `approved` z proweniencją poprzednio zatwierdzonych pikseli, natomias
 pole oznaczone `grid_issue` wraca jako `pending` bez problemu jakości.
 Reinferencja zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia
 człowieka.
-Pojedyncza akcja `approve`, `reassign` albo `mark_grid_issue` jest związana z
+Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue` albo
+`mark_unreadable` jest związana z
 dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
 komplet `rows × columns` aktualnych `approved` bez problemu siatki domyka
 planszę przez istniejący canonical flow jako `accepted` lub `corrected`, ale
@@ -991,7 +992,8 @@ obrazu ani substytut checksumy cropa.
 Od `v0.8.24` masowa weryfikacja cropów jest trwałą operacją, a nie jednym
 requestem HTTP. `image_symbol_review_bulk_operations` utrwala grę, job typu
 `image_symbol_review_bulk`, akcję `approve` / `reassign` /
-`mark_grid_issue`, opcjonalny docelowy symbol, sposób zaznaczenia, aktora,
+`mark_grid_issue` lub `mark_unreadable`, opcjonalny docelowy symbol, sposób
+zaznaczenia, aktora,
 idempotency key, canonical checksumę komendy, stan oraz liczniki
 `applied` / `conflict` / `failed`. Ten sam `game_id + idempotency_key` zwraca
 wyłącznie tę samą komendę; inna komenda z tym kluczem jest konfliktem.

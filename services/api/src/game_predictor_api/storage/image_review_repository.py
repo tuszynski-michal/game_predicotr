@@ -1695,7 +1695,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         return updated, _geometry_revision_from_record(record), True
 
-    def reopen_for_symbol_cell_grid_issue(
+    def reopen_for_symbol_cell_issue(
         self,
         *,
         review_item_id: UUID,
@@ -1705,10 +1705,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         command_sha256: str,
         reopened_by: str,
         reopened_at: datetime,
+        reason: str,
     ) -> tuple[ImageReviewItem, bool]:
         """Reopen a resolved board while preserving current cell-review evidence.
 
-        A bad-grid mark invalidates the parent decision and its canonical/staging
+        A quality mark invalidates the parent decision and its canonical/staging
         projections, but it does *not* create new geometry or overwrite the
         remaining fourteen checksum-bound cell decisions.  Geometry correction
         has its own stronger path in :meth:`save_geometry_revision`.
@@ -1802,7 +1803,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "action": "reopened",
                 "geometryRevision": board.geometry_revision,
                 "previousStatus": previous_status,
-                "reason": "symbol_cell_grid_issue",
+                "reason": reason,
                 "sequenceNumber": sequence_number,
             },
             resolved_by=reopened_by,

@@ -798,6 +798,21 @@ Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
 niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
 katalogu i może być znacznie większy.
 
+TASK-0291 denormalizuje na rekordzie operacyjnego review zakres właścicielski
+`game_id`, `import_job_id` i `sequence_number`. Częściowy indeks unikalny
+egzekwuje najwyżej jeden rekord `pending` dla
+`(game_id, sequence_number)`, gdy numer jest znany. Wartości są wyprowadzane i
+synchronizowane w bazie z recognized board, source i joba, dzięki czemu także
+legacy zapisy nie mogą ominąć invariantu.
+
+Właściciel nierozwiązanej sekwencji jest wybierany deterministycznie według
+malejącego `(job.created_at, job.id)`. Nowszy import oznacza starsze oczekujące
+źródła jako `superseded`, usuwa ich operacyjny staging i pozostawia historię
+oraz event decyzji do audytu. Jeżeli istnieje kanoniczna plansza
+`accepted/corrected`, żaden nowy pending nie przejmuje numeru. Migracja `0069`
+naprawia istniejące duplikaty według tej samej reguły i odbudowuje projekcję
+wyszukiwania tak, aby wskazywała tego samego właściciela.
+
 ### image_review_queue_items i image_review_queue_states
 
 TASK-0249 utrwala osobną projekcję topologii operacyjnej kolejki per import.
@@ -841,6 +856,18 @@ klucz pozycji oraz `queue_version`; liczniki odpowiedzi pochodzą z rekordu
 `image_review_queue_states`. Zmiana statusu może usunąć element z filtrowanego
 widoku, ale nie usuwa jego granicy z niezmiennej topologii.
 
+TASK-0294 dodaje do tego samego read modelu wirtualny widok
+`needs_grid_fix`. Nie jest to flaga planszy ani kolejna projekcja: element
+należy do widoku wyłącznie wtedy, gdy dla jego bieżącej rewizji geometrii
+istnieje co najmniej jedna `image_symbol_review_cells` z
+`review_state = pending` i `has_grid_issue = true`. Repozytorium używa
+skorelowanego `EXISTS`, dlatego wiele oznaczonych komórek nadal zwraca jedną
+planszę. Zapis nowej geometrii tworzy nową rewizję, resetuje wszystkie 15
+komórek i usuwa poprzednie flagi, więc plansza znika z tego widoku bez osobnego
+czyszczenia. Odpowiedź zwraca również licznik takich plansz. Kursor schematu
+v3 wiąże dodatkowo wybrany `grid_issue_view`; kursora `all` nie wolno użyć w
+`needs_grid_fix` ani odwrotnie.
+
 ### image_review_resolution_events
 
 Każda accepted/corrected/rejected decyzja, systemowe `superseded` oraz ponowne
@@ -852,6 +879,98 @@ i opcjonalną akcję przegranej komendy. Unikalne
 `(review_item_id, idempotency_key)` sprawia, że exact retry nie dodaje drugiego
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
 wcześniejszej decyzji z audytu.
+
+### image_symbol_review_states, image_symbol_review_cells i image_symbol_review_events
+
+TASK-0294 wprowadza trwały, checksum-bound stan pojedynczego cropa, bez
+przechowywania jego bajtów w PostgreSQL. `image_symbol_review_states` jest
+jednym rekordem per gra i ma stan `rebuilding`, `ready` albo `failed`, keysetowy
+kursor `last_review_item_id`, monotoniczną `catalog_revision`, liczniki oraz
+kontrolowany raport braków numeru, cropów lub geometrii. Rewizja rośnie najwyżej
+raz na transakcję dla danej gry po zmianie widocznego katalogu komórek. Gra nie
+staje się `ready`, dopóki każdy aktualnie wybrany
+właściciel z `image_board_search_fast_documents` nie ma dokładnie 15 komórek z
+bieżącą rewizją geometrii i aktualną tożsamością cropa.
+
+`image_symbol_review_cells` ma unikalny klucz `(review_item_id, cell_index)` i
+zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
+`0..14`, `crop_sample_id`, bezpieczną ścieżkę, SHA-256, rewizję geometrii,
+wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
+`NULL` w przypisaniu oznacza techniczne `?`; `approved` wymaga realnego
+symbolu. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
+Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
+plansz mających problem siatki.
+
+`image_symbol_review_events` jest append-only audytem przyszłych akcji komórki.
+Zapisuje oba stany, przypisania, dokładną tożsamość cropa, rewizje, aktora oraz
+opcjonalną operację masową. Początkowy backfill nie tworzy sztucznych eventów:
+jego pochodzenie jest zapisane w rekordzie komórki i raporcie przebudowy.
+Pełna decyzja Reviewera, jej ponowne otwarcie, zmiana geometrii, wynik
+reinferencji, powstanie nowego elementu pipeline’u i zmiana właściciela
+sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
+zawsze zastępuje wszystkie
+15 bieżących komórek nowymi cropami `pending` bez flagi siatki; reinferencja
+zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia człowieka.
+Pojedyncza akcja `approve`, `reassign` albo `mark_grid_issue` jest związana z
+dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
+15 aktualnych `approved` bez `?` oraz bez flagi siatki domyka planszę przez
+istniejący canonical flow jako `accepted` lub `corrected`. Oznaczenie złej
+siatki na domkniętej planszy usuwa canonical i staging, otwiera jej kolejkę
+oraz job importu, ale zachowuje pozostałe 14 zatwierdzeń dla niezmienionych
+cropów. Tylko zapis nowej geometrii unieważnia wszystkie 15 pozycji.
+Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
+backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
+niekompletnej, pozornej projekcji.
+
+Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
+`image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w
+`image_symbol_review_states`, dlatego restart workera nie cofa kursora.
+Checkpoint joba raportuje liczbę przetworzonych plansz i zapisanych komórek;
+jedna transakcja obejmuje najwyżej 200 plansz. Job nie tworzy ani nie kopiuje
+plików obrazów.
+
+Po skanie worker wykonuje do trzech reconciliacji aktualnych właścicieli.
+Brakujący zestaw bez decyzji człowieka może zostać odbudowany z bieżących
+cropów; niepełny zestaw zawierający decyzję człowieka blokuje finalizację.
+Zmiana geometrii zastępuje komplet 15 cropów przez istniejący write-through,
+a zmiana właściciela pozostawia historyczne rekordy niewidoczne i tworzy jeden
+aktywny zestaw dla właściciela z fast-document. Finalizacja oraz write-through
+blokują ten sam stan gry, więc `ready` nie może zostać zapisane pomiędzy
+niezgodnymi transakcjami.
+
+Read path TASK-0294 nie tworzy drugiego read modelu cropów. Keysetowe API
+listuje najwyżej 100 rekordów jednocześnie po
+`(sequence_number, cell_index, review_item_id)`, zawsze łącząc komórkę z
+aktualnym `image_board_search_fast_documents` i bieżącą rewizją geometrii
+planszy. Dzięki temu historyczne rekordy komórek mogą pozostać audytowalne, ale
+nie są widoczne jako aktywne cropy. `catalog_revision` jest częścią odpowiedzi
+i pozwoli późniejszym mutacjom wykrywać drift katalogu; nie jest to wersja
+obrazu ani substytut checksumy cropa.
+
+### image_symbol_review_bulk_operations i image_symbol_review_bulk_targets
+
+Od `v0.8.24` masowa weryfikacja cropów jest trwałą operacją, a nie jednym
+requestem HTTP. `image_symbol_review_bulk_operations` utrwala grę, job typu
+`image_symbol_review_bulk`, akcję `approve` / `reassign` /
+`mark_grid_issue`, opcjonalny docelowy symbol, sposób zaznaczenia, aktora,
+idempotency key, canonical checksumę komendy, stan oraz liczniki
+`applied` / `conflict` / `failed`. Ten sam `game_id + idempotency_key` zwraca
+wyłącznie tę samą komendę; inna komenda z tym kluczem jest konfliktem.
+
+`image_symbol_review_bulk_targets` zamraża pozycje operacji bez binariów:
+klucz komórki, rodzica, planszę, sekwencję i pozycję, oczekiwaną rewizję,
+rewizję geometrii oraz sample id i SHA-256 cropa. Dla wyboru filtrem snapshot
+powstaje przez bazowe `INSERT … SELECT`, bez materializowania wielotysięcznej
+listy w pamięci procesu. Target ma jawny wynik `pending`, `applied`,
+`conflict` albo `failed`; retry joba dotyka wyłącznie `pending`.
+
+Worker general lane pobiera najwyżej 100 plansz na checkpoint. Wszystkie
+targety jednej planszy są ponownie walidowane i zapisywane w pojedynczej
+transakcji wraz z pełną decyzją, canonical, stagingiem, kolejką i projekcją
+wyszukiwania. W szczególności masowe `mark_grid_issue` nie może otworzyć
+planszy po pierwszym cropie i zgubić pozostałych targetów: otwarcie oraz
+agregacja następują dopiero po zmianie całej partii tej planszy. Awaria
+wycofuje wyłącznie bieżącą planszę; wcześniejsze wyniki pozostają audytowalne.
 
 ### image_sequence_source_override_events
 
@@ -866,19 +985,24 @@ sekwencji. Automatyczny wybór pozostaje odtwarzalny i jest porządkowany po
 confidence planszy, confidence numeru, rozdzielczości oraz UUID; ręczna decyzja
 nie nadpisuje metryk ani provenance źródła.
 
-### symbol_bootstrap_runs
+### symbol_reference_images
 
-Run TASK-0125 zamraża `expected_symbol_count`, liczbę wykrytych grup,
-`source_state_sha256`, status `ready | conflict | applied`, kandydatów i
-opcjonalne ręczne rozstrzygnięcie. Kandydat zachowuje kod predykcji, liczność,
-średnie confidence oraz ścieżkę i checksumę rzeczywistego reprezentatywnego
-cropu. Unikalne `(game_id, source_state_sha256, expected_symbol_count)` chroni
-idempotentny retry.
+Każdy symbol ma co najwyżej jedną aktywną, ręcznie wybraną referencję. Rekord
+wiąże `symbol_id` z `review_item_id`, `recognized_board_id`, `sequence_number`,
+`cell_index`, rewizją decyzji, rewizją geometrii, trwałą względną ścieżką,
+SHA-256, aktorem oraz czasem wyboru. Checksum i źródłowy crop są weryfikowane
+przed zapisem, a plik referencji jest content-addressed poza tabelą domenową.
 
-Status `applied` zawsze ma resolution i `applied_at`; pozostałe stany nie mogą
-ich mieć. Katalog jest tworzony atomowo z runem i kolejnymi `mobile_code`.
-Rozstrzygnięcie zachowuje wszystkie candidate ID, również gdy kilka grup jest
-scalanych albo jedna grupa jest źródłem ręcznego splitu.
+Referencja może pochodzić wyłącznie z aktualnego właściciela
+`image_sequence_canonical`, decyzji `accepted/corrected` i finalnego kodu
+komórki zatwierdzonego przez człowieka. Cropy pending, rejected, superseded,
+alternatywne źródła i predykcje modelu nie tworzą rekordów. Poprzednia
+referencja może zostać atomowo zastąpiona, ale obraz binarny pozostaje w
+zarządzanym storage do osobnego cleanupu.
+
+Historyczna migracja `0023_symbol_bootstrap` pozostaje audytowalna, lecz tabela
+`symbol_bootstrap_runs` została usunięta przez migrację `0065`; bieżący model
+nie posiada automatycznej ścieżki tworzenia katalogu ani referencji.
 
 ### image_board_geometry_revisions
 
@@ -1234,6 +1358,7 @@ id UUID PRIMARY KEY
 game_id UUID NOT NULL REFERENCES games(id)
 iteration_number INTEGER NOT NULL
 manifest_schema_version INTEGER NOT NULL
+dataset_kind VARCHAR(100) NOT NULL
 manifest_checksum_sha256 TEXT NOT NULL
 idempotency_key UUID NOT NULL
 command_sha256 TEXT NOT NULL
@@ -1280,6 +1405,33 @@ symbolu człowieka, zdjęcie źródłowe, import oraz pipeline. Nie zawiera bina
 Kohorta jest append-only. `accepted` i `corrected` mogą wejść do treningu;
 `rejected`, `superseded`, `pending` i niekompletne decyzje pozostają policzone w manifeście
 stanu, ale nie tworzą pozycji treningowych.
+
+### verified_training_cohort_cells
+
+Projekcja próbek manifestu v2. Nie zastępuje historycznych
+`verified_training_cohort_items`; obie reprezentacje pozostają odtwarzalne.
+
+```text
+id UUID PRIMARY KEY
+cohort_id UUID NOT NULL REFERENCES verified_training_cohorts(id)
+sample_order INTEGER NOT NULL
+cell_review_id UUID NOT NULL REFERENCES image_symbol_review_cells(id)
+review_item_id UUID NOT NULL REFERENCES image_review_items(id)
+recognized_board_id UUID NOT NULL REFERENCES recognized_boards(id)
+source_image_id UUID NOT NULL REFERENCES source_images(id)
+sequence_number BIGINT NOT NULL
+cell_index SMALLINT NOT NULL
+symbol_code VARCHAR(64) NOT NULL
+crop_checksum_sha256 CHAR(64) NOT NULL
+sample_checksum_sha256 CHAR(64) NOT NULL
+cell_manifest JSONB NOT NULL
+UNIQUE (cohort_id, sample_order)
+UNIQUE (cohort_id, cell_review_id)
+```
+
+`sample_checksum_sha256` jest tożsamością delty kolejnej kohorty. Manifest
+komórki wiąże aktualnego właściciela sekwencji, rewizje, crop, checksumę,
+etykietę człowieka i źródło; nie zawiera binariów.
 
 ### symbol_model_iterations
 
@@ -1551,6 +1703,28 @@ możliwa była zmiana tekstu na BLOB po pomiarach.
 ## Dlaczego nie osobna tabela komórek
 
 Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć ponad 100 milionów wierszy bez potrzeby dla obecnych zapytań. Zwarta tablica plus sygnatura upraszczają import, wyszukiwanie i snapshot.
+
+## Projekcja wyszukiwania plansz częściowym układem
+
+Wyszukiwanie Admina nie skanuje surowych obserwacji komórek ani obrazów. Trwała
+projekcja kandydatów zachowuje dowód symboli dla wszystkich pozycji review, a
+`image_board_search_documents` wybiera deterministycznie jednego właściciela
+dla `game_id + sequence_number`. Obie projekcje są aktualizowane w tej samej
+transakcji co import, nowa predykcja, korekta geometrii lub decyzja review.
+
+`image_board_search_fast_documents` jest wąskim, fizycznym read modelem
+wyłącznie aktualnie wybranego dokumentu. Zachowuje identyfikatory planszy,
+status, checksumę, znane pozycje oraz pięć tablic kodów mobilnych 3 × 5
+(primary i cztery alternatywy). Nie zawiera tokenów tekstowych, JSON, cropów
+ani innych danych binarnych. Dzięki temu ranking częściowego wzoru wykonuje
+deterministyczny odczyt tylko niezbędnych kolumn także wtedy, gdy dodatni wzór
+jest zbyt częsty, aby indeks tokenów skutecznie zawężał zbiór.
+
+Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
+`review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.
+Migracja najpierw kopiuje istniejące dokumenty, a synchronizator zapisuje oba
+read modele atomowo. Obrazy nadal są assetami filesystemu powiązanymi przez
+`review_item_id` i checksumę; żadna z tych tabel nie przechowuje JPEG-a.
 
 ## Mock data M1
 

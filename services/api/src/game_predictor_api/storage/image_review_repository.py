@@ -30,6 +30,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
     ImageReviewGeometryRevision,
+    ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
     ImageReviewPage,
@@ -49,6 +50,12 @@ from game_predictor_api.domain.verified_training_cohorts import (
     VerifiedTrainingReviewState,
     require_pending_model_prediction_target,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -62,6 +69,7 @@ from game_predictor_api.storage.models import (
     ImageSequenceCanonicalModel,
     ImageSequenceSourceOverrideEventModel,
     ImageSymbolPredictionRevisionModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -76,6 +84,86 @@ ReviewRow = tuple[
     JobModel,
 ]
 OrderKey = tuple[int, int, str]
+
+
+def acquire_image_review_sequence_locks(
+    session: Session,
+    *,
+    game_id: UUID,
+    review_item_id: UUID,
+    requested_sequence_number: int | None,
+) -> None:
+    """Lock every sequence a full-board mutation can affect before its item.
+
+    This is shared by the operational Reviewer and the legacy worker-side
+    board resolver. Keeping the lookup and advisory locks here prevents either
+    writer from silently using a different lock order.
+    """
+
+    current_row = session.execute(
+        select(
+            ImageReviewItemModel.resolved_value,
+            RecognizedBoardModel.sequence_number,
+        )
+        .join(
+            RecognizedBoardModel,
+            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        )
+        .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+        .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+        .where(
+            ImageReviewItemModel.id == review_item_id,
+            JobModel.game_id == game_id,
+        )
+    ).one_or_none()
+    sequence_numbers: set[int] = set()
+    if isinstance(requested_sequence_number, int) and not isinstance(
+        requested_sequence_number, bool
+    ):
+        sequence_numbers.add(requested_sequence_number)
+    if current_row is None:
+        return
+    current, board_sequence_number = current_row
+    if isinstance(current, Mapping):
+        previous = current.get("sequenceNumber")
+        if isinstance(previous, int) and not isinstance(previous, bool) and previous > 0:
+            sequence_numbers.add(previous)
+    if (
+        isinstance(board_sequence_number, int)
+        and not isinstance(board_sequence_number, bool)
+        and board_sequence_number > 0
+    ):
+        sequence_numbers.add(board_sequence_number)
+    acquire_image_sequence_locks(
+        session,
+        game_id=game_id,
+        sequence_numbers=sequence_numbers,
+    )
+
+
+def acquire_image_sequence_locks(
+    session: Session,
+    *,
+    game_id: UUID,
+    sequence_numbers: Sequence[int] | set[int],
+) -> None:
+    """Acquire sorted transaction advisory locks for a known sequence set."""
+
+    valid_numbers = sorted(
+        {
+            sequence_number
+            for sequence_number in sequence_numbers
+            if isinstance(sequence_number, int)
+            and not isinstance(sequence_number, bool)
+            and sequence_number > 0
+        }
+    )
+    for sequence_number in valid_numbers:
+        session.execute(
+            select(
+                func.pg_advisory_xact_lock(_sequence_advisory_lock_key(game_id, sequence_number))
+            )
+        )
 
 
 class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -311,6 +399,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         review_item_id: UUID | None,
         selected_by: str,
     ) -> None:
+        self._acquire_sequence_lock(game_id, sequence_number)
         latest = self._session.scalar(
             select(func.max(ImageSequenceSourceOverrideEventModel.revision)).where(
                 ImageSequenceSourceOverrideEventModel.game_id == game_id,
@@ -328,6 +417,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         )
         self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_sequence_candidates(
+            game_id,
+            sequence_number,
+        )
+        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_projection_change(
+            game_id=game_id
+        )
 
     def list_items(
         self,
@@ -335,6 +431,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         after_key: OrderKey | None,
         before_key: OrderKey | None,
         expected_queue_version: int | None,
@@ -350,7 +447,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The operational review queue topology changed; reload the queue.",
             )
         order = _queue_order_expressions()
-        query = _base_query(game_id, import_job_id, view)
+        query = _base_query(game_id, import_job_id, view, grid_issue_view)
         if after_key is not None:
             query = query.where(_lexicographic_after(order, after_key))
         elif before_key is not None:
@@ -360,7 +457,12 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         elif resume_at_first_pending:
             pending_row = (
                 self._session.execute(
-                    _base_query(game_id, import_job_id, ImageReviewView.PENDING)
+                    _base_query(
+                        game_id,
+                        import_job_id,
+                        ImageReviewView.PENDING,
+                        grid_issue_view,
+                    )
                     .order_by(*[expression.asc() for expression in order])
                     .limit(1)
                 )
@@ -396,6 +498,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
+                    grid_issue_view,
                     items[0].queue_order_key,
                 )
             )
@@ -404,6 +507,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
+                    grid_issue_view,
                     items[-1].queue_order_key,
                 )
                 if descending
@@ -424,6 +528,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             has_previous=has_previous,
             has_next=has_next,
             queue_version=final_queue_version,
+            needs_grid_fix_count=self._needs_grid_fix_count(import_job_id),
         )
 
     def queue_snapshot(
@@ -710,8 +815,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution: ValidatedImageReviewResolution,
         resolved_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewResolutionEvent, bool]:
-        if resolution.action.value in {"accepted", "corrected"}:
-            self._acquire_sequence_lock(game_id, cast(int, resolution.sequence_number))
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=resolution.sequence_number,
+        )
         locked = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -948,6 +1056,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         self._session.flush()
         self._refresh_source_states(affected_source_ids, processed_at=resolved_at)
         self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        if isinstance(resolution.sequence_number, int) and not isinstance(
+            resolution.sequence_number, bool
+        ):
+            projection.sync_sequence_candidates(game_id, resolution.sequence_number)
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_board_resolution(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=resolution.resolved_by,
+        )
+        coordinator.synchronize_after_projection_change(game_id=game_id)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1103,6 +1224,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
         self._refresh_source_states({source.id}, processed_at=resolved_at)
         self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(item.id)
         updated = self.get_item(
             item.id,
             game_id=game_id,
@@ -1359,6 +1481,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         artifacts: ImageReviewGeometryArtifacts,
         created_at: datetime,
     ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=None,
+        )
         locked = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1515,6 +1642,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             source.status = "waiting_for_review"
             source.processed_at = created_at
         self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        if isinstance(previous_sequence, int) and not isinstance(previous_sequence, bool):
+            projection.sync_sequence_candidates(game_id, previous_sequence)
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_geometry_change(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=command.corrected_by,
+        )
+        coordinator.synchronize_after_projection_change(game_id=game_id)
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -1526,6 +1664,155 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The corrected geometry projection cannot be reloaded.",
             )
         return updated, _geometry_revision_from_record(record), True
+
+    def reopen_for_symbol_cell_grid_issue(
+        self,
+        *,
+        review_item_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        command_sha256: str,
+        reopened_by: str,
+        reopened_at: datetime,
+    ) -> tuple[ImageReviewItem, bool]:
+        """Reopen a resolved board while preserving current cell-review evidence.
+
+        A bad-grid mark invalidates the parent decision and its canonical/staging
+        projections, but it does *not* create new geometry or overwrite the
+        remaining fourteen checksum-bound cell decisions.  Geometry correction
+        has its own stronger path in :meth:`save_geometry_revision`.
+        """
+
+        self._acquire_review_sequence_locks(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=None,
+        )
+        locked = self.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            for_update=True,
+        )
+        if locked is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_ITEM_NOT_FOUND",
+                "The operational review item does not exist in this game and job.",
+            )
+        if locked.status == "superseded":
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SUPERSEDED",
+                "A superseded source cannot be reopened by a symbol-cell decision.",
+            )
+        if locked.status not in {"accepted", "corrected"}:
+            return locked, False
+
+        item = self._session.get(ImageReviewItemModel, review_item_id, with_for_update=True)
+        board = self._session.get(
+            RecognizedBoardModel,
+            locked.recognized_board_id,
+            with_for_update=True,
+        )
+        source = (
+            self._session.get(SourceImageModel, board.source_image_id, with_for_update=True)
+            if board is not None
+            else None
+        )
+        if item is None or board is None or source is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The operational review projection is incomplete.",
+            )
+        resolved = cast(Mapping[str, object] | None, item.resolved_value)
+        sequence_number = None if resolved is None else resolved.get("sequenceNumber")
+        if not isinstance(sequence_number, int) or isinstance(sequence_number, bool):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SEQUENCE_MISSING",
+                "A resolved board cannot be reopened without its sequence number.",
+            )
+
+        previous_status = item.status
+        revision = item.resolution_revision + 1
+        self._session.execute(
+            delete(ImageSequenceCanonicalModel).where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == sequence_number,
+                ImageSequenceCanonicalModel.review_item_id == review_item_id,
+            )
+        )
+        self._session.execute(
+            delete(ImageLayoutStagingRowModel).where(
+                ImageLayoutStagingRowModel.import_job_id == import_job_id,
+                ImageLayoutStagingRowModel.recognized_board_id == board.id,
+            )
+        )
+        self._apply_review_outcome(
+            item=item,
+            board=board,
+            status="pending",
+            resolved_value={},
+            resolved_by=reopened_by,
+            resolved_at=reopened_at,
+            revision=revision,
+        )
+        item.resolved_value = cast(Any, null())
+        item.resolved_by = None
+        item.resolved_at = None
+        board.status = "pending_review"
+        source.status = "waiting_for_review"
+        source.processed_at = reopened_at
+        self._append_resolution_event(
+            item=item,
+            revision=revision,
+            idempotency_key=idempotency_key,
+            action="reopened",
+            command_sha256=command_sha256,
+            resolved_value={
+                "action": "reopened",
+                "geometryRevision": board.geometry_revision,
+                "previousStatus": previous_status,
+                "reason": "symbol_cell_grid_issue",
+                "sequenceNumber": sequence_number,
+            },
+            resolved_by=reopened_by,
+            created_at=reopened_at,
+        )
+        self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        projection.sync_review_item(review_item_id)
+        projection.sync_sequence_candidates(game_id, sequence_number)
+        # Do not call synchronize_after_board_reopened here.  It is designed
+        # for a whole-board invalidation and would discard the other fourteen
+        # human crop decisions.  The cell mutator updates only its own cell.
+        SymbolCellReviewWriteThroughCoordinator(
+            self._session
+        ).synchronize_after_projection_change(game_id=game_id)
+        updated = self.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        if updated is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PROJECTION_MISSING",
+                "The reopened review projection cannot be reloaded.",
+            )
+        return updated, True
+
+    def _acquire_review_sequence_locks(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        requested_sequence_number: int | None,
+    ) -> None:
+        acquire_image_review_sequence_locks(
+            self._session,
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=requested_sequence_number,
+        )
 
     def _mobile_codes(self, game_id: UUID, symbol_codes: Sequence[str]) -> list[int]:
         records = self._session.scalars(
@@ -1657,6 +1944,29 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             superseded=state.superseded_count,
         )
 
+    def _needs_grid_fix_count(self, import_job_id: UUID) -> int:
+        """Return current boards, rather than flagged cells, for the Reviewer toggle."""
+
+        return int(
+            self._session.scalar(
+                select(func.count(ImageReviewQueueItemModel.review_item_id))
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.id == ImageReviewQueueItemModel.review_item_id,
+                )
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .where(
+                    ImageReviewQueueItemModel.import_job_id == import_job_id,
+                    ImageReviewQueueItemModel.status == "pending",
+                    _current_grid_issue_exists(),
+                )
+            )
+            or 0
+        )
+
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
         """Return status counts across every import belonging to a game."""
 
@@ -1732,12 +2042,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         key: OrderKey,
     ) -> bool:
         order = _queue_order_expressions()
         return (
             self._session.execute(
-                _base_query(game_id, import_job_id, view)
+                _base_query(game_id, import_job_id, view, grid_issue_view)
                 .where(_lexicographic_before(order, key))
                 .limit(1)
             ).first()
@@ -1749,12 +2060,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         key: OrderKey,
     ) -> bool:
         order = _queue_order_expressions()
         return (
             self._session.execute(
-                _base_query(game_id, import_job_id, view)
+                _base_query(game_id, import_job_id, view, grid_issue_view)
                 .where(_lexicographic_after(order, key))
                 .limit(1)
             ).first()
@@ -1766,6 +2078,7 @@ def _base_query(
     game_id: UUID,
     import_job_id: UUID,
     view: ImageReviewView | None,
+    grid_issue_view: ImageReviewGridIssueView = ImageReviewGridIssueView.ALL,
 ) -> Any:
     query = (
         select(
@@ -1794,7 +2107,34 @@ def _base_query(
         query = query.where(ImageReviewQueueItemModel.status == "pending")
     elif view is ImageReviewView.COMPLETED:
         query = query.where(ImageReviewQueueItemModel.status.in_(("accepted", "corrected")))
+    if grid_issue_view is ImageReviewGridIssueView.NEEDS_GRID_FIX:
+        query = query.where(
+            ImageReviewQueueItemModel.status == "pending",
+            _current_grid_issue_exists(),
+        )
     return query
+
+
+def _current_grid_issue_exists() -> ColumnElement[bool]:
+    """Match a board only when a current crop still carries a grid issue.
+
+    ``EXISTS`` deliberately preserves one operational queue row per board when
+    multiple cells were marked.  Requiring the active geometry revision keeps
+    stale crop state out of the geometry-correction workflow.
+    """
+
+    return cast(
+        ColumnElement[bool],
+        select(ImageSymbolReviewCellModel.id)
+        .where(
+            ImageSymbolReviewCellModel.review_item_id == ImageReviewItemModel.id,
+            ImageSymbolReviewCellModel.geometry_revision
+            == RecognizedBoardModel.geometry_revision,
+            ImageSymbolReviewCellModel.review_state == "pending",
+            ImageSymbolReviewCellModel.has_grid_issue.is_(True),
+        )
+        .exists(),
+    )
 
 
 def _base_game_query(game_id: UUID) -> Any:
@@ -2118,6 +2458,37 @@ def _item_from_records(
     )
 
 
+def materialize_current_image_review_cells(
+    *,
+    item: ImageReviewItemModel,
+    board: RecognizedBoardModel,
+    source: SourceImageModel,
+    queue_item: ImageReviewQueueItemModel,
+    job: JobModel,
+    observations: Sequence[CellObservationModel],
+    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    prediction_override: Sequence[Mapping[str, object]] | None = None,
+) -> tuple[ImageReviewCell, ...]:
+    """Expose the Reviewer-selected current crop identities to internal writers.
+
+    The operational Reviewer owns the only implementation choosing base
+    observations or the current geometry revision.  Backfills and later
+    write-through projections must call this adapter instead of reconstructing
+    a second, subtly divergent choice of the 15 crops.
+    """
+
+    return _item_from_records(
+        item,
+        board,
+        source,
+        queue_item,
+        job,
+        observations,
+        geometry_revision,
+        prediction_override,
+    ).cells
+
+
 def _event_from_record(
     record: ImageReviewResolutionEventModel,
 ) -> ImageReviewResolutionEvent:
@@ -2207,4 +2578,7 @@ def _geometry_revision_from_record(
     )
 
 
-__all__ = ["SqlAlchemyOperationalImageReviewRepository"]
+__all__ = [
+    "SqlAlchemyOperationalImageReviewRepository",
+    "materialize_current_image_review_cells",
+]

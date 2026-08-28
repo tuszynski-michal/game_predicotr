@@ -113,7 +113,9 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
     assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
     assert callable(FakeWorker.instances[0].options["auxiliary_work"])
-    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 2
+    validation_handler = FakeWorker.instances[0].handlers[JobType.VALIDATE]
+    assert validation_handler._page_geometry_handler._registration_workers == 7  # noqa: SLF001
+    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 7
     assert FakeLaneHeartbeat.instances[0].entered
     assert FakeLaneHeartbeat.instances[0].exited
     assert engine.disposed is True

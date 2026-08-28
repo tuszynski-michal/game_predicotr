@@ -34,6 +34,9 @@ test('shows active model, deltas, all symbol coverage and advisory thresholds', 
 
 test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(source, /GridQualityPanel/);
+  assert.match(source, /Rozpoznawanie symboli/);
+  assert.match(source, /Cięcie siatki/);
+  assert.match(source, /preview\.cellSampleCount/);
   assert.match(gridSource, /Kalibracja siatki/);
   assert.match(gridSource, /Ulepsz cięcie siatki/);
   assert.match(gridSource, /Aktywuj kandydata/);
@@ -44,6 +47,12 @@ test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(gridSource, /currentV19BoardCount/);
   assert.match(gridSource, /geometryVersion/);
   assert.match(gridSource, /cropperVersion/);
+  assert.ok(
+    source.indexOf('Ulepsz rozpoznawanie') < source.indexOf('Cięcie siatki'),
+    'symbol actions must stay inside the symbol workflow before the grid workflow',
+  );
+  assert.match(source, /aria-labelledby="symbol-quality-workflow-title"/);
+  assert.match(source, /aria-labelledby="grid-quality-workflow-title"/);
 });
 
 test('requires an explicit checksum-bound confirmation and recovers after errors', () => {

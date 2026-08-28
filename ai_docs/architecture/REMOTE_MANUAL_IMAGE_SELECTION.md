@@ -27,7 +27,9 @@ flowchart LR
   Uchwyt katalogu nadrzędnego może istnieć w lokalnej sesji przed indeksem
   źródła; po indeksowaniu Reviewer tworzy lub waliduje właściwy folder wyniku.
 - `Ekran startowy` jest wyłącznie lokalną nawigacją do tych pickerów. Nie
-  zmienia trwałego batcha ani outputu; ponowne otwarcie workspace'u zachowuje
+  zmienia trwałego batcha ani outputu, ale zawsze renderuje wizualnie czysty
+  konfigurator: oba katalogi są niewybrane i nie ma skrótu powrotu do
+  workspace'u. Dopiero ponowne wskazanie zgodnej pary katalogów odtwarza
   zapisane decyzje, kursor i zakres. Wybór innego źródła odnajduje jego
   poprzedni batch po nazwie i checksumie manifestu albo tworzy nowy; nie jest
   mylony z relinkowaniem aktualnego źródła.
@@ -39,9 +41,18 @@ flowchart LR
 - Poprawny istniejący manifest odtwarza kursor, następny zakres, kierunek i
   decyzje również pod nową access session. Identyfikatory zdjęć są ponownie
   mapowane na świeży IndexedDB po ordinalu i względnej ścieżce.
+- Ordinal źródłowego JPEG-a zawsze rośnie przy `→` oraz Enter i maleje przy
+  `←`, niezależnie od kierunku numeracji plansz. Kierunek zmienia wyłącznie
+  kolejne `rangeStart` po decyzji, dzięki czemu folder ułożony od wysokich do
+  niskich numerów jest przeglądany konsekwentnie od pierwszego pliku do
+  ostatniego również po wznowieniu.
 - Checksum-bound ownership blokuje nadpisanie lub usunięcie obcego pliku.
 - Kursor, zakres i decyzje są transakcyjne w IndexedDB operatora; zoom oraz obie
   osie scrolla są per session+batch w localStorage operatora.
+- Bieżący zakres można jawnie skorygować w formularzu `Od`/`Do`. Zmiana wymaga
+  dodatniego przedziału dokładnie dziewięciu plansz, zapisuje wyłącznie lokalny
+  `nextRangeStart` i nie renumeruje historii. Przy wznowieniu każda decyzja
+  zachowuje własny poprawny zakres, także gdy operator celowo pozostawił lukę.
 - Interakcje są szeregowane. Zmiana licznika następuje dopiero po zapisie JPEG-a
   oraz trwałej decyzji, więc sieć i control-plane nie mogą rozsynchroniczować
   wyborów.

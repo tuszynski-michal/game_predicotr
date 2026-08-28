@@ -20,11 +20,17 @@ from game_predictor_api.domain.jobs import (
     start_job,
     wait_for_review,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
 )
-from game_predictor_api.storage.models import JobModel
+from game_predictor_api.storage.models import (
+    ImageSymbolReviewBulkOperationModel,
+    JobModel,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -159,6 +165,7 @@ class SqlAlchemyWorkerJobStore:
                     finished_at=checkpointed_at,
                 )
             apply_job_to_record(record, updated)
+            _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
             return updated
 
@@ -186,7 +193,9 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
             return updated
 
     def fail(
@@ -217,7 +226,9 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
             return updated
 
     def pause_for_review(
@@ -245,6 +256,10 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             session.flush()
+            projection = SqlAlchemyBoardSearchProjectionRepository(session)
+            projection.reconcile_import_job(job_id)
+            if updated.status is JobStatus.WAITING_FOR_REVIEW and updated.game_id is not None:
+                projection.mark_live_projection_ready(updated.game_id)
             return updated
 
     def recover_expired(
@@ -285,6 +300,7 @@ class SqlAlchemyWorkerJobStore:
             recovered_at=recovered_at,
         )
         apply_job_to_record(record, recovered)
+        _synchronize_bulk_operation_recovery(session, recovered)
         session.flush()
         return recovered
 
@@ -303,6 +319,53 @@ def _locked_job(session: Session, job_id: UUID) -> JobModel:
 def _validate_lease_duration(lease_duration: timedelta) -> None:
     if lease_duration <= timedelta(0):
         raise ValueError("lease_duration must be positive.")
+
+
+def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> None:
+    """Keep cancellation/failure visible without creating a second worker lane."""
+
+    if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
+        return
+    operation = _bulk_operation_for_job(session, job)
+    if operation is None:
+        return
+    if job.status is JobStatus.CANCELLED:
+        operation.status = "cancelled"
+        operation.completed_at = None
+    elif job.status is JobStatus.FAILED:
+        operation.status = "failed"
+        operation.error_code = job.error_code
+        operation.error_message = job.error_message
+        operation.completed_at = None
+
+
+def _synchronize_bulk_operation_recovery(session: Session, job: Job) -> None:
+    if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
+        return
+    operation = _bulk_operation_for_job(session, job)
+    if operation is None or operation.status == "completed":
+        return
+    operation.status = "created"
+    operation.error_code = None
+    operation.error_message = None
+    operation.completed_at = None
+
+
+def _bulk_operation_for_job(
+    session: Session,
+    job: Job,
+) -> ImageSymbolReviewBulkOperationModel | None:
+    raw_operation_id = job.input_payload.get("operation_id")
+    if not isinstance(raw_operation_id, str):
+        return None
+    try:
+        operation_id = UUID(raw_operation_id)
+    except ValueError:
+        return None
+    operation = session.get(ImageSymbolReviewBulkOperationModel, operation_id)
+    if operation is None or operation.job_id != job.id:
+        return None
+    return operation
 
 
 def _constraint_name(error: IntegrityError) -> str | None:

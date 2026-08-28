@@ -510,7 +510,9 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert rerun_current_models.status_code == 201, rerun_current_models.text
     assert rerun_current_models.json()["created"] is True
     assert (
-        rerun_current_models.json()["job"]["inputPayload"]["boardCellProcessing"]["activationVersion"]
+        rerun_current_models.json()["job"]["inputPayload"]["boardCellProcessing"][
+            "activationVersion"
+        ]
         == "board-cell-processing-v20-verified-v19-v1"
     )
 
@@ -1018,6 +1020,11 @@ def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
     assert accepted.expected_file_count == 100_000
     assert too_many_files.value.code == "IMAGE_BROWSER_SELECTION_COUNT_INVALID"
     assert too_many_bytes.value.code == "IMAGE_BROWSER_SELECTION_SIZE_INVALID"
+    assert too_many_bytes.value.details == {
+        "declaredBytes": 2049,
+        "maximumBytes": 2048,
+        "purpose": "photo_selection",
+    }
 
 
 def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(

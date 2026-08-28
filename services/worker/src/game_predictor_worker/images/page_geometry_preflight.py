@@ -32,9 +32,9 @@ _CHECKPOINT_BATCH_SIZE = 25
 _AUTO_ANCHOR_MAX_PASSES = 2
 _AUTO_ANCHOR_LIMIT_PER_PASS = 21
 # Registration is CPU-bound but OpenCV runs most feature work outside the GIL.
-# Four concurrent pages keeps the current workstation busy without competing
-# with the worker process itself or materialising more than four JPEGs at once.
-_REGISTRATION_WORKERS = 4
+# Four pages remain the compatibility default for direct construction.  The
+# supervised general worker passes its bounded cooperative process budget.
+_DEFAULT_REGISTRATION_WORKERS = 4
 
 
 class PageGeometryPreflightHandler:
@@ -50,9 +50,13 @@ class PageGeometryPreflightHandler:
         self,
         *,
         artifact_root: Path,
+        registration_workers: int = _DEFAULT_REGISTRATION_WORKERS,
     ) -> None:
+        if not 1 <= registration_workers <= 64:
+            raise ValueError("registration_workers must be between 1 and 64.")
         self._artifact_root = artifact_root.resolve()
         self._originals = ManagedOriginalStore(self._artifact_root)
+        self._registration_workers = registration_workers
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         payload = _input(job)
@@ -100,11 +104,11 @@ class PageGeometryPreflightHandler:
         # executor.map() delayed the first result/checkpoint after a resumed
         # worker process, making a healthy preflight look stalled and delaying
         # cancellation.  A bounded page batch has the same deterministic order
-        # and four-way registration, while publishing durable progress between
-        # batches.
+        # and bounded parallel registration, while publishing durable progress
+        # between batches.
         for batch_start in range(0, total, _CHECKPOINT_BATCH_SIZE):
             batch = managed.originals[batch_start : batch_start + _CHECKPOINT_BATCH_SIZE]
-            with ThreadPoolExecutor(max_workers=_REGISTRATION_WORKERS) as executor:
+            with ThreadPoolExecutor(max_workers=self._registration_workers) as executor:
                 results = executor.map(
                     lambda original: self._evaluate_source(
                         original,
@@ -455,12 +459,14 @@ def _input(job: Job) -> dict[str, object]:
         "page_geometry_overrides",
         "canonical_sequence_numbers",
     }
+    optional = {"preflight_policy_version", "source_display_name"}
     policy = payload.get("preflight_policy_version", LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION)
-    allowed_keys = {frozenset(required), frozenset(required | {"preflight_policy_version"})}
+    payload_keys = frozenset(payload)
     if (
         job.job_type is not JobType.VALIDATE
         or job.game_id is None
-        or frozenset(payload) not in allowed_keys
+        or not required.issubset(payload_keys)
+        or not payload_keys.issubset(required | optional)
         or payload.get("schema_version") != 2
         or payload.get("validation_kind") != "page_geometry_preflight"
     ):
@@ -474,6 +480,7 @@ def _input(job: Job) -> dict[str, object]:
     profile = payload.get("page_registration_profile")
     overrides = payload.get("page_geometry_overrides")
     canonical = payload.get("canonical_sequence_numbers")
+    source_display_name = payload.get("source_display_name")
     if (
         not isinstance(selection, str)
         or not isinstance(directory, str)
@@ -483,6 +490,14 @@ def _input(job: Job) -> dict[str, object]:
         or profile.get("policy") != PAGE_REGISTRATION_VERSION
         or not isinstance(overrides, Mapping)
         or not isinstance(canonical, list)
+        or (
+            source_display_name is not None
+            and (
+                not isinstance(source_display_name, str)
+                or not source_display_name.strip()
+                or len(source_display_name) > 255
+            )
+        )
         or policy
         not in {
             LEGACY_PAGE_GEOMETRY_PREFLIGHT_VERSION,

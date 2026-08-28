@@ -48,6 +48,64 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * ApprovedSymbolReferenceCandidatePageResponse
+ */
+export type ApprovedSymbolReferenceCandidatePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<ApprovedSymbolReferenceCandidateResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * ApprovedSymbolReferenceCandidateResponse
+ */
+export type ApprovedSymbolReferenceCandidateResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Observationid
+   */
+  observationId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ApprovedSymbolReferenceSelectionCommand
+ */
+export type ApprovedSymbolReferenceSelectionCommand = {
+  /**
+   * Expectedchecksumsha256
+   */
+  expectedChecksumSha256: string;
+  /**
+   * Selectedby
+   */
+  selectedBy: string;
+};
+
+/**
  * BoardCellGeometryCorrectionContextResponse
  */
 export type BoardCellGeometryCorrectionContextResponse = {
@@ -449,6 +507,91 @@ export type BoardCellRecropJobSnapshotPayload = {
    * Thresholdsversion
    */
   thresholdsVersion: string;
+};
+
+/**
+ * BoardSearchResponse
+ */
+export type BoardSearchResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchResultResponse>;
+  scope: BoardSearchScope;
+};
+
+/**
+ * BoardSearchResultResponse
+ */
+export type BoardSearchResultResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  score: BoardSearchScoreResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * BoardSearchScope
+ */
+export type BoardSearchScope = 'all_searchable' | 'approved_only';
+
+/**
+ * BoardSearchScoreResponse
+ */
+export type BoardSearchScoreResponse = {
+  /**
+   * Alternativematchcount
+   */
+  alternativeMatchCount: number;
+  /**
+   * Exactmatchcount
+   */
+  exactMatchCount: number;
+  /**
+   * Mismatchcount
+   */
+  mismatchCount: number;
+  /**
+   * Score
+   */
+  score: number;
+  /**
+   * Unknowncount
+   */
+  unknownCount: number;
+  /**
+   * Weightedalternativescore
+   */
+  weightedAlternativeScore: number;
 };
 
 /**
@@ -2295,6 +2438,13 @@ export type ImageJobStageCountResponse = {
 export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
 
 /**
+ * ImageReviewGridIssueView
+ *
+ * Optional restriction of an operational queue to unresolved grid issues.
+ */
+export type ImageReviewGridIssueView = 'all' | 'needs_grid_fix';
+
+/**
  * ImageReviewView
  */
 export type ImageReviewView = 'pending' | 'completed' | 'all';
@@ -3499,6 +3649,8 @@ export type JobResponse = {
     | SnapshotJobPayload
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
+    | SymbolCellReviewBulkJobPayload
+    | SymbolCellReviewBackfillJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -3545,7 +3697,9 @@ export type JobType =
   | 'android_build'
   | 'symbol_training'
   | 'image_symbol_reinference'
-  | 'image_grid_reinference';
+  | 'image_grid_reinference'
+  | 'image_symbol_review_bulk'
+  | 'image_symbol_review_backfill';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -4628,6 +4782,7 @@ export type OperationalImageReviewPageResponse = {
    * Gameid
    */
   gameId: string;
+  gridIssueView: ImageReviewGridIssueView;
   /**
    * Importjobid
    */
@@ -4636,6 +4791,10 @@ export type OperationalImageReviewPageResponse = {
    * Items
    */
   items: Array<OperationalImageReviewItemResponse>;
+  /**
+   * Needsgridfixcount
+   */
+  needsGridFixCount: number;
   /**
    * Nextcursor
    */
@@ -7210,129 +7369,175 @@ export type SnapshotJobPayload = {
 };
 
 /**
- * SymbolBootstrapCandidateResponse
+ * SymbolCellReviewAction
  */
-export type SymbolBootstrapCandidateResponse = {
+export type SymbolCellReviewAction = 'approve' | 'reassign' | 'mark_grid_issue';
+
+/**
+ * SymbolCellReviewBackfillJobPayload
+ */
+export type SymbolCellReviewBackfillJobPayload = {
   /**
-   * Candidateid
+   * Databasefreebytesbefore
    */
-  candidateId: string;
+  databaseFreeBytesBefore?: number | null;
   /**
-   * Meanconfidence
+   * Generation
    */
-  meanConfidence: number;
+  generation: number;
   /**
-   * Predictedsymbolcode
+   * Indexbytesbefore
    */
-  predictedSymbolCode: string;
+  indexBytesBefore?: number | null;
   /**
-   * Proposedcode
+   * Schemaversion
    */
-  proposedCode: string;
+  schemaVersion: 1;
   /**
-   * Proposedname
+   * Tablebytesbefore
    */
-  proposedName: string;
+  tableBytesBefore?: number | null;
   /**
-   * Representativecropchecksumsha256
+   * Workflow
    */
-  representativeCropChecksumSha256: string;
-  /**
-   * Representativecroprelativepath
-   */
-  representativeCropRelativePath: string;
-  /**
-   * Samplecount
-   */
-  sampleCount: number;
+  workflow: 'image_symbol_review_backfill';
 };
 
 /**
- * SymbolBootstrapDefinitionCommand
+ * SymbolCellReviewBulkExplicitSelectionRequest
  */
-export type SymbolBootstrapDefinitionCommand = {
+export type SymbolCellReviewBulkExplicitSelectionRequest = {
   /**
-   * Candidateids
+   * Kind
    */
-  candidateIds: Array<string>;
+  kind: 'explicit';
   /**
-   * Code
+   * Targets
    */
-  code: string;
-  /**
-   * Mobilecode
-   */
-  mobileCode: number;
-  /**
-   * Name
-   */
-  name: string;
+  targets: Array<SymbolCellReviewBulkExplicitTargetRequest>;
 };
 
 /**
- * SymbolBootstrapDefinitionResponse
+ * SymbolCellReviewBulkExplicitTargetRequest
  */
-export type SymbolBootstrapDefinitionResponse = {
+export type SymbolCellReviewBulkExplicitTargetRequest = {
   /**
-   * Candidateids
+   * Cellreviewid
    */
-  candidateIds: Array<string>;
+  cellReviewId: string;
   /**
-   * Code
+   * Expectedcropchecksumsha256
    */
-  code: string;
+  expectedCropChecksumSha256: string;
   /**
-   * Imagepath
+   * Expectedcropsampleid
    */
-  imagePath: string;
+  expectedCropSampleId: string;
   /**
-   * Mobilecode
+   * Expectedgeometryrevision
    */
-  mobileCode: number;
+  expectedGeometryRevision: number;
   /**
-   * Name
+   * Expectedrevision
    */
-  name: string;
+  expectedRevision: number;
 };
 
 /**
- * SymbolBootstrapResolveCommand
+ * SymbolCellReviewBulkFilterSelectionRequest
  */
-export type SymbolBootstrapResolveCommand = {
+export type SymbolCellReviewBulkFilterSelectionRequest = {
   /**
-   * Symbols
+   * Catalogrevision
    */
-  symbols: Array<SymbolBootstrapDefinitionCommand>;
+  catalogRevision: number;
+  /**
+   * Excludedcellreviewids
+   */
+  excludedCellReviewIds?: Array<string>;
+  /**
+   * Kind
+   */
+  kind: 'filter';
+  state?: SymbolCellReviewFilterState;
+  /**
+   * Symbolid
+   */
+  symbolId: string | 'unknown';
 };
 
 /**
- * SymbolBootstrapRunResponse
+ * SymbolCellReviewBulkJobPayload
  */
-export type SymbolBootstrapRunResponse = {
+export type SymbolCellReviewBulkJobPayload = {
   /**
-   * Appliedat
+   * Operationid
    */
-  appliedAt: string | null;
+  operationId: string;
   /**
-   * Candidates
+   * Schemaversion
    */
-  candidates: Array<SymbolBootstrapCandidateResponse>;
+  schemaVersion: 1;
   /**
-   * Createdat
+   * Workflow
    */
-  createdAt: string;
+  workflow: 'image_symbol_review_bulk';
+};
+
+/**
+ * SymbolCellReviewBulkOperationRequest
+ */
+export type SymbolCellReviewBulkOperationRequest = {
+  action: SymbolCellReviewAction;
   /**
-   * Createdby
+   * Selection
    */
-  createdBy: string;
+  selection:
+    | ({
+        kind: 'explicit';
+      } & SymbolCellReviewBulkExplicitSelectionRequest)
+    | ({
+        kind: 'filter';
+      } & SymbolCellReviewBulkFilterSelectionRequest);
   /**
-   * Detectedclustercount
+   * Targetsymbolid
    */
-  detectedClusterCount: number;
+  targetSymbolId?: string | null;
+};
+
+/**
+ * SymbolCellReviewBulkOperationResponse
+ */
+export type SymbolCellReviewBulkOperationResponse = {
+  action: SymbolCellReviewAction;
   /**
-   * Expectedsymbolcount
+   * Appliedcount
    */
-  expectedSymbolCount: number;
+  appliedCount: number;
+  /**
+   * Catalogrevision
+   */
+  catalogRevision?: number | null;
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Conflictcount
+   */
+  conflictCount: number;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Failedcount
+   */
+  failedCount: number;
   /**
    * Gameid
    */
@@ -7342,110 +7547,398 @@ export type SymbolBootstrapRunResponse = {
    */
   id: string;
   /**
-   * Resolution
+   * Jobid
    */
-  resolution: Array<SymbolBootstrapDefinitionResponse>;
+  jobId: string;
   /**
-   * Sourcestatesha256
+   * Pendingcount
    */
-  sourceStateSha256: string;
-  status: SymbolBootstrapStatus;
+  pendingCount: number;
+  /**
+   * Selectionkind
+   */
+  selectionKind: string;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Targetcount
+   */
+  targetCount: number;
+  /**
+   * Targetsymbolid
+   */
+  targetSymbolId: string | null;
 };
 
 /**
- * SymbolBootstrapStartCommand
+ * SymbolCellReviewBulkOperationStartRequest
  */
-export type SymbolBootstrapStartCommand = {
+export type SymbolCellReviewBulkOperationStartRequest = {
+  action: SymbolCellReviewAction;
   /**
-   * Createdby
+   * Idempotencykey
    */
-  createdBy: string;
+  idempotencyKey: string;
   /**
-   * Expectedsymbolcount
+   * Selection
    */
-  expectedSymbolCount: number;
+  selection:
+    | ({
+        kind: 'explicit';
+      } & SymbolCellReviewBulkExplicitSelectionRequest)
+    | ({
+        kind: 'filter';
+      } & SymbolCellReviewBulkFilterSelectionRequest);
+  /**
+   * Targetsymbolid
+   */
+  targetSymbolId?: string | null;
 };
 
 /**
- * SymbolBootstrapStatus
+ * SymbolCellReviewBulkOperationStartResponse
  */
-export type SymbolBootstrapStatus = 'ready' | 'conflict' | 'applied';
+export type SymbolCellReviewBulkOperationStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  operation: SymbolCellReviewBulkOperationResponse;
+};
+
+/**
+ * SymbolCellReviewBulkPreviewResponse
+ */
+export type SymbolCellReviewBulkPreviewResponse = {
+  action: SymbolCellReviewAction;
+  /**
+   * Boardcount
+   */
+  boardCount: number;
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  /**
+   * Selectionkind
+   */
+  selectionKind: string;
+  /**
+   * Targetcount
+   */
+  targetCount: number;
+  /**
+   * Targetsymbolid
+   */
+  targetSymbolId: string | null;
+};
+
+/**
+ * SymbolCellReviewCountsResponse
+ */
+export type SymbolCellReviewCountsResponse = {
+  /**
+   * Allcount
+   */
+  allCount: number;
+  /**
+   * Approvedcount
+   */
+  approvedCount: number;
+  /**
+   * Pendingcount
+   */
+  pendingCount: number;
+};
+
+/**
+ * SymbolCellReviewFilterState
+ *
+ * A bounded read filter for current symbol-cell review state.
+ */
+export type SymbolCellReviewFilterState = 'all' | 'approved' | 'pending';
+
+/**
+ * SymbolCellReviewListItemResponse
+ */
+export type SymbolCellReviewListItemResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Assignedsymbolid
+   */
+  assignedSymbolId: string | null;
+  /**
+   * Assignedsymbolname
+   */
+  assignedSymbolName: string | null;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Hasgridissue
+   */
+  hasGridIssue: boolean;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Predictionsymbolcode
+   */
+  predictionSymbolCode: string | null;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * SymbolCellReviewMutationRequest
+ */
+export type SymbolCellReviewMutationRequest = {
+  action: SymbolCellReviewAction;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedcropsampleid
+   */
+  expectedCropSampleId: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Targetsymbolid
+   */
+  targetSymbolId?: string | null;
+};
+
+/**
+ * SymbolCellReviewMutationResponse
+ */
+export type SymbolCellReviewMutationResponse = {
+  /**
+   * Assignedsymbolid
+   */
+  assignedSymbolId: string | null;
+  /**
+   * Boardreopened
+   */
+  boardReopened: boolean;
+  /**
+   * Boardresolutionaction
+   */
+  boardResolutionAction: string | null;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Cellrevision
+   */
+  cellRevision: number;
+  /**
+   * Hasgridissue
+   */
+  hasGridIssue: boolean;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * SymbolCellReviewPageResponse
+ */
+export type SymbolCellReviewPageResponse = {
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  counts: SymbolCellReviewCountsResponse;
+  /**
+   * Items
+   */
+  items: Array<SymbolCellReviewListItemResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Previouscursor
+   */
+  previousCursor: string | null;
+};
+
+/**
+ * SymbolCellReviewProjectionStartResponse
+ */
+export type SymbolCellReviewProjectionStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  projection: SymbolCellReviewProjectionStatusResponse;
+};
+
+/**
+ * SymbolCellReviewProjectionStatusResponse
+ */
+export type SymbolCellReviewProjectionStatusResponse = {
+  /**
+   * Activejobid
+   */
+  activeJobId: string | null;
+  /**
+   * Databasefreebytescurrent
+   */
+  databaseFreeBytesCurrent?: number | null;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number;
+  /**
+   * Expectedcellcount
+   */
+  expectedCellCount: number;
+  /**
+   * Failuremessage
+   */
+  failureMessage: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Indexbytesbefore
+   */
+  indexBytesBefore?: number | null;
+  /**
+   * Indexbytescurrent
+   */
+  indexBytesCurrent?: number | null;
+  /**
+   * Invalidcropcount
+   */
+  invalidCropCount: number;
+  /**
+   * Invalidgeometrycount
+   */
+  invalidGeometryCount: number;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Persistedcellcount
+   */
+  persistedCellCount: number;
+  /**
+   * Processedboardcount
+   */
+  processedBoardCount: number;
+  /**
+   * Sampleproblemreviewitemids
+   */
+  sampleProblemReviewItemIds: Array<string>;
+  /**
+   * Status
+   */
+  status: 'not_started' | 'rebuilding' | 'ready' | 'failed';
+  /**
+   * Tablebytesbefore
+   */
+  tableBytesBefore?: number | null;
+  /**
+   * Tablebytescurrent
+   */
+  tableBytesCurrent?: number | null;
+};
 
 /**
  * SymbolCreate
  */
 export type SymbolCreate = {
   /**
-   * Code
-   */
-  code: string;
-  /**
-   * Displayorder
-   */
-  displayOrder: number;
-  /**
-   * Imagepath
-   */
-  imagePath?: string | null;
-  /**
    * Iswildcard
    */
   isWildcard?: boolean;
-  /**
-   * Mobilecode
-   */
-  mobileCode: number;
-  /**
-   * Name
-   */
-  name: string;
-  /**
-   * Nameen
-   */
-  nameEn?: string | null;
-  /**
-   * Namepl
-   */
-  namePl?: string | null;
-  status?: SymbolStatus;
-};
-
-/**
- * SymbolImageCandidatePageResponse
- */
-export type SymbolImageCandidatePageResponse = {
-  /**
-   * Items
-   */
-  items: Array<SymbolImageCandidateResponse>;
-  /**
-   * Nextcursor
-   */
-  nextCursor: string | null;
-};
-
-/**
- * SymbolImageCandidateResponse
- */
-export type SymbolImageCandidateResponse = {
-  /**
-   * Confidence
-   */
-  confidence: number;
-  /**
-   * Cropchecksumsha256
-   */
-  cropChecksumSha256: string;
-  /**
-   * Observationid
-   */
-  observationId: string;
-};
-
-/**
- * SymbolImageSelectionCommand
- */
-export type SymbolImageSelectionCommand = {
   /**
    * Name
    */
@@ -7867,14 +8360,6 @@ export type SymbolTrainingJobPayload = {
  */
 export type SymbolUpdate = {
   /**
-   * Displayorder
-   */
-  displayOrder?: number | null;
-  /**
-   * Imagepath
-   */
-  imagePath?: string | null;
-  /**
    * Iswildcard
    */
   isWildcard?: boolean | null;
@@ -7882,15 +8367,6 @@ export type SymbolUpdate = {
    * Name
    */
   name?: string | null;
-  /**
-   * Nameen
-   */
-  nameEn?: string | null;
-  /**
-   * Namepl
-   */
-  namePl?: string | null;
-  status?: SymbolStatus | null;
 };
 
 /**
@@ -8616,6 +9092,56 @@ export type UpdateGameResponses = {
 };
 
 export type UpdateGameResponse = UpdateGameResponses[keyof UpdateGameResponses];
+
+export type SearchGameBoardsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cell
+     */
+    cell?: Array<string> | null;
+    scope?: BoardSearchScope;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search';
+};
+
+export type SearchGameBoardsErrors = {
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid partial board query
+   */
+  422: ErrorResponse;
+};
+
+export type SearchGameBoardsError =
+  SearchGameBoardsErrors[keyof SearchGameBoardsErrors];
+
+export type SearchGameBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchResponse;
+};
+
+export type SearchGameBoardsResponse =
+  SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
 
 export type ListDatasetVersionsData = {
   body?: never;
@@ -9664,7 +10190,139 @@ export type CreateRulesVersionResponses = {
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
 
-export type GetLatestSymbolBootstrapData = {
+export type StartSymbolCellReviewBulkOperationData = {
+  body: SymbolCellReviewBulkOperationStartRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations';
+};
+
+export type StartSymbolCellReviewBulkOperationErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type StartSymbolCellReviewBulkOperationError =
+  StartSymbolCellReviewBulkOperationErrors[keyof StartSymbolCellReviewBulkOperationErrors];
+
+export type StartSymbolCellReviewBulkOperationResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewBulkOperationStartResponse;
+};
+
+export type StartSymbolCellReviewBulkOperationResponse =
+  StartSymbolCellReviewBulkOperationResponses[keyof StartSymbolCellReviewBulkOperationResponses];
+
+export type PreviewSymbolCellReviewBulkOperationData = {
+  body: SymbolCellReviewBulkOperationRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview';
+};
+
+export type PreviewSymbolCellReviewBulkOperationErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewSymbolCellReviewBulkOperationError =
+  PreviewSymbolCellReviewBulkOperationErrors[keyof PreviewSymbolCellReviewBulkOperationErrors];
+
+export type PreviewSymbolCellReviewBulkOperationResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewBulkPreviewResponse;
+};
+
+export type PreviewSymbolCellReviewBulkOperationResponse =
+  PreviewSymbolCellReviewBulkOperationResponses[keyof PreviewSymbolCellReviewBulkOperationResponses];
+
+export type GetSymbolCellReviewBulkOperationData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}';
+};
+
+export type GetSymbolCellReviewBulkOperationErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellReviewBulkOperationError =
+  GetSymbolCellReviewBulkOperationErrors[keyof GetSymbolCellReviewBulkOperationErrors];
+
+export type GetSymbolCellReviewBulkOperationResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewBulkOperationResponse;
+};
+
+export type GetSymbolCellReviewBulkOperationResponse =
+  GetSymbolCellReviewBulkOperationResponses[keyof GetSymbolCellReviewBulkOperationResponses];
+
+export type GetSymbolCellReviewProjectionStatusData = {
   body?: never;
   path: {
     /**
@@ -9673,41 +10331,39 @@ export type GetLatestSymbolBootstrapData = {
     game_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection';
 };
 
-export type GetLatestSymbolBootstrapErrors = {
+export type GetSymbolCellReviewProjectionStatusErrors = {
   /**
-   * Game or bootstrap not found
+   * Game or current crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Cursor, readiness, or crop conflict
    */
   409: ErrorResponse;
   /**
-   * Validation error
+   * Invalid symbol-cell review query
    */
   422: ErrorResponse;
 };
 
-export type GetLatestSymbolBootstrapError =
-  GetLatestSymbolBootstrapErrors[keyof GetLatestSymbolBootstrapErrors];
+export type GetSymbolCellReviewProjectionStatusError =
+  GetSymbolCellReviewProjectionStatusErrors[keyof GetSymbolCellReviewProjectionStatusErrors];
 
-export type GetLatestSymbolBootstrapResponses = {
+export type GetSymbolCellReviewProjectionStatusResponses = {
   /**
-   * Response Getlatestsymbolbootstrap
-   *
    * Successful Response
    */
-  200: SymbolBootstrapRunResponse | null;
+  200: SymbolCellReviewProjectionStatusResponse;
 };
 
-export type GetLatestSymbolBootstrapResponse =
-  GetLatestSymbolBootstrapResponses[keyof GetLatestSymbolBootstrapResponses];
+export type GetSymbolCellReviewProjectionStatusResponse =
+  GetSymbolCellReviewProjectionStatusResponses[keyof GetSymbolCellReviewProjectionStatusResponses];
 
-export type StartSymbolBootstrapData = {
-  body: SymbolBootstrapStartCommand;
+export type StartSymbolCellReviewProjectionBackfillData = {
+  body?: never;
   path: {
     /**
      * Game Id
@@ -9715,88 +10371,196 @@ export type StartSymbolBootstrapData = {
     game_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection';
 };
 
-export type StartSymbolBootstrapErrors = {
+export type StartSymbolCellReviewProjectionBackfillErrors = {
   /**
    * Local Admin security guard rejected the request
    */
   403: ErrorResponse;
   /**
-   * Game or bootstrap not found
+   * Game or current crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Cursor, readiness, or crop conflict
    */
   409: ErrorResponse;
   /**
-   * Validation error
+   * Invalid symbol-cell review query
    */
   422: ErrorResponse;
 };
 
-export type StartSymbolBootstrapError =
-  StartSymbolBootstrapErrors[keyof StartSymbolBootstrapErrors];
+export type StartSymbolCellReviewProjectionBackfillError =
+  StartSymbolCellReviewProjectionBackfillErrors[keyof StartSymbolCellReviewProjectionBackfillErrors];
 
-export type StartSymbolBootstrapResponses = {
+export type StartSymbolCellReviewProjectionBackfillResponses = {
   /**
    * Successful Response
    */
-  200: SymbolBootstrapRunResponse;
+  200: SymbolCellReviewProjectionStartResponse;
 };
 
-export type StartSymbolBootstrapResponse =
-  StartSymbolBootstrapResponses[keyof StartSymbolBootstrapResponses];
+export type StartSymbolCellReviewProjectionBackfillResponse =
+  StartSymbolCellReviewProjectionBackfillResponses[keyof StartSymbolCellReviewProjectionBackfillResponses];
 
-export type ResolveSymbolBootstrapData = {
-  body: SymbolBootstrapResolveCommand;
+export type ListSymbolCellReviewsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Symbolid
+     */
+    symbolId: string;
+    state?: SymbolCellReviewFilterState;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Beforecursor
+     */
+    beforeCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews';
+};
+
+export type ListSymbolCellReviewsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolCellReviewsError =
+  ListSymbolCellReviewsErrors[keyof ListSymbolCellReviewsErrors];
+
+export type ListSymbolCellReviewsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewPageResponse;
+};
+
+export type ListSymbolCellReviewsResponse =
+  ListSymbolCellReviewsResponses[keyof ListSymbolCellReviewsResponses];
+
+export type GetSymbolCellReviewAssetData = {
+  body?: never;
   path: {
     /**
      * Game Id
      */
     game_id: string;
     /**
-     * Bootstrap Id
+     * Cell Review Id
      */
-    bootstrap_id: string;
+    cell_review_id: string;
   };
-  query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution';
+  query: {
+    /**
+     * Expectedcropchecksumsha256
+     */
+    expectedCropChecksumSha256: string;
+    /**
+     * Thumbnailsize
+     */
+    thumbnailSize?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset';
 };
 
-export type ResolveSymbolBootstrapErrors = {
+export type GetSymbolCellReviewAssetErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellReviewAssetError =
+  GetSymbolCellReviewAssetErrors[keyof GetSymbolCellReviewAssetErrors];
+
+export type GetSymbolCellReviewAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ApplySymbolCellReviewDecisionData = {
+  body: SymbolCellReviewMutationRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cell Review Id
+     */
+    cell_review_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision';
+};
+
+export type ApplySymbolCellReviewDecisionErrors = {
   /**
    * Local Admin security guard rejected the request
    */
   403: ErrorResponse;
   /**
-   * Game or bootstrap not found
+   * Game or current crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Cursor, readiness, or crop conflict
    */
   409: ErrorResponse;
   /**
-   * Validation error
+   * Invalid symbol-cell review query
    */
   422: ErrorResponse;
 };
 
-export type ResolveSymbolBootstrapError =
-  ResolveSymbolBootstrapErrors[keyof ResolveSymbolBootstrapErrors];
+export type ApplySymbolCellReviewDecisionError =
+  ApplySymbolCellReviewDecisionErrors[keyof ApplySymbolCellReviewDecisionErrors];
 
-export type ResolveSymbolBootstrapResponses = {
+export type ApplySymbolCellReviewDecisionResponses = {
   /**
    * Successful Response
    */
-  200: SymbolBootstrapRunResponse;
+  200: SymbolCellReviewMutationResponse;
 };
 
-export type ResolveSymbolBootstrapResponse =
-  ResolveSymbolBootstrapResponses[keyof ResolveSymbolBootstrapResponses];
+export type ApplySymbolCellReviewDecisionResponse =
+  ApplySymbolCellReviewDecisionResponses[keyof ApplySymbolCellReviewDecisionResponses];
 
 export type ListSymbolModelIterationsData = {
   body?: never;
@@ -10210,7 +10974,7 @@ export type CreateSymbolResponses = {
 export type CreateSymbolResponse =
   CreateSymbolResponses[keyof CreateSymbolResponses];
 
-export type ArchiveSymbolData = {
+export type DeleteSymbolData = {
   body?: never;
   headers: {
     'X-Admin-Confirmation': 'confirmed';
@@ -10230,7 +10994,7 @@ export type ArchiveSymbolData = {
   url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}';
 };
 
-export type ArchiveSymbolErrors = {
+export type DeleteSymbolErrors = {
   /**
    * Local Admin security guard rejected the request
    */
@@ -10249,17 +11013,17 @@ export type ArchiveSymbolErrors = {
   422: ErrorResponse;
 };
 
-export type ArchiveSymbolError = ArchiveSymbolErrors[keyof ArchiveSymbolErrors];
+export type DeleteSymbolError = DeleteSymbolErrors[keyof DeleteSymbolErrors];
 
-export type ArchiveSymbolResponses = {
+export type DeleteSymbolResponses = {
   /**
    * Successful Response
    */
   204: void;
 };
 
-export type ArchiveSymbolResponse =
-  ArchiveSymbolResponses[keyof ArchiveSymbolResponses];
+export type DeleteSymbolResponse =
+  DeleteSymbolResponses[keyof DeleteSymbolResponses];
 
 export type GetSymbolData = {
   body?: never;
@@ -10350,7 +11114,7 @@ export type UpdateSymbolResponses = {
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
 
-export type ListSymbolImageCandidatesData = {
+export type ListApprovedSymbolReferenceCandidatesData = {
   body?: never;
   path: {
     /**
@@ -10372,16 +11136,16 @@ export type ListSymbolImageCandidatesData = {
      */
     limit?: number;
   };
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates';
 };
 
-export type ListSymbolImageCandidatesErrors = {
+export type ListApprovedSymbolReferenceCandidatesErrors = {
   /**
-   * Game or bootstrap not found
+   * Game, symbol, or crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Candidate cursor conflict
    */
   409: ErrorResponse;
   /**
@@ -10390,20 +11154,20 @@ export type ListSymbolImageCandidatesErrors = {
   422: ErrorResponse;
 };
 
-export type ListSymbolImageCandidatesError =
-  ListSymbolImageCandidatesErrors[keyof ListSymbolImageCandidatesErrors];
+export type ListApprovedSymbolReferenceCandidatesError =
+  ListApprovedSymbolReferenceCandidatesErrors[keyof ListApprovedSymbolReferenceCandidatesErrors];
 
-export type ListSymbolImageCandidatesResponses = {
+export type ListApprovedSymbolReferenceCandidatesResponses = {
   /**
    * Successful Response
    */
-  200: SymbolImageCandidatePageResponse;
+  200: ApprovedSymbolReferenceCandidatePageResponse;
 };
 
-export type ListSymbolImageCandidatesResponse =
-  ListSymbolImageCandidatesResponses[keyof ListSymbolImageCandidatesResponses];
+export type ListApprovedSymbolReferenceCandidatesResponse =
+  ListApprovedSymbolReferenceCandidatesResponses[keyof ListApprovedSymbolReferenceCandidatesResponses];
 
-export type GetSymbolImageCandidateAssetData = {
+export type GetApprovedSymbolReferenceCandidateAssetData = {
   body?: never;
   path: {
     /**
@@ -10420,16 +11184,16 @@ export type GetSymbolImageCandidateAssetData = {
     observation_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset';
 };
 
-export type GetSymbolImageCandidateAssetErrors = {
+export type GetApprovedSymbolReferenceCandidateAssetErrors = {
   /**
-   * Game or bootstrap not found
+   * Game, symbol, or crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Candidate cursor conflict
    */
   409: ErrorResponse;
   /**
@@ -10438,18 +11202,18 @@ export type GetSymbolImageCandidateAssetErrors = {
   422: ErrorResponse;
 };
 
-export type GetSymbolImageCandidateAssetError =
-  GetSymbolImageCandidateAssetErrors[keyof GetSymbolImageCandidateAssetErrors];
+export type GetApprovedSymbolReferenceCandidateAssetError =
+  GetApprovedSymbolReferenceCandidateAssetErrors[keyof GetApprovedSymbolReferenceCandidateAssetErrors];
 
-export type GetSymbolImageCandidateAssetResponses = {
+export type GetApprovedSymbolReferenceCandidateAssetResponses = {
   /**
    * Successful Response
    */
   200: unknown;
 };
 
-export type SelectSymbolImageCandidateData = {
-  body: SymbolImageSelectionCommand;
+export type SelectApprovedSymbolReferenceCandidateData = {
+  body: ApprovedSymbolReferenceSelectionCommand;
   path: {
     /**
      * Game Id
@@ -10465,20 +11229,20 @@ export type SelectSymbolImageCandidateData = {
     observation_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection';
 };
 
-export type SelectSymbolImageCandidateErrors = {
+export type SelectApprovedSymbolReferenceCandidateErrors = {
   /**
    * Local Admin security guard rejected the request
    */
   403: ErrorResponse;
   /**
-   * Game or bootstrap not found
+   * Game, symbol, or crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Candidate cursor conflict
    */
   409: ErrorResponse;
   /**
@@ -10487,18 +11251,18 @@ export type SelectSymbolImageCandidateErrors = {
   422: ErrorResponse;
 };
 
-export type SelectSymbolImageCandidateError =
-  SelectSymbolImageCandidateErrors[keyof SelectSymbolImageCandidateErrors];
+export type SelectApprovedSymbolReferenceCandidateError =
+  SelectApprovedSymbolReferenceCandidateErrors[keyof SelectApprovedSymbolReferenceCandidateErrors];
 
-export type SelectSymbolImageCandidateResponses = {
+export type SelectApprovedSymbolReferenceCandidateResponses = {
   /**
    * Successful Response
    */
   200: SymbolResponse;
 };
 
-export type SelectSymbolImageCandidateResponse =
-  SelectSymbolImageCandidateResponses[keyof SelectSymbolImageCandidateResponses];
+export type SelectApprovedSymbolReferenceCandidateResponse =
+  SelectApprovedSymbolReferenceCandidateResponses[keyof SelectApprovedSymbolReferenceCandidateResponses];
 
 export type GetSymbolImageAssetData = {
   body?: never;
@@ -10518,11 +11282,11 @@ export type GetSymbolImageAssetData = {
 
 export type GetSymbolImageAssetErrors = {
   /**
-   * Game or bootstrap not found
+   * Game, symbol, or crop not found
    */
   404: ErrorResponse;
   /**
-   * Bootstrap conflict
+   * Candidate cursor conflict
    */
   409: ErrorResponse;
   /**
@@ -11828,6 +12592,7 @@ export type ListOperationalImageReviewItemsData = {
      */
     importJobId: string;
     view?: ImageReviewView;
+    gridIssueView?: ImageReviewGridIssueView;
     /**
      * Aftercursor
      */

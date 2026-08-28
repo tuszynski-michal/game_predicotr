@@ -50,7 +50,7 @@ function imageJob(overrides = {}) {
   };
 }
 
-test('selects the newest ready image import and preserves an explicit choice', () => {
+test('selects the newest unresolved image import and hides completed history', () => {
   const older = imageJob({
     createdAt: '2026-08-01T08:00:00Z',
     id: 'job-older',
@@ -68,13 +68,10 @@ test('selects the newest ready image import and preserves an explicit choice', (
     reviewReadyImports([processing, older, otherGame, newest], gameId).map(
       (job) => job.id,
     ),
-    ['job-ready', 'job-older'],
+    ['job-ready'],
   );
   assert.equal(selectReviewImportId([older, newest], gameId, ''), newest.id);
-  assert.equal(
-    selectReviewImportId([older, newest], gameId, older.id),
-    older.id,
-  );
+  assert.equal(selectReviewImportId([older, newest], gameId, older.id), newest.id);
   assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
   assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
   assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);

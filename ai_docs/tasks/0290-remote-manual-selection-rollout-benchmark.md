@@ -1,14 +1,19 @@
 ---
 title: TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
-status: in_progress
-last_updated: 2026-08-24
+status: blocked
+last_updated: 2026-08-27
 ---
 
 # TASK-0290 — Benchmark i kontrolowany rollout zdalnej ręcznej selekcji
 
 ## Status
 
-`in_progress`
+`blocked`
+
+Kontrolowany rollout publiczny pozostaje świadomie wstrzymany. Obowiązujący
+operator-local workflow jest wdrożony i testowany oddzielnie; dalsze etapy
+LAN/Quick Tunnel wymagają osobnej decyzji właściciela. Nie blokuje to toru
+`0.8` dotyczącego danych plansz i lokalnego panelu Admina.
 
 ## Goal
 
@@ -59,6 +64,38 @@ ani kopiowania JPEG-ów do repozytorium.
 - [ ] Etap 4/5 nie może zostać uruchomiony ani zaliczony przypadkiem.
 
 ## Progress
+
+### v0.8.62 — niezależny porządek źródła i numeracji
+
+- Lokalny i operator-local workspace zawsze rozpoczynają od pierwszego
+  ordinalu naturalnie posortowanego folderu. `→` oraz Enter przechodzą do
+  kolejnego pliku, a `←` do poprzedniego, niezależnie od wybranego kierunku.
+- `malejąco` steruje wyłącznie kolejnym zakresem po zatwierdzeniu. Dzięki temu
+  wznowiona selekcja folderu z malejącymi numerami plansz nie przechodzi przez
+  `→` do wyższych plansz ani nie wymaga odwracania klawiszy.
+- Historyczny lokalny rekord `source_path_v2` z kierunkiem malejącym jest
+  naprawiany z ostatniego zaakceptowanego JPEG-a do następnego naturalnego
+  ordinalu, a następnie utrwalany jako `source_path_v3`. Nie dziedziczy już
+  lustrzanego indeksu po dawnym odwracaniu kursora.
+
+### v0.8.31 — jawna korekta bieżącego zakresu
+
+- Lokalny oraz operator-local workspace pozwalają kliknąć aktualny zakres i
+  zapisać jedynie dodatni przedział dziewięciu plansz `Od–Do`.
+- Po zaakceptowaniu decyzji następny zakres wynika z ręcznie podanej wartości i
+  kierunku sesji; wznowienie legacy batcha bez zapisanego kursora używa ostatniej
+  rzeczywistej decyzji, a nie liczby decyzji.
+- Manifest może zawierać świadomą lukę między poprawnymi zakresami. Walidacja
+  nadal odrzuca ujemne, zerowe i nie-dziewięciopozycyjne zakresy, obce pliki oraz
+  niezgodne checksumy.
+
+### v0.8.18 — czysty konfigurator po przejściu na ekran startowy
+
+- `Ekran startowy` nie prepopuluje już pickerów poprzednimi uchwytami ani nie
+  pokazuje przycisku powrotu do aktywnej selekcji.
+- Samo wejście nadal nie zmienia manifestu, decyzji ani JPEG-ów. Operator musi
+  ponownie wskazać oba katalogi; ich zgodna para dopiero wtedy wznawia zapisany
+  batch, kursor i zakres.
 
 ### v0.7.76 — priorytet ekranu startowego w workspace
 

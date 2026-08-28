@@ -2,6 +2,7 @@
 
 import type {
   GameResponse,
+  ImageReviewGridIssueView,
   JobResponse,
   OperationalImageReviewCountsResponse,
   OperationalImageReviewGeometryResponse,
@@ -105,6 +106,8 @@ export function OperationalReviewWorkspace({
     () => createOperationalReviewPageBuffer(null),
   );
   const [pageState, setPageState] = useState<LoadState>('ready');
+  const [gridIssueView, setGridIssueView] =
+    useState<ImageReviewGridIssueView>('all');
   const [pageError, setPageError] = useState('');
   const [cursorConflict, setCursorConflict] = useState(false);
   const [jumpValue, setJumpValue] = useState('');
@@ -213,6 +216,7 @@ export function OperationalReviewWorkspace({
         api,
         {
           gameId: selectedGameId,
+          gridIssueView,
           importJobId: selectedJobId,
           view: REVIEW_QUEUE_VIEW,
         },
@@ -228,7 +232,7 @@ export function OperationalReviewWorkspace({
       }
       commitPageBuffer(result.buffer);
     },
-    [api, commitPageBuffer, selectedGameId, selectedJobId],
+    [api, commitPageBuffer, gridIssueView, selectedGameId, selectedJobId],
   );
 
   const activatePageBuffer = useCallback(
@@ -258,6 +262,7 @@ export function OperationalReviewWorkspace({
       setCursorConflict(false);
       const options: LoadOperationalReviewPageOptions = {
         gameId: selectedGameId,
+        gridIssueView,
         importJobId: selectedJobId,
         view: REVIEW_QUEUE_VIEW,
         ...navigation,
@@ -272,7 +277,14 @@ export function OperationalReviewWorkspace({
       }
       activatePageBuffer(createOperationalReviewPageBuffer(result.page));
     },
-    [activatePageBuffer, api, commitPageBuffer, selectedGameId, selectedJobId],
+    [
+      activatePageBuffer,
+      api,
+      commitPageBuffer,
+      gridIssueView,
+      selectedGameId,
+      selectedJobId,
+    ],
   );
 
   const refreshCohorts = useCallback(async () => {
@@ -336,6 +348,7 @@ export function OperationalReviewWorkspace({
   const page = pageBuffer.current;
   const item = page?.items[0] ?? null;
   const counts = page?.counts ?? EMPTY_COUNTS;
+  const needsGridFixCount = page?.needsGridFixCount ?? 0;
   const currentDeferredGeometryScope = `${selectedGameId}:${selectedJobId}`;
   const deferredGeometryOpen =
     deferredGeometryScope === currentDeferredGeometryScope;
@@ -376,6 +389,10 @@ export function OperationalReviewWorkspace({
         ? `Układ #${resolution.item.sequenceNumber ?? '—'} zapisano jako ${operationalReviewStatusLabel(resolution.item.status).toLocaleLowerCase('pl-PL')}.`
         : 'Ten sam zapis był już przyjęty — nie utworzono drugiej rewizji.',
     );
+    if (gridIssueView === 'needs_grid_fix') {
+      void refreshPage({ resumeAtFirstPending: true });
+      return;
+    }
     const currentBuffer = pageBufferRef.current;
     if (currentBuffer.current?.items[0]?.id !== resolution.item.id) {
       void refreshPage({ resumeAtFirstPending: true });
@@ -407,6 +424,10 @@ export function OperationalReviewWorkspace({
         ? `Zapisano rewizję geometrii ${geometry.geometryRevision.revision}. Plansza wróciła do weryfikacji symboli.`
         : 'Ta sama rewizja geometrii była już zapisana — nie utworzono duplikatu.',
     );
+    if (gridIssueView === 'needs_grid_fix') {
+      void refreshPage({ resumeAtFirstPending: true });
+      return;
+    }
     const currentBuffer = pageBufferRef.current;
     const current = currentBuffer.current;
     if (current === null || current.items[0]?.id !== geometry.item.id) return;
@@ -523,6 +544,15 @@ export function OperationalReviewWorkspace({
             jobId={selectedJobId}
             jobs={jobs}
             selectedJob={selectedJob}
+          />
+          <OperationalReviewGridIssueViewTabs
+            gridIssueView={gridIssueView}
+            needsGridFixCount={needsGridFixCount}
+            onChange={(nextView) => {
+              if (nextView === gridIssueView) return;
+              setGridIssueView(nextView);
+              setPageNotice('');
+            }}
           />
           {!REVIEWER_RESTRICTED && selectedJobId !== '' ? (
             <OperationalReviewCohortPanel
@@ -811,6 +841,35 @@ function OperationalReviewContextBar({
   );
 }
 
+function OperationalReviewGridIssueViewTabs({
+  gridIssueView,
+  needsGridFixCount,
+  onChange,
+}: {
+  readonly gridIssueView: ImageReviewGridIssueView;
+  readonly needsGridFixCount: number;
+  readonly onChange: (view: ImageReviewGridIssueView) => void;
+}) {
+  return (
+    <div className="operationalReviewViewTabs" aria-label="Widok kolejki">
+      <button
+        aria-pressed={gridIssueView === 'all'}
+        onClick={() => onChange('all')}
+        type="button"
+      >
+        Wszystkie
+      </button>
+      <button
+        aria-pressed={gridIssueView === 'needs_grid_fix'}
+        onClick={() => onChange('needs_grid_fix')}
+        type="button"
+      >
+        Do poprawy siatki ({needsGridFixCount})
+      </button>
+    </div>
+  );
+}
+
 function OperationalReviewBoard({
   api,
   apiBaseUrl,
@@ -1079,9 +1138,6 @@ function OperationalReviewBoard({
               {operationalReviewStatusLabel(item.status)} · rewizja{' '}
               {item.resolutionRevision}
             </span>
-          </div>
-          <div className="operationalReviewViewTabs" aria-label="Widok kolejki">
-            <span>Wszystkie plansze</span>
           </div>
           <div className="operationalReviewNavigation">
             <OperationalReviewGeometryEditor

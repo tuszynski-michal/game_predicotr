@@ -304,12 +304,112 @@ innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
 
+### Katalog symboli i grafiki referencyjne
+
+Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
+wymaga wyłącznie nazwy i oznaczenia Jokera; Admin API pod blokadą gry nadaje
+stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
+zmienić żadnego z tych identyfikatorów.
+
+Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
+otwiera picker cropów, lecz picker pokazuje wyłącznie rzeczywiste cropy komórek
+z kanonicznych plansz `accepted/corrected` tej samej gry, zgodne z końcową
+decyzją człowieka i zatwierdzoną rewizją geometrii. Nie pokazuje pełnej planszy,
+confidence modelu, predykcji ani oczekujących, odrzuconych lub superseded
+źródeł. Propozycje są stronicowane po maksymalnie 20 i uporządkowane: ręcznie
+poprawiona geometria, numer sekwencji, indeks komórki, UUID obserwacji.
+
+Wybór cropa jest checksum-bound i zapisuje jego niezmienione bajty jako trwałą,
+content-addressed referencję. Stary `image_path` bez takiej proweniencji nie
+jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
+„Najpierw zatwierdź planszę zawierającą ten symbol”.
+
+### Weryfikacja symboli
+
+`Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
+nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
+`Nierozpoznany (?)`) i stan `Wszystkie` / `Zatwierdzone` / `Oczekujące`.
+Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
+operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
+a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
+starszych, pokrywających się stagingów oznaczonych `superseded` nie są
+prezentowane ani dostępne do masowych decyzji.
+Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
+`Oczekujące`. Widok pobiera jedną stronę maksymalnie 500 aktualnych cropów i
+udostępnia jawne przyciski poprzedniej/następnej strony. Nie wykonuje read-ahead,
+nie utrzymuje stron sąsiednich ani nie scala danych z cache aplikacji. Miniatury
+są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu
+pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
+pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
+stanie aplikacji.
+Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji (np.
+`1–500`, `501–1000`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
+wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
+wyników.
+Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
+numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
+decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
+przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
+Karta pobiera checksum-bound thumbnail WebP o maksymalnym rozmiarze 100 × 100,
+nie pełny crop ani base64 w odpowiedzi listy. Przeglądarka utrwala go przez
+content-addressed cache `immutable`.
+Do czasu gotowości projekcji gra pokazuje
+kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
+oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
+  `Przygotuj weryfikację symboli` albo `Wznów przygotowanie`. Polling jednego joba
+  nie nakłada requestów, a po `ready` automatycznie otwiera bounded listę cropów.
+  Po osiągnięciu `ready` stale dostępna akcja `Uzupełnij brakujące symbole`
+  uruchamia idempotentną reconciliację projekcji. Uzupełnia wyłącznie brakujące
+  lub nieaktualne metadane cropów; nie uruchamia ponownie cięcia ani inferencji.
+  Jeżeli general worker jest zajęty, dotychczasowa gotowa lista pozostaje
+  dostępna, a przycisk pokazuje oczekiwanie w kolejce. Stan `rebuilding` zaczyna
+  się dopiero po faktycznym przejęciu joba przez worker. Reconciliacja utworzona
+  z kompletnej projekcji zachowuje odczyt oraz mutacje istniejących cropów także
+  podczas przetwarzania; początkowy lub niekompletny backfill pozostaje
+  fail-closed.
+  Zaznaczanie i masowe
+operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
+zaznaczać pojedyncze karty albo całą bieżącą stronę; Admin nie oferuje
+zaznaczenia niewidocznego całego filtra. Zmiana gry, symbolu, stanu lub strony
+czyści zaznaczenie. Wysłana operacja masowa przechodzi do tła: jej dokładne
+targety pozostają wyszarzone ze spinnerem, ale operator może przejść na inną
+stronę i uruchomić kolejną niezależną operację. Zablokowane pozostają wyłącznie
+targety już wysłane oraz krótki foreground start/preview bieżącej decyzji.
+
+Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
+symbol` i `Oznacz złą siatkę`. Każda akcja najpierw pokazuje niezmienny preview
+liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
+`Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
+Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
+polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
+usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
+uzupełniania strony kolejnymi rekordami. Konflikt lub częściowy błąd pozostawia
+targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
+indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
+Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
+bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
+zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;
+po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów
+z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
+toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
+
+Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
+planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal
+wyświetla dokładne liczniki blokujących zależności. Panel nie oferuje
+automatycznego bootstrapu katalogu ani archiwizowania symbolu.
+
 ### Minimalistyczne stanowisko zatwierdzania
 
 Operacyjne review dużego importu używa `image_review_items`, a nie ograniczonego
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
+- pokazywać w dropdownie `Gotowy import plansz` wyłącznie importy mające
+  nierozwiązane pozycje (`waiting_for_review`); zakończone importy pozostają
+  audytowalne w `Jobach`, ale nie zaśmiecają operacyjnego wyboru,
+- dla nakładających się importów pozostawić w review wyłącznie najnowszą
+  oczekującą planszę danego numeru; zatwierdzona albo poprawiona plansza
+  kanoniczna jest chroniona i nie wraca do review po kolejnym imporcie,
 - prezentować gotowe stagingi w `Import plansz` według liczbowego początku
   zakresu z nazwy katalogu; nazwy bez prefiksu `<liczba>-` są umieszczane za
   zakresami w stabilnej kolejności,
@@ -384,6 +484,14 @@ widoku mogą zmieniać prezentowane liczniki, ale nie mogą usuwać
 accepted/corrected z nawigacji sesji. Strzałki lewo/prawo przechodzą po tej
 pełnej kolejności; strzałka w lewo musi wrócić również do planszy zatwierdzonej
 chwilę wcześniej.
+
+Reviewer ma dodatkowy przełącznik `Wszystkie / Do poprawy siatki`. Drugi widok
+jest wyłącznie listą pending plansz, których bieżąca geometria ma co najmniej
+jedną komórkę oznaczoną jako zła siatka. Nie tworzy osobnej flagi planszy,
+nie dubluje planszy z wieloma oznaczeniami i nie wykonuje automatycznej korekty.
+Po zapisaniu nowej geometrii plansza znika z tego widoku, ponieważ wszystkie
+15 bieżących komórek wraca do stanu oczekującego bez flagi problemu. Kursory
+obu widoków są rozłączne.
 
 Status gotowego importu jest domykany razem z trwałą kolejką review. Import z
 co najmniej jedną planszą pozostaje `waiting_for_review`, dopóki licznik

@@ -15,6 +15,7 @@ from game_predictor_api.domain.catalog import (
     GameStatus,
     Symbol,
     SymbolStatus,
+    SymbolUsageSummary,
     validate_display_order,
     validate_expected_layout_count,
     validate_image_path,
@@ -63,6 +64,20 @@ class CatalogRepository(Protocol):
     def save_symbol(self, symbol: Symbol) -> Symbol: ...
 
     def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool: ...
+
+    def add_manual_symbol(
+        self,
+        *,
+        game_id: UUID,
+        name: str,
+        is_wildcard: bool,
+    ) -> Symbol: ...
+
+    def symbol_usage_summary(
+        self, *, game_id: UUID, symbol_id: UUID
+    ) -> SymbolUsageSummary | None: ...
+
+    def delete_unused_symbol(self, *, game_id: UUID, symbol_id: UUID) -> None: ...
 
 
 class CatalogService:
@@ -166,6 +181,20 @@ class CatalogService:
             status=status,
         )
 
+    def create_manual_symbol(
+        self,
+        game_id: UUID,
+        *,
+        name: str,
+        is_wildcard: bool,
+    ) -> Symbol:
+        self.get_game(game_id)
+        return self._repository.add_manual_symbol(
+            game_id=game_id,
+            name=validate_name(name),
+            is_wildcard=is_wildcard,
+        )
+
     def update_symbol(
         self,
         game_id: UUID,
@@ -225,3 +254,20 @@ class CatalogService:
             symbol_id,
             status=SymbolStatus.ARCHIVED,
         )
+
+    def delete_symbol(self, game_id: UUID, symbol_id: UUID) -> None:
+        self.get_game(game_id)
+        usage = self._repository.symbol_usage_summary(game_id=game_id, symbol_id=symbol_id)
+        if usage is None:
+            raise CatalogNotFoundError(
+                "SYMBOL_NOT_FOUND",
+                "Symbol does not exist in this game.",
+                details={"gameId": str(game_id), "symbolId": str(symbol_id)},
+            )
+        if not usage.is_unused:
+            raise CatalogConflictError(
+                "SYMBOL_DELETE_BLOCKED",
+                "The symbol is still referenced and cannot be deleted.",
+                details=usage.as_details(),
+            )
+        self._repository.delete_unused_symbol(game_id=game_id, symbol_id=symbol_id)

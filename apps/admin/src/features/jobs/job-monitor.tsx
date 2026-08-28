@@ -45,7 +45,6 @@ import {
   jobSourceRangeLabel,
   jobStageLabel,
   jobStatusLabel,
-  jobTypeLabel,
   jobWorkflowLabel,
   replaceJob,
 } from '@/features/jobs/job-state';

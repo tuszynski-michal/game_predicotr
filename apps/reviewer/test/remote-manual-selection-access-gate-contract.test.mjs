@@ -171,10 +171,14 @@ test('operator-local restart persists the parent handle and missing directories 
   );
   assert.match(workspace, /showStartScreen/);
   assert.match(workspace, /startScreenSourceSelected/);
+  assert.match(workspace, /startScreenOutputSelected/);
   assert.match(workspace, /startScreenOutputParent/);
+  assert.match(workspace, /showStartScreen && !startScreenSourceSelected/);
+  assert.match(workspace, /showStartScreen && !startScreenOutputSelected/);
   assert.match(workspace, /findBatchBySourceManifest/);
   assert.match(workspace, /REMOTE_SELECTION_OUTPUT_RESUME_REQUIRED/);
-  assert.match(workspace, /Wróć do selekcji/);
+  assert.doesNotMatch(workspace, /Wróć do selekcji/);
+  assert.match(workspace, /Wybierz ponownie katalog zdjęć i katalog do zapisu/);
   assert.match(workspace, /remoteSelectionWorkspaceActions/);
   assert.match(workspace, /remoteSelectionResetDialogBackdrop/);
   assert.match(workspace, /Usuń wybory i zacznij od początku/);

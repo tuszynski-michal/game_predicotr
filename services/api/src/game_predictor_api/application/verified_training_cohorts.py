@@ -5,15 +5,20 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.domain.image_review_cohorts import validate_cohort_actor
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     canonical_image_review_bytes,
+)
+from game_predictor_api.domain.symbol_cell_training_cohorts import (
+    ApprovedSymbolCellCandidate,
+    build_symbol_cell_training_manifest,
+    select_symbol_cell_training_samples,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
@@ -87,6 +92,14 @@ class VerifiedTrainingCohortRepository(Protocol):
         artifact_relative_path: str,
         created_by: str,
     ) -> VerifiedTrainingCohort: ...
+
+
+class SymbolCellTrainingSourceRepository(Protocol):
+    def active_symbol_codes(self, game_id: UUID) -> Sequence[str]: ...
+
+    def candidates(
+        self, *, game_id: UUID, lock_game: bool
+    ) -> Sequence[ApprovedSymbolCellCandidate]: ...
 
 
 class VerifiedTrainingCohortArtifactStore:
@@ -166,12 +179,16 @@ class VerifiedTrainingCohortService:
         source_repository: VerifiedTrainingCohortSourceRepository,
         cohort_repository: VerifiedTrainingCohortRepository,
         artifact_store: VerifiedTrainingCohortArtifactStore,
+        symbol_cell_source_repository: SymbolCellTrainingSourceRepository | None = None,
     ) -> None:
         self._source_repository = source_repository
         self._cohort_repository = cohort_repository
         self._artifact_store = artifact_store
+        self._symbol_cell_source_repository = symbol_cell_source_repository
 
     def preview(self, *, game_id: UUID) -> VerifiedTrainingCohortSource:
+        if self._symbol_cell_source_repository is not None:
+            return self._symbol_cell_source(game_id=game_id, lock_game=False)
         snapshot = self._source_repository.cumulative_verified_snapshot(game_id=game_id)
         return build_verified_training_cohort_source(
             game_id=game_id,
@@ -229,12 +246,15 @@ class VerifiedTrainingCohortService:
                 "Another heavy operation is active for this game.",
             )
 
-        snapshot = self._source_repository.lock_cumulative_verified_snapshot(game_id=game_id)
-        source = build_verified_training_cohort_source(
-            game_id=game_id,
-            items=snapshot.resolved_items,
-            review_states=snapshot.review_states,
-        )
+        if self._symbol_cell_source_repository is None:
+            snapshot = self._source_repository.lock_cumulative_verified_snapshot(game_id=game_id)
+            source = build_verified_training_cohort_source(
+                game_id=game_id,
+                items=snapshot.resolved_items,
+                review_states=snapshot.review_states,
+            )
+        else:
+            source = self._symbol_cell_source(game_id=game_id, lock_game=True)
         if source.manifest_checksum_sha256 != expected_manifest_checksum_sha256:
             raise ImageReviewConflictError(
                 "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",
@@ -243,7 +263,7 @@ class VerifiedTrainingCohortService:
         if source.resolved_layout_count == 0:
             raise ImageReviewConflictError(
                 "VERIFIED_TRAINING_COHORT_EMPTY",
-                "At least one complete accepted or corrected board is required.",
+                "At least one current approved symbol crop is required.",
             )
         existing = self._cohort_repository.find_by_manifest(
             game_id=game_id,
@@ -268,6 +288,47 @@ class VerifiedTrainingCohortService:
             True,
         )
 
+    def _symbol_cell_source(
+        self, *, game_id: UUID, lock_game: bool
+    ) -> VerifiedTrainingCohortSource:
+        repository = self._symbol_cell_source_repository
+        if repository is None:
+            raise AssertionError("The symbol-cell source repository is not configured.")
+        selection = select_symbol_cell_training_samples(
+            candidates=repository.candidates(game_id=game_id, lock_game=lock_game),
+            active_symbol_codes=repository.active_symbol_codes(game_id),
+        )
+        manifest, content, checksum = build_symbol_cell_training_manifest(
+            game_id=game_id,
+            selection=selection,
+        )
+        represented_boards = {sample.candidate.recognized_board_id for sample in selection.samples}
+        represented_sources = {sample.candidate.source_image_id for sample in selection.samples}
+        warnings = tuple(
+            f"LOW_SYMBOL_COVERAGE:{item.symbol_code}"
+            for item in selection.coverage
+            if item.selected_count < 10
+        )
+        return VerifiedTrainingCohortSource(
+            game_id=game_id,
+            manifest=manifest,
+            manifest_bytes=content,
+            manifest_checksum_sha256=checksum,
+            boards=(),
+            resolved_layout_count=len(represented_boards),
+            cell_sample_count=len(selection.samples),
+            source_image_count=len(represented_sources),
+            pending_item_count=0,
+            rejected_item_count=0,
+            incomplete_item_count=0,
+            warnings=warnings,
+            dataset_kind="verified-symbol-cell-training-cohort-v2",
+            manifest_schema_version=2,
+            cells=tuple(
+                cast(Sequence[Mapping[str, object]], manifest["cells"])
+            ),
+        )
+
     def authorize_model_prediction_write(
         self,
         *,
@@ -287,4 +348,5 @@ __all__ = [
     "VerifiedTrainingCohortRepository",
     "VerifiedTrainingCohortService",
     "VerifiedTrainingCohortSourceRepository",
+    "SymbolCellTrainingSourceRepository",
 ]

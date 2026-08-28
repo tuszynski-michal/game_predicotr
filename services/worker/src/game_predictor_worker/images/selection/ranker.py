@@ -142,7 +142,7 @@ class _RepresentativeQualityMLP(nn.Module):
         )
 
     def forward(self, value: Tensor) -> Tensor:
-        return self.layers(value)
+        return cast(Tensor, self.layers(value))
 
 
 def quality_features(metrics: ImageQualityMetrics, relative_position: float) -> np.ndarray:
@@ -150,10 +150,7 @@ def quality_features(metrics: ImageQualityMetrics, relative_position: float) -> 
 
     if not 0 <= relative_position <= 1:
         raise ValueError("Relative candidate position must be between zero and one.")
-    return cast(
-        np.ndarray,
-        np.asarray((*metrics.values()[:7], float(relative_position)), dtype=np.float32),
-    )
+    return np.asarray((*metrics.values()[:7], float(relative_position)), dtype=np.float32)
 
 
 def build_ranking_cohort(
@@ -382,7 +379,7 @@ def train_ranker(
         optimizer.zero_grad(set_to_none=True)
         difference = model(tensor_features[positive]) - model(tensor_features[negative])
         loss = torch.nn.functional.softplus(-difference).mean()
-        loss.backward()
+        loss.backward()  # type: ignore[no-untyped-call]
         optimizer.step()
     model.eval()
     with torch.no_grad():
@@ -462,7 +459,7 @@ def shadow_rank(
         return tuple(range(len(features)))
     if sha256_file(model_path) != snapshot.model_checksum_sha256:
         raise ValueError("Representative ranker model checksum mismatch.")
-    import onnxruntime as ort
+    import onnxruntime as ort  # type: ignore[import-untyped]
 
     session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
     values = np.asarray(features, dtype=np.float32)
@@ -647,9 +644,16 @@ def _measure_quality(path: Path) -> ImageQualityMetrics:
         border_margin,
         visibility,
     )
+    normalized = tuple(round(max(0.0, min(1.0, value)), 6) for value in values)
     return ImageQualityMetrics(
-        *tuple(round(max(0.0, min(1.0, value)), 6) for value in values),
-        round(max(0.0, min(1.0, float(np.mean(values)))), 6),
+        sharpness=normalized[0],
+        exposure=normalized[1],
+        highlight_retention=normalized[2],
+        glare_resistance=normalized[3],
+        perspective=normalized[4],
+        border_margin=normalized[5],
+        board_visibility=normalized[6],
+        overall_score=round(max(0.0, min(1.0, float(np.mean(values)))), 6),
     )
 
 
@@ -705,10 +709,7 @@ def _feature_vector(sample: Mapping[str, object]) -> np.ndarray:
     values = sample.get("features")
     if not isinstance(values, Sequence) or len(values) != RANKER_INPUT_SIZE:
         raise ValueError("Ranking sample has invalid feature vector.")
-    return cast(
-        np.ndarray,
-        np.asarray([_float_value(value) for value in values], dtype=np.float32),
-    )
+    return np.asarray([_float_value(value) for value in values], dtype=np.float32)
 
 
 def _split_pairs(

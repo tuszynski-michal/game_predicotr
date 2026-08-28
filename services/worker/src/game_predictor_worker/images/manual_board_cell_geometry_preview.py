@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from game_predictor_worker.filesystem import long_path_aware
+
 from .board_cell_geometry_contract import (
     BOARD_CELL_COORDINATE_SPACE,
     BOARD_CELL_CORNER_SEMANTICS,
@@ -477,10 +479,11 @@ def _encode_png(rgb: NDArray[np.uint8]) -> bytes:
 
 
 def _write_immutable(path: Path, content: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
+    filesystem_path = long_path_aware(path)
+    filesystem_path.parent.mkdir(parents=True, exist_ok=True)
+    if filesystem_path.exists():
         try:
-            if path.read_bytes() != content:
+            if filesystem_path.read_bytes() != content:
                 raise ManualBoardCellGeometryPreviewError(
                     "BOARD_CELL_GEOMETRY_ARTIFACT_COLLISION",
                     "An immutable board-cell geometry artifact has different content.",
@@ -492,9 +495,11 @@ def _write_immutable(path: Path, content: bytes) -> None:
             ) from error
         return
     descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.",
+        # Keep the temporary name short enough for the legacy Windows MAX_PATH
+        # limit. The final checksum-bound filename can already be close to it.
+        prefix=".geometry-cell-",
         suffix=".tmp",
-        dir=path.parent,
+        dir=filesystem_path.parent,
     )
     temporary = Path(temporary_name)
     try:
@@ -503,9 +508,9 @@ def _write_immutable(path: Path, content: bytes) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         try:
-            os.link(temporary, path)
+            os.link(temporary, filesystem_path)
         except FileExistsError:
-            if path.read_bytes() != content:
+            if filesystem_path.read_bytes() != content:
                 raise ManualBoardCellGeometryPreviewError(
                     "BOARD_CELL_GEOMETRY_ARTIFACT_COLLISION",
                     "An immutable board-cell geometry artifact has different content.",

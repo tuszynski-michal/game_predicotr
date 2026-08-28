@@ -8,6 +8,7 @@ from uuid import uuid4
 import cv2
 import game_predictor_worker.images.page_geometry_preflight as preflight_module
 import numpy as np
+import pytest
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
@@ -29,6 +30,15 @@ class _Context:
             for key in ("current", "success_count", "failure_count", "review_count"):
                 assert int(kwargs[key]) >= int(previous[key]), f"{key} regressed"
         self.checkpoints.append(kwargs)
+
+
+def test_geometry_preflight_validates_registration_worker_budget(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="registration_workers must be between 1 and 64"):
+        PageGeometryPreflightHandler(artifact_root=tmp_path, registration_workers=0)
+
+    handler = PageGeometryPreflightHandler(artifact_root=tmp_path, registration_workers=7)
+
+    assert handler._registration_workers == 7  # noqa: SLF001
 
 
 def _page() -> tuple[np.ndarray, list[list[dict[str, int]]]]:
@@ -108,6 +118,7 @@ def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) 
             "validation_kind": "page_geometry_preflight",
             "source_selection_id": str(selection_id),
             "source_directory": str(staged),
+            "source_display_name": "10-18",
             "source_manifest_sha256": hashlib.sha256(browser_manifest).hexdigest(),
             "page_registration_profile": profile,
             "page_geometry_overrides": {},

@@ -16,16 +16,26 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 ## Przebieg
 
 - Ręczna selekcja jest niezależna od gry. Przed rozpoczęciem operator wybiera
-  pierwszy numer layoutu, kierunek kolejności zdjęć, folder źródłowy i folder
+  pierwszy numer layoutu, kierunek numeracji plansz, folder źródłowy i folder
   wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
-  nazwach plików), z możliwością odwrócenia kolejności.
+  nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
+  sesji i indeksu w IndexedDB. Pierwsze zdjęcie ma ordinal `0`, a `→` i Enter
+  zawsze przechodzą do kolejnego ordinalu katalogu; `←` przechodzi do
+  poprzedniego. Kierunek wpływa wyłącznie na kolejną numerację `seq_*` po
+  zatwierdzeniu, nigdy na kolejność zdjęć.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
 - Zakres jest inkluzywny i zawsze ma dziewięć pozycji: `start–start+8`.
-  Po zaakceptowaniu następny zakres zaczyna się od `start+9`.
+  Domyślnie po decyzji następny zakres zaczyna się od `start+9` dla kolejności
+  rosnącej albo od `start-9` dla malejącej; wartość nie spada poniżej `1`.
+  Operator może kliknąć bieżący zakres i jawnie podać nowe `Od` oraz `Do`.
+  Formularz przyjmuje wyłącznie dodatni zakres dziewięciu kolejnych plansz.
+  Jest to świadoma korekta numeracji: luka między decyzjami może zostać
+  zachowana, ale aplikacja nigdy nie uzupełnia jej ani nie zmienia zakresów
+  poprzednich decyzji po cichu.
 - `Enter` zapisuje bieżące zdjęcie jako `seq_<start>-<end>.jpg` w wybranym
   folderze i przechodzi do następnego zdjęcia oraz zakresu.
 - `Tab` pomija bieżące zdjęcie dla zakresu i przechodzi do następnego zakresu,
@@ -61,13 +71,25 @@ gra jest kopiowana do niezależnego namespace'u razem ze swoim śladem; rekord
 historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
 uprawnień przez przeglądarkę.
 
+`currentIndex` lokalnej sesji jest zawsze ordinalem naturalnie posortowanego
+źródła. Nowa sesja zaczyna się od ordinalu `0`, a pozycja pokazywana operatorowi
+to `currentIndex + 1`, niezależnie od kierunku numeracji plansz. Nowe sesje
+utrwalają także względną ścieżkę bieżącego JPEG-a; wznowienie najpierw mapuje
+ten plik w bieżącej naturalnej liście, a indeks pozostaje wyłącznie pomocą dla
+starych rekordów. Historyczna sesja bez ścieżki odzyskuje pozycję z ostatniego
+zatwierdzonego pliku i ustawia następny ordinal katalogu, po czym utrwala nowy
+format. Brak zapisanego JPEG-a blokuje wznowienie zamiast otworzyć inne zdjęcie.
+
 Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
 `manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów
-został świadomie przenumerowany przy zachowaniu tych samych źródłowych ścieżek
-i sum kontrolnych, sesja jest atomowo synchronizowana z manifestem: zmienia pierwszy
-oraz następny zakres i nazwy własnych decyzji, nie zmieniając indeksu zdjęcia
-ani plików. Niezgodny manifest, inna sesja, źródło, kierunek, checksumy lub
-nieciągły stan blokują wznowienie zamiast nadpisać wynik błędną numeracją.
+został świadomie przenumerowany jednym przesunięciem przy zachowaniu tych samych
+źródłowych ścieżek i sum kontrolnych, sesja jest atomowo synchronizowana z
+manifestem: zmienia pierwszy oraz następny zakres i nazwy własnych decyzji, nie
+zmieniając indeksu zdjęcia ani plików. Jawnie poprawione, nieciągłe zakresy są
+odtwarzane dokładnie tak, jak zapisano je w manifestie, pod warunkiem że każda
+decyzja ma dodatni zakres `start–start+8`. Niezgodny manifest, inna sesja,
+źródło, kierunek, checksumy, niepoprawny pojedynczy zakres lub próba nadpisania
+obcego pliku blokują wznowienie zamiast nadpisać wynik błędną numeracją.
 
 Jeżeli zapisany uchwyt wskazuje folder usunięty, przeniesiony albo utworzony
 ponownie pod tą samą ścieżką, workspace nie może porzucić sesji ani tworzyć
@@ -126,9 +148,11 @@ zakres.
 
 Po rozpoczęciu selekcji główny przycisk `Ekran startowy`, umieszczony po lewej
 stronie obok wtórnego `Restart selekcji`, wraca do tego konfiguratora, aby
-operator mógł ponownie wskazać katalogi. Nie jest to reset: nie usuwa
-manifestu, decyzji ani zapisanych JPEG-ów; `Wróć do selekcji` otwiera bieżący
-workspace bez zmiany kursora i zakresu.
+operator mógł ponownie wskazać katalogi. Po wejściu konfigurator ma zawsze
+wizualnie czysty stan początkowy: nie pokazuje poprzednio wybranych katalogów
+ani skrótu powrotu do workspace'u. Nie jest to reset: nie usuwa manifestu,
+decyzji ani zapisanych JPEG-ów. Ponowne wskazanie zgodnej pary katalogów
+odtwarza bieżący kursor i zakres.
 W tym trybie wybór innego katalogu zdjęć tworzy albo odnajduje jego własny
 lokalny batch. Ponowne wskazanie katalogów zgodnych z istniejącym wynikiem
 wznawia jego kursor i zakres; różnica źródła nie jest błędem relinkowania
@@ -161,13 +185,18 @@ nieaktywny usuwa go z cache. API, baza i logi nadal przechowują wyłącznie has
 a inny komputer Admina oraz sesje utworzone przed tą zmianą nie mogą odzyskać
 surowego kodu.
 
-Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
-okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
-zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
+Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie
+i zawsze rosnący ordinal zdjęcia dla `→`/Enter, niezależny od kierunku
+numeracji plansz, okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę
+skoku, fullscreen i zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
 pozycje są przechwytywane bezpośrednio przed zmianą kursora React, po trwałym
 zapisie decyzji, i odtwarzane po załadowaniu docelowego podglądu. Oczekujące
 odtworzenie jest przypięte do docelowego ordinalu; render stanu `busy` na
 poprzednim zdjęciu nie może go skonsumować.
+Kliknięcie bieżącego zakresu otwiera ten sam walidowany edytor `Od`/`Do` co w
+lokalnym workspace. Zapis zakresu jest lokalny dla urządzenia operatora,
+natychmiast aktualizuje manifest i wstrzymuje skróty workspace'u do zamknięcia
+formularza.
 Ścieżka zatwierdzenia przechwytuje pozycję wewnętrznego viewportu zdjęcia już w
 momencie komendy Enter/F/klik, przed zapisem pliku i stanem `busy`; automatyczny
 scroll wywołany później przez Chrome nie może nadpisać tego snapshotu. Podczas

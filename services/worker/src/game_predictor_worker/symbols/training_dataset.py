@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
 
+from game_predictor_worker.filesystem import long_path_aware
+
 TRAINING_DATASET_SCHEMA_VERSION = 1
 TRAINING_DATASET_VERSION = "verified-symbol-training-dataset-v1"
 TRAINING_SPLIT_POLICY_VERSION = "source-family-balanced-split-v2"
@@ -229,9 +231,11 @@ def _read_cohort(path: Path, expected_checksum: str) -> Mapping[str, object]:
             "The verified-training cohort is not valid UTF-8 JSON.",
         ) from error
     cohort = _mapping(value, "cohort")
-    if cohort.get("schemaVersion") != 1 or cohort.get("datasetKind") != (
-        "verified-training-cohort-v1"
-    ):
+    identity = (cohort.get("schemaVersion"), cohort.get("datasetKind"))
+    if identity not in {
+        (1, "verified-training-cohort-v1"),
+        (2, "verified-symbol-cell-training-cohort-v2"),
+    }:
         raise TrainingDatasetBuildError(
             "TRAINING_DATASET_COHORT_UNSUPPORTED",
             "The verified-training cohort schema is not supported.",
@@ -259,6 +263,26 @@ def _catalog(symbols: Sequence[TrainingSymbol]) -> dict[str, str]:
 
 
 def _validate_declared_counts(cohort: Mapping[str, object]) -> None:
+    if cohort.get("datasetKind") == "verified-symbol-cell-training-cohort-v2":
+        cells = _sequence(cohort.get("cells"), "cells")
+        counts = _mapping(cohort.get("counts"), "counts")
+        source_ids = {
+            _text(_mapping(cell, "cell").get("sourceImageId"), "sourceImageId")
+            for cell in cells
+        }
+        expected = {
+            "cellSamples": len(cells),
+            "sourceImages": len(source_ids),
+        }
+        if any(
+            _integer(counts.get(key), f"counts.{key}") != value
+            for key, value in expected.items()
+        ):
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_COHORT_COUNTS_MISMATCH",
+                "The cohort manifest counts do not match its immutable cell content.",
+            )
+        return
     boards = _sequence(cohort.get("boards"), "boards")
     counts = _mapping(cohort.get("counts"), "counts")
     source_ids = {
@@ -395,6 +419,8 @@ def _parse_samples(
     catalog: Mapping[str, str],
     data_root: Path,
 ) -> tuple[_Sample, ...]:
+    if cohort.get("datasetKind") == "verified-symbol-cell-training-cohort-v2":
+        return _parse_cell_samples(cohort, catalog=catalog, data_root=data_root)
     samples: list[_Sample] = []
     sample_ids: set[str] = set()
     crop_labels: dict[str, str] = {}
@@ -499,6 +525,99 @@ def _parse_samples(
     )
 
 
+def _parse_cell_samples(
+    cohort: Mapping[str, object],
+    *,
+    catalog: Mapping[str, str],
+    data_root: Path,
+) -> tuple[_Sample, ...]:
+    samples: list[_Sample] = []
+    sample_ids: set[str] = set()
+    crop_labels: dict[str, str] = {}
+    for index, raw_cell in enumerate(_sequence(cohort.get("cells"), "cells")):
+        cell = _mapping(raw_cell, f"cells[{index}]")
+        symbol_code = _text(cell.get("symbolCode"), "cell.symbolCode")
+        symbol_id = catalog.get(symbol_code)
+        if symbol_id is None:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_SYMBOL_UNKNOWN",
+                f"Human label {symbol_code!r} is absent from the active symbol catalog.",
+            )
+        cell_index = _integer(cell.get("cellIndex"), "cell.cellIndex")
+        if not 0 <= cell_index < 15:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_CELL_POSITION_INVALID",
+                "A verified symbol cell must use a row-major index from 0 to 14.",
+            )
+        crop_checksum = _sha256(
+            cell.get("cropChecksumSha256"), "cell.cropChecksumSha256"
+        )
+        previous_label = crop_labels.setdefault(crop_checksum, symbol_code)
+        if previous_label != symbol_code:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_CROP_LABEL_CONFLICT",
+                "Identical crop bytes have conflicting human labels.",
+            )
+        crop_relative_path = _safe_relative_path(
+            cell.get("cropRelativePath"), "cell.cropRelativePath"
+        )
+        sample_id = _sha256(cell.get("cropSampleId"), "cell.cropSampleId")
+        if sample_id in sample_ids:
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_SAMPLE_DUPLICATE",
+                "The cohort contains a duplicate crop sample identity.",
+            )
+        sample_ids.add(sample_id)
+        source = _mapping(cell.get("source"), "cell.source")
+        source_checksum = _sha256(
+            source.get("checksumSha256"), "cell.source.checksumSha256"
+        )
+        source_path = _safe_relative_path(
+            source.get("relativePath"), "cell.source.relativePath"
+        )
+        samples.append(
+            _Sample(
+                sample_id=sample_id,
+                crop_checksum=crop_checksum,
+                crop_source_path=_managed_crop(
+                    data_root, crop_relative_path, crop_checksum
+                ),
+                asset_relative_path=PurePosixPath(
+                    "assets", crop_checksum[:2], f"{crop_checksum}.png"
+                ).as_posix(),
+                symbol_id=symbol_id,
+                symbol_code=symbol_code,
+                source_family=source_checksum,
+                source_image_id=_text(cell.get("sourceImageId"), "cell.sourceImageId"),
+                source_checksum=source_checksum,
+                source_relative_path=source_path,
+                import_job_id=_text(cell.get("importJobId"), "cell.importJobId"),
+                review_item_id=_text(cell.get("reviewItemId"), "cell.reviewItemId"),
+                sequence_number=_integer(
+                    cell.get("sequenceNumber"), "cell.sequenceNumber"
+                ),
+                cell_index=cell_index,
+            )
+        )
+    if not samples:
+        raise TrainingDatasetBuildError(
+            "TRAINING_DATASET_EMPTY",
+            "The frozen cohort does not contain training samples.",
+        )
+    return tuple(
+        sorted(
+            samples,
+            key=lambda item: (
+                item.source_family,
+                item.sequence_number,
+                item.review_item_id,
+                item.cell_index,
+                item.sample_id,
+            ),
+        )
+    )
+
+
 def _manifest(
     *,
     cohort: Mapping[str, object],
@@ -566,7 +685,7 @@ def _manifest(
             }
         )
 
-    review_state = _sequence(cohort.get("reviewState"), "reviewState")
+    review_state = _sequence(cohort.get("reviewState", ()), "reviewState")
     exclusions: Counter[str] = Counter()
     for raw_item in review_state:
         item = _mapping(raw_item, "reviewState item")
@@ -624,9 +743,11 @@ def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
 
 
 def _copy_asset(source: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.exists():
-        if hashlib.sha256(destination.read_bytes()).hexdigest() != source.stem:
+    filesystem_source = long_path_aware(source)
+    filesystem_destination = long_path_aware(destination)
+    filesystem_destination.parent.mkdir(parents=True, exist_ok=True)
+    if filesystem_destination.exists():
+        if hashlib.sha256(filesystem_destination.read_bytes()).hexdigest() != source.stem:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ASSET_COLLISION",
                 "An existing content-addressed asset has different bytes.",
@@ -635,14 +756,14 @@ def _copy_asset(source: Path, destination: Path) -> None:
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=destination.parent,
+            dir=filesystem_destination.parent,
             prefix=".tmp-",
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
         assert temporary is not None
-        shutil.copyfile(source, temporary)
-        os.replace(temporary, destination)
+        shutil.copyfile(filesystem_source, temporary)
+        os.replace(temporary, filesystem_destination)
         temporary = None
     except OSError as error:
         raise TrainingDatasetBuildError(
@@ -663,7 +784,7 @@ def _verify_existing(
     progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     try:
-        if manifest_path.read_bytes() != manifest_bytes:
+        if long_path_aware(manifest_path).read_bytes() != manifest_bytes:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_COLLISION",
                 "An existing dataset directory contains another manifest.",
@@ -680,7 +801,7 @@ def _verify_existing(
             *PurePosixPath(_asset_relative_path(sample, config)).parts
         )
         try:
-            observed = hashlib.sha256(asset.read_bytes()).hexdigest()
+            observed = hashlib.sha256(long_path_aware(asset).read_bytes()).hexdigest()
         except OSError as error:
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_ARTIFACT_INCOMPLETE",
@@ -745,7 +866,8 @@ def build_cumulative_training_dataset(
     artifact_directory = data_root.joinpath(*relative_directory.parts)
     manifest_relative_path = relative_directory / "manifests" / f"{manifest_checksum}.json"
     manifest_path = data_root.joinpath(*manifest_relative_path.parts)
-    reused = manifest_path.exists()
+    filesystem_manifest_path = long_path_aware(manifest_path)
+    reused = filesystem_manifest_path.exists()
     if reused:
         _verify_existing(
             artifact_directory,
@@ -773,9 +895,9 @@ def build_cumulative_training_dataset(
                 )
                 if progress_callback is not None:
                     progress_callback(len(copied), total_assets)
-            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            filesystem_manifest_path.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
-                dir=manifest_path.parent,
+                dir=filesystem_manifest_path.parent,
                 prefix=".tmp-",
                 delete=False,
             ) as handle:
@@ -783,7 +905,7 @@ def build_cumulative_training_dataset(
                 handle.write(manifest_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary_manifest, manifest_path)
+            os.replace(temporary_manifest, filesystem_manifest_path)
             temporary_manifest = None
             _verify_existing(
                 artifact_directory,

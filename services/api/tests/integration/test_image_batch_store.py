@@ -17,6 +17,15 @@ from game_predictor_api.application.board_cell_geometry_pending import (
 )
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
+from game_predictor_api.application.image_symbol_review_bulk_operations import (
+    SymbolCellReviewBulkExplicitTarget,
+    SymbolCellReviewBulkFilterSelection,
+    SymbolCellReviewBulkOperationStatus,
+    SymbolCellReviewBulkRequest,
+)
+from game_predictor_api.application.image_symbol_review_mutations import (
+    SymbolCellReviewMutationService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
@@ -29,14 +38,24 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
+    ImageReviewGridIssueView,
     ImageReviewResolutionCell,
     ImageReviewView,
     validate_image_review_geometry_command,
+)
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellReviewAction,
+    SymbolCellReviewError,
+    SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
+)
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -48,11 +67,22 @@ from game_predictor_api.storage.image_job_repository import (
 from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
 )
+from game_predictor_api.storage.image_symbol_review_bulk_operation_repository import (
+    SqlAlchemySymbolCellReviewBulkOperationRepository,
+    SqlAlchemySymbolCellReviewBulkOperationWorker,
+)
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemyImageSymbolReviewRepository,
+    SqlAlchemySymbolCellReviewMutationRepository,
+    SqlAlchemySymbolCellReviewQueryRepository,
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryRevisionModel,
+    ImageBoardSearchFastDocumentModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
@@ -63,9 +93,18 @@ from game_predictor_api.storage.models import (
     ImageReviewResolutionEventModel,
     ImageSequenceAlternativeModel,
     ImageSequenceCanonicalModel,
+    ImageSymbolPredictionRevisionModel,
+    ImageSymbolReviewBulkOperationModel,
+    ImageSymbolReviewBulkTargetModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewEventModel,
+    ImageSymbolReviewStateModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
+)
+from game_predictor_api.storage.pending_sequence_ownership import (
+    create_owned_pending_review_item,
 )
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPrediction,
@@ -89,7 +128,7 @@ from game_predictor_worker.images.pipeline_store import (
     SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, func, null, select
+from sqlalchemy import create_engine, delete, func, null, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -232,6 +271,1371 @@ def _add_review_projection_source(
         for index in range(15)
     )
     return review.id, board.id
+
+
+def _set_complete_resolution(
+    session: Session,
+    *,
+    review_item_id: UUID,
+    board_id: UUID,
+    sequence_number: int,
+    action: str,
+    resolved_at: datetime,
+) -> None:
+    review = session.get(ImageReviewItemModel, review_item_id)
+    board = session.get(RecognizedBoardModel, board_id)
+    assert review is not None
+    assert board is not None
+    review.status = action
+    review.resolved_value = {
+        "action": action,
+        "sequenceNumber": sequence_number,
+        "symbolCodes": ["test"] * 15,
+    }
+    review.resolved_by = "symbol-cell-backfill-test"
+    review.resolution_revision = 1
+    review.resolved_at = resolved_at
+    board.status = action
+
+
+def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 12, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="symbol-cell-backfill",
+                name="Symbol cell backfill",
+                status=GameStatus.ACTIVE,
+            )
+            symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        base_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="base.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        corrected_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="2" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="corrected.jpg",
+            order_index=1,
+            registered_at=now,
+        )
+        pending_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="7" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="unknown.jpg",
+            order_index=2,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            base_review_id, base_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=base_execution.file_execution_key,
+                source_checksum="1" * 64,
+                source_name="base.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            corrected_review_id, corrected_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=corrected_execution.file_execution_key,
+                source_checksum="2" * 64,
+                source_name="corrected.jpg",
+                position_index=0,
+                sequence_number=2,
+                status="pending",
+                created_at=now,
+            )
+            pending_review_id, _pending_board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=pending_execution.file_execution_key,
+                source_checksum="7" * 64,
+                source_name="unknown.jpg",
+                position_index=0,
+                sequence_number=3,
+                status="pending",
+                created_at=now,
+            )
+            for observation in session.scalars(
+                select(CellObservationModel)
+                .where(CellObservationModel.recognized_board_id == _pending_board_id)
+                .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
+            ):
+                observation.prediction = {
+                    "symbolCode": "?",
+                    "confidence": 1.0,
+                    "alternatives": [{"symbolCode": "?", "confidence": 1.0}],
+                }
+            _set_complete_resolution(
+                session,
+                review_item_id=base_review_id,
+                board_id=base_board_id,
+                sequence_number=1,
+                action="accepted",
+                resolved_at=now,
+            )
+            _set_complete_resolution(
+                session,
+                review_item_id=corrected_review_id,
+                board_id=corrected_board_id,
+                sequence_number=2,
+                action="corrected",
+                resolved_at=now,
+            )
+            corrected_board = session.get(RecognizedBoardModel, corrected_board_id)
+            assert corrected_board is not None
+            corrected_board.geometry_revision = 1
+            session.add(
+                ImageBoardGeometryRevisionModel(
+                    review_item_id=corrected_review_id,
+                    recognized_board_id=corrected_board_id,
+                    revision=1,
+                    idempotency_key=uuid4(),
+                    command_sha256="3" * 64,
+                    corners=[
+                        {"x": 0, "y": 0},
+                        {"x": 100, "y": 0},
+                        {"x": 100, "y": 100},
+                        {"x": 0, "y": 100},
+                    ],
+                    geometry={"source": "manual"},
+                    board_relative_path="boards/corrected.png",
+                    board_checksum_sha256="4" * 64,
+                    cropper_version="corrected-cropper-v1",
+                    crop_artifacts=[
+                        {
+                            "rowIndex": index // 5,
+                            "columnIndex": index % 5,
+                            "cropRelativePath": f"corrected/cell-{index}.png",
+                            "cropChecksumSha256": f"{1000 + index:064x}",
+                        }
+                        for index in range(15)
+                    ],
+                    corrected_by="integration-owner",
+                    created_at=now,
+                )
+            )
+            for sequence_number, review_item_id, board_id, status, geometry_revision in (
+                (1, base_review_id, base_board_id, "accepted", 0),
+                (2, corrected_review_id, corrected_board_id, "corrected", 1),
+            ):
+                board = session.get(RecognizedBoardModel, board_id)
+                assert board is not None
+                source = session.get(SourceImageModel, board.source_image_id)
+                assert source is not None
+                session.add(
+                    ImageSequenceCanonicalModel(
+                        game_id=game.id,
+                        sequence_number=sequence_number,
+                        review_item_id=review_item_id,
+                        recognized_board_id=board_id,
+                        import_job_id=job.id,
+                        source_image_id=source.id,
+                        source_checksum_sha256=source.checksum_sha256,
+                        board_checksum_sha256=board.board_checksum_sha256,
+                        status=status,
+                        resolution_revision=1,
+                        geometry_revision=geometry_revision,
+                        created_at=now,
+                    )
+                )
+            job_record = session.get(JobModel, job.id)
+            assert job_record is not None
+            job_record.status = JobStatus.WAITING_FOR_REVIEW
+            projection_result = SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(
+                game.id
+            )
+            assert projection_result.candidate_count == 3
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageBoardSearchFastDocumentModel)
+                    .where(ImageBoardSearchFastDocumentModel.game_id == game.id)
+                )
+                == 3
+            )
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyImageSymbolReviewRepository(session)
+            assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
+            first_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert first_step.processed_review_item_count == 1
+            assert first_step.has_more is True
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyImageSymbolReviewRepository(session)
+            assert repository.start_or_resume_backfill(game.id).status == "rebuilding"
+            second_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert second_step.processed_review_item_count == 1
+            third_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert third_step.processed_review_item_count == 1
+            final_step = repository.backfill_next_batch(game.id, batch_size=1)
+            assert final_step.has_more is False
+            assert final_step.report.status == "ready"
+            assert final_step.report.cell_count == 45
+            session.commit()
+
+        with Session(engine) as session:
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            assert state.status == "ready"
+            assert state.processed_review_item_count == 3
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewCellModel)
+                    .where(ImageSymbolReviewCellModel.game_id == game.id)
+                )
+                == 45
+            )
+            base_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == base_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            corrected_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == corrected_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            pending_cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == pending_review_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert len(base_cells) == len(corrected_cells) == len(pending_cells) == 15
+            assert all(cell.review_state == "approved" for cell in base_cells + corrected_cells)
+            assert all(
+                cell.assigned_symbol_id == symbol.id for cell in base_cells + corrected_cells
+            )
+            assert [cell.geometry_revision for cell in corrected_cells] == [1] * 15
+            assert [cell.cropper_version for cell in corrected_cells] == [
+                "corrected-cropper-v1"
+            ] * 15
+            assert [cell.crop_relative_path for cell in corrected_cells] == [
+                f"corrected/cell-{index}.png" for index in range(15)
+            ]
+            assert all(cell.review_state == "pending" for cell in pending_cells)
+            assert all(cell.assigned_symbol_id is None for cell in pending_cells)
+            session.execute(
+                delete(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == pending_review_id
+                )
+            )
+            backfill = SqlAlchemyImageSymbolReviewRepository(session)
+            assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
+            reconciliation = backfill.reconcile_next_batch(game.id, batch_size=10)
+            assert reconciliation.processed_review_item_count == 1
+            assert reconciliation.report.status == "rebuilding"
+            assert backfill.finalize_backfill(game.id).status == "ready"
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewCellModel)
+                    .where(ImageSymbolReviewCellModel.review_item_id == pending_review_id)
+                )
+                == 15
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageBoardSearchFastDocumentModel)
+                    .where(ImageBoardSearchFastDocumentModel.game_id == game.id)
+                )
+                == 3
+            )
+            query_repository = SqlAlchemySymbolCellReviewQueryRepository(session)
+            known_filter = SymbolCellReviewListFilter(
+                game_id=game.id,
+                symbol_id=symbol.id,
+                state=SymbolCellReviewFilterState.ALL,
+            )
+            first_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=None,
+                before_key=None,
+                limit=16,
+            )
+            assert [item.sequence_number for item in first_page.items] == [1] * 15 + [2]
+            assert first_page.has_previous is False
+            assert first_page.has_next is True
+            assert query_repository.counts(review_filter=known_filter).all_count == 30
+            assert query_repository.counts(review_filter=known_filter).approved_count == 30
+            assert query_repository.counts(review_filter=known_filter).pending_count == 0
+            second_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=first_page.items[-1].cursor_key,
+                before_key=None,
+                limit=16,
+            )
+            assert [item.sequence_number for item in second_page.items] == [2] * 14
+            assert {item.cell_review_id for item in first_page.items}.isdisjoint(
+                item.cell_review_id for item in second_page.items
+            )
+            unknown_filter = SymbolCellReviewListFilter(
+                game_id=game.id,
+                symbol_id=None,
+                state=SymbolCellReviewFilterState.PENDING,
+            )
+            unknown_page = query_repository.list_items(
+                review_filter=unknown_filter,
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert len(unknown_page.items) == 15
+            assert {item.sequence_number for item in unknown_page.items} == {3}
+            assert all(item.assigned_symbol_id is None for item in unknown_page.items)
+            session.execute(
+                delete(ImageBoardSearchFastDocumentModel).where(
+                    ImageBoardSearchFastDocumentModel.game_id == game.id,
+                    ImageBoardSearchFastDocumentModel.sequence_number == 2,
+                )
+            )
+            hidden_owner_page = query_repository.list_items(
+                review_filter=known_filter,
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert len(hidden_owner_page.items) == 15
+            assert {item.sequence_number for item in hidden_owner_page.items} == {1}
+    finally:
+        engine.dispose()
+
+
+def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutations(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 13, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="symbol-cell-write-through",
+                name="Symbol cell write through",
+                status=GameStatus.ACTIVE,
+            )
+            symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            other_symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=2,
+                code="other",
+                name="Other",
+                image_path=None,
+                is_wildcard=False,
+                display_order=1,
+                status=SymbolStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="9" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="write-through.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            review_item_id, board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=execution.file_execution_key,
+                source_checksum="9" * 64,
+                source_name="write-through.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            job_record = session.get(JobModel, job.id)
+            assert job_record is not None
+            job_record.status = JobStatus.WAITING_FOR_REVIEW
+            SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            backfill = SqlAlchemyImageSymbolReviewRepository(session)
+            assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
+            backfill.backfill_next_batch(game.id, batch_size=10)
+            finished = backfill.backfill_next_batch(game.id, batch_size=10)
+            assert finished.has_more is False
+            assert finished.report.status == "ready"
+            assert finished.report.catalog_revision == 1
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyOperationalImageReviewRepository(session)
+            service = OperationalImageReviewService(repository)
+            item = service.get_item(
+                review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+            )
+            resolved, _event, created = service.resolve_item(
+                review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+                idempotency_key=uuid4(),
+                expected_revision=item.resolution_revision,
+                action=ImageReviewAction.ACCEPTED,
+                sequence_number=1,
+                geometry_revision=item.geometry_revision,
+                cells=tuple(
+                    ImageReviewResolutionCell(
+                        cell_index=cell.cell_index,
+                        crop_sample_id=cell.crop_sample_id,
+                        symbol_code="test",
+                    )
+                    for cell in item.cells
+                ),
+                rejection_reason=None,
+                resolved_by="write-through-reviewer",
+            )
+            assert created is True
+            assert resolved.status == "accepted"
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert len(cells) == 15
+            assert all(cell.review_state == "approved" for cell in cells)
+            assert all(cell.assigned_symbol_id == symbol.id for cell in cells)
+            assert all(cell.assignment_source == "board_decision" for cell in cells)
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewEventModel)
+                    .where(ImageSymbolReviewEventModel.review_item_id == review_item_id)
+                )
+                == 15
+            )
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            assert state.catalog_revision == 2
+
+            board = session.get(RecognizedBoardModel, board_id)
+            review = session.get(ImageReviewItemModel, review_item_id)
+            assert board is not None and review is not None
+            session.add(
+                ImageSymbolPredictionRevisionModel(
+                    game_id=game.id,
+                    review_item_id=review_item_id,
+                    recognized_board_id=board_id,
+                    source_job_id=job.id,
+                    model_iteration_id=None,
+                    model_version="write-through-test-v2",
+                    model_checksum_sha256="a" * 64,
+                    crop_manifest_checksum_sha256="b" * 64,
+                    predictions=[
+                        {
+                            "symbolCode": "other",
+                            "confidence": 0.9,
+                            "alternatives": [{"symbolCode": "other", "confidence": 0.9}],
+                        }
+                        for _index in range(15)
+                    ],
+                )
+            )
+            session.flush()
+            assert (
+                SymbolCellReviewWriteThroughCoordinator(
+                    session
+                ).synchronize_after_prediction_refresh(
+                    game_id=game.id,
+                    review_item_id=review_item_id,
+                    actor="system:test-reinference",
+                )
+                is True
+            )
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert all(cell.assigned_symbol_id == symbol.id for cell in cells)
+            assert all(cell.review_state == "approved" for cell in cells)
+            assert all(cell.prediction_symbol_code == "other" for cell in cells)
+
+            repository = SqlAlchemyOperationalImageReviewRepository(session)
+            item = repository.get_item(
+                review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+            )
+            assert item is not None
+            command_value = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=item.geometry_revision,
+                expected_resolution_revision=item.resolution_revision,
+                corrected_by="geometry-reviewer",
+            )
+            _updated, revision, created = repository.save_geometry_revision(
+                review_item_id=review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+                idempotency_key=uuid4(),
+                command=command_value,
+                artifacts=ImageReviewGeometryArtifacts(
+                    geometry={"source": "write-through-test"},
+                    board_relative_path="corrected/write-through.png",
+                    board_checksum_sha256="c" * 64,
+                    cropper_version="write-through-cropper-v2",
+                    cells=tuple(
+                        ImageReviewGeometryCellArtifact(
+                            row_index=index // 5,
+                            column_index=index % 5,
+                            crop_relative_path=f"corrected/write-through-{index}.png",
+                            crop_checksum_sha256=f"{5000 + index:064x}",
+                        )
+                        for index in range(15)
+                    ),
+                ),
+                created_at=now + timedelta(minutes=1),
+            )
+            assert created is True
+            assert revision.revision == 1
+            session.commit()
+
+        with Session(engine) as session:
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert len(cells) == 15
+            assert all(cell.geometry_revision == 1 for cell in cells)
+            assert all(cell.review_state == "pending" for cell in cells)
+            assert all(cell.has_grid_issue is False for cell in cells)
+            assert all(cell.assigned_symbol_id == other_symbol.id for cell in cells)
+            assert [cell.crop_relative_path for cell in cells] == [
+                f"corrected/write-through-{index}.png" for index in range(15)
+            ]
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewEventModel)
+                    .where(
+                        ImageSymbolReviewEventModel.review_item_id == review_item_id,
+                        ImageSymbolReviewEventModel.action == "geometry_invalidated",
+                    )
+                )
+                == 15
+            )
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            # Geometry invokes both its cell synchronization and its canonical
+            # projection synchronization. The catalog advances once, not twice.
+            assert state.catalog_revision == 4
+            review = session.get(ImageReviewItemModel, review_item_id)
+            assert review is not None
+            review.status = "superseded"
+            review.resolved_value = {
+                "action": "superseded",
+                "canonicalReviewItemId": str(review_item_id),
+                "sequenceNumber": 1,
+            }
+            review.resolved_by = "system:test-superseded"
+            review.resolved_at = now + timedelta(minutes=2)
+            review.resolution_revision += 1
+            SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(review_item_id)
+            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
+            assert coordinator.synchronize_after_board_resolution(
+                game_id=game.id,
+                review_item_id=review_item_id,
+                actor="system:test-superseded",
+            )
+            assert coordinator.synchronize_after_projection_change(game_id=game.id)
+            session.commit()
+
+        with Session(engine) as session:
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageBoardSearchFastDocumentModel)
+                    .where(ImageBoardSearchFastDocumentModel.game_id == game.id)
+                )
+                == 0
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewCellModel)
+                    .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                )
+                == 15
+            )
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            assert state.catalog_revision == 5
+    finally:
+        engine.dispose()
+
+
+def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 15, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="symbol-cell-mutations",
+                name="Symbol cell mutations",
+                status=GameStatus.ACTIVE,
+            )
+            first_symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="first",
+                name="First",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            second_symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=2,
+                code="second",
+                name="Second",
+                image_path=None,
+                is_wildcard=False,
+                display_order=1,
+                status=SymbolStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="8" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="cell-mutations.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            review_item_id, board_id = _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=execution.file_execution_key,
+                source_checksum="8" * 64,
+                source_name="cell-mutations.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            job_record = session.get(JobModel, job.id)
+            assert job_record is not None
+            job_record.status = JobStatus.WAITING_FOR_REVIEW
+            SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            backfill = SqlAlchemyImageSymbolReviewRepository(session)
+            assert backfill.start_or_resume_backfill(game.id).status == "rebuilding"
+            first_step = backfill.backfill_next_batch(game.id, batch_size=20)
+            assert first_step.has_more is False
+            finished = backfill.backfill_next_batch(game.id, batch_size=20)
+            assert finished.has_more is False
+            assert finished.report.status == "ready"
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            service = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert len(cells) == 15
+            # Model suggestions may legitimately be `?`.  This fixture gives
+            # each pending crop a reviewed candidate so the test exercises the
+            # explicit approve action that closes the fifteenth cell.
+            for cell in cells:
+                cell.assigned_symbol_id = first_symbol.id
+            session.flush()
+            for cell in cells:
+                result = service.approve(
+                    game_id=game.id,
+                    cell_review_id=cell.id,
+                    expected_revision=cell.revision,
+                    expected_geometry_revision=cell.geometry_revision,
+                    expected_crop_sample_id=cell.crop_sample_id,
+                    expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                    actor="symbol-cell-operator",
+                )
+            assert result.board_status == "corrected"
+            assert result.board_resolution_action == "corrected"
+            assert result.board_reopened is False
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            review = session.get(ImageReviewItemModel, review_item_id)
+            assert review is not None
+            assert review.status == "corrected"
+            assert review.resolved_value is not None
+            assert review.resolved_value["symbolCodes"] == ["first"] * 15
+            canonical = session.get(
+                ImageSequenceCanonicalModel,
+                {"game_id": game.id, "sequence_number": 1},
+            )
+            completed_job = session.get(JobModel, job.id)
+            queue_state = session.get(ImageReviewQueueStateModel, job.id)
+            staging = session.get(
+                ImageLayoutStagingRowModel,
+                {"import_job_id": job.id, "recognized_board_id": board_id},
+            )
+            assert canonical is not None and canonical.status == "corrected"
+            assert staging is not None and staging.cells == [1] * 15
+            assert completed_job is not None and completed_job.status is JobStatus.COMPLETED
+            assert queue_state is not None and queue_state.pending_count == 0
+            cell = session.scalar(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index == 0,
+                )
+            )
+            assert cell is not None
+            service = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            with pytest.raises(SymbolCellReviewError) as stale:
+                service.reassign(
+                    game_id=game.id,
+                    cell_review_id=cell.id,
+                    expected_revision=cell.revision,
+                    expected_geometry_revision=cell.geometry_revision,
+                    expected_crop_sample_id=cell.crop_sample_id,
+                    expected_crop_checksum_sha256="f" * 64,
+                    target_symbol_id=second_symbol.id,
+                    actor="symbol-cell-operator",
+                )
+            assert stale.value.code == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
+            result = service.reassign(
+                game_id=game.id,
+                cell_review_id=cell.id,
+                expected_revision=cell.revision,
+                expected_geometry_revision=cell.geometry_revision,
+                expected_crop_sample_id=cell.crop_sample_id,
+                expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                target_symbol_id=second_symbol.id,
+                actor="symbol-cell-operator",
+            )
+            assert result.board_status == "corrected"
+            assert result.board_resolution_action == "corrected"
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            review = session.get(ImageReviewItemModel, review_item_id)
+            staging = session.get(
+                ImageLayoutStagingRowModel,
+                {"import_job_id": job.id, "recognized_board_id": board_id},
+            )
+            assert review is not None and review.status == "corrected"
+            assert review.resolved_value is not None
+            assert review.resolved_value["symbolCodes"] == ["second"] + ["first"] * 14
+            assert staging is not None and staging.cells == [2] + [1] * 14
+            cell = session.scalar(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index == 1,
+                )
+            )
+            assert cell is not None
+            service = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            result = service.mark_grid_issue(
+                game_id=game.id,
+                cell_review_id=cell.id,
+                expected_revision=cell.revision,
+                expected_geometry_revision=cell.geometry_revision,
+                expected_crop_sample_id=cell.crop_sample_id,
+                expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                actor="symbol-cell-operator",
+            )
+            assert result.board_status == "pending"
+            assert result.board_resolution_action is None
+            assert result.board_reopened is True
+            session.commit()
+
+        with Session(engine) as session:
+            review = session.get(ImageReviewItemModel, review_item_id)
+            board = session.get(RecognizedBoardModel, board_id)
+            source = session.scalar(
+                select(SourceImageModel).where(SourceImageModel.import_job_id == job.id)
+            )
+            reopened_job = session.get(JobModel, job.id)
+            queue_state = session.get(ImageReviewQueueStateModel, job.id)
+            assert review is not None and review.status == "pending"
+            assert review.resolved_value is None
+            assert board is not None and board.status == "pending_review"
+            assert source is not None and source.status == "waiting_for_review"
+            assert reopened_job is not None and reopened_job.status is JobStatus.WAITING_FOR_REVIEW
+            assert queue_state is not None and queue_state.pending_count == 1
+            assert (
+                session.get(
+                    ImageSequenceCanonicalModel,
+                    {"game_id": game.id, "sequence_number": 1},
+                )
+                is None
+            )
+            assert (
+                session.get(
+                    ImageLayoutStagingRowModel,
+                    {"import_job_id": job.id, "recognized_board_id": board_id},
+                )
+                is None
+            )
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all()
+            assert cells[1].review_state == "pending"
+            assert cells[1].has_grid_issue is True
+            assert all(
+                cell.review_state == "approved" and cell.has_grid_issue is False
+                for index, cell in enumerate(cells)
+                if index != 1
+            )
+            # Two flagged cells still identify one operational board.
+            cells[2].review_state = "pending"
+            cells[2].has_grid_issue = True
+            session.flush()
+            operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            grid_issue_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            assert [item.id for item in grid_issue_page.items] == [review_item_id]
+            assert grid_issue_page.needs_grid_fix_count == 1
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewEventModel)
+                    .where(
+                        ImageSymbolReviewEventModel.review_item_id == review_item_id,
+                        ImageSymbolReviewEventModel.action == "mark_grid_issue",
+                    )
+                )
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewResolutionEventModel)
+                    .where(
+                        ImageReviewResolutionEventModel.review_item_id == review_item_id,
+                        ImageReviewResolutionEventModel.action == "reopened",
+                    )
+                )
+                == 1
+            )
+            current = operational_repository.get_item(
+                review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+            )
+            assert current is not None
+            geometry_command = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=current.geometry_revision,
+                expected_resolution_revision=current.resolution_revision,
+                corrected_by="grid-issue-reviewer",
+            )
+            _updated, _revision, geometry_created = operational_repository.save_geometry_revision(
+                review_item_id=review_item_id,
+                game_id=game.id,
+                import_job_id=job.id,
+                idempotency_key=uuid4(),
+                command=geometry_command,
+                artifacts=ImageReviewGeometryArtifacts(
+                    geometry={"source": "grid-issue-filter-test"},
+                    board_relative_path="corrected/grid-issue.png",
+                    board_checksum_sha256="d" * 64,
+                    cropper_version="grid-issue-filter-test",
+                    cells=tuple(
+                        ImageReviewGeometryCellArtifact(
+                            row_index=index // 5,
+                            column_index=index % 5,
+                            crop_relative_path=f"corrected/grid-issue-{index}.png",
+                            crop_checksum_sha256=f"{6000 + index:064x}",
+                        )
+                        for index in range(15)
+                    ),
+                ),
+                created_at=now + timedelta(minutes=1),
+            )
+            assert geometry_created is True
+            cleared_grid_issue_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            assert cleared_grid_issue_page.items == ()
+            assert cleared_grid_issue_page.needs_grid_fix_count == 0
+    finally:
+        engine.dispose()
+
+
+def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 16, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = catalog.create_game(
+                code="symbol-cell-bulk",
+                name="Symbol cell bulk",
+                status=GameStatus.ACTIVE,
+            )
+            symbol = catalog.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="first",
+                name="First",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        first_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="symbol-cell-bulk-1.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        second_execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="2" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="symbol-cell-bulk-2.jpg",
+            order_index=1,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=first_execution.file_execution_key,
+                source_checksum="1" * 64,
+                source_name="symbol-cell-bulk-1.jpg",
+                position_index=0,
+                sequence_number=1,
+                status="pending",
+                created_at=now,
+            )
+            _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=second_execution.file_execution_key,
+                source_checksum="2" * 64,
+                source_name="symbol-cell-bulk-2.jpg",
+                position_index=0,
+                sequence_number=2,
+                status="pending",
+                created_at=now,
+            )
+            job_record = session.get(JobModel, job.id)
+            assert job_record is not None
+            job_record.status = JobStatus.WAITING_FOR_REVIEW
+            SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
+            session.commit()
+
+        with Session(engine, expire_on_commit=False) as session:
+            backfill = SqlAlchemyImageSymbolReviewRepository(session)
+            backfill.start_or_resume_backfill(game.id)
+            assert backfill.backfill_next_batch(game.id, batch_size=50).has_more is False
+            assert backfill.backfill_next_batch(game.id, batch_size=50).report.status == "ready"
+            cells = session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.game_id == game.id)
+                .order_by(
+                    ImageSymbolReviewCellModel.sequence_number,
+                    ImageSymbolReviewCellModel.cell_index,
+                )
+            ).all()
+            assert len(cells) == 30
+            for cell in cells:
+                cell.assigned_symbol_id = symbol.id
+            request = SymbolCellReviewBulkRequest(
+                action=SymbolCellReviewAction.APPROVE,
+                target_symbol_id=None,
+                explicit_targets=tuple(
+                    SymbolCellReviewBulkExplicitTarget(
+                        cell_review_id=cell.id,
+                        expected_revision=cell.revision,
+                        expected_geometry_revision=cell.geometry_revision,
+                        expected_crop_sample_id=cell.crop_sample_id,
+                        expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                    )
+                    for cell in cells
+                ),
+                filter_selection=None,
+                actor="local-admin",
+            )
+            repository = SqlAlchemySymbolCellReviewBulkOperationRepository(session)
+            idempotency_key = uuid4()
+            operation, created = repository.start(
+                game_id=game.id,
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+            repeated, repeated_created = repository.start(
+                game_id=game.id,
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+            assert created is True
+            assert repeated_created is False
+            assert repeated.id == operation.id
+            assert operation.target_count == 30
+            with pytest.raises(SymbolCellReviewError) as idempotency_conflict:
+                repository.start(
+                    game_id=game.id,
+                    request=SymbolCellReviewBulkRequest(
+                        action=SymbolCellReviewAction.MARK_GRID_ISSUE,
+                        target_symbol_id=None,
+                        explicit_targets=request.explicit_targets,
+                        filter_selection=None,
+                        actor="local-admin",
+                    ),
+                    idempotency_key=idempotency_key,
+                )
+            assert idempotency_conflict.value.code == "SYMBOL_CELL_REVIEW_BULK_IDEMPOTENCY_CONFLICT"
+            bulk_job = SqlAlchemyJobRepository(session).get_job(operation.job_id)
+            assert bulk_job is not None
+            session.commit()
+
+        first_worker = SqlAlchemySymbolCellReviewBulkOperationWorker(session_factory)
+        first_progress = first_worker.process_next_batch(job=bulk_job, max_boards=1)
+        assert first_progress.has_pending_targets is True
+        assert first_progress.operation.applied_count == 15
+        assert first_progress.operation.pending_count == 15
+
+        # A fresh worker instance models recovery after a crash between checkpoints.
+        resumed_worker = SqlAlchemySymbolCellReviewBulkOperationWorker(session_factory)
+        second_progress = resumed_worker.process_next_batch(job=bulk_job, max_boards=1)
+        assert second_progress.has_pending_targets is False
+        assert second_progress.operation.status is SymbolCellReviewBulkOperationStatus.COMPLETED
+
+        with Session(engine) as session:
+            persisted_operation = session.get(ImageSymbolReviewBulkOperationModel, operation.id)
+            assert persisted_operation is not None
+            assert persisted_operation.status == SymbolCellReviewBulkOperationStatus.COMPLETED.value
+            assert persisted_operation.applied_count == 30
+            assert persisted_operation.conflict_count == 0
+            assert persisted_operation.failed_count == 0
+            targets = session.scalars(
+                select(ImageSymbolReviewBulkTargetModel).where(
+                    ImageSymbolReviewBulkTargetModel.operation_id == operation.id
+                )
+            ).all()
+            assert len(targets) == 30
+            assert {target.status for target in targets} == {"applied"}
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewEventModel)
+                    .where(ImageSymbolReviewEventModel.operation_id == operation.id)
+                )
+                == 30
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewItemModel)
+                    .where(ImageReviewItemModel.status == "corrected")
+                )
+                == 2
+            )
+            state = session.get(ImageSymbolReviewStateModel, game.id)
+            assert state is not None
+            filter_operation, filter_created = SqlAlchemySymbolCellReviewBulkOperationRepository(
+                session
+            ).start(
+                game_id=game.id,
+                request=SymbolCellReviewBulkRequest(
+                    action=SymbolCellReviewAction.MARK_GRID_ISSUE,
+                    target_symbol_id=None,
+                    explicit_targets=None,
+                    filter_selection=SymbolCellReviewBulkFilterSelection(
+                        symbol_id=symbol.id,
+                        state=SymbolCellReviewFilterState.APPROVED,
+                        catalog_revision=state.catalog_revision,
+                        excluded_cell_review_ids=(targets[0].cell_review_id,),
+                    ),
+                    actor="local-admin",
+                ),
+                idempotency_key=uuid4(),
+            )
+            assert filter_created is True
+            assert filter_operation.target_count == 29
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSymbolReviewBulkTargetModel)
+                    .where(ImageSymbolReviewBulkTargetModel.operation_id == filter_operation.id)
+                )
+                == 29
+            )
+            filter_job = SqlAlchemyJobRepository(session).get_job(filter_operation.job_id)
+            assert filter_job is not None
+            session.commit()
+
+        # Marking many crops on an already completed board must reopen that
+        # board only after all target cells were updated.  Otherwise removing
+        # canonical ownership after the first crop would make the remaining
+        # targets conflict with their own bulk operation.
+        grid_worker = SqlAlchemySymbolCellReviewBulkOperationWorker(session_factory)
+        grid_progress = grid_worker.process_next_batch(job=filter_job, max_boards=1)
+        assert grid_progress.has_pending_targets is True
+        assert grid_progress.operation.applied_count == 14
+        assert grid_progress.operation.pending_count == 15
+
+        with Session(engine) as session:
+            first_board = session.scalar(
+                select(ImageReviewItemModel)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .where(RecognizedBoardModel.sequence_number == 1)
+            )
+            assert first_board is not None
+            assert first_board.status == "pending"
+            first_board_targets = session.scalars(
+                select(ImageSymbolReviewBulkTargetModel).where(
+                    ImageSymbolReviewBulkTargetModel.operation_id == filter_operation.id,
+                    ImageSymbolReviewBulkTargetModel.sequence_number == 1,
+                )
+            ).all()
+            assert len(first_board_targets) == 14
+            assert {target.status for target in first_board_targets} == {"applied"}
+            first_board_cells = session.scalars(
+                select(ImageSymbolReviewCellModel).where(
+                    ImageSymbolReviewCellModel.review_item_id == first_board.id
+                )
+            ).all()
+            assert sum(cell.has_grid_issue for cell in first_board_cells) == 14
+
+            # Model a concurrent full-page geometry save before the next
+            # board is processed.  Frozen target identity must turn that
+            # entire board batch into a controlled conflict, never into a
+            # mixture of old and new crop decisions.
+            second_board_cell = session.scalar(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.sequence_number == 2)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            )
+            assert second_board_cell is not None
+            second_board_cell.geometry_revision += 1
+            second_board_cell.crop_sample_id = "e" * 64
+            second_board_cell.crop_checksum_sha256 = "f" * 64
+            session.commit()
+
+        conflict_progress = grid_worker.process_next_batch(job=filter_job, max_boards=1)
+        assert conflict_progress.has_pending_targets is False
+        assert conflict_progress.operation.status is SymbolCellReviewBulkOperationStatus.COMPLETED
+        assert conflict_progress.operation.applied_count == 14
+        assert conflict_progress.operation.conflict_count == 15
+
+        with Session(engine) as session:
+            conflicted_targets = session.scalars(
+                select(ImageSymbolReviewBulkTargetModel).where(
+                    ImageSymbolReviewBulkTargetModel.operation_id == filter_operation.id,
+                    ImageSymbolReviewBulkTargetModel.sequence_number == 2,
+                )
+            ).all()
+            assert len(conflicted_targets) == 15
+            assert {target.status for target in conflicted_targets} == {"conflict"}
+            assert {target.error_code for target in conflicted_targets} == {
+                "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT"
+            }
+    finally:
+        engine.dispose()
+
+
+def test_symbol_cell_backfill_fails_closed_when_an_active_board_has_no_sequence(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 26, 13, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="symbol-cell-no-sequence",
+                name="Symbol cell no sequence",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        execution = image_store.register_file(
+            job.id,
+            source_checksum_sha256="5" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="missing-sequence.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            source = SourceImageModel(
+                import_job_id=job.id,
+                file_execution_key=execution.file_execution_key,
+                relative_path="missing-sequence.jpg",
+                checksum_sha256="5" * 64,
+                width=1920,
+                height=1080,
+                status="waiting_for_review",
+                created_at=now,
+            )
+            session.add(source)
+            session.flush()
+            board = RecognizedBoardModel(
+                source_image_id=source.id,
+                position_index=0,
+                sequence_number_raw="?",
+                sequence_number=None,
+                sequence_confidence=0.0,
+                board_geometry={"source": "integration"},
+                board_relative_path="boards/missing-sequence.png",
+                board_checksum_sha256="6" * 64,
+                cells_prediction={"cells": []},
+                board_confidence=1.0,
+                pipeline_fingerprint=PIPELINE,
+                status="pending_review",
+                created_at=now,
+            )
+            session.add(board)
+            session.flush()
+            review = ImageReviewItemModel(
+                recognized_board_id=board.id,
+                status="pending",
+                snapshot={"sequenceNumber": None},
+                resolution_revision=0,
+                created_at=now,
+            )
+            session.add(review)
+            session.flush()
+
+            report = SqlAlchemyImageSymbolReviewRepository(session).start_or_resume_backfill(
+                game.id
+            )
+            assert report.status == "failed"
+            assert report.missing_sequence_count == 1
+            assert report.sample_problem_review_item_ids == (review.id,)
+            assert report.failure_message is not None
+            assert "SYMBOL_CELL_REVIEW_SEQUENCE_MISSING" in report.failure_message
+            session.commit()
+    finally:
+        engine.dispose()
 
 
 def test_manual_deferred_geometry_materializes_one_complete_review_projection(
@@ -1127,6 +2531,123 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                     created_at=now + timedelta(minutes=1),
                 )
             assert protected.value.code == "IMAGE_REVIEW_SUPERSEDED"
+    finally:
+        engine.dispose()
+
+
+def test_pending_sequence_owner_is_always_the_newest_import(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 27, 8, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="pending-sequence-owner",
+                name="Pending sequence owner",
+                status=GameStatus.ACTIVE,
+            )
+            older_job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, "1" * 64, now))
+            newer_job = SqlAlchemyJobRepository(session).add_job(
+                _image_job(game.id, "2" * 64, now + timedelta(seconds=1))
+            )
+            newest_job = SqlAlchemyJobRepository(session).add_job(
+                _image_job(game.id, "3" * 64, now + timedelta(seconds=2))
+            )
+            session.commit()
+
+        executions = {
+            job.id: image_store.register_file(
+                job.id,
+                source_checksum_sha256=checksum * 64,
+                pipeline_fingerprint=checksum * 64,
+                source_relative_path=f"source-{checksum}.jpg",
+                order_index=0,
+                registered_at=job.created_at,
+            )
+            for job, checksum in (
+                (older_job, "1"),
+                (newer_job, "2"),
+                (newest_job, "3"),
+            )
+        }
+
+        with Session(engine, expire_on_commit=False) as session, session.begin():
+            jobs = {
+                job_id: session.get(JobModel, job_id)
+                for job_id in (older_job.id, newer_job.id, newest_job.id)
+            }
+
+            def create_candidate(job: Job, checksum: str) -> ImageReviewItemModel:
+                job_record = jobs[job.id]
+                assert job_record is not None
+                source = SourceImageModel(
+                    import_job_id=job.id,
+                    file_execution_key=executions[job.id].file_execution_key,
+                    relative_path=f"source-{checksum}.jpg",
+                    checksum_sha256=checksum * 64,
+                    width=1920,
+                    height=1080,
+                    status="waiting_for_review",
+                    created_at=job.created_at,
+                )
+                session.add(source)
+                session.flush()
+                board = RecognizedBoardModel(
+                    source_image_id=source.id,
+                    position_index=0,
+                    sequence_number_raw="10",
+                    sequence_number=10,
+                    sequence_confidence=1.0,
+                    board_geometry={"source": "pending-owner-test"},
+                    board_relative_path=f"board-{checksum}.png",
+                    board_checksum_sha256=checksum * 64,
+                    cells_prediction={"cells": []},
+                    board_confidence=1.0,
+                    pipeline_fingerprint=checksum * 64,
+                    status="pending_review",
+                    created_at=job.created_at,
+                )
+                session.add(board)
+                session.flush()
+                review, _changed = create_owned_pending_review_item(
+                    session,
+                    board=board,
+                    game_id=game.id,
+                    import_job=job_record,
+                    snapshot={"sequenceNumber": 10},
+                    created_at=job.created_at,
+                )
+                return review
+
+            newer_review = create_candidate(newer_job, "2")
+            older_review = create_candidate(older_job, "1")
+            newest_review = create_candidate(newest_job, "3")
+
+        with Session(engine) as session:
+            reviews = {
+                review.id: session.get(ImageReviewItemModel, review.id)
+                for review in (older_review, newer_review, newest_review)
+            }
+            assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
+            assert reviews[newer_review.id].status == "superseded"  # type: ignore[union-attr]
+            assert reviews[newest_review.id].status == "pending"  # type: ignore[union-attr]
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewItemModel)
+                    .where(
+                        ImageReviewItemModel.game_id == game.id,
+                        ImageReviewItemModel.sequence_number == 10,
+                        ImageReviewItemModel.status == "pending",
+                    )
+                )
+                == 1
+            )
     finally:
         engine.dispose()
 

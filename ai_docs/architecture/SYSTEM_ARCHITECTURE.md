@@ -636,6 +636,13 @@ Warunki ponownej oceny są częścią D-085 i raportu
 `m7-queue-architecture-decision-v1`; ich spełnienie otwiera nowe zadanie, ale
 nie uruchamia automatycznej migracji.
 
+Domyślny profil operatorski uruchamia wyłącznie general lane z kooperacyjnym
+budżetem siedmiu wątków. Nie zmienia to unikalnego slotu: równocześnie nadal
+działa najwyżej jeden general job. Budżet jest przekazywany adapterom z bounded
+równoległością; rejestracja geometrii obrabia do siedmiu stron przy
+jednowątkowym OpenCV/BLAS. Dedykowany image-selection lane pozostaje dostępny
+w jawnym historycznym profilu `general=2`, `image-selection=5`.
+
 Eksport diagnostyczny pobiera trwały snapshot joba z PostgreSQL, serializuje
 kanoniczny `image-job-diagnostics-v1`, ogranicza uporządkowaną listę błędów do
 10 000 i zapisuje dokładne bajty content-addressed pod

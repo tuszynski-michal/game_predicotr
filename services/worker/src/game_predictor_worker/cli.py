@@ -106,6 +106,8 @@ from game_predictor_worker.snapshots import (
     ProductionSnapshotGenerator,
     SqlAlchemyProductionSnapshotStore,
 )
+from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
+from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
     SymbolTrainingJobHandler,
     SymbolTrainingJobStore,
@@ -114,7 +116,7 @@ from game_predictor_worker.symbols.training_job import (
 WORKER_VERSION = "worker-v10"
 GENERAL_LANE = "general"
 IMAGE_SELECTION_LANE = "image-selection"
-DEFAULT_GENERAL_THREAD_BUDGET = 2
+DEFAULT_GENERAL_THREAD_BUDGET = 7
 DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 5
 
 
@@ -232,7 +234,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
         )
     if options.first_sequence_number is not None and options.first_sequence_number < 1:
         parser.error("--first-sequence-number must be positive.")
-    native_thread_budget = 1 if options.lane == IMAGE_SELECTION_LANE else thread_budget
+    # Parallel handlers own the cooperative process budget.  Native libraries
+    # stay single-threaded so seven registered pages cannot fan out into 49
+    # OpenCV/BLAS threads on the eight-logical-CPU owner workstation.
+    native_thread_budget = 1
     _configure_native_thread_budget(native_thread_budget)
     configure_opencv_thread_budget()
     if options.image_selection_manifest is not None:
@@ -302,9 +307,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             session_factory,
             remote_selection_host,
             enabled=settings.remote_selection_recovery_enabled,
-            upload_timeout=timedelta(
-                seconds=settings.remote_selection_upload_timeout_seconds
-            ),
+            upload_timeout=timedelta(seconds=settings.remote_selection_upload_timeout_seconds),
             limit=settings.remote_selection_recovery_limit,
         )
         materialization_runner = RemoteManualSelectionHostActionRunner(
@@ -352,7 +355,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
         import_validation_handler = LayoutImportValidationHandler(import_store)
         validation_dispatch_handler = ValidationJobDispatchHandler(
             import_validation_handler,
-            PageGeometryPreflightHandler(artifact_root=artifact_root),
+            PageGeometryPreflightHandler(
+                artifact_root=artifact_root,
+                registration_workers=thread_budget,
+            ),
         )
         image_import_handler = ProductionImageImportWorkflow(
             session_factory,
@@ -395,6 +401,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory,
                 artifact_root,
             ),
+            JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
+            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

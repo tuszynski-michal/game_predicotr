@@ -19,6 +19,12 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import numpy as np
 from game_predictor_api.domain.jobs import Job, JobStatus
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
@@ -244,6 +250,15 @@ class PendingGridReinferenceHandler:
                         locked_board.board_geometry = geometry
                         locked_board.board_relative_path = board_path
                         locked_board.board_checksum_sha256 = board_checksum
+                        session.flush()
+                        SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
+                        SymbolCellReviewWriteThroughCoordinator(
+                            session
+                        ).synchronize_after_geometry_change(
+                            game_id=job.game_id,
+                            review_item_id=item.id,
+                            actor="system:pending-grid-reinference-v1",
+                        )
                     processed += 1
             context.checkpoint(
                 checkpoint_payload={
@@ -501,12 +516,9 @@ class PendingGridReinferenceHandler:
         if hashlib.sha256(source_content).hexdigest() != snapshot.source_checksum_sha256:
             raise ValueError("The pending board source checksum changed before recropping.")
         with Image.open(io.BytesIO(source_content)) as image:
-            rgb = cast(
-                np.ndarray,
-                np.asarray(
-                    ImageOps.exif_transpose(image).convert("RGB"),
-                    dtype=np.uint8,
-                ),
+            rgb = np.asarray(
+                ImageOps.exif_transpose(image).convert("RGB"),
+                dtype=np.uint8,
             )
         image_height, image_width = rgb.shape[:2]
         if (image_width, image_height) != (snapshot.source_width, snapshot.source_height):
@@ -584,6 +596,18 @@ class PendingGridReinferenceHandler:
             )
             locked_board.geometry_revision = revision
             locked_board.board_geometry = prepared.geometry
+            session.flush()
+            job = session.get(JobModel, snapshot.import_job_id)
+            if job is None or job.game_id is None:
+                raise ValueError("The v19 crop refresh lost its import-game context.")
+            SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(
+                snapshot.review_item_id
+            )
+            SymbolCellReviewWriteThroughCoordinator(session).synchronize_after_geometry_change(
+                game_id=job.game_id,
+                review_item_id=snapshot.review_item_id,
+                actor=_V19_CORRECTED_BY,
+            )
             return "processed"
 
     @staticmethod
@@ -943,7 +967,7 @@ def _cell_output_size_from_payload(job: Job) -> int:
             "IMAGE_GRID_REINFERENCE_CELL_SIZE_INVALID",
             "The pending grid crop output size is invalid.",
         )
-    return cast(int, value)
+    return value
 
 
 __all__ = ["PendingGridReinferenceHandler"]

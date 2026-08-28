@@ -50,7 +50,11 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /item\.cells\.map/);
   assert.match(source, /REVIEW_QUEUE_VIEW = 'all'/);
   assert.match(source, /resumeAtFirstPending: true/);
-  assert.match(source, /Wszystkie plansze/);
+  assert.match(source, /Wszystkie/);
+  assert.match(source, /Do poprawy siatki/);
+  assert.match(source, /gridIssueView/);
+  assert.match(source, /needsGridFixCount/);
+  assert.match(actions, /gridIssueView/);
   assert.doesNotMatch(source, /onViewChange/);
   assert.match(actions, /OPERATIONAL_REVIEW_NEXT_BUFFER_LIMIT/);
   assert.match(actions, /operationalReviewPageBufferAppendNext/);

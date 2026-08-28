@@ -16,6 +16,7 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
+import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
@@ -27,6 +28,7 @@ import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
+import { SymbolReviewWorkspace } from '@/features/symbol-reviews/symbol-review-workspace';
 
 interface CatalogWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -68,6 +70,12 @@ const WORKSPACE_OPTIONS: readonly {
     description: 'Sekwencyjne przypisywanie zdjęć do zakresów bez algorytmu.',
     index: '05',
   },
+  {
+    id: 'symbol-verification',
+    label: 'Weryfikacja symboli',
+    description: 'Masowy przegląd cropów symboli i problemów siatki.',
+    index: '06',
+  },
 ];
 
 const GAME_SECTION_OPTIONS: readonly {
@@ -84,6 +92,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'symbols',
     title: 'Symbole',
     description: 'Katalog symboli używany przez reguły i mobile.',
+  },
+  {
+    id: 'board-search',
+    title: 'Wyszukaj plansze',
+    description: 'Znajdź plansze na podstawie częściowego układu symboli.',
   },
   {
     id: 'rules',
@@ -335,6 +348,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             gamesRevision={gamesRevision}
                           />
                         ) : null}
+                        {expanded && section.id === 'board-search' ? (
+                          <BoardSearchWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
+                          />
+                        ) : null}
                         {expanded && section.id === 'rules' ? (
                           <RulesVersionCatalog
                             apiBaseUrl={apiBaseUrl}
@@ -420,6 +440,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
           <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'symbol-verification' ? (
+          <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
       </div>
     </div>

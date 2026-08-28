@@ -323,6 +323,7 @@ Domyślna konfiguracja oraz przykład PowerShell:
 ```powershell
 $env:GAME_PREDICTOR_IMPORT_ROOT = 'D:\game-predictor-imports'
 $env:GAME_PREDICTOR_IMPORT_MAX_BYTES = '1073741824'
+$env:GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES = '21474836480'
 npm run api:dev
 ```
 
@@ -330,6 +331,8 @@ Klient podaje ścieżkę względną pod tym rootem. API używa standardowych
 `pathlib`, `hashlib` i parserów CSV/JSON z biblioteki standardowej; TASK-0044
 nie dodaje zależności ani uploadu HTTP. Worker używa tego samego
 `GAME_PREDICTOR_IMPORT_ROOT` i limitu, a trwały staging zapisuje w PostgreSQL.
+Osobny limit browserowego importu plansz nie zmienia ograniczenia ręcznych
+plików CSV/JSONL.
 
 Brak handlera kończy przejęty job kodem
 `JOB_HANDLER_NOT_REGISTERED`; nie pozostawia zajętego slotu.

@@ -80,9 +80,18 @@ export async function writeOperatorLocalSelection(
   outputDirectory: FileSystemDirectoryHandle,
   source: File,
   rangeStart: number,
+  rangeEnd: number = rangeStart + 8,
 ): Promise<OperatorLocalOutputResult> {
+  if (
+    !Number.isSafeInteger(rangeStart) ||
+    rangeStart < 1 ||
+    !Number.isSafeInteger(rangeEnd) ||
+    rangeEnd !== rangeStart + 8
+  ) {
+    throw new Error('Zakres zapisywanego zdjęcia musi obejmować 9 plansz.');
+  }
   const checksumSha256 = await sha256File(source);
-  const name = `seq_${rangeStart}-${rangeStart + 8}.jpg`;
+  const name = `seq_${rangeStart}-${rangeEnd}.jpg`;
   let existing: File | null = null;
   try {
     existing = await (await outputDirectory.getFileHandle(name)).getFile();
@@ -355,24 +364,10 @@ function parseOperatorLocalManifest(
   const decisions = parsed.decisions.map((decision, index) =>
     parseDecision(decision, index),
   );
-  const firstLayout =
-    typeof parsed.firstLayout === 'number'
-      ? parsed.firstLayout
-      : (decisions[0]?.rangeStart ?? (parsed.nextRangeStart as number));
-  for (const [index, decision] of decisions.entries()) {
-    const expectedStart = firstLayout + index * 9;
-    if (
-      decision.rangeStart !== expectedStart ||
-      decision.rangeEnd !== expectedStart + 8
-    ) {
-      throw new Error('Manifest zawiera nieciągłą kolejność zakresów.');
-    }
-  }
   if (
-    (parsed.nextRangeStart as number) !==
-    firstLayout + decisions.length * 9
+    decisions.some((decision) => decision.rangeEnd !== decision.rangeStart + 8)
   ) {
-    throw new Error('Manifest zawiera niespójny następny zakres.');
+    throw new Error('Manifest zawiera nieprawidłowy zakres.');
   }
   return {
     ...(parsed as unknown as OperatorLocalOutputManifestV1),
@@ -395,6 +390,7 @@ function parseDecision(
     !Number.isSafeInteger(decision.sourceIndex) ||
     (decision.sourceIndex as number) < 0 ||
     !Number.isSafeInteger(decision.rangeStart) ||
+    (decision.rangeStart as number) < 1 ||
     !Number.isSafeInteger(decision.rangeEnd) ||
     decision.rangeEnd !== (decision.rangeStart as number) + 8 ||
     !Number.isSafeInteger(decision.selectionGeneration) ||

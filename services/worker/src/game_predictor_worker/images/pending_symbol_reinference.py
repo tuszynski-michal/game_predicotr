@@ -20,6 +20,12 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.image_symbol_review_repository import (
+    SymbolCellReviewWriteThroughCoordinator,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     ImageBoardGeometryRevisionModel,
@@ -113,6 +119,15 @@ class PendingSymbolReinferenceHandler:
                                 crop_manifest_checksum_sha256=crop_manifest_checksum,
                                 predictions=predictions,
                             )
+                        )
+                        session.flush()
+                        SqlAlchemyBoardSearchProjectionRepository(session).sync_review_item(item.id)
+                        SymbolCellReviewWriteThroughCoordinator(
+                            session
+                        ).synchronize_after_prediction_refresh(
+                            game_id=job.game_id,
+                            review_item_id=item.id,
+                            actor="system:pending-symbol-reinference",
                         )
                     processed += 1
             context.checkpoint(

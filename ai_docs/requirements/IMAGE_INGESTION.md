@@ -742,6 +742,10 @@ ukończony import.
   trwałych przejść statusu pojedynczego pliku,
 - liczba pełnych agregacji jednego wykonania handlera jest stała i nie rośnie z
   liczbą zdjęć ani etapów,
+- wznowienie najpierw opróżnia wyłącznie trwałe checkpointy `processing`; już
+  zapisany checkpoint `waiting_for_review` jest dowodem ukończonej projekcji i
+  nie może być ponownie rehydratowany ani zapisywany tylko po to, aby
+  potwierdzić nadal oczekującą decyzję,
 - początkowo wykonywane jest najwyżej jedno ciężkie zadanie naraz.
 
 ## Przechowywanie plików
@@ -841,6 +845,12 @@ staging z `_browser_manifest.json`; gotowy staging nie wygasa po restarcie API
 i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
 `00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
 `relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
+
+Browserowy import plansz ma osobny limit
+`GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES`, domyślnie 20 GiB. Nie dzieli
+limitu 1 GiB przeznaczonego dla ręcznych plików CSV/JSONL ani limitu selekcji
+zdjęć. Przed utworzeniem stagingu API nadal sprawdza deklarowaną liczbę i
+rozmiar plików oraz zachowuje co najmniej 512 MiB wolnej przestrzeni dyskowej.
 
 Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
 manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte

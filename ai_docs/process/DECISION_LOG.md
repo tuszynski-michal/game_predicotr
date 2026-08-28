@@ -5594,6 +5594,287 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   odczytu odrzucono, ponieważ poszerzałoby powierzchnię sekretów serwera bez
   potrzeby dla tego krótkotrwałego workflow.
 
+## D-233 — Wyszukiwanie plansz korzysta z jednej projekcji logicznej na sekwencję
+
+- **Status:** accepted
+- **Date:** 2026-08-25
+- **Decision:** częściowy wzór 3 × 5 jest oceniany na trwałej projekcji
+  `game_id + sequence_number`, a nie przez pełny join `recognized_boards`,
+  `cell_observations` i rewizji dla każdego requestu. Właściciel dokumentu jest
+  kanoniczną planszą `accepted/corrected`; gdy jej nie ma, jest nim
+  deterministycznie wybrana pozycja `pending`. Projekcja przechowuje wyłącznie
+  kody, statusy, identyfikatory, checksumy i metadane assetu, bez obrazów BLOB.
+- **Context:** obecny zbiór ma setki tysięcy plansz i miliony obserwacji.
+  Bez materializacji read path nie ma przewidywalnego czasu odpowiedzi, a
+  ponowione importy mogłyby wyświetlać wiele kart dla jednego numeru.
+- **Safety:** accepted/corrected wykorzystuje wyłącznie ręcznie rozwiązany
+  symbol. Dla `pending` wynik dokładny ma wagę 1, a alternatywy mają słabsze,
+  wersjonowane wagi. Przyszły `?` oznacza brak dowodu: nie daje punktu i nie
+  jest karą. Wynik jest ograniczony do 100 rekordów i po brakującym assetcie
+  pokazuje kontrolowany fallback.
+- **Consequences:** synchronizacja projekcji należy do ścieżek importu,
+  inferencji i decyzji review. Trwałe blokowanie kolejnych pozycji `pending`
+  dla tego samego numeru jest nadal osobnym TASK-0291, a nie ukrytą zmianą
+  semantyki rankingu.
+- **Alternatives:** wyszukiwanie identycznego łańcucha ignoruje niepewność;
+  runtime join i skan całej tabeli na żądanie nie daje akceptowalnej wydajności;
+  przechowywanie binarnych cropów w projekcji narusza model danych.
+
+## D-234 — Katalog i grafika symbolu wymagają jawnej decyzji człowieka
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** katalog symboli nowej gry jest definiowany ręcznie przez nazwę
+  i oznaczenie Jokera. API nadaje niezmienny `code`, `mobileCode` i kolejność.
+  Aktywna grafika symbolu nie jest predykcją ani wynikiem bootstrapu: powstaje
+  wyłącznie po świadomym wskazaniu cropa z kanonicznej planszy
+  `accepted/corrected`, którego końcowa etykieta człowieka odpowiada kodowi
+  symbolu. Referencja przechowuje pełną proweniencję, rewizje i SHA-256, a jej
+  bajty są kopiowane do content-addressed storage.
+- **Context:** istniejące grafiki symboli pochodziły z niekanonicznych
+  predykcji i mogły wskazywać przestarzały crop po korekcie geometrii. To
+  wprowadzało błędne obrazki do katalogu i palety wyszukiwania mimo wielu
+  zatwierdzonych plansz.
+- **Safety:** pending, rejected, superseded, alternatywne źródła i confidence
+  klasyfikatora nie mogą stworzyć katalogu ani grafiki referencyjnej. Symbol
+  bez referencji pokazuje placeholder. Używany symbol nie jest fizycznie
+  usuwalny; odpowiedź blokady zawiera liczniki reguł, plansz, predykcji,
+  kohort, iteracji oraz aktywacji. Usunięcie nie wykonuje kaskady tych danych.
+- **Consequences:** stary bootstrap, jego UI, API, klient i tabela zostały
+  usunięte. Historyczne `image_path` bez wpisu proweniencji nie jest aktywną
+  grafiką. Operator najpierw zatwierdza plansze, a potem ręcznie wybiera
+  reprezentatywny crop w stronicowanym pickerze.
+- **Supersedes:** dla bieżącego produktu zastępuje zachowanie TASK-0125 i
+  TASK-0126: automatyczną budowę katalogu oraz ranking cropów po confidence.
+  Ich migracje pozostają historycznie audytowalne.
+- **Alternatives:** automatyczne przypisanie najwyższej pewności, pozostawienie
+  starej grafiki bez proweniencji i archiwizowanie używanego symbolu odrzucono,
+  ponieważ nie gwarantują zgodności z decyzją człowieka ani bezpiecznej
+  integralności katalogu.
+
+## D-235 — Weryfikacja symboli ma trwały stan per aktualny crop
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** masowa weryfikacja symboli użyje jednej logicznej komórki dla
+  `review_item_id + cell_index`, zawsze związanej z dokładną checksummą i
+  rewizją geometrii bieżącego cropa. Komórka ma stan `pending` albo `approved`;
+  niezależny `has_grid_issue` wymaga `pending`. Brak symbolu jest technicznym
+  `?` (`NULL`) i nigdy nie może być zatwierdzony.
+- **Context:** pełna decyzja 15 symboli jest zbyt gruba dla szybkiej kontroli
+  wielu cropów, ale drugi, niesynchronizowany model planszy tworzyłby ryzyko
+  konfliktu z istniejącym Reviewerem, canonical stagingiem i wyszukiwaniem.
+- **Safety:** nowa geometria unieważnia wszystkie 15 decyzji komórek. Plansza
+  zostaje automatycznie domknięta tylko przy 15 aktualnych zatwierdzeniach bez
+  błędu siatki; zgodność z predykcją daje `accepted`, a każda zmiana symbolu
+  `corrected`. Zła siatka pozostaje wyłącznie flagą komórki, z której Reviewer
+  później obliczy filtr plansz.
+- **Consequences:** repozytorium zapisuje historię append-only, a write-through
+  istniejących decyzji pełnej planszy, geometrii, reinferencji i zmiany
+  właściciela sekwencji jest transakcyjny. Cropy pozostają assetami filesystemu
+  — baza zapisuje tylko bezpieczne ścieżki, checksumy i metadane. Wersja
+  katalogu komórek rośnie najwyżej raz per transakcję gry, aby kolejne operacje
+  masowe mogły bezpiecznie zamrażać filtr.
+- **Alternatives:** flaga błędnej siatki na planszy oraz automatyczne
+  zatwierdzanie nieznanego symbolu odrzucono jako niespójne z granularnym
+  audytem i bezpieczeństwem geometrii.
+
+## D-236 — Skala weryfikacji symboli jest obecnie potwierdzana statycznie
+
+- **Status:** accepted
+- **Date:** 2026-08-26
+- **Decision:** zakończenie pionu masowej weryfikacji symboli nie uruchamia
+  automatycznie fizycznego benchmarku około dwóch milionów komórek na
+  komputerze operatora. Odbiór w tym momencie opiera się na analizie
+  algorytmicznej, testach integralności i ograniczeniach pamięci; pomiar czasu
+  zostaje odroczony do osobno zleconego testu na odizolowanej scratchowej bazie.
+- **Context:** komputer operatora wykonuje aktywne importy i review. Tworzenie
+  milionów rekordów oraz wymuszony crash obciążałoby bieżącą pracę, bez
+  dostarczenia wiarygodnego, przenośnego wyniku p95 dla innej konfiguracji
+  PostgreSQL i sprzętu.
+- **Safety:** odroczenie nie osłabia invariantów: keyset, checksum-bound
+  tożsamość, atomiczność per plansza, idempotency i recovery pozostają objęte
+  istniejącymi testami. Bramka `p95 <= 250 ms` jest jawnie niezmierzona i nie
+  może być raportowana jako zaliczona. Pełny test wymaga wyraźnej zgody,
+  osobnej bazy i cleanupu tylko własnych danych testowych.
+- **Consequences:** model referencyjny używa `2 000 010`, a nie dokładnie
+  `2 000 000` komórek, aby zachować invariant 15 cropów na planszę. Analiza
+  wskazuje również, że liczniki listy są obecnie agregowane po całym filtrze;
+  ewentualna optymalizacja nastąpi wyłącznie po rzeczywistym pomiarze.
+- **Alternatives:** uruchomienie benchmarku w tle, zaniżenie fixture’u przez
+  niepełne plansze lub deklarowanie p95 bez danych odrzucono.
+
+## D-237 — Ręczna korekta zakresu nie normalizuje historii wyborów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** lokalna oraz operator-local zdalna ręczna selekcja pozwalają
+  operatorowi kliknąć bieżący zakres i podać wyłącznie dodatni przedział
+  `start–start+8`. Zapis zmienia tylko `nextRangeStart`; istniejące decyzje i
+  zapisane pliki pozostają dokładnie takie, jak zostały zatwierdzone. Domyślny
+  kolejny zakres jest wyliczany o dziewięć pozycji zgodnie z kierunkiem sesji,
+  z dolną granicą `1` dla kolejności malejącej.
+- **Context:** operator musi móc poprawić pomyłkę numeracji w trakcie selekcji
+  bez ponownego kopiowania już wybranych JPEG-ów. Wymuszanie ciągłości między
+  decyzjami usuwało tę możliwość oraz błędnie traktowało świadomą lukę jako
+  uszkodzenie manifestu.
+- **Safety:** każda decyzja niezależnie waliduje dodatni zakres dokładnie
+  dziewięciu plansz. Zgodność źródła, checksum, tożsamości manifestu i ochrona
+  obcych plików pozostają fail-closed. Aplikacja nie uzupełnia luk, nie zmienia
+  poprzednich zakresów i nie renumeruje historii bez jawnej operacji całego
+  manifestu.
+- **Consequences:** wznowienie odtwarza ręcznie poprawione, nieciągłe zakresy
+  dokładnie z manifestu. Legacy batch bez trwałego `nextRangeStart` wyznacza
+  kolejny zakres z ostatniej rzeczywistej decyzji, nie z liczby decyzji.
+- **Alternatives:** wymuszenie pełnej ciągłości albo automatyczne
+  przenumerowywanie poprzednich decyzji odrzucono, ponieważ groziły utratą
+  świadomych korekt operatora.
+
+## D-238 — Najnowszy import zastępuje wyłącznie nierozwiązaną planszę
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** dla jednej gry i znanego `sequence_number` może istnieć najwyżej
+  jedna aktywna pozycja `pending`. Plansza kanoniczna `accepted/corrected` jest
+  chroniona i kolejny import nie otwiera jej ponownie. Gdy canonical nie
+  istnieje, właścicielem zostaje najnowszy import według deterministycznego
+  porządku `(job.created_at, job.id)`, a starsze pending przechodzą do
+  audytowalnego `superseded`.
+- **Context:** nakładające się stagingi tworzyły wiele pozycji do zatwierdzenia
+  tego samego numeru oraz powtarzały ich cropy w widokach operacyjnych. Sam
+  read model wybierający jedną kartę nie usuwał przyczyny ani nie chronił
+  pozostałych ścieżek zapisu.
+- **Safety:** częściowy indeks unikalny w PostgreSQL blokuje dwa pending dla
+  `game_id + sequence_number`; wszystkie ścieżki materializacji używają jednej
+  blokady sekwencji i tej samej polityki. Historyczne źródła i eventy nie są
+  usuwane. Sekwencje bez jednoznacznego numeru pozostają poza tym invariantem i
+  nadal muszą zakończyć się kontrolowanym review integralności.
+- **Consequences:** zakończone importy nie występują w dropdownie operacyjnego
+  Reviewera, ale pozostają w Jobach. Weryfikacja symboli i wyszukiwanie plansz
+  dziedziczą tego samego właściciela z fast-document, więc starsze nakładające
+  się stagingi nie dostarczają równoległych cropów.
+- **Alternatives:** usuwanie historycznych importów, first-write-wins oraz
+  wybieranie właściciela wyłącznie w UI odrzucono jako nieaudytowalne albo
+  nieskuteczne dla ponownych importów.
+
+## D-239 — Reconciliacja kompletnej projekcji nie blokuje istniejących cropów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** job `image_symbol_review_backfill` utworzony jawnie z projekcji
+  `ready` otrzymuje trwały znacznik `preserve_ready_projection`. Gdy taki job
+  jest aktywny, przejściowy stan `rebuilding` nie blokuje odczytu ani mutacji
+  istniejących checksum-bound cropów. Początkowy backfill oraz rebuilding bez
+  tego znacznika nadal są niedostępne.
+- **Context:** operator może uruchomić `Uzupełnij brakujące symbole` podczas
+  ręcznej weryfikacji. Dotychczas worker po przejęciu joba poprawnie zachowywał
+  dane, ale globalna bramka `status == ready` blokowała nawet zmianę istniejącej
+  zatwierdzonej komórki.
+- **Safety:** każda lista i mutacja nadal sprawdza aktualnego właściciela,
+  rewizję geometrii, rewizję komórki i checksumę cropa. Znacznik nie jest
+  nadawany pierwszemu lub niekompletnemu backfillowi i obowiązuje tylko przy
+  aktywnym jobie tej samej gry.
+- **Consequences:** bounded reconciliacja może uzupełniać nowe rekordy bez
+  przerywania pracy na już gotowych danych. Błąd lub zakończenie joba usuwa
+  podstawę wyjątku; projekcja musi wtedy ponownie osiągnąć `ready` albo pozostaje
+  kontrolowanie zablokowana.
+- **Alternatives:** blokowanie całego workspace'u na czas maintenance oraz
+  dopuszczenie każdego stanu `rebuilding` odrzucono odpowiednio jako zbędną
+  przerwę operatorską i osłabienie integralności pierwszego backfillu.
+
+## D-240 — Pojedyncza decyzja symbolu nie wymaga trwałego joba masowego
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** jedna jawna, checksum-bound decyzja komórki jest wykonywana
+  synchronicznie przez istniejący atomowy command path planszy. Trwała operacja
+  i job `image_symbol_review_bulk` pozostają wymagane dla co najmniej dwóch
+  jawnych targetów oraz snapshotu całego filtra.
+- **Context:** ręczna korekta symbol po symbolu tworzyła dużą liczbę małych
+  jobów oczekujących na general worker, mimo że klient zna dokładny
+  `cellReviewId`, rewizję, geometrię i checksumę. Opóźniało to feedback oraz
+  zaśmiecało operacyjną historię Jobów.
+- **Safety:** szybka ścieżka używa tego samego repozytorium mutacji, blokady
+  właściciela, kontroli rewizji i cropa, append-only eventu oraz agregacji
+  planszy. Nie omija transakcji domenowej; pomija wyłącznie orkiestrację joba,
+  która nie daje korzyści dla jednego targetu.
+- **Consequences:** pojedyncza zmiana kończy się w jednym requestcie i daje
+  natychmiastowy feedback. Operacje wielotysięczne nadal mają checkpoint,
+  recovery, idempotencję i częściowy raport. Istniejące historyczne joby nie są
+  usuwane automatycznie.
+- **Alternatives:** utrzymanie joba dla każdej komórki oraz wykonywanie całych
+  filtrów synchronicznie odrzucono odpowiednio z powodu narzutu operatorskiego
+  i ryzyka długich transakcji HTTP.
+
+## D-241 — Weryfikacja symboli utrzymuje jedną keysetową stronę 500 cropów
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** Admin pokazuje jedną stronę maksymalnie 500 cropów, domyślnie w
+  stanie `pending`. Nie prefetchuje i nie przechowuje stron sąsiednich. Operator
+  może zaznaczyć wyłącznie jawne elementy bieżącej strony; snapshot całego
+  niewidocznego filtra nie jest dostępny w UI.
+- **Context:** infinite scroll i read-ahead zwiększały liczbę requestów oraz
+  utrudniały przewidywanie, które elementy należą do jednej masowej decyzji.
+  Operator preferuje większą, stabilną stronę i jawny zakres zaznaczenia.
+- **Safety:** po decyzji Admin nie scala lokalnie pozostałości z odpowiedzią
+  uzupełniającą po ID. Powtarza świeże zapytanie od zapamiętanego kursora
+  wejściowego strony, dzięki czemu jeden backendowy keyset odpowiada za
+  kolejność, brak duplikatów i dopełnienie do 500. W czasie operacji akcje oraz
+  nawigacja są zablokowane.
+- **Consequences:** w pamięci aplikacji znajduje się najwyżej 500 metadanych.
+  Cache HTTP checksum-bound miniaturek pozostaje niezależny od danych strony i
+  ogranicza ponowny transfer. Backend nadal wspiera filtr snapshotowy jako
+  kontrakt kompatybilności, ale Admin go nie tworzy.
+- **Alternatives:** osobny endpoint `changedIds -> replacements`, lokalne
+  scalanie cache oraz utrzymanie infinite scrolla odrzucono z powodu ryzyka
+  rozjazdu rewizji, duplikatów i niepotrzebnej złożoności.
+
+## D-242 — Domyślny profil workera przeznacza siedem wątków na general
+
+- **Status:** accepted
+- **Date:** 2026-08-27
+- **Decision:** `npm run workers:start` uruchamia wyłącznie general lane z
+  kooperacyjnym budżetem siedmiu wątków. Rejestracja geometrii wiąże liczbę
+  równoległych stron z tym budżetem, natomiast biblioteki natywne używają po
+  jednym wątku. Image-selection lane nie startuje domyślnie, ale pozostaje
+  dostępny przez jawny profil `workers:start:all` z podziałem 2+5.
+- **Context:** automatyczna selekcja zdjęć została zastąpiona ręcznym wyborem,
+  podczas gdy kolejka general zawiera kosztowne preflighty geometrii. Komputer
+  ma osiem logicznych procesorów. Dotychczasowy ekran pokazywał budżety 2 i 5,
+  lecz nie były to wymienne procesy jobów: general nadal ma jeden trwały slot.
+- **Safety:** nie zwiększono liczby równocześnie mutujących general jobów i nie
+  zmieniono lease, checkpointów ani execution slotów. Jednowątkowe OpenCV/BLAS
+  zapobiega zagnieżdżonemu fan-outowi do 49 wątków.
+- **Consequences:** preflight może obrabiać do siedmiu stron równolegle, a
+  proces selekcji nie zużywa RAM ani CPU w bezczynności. Joby bez adaptera
+  równoległego nie przyspieszą tylko od większej liczby w budżecie. Wznowienie
+  automatycznej selekcji wymaga świadomego użycia profilu obu lane.
+- **Alternatives:** ustawienie siedmiu natywnych wątków na każdy z czterech
+  dotychczasowych tasków oraz równoległe wykonywanie wielu general jobów
+  odrzucono odpowiednio z powodu nadsubskrypcji i ryzyka konfliktów projekcji.
+
+## D-243 — Model symboli uczy się z zatwierdzonych cropów, nie pełnych plansz
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** nowa kohorta symboli v2 kwalifikuje indywidualne, aktualne
+  komórki `approved` bez błędu siatki. Korekty mają pierwszeństwo, podobne
+  przykłady są redukowane, a liczność jest ograniczona do celu 1000 i maksimum
+  2000 per aktywny symbol. Kalibracja siatki pozostaje osobnym workflowem.
+- **Context:** kompletność całej planszy nie jest potrzebna do nauczenia
+  klasyfikatora jednego cropa, a tysiące niemal identycznych przykładów
+  zwiększałyby czas bez proporcjonalnej wartości.
+- **Safety:** tożsamość próbki wiąże aktualnego właściciela sekwencji, rewizję
+  komórki i geometrii, crop, checksumę oraz źródło. Splity nadal są rozłączne
+  po rodzinie źródła. Historyczne kohorty v1 pozostają odtwarzalne.
+- **Consequences:** można ulepszyć model po częściowej weryfikacji plansz;
+  koszt selekcji jest liniowy i ograniczony, a koszt treningu nie rośnie po
+  osiągnięciu limitu kohorty.
+- **Alternatives:** uczenie z pełnych plansz i porównywanie każdego cropa z
+  każdym odrzucono odpowiednio z powodu sztucznego blokowania feedbacku oraz
+  kwadratowego kosztu.
+
 ## Szablon nowej decyzji
 
 ```text

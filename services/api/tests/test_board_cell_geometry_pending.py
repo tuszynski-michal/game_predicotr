@@ -695,7 +695,7 @@ def test_manual_pending_geometry_api_materializes_once_from_pinned_source_and_mo
     assert source.headers["etag"] == f'"{source_checksum}"'
     assert preview.status_code == 200
     assert preview.headers["x-board-cell-count"] == "15"
-    assert resolved.status_code == 200
+    assert resolved.status_code == 200, resolved.text
     assert resolved.json()["created"] is True
     assert resolved.json()["geometryRevision"] == 1
     assert replay.status_code == 200

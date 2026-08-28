@@ -9,6 +9,7 @@ from game_predictor_api.domain.catalog import (
     GameStatus,
     Symbol,
     SymbolStatus,
+    SymbolUsageSummary,
     validate_image_path,
     validate_optional_name,
 )
@@ -70,6 +71,17 @@ class EmptyCatalogRepository(CatalogRepository):
 
     def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
         return False
+
+    def add_manual_symbol(self, *, game_id: UUID, name: str, is_wildcard: bool) -> Symbol:
+        raise AssertionError("Game existence must be checked first.")
+
+    def symbol_usage_summary(
+        self, *, game_id: UUID, symbol_id: UUID
+    ) -> SymbolUsageSummary | None:
+        return None
+
+    def delete_unused_symbol(self, *, game_id: UUID, symbol_id: UUID) -> None:
+        raise AssertionError("Missing symbol must be rejected before deletion.")
 
 
 @pytest.mark.parametrize("code", ["", "has space", ".hidden", "a" * 65])

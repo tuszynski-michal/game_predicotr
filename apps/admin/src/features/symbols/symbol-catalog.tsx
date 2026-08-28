@@ -3,7 +3,6 @@
 import type {
   GameResponse,
   SymbolResponse,
-  SymbolStatus,
 } from '@game-predictor/admin-api-client';
 import Image from 'next/image';
 import {
@@ -18,23 +17,19 @@ import {
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
-  archiveSymbol,
+  deleteSymbol,
   saveSymbol,
   type SymbolsClient,
 } from '@/features/symbols/symbol-catalog-actions';
+import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
 import {
   EMPTY_SYMBOL_DRAFT,
-  markSymbolArchived,
   selectGameId,
   type SymbolDraft,
-  SYMBOL_STATUS_LABELS,
   symbolToDraft,
   upsertSymbol,
   validateSymbolDraft,
 } from '@/features/symbols/symbol-catalog-state';
-import { SymbolBootstrapPanel } from '@/features/symbols/symbol-bootstrap-panel';
-import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
-import { SymbolImagePreviewModal } from '@/features/symbols/symbol-image-preview-modal';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -76,19 +71,23 @@ export function SymbolCatalog({
   const [formError, setFormError] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [archiveCandidateId, setArchiveCandidateId] = useState<string | null>(
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(
     null,
   );
-  const [archivingId, setArchivingId] = useState<string | null>(null);
-  const [imagePickerSymbol, setImagePickerSymbol] =
-    useState<SymbolResponse | null>(null);
-  const [imagePreviewSymbol, setImagePreviewSymbol] =
-    useState<SymbolResponse | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [imagePickerSymbolId, setImagePickerSymbolId] = useState<string | null>(
+    null,
+  );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const mutationInProgress = useRef(false);
 
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
+  const deleteCandidate =
+    symbols.find((symbol) => symbol.id === deleteCandidateId) ?? null;
+  const imagePickerSymbol =
+    symbols.find((symbol) => symbol.id === imagePickerSymbolId) ?? null;
 
   const loadGames = useCallback(async () => {
     const requestId = ++gamesRequestId.current;
@@ -97,9 +96,7 @@ export function SymbolCatalog({
 
     try {
       const result = await api.listGames();
-      if (requestId !== gamesRequestId.current) {
-        return;
-      }
+      if (requestId !== gamesRequestId.current) return;
       if (result.error !== undefined) {
         setGamesError(
           apiErrorMessage(result.error, 'Nie udało się pobrać listy gier.'),
@@ -124,16 +121,14 @@ export function SymbolCatalog({
   }, [api, gameId]);
 
   const loadSymbols = useCallback(
-    async (gameId: string) => {
+    async (currentGameId: string) => {
       const requestId = ++symbolsRequestId.current;
       setSymbolsState('loading');
       setSymbolsError('');
 
       try {
-        const result = await api.listSymbols(gameId);
-        if (requestId !== symbolsRequestId.current) {
-          return;
-        }
+        const result = await api.listSymbols(currentGameId);
+        if (requestId !== symbolsRequestId.current) return;
         if (result.error !== undefined) {
           setSymbolsError(
             apiErrorMessage(
@@ -161,9 +156,7 @@ export function SymbolCatalog({
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) {
-        void loadGames();
-      }
+      if (!cancelled) void loadGames();
     });
     return () => {
       cancelled = true;
@@ -182,9 +175,7 @@ export function SymbolCatalog({
       });
     } else {
       queueMicrotask(() => {
-        if (!cancelled) {
-          void loadSymbols(selectedGameId);
-        }
+        if (!cancelled) void loadSymbols(selectedGameId);
       });
     }
     return () => {
@@ -193,14 +184,28 @@ export function SymbolCatalog({
     };
   }, [loadSymbols, selectedGameId]);
 
-  function chooseGame(gameId: string) {
-    setSelectedGameId(gameId || null);
+  function closeEditor() {
+    if (!mutationInProgress.current) {
+      setEditor({ mode: 'closed' });
+      setFormError('');
+    }
+  }
+
+  function chooseGame(nextGameId: string) {
+    setSelectedGameId(nextGameId || null);
     setEditor({ mode: 'closed' });
     setFormError('');
     setFeedback(null);
-    setArchiveCandidateId(null);
-    setImagePickerSymbol(null);
-    setImagePreviewSymbol(null);
+    setDeleteCandidateId(null);
+    setDeleteError('');
+    setImagePickerSymbolId(null);
+  }
+
+  function openCreateEditor() {
+    setDraft(EMPTY_SYMBOL_DRAFT);
+    setFormError('');
+    setFeedback(null);
+    setEditor({ mode: 'create' });
   }
 
   function openEditEditor(symbol: SymbolResponse) {
@@ -210,11 +215,10 @@ export function SymbolCatalog({
     setEditor({ mode: 'edit', symbol });
   }
 
-  function closeEditor() {
-    if (!mutationInProgress.current) {
-      setEditor({ mode: 'closed' });
-      setFormError('');
-    }
+  function openDeleteDialog(symbolId: string) {
+    setDeleteError('');
+    setFeedback(null);
+    setDeleteCandidateId(symbolId);
   }
 
   async function submitSymbol(event: FormEvent<HTMLFormElement>) {
@@ -226,7 +230,6 @@ export function SymbolCatalog({
     ) {
       return;
     }
-
     const validation = validateSymbolDraft(draft);
     if (!validation.valid) {
       setFormError(validation.error);
@@ -237,7 +240,6 @@ export function SymbolCatalog({
     setIsSubmitting(true);
     setFormError('');
     setFeedback(null);
-
     try {
       const result = await saveSymbol(
         api,
@@ -251,7 +253,6 @@ export function SymbolCatalog({
         setFormError(result.error);
         return;
       }
-
       setSymbols((current) => upsertSymbol(current, result.symbol));
       setEditor({ mode: 'closed' });
       setFeedback({
@@ -267,39 +268,37 @@ export function SymbolCatalog({
     }
   }
 
-  async function confirmArchive(symbol: SymbolResponse) {
-    if (mutationInProgress.current || selectedGameId === null) {
-      return;
-    }
+  async function confirmDelete(symbol: SymbolResponse) {
+    if (mutationInProgress.current || selectedGameId === null) return;
     mutationInProgress.current = true;
-    setArchivingId(symbol.id);
+    setDeletingId(symbol.id);
+    setDeleteError('');
     setFeedback(null);
-
     try {
-      const result = await archiveSymbol(api, selectedGameId, symbol.id);
+      const result = await deleteSymbol(api, selectedGameId, symbol.id);
       if (!result.ok) {
-        setFeedback({ kind: 'error', text: result.error });
+        setDeleteError(
+          result.blockers.length === 0
+            ? result.error
+            : `${result.error} Zależności blokujące usunięcie: ${result.blockers.join(', ')}.`,
+        );
         return;
       }
-      setSymbols((current) => markSymbolArchived(current, symbol.id));
-      setArchiveCandidateId(null);
+      setSymbols((current) => current.filter((item) => item.id !== symbol.id));
+      setDeleteCandidateId(null);
       setFeedback({
         kind: 'success',
-        text: `Zarchiwizowano symbol „${symbol.name}”. Rekord pozostał w katalogu.`,
+        text: `Usunięto symbol „${symbol.name}”.`,
       });
     } finally {
       mutationInProgress.current = false;
-      setArchivingId(null);
+      setDeletingId(null);
     }
   }
 
-  function imageSelected(symbol: SymbolResponse) {
-    setSymbols((current) => upsertSymbol(current, symbol));
-    setImagePickerSymbol(null);
-    setFeedback({
-      kind: 'success',
-      text: `Zapisano grafikę reprezentatywną symbolu „${symbol.name}”.`,
-    });
+  function requestImageSelection(symbol: SymbolResponse) {
+    setFeedback(null);
+    setImagePickerSymbolId(symbol.id);
   }
 
   return (
@@ -309,8 +308,9 @@ export function SymbolCatalog({
           <p className="eyebrow">M2.2 · Katalog symboli</p>
           <h1>Symbole gry</h1>
           <p className="lead">
-            Ustal stabilne kody używane w danych mobilnych, kolejność, jokera i
-            względną ścieżkę lokalnego obrazu referencyjnego.
+            Nadaj nazwy symbolom ręcznie. API nadaje niezmienny kod, numer
+            mobilny i kolejność, a grafikę wybiera się później wyłącznie z
+            zatwierdzonych plansz.
           </p>
         </div>
       </header>
@@ -348,7 +348,7 @@ export function SymbolCatalog({
               </select>
               <p>
                 {selectedGame
-                  ? `Wybrano: ${selectedGame.name}. Kod gry pozostaje stabilny.`
+                  ? `Wybrano: ${selectedGame.name}.`
                   : 'Wybierz grę, aby zarządzać jej symbolami.'}
               </p>
             </div>
@@ -367,13 +367,20 @@ export function SymbolCatalog({
             </p>
           ) : null}
 
-          {selectedGameId ? (
-            <SymbolBootstrapPanel
-              client={api}
-              gameId={selectedGameId}
-              hasSymbols={symbols.length > 0}
-              onApplied={() => void loadSymbols(selectedGameId)}
-            />
+          {selectedGameId &&
+          editor.mode === 'closed' &&
+          symbolsState === 'ready' &&
+          symbols.length > 0 ? (
+            <div className="symbolCatalogToolbar">
+              <button
+                className="primaryButton"
+                data-testid="symbol-add"
+                onClick={openCreateEditor}
+                type="button"
+              >
+                Dodaj symbol
+              </button>
+            </div>
           ) : null}
 
           {editor.mode !== 'closed' ? (
@@ -384,12 +391,8 @@ export function SymbolCatalog({
               mode={editor.mode}
               onCancel={closeEditor}
               onChange={setDraft}
-              onImagePreview={
-                editor.mode === 'edit' && editor.symbol.imagePath !== null
-                  ? () => setImagePreviewSymbol(editor.symbol)
-                  : undefined
-              }
               onSubmit={submitSymbol}
+              symbol={editor.mode === 'edit' ? editor.symbol : undefined}
             />
           ) : null}
 
@@ -409,17 +412,13 @@ export function SymbolCatalog({
               />
             ) : null}
             {symbolsState === 'ready' && symbols.length === 0 ? (
-              <SymbolsEmpty />
+              <SymbolsEmpty onCreate={openCreateEditor} />
             ) : null}
             {symbolsState === 'ready' && symbols.length > 0 ? (
               <SymbolsList
-                archiveCandidateId={archiveCandidateId}
-                archivingId={archivingId}
-                onArchive={setArchiveCandidateId}
-                onArchiveCancel={() => setArchiveCandidateId(null)}
-                onArchiveConfirm={(symbol) => void confirmArchive(symbol)}
+                onDelete={openDeleteDialog}
                 onEdit={openEditEditor}
-                onImageEdit={setImagePickerSymbol}
+                onImageSelection={requestImageSelection}
                 symbolImageAssetUrl={(symbol) =>
                   api.symbolImageAssetUrl(symbol.gameId, symbol.id)
                 }
@@ -428,23 +427,33 @@ export function SymbolCatalog({
             ) : null}
           </div>
 
+          {deleteCandidate ? (
+            <SymbolDeleteDialog
+              error={deleteError}
+              isDeleting={deletingId === deleteCandidate.id}
+              onCancel={() => {
+                setDeleteCandidateId(null);
+                setDeleteError('');
+              }}
+              onConfirm={() => void confirmDelete(deleteCandidate)}
+              symbol={deleteCandidate}
+            />
+          ) : null}
+
           {selectedGameId && imagePickerSymbol ? (
             <SymbolImagePickerModal
               api={api}
               gameId={selectedGameId}
-              onClose={() => setImagePickerSymbol(null)}
-              onSelected={imageSelected}
+              onClose={() => setImagePickerSymbolId(null)}
+              onSelected={(savedSymbol) => {
+                setSymbols((current) => upsertSymbol(current, savedSymbol));
+                setImagePickerSymbolId(null);
+                setFeedback({
+                  kind: 'success',
+                  text: `Zapisano zatwierdzoną grafikę dla „${savedSymbol.name}”.`,
+                });
+              }}
               symbol={imagePickerSymbol}
-            />
-          ) : null}
-          {imagePreviewSymbol ? (
-            <SymbolImagePreviewModal
-              imageUrl={api.symbolImageAssetUrl(
-                imagePreviewSymbol.gameId,
-                imagePreviewSymbol.id,
-              )}
-              onClose={() => setImagePreviewSymbol(null)}
-              symbol={imagePreviewSymbol}
             />
           ) : null}
         </>
@@ -460,8 +469,8 @@ interface SymbolEditorProps {
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
   readonly onChange: (draft: SymbolDraft) => void;
-  readonly onImagePreview?: () => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  readonly symbol?: SymbolResponse;
 }
 
 function SymbolEditor({
@@ -471,8 +480,8 @@ function SymbolEditor({
   mode,
   onCancel,
   onChange,
-  onImagePreview,
   onSubmit,
+  symbol,
 }: SymbolEditorProps) {
   return (
     <section
@@ -486,7 +495,9 @@ function SymbolEditor({
             {mode === 'create' ? 'Nowy symbol' : 'Edycja symbolu'}
           </p>
           <h2 id="symbol-editor-title">
-            {mode === 'create' ? 'Dodaj symbol do gry' : `Edytuj ${draft.code}`}
+            {mode === 'create'
+              ? 'Dodaj symbol do gry'
+              : `Edytuj ${symbol?.name}`}
           </h2>
         </div>
         <button
@@ -500,50 +511,12 @@ function SymbolEditor({
         </button>
       </div>
 
-      <form className="symbolForm" onSubmit={onSubmit}>
+      <form className="symbolForm symbolManualForm" onSubmit={onSubmit}>
         {error ? (
           <p className="formError" role="alert">
             {error}
           </p>
         ) : null}
-
-        <label>
-          <span>Kod mobilny</span>
-          <input
-            disabled={mode === 'edit' || isSubmitting}
-            inputMode="numeric"
-            max={32767}
-            min={1}
-            name="mobileCode"
-            onChange={(event) =>
-              onChange({ ...draft, mobileCode: event.currentTarget.value })
-            }
-            placeholder="np. 12"
-            required
-            type="number"
-            value={draft.mobileCode}
-          />
-          <small>
-            Stabilna liczba `smallint`; po zapisie nie można jej zmienić.
-          </small>
-        </label>
-
-        <label>
-          <span>Kod stabilny</span>
-          <input
-            autoComplete="off"
-            disabled={mode === 'edit' || isSubmitting}
-            maxLength={64}
-            name="code"
-            onChange={(event) =>
-              onChange({ ...draft, code: event.currentTarget.value })
-            }
-            placeholder="np. S12 lub WILD"
-            required
-            value={draft.code}
-          />
-          <small>Unikalny w ramach gry i nieedytowalny po utworzeniu.</small>
-        </label>
 
         <label>
           <span>Nazwa</span>
@@ -559,76 +532,6 @@ function SymbolEditor({
             required
             value={draft.name}
           />
-          <small>Wymagany fallback dla starszych snapshotów i klientów.</small>
-        </label>
-
-        <label>
-          <span>Nazwa polska</span>
-          <input
-            autoComplete="off"
-            disabled={isSubmitting}
-            maxLength={200}
-            name="namePl"
-            onChange={(event) =>
-              onChange({ ...draft, namePl: event.currentTarget.value })
-            }
-            placeholder="Opcjonalna nazwa w aplikacji mobilnej"
-            value={draft.namePl}
-          />
-        </label>
-
-        <label>
-          <span>Nazwa angielska</span>
-          <input
-            autoComplete="off"
-            disabled={isSubmitting}
-            maxLength={200}
-            name="nameEn"
-            onChange={(event) =>
-              onChange({ ...draft, nameEn: event.currentTarget.value })
-            }
-            placeholder="Optional mobile application name"
-            value={draft.nameEn}
-          />
-        </label>
-
-        <label>
-          <span>Kolejność</span>
-          <input
-            disabled={isSubmitting}
-            inputMode="numeric"
-            min={0}
-            name="displayOrder"
-            onChange={(event) =>
-              onChange({ ...draft, displayOrder: event.currentTarget.value })
-            }
-            required
-            type="number"
-            value={draft.displayOrder}
-          />
-        </label>
-
-        <label>
-          <span>Status</span>
-          <select
-            disabled={isSubmitting}
-            name="status"
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                status: event.currentTarget.value as SymbolStatus,
-              })
-            }
-            value={draft.status}
-          >
-            <option value="active">Aktywny</option>
-            {mode === 'edit' && draft.status === 'archived' ? (
-              <option value="archived">Zarchiwizowany</option>
-            ) : null}
-          </select>
-          <small>
-            Archiwizacja aktywnego symbolu wymaga potwierdzenia na liście.
-          </small>
         </label>
 
         <label className="checkboxField">
@@ -647,36 +550,7 @@ function SymbolEditor({
           </span>
         </label>
 
-        <label className="imagePathField">
-          <span>Ścieżka obrazu referencyjnego</span>
-          <div className="imagePathControlRow">
-            <input
-              autoComplete="off"
-              disabled={isSubmitting}
-              maxLength={500}
-              name="imagePath"
-              onChange={(event) =>
-                onChange({ ...draft, imagePath: event.currentTarget.value })
-              }
-              placeholder="symbols/blazing-hot/s12.png"
-              value={draft.imagePath}
-            />
-            {onImagePreview ? (
-              <button
-                className="secondaryButton"
-                disabled={isSubmitting}
-                onClick={onImagePreview}
-                type="button"
-              >
-                Podgląd
-              </button>
-            ) : null}
-          </div>
-          <small>
-            Opcjonalna ścieżka względna POSIX. Panel zapisuje metadane, nie
-            zawartość pliku. Podgląd pokazuje ostatnio zapisaną grafikę.
-          </small>
-        </label>
+        {symbol ? <SymbolIdentityMetadata symbol={symbol} /> : null}
 
         <div className="formActions">
           <button
@@ -706,26 +580,46 @@ function SymbolEditor({
   );
 }
 
+function SymbolIdentityMetadata({
+  symbol,
+}: {
+  readonly symbol: SymbolResponse;
+}) {
+  return (
+    <dl
+      className="symbolIdentityMetadata"
+      data-testid="symbol-identity-metadata"
+    >
+      <div>
+        <dt>Kod</dt>
+        <dd>
+          <code>{symbol.code}</code>
+        </dd>
+      </div>
+      <div>
+        <dt>Numer mobilny</dt>
+        <dd>{symbol.mobileCode}</dd>
+      </div>
+      <div>
+        <dt>Kolejność</dt>
+        <dd>{symbol.displayOrder}</dd>
+      </div>
+    </dl>
+  );
+}
+
 interface SymbolsListProps {
-  readonly archiveCandidateId: string | null;
-  readonly archivingId: string | null;
-  readonly onArchive: (symbolId: string) => void;
-  readonly onArchiveCancel: () => void;
-  readonly onArchiveConfirm: (symbol: SymbolResponse) => void;
+  readonly onDelete: (symbolId: string) => void;
   readonly onEdit: (symbol: SymbolResponse) => void;
-  readonly onImageEdit: (symbol: SymbolResponse) => void;
+  readonly onImageSelection: (symbol: SymbolResponse) => void;
   readonly symbolImageAssetUrl: (symbol: SymbolResponse) => string;
   readonly symbols: readonly SymbolResponse[];
 }
 
 function SymbolsList({
-  archiveCandidateId,
-  archivingId,
-  onArchive,
-  onArchiveCancel,
-  onArchiveConfirm,
+  onDelete,
   onEdit,
-  onImageEdit,
+  onImageSelection,
   symbolImageAssetUrl,
   symbols,
 }: SymbolsListProps) {
@@ -739,138 +633,155 @@ function SymbolsList({
           </h2>
         </div>
         <p>
-          Kolejność pochodzi z Admin API: `displayOrder`, `mobileCode`, UUID.
+          Tożsamość i kolejność nadaje Admin API podczas utworzenia symbolu.
         </p>
       </div>
       <div className="symbolsList">
-        {symbols.map((symbol) => {
-          const archivePending = archivingId === symbol.id;
-          const confirmArchive = archiveCandidateId === symbol.id;
-          return (
-            <article
-              className="symbolRow"
-              data-testid={`symbol-row-${symbol.id}`}
-              key={symbol.id}
-            >
-              <div className="symbolIdentity">
-                <button
-                  aria-label={`Zmień grafikę symbolu ${symbol.name}`}
-                  className={
-                    symbol.isWildcard
-                      ? 'symbolImageButton symbolTileWildcard'
-                      : 'symbolImageButton'
-                  }
-                  disabled={symbol.imagePath === null}
-                  onClick={() => onImageEdit(symbol)}
-                  title={
-                    symbol.imagePath === null
-                      ? 'Brak cropów dostępnych dla tego symbolu'
-                      : 'Wybierz inną grafikę reprezentatywną'
-                  }
-                  type="button"
-                >
-                  <span aria-hidden="true" className="symbolImageFallback">
-                    {symbol.isWildcard
-                      ? 'W'
-                      : String(symbol.mobileCode).padStart(2, '0')}
-                  </span>
-                  {symbol.imagePath ? (
-                    <Image
-                      alt=""
-                      height={64}
-                      onError={(event) => {
-                        event.currentTarget.hidden = true;
-                      }}
-                      src={symbolImageAssetUrl(symbol)}
-                      unoptimized
-                      width={64}
-                    />
+        {symbols.map((symbol) => (
+          <article
+            className="symbolRow"
+            data-testid={`symbol-row-${symbol.id}`}
+            key={symbol.id}
+          >
+            <div className="symbolIdentity">
+              <button
+                aria-label={`Wybierz grafikę symbolu ${symbol.name}`}
+                className={
+                  symbol.isWildcard
+                    ? 'symbolImageButton symbolTileWildcard'
+                    : 'symbolImageButton'
+                }
+                onClick={() => onImageSelection(symbol)}
+                title="Wybierz zatwierdzony crop jako grafikę reprezentatywną"
+                type="button"
+              >
+                <span aria-hidden="true" className="symbolImageFallback">
+                  ?
+                </span>
+                {symbol.imagePath ? (
+                  <Image
+                    alt=""
+                    height={64}
+                    onError={(event) => {
+                      event.currentTarget.hidden = true;
+                    }}
+                    src={symbolImageAssetUrl(symbol)}
+                    unoptimized
+                    width={64}
+                  />
+                ) : null}
+                <span aria-hidden="true" className="symbolImageEditMark">
+                  ✎
+                </span>
+              </button>
+              <div>
+                <div className="gameTitleLine">
+                  <h3>{symbol.name}</h3>
+                  {symbol.isWildcard ? (
+                    <span className="wildcardBadge">Joker</span>
                   ) : null}
-                  <span aria-hidden="true" className="symbolImageEditMark">
-                    ✎
-                  </span>
-                </button>
-                <div>
-                  <div className="gameTitleLine">
-                    <h3>{symbol.name}</h3>
-                    {symbol.isWildcard ? (
-                      <span className="wildcardBadge">Joker</span>
-                    ) : null}
-                    <span className={`gameStatus gameStatus-${symbol.status}`}>
-                      {SYMBOL_STATUS_LABELS[symbol.status]}
-                    </span>
-                  </div>
-                  <div className="symbolMetadata">
-                    <code>{symbol.code}</code>
-                    <span>mobile {symbol.mobileCode}</span>
-                    <span>kolejność {symbol.displayOrder}</span>
-                  </div>
-                  {symbol.namePl || symbol.nameEn ? (
-                    <p className="imagePathValue">
-                      PL: {symbol.namePl ?? '—'} · EN: {symbol.nameEn ?? '—'}
-                    </p>
-                  ) : null}
-                  <p className="imagePathValue">
-                    {symbol.imagePath ?? 'Brak obrazu referencyjnego'}
-                  </p>
                 </div>
+                <div className="symbolMetadata">
+                  <code>{symbol.code}</code>
+                  <span>mobile {symbol.mobileCode}</span>
+                  <span>kolejność {symbol.displayOrder}</span>
+                </div>
+                <p className="imagePathValue">
+                  {symbol.imagePath
+                    ? 'Zatwierdzona grafika referencyjna'
+                    : 'Brak zatwierdzonej grafiki referencyjnej'}
+                </p>
               </div>
-
-              {confirmArchive ? (
-                <div className="archiveConfirmation" role="group">
-                  <p>Archiwizować? Symbol pozostanie w katalogu.</p>
-                  <button
-                    className="textButton"
-                    disabled={archivePending}
-                    onClick={onArchiveCancel}
-                    type="button"
-                  >
-                    Anuluj
-                  </button>
-                  <button
-                    className="dangerButton"
-                    data-testid={`symbol-archive-confirm-${symbol.id}`}
-                    disabled={archivePending}
-                    onClick={() => onArchiveConfirm(symbol)}
-                    type="button"
-                  >
-                    {archivePending ? 'Archiwizowanie…' : 'Potwierdź'}
-                  </button>
-                </div>
-              ) : (
-                <div className="rowActions">
-                  <button
-                    className="secondaryButton"
-                    data-testid={`symbol-edit-${symbol.id}`}
-                    onClick={() => onEdit(symbol)}
-                    type="button"
-                  >
-                    Edytuj
-                  </button>
-                  {symbol.status !== 'archived' ? (
-                    <button
-                      className="textButton"
-                      data-testid={`symbol-archive-${symbol.id}`}
-                      onClick={() => onArchive(symbol.id)}
-                      type="button"
-                    >
-                      Archiwizuj
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </article>
-          );
-        })}
+            </div>
+            <div className="rowActions">
+              <button
+                className="secondaryButton"
+                data-testid={`symbol-edit-${symbol.id}`}
+                onClick={() => onEdit(symbol)}
+                type="button"
+              >
+                Edytuj
+              </button>
+              <button
+                className="textButton"
+                data-testid={`symbol-delete-${symbol.id}`}
+                onClick={() => onDelete(symbol.id)}
+                type="button"
+              >
+                Usuń
+              </button>
+            </div>
+          </article>
+        ))}
       </div>
     </div>
+  );
+}
+
+function SymbolDeleteDialog({
+  error,
+  isDeleting,
+  onCancel,
+  onConfirm,
+  symbol,
+}: {
+  readonly error: string;
+  readonly isDeleting: boolean;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+  readonly symbol: SymbolResponse;
+}) {
+  return (
+    <dialog
+      aria-labelledby="symbol-delete-title"
+      aria-modal="true"
+      className="paylineDialog"
+      data-testid="symbol-delete-dialog"
+      open
+    >
+      <div className="paylineDialogCard">
+        <header className="paylineDialogHeader">
+          <div>
+            <p className="eyebrow">Usuwanie symbolu</p>
+            <h2 id="symbol-delete-title">Usunąć „{symbol.name}”?</h2>
+          </div>
+        </header>
+        <p>
+          Operacja jest nieodwracalna. Symbol można usunąć tylko wtedy, gdy nie
+          jest użyty przez reguły, plansze, predykcje ani modele.
+        </p>
+        {error ? (
+          <p className="formError" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <footer className="symbolDialogActions">
+          <button
+            className="secondaryButton"
+            disabled={isDeleting}
+            onClick={onCancel}
+            type="button"
+          >
+            Anuluj
+          </button>
+          <button
+            className="dangerButton"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            type="button"
+          >
+            {isDeleting ? 'Usuwanie…' : 'Usuń symbol'}
+          </button>
+        </footer>
+      </div>
+    </dialog>
   );
 }
 
 function CatalogLoading({ text }: { readonly text: string }) {
   return (
     <div className="statePanel" data-testid="symbols-loading">
-      <span className="loadingMark" aria-hidden="true" />
+      <span aria-hidden="true" className="loadingMark" />
       <div>
         <h2>Wczytywanie katalogu</h2>
         <p>{text}</p>
@@ -890,7 +801,7 @@ function CatalogError({
 }) {
   return (
     <div className="statePanel statePanelError" role="alert">
-      <span className="stateIcon" aria-hidden="true">
+      <span aria-hidden="true" className="stateIcon">
         !
       </span>
       <div>
@@ -912,35 +823,32 @@ function CatalogError({
 function NoGames() {
   return (
     <div className="statePanel statePanelEmpty">
-      <span className="stateIcon" aria-hidden="true">
-        0
+      <span aria-hidden="true" className="stateIcon">
+        +
       </span>
       <div>
-        <h2>Najpierw utwórz grę</h2>
-        <p>
-          Katalog symboli wymaga stabilnego rekordu gry. Utwórz go w sekcji
-          powyżej, a lista odświeży się automatycznie.
-        </p>
-        <a className="secondaryLink" href="#games">
-          Przejdź do gier
-        </a>
+        <h2>Najpierw dodaj grę</h2>
+        <p>Każdy katalog symboli należy do jednej gry.</p>
       </div>
     </div>
   );
 }
 
-function SymbolsEmpty() {
+function SymbolsEmpty({ onCreate }: { readonly onCreate: () => void }) {
   return (
     <div className="statePanel statePanelEmpty" data-testid="symbols-empty">
-      <span className="stateIcon" aria-hidden="true">
-        0
+      <span aria-hidden="true" className="stateIcon">
+        ?
       </span>
       <div>
-        <h2>Ta gra nie ma jeszcze symboli</h2>
+        <h2>Brak symboli</h2>
         <p>
-          Uruchom automatyczne wykrywanie powyżej. Symbole zostaną utworzone z
-          rzeczywistych cropów importu.
+          Dodaj nazwy symboli ręcznie. Grafikę wybierzesz po zatwierdzeniu
+          planszy, na której symbol występuje.
         </p>
+        <button className="primaryButton" onClick={onCreate} type="button">
+          Dodaj symbol
+        </button>
       </div>
     </div>
   );

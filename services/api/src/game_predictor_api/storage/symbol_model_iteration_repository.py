@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID, uuid4
 
 from game_predictor_worker.symbols.training_dataset import (
+    SPLIT_ORDER,
+    SplitName,
     TrainingDatasetConfig,
     build_balanced_source_assignments,
 )
@@ -75,7 +78,7 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                 .order_by(VerifiedTrainingCohortItemModel.source_checksum_sha256)
             ).all()
         )
-        prior_assignments: dict[str, str] = {}
+        prior_assignments: dict[str, SplitName] = {}
         prior_rows = self._session.scalars(
             select(SymbolModelIterationModel)
             .where(SymbolModelIterationModel.game_id == game_id)
@@ -86,14 +89,18 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             if isinstance(raw_dataset, dict):
                 raw = raw_dataset.get("sourceAssignments")
                 if isinstance(raw, dict):
-                    prior_assignments = {str(source): str(split) for source, split in raw.items()}
+                    prior_assignments = {
+                        str(source): cast(SplitName, split_name)
+                        for source, split in raw.items()
+                        if (split_name := str(split)) in SPLIT_ORDER
+                    }
                     break
         assignments = build_balanced_source_assignments(
             source_checksums,
             existing=prior_assignments,
         )
         dataset_payload = TrainingDatasetConfig(
-            source_assignments=assignments,  # type: ignore[arg-type]
+            source_assignments=assignments,
         ).to_dict()
         payload = {**model_payload, "dataset": dataset_payload}
         configuration_fingerprint = _payload_checksum(payload)

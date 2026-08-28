@@ -80,31 +80,19 @@ class GameResponse(ApiModel):
 
 
 class SymbolCreate(ApiModel):
-    mobile_code: int = Field(ge=1, le=32767)
-    code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=200)
-    name_pl: str | None = Field(default=None, min_length=1, max_length=200)
-    name_en: str | None = Field(default=None, min_length=1, max_length=200)
-    image_path: str | None = Field(default=None, max_length=500)
     is_wildcard: bool = False
-    display_order: int = Field(ge=0)
-    status: SymbolStatus = SymbolStatus.ACTIVE
 
 
 class SymbolUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    name_pl: str | None = Field(default=None, min_length=1, max_length=200)
-    name_en: str | None = Field(default=None, min_length=1, max_length=200)
-    image_path: str | None = Field(default=None, max_length=500)
     is_wildcard: bool | None = None
-    display_order: int | None = Field(default=None, ge=0)
-    status: SymbolStatus | None = None
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided.")
-        for field_name in ("name", "is_wildcard", "display_order", "status"):
+        for field_name in ("name", "is_wildcard"):
             if field_name in self.model_fields_set and getattr(self, field_name) is None:
                 raise ValueError(f"{_to_camel(field_name)} cannot be null.")
         return self

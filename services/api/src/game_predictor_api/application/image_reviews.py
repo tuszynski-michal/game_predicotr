@@ -38,6 +38,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
     ImageReviewGeometryRevision,
+    ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
     ImageReviewPage,
@@ -59,8 +60,10 @@ class OperationalImageReviewPage:
     game_id: UUID
     import_job_id: UUID
     view: ImageReviewView
+    grid_issue_view: ImageReviewGridIssueView
     items: tuple[ImageReviewItem, ...]
     counts: ImageReviewCounts
+    needs_grid_fix_count: int
     queue_version: int
     previous_cursor: str | None
     next_cursor: str | None
@@ -99,6 +102,7 @@ class OperationalImageReviewRepository(Protocol):
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         after_key: tuple[int, int, str] | None,
         before_key: tuple[int, int, str] | None,
         expected_queue_version: int | None,
@@ -225,6 +229,7 @@ class OperationalImageReviewService:
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         after_cursor: str | None,
         before_cursor: str | None,
         sequence_number: int | None,
@@ -265,6 +270,7 @@ class OperationalImageReviewService:
                 game_id=game_id,
                 import_job_id=import_job_id,
                 view=view,
+                grid_issue_view=grid_issue_view,
             )
             if after_cursor
             else None
@@ -275,6 +281,7 @@ class OperationalImageReviewService:
                 game_id=game_id,
                 import_job_id=import_job_id,
                 view=view,
+                grid_issue_view=grid_issue_view,
             )
             if before_cursor
             else None
@@ -283,6 +290,7 @@ class OperationalImageReviewService:
             game_id=game_id,
             import_job_id=import_job_id,
             view=view,
+            grid_issue_view=grid_issue_view,
             after_key=after.key if after is not None else None,
             before_key=before.key if before is not None else None,
             expected_queue_version=(
@@ -306,14 +314,17 @@ class OperationalImageReviewService:
             game_id=game_id,
             import_job_id=import_job_id,
             view=view,
+            grid_issue_view=grid_issue_view,
             items=page.items,
             counts=page.counts,
+            needs_grid_fix_count=page.needs_grid_fix_count,
             queue_version=queue_version,
             previous_cursor=(
                 encode_image_review_cursor(
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
+                    grid_issue_view=grid_issue_view,
                     key=page.items[0].queue_order_key,
                     queue_version=queue_version,
                 )
@@ -325,6 +336,7 @@ class OperationalImageReviewService:
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
+                    grid_issue_view=grid_issue_view,
                     key=page.items[-1].queue_order_key,
                     queue_version=queue_version,
                 )

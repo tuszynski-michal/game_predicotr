@@ -2,54 +2,43 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  archiveSymbol,
+  deleteSymbol,
   saveSymbol,
 } from '../src/features/symbols/symbol-catalog-actions.ts';
 
 const gameId = '11111111-1111-4111-8111-111111111111';
 const savedSymbol = {
-  code: 'S1',
-  displayOrder: 10,
+  code: 'LEMON',
+  displayOrder: 1,
   gameId,
   id: '22222222-2222-4222-8222-222222222222',
-  imagePath: 'symbols/game-1/s1.png',
+  imagePath: null,
   isWildcard: false,
   mobileCode: 1,
-  name: 'Symbol 1',
-  nameEn: 'Lemon',
-  namePl: 'Cytryna',
+  name: 'Lemon',
+  nameEn: null,
+  namePl: null,
   status: 'active',
 };
-const draft = {
-  code: 'S1',
-  displayOrder: 10,
-  imagePath: 'symbols/game-1/s1.png',
-  isWildcard: false,
-  mobileCode: 1,
-  name: 'Symbol 1',
-  nameEn: 'Lemon',
-  namePl: 'Cytryna',
-  status: 'active',
-};
+const draft = { isWildcard: false, name: 'Lemon' };
 
 function createClient(overrides = {}) {
   return {
-    archiveSymbol: async () => ({ data: undefined }),
     createSymbol: async () => ({ data: savedSymbol }),
+    deleteSymbol: async () => ({ data: undefined }),
     listGames: async () => ({ data: [] }),
     listSymbols: async () => ({ data: [] }),
+    symbolImageAssetUrl: () => '',
     updateSymbol: async () => ({ data: savedSymbol }),
     ...overrides,
   };
 }
 
-test('creates a symbol with the complete typed contract', async () => {
-  let receivedGameId;
+test('creates a manual symbol with only its name and joker flag', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
-      createSymbol: async (currentGameId, body) => {
-        receivedGameId = currentGameId;
+      createSymbol: async (_currentGameId, body) => {
         request = body;
         return { data: savedSymbol };
       },
@@ -59,76 +48,49 @@ test('creates a symbol with the complete typed contract', async () => {
     draft,
   );
 
-  assert.equal(receivedGameId, gameId);
-  assert.deepEqual(request, {
-    code: 'S1',
-    displayOrder: 10,
-    imagePath: 'symbols/game-1/s1.png',
-    isWildcard: false,
-    mobileCode: 1,
-    name: 'Symbol 1',
-    nameEn: 'Lemon',
-    namePl: 'Cytryna',
-    status: 'active',
-  });
+  assert.deepEqual(request, draft);
   assert.deepEqual(result, { ok: true, symbol: savedSymbol });
 });
 
-test('updates mutable fields without sending stable code or mobileCode', async () => {
-  let receivedGameId;
-  let receivedSymbolId;
+test('edits only name and joker flag without changing stable identity', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
-      updateSymbol: async (currentGameId, symbolId, body) => {
-        receivedGameId = currentGameId;
-        receivedSymbolId = symbolId;
+      updateSymbol: async (_currentGameId, _symbolId, body) => {
         request = body;
-        return {
-          data: { ...savedSymbol, imagePath: null, isWildcard: true },
-        };
+        return { data: { ...savedSymbol, isWildcard: true } };
       },
     }),
     gameId,
     { mode: 'edit', symbolId: savedSymbol.id },
-    { ...draft, imagePath: null, isWildcard: true },
+    { isWildcard: true, name: 'Lemon' },
   );
 
-  assert.equal(receivedGameId, gameId);
-  assert.equal(receivedSymbolId, savedSymbol.id);
-  assert.deepEqual(request, {
-    displayOrder: 10,
-    imagePath: null,
-    isWildcard: true,
-    name: 'Symbol 1',
-    nameEn: 'Lemon',
-    namePl: 'Cytryna',
-    status: 'active',
-  });
+  assert.deepEqual(request, { isWildcard: true, name: 'Lemon' });
   assert.equal(result.ok, true);
 });
 
-test('archives through the typed boundary and preserves API errors', async () => {
-  let archivedGameId;
-  let archivedSymbolId;
-  const success = await archiveSymbol(
+test('deletes through the typed boundary and preserves API errors', async () => {
+  let deletedGameId;
+  let deletedSymbolId;
+  const success = await deleteSymbol(
     createClient({
-      archiveSymbol: async (currentGameId, symbolId) => {
-        archivedGameId = currentGameId;
-        archivedSymbolId = symbolId;
+      deleteSymbol: async (currentGameId, symbolId) => {
+        deletedGameId = currentGameId;
+        deletedSymbolId = symbolId;
         return { data: undefined };
       },
     }),
     gameId,
     savedSymbol.id,
   );
-  const failure = await archiveSymbol(
+  const failure = await deleteSymbol(
     createClient({
-      archiveSymbol: async () => ({
+      deleteSymbol: async () => ({
         error: {
-          code: 'SYMBOL_NOT_FOUND',
-          details: {},
-          message: 'Symbol not found.',
+          code: 'SYMBOL_DELETE_BLOCKED',
+          details: { rules: 1 },
+          message: 'Symbol is still used.',
         },
       }),
     }),
@@ -136,11 +98,12 @@ test('archives through the typed boundary and preserves API errors', async () =>
     savedSymbol.id,
   );
 
-  assert.equal(archivedGameId, gameId);
-  assert.equal(archivedSymbolId, savedSymbol.id);
+  assert.equal(deletedGameId, gameId);
+  assert.equal(deletedSymbolId, savedSymbol.id);
   assert.deepEqual(success, { ok: true });
   assert.deepEqual(failure, {
-    error: 'Symbol not found. (SYMBOL_NOT_FOUND)',
+    blockers: ['reguły: 1'],
+    error: 'Symbol is still used. (SYMBOL_DELETE_BLOCKED)',
     ok: false,
   });
 });

@@ -51,6 +51,8 @@ Format błędu:
 ```text
 /games
 /games/{gameId}/symbols
+/games/{gameId}/board-search
+/games/{gameId}/symbol-cell-reviews
 /games/{gameId}/rules-versions
 /rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines
@@ -69,6 +71,150 @@ Format błędu:
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+### Wyszukiwanie plansz częściowym układem
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode}&limit=1..100
+```
+
+Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem i
+określa tylko znane pozycje układu 3 × 5; co najmniej jedna pozycja jest
+wymagana. `?` nigdy nie jest prawidłowym symbolem zapytania. `all_searchable`
+zwraca deterministycznie wybrany dokument logicznej planszy dla każdego numeru
+sekwencji (accepted/corrected albo oczekujący), a `approved_only` ogranicza
+wyniki do decyzji accepted/corrected.
+
+Każdy wynik zawiera identyfikatory źródłowej pozycji review i planszy,
+`sequenceNumber`, status, checksumę cropu oraz rozkład punktów (`score`, exact,
+alternatywa, mismatch i unknown). Odpowiedź nie zawiera danych binarnych obrazu.
+Niespójny wzór zwraca `422` (`BOARD_SEARCH_QUERY_EMPTY`,
+`BOARD_SEARCH_CELL_INVALID`, `BOARD_SEARCH_CELL_DUPLICATE` lub
+`BOARD_SEARCH_SYMBOL_INVALID`); nieistniejąca gra `404 GAME_NOT_FOUND`, a
+niedokończona projekcja `409 BOARD_SEARCH_PROJECTION_INCOMPLETE`.
+
+Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
+`game_id + sequence_number`; nie skanuje JPEG-ów, surowych obserwacji ani nie
+zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
+endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
+których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
+### Odczyt pojedynczych cropów do weryfikacji symboli
+
+```text
+GET  /api/v1/admin/games/{gameId}/symbol-cell-review-projection
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
+
+GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
+  ?symbolId={UUID|unknown}
+  &state=all|approved|pending
+  &afterCursor=...
+  &beforeCursor=...
+  &limit=1..500
+
+GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
+  ?expectedCropChecksumSha256={sha256}
+  &thumbnailSize=100
+
+POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
+```
+
+`POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
+Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
+oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do
+`rebuilding`, zachowuje dotychczasowy kursor i dane, a następnie wykonuje
+bounded reconciliację braków. Taki job ma trwały znacznik
+`preserve_ready_projection`; dopóki jest aktywny, lista, assety, preview i
+mutacje istniejących checksum-bound cropów pozostają dostępne. Rebuilding bez
+tego znacznika nadal zwraca `SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE`. Job nie
+uruchamia pipeline'u obrazów.
+
+Pierwsze dwa endpointy są lokalnym kontraktem przygotowania projekcji. Status
+zwraca oczekiwaną i przetworzoną liczbę plansz, oczekiwaną i zapisaną liczbę
+komórek, stan `not_started/rebuilding/ready/failed`, aktywny job oraz liczniki
+problemów integralności. Start jest idempotentny: jeśli job już czeka lub jest
+przetwarzany, zwraca jego identyfikator z `created=false`. Job działa na general
+lane w bounded partiach 200 plansz i wykorzystuje trwały kursor projekcji.
+Status zawiera również rozmiar tabeli i indeksów przed uruchomieniem oraz ich
+bieżący rozmiar; wolne miejsce może być `null`, jeśli proces API nie ma dostępu
+do katalogu danych PostgreSQL.
+
+
+To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
+zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
+`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów i jest to
+również twarde maksimum. Lista używa keysetu
+`(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
+symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
+scope.
+
+Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
+właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
+rewizję komórki i geometrii, liczniki po filtrowaniu, monotoniczną
+`catalogRevision` i kursory poprzedniej/następnej strony. `cropSampleId` wraz
+z checksumą jest obowiązkową tożsamością jawnego targetu masowej operacji.
+Łączenie z
+`image_board_search_fast_documents` oraz bieżącą rewizją geometrii eliminuje
+superseded, alternatywne oraz nieaktualne cropy bez materializowania całego
+wyniku w pamięci.
+
+Endpoint assetu wymaga checksumy odczytanej z listy. Przed wysłaniem pliku
+ponownie sprawdza scope gry i aktualnego właściciela, rewizję geometrii,
+bezpieczną ścieżkę pod zarządzanym katalogiem `data/`, rozszerzenie oraz
+SHA-256 bajtów. Dla kart Admina zwraca ograniczony thumbnail WebP mieszczący
+się w 100 × 100 px, a URL nadal zawiera checksumę i rozmiar oraz ma roczny
+prywatny cache `immutable`. Lista nie osadza base64 ani binariów i endpoint nie
+zwraca ścieżki filesystemu. Niedokończona projekcja zwraca
+`409 SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE`; cursor z obcego scope albo
+sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
+zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
+filtr, checksum lub limit `422`.
+
+Admin przechowuje tylko jedną odpowiedź strony. Po udanej decyzji ponownie
+wywołuje ten sam endpoint z kursorem, którym otworzył bieżącą stronę. Serwer
+wykonuje wtedy świeże zapytanie keysetowe i naturalnie uzupełnia usunięte z
+filtra pozycje kolejnymi rekordami do limitu 500. Nie istnieje osobny endpoint
+łączenia braków po przesłanych ID, ponieważ taki merge powielałby semantykę
+keysetu i mógłby mieszać rewizje katalogu.
+
+`POST .../{cellReviewId}/decision` jest szybką ścieżką wyłącznie dla jednego
+jawnego cropa. Request zawiera akcję, oczekiwaną rewizję komórki i geometrii,
+`cropSampleId`, checksumę oraz opcjonalny docelowy symbol dla `reassign`.
+Backend korzysta z tej samej atomowej transakcji planszy, blokady właściciela i
+append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
+Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
+kontekstu serwera.
+
+### Trwałe operacje masowe weryfikacji cropów
+
+```text
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-operations/preview
+POST /api/v1/admin/games/{gameId}/symbol-cell-review-operations
+GET  /api/v1/admin/games/{gameId}/symbol-cell-review-operations/{operationId}
+```
+
+Te endpointy są wyłącznie częścią lokalnego Admin API; token zdalnego
+Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
+albo `mark_grid_issue` oraz jeden z dwóch modeli zaznaczenia: jawne cropy z
+oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
+`symbol + state + catalogRevision` wraz z wykluczeniami. `approve` nie jest
+dostępne dla filtra technicznego `unknown`.
+
+Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
+zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
+żądanie z tym samym kluczem i tą samą komendą zwraca istniejącą operację,
+natomiast inna komenda z tym kluczem zwraca konflikt. Status zwraca liczniki
+`pending`, `applied`, `conflict` i `failed`, identyfikator joba oraz
+kontrolowany komunikat błędu. Operacja ma częściową semantykę: każda plansza
+jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
+`applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
+Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
+sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
+Admin używa tej trwałej ścieżki wyłącznie dla co najmniej dwóch jawnych cropów
+bieżącej strony. Kontrakt snapshotu całego filtra pozostaje kompatybilny dla
+innych klientów, ale bieżący Admin go nie tworzy. Jeden jawny crop korzysta z
+bezpośredniej decyzji opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po
+symbolu nie zapełnia historii Jobów.
 
 ### Host base zdalnej ręcznej selekcji
 
@@ -892,6 +1038,10 @@ Rozpoczyna kontrolowany upload folderu wybranego standardowym selektorem
 przeglądarki. Przyjmuje nazwę prezentacyjną katalogu, dokładną liczbę JPEG-ów i
 ich łączny rozmiar. Zwraca `uploadId` oraz liczniki postępu. Nie przyjmuje
 lokalnej ścieżki bezwzględnej i nie uruchamia procesu systemowego.
+Folder `layout_import` podlega osobnemu konfigurowalnemu limitowi, domyślnie
+20 GiB; przekroczenie zwraca `IMAGE_BROWSER_SELECTION_SIZE_INVALID` wraz z
+zadeklarowanym i maksymalnym rozmiarem. Niezależnie obowiązuje kontrola wolnego
+miejsca z rezerwą 512 MiB.
 
 ### PUT `/api/v1/admin/image-imports/browser-selections/{uploadId}/files/{fileIndex}`
 
@@ -1503,6 +1653,13 @@ stored in PostgreSQL.
 M6.5 używa job-local `image_review_items`, a nie bounded batchy
 active-learning. TASK-0106 wdrożył osobną grupę Admin API:
 
+Listowanie operacyjnego review nie zwraca starszych aktywnych kopii tego samego
+`game + sequence_number`. Kanoniczna decyzja `accepted/corrected` pozostaje
+chroniona, a przy jej braku jeden oczekujący właściciel pochodzi z najnowszego
+importu według `(job.created_at, job.id)`. Starsze źródła są audytowalnym
+`superseded`, nie kolejną pozycją do zatwierdzenia. Nie zmienia to kształtu
+kontraktu HTTP ani scope'u zdalnej sesji.
+
 ```text
 GET  /api/v1/admin/image-review-items
 GET  /api/v1/admin/image-review-items/{reviewItemId}
@@ -1534,41 +1691,38 @@ override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru
 automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
 nie usuwa automatycznego rankingu ani historycznej decyzji.
 
-TASK-0125 dodaje game-scoped bootstrap symboli:
+Katalog symboli jest wyłącznie ręczny. `POST /games/{gameId}/symbols` przyjmuje
+jedynie `name` i `isWildcard`; backend nadaje niezmienny kod, następny numer
+mobilny oraz kolejność. `PATCH` może zmienić nazwę i Jokera, ale nie identyfikację
+symbolu. `DELETE /symbols/{symbolId}` jest fizycznym usunięciem tylko po
+kontroli zależności; `409 SYMBOL_DELETE_BLOCKED` zawiera liczniki reguł, plansz,
+predykcji, kohort, iteracji i aktywacji modelu. Automatyczny bootstrap katalogu
+nie ma endpointu ani kontraktu.
 
-```text
-GET  /api/v1/admin/games/{gameId}/symbol-bootstrap
-POST /api/v1/admin/games/{gameId}/symbol-bootstrap
-POST /api/v1/admin/games/{gameId}/symbol-bootstrap/{bootstrapId}/resolution
-```
-
-Start przyjmuje `expectedSymbolCount` i `createdBy`. Odpowiedź zawiera checksum
-stanu cropów, wykrytą liczbę grup, provenance kandydatów i status. Zgodna liczba
-grup daje `applied`; różnica daje `conflict` bez utworzenia symboli. Resolution
-musi zdefiniować dokładnie oczekiwaną liczbę symboli, użyć wszystkich
-kandydatów i zachować unikalne stabilne kody oraz `mobileCode`.
-
-TASK-0126 rozszerza katalog o checksum-bound wybór grafiki reprezentatywnej:
+Grafika referencyjna ma checksum-bound wybór z decyzji człowieka:
 
 ```text
 GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image/asset
-GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates
-GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/asset
-POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/selection
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{observationId}/asset
+POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/approved-image-candidates/{observationId}/selection
 ```
 
-Lista zwraca maksymalnie 10 rzeczywistych cropów grupy symbolu w kolejności
-confidence malejąco, checksum i UUID obserwacji. Opaque `afterCursor` jest
-związany z `gameId` i `symbolId`; nie można użyć go w innym katalogu. Klient
-nie otrzymuje ścieżki pliku kandydata. Endpoint assetu ponownie ustala
-obserwację w dokładnym zakresie symbolu, ogranicza plik do
-`<artifact-root>/data`, dopuszcza wyłącznie PNG/JPEG i porównuje SHA-256.
+Lista ma keyset `afterCursor` związany z `gameId` oraz `symbolId` i limit do 20.
+Zwraca tylko cropy kanonicznych plansz `accepted/corrected`, których końcowy
+`resolved_value.symbolCodes[cellIndex]` zgadza się z kodem symbolu. Kolejność
+nie używa confidence: ręcznie poprawiona geometria, `sequenceNumber`,
+`cellIndex`, UUID obserwacji. Wartość `geometryRevision > 0` wskazuje crop
+najnowszej zatwierdzonej geometrii. Klient nie otrzymuje ścieżki pliku.
 
-Selection przyjmuje tylko nową `name`; target grafiki wynika z identyfikatora
-obserwacji w URL. Zapis aktualizuje atomowo nazwę i `image_path`, ale nie może
-zmienić `code`, `mobileCode`, kolejności ani provenance bootstrapu. Bieżąca
-grafika kafelka jest odczytywana osobnym endpointem przez jej zachowaną
-obserwację i checksumę, a nie przez ścieżkę podaną przez przeglądarkę.
+Asset i selection ponownie sprawdzają kanonicznego właściciela, decyzję,
+symbol, rewizje i SHA-256. Selection przyjmuje `expectedChecksumSha256` i
+`selectedBy`, kopiuje bajty bez resamplingu do zarządzanego katalogu referencji
+i zwraca zaktualizowany `SymbolResponse`. Konflikt stanu daje
+`SYMBOL_REFERENCE_CANDIDATE_STALE`; brak lub podmiana pliku daje kontrolowany
+błąd checksumy/assetu. `GET /image/asset` serwuje wyłącznie trwałą, zatwierdzoną
+referencję — historyczne `image_path` bez proweniencji jest traktowane jako brak
+grafiki.
 
 TASK-0110 dodał osobną, jawną operację zamrożenia:
 
@@ -1586,6 +1740,15 @@ zapisie. Kolejność jest zawsze deterministyczna po trwałym kluczu
 `(source_order_index, position_index, review_item_id)` i nie zmienia się po
 zaakceptowaniu `sequenceNumber`. Odpowiedź zawiera cursor poprzedni/następny,
 `queueVersion` oraz liczniki, ale nie całą kolejkę.
+
+Opcjonalny parametr `gridIssueView = all | needs_grid_fix` ogranicza ten sam
+scope `gameId + importJobId`. `needs_grid_fix` zwraca tylko pending plansze,
+których bieżąca rewizja geometrii ma przynajmniej jedną komórkę z flagą
+`has_grid_issue`; odpowiedź zawiera `needsGridFixCount`. Filtr wykorzystuje
+`EXISTS`, dlatego kilka flag jednej planszy nie tworzy duplikatu. Zapis nowej
+geometrii resetuje 15 komórek i usuwa planszę z tego widoku. Parametr nie daje
+zdalnemu Reviewerowi szerszego dostępu: nadal obowiązuje przypisany scope gry i
+importu.
 
 Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
 aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
@@ -1617,8 +1780,8 @@ i eventem `superseded`, a exact retry zachowuje idempotencję. Liczniki odpowied
 obejmują osobne pole `superseded`; `completed` nadal oznacza wyłącznie
 `accepted + corrected`.
 
-Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem oraz trwałym
-`queueVersion`. Schema cursora v2 zawiera dokładnie klucz
+Kursor jest opaque, związany z `gameId`, `importJobId`, widokiem
+`gridIssueView` oraz trwałym `queueVersion`. Schema cursora v3 zawiera dokładnie klucz
 `(source_order_index, position_index, review_item_id)`; sortowanie, keyset,
 poprzedni/następny i resume używają tego samego klucza we wszystkich widokach.
 Status i `sequence_number` nie są częścią klucza. Zapis accepted/corrected nie
@@ -1901,11 +2064,12 @@ wersji 0.2.
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
 Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
-zweryfikowanych plansz ogółem i pozycje zmienione od ostatniej kohorty,
+próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,
 pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
-ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta porównuje checksumy
-pełnych pozycji, dlatego zmieniona etykieta jest nowym elementem również wtedy,
-gdy liczba plansz się nie zmieniła. Aktywny job `created` albo `processing` tej
+ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta v1 porównuje checksumy
+pełnych plansz, a v2 checksumy wybranych manifestów komórek. Zmieniona etykieta,
+rewizja albo crop jest nowym elementem również wtedy, gdy liczba plansz się nie
+zmieniła. Aktywny job `created` albo `processing` tej
 samej gry ustawia `activeHeavyJob = true` i czasowo blokuje freeze. Ostrzeżenie
 o małym pokryciu klasy pojawia się poniżej 10 cropów symbolu, a ostrzeżenie o
 małej różnorodności źródeł poniżej 3 zdjęć; oba progi są doradcze i nie blokują
@@ -1913,23 +2077,24 @@ operacji.
 
 ### GET `/api/v1/admin/games/{game_id}/verified-training-cohorts/preview`
 
-Zwraca dokładne liczniki elementów kwalifikujących, wykluczonych i chronionych,
+Zwraca dokładne liczniki wybranych elementów, źródeł i ostrzeżeń,
 checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
 `incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
 
-GET jest odczytem bez `FOR UPDATE`. Backend zachowuje pełną checksumę manifestu,
-ale nie pobiera geometrii ani cropów dla elementów `pending`, `rejected` i
-`superseded`; kompletne dane obrazu są potrzebne tylko rozstrzygnięciom
-`accepted/corrected`. Blokowany snapshot pozostaje częścią wyłącznie jawnego
-POST zamrażającego kohortę.
+GET jest odczytem bez `FOR UPDATE`. Dla v2 pobiera bounded pulę aktualnych
+komórek `approved`, ponownie sprawdza checksumy cropów i wylicza dHash w
+ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
+równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
+stary właściciel sekwencji nie są odczytywane. Jawny POST blokuje grę i
+ponownie weryfikuje bajty przed zapisem.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
 Body zawiera `idempotencyKey`, `createdBy` i
 `expectedManifestChecksumSha256` pochodzące z jawnie potwierdzonego preview.
-Komenda zamraża pełną, skumulowaną kohortę jednej gry. Zmiana stanu po preview
+Komenda zamraża ograniczoną, różnorodną kohortę cropów jednej gry. Zmiana stanu po preview
 zwraca `VERIFIED_TRAINING_COHORT_PREVIEW_STALE`, a aktywna ciężka operacja tej
 gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Identyczny stan zwraca
 istniejącą kohortę, a zmiana stanu tworzy kolejną iterację. Nie uruchamia

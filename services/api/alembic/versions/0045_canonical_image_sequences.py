@@ -30,7 +30,12 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("resolution_revision", sa.Integer(), nullable=False),
         sa.Column("geometry_revision", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
@@ -46,12 +51,17 @@ def upgrade() -> None:
             name="ck_image_sequence_canonical_status",
         ),
         sa.CheckConstraint(
-            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' AND board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_sequence_canonical_checksums",
         ),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["recognized_board_id"], ["recognized_boards.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["recognized_board_id"], ["recognized_boards.id"], ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(["import_job_id"], ["jobs.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["source_image_id"], ["source_images.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("game_id", "sequence_number", name="pk_image_sequence_canonical"),
@@ -74,7 +84,12 @@ def upgrade() -> None:
         sa.Column("source_checksum_sha256", sa.String(length=64), nullable=False),
         sa.Column("source_relative_path", sa.String(length=1000), nullable=False),
         sa.Column("reason", sa.String(length=50), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "sequence_number > 0 AND source_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_sequence_alternatives_values",

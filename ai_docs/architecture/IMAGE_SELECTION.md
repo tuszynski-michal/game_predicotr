@@ -419,8 +419,11 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   OCR albo treningu trwa dłużej niż checkpoint. Błąd keepalive jest traktowany
   jak utrata lease; handler nie może wtedy wykonać terminalnego zapisu.
 - Supervisor ustawia per proces budżet wątków dla OpenMP, OpenBLAS, MKL,
-  NumExpr i Accelerate oraz limit współbieżności CLI. General domyślnie używa
-  budżetu 2. Selekcja używa łącznego budżetu 5: czterech zewnętrznych
+  NumExpr i Accelerate oraz limit współbieżności CLI. Domyślny profil
+  operatorski uruchamia tylko general z budżetem 7, a rejestracja geometrii
+  stron wiąże liczbę równoległych stron z tym budżetem. Biblioteki natywne
+  pozostają jednowątkowe. Historyczny profil dwóch lane przywraca general=2.
+  Selekcja używa łącznego budżetu 5: czterech zewnętrznych
   `scan_workers` i jednego `verification_worker`. Biblioteki natywne wewnątrz
   każdego zadania pozostają jednowątkowe, aby nie tworzyć zagnieżdżonej
   nadsubskrypcji. Jest to przenośny limit współbieżności, nie twardy limit

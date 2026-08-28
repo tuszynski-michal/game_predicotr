@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-25
+last_updated: 2026-08-28
 ---
 
 # Current State
@@ -13,9 +13,359 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.7 implementation: board import and review operations`
+`Version 0.8 implementation: board search and review data quality`
+
+### Niezależne ulepszanie symboli i siatki — TASK-0303
+
+- `v0.8.50–v0.8.54` przełącza nowe kohorty symboli z pełnych plansz na
+  pojedyncze, aktualne komórki `approved`. `?`, błąd siatki, nieaktywny symbol,
+  stary właściciel sekwencji i zmieniona check­suma są wykluczane fail-closed.
+- Kohorta `verified-symbol-cell-training-cohort-v2` priorytetyzuje korekty,
+  deduplikuje identyczne i bliskie wizualnie cropy, rozkłada próbki między
+  źródła oraz ogranicza wynik do celu 1000 i maksimum 2000 per symbol. Worker
+  nadal odtwarza v1 i używa istniejącego CNN, splitów źródłowych, ONNX i bramki.
+- Migracja `0071_symbol_cell_training_cohorts` utrwala rodzaj datasetu i
+  dopuszcza kohortę komórkową. Migracja `0072_verified_training_cohort_cells`
+  zapisuje wybrane próbki i ich checksumy, dzięki czemu delta kolejnej kohorty
+  nie wraca błędnie do pełnej liczby cropów. Lokalna baza jest na `0072`.
+- Admin pokazuje dwa jawnie niezależne workflowy: `Rozpoznawanie symboli` oraz
+  `Cięcie siatki`. Aktywacja jednego nie aktywuje drugiego.
+- Nie wykonano dużego benchmarku. Test zlicza ograniczoną liczbę porównań LSH;
+  pula SQL, pamięć selektora i trening są liniowe względem liczby dopuszczonych
+  próbek, a sam trening jest dodatkowo ograniczony hard maxem kohorty.
+- Mały pomiar czystej selekcji w pamięci na obecnym komputerze: 1500 cropów
+  (odpowiednik 100 plansz) `0,0482 s`, 15 000 cropów (1000 plansz) `0,3552 s`.
+  Dla 1000 plansz selektor zwrócił docelowe 8000 próbek (1000 × 8 symboli).
+  Pomiar nie obejmuje odczytu JPEG/PNG z dysku ani treningu CNN; potwierdza, że
+  sam dobór nie jest wąskim gardłem i nie ma wzrostu kwadratowego.
+- Read-only odbiór rzeczywistej gry zakwalifikował 10 736 aktualnych cropów i
+  wybrał 4629 różnorodnych próbek z ośmiu klas. Pierwszy równoległy odczyt,
+  kontrola checksum i dHash trwały 18,861 s; zwykły proces API utrzymuje
+  ograniczony cache 32 768 deskryptorów, natomiast zamrożenie ponownie sprawdza
+  bajty. Transakcyjny test zapisu/rollbacku potwierdził jeden rekord projekcji
+  v2 dla jednej próbki bez pozostawienia danych audytowych.
+- `v0.8.58` domyka bramkę wykonawczą kohorty v2: mała kohorta pojedynczych
+  cropów przechodzi rzeczywisty trening, eksport ONNX i gate kandydata. Test
+  ujawnił również dwa miejsca zależne od limitu `MAX_PATH`; zapis manifestu
+  datasetu i odczyt obrazu przez klasyfikator używają teraz wspólnej obsługi
+  długich ścieżek Windows.
+- `v0.8.59` stabilizuje wznowienie lokalnej ręcznej selekcji w kierunku
+  malejącym. Źródło ma odtąd jeden trwały, naturalny porządek, a kierunek
+  steruje wyłącznie kursem. Historyczne rekordy są jednorazowo normalizowane
+  z użyciem append-only trace, aby po `Wznów poprzednią sesję` nie wskazać
+  lustrzanego JPEG-a. Zdalny workspace już używał ordinalu źródła i nie wymaga
+  zmiany.
+- `v0.8.60` usuwa fałszywe „zawieszenie” wznowionego importu plansz: zapisane
+  strony `waiting_for_review` nie są już kosztownie rehydratowane i zapisywane
+  ponownie po restarcie workera. Niedokończone źródła `processing` przechodzą
+  jako pierwsze, a trwałe checkpointy review pozostają źródłem prawdy.
+- `v0.8.61` utrwala kursor lokalnej ręcznej selekcji jako względną ścieżkę
+  JPEG-a (`source_path_v2`), nie tylko indeks. Przy wznowieniu malejącego
+  rekordu historycznego ostatnio zatwierdzony plik jest kotwicą naprawczą dla
+  błędnie wcześniej utrwalonego indeksu; brak tej ścieżki blokuje wznowienie
+  fail-closed zamiast wskazać lustrzane zdjęcie.
+- `v0.8.62` rozdziela porządek JPEG-ów od kierunku numeracji plansz. Lokalny i
+  operator-local workspace zawsze zaczynają od pierwszego pliku naturalnej
+  listy, a `→` oraz Enter idą do następnego ordinalu katalogu. Kierunek
+  rosnący/malejący zmienia wyłącznie kolejny zakres `seq_*`. Malejące rekordy
+  `source_path_v2` są jednorazowo naprawiane z ostatniego zaakceptowanego JPEG-a
+  do `source_path_v3`, aby indeks i zdjęcie nie wskazywały lustrzanego miejsca.
+
+### Duże browserowe importy plansz
+
+- Browserowy staging `seq_*` używa osobnego limitu
+  `GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES`, domyślnie 20 GiB. Historyczny
+  limit 1 GiB pozostaje wyłącznie dla ręcznych plików CSV/JSONL, a selekcja
+  zdjęć zachowuje własny limit 128 GiB. API nadal wymaga rezerwy 512 MiB wolnego
+  dysku i zwraca w błędzie limitu deklarowany oraz maksymalny rozmiar.
+
+### Jeden właściciel oczekującej planszy — TASK-0291
+
+- `v0.8.33` domyka trwałą ochronę przed duplikatami oczekujących plansz dla
+  `game_id + sequence_number`. Migracja `0069_pending_sequence_ownership`
+  denormalizuje zakres właścicielski na `image_review_items`, synchronizuje go
+  triggerami i dodaje częściowy indeks unikalny dla `pending`.
+- Kanoniczne `accepted/corrected` pozostaje bezwzględnym właścicielem numeru.
+  Bez canonical najnowszy import według `(job.created_at, job.id)` przejmuje
+  nierozwiązany numer, a starsze pending zostają zachowane jako audytowalne
+  `superseded`; nie wracają do Reviewera ani Weryfikacji symboli.
+- Naprawa rzeczywistej bazy rozwiązała `114 676` zduplikowanych grup sekwencji
+  i `159 754` nadmiarowe pozycje pending. Nie znaleziono pending nad
+  istniejącym canonical. Migracja danych zakończyła się na `0069`; bieżący
+  head schematu po dodaniu kohort komórkowych symboli to `0072`.
+- Dropdown `Zatwierdzanie plansz` pokazuje odtąd wyłącznie importy
+  `waiting_for_review`. Importy zakończone pozostają widoczne w historii Jobów,
+  ale nie zaśmiecają operacyjnego wyboru.
+
+### Masowa weryfikacja pojedynczych symboli — TASK-0294
+
+- Od `v0.8.19` kontrakt domenowy `image_symbol_reviews` definiuje trwały w
+  przyszłości stan pojedynczego cropa: checksum-bound tożsamość, `pending` /
+  `approved`, niezależną flagę błędu siatki oraz pochodzenie przypisania.
+  Domena nie zależy od SQL, HTTP, UI ani jobów.
+- `?` jest reprezentowane jako brak przypisanego symbolu i nie może zostać
+  zatwierdzone. Zmiana geometrii unieważnia wszystkie 15 komórek, a agregacja
+  domyka planszę wyłącznie przy 15 aktualnych zatwierdzeniach bez błędu siatki:
+  `accepted` dla zgodności z predykcją, w przeciwnym razie `corrected`.
+- TASK-0294 jest ukończony w `v0.8.28`: istnieje odczyt, wewnętrzne mutacje,
+  trwałe operacje masowe cropów, filtr złej siatki w Reviewerze i lokalny
+  workspace Admina. Odbiór dokumentuje teoretyczne granice pamięci i transakcji;
+  fizyczny benchmark jest odroczony decyzją D-236.
+- Od `v0.8.20` migracja `0066_image_symbol_review_cells` utrwala stan komórek
+  i append-only audyt, a `scripts/rebuild_symbol_cell_reviews.py` wykonuje
+  keysetowy, wznawialny backfill wyłącznie dla obecnego właściciela logicznej
+  planszy. Ready wymaga dokładnie 15 bieżących cropów na planszę; brak sekwencji,
+  cropa lub rewizji geometrii jest kontrolowanym stanem `failed`, nie cichym
+  pominięciem. Backfill nie tworzy syntetycznych eventów.
+- Od `v0.8.21` istnieje transakcyjny write-through dla pełnej decyzji
+  Reviewera, korekty geometrii, ręcznego rozwiązania odroczonej geometrii,
+  reinferencji symboli/siatki, nowych elementów pipeline’u i zmiany właściciela
+  sekwencji. Migracja `0067_symbol_cell_review_catalog_revision` wprowadza
+  per-game `catalog_revision`, zwiększaną co najwyżej raz w pojedynczej
+  transakcji. Checkpoint transakcji canonical/staging/search oraz blokad
+  współbieżności przeszedł na izolowanym PostgreSQL: równoległe decyzje
+  utrzymują jednego właściciela kanonicznego, a przegrany jest superseded.
+- Od `v0.8.22` lokalne Admin API ma bounded, checksum-bound odczyt komórek
+  `symbol-cell-reviews`: keyset 60 (maks. 100), filtry aktywnego symbolu lub
+  technicznego `?` i stanu, liczniki oraz scope-bound kursory. Odczyt i asset
+  widzą wyłącznie aktualnego właściciela z fast-document i aktualną geometrię;
+  asset ponownie sprawdza SHA-256 pliku. OpenAPI oraz generowany klient są
+  zgodne. Nie istnieją jeszcze mutacje komórek, job masowy ani workspace
+  Admina — to pozostaje TASK 5+ i TASK 8+.
+- Od `v0.8.23` istnieje wewnętrzny, atomowy per plansza command path dla
+  `approve`, `reassign` i `mark_grid_issue`. Każda akcja ponownie sprawdza
+  aktualnego właściciela, rewizję oraz checksumę cropa pod blokadą, zapisuje
+  append-only event i agreguje dokładnie 15 bieżących cropów do istniejącej
+  decyzji canonical/staging/kolejki/job statusu. Flaga złej siatki otwiera
+  domkniętą planszę, ale zachowuje zatwierdzenia pozostałych 14 aktualnych
+  cropów; wyłącznie korekta geometrii resetuje komplet 15. Nie ma jeszcze
+  publicznej mutacji, durable joba ani UI — to zakres TASK 6+ i TASK 8+.
+- Od `v0.8.24` migracja `0068_image_symbol_review_bulk_operations` utrwala
+  idempotentne operacje `approve`, `reassign` i `mark_grid_issue`, ich
+  checksum-bound snapshoty targetów oraz częściowe wyniki. Worker general lane
+  pobiera maksymalnie 100 plansz na checkpoint, zapisuje jedną planszę w jednej
+  transakcji i po restarcie wznawia wyłącznie `pending`. Masowe oznaczenie złej
+  siatki aktualizuje wszystkie cropy danej planszy przed jej ponownym
+  otwarciem, więc canonical nie usuwa pozostałych targetów z tej samej partii.
+- Od `v0.8.25` operacyjny Reviewer udostępnia rozłączny widok `Do poprawy
+  siatki`. Wykorzystuje on `EXISTS` po aktualnych `pending` komórkach z
+  `has_grid_issue`, więc jedna plansza z wieloma oznaczeniami występuje tylko
+  raz, a terminalne pozycje nie wyciekają do listy. Odpowiedź zwraca licznik
+  plansz wymagających korekty; kursor schema v3 wiąże także filtr i nie może
+  zostać użyty między widokami. Zapis nowej geometrii resetuje flagi 15 komórek
+  i odświeża Reviewer tak, aby plansza od razu zniknęła z filtra. Scope zdalnej
+  sesji nadal jest ograniczony do jej gry i importu.
+  OpenAPI i generowany klient są zgodne; UI workspace pozostaje TASK 8–9.
+- Od `v0.8.26` Admin ma niezależną główną zakładkę `Weryfikacja symboli`.
+  Lokalny, read-only workspace wybiera grę, aktywny symbol lub techniczne `?`
+  oraz stan, czyta checksum-bound cropy keysetowo po 60, leniwie pobiera ich
+  assety i ogranicza pamięć do bieżącej strony oraz dwóch sąsiednich. Karta
+  pokazuje numer planszy, pozycję komórki, stan i flagę `Zła siatka`; brak
+  pojedynczego assetu nie usuwa metadanych. Wybór, toolbar i masowe decyzje
+  pozostają wyłącznie zakresem TASK 9.
+- Od `v0.8.27` ten workspace obsługuje jawne zaznaczenie checksum-bound cropów
+  (maks. 10 000) albo cały snapshot bieżącego filtra z wykluczeniami. Sticky
+  toolbar uruchamia po preview `approve`, `reassign` i `mark_grid_issue` przez
+  istniejący trwały job; dla technicznego `?` zatwierdzanie jest zablokowane.
+  Lista transportuje także `cropSampleId`, niezbędny do bezpiecznej jawnej
+  mutacji. Polling jednej aktywnej operacji nie nakłada requestów, pokazuje
+  `applied/conflict/failed` i po terminalnym wyniku odświeża bounded stronę.
+- Od `v0.8.35` przygotowanie projekcji nie zależy już od ręcznego skryptu.
+  Lokalny Admin API udostępnia status oraz idempotentny start trwałego joba
+  `image_symbol_review_backfill`. General worker zapisuje istniejące metadane
+  cropów w transakcjach po maksymalnie 200 plansz i wznawia pracę z trwałego
+  kursora `image_symbol_review_states`; nie kopiuje JPEG-ów ani cropów.
+- Od `v0.8.36` po skanie job wykonuje maksymalnie trzy bounded przebiegi
+  reconciliacji bieżących właścicieli. Uzupełnia plansze powstałe po minięciu
+  kursora i odświeża zmianę geometrii, ale nigdy nie nadpisuje częściowej
+  decyzji człowieka. `ready` nadal wymaga 15 aktualnych cropów per właściciel.
+  Status raportuje rozmiar tabeli, indeksów i — gdy katalog danych PostgreSQL
+  jest dostępny lokalnie — bieżące wolne miejsce; nie uruchamia benchmarku.
+- Od `v0.8.37` workspace Admina pokazuje start, wznowienie, ID i progres tego
+  joba oraz automatycznie przechodzi do cropów po `ready`. Ręczne przyciski
+  stron zostały zastąpione dwukierunkowym infinite scrollem na keysetach po 60;
+  bufor pozostaje ograniczony do maksymalnie 180 rekordów, a usuwanie odległej
+  strony zachowuje kotwicę scrolla. Assety nadal są lazy-loaded.
+- Od `v0.8.43` pierwsza strona Weryfikacji symboli pozostaje natychmiastowa, a
+  do czterech następnych stron metadanych jest pobieranych sekwencyjnie w
+  porządku keyset. W DOM nadal pozostają maksymalnie 3 strony/180 kart i tylko
+  one pobierają lazy assety. Karty są minimalistycznymi cropami 100 × 100 px
+  bez opisów. Target wysłanej operacji jest przygaszony i pokazuje spinner, a
+  poprawnie przypisany do innego symbolu crop znika przed bounded odświeżeniem
+  danych z serwera.
+- Od `v0.8.44` karty pobierają checksum-bound miniatury WebP mieszczące się w
+  100 × 100 px zamiast transferować pełne cropy; URL wiąże checksumę i rozmiar,
+  a przeglądarka używa rocznego prywatnego cache `immutable`. Jedna jawnie
+  zaznaczona decyzja `approve`, `reassign` lub `mark_grid_issue` przechodzi
+  bezpośrednio przez istniejącą atomową mutację planszy i nie tworzy joba.
+  Sukces czyści zaznaczenie, reassign od razu ukrywa crop z bieżącego filtra,
+  a konflikt przywraca kartę i pokazuje toast. Bulk job pozostaje dla wielu
+  targetów i snapshotu całego filtra.
+- `v0.8.45` zastępuje infinite scroll i read-ahead klasyczną, keysetową stroną
+  500 cropów. Admin utrzymuje wyłącznie bieżącą stronę metadanych, domyślnie
+  filtruje `Oczekujące` i pozwala zaznaczyć wyłącznie pojedyncze cropy albo
+  całą widoczną stronę. Po udanej bezpośredniej lub masowej decyzji ponawia
+  zapytanie od zapamiętanego kursora wejściowego strony; rekordy niepasujące do
+  filtra wypadają, a backend uzupełnia jej koniec do 500. Nie powstaje osobny
+  cache stron ani endpoint merge po ID. Immutable cache miniaturek WebP
+  pozostaje jako ochrona transferu. Aktywna decyzja blokuje kolejne akcje i
+  nawigację do chwili terminalnego wyniku.
+- `v0.8.46` przenosi domyślny lokalny budżet wykonawczy z nieużywanej
+  automatycznej Selekcji zdjęć do general workera. `npm run workers:start`
+  uruchamia tylko general z budżetem 7; preflight geometrii przetwarza do
+  siedmiu stron równolegle, a OpenCV/BLAS pozostają jednowątkowe na stronę.
+  Nadal istnieje dokładnie jeden aktywny general job. Jawne
+  `npm run workers:start:all` przywraca historyczny bezpieczny profil 2+5,
+  jeżeli automatyczna selekcja ponownie będzie potrzebna.
+- `v0.8.47` naprawia kontrakt odpowiedzi strony Weryfikacji symboli. Request i
+  repozytorium obsługiwały ustalony limit 500, ale schema odpowiedzi nadal
+  odrzucała więcej niż 100 elementów, przez co kompletna strona kończyła się
+  HTTP 500. Limit requestu, odpowiedzi i OpenAPI korzysta teraz z jednego
+  application constant; regresja serializuje rzeczywistą stronę 500 cropów.
+- `v0.8.48` przenosi page-local operacje masowe Weryfikacji symboli do tła UI.
+  Każdy trwały job zachowuje osobny status i spinner na swoich targetach, ale
+  nie blokuje przejścia na inną stronę ani wysłania kolejnej operacji. Pełny
+  sukces usuwa przetworzone karty bez kosztownego uzupełniania strony; wynik
+  częściowy pozostawia je do świadomego ponowienia. Toast jest stały 50 px od
+  lewego i dolnego brzegu zamiast zasłaniać sticky toolbar.
+- `v0.8.49` porządkuje podsumowanie strony Weryfikacji symboli. Operator widzi
+  numer strony, jednoznaczny zakres pozycji `1–500`, `501–1000` itd. oraz pełne
+  liczniki zatwierdzonych i oczekujących cropów; ostatni zakres jest ograniczony
+  do rzeczywistej liczby wyników.
+- Kontrolowane uruchomienie projekcji ujawniło, że 200 plansz daje 3000
+  komórek i 66 000 parametrów jednego INSERT-u, ponad limit 65 535 psycopg.
+  Zapis pozostaje jedną transakcją 200 plansz, ale dzieli komórki na trzy
+  bezpieczne INSERT-y po 1000 rekordów; pierwszy błąd wystąpił przed zapisem.
+  Jeżeli katalog danych PostgreSQL nie jest widoczny dla procesu API, rozmiar
+  tabeli i indeksów nadal jest raportowany, a pusta pozostaje tylko metryka
+  wolnego miejsca systemu plików.
+- Gotowy workspace udostępnia operatorowi akcję `Uzupełnij brakujące symbole`.
+  Ponowne uruchomienie zachowuje istniejące komórki i kursor, a general worker
+  wykonuje idempotentną reconciliację brakujących lub nieaktualnych rekordów;
+  nie uruchamia cięcia plansz ani rozpoznawania symboli. Jeżeli general lane
+  jest zajęty, lista pozostaje dostępna, a stan `rebuilding` zaczyna się dopiero
+  po przejęciu joba przez worker.
+- Reconciliacja uruchomiona z kompletnego `ready` zapisuje w jobie trwały
+  znacznik dostępności. Dzięki temu jej przejściowy stan `rebuilding` nie
+  blokuje zmiany symbolu ani pozostałych operacji na już istniejących,
+  checksum-bound cropach. Początkowy i niekompletny backfill nadal pozostają
+  zablokowane. Podsumowanie filtra pokazuje także liczbę unikalnych cropów w
+  bounded buforze względem pełnej liczby wyników wybranego symbolu.
+- Pierwszy kontrolowany backfill gry `777` zakończył się statusem `ready`:
+  `125 431` plansz, `1 881 465` komórek i zero błędów integralności.
+- Od `v0.8.28` TASK-10 nie tworzy ani nie uruchamia w tle fizycznego benchmarku. Przyjęty
+  profil teoretyczny ma `2 000 010` komórek, aby zachować pełne plansze po 15
+  cropów; analiza wykazała bounded keyset i 100-planszowe checkpointy workerów.
+  Historyczne założenie bufora 180 metadanych zostało zastąpione w `v0.8.45`
+  pojedynczą stroną 500 rekordów. Analiza nie potwierdza czasu p95 — liczniki
+  listy nadal agregują cały filtr — dlatego ewentualny pomiar wymaga osobnej
+  decyzji i odizolowanego środowiska zgodnie z D-236.
+- `v0.8.30` przywraca zielone bramki jakości bez uruchamiania benchmarków.
+  Izolowane instancje API z wstrzykniętymi zależnościami nie wykonują
+  produkcyjnego recovery przy starcie, połączenie PostgreSQL ma ograniczony czas
+  zestawiania, a worker zapisuje checksum-bound cropy przez ścieżki odporne na
+  historyczny limit `MAX_PATH` Windows. Zaktualizowano także kontrakty testowe
+  dla joba masowej weryfikacji, migracji `0068` i filtra złej siatki.
+
+### Wyszukiwanie plansz częściowym układem — TASK-0292
+
+- Tor `0.7` został zamknięty dla bieżących zmian produktu. TASK-0290 pozostaje
+  `blocked` wyłącznie na zewnętrzne checkpointy publicznego rolloutu; nie blokuje
+  lokalnego panelu Admina ani toru `0.8`.
+- TASK-0292 dostarcza wyszukiwarkę częściowego układu w zakładce gry. Wynik ma
+  zawsze jednego logicznego właściciela na `game + sequence_number`: kanoniczną
+  planszę `accepted/corrected`, a w pozostałym przypadku deterministycznie
+  wybraną oczekującą pozycję.
+- Ranking nie jest prostym porównaniem łańcucha: pełne dopasowanie ma największą
+  wagę, alternatywy pending są słabszym dowodem, a przyszły `?` nie daje punktu
+  ani kary. Obrazy pozostają wyłącznie assetami filesystemu; do bazy trafia
+  zwarta projekcja metadanych i kodów symboli.
+- TASK-0291 jest ukończony w `v0.8.33`. Projekcja wyszukiwania, operacyjne
+  review i Weryfikacja symboli korzystają z jednego właściciela numeru, a baza
+  blokuje utworzenie drugiej aktywnej pozycji `pending`.
+- Od `v0.8.1` semantyka częściowego wzoru jest zamknięta w czystym kontrakcie
+  `partial-board-ranking-v1`: primary match = `1.0`, alternatywy pending =
+  `0.60/0.40/0.25/0.15`, a `?` oznacza brak dowodu. Zero-evidence candidates
+  nie trafiają do wyniku; remisy są deterministyczne.
+- Od `v0.8.2` migracja `0057_board_search_projection` definiuje kompaktowy
+  candidate projection i jeden current document dla `game + sequence`. Candidacy
+  przechowuje wyłącznie kody 15 komórek, rankowane alternatywy, statusy,
+  identyfikatory, checksumy i metryki jakości. Tokeny pozycji (`cell:symbol`)
+  mają osobne indeksy GIN; full board crop pozostaje assetem filesystemu.
+- Od `v0.8.3` migracja `0058_board_search_projection_state` wprowadza jawny
+  stan gotowości projekcji per gra. Wszystkie bieżące ścieżki write synchronizują
+  candidate/document w swojej transakcji, a
+  `scripts/rebuild_board_search_projection.py` odbudowuje historyczne rekordy
+  stronicami po review ID. Nie dotyka obrazów, cropów, jobów ani decyzji review;
+  status `rebuilding/failed` ma później blokować mylące puste wyniki API.
+- Od `v0.8.4` dostępny jest read-only endpoint
+  `GET /api/v1/admin/games/{gameId}/board-search`. Przyjmuje powtarzalne
+  `cell={0..14}:{symbolCode}`, scope `all_searchable/approved_only` i limit do
+  100. Prowadzi przez backendową walidację aktywnego katalogu symboli, nie
+  zwraca obrazów binarnych i blokuje odczyt, dopóki projekcja gry nie ma stanu
+  `ready`. Wygenerowany klient Admina udostępnia typowane `searchGameBoards`.
+- Od `v0.8.5` zakładka wybranej gry zawiera `Wyszukaj plansze`. Lokalne
+  budowanie wzoru 3 × 5 nie wysyła requestu po każdej zmianie: operator może
+  wskazać komórkę albo uzupełniać sekwencyjnie z pięciokolumnowej palety,
+  bezpiecznie cofnąć każdą zmianę i wyzerować wzór. Jedno jawne `Szukaj plansz`
+  przekazuje wybrany scope i wyłącznie znane pozycje przez typowany klient.
+- Od `v0.8.6` wynik częściowego wyszukiwania jest karuzelą pełnych,
+  nieprzeskalowanych cropów planszy. Pokazuje pozycję, wynik, status i dowody
+  rankingu; przyciski oraz klawisze `←/→` przesuwają dokładnie o jedną pozycję
+  bez zawijania. Klient prefetchuje wyłącznie bezpośrednich sąsiadów przez
+  istniejący, scope-bound asset API. Niedostępny crop daje widoczny fallback,
+  a nie usuwa poprawnego wyniku z rankingu.
+- Od `v0.8.7` migracja `0062_board_search_fast_documents` dodaje wąski read
+  model jednego aktualnego wyniku per `game + sequence`. Jest kopiowany ze
+  zweryfikowanej projekcji podczas migracji oraz synchronizowany atomowo przy
+  każdej późniejszej zmianie. Endpoint zachowuje ten sam ranking i OpenAPI, ale
+  czyta wyłącznie kody mobilne, znane pozycje i metadane niezbędne do wyniku.
+  Ciepły benchmark na `125431` dokumentach, 20 odczytach i wzorze trzech
+  symboli osiągnął p50 `387,74 ms`, p95 `432,11 ms` i maksimum `441,56 ms`
+  przy bramkach odpowiednio `500 ms` i `2 s`; raport:
+  `ai_docs/quality/board-search-warm-benchmark-v08.json`. TASK-0292 jest
+  ukończony.
+- Od `v0.8.8` paleta symboli w `Wyszukaj plansze` pokazuje grafikę referencyjną
+  oraz nazwę bez technicznego kodu w kaflu. Endpoint assetu odzyskuje również
+  checksum-bound crop zapisany w niezmiennym manifeście historycznego bootstrapu
+  katalogu, więc katalogi utworzone przed trwałymi obserwacjami cropów nie
+  zwracają już błędnie `404` dla istniejącej grafiki.
+- Od `v0.8.9` edytor `Twój wzór` używa kompaktowych kafli 3 × 5. Na desktopie
+  ich szerokość jest ograniczona do 56 px, a na wąskim ekranie siatka nadal
+  wypełnia dostępne miejsce bez zmiany kolejności pozycji.
+
+### Ręczne grafiki referencyjne symboli — TASK-0293
+
+- Od `v0.8.10` domena referencji symboli jest niezależna od historycznego
+  bootstrapu i zawiera checksum-bound kursor, kandydatów, weryfikację rewizji
+  oraz wybór trwałej referencji.
+- Od `v0.8.11` kandydaci pochodzą wyłącznie z kanonicznych decyzji
+  `accepted/corrected`, według końcowego symbolu zatwierdzonego przez człowieka
+  oraz cropa aktualnej geometrii; żadna predykcja ani confidence nie bierze
+  udziału w przynależności lub kolejności.
+- Od `v0.8.12` tabela `symbol_reference_images` i content-addressed storage
+  utrwalają kopię wybranego cropa. `SymbolResponse.imagePath` jest pusty bez
+  takiej proweniencji, więc stary crop nie jest pokazywany jako aktywna grafika.
+- Od `v0.8.13` katalog jest ręczny: utworzenie wymaga tylko nazwy i Jokera,
+  a API nadaje stabilny kod, kolejne `mobileCode` i `displayOrder`. Fizyczne
+  usunięcie jest blokowane, gdy symbol ma zależności.
+- Od `v0.8.14` automatyczny bootstrap symboli, jego endpointy, UI, migracyjna
+  tabela oraz klient nie są już częścią uruchamialnego systemu.
+- Od `v0.8.15` panel Admina udostępnia ręczny formularz oraz placeholder `?`,
+  osobne akcje edycji/usuwania i czytelne liczniki blokad.
+- Od `v0.8.16` kliknięcie kafla otwiera stronicowany picker maksymalnie 20
+  zatwierdzonych cropów; wybór zapisuje checksum-bound referencję, a błąd
+  pojedynczego assetu nie ukrywa pozostałych propozycji. TASK-0293 jest
+  ukończony; odbiór rzeczywistej gry wymaga danych z zatwierdzonymi planszami
+  w aktualnie podłączonej lokalnej bazie.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
+
+- Od `v0.8.18` `Ekran startowy` otwiera zawsze wizualnie czysty konfigurator:
+  oba pickery są niewybrane, nie jest pokazywany skrót powrotu do bieżącego
+  workspace'u, a operator wskazuje ponownie katalog zdjęć oraz katalog zapisu.
+  Jest to nadal nawigacja niedestrukcyjna — zgodna para folderów odtwarza
+  zachowany manifest, decyzje, kursor i następny zakres.
 
 - Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`
   jako główną akcję po lewej stronie. `Restart selekcji` pozostaje po prawej
@@ -32,9 +382,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów
   wznawia postęp zamiast zgłaszać `REMOTE_SELECTION_SOURCE_CHANGED`.
 
-- Od `v0.7.72` aktywny workspace ma przycisk `Ekran startowy` obok restartu.
-  Jest to nie-destrykcyjny powrót do dwóch pickerów; `Wróć do selekcji` otwiera
-  bieżący kursor i zakres bez usuwania wyniku.
+- Od `v0.7.72` aktywny workspace otrzymał przycisk `Ekran startowy` obok
+  restartu. Historyczny skrót `Wróć do selekcji` został zastąpiony w `v0.8.18`
+  ponownym, jawnym wyborem obu katalogów.
 
 - Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
   pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać
@@ -49,6 +399,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   manifest wynikowy z rekordem IndexedDB. Bezpieczna korekta ciągłej numeracji
   aktualizuje pierwszy i następny zakres bez ponownego kopiowania JPEG-ów;
   niezgodny manifest blokuje wznowienie.
+
+- Od `v0.8.31` lokalny i operator-local workspace pozwalają kliknąć bieżący
+  zakres i zapisać wyłącznie dodatni przedział `start–start+8`. Po decyzji
+  kolejny zakres jest wyliczany względem ręcznie podanej wartości zgodnie z
+  kierunkiem sesji. Manifest odtwarza takie świadome luki dokładnie, bez
+  cichego wypełniania lub przenumerowywania historii.
 
 - Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
   historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
@@ -2743,6 +3099,14 @@ stronami, `7` źródłami pominiętymi przez kanoniczne numery `1–63` i `0` st
 do korekty. Używa manifestu geometrii
 `61e8c5b2ec489aa8c18f4d7ec57008d90b9305a50092feb78c5a9a23932e6cf4` i trwał
 `10 min 37 s`, więc spełnia bramkę `≤15 min`.
+
+W `v0.8.32` worker preflightu akceptuje opcjonalne metadane prezentacyjne
+`source_display_name`, które API zgodnie z kontraktem przypina do nowych jobów,
+ale nadal odrzuca nieznane pola oraz pustą lub zbyt długą etykietę. Rozjazd
+zamkniętych list pól powodował, że poprawne joby stagingu
+`124129 - 149634` kończyły się przed pierwszym zdjęciem błędem
+`INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD`. Dane stagingu, profil rejestracji i
+manifest źródłowy nie były przyczyną błędu.
 
 Stary job `b0575f5f-8ec1-46d6-8262-8ef0309055c7` został anulowany jako
 zastąpiony. Świeży job `b2d9b299-a851-4e17-9ba3-dacaa7966978` zachowuje ten

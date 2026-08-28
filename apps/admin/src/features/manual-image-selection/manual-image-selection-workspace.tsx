@@ -1,5 +1,8 @@
 'use client';
 
+/* Manual selection renders browser-local object URLs and must preserve their native bytes. */
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -28,6 +31,13 @@ import {
   type ManualImageFile,
   type ManualSelectionSessionRecord,
 } from './manual-image-selection-fsa-adapter';
+import {
+  initialManualSelectionCursor,
+  MANUAL_SELECTION_CURSOR_SEMANTICS,
+  manualSelectionDisplayPosition,
+  moveManualSelectionCursor,
+  resumeManualSelectionCursor,
+} from './manual-image-selection-cursor';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
 import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
 
@@ -100,12 +110,19 @@ function LocalManualImageSelectionWorkspace() {
   const [imageUrlIndex, setImageUrlIndex] = useState(-1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [rangeEditorOpen, setRangeEditorOpen] = useState(false);
+  const [rangeStartDraft, setRangeStartDraft] = useState('');
+  const [rangeEndDraft, setRangeEndDraft] = useState('');
   const [loadedImageSize, setLoadedImageSize] =
     useState<LoadedImageSize | null>(null);
   const [imageViewportSize, setImageViewportSize] =
     useState<ManualImageSize | null>(null);
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
+  const currentImagePosition =
+    state === null
+      ? 0
+      : manualSelectionDisplayPosition(state.currentIndex, images.length);
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
@@ -401,7 +418,7 @@ function LocalManualImageSelectionWorkspace() {
       if (found.length === 0)
         throw new Error('Wybrany folder nie zawiera plików JPG/JPEG.');
       setSourceDirectory(directory);
-      setImages(direction === 'ascending' ? found : [...found].reverse());
+      setImages(found);
       setRecord(null);
       setState(null);
       stateRef.current = null;
@@ -447,8 +464,14 @@ function LocalManualImageSelectionWorkspace() {
       setError('Wybierz folder źródłowy i wynikowy.');
       return;
     }
-    const next = createManualSelectionState(parsed, direction);
+    const initialState = createManualSelectionState(parsed, direction);
+    const next = {
+      ...initialState,
+      currentIndex: initialManualSelectionCursor(),
+    };
     const nextRecord: ManualSelectionSessionRecord = {
+      cursorImagePath: images[next.currentIndex]?.relativePath,
+      cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
       gameId: workspaceId,
       key: `${workspaceId}:${Date.now()}`,
       outputDirectory,
@@ -523,24 +546,39 @@ function LocalManualImageSelectionWorkspace() {
           'Manifest folderu wynikowego nie należy do zapisywanej sesji ręcznej selekcji.',
         );
       }
-      const resumedState =
+      const reconciledState =
         manifest === null
           ? savedRecord.state
           : reconcileManualSelectionStateWithOutputManifest(
               savedRecord.state,
               manifest,
             );
-      const synchronizedRecord = { ...repairedRecord, state: resumedState };
+      const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
+      const resumedCursor = resumeManualSelectionCursor({
+        currentImagePath: savedRecord.cursorImagePath,
+        cursorSemantics: savedRecord.cursorSemantics,
+        currentIndex: reconciledState.currentIndex,
+        decisions: reconciledState.decisions,
+        direction: reconciledState.direction,
+        images: found,
+        traceEvents: events,
+      });
+      const resumedState = {
+        ...reconciledState,
+        currentIndex: resumedCursor.currentIndex,
+      };
+      const synchronizedRecord = {
+        ...repairedRecord,
+        cursorImagePath: resumedCursor.currentImagePath ?? undefined,
+        cursorSemantics: resumedCursor.cursorSemantics,
+        state: resumedState,
+      };
       await store.save(synchronizedRecord);
       setResumeRecovery(null);
       setSavedRecord(synchronizedRecord);
       setSourceDirectory(sourceHandle);
       setOutputDirectory(outputHandle);
-      setImages(
-        savedRecord.state.direction === 'ascending'
-          ? found
-          : [...found].reverse(),
-      );
+      setImages(found);
       setRecord(synchronizedRecord);
       setState(resumedState);
       stateRef.current = resumedState;
@@ -552,7 +590,6 @@ function LocalManualImageSelectionWorkspace() {
           `Numeracja została zsynchronizowana z manifestem. Następny zakres: ${resumedState.nextRangeStart}–${resumedState.nextRangeStart + 8}.`,
         );
       }
-      const events = await store.loadTraceEvents(workspaceId, savedRecord.key);
       traceEventIndexRef.current =
         events.reduce(
           (highest, event) => Math.max(highest, event.eventIndex),
@@ -575,7 +612,13 @@ function LocalManualImageSelectionWorkspace() {
         imageViewportRef.current?.scrollTop ?? imageScrollTopRef.current;
       pendingImageScrollRestoreRef.current = true;
     }
-    const nextRecord = { ...record, state: next };
+    const nextRecord = {
+      ...record,
+      cursorImagePath:
+        images[next.currentIndex]?.relativePath ?? record.cursorImagePath,
+      cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
+      state: next,
+    };
     stateRef.current = next;
     setRecord(nextRecord);
     setState(next);
@@ -584,6 +627,38 @@ function LocalManualImageSelectionWorkspace() {
       .then(() => store.save(nextRecord));
     saveQueueRef.current = save;
     await save;
+  }
+
+  function openRangeEditor(): void {
+    const currentState = stateRef.current;
+    if (currentState === null) return;
+    const currentRange = rangeForStart(currentState.nextRangeStart);
+    setRangeStartDraft(String(currentRange.start));
+    setRangeEndDraft(String(currentRange.end));
+    setRangeEditorOpen(true);
+  }
+
+  async function applyRangeEdit(): Promise<void> {
+    const currentState = stateRef.current;
+    const rangeStart = Number(rangeStartDraft);
+    const rangeEnd = Number(rangeEndDraft);
+    if (
+      currentState === null ||
+      !Number.isSafeInteger(rangeStart) ||
+      !Number.isSafeInteger(rangeEnd) ||
+      rangeStart < 1 ||
+      rangeEnd !== rangeStart + 8
+    ) {
+      setError('Zakres musi zawierać dokładnie 9 kolejnych plansz.');
+      return;
+    }
+    setError(null);
+    await persist({
+      ...currentState,
+      nextRangeStart: rangeStart,
+      updatedAt: new Date().toISOString(),
+    });
+    setRangeEditorOpen(false);
   }
 
   async function acceptCurrent(): Promise<void> {
@@ -616,7 +691,7 @@ function LocalManualImageSelectionWorkspace() {
       const nextState = nextManualSelectionState(
         currentState,
         decision,
-        Math.min(currentState.currentIndex + 1, images.length - 1),
+        moveManualSelectionCursor(currentState.currentIndex, images.length, 1),
       );
       await persist(nextState);
       await new FileSystemManualSelectionOutputAdapter(
@@ -783,12 +858,10 @@ function LocalManualImageSelectionWorkspace() {
     const currentState = stateRef.current;
     if (currentState === null || busyRef.current || images.length === 0) return;
     const navigationStep = normalizeNavigationStep(currentState.navigationStep);
-    const nextIndex = Math.max(
-      0,
-      Math.min(
-        images.length - 1,
-        currentState.currentIndex + delta * navigationStep,
-      ),
+    const nextIndex = moveManualSelectionCursor(
+      currentState.currentIndex,
+      images.length,
+      delta * navigationStep,
     );
     if (nextIndex === currentState.currentIndex || record === null) return;
     void persist({
@@ -848,7 +921,7 @@ function LocalManualImageSelectionWorkspace() {
   useEffect(() => {
     if (state === null) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (busyRef.current) return;
+      if (busyRef.current || rangeEditorOpen) return;
       const action = resolveManualSelectionShortcut({
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
@@ -1027,11 +1100,61 @@ function LocalManualImageSelectionWorkspace() {
           <h1 id="manual-image-selection-title">Ręczna selekcja zdjęć</h1>
           <p>
             Zakres{' '}
-            <strong>
+            <button
+              className="manualImageSelectionRangeButton"
+              disabled={busy}
+              onClick={openRangeEditor}
+              type="button"
+            >
               {range.start}–{range.end}
-            </strong>{' '}
-            · zdjęcie {state.currentIndex + 1} / {images.length}
+            </button>{' '}
+            · zdjęcie {currentImagePosition} / {images.length}
           </p>
+          {rangeEditorOpen ? (
+            <form
+              className="manualImageSelectionRangeEditor"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void applyRangeEdit().catch((cause) =>
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : 'Nie udało się zapisać zakresu.',
+                  ),
+                );
+              }}
+              role="dialog"
+            >
+              <label>
+                Od
+                <input
+                  min="1"
+                  onChange={(event) => setRangeStartDraft(event.target.value)}
+                  type="number"
+                  value={rangeStartDraft}
+                />
+              </label>
+              <label>
+                Do
+                <input
+                  min="1"
+                  onChange={(event) => setRangeEndDraft(event.target.value)}
+                  type="number"
+                  value={rangeEndDraft}
+                />
+              </label>
+              <button className="primaryButton" type="submit">
+                Ustaw
+              </button>
+              <button
+                className="secondaryButton"
+                onClick={() => setRangeEditorOpen(false)}
+                type="button"
+              >
+                Anuluj
+              </button>
+            </form>
+          ) : null}
         </div>
         <div className="manualImageSelectionCounters" aria-live="polite">
           <span>
@@ -1111,7 +1234,7 @@ function LocalManualImageSelectionWorkspace() {
             Zakres {range.start}–{range.end}
           </strong>
           <span>
-            zdjęcie {state.currentIndex + 1} / {images.length}
+            zdjęcie {currentImagePosition} / {images.length}
           </span>
           <span>skok strzałki: {navigationStep}</span>
           <span>{current?.relativePath ?? 'brak zdjęcia'}</span>
@@ -1119,7 +1242,10 @@ function LocalManualImageSelectionWorkspace() {
         <button
           aria-label="Poprzednie zdjęcie"
           className="manualImageSelectionNav"
-          disabled={state.currentIndex === 0 || busy}
+          disabled={
+            moveManualSelectionCursor(state.currentIndex, images.length, -1) ===
+              state.currentIndex || busy
+          }
           onClick={() => moveImage(-1)}
           type="button"
         >
@@ -1172,7 +1298,10 @@ function LocalManualImageSelectionWorkspace() {
         <button
           aria-label="Następne zdjęcie"
           className="manualImageSelectionNav"
-          disabled={state.currentIndex >= images.length - 1 || busy}
+          disabled={
+            moveManualSelectionCursor(state.currentIndex, images.length, 1) ===
+              state.currentIndex || busy
+          }
           onClick={() => moveImage(1)}
           type="button"
         >

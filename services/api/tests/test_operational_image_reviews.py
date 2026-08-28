@@ -31,6 +31,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewCounts,
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryRevision,
+    ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
     ImageReviewPage,
@@ -52,10 +53,12 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         game_id: UUID,
         import_job_id: UUID,
         items: Sequence[ImageReviewItem],
+        grid_issue_review_item_ids: Sequence[UUID] = (),
     ) -> None:
         self.game_id = game_id
         self.import_job_id = import_job_id
         self.items = {item.id: item for item in items}
+        self.grid_issue_review_item_ids = frozenset(grid_issue_review_item_ids)
         self.queue_version = 1 if self.items else 0
         self.events: dict[UUID, list[ImageReviewResolutionEvent]] = {}
         self.geometry_revisions: dict[UUID, list[ImageReviewGeometryRevision]] = {}
@@ -74,6 +77,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         game_id: UUID,
         import_job_id: UUID,
         view: ImageReviewView,
+        grid_issue_view: ImageReviewGridIssueView,
         after_key: tuple[int, int, str] | None,
         before_key: tuple[int, int, str] | None,
         expected_queue_version: int | None,
@@ -103,6 +107,11 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
                 return item.queue_sequence_number
             return item.queue_sequence_number or item.suggested_sequence_number
 
+        def matches_grid_issue_view(item: ImageReviewItem) -> bool:
+            return grid_issue_view is ImageReviewGridIssueView.ALL or (
+                item.id in self.grid_issue_review_item_ids and item.status == "pending"
+            )
+
         if expected_queue_version is not None and expected_queue_version != self.queue_version:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CURSOR_STALE",
@@ -116,6 +125,7 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             item
             for item in self.items.values()
             if belongs_to_view(item)
+            and matches_grid_issue_view(item)
             and (sequence_number is None or effective_sequence_number(item) == sequence_number)
         ]
         candidates.sort(key=key)
@@ -135,7 +145,11 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         else:
             visible = candidates[:limit]
         all_for_view = sorted(
-            (item for item in self.items.values() if belongs_to_view(item)),
+            (
+                item
+                for item in self.items.values()
+                if belongs_to_view(item) and matches_grid_issue_view(item)
+            ),
             key=key,
         )
         return ImageReviewPage(
@@ -146,6 +160,10 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             ),
             has_next=bool(visible and any(key(item) > key(visible[-1]) for item in all_for_view)),
             queue_version=self.queue_version,
+            needs_grid_fix_count=sum(
+                item.id in self.grid_issue_review_item_ids and item.status == "pending"
+                for item in self.items.values()
+            ),
         )
 
     def queue_snapshot(
@@ -576,6 +594,7 @@ def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
         game_id=game_id,
         import_job_id=import_job_id,
         items=[item],
+        grid_issue_review_item_ids=[item.id],
     )
     access = ReviewerAccessService("http://127.0.0.1:3001")
     created = access.create(
@@ -598,6 +617,7 @@ def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
             "gameId": str(game_id),
             "importJobId": str(import_job_id),
             "view": "all",
+            "gridIssueView": "needs_grid_fix",
             "limit": 1,
         },
         headers=headers,
@@ -610,6 +630,7 @@ def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
             "gameId": str(game_id),
             "importJobId": str(uuid4()),
             "view": "all",
+            "gridIssueView": "needs_grid_fix",
             "limit": 1,
         },
         headers=headers,
@@ -966,8 +987,9 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
     assert first_body["nextCursor"]
     padding = "=" * (-len(first_body["nextCursor"]) % 4)
     cursor_payload = json.loads(base64.urlsafe_b64decode(first_body["nextCursor"] + padding))
-    assert cursor_payload["version"] == 2
+    assert cursor_payload["version"] == 3
     assert cursor_payload["queueVersion"] == 1
+    assert cursor_payload["gridIssueView"] == "all"
     assert cursor_payload["key"] == [
         first_body["items"][-1]["sourceOrderIndex"],
         first_body["items"][-1]["positionIndex"],
@@ -1000,6 +1022,100 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         },
     )
     assert wrong_scope.status_code in {404, 409}
+
+
+def test_grid_issue_view_lists_each_flagged_pending_board_once_and_scopes_cursors() -> None:
+    game_id = uuid4()
+    import_job_id = uuid4()
+    first = _item(
+        game_id,
+        import_job_id,
+        source_order_index=0,
+        suggested_sequence_number=1,
+    )
+    second = _item(
+        game_id,
+        import_job_id,
+        source_order_index=1,
+        suggested_sequence_number=2,
+    )
+    completed = replace(
+        _item(
+            game_id,
+            import_job_id,
+            source_order_index=2,
+            suggested_sequence_number=3,
+        ),
+        status="accepted",
+    )
+    rejected = replace(
+        _item(
+            game_id,
+            import_job_id,
+            source_order_index=3,
+            suggested_sequence_number=4,
+        ),
+        status="rejected",
+    )
+    superseded = replace(
+        _item(
+            game_id,
+            import_job_id,
+            source_order_index=4,
+            suggested_sequence_number=5,
+        ),
+        status="superseded",
+    )
+    repository = MemoryOperationalImageReviewRepository(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        items=[first, second, completed, rejected, superseded],
+        grid_issue_review_item_ids=[
+            first.id,
+            second.id,
+            completed.id,
+            rejected.id,
+            superseded.id,
+        ],
+    )
+    app = create_app(
+        ApiSettings.from_environment({}),
+        image_review_service_dependency=lambda: OperationalImageReviewService(repository),
+    )
+    client = TestClient(app)
+    context = {
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "view": "all",
+        "gridIssueView": "needs_grid_fix",
+        "limit": 1,
+    }
+
+    first_page = client.get("/api/v1/admin/image-review-items", params=context)
+    assert first_page.status_code == 200
+    first_body = first_page.json()
+    assert first_body["gridIssueView"] == "needs_grid_fix"
+    assert first_body["needsGridFixCount"] == 2
+    assert [item["id"] for item in first_body["items"]] == [str(first.id)]
+    assert first_body["nextCursor"] is not None
+
+    second_page = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**context, "afterCursor": first_body["nextCursor"]},
+    )
+    assert second_page.status_code == 200
+    assert [item["id"] for item in second_page.json()["items"]] == [str(second.id)]
+
+    wrong_filter = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            **context,
+            "gridIssueView": "all",
+            "afterCursor": first_body["nextCursor"],
+        },
+    )
+    assert wrong_filter.status_code == 409
+    assert wrong_filter.json()["code"] == "IMAGE_REVIEW_CURSOR_SCOPE_INVALID"
 
 
 def test_pending_cursor_survives_boundary_resolution_but_not_topology_change(

@@ -1,18 +1,32 @@
 'use client';
 
 import type {
-  SymbolImageCandidateResponse,
+  ApprovedSymbolReferenceCandidateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
-import type { SymbolsClient } from '@/features/symbols/symbol-catalog-actions';
-import { appendUniqueCandidates } from '@/features/symbols/symbol-image-picker-state';
+
+import type { SymbolsClient } from './symbol-catalog-actions';
+import {
+  appendSymbolReferenceCandidatePage,
+  canGoToNextSymbolReferencePage,
+  canGoToPreviousSymbolReferencePage,
+  currentSymbolReferenceCandidatePage,
+  type SymbolReferenceCandidatePage,
+} from './symbol-image-picker-state';
+
+type LoadState = 'loading' | 'ready' | 'error';
 
 interface SymbolImagePickerModalProps {
-  readonly api: SymbolsClient;
+  readonly api: Pick<
+    SymbolsClient,
+    | 'approvedSymbolReferenceCandidateAssetUrl'
+    | 'listApprovedSymbolReferenceCandidates'
+    | 'selectApprovedSymbolReferenceCandidate'
+  >;
   readonly gameId: string;
   readonly onClose: () => void;
   readonly onSelected: (symbol: SymbolResponse) => void;
@@ -26,104 +40,146 @@ export function SymbolImagePickerModal({
   onSelected,
   symbol,
 }: SymbolImagePickerModalProps) {
-  const [candidates, setCandidates] = useState<
-    readonly SymbolImageCandidateResponse[]
-  >([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [selectedObservationId, setSelectedObservationId] = useState<
-    string | null
-  >(null);
-  const [name, setName] = useState(symbol.name);
-  const [loading, setLoading] = useState<'initial' | 'more' | null>('initial');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [pages, setPages] = useState<readonly SymbolReferenceCandidatePage[]>(
+    [],
+  );
+  const [pageIndex, setPageIndex] = useState(0);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [message, setMessage] = useState('');
+  const [selectingId, setSelectingId] = useState<string | null>(null);
+  const [unavailableAssetIds, setUnavailableAssetIds] = useState<
+    ReadonlySet<string>
+  >(new Set());
   const requestId = useRef(0);
 
-  const loadCandidates = useCallback(
-    async (cursor?: string) => {
-      const currentRequest = ++requestId.current;
-      setLoading(cursor === undefined ? 'initial' : 'more');
-      setError('');
-      try {
-        const result = await api.listSymbolImageCandidates(
-          gameId,
-          symbol.id,
-          cursor,
-        );
-        if (currentRequest !== requestId.current) return;
-        if (result.error !== undefined || result.data === undefined) {
-          setError(
-            apiErrorMessage(
-              result.error,
-              'Nie udało się pobrać propozycji grafiki.',
-            ),
-          );
-          return;
-        }
-        setCandidates((current) =>
-          appendUniqueCandidates(
-            cursor === undefined ? [] : current,
-            result.data.items,
+  const loadInitial = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
+    setLoadState('loading');
+    setMessage('');
+    setUnavailableAssetIds(new Set());
+    try {
+      const result = await api.listApprovedSymbolReferenceCandidates(
+        gameId,
+        symbol.id,
+      );
+      if (currentRequestId !== requestId.current) return;
+      if (result.error !== undefined || result.data === undefined) {
+        setMessage(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się pobrać zatwierdzonych propozycji grafiki.',
           ),
         );
-        setNextCursor(result.data.nextCursor);
-      } catch {
-        if (currentRequest === requestId.current) {
-          setError('Połączenie z lokalnym Admin API zostało przerwane.');
-        }
-      } finally {
-        if (currentRequest === requestId.current) setLoading(null);
+        setLoadState('error');
+        return;
       }
-    },
-    [api, gameId, symbol.id],
-  );
+      setPages([result.data]);
+      setPageIndex(0);
+      setLoadState('ready');
+    } catch {
+      if (currentRequestId === requestId.current) {
+        setMessage(
+          'Połączenie z lokalnym Admin API zostało przerwane podczas pobierania propozycji.',
+        );
+        setLoadState('error');
+      }
+    }
+  }, [api, gameId, symbol.id]);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) void loadCandidates();
+      if (!cancelled) void loadInitial();
     });
     return () => {
       cancelled = true;
       requestId.current += 1;
     };
-  }, [loadCandidates]);
+  }, [loadInitial]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !saving) onClose();
+  const currentPage = currentSymbolReferenceCandidatePage(pages, pageIndex);
+  const candidates = currentPage?.items ?? [];
+  const canGoPrevious = canGoToPreviousSymbolReferencePage(pageIndex);
+  const canGoNext = canGoToNextSymbolReferencePage(pages, pageIndex);
+
+  async function nextPage() {
+    if (selectingId !== null || !canGoNext) return;
+    if (pageIndex < pages.length - 1) {
+      setPageIndex((current) => current + 1);
+      return;
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, saving]);
+    const afterCursor = currentPage?.nextCursor;
+    if (afterCursor === null || afterCursor === undefined) return;
 
-  async function saveSelection() {
-    if (selectedObservationId === null || saving || !name.trim()) return;
-    setSaving(true);
-    setError('');
+    const currentRequestId = ++requestId.current;
+    setLoadState('loading');
+    setMessage('');
     try {
-      const result = await api.selectSymbolImageCandidate(
+      const result = await api.listApprovedSymbolReferenceCandidates(
         gameId,
         symbol.id,
-        selectedObservationId,
-        { name: name.trim() },
+        afterCursor,
       );
+      if (currentRequestId !== requestId.current) return;
       if (result.error !== undefined || result.data === undefined) {
-        setError(
+        setMessage(
           apiErrorMessage(
             result.error,
-            'Nie udało się zapisać grafiki reprezentatywnej.',
+            'Nie udało się pobrać kolejnej strony propozycji.',
           ),
         );
+        setLoadState('error');
+        return;
+      }
+      setPages((current) =>
+        appendSymbolReferenceCandidatePage(current, result.data),
+      );
+      setPageIndex((current) => current + 1);
+      setLoadState('ready');
+    } catch {
+      if (currentRequestId === requestId.current) {
+        setMessage(
+          'Połączenie z lokalnym Admin API zostało przerwane podczas pobierania kolejnej strony.',
+        );
+        setLoadState('error');
+      }
+    }
+  }
+
+  async function selectCandidate(
+    candidate: ApprovedSymbolReferenceCandidateResponse,
+  ) {
+    if (selectingId !== null) return;
+    setSelectingId(candidate.observationId);
+    setMessage('');
+    try {
+      const result = await api.selectApprovedSymbolReferenceCandidate(
+        gameId,
+        symbol.id,
+        candidate.observationId,
+        {
+          expectedChecksumSha256: candidate.cropChecksumSha256,
+          selectedBy: 'admin-local',
+        },
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        const error = apiErrorMessage(
+          result.error,
+          'Nie udało się zapisać wybranej grafiki symbolu.',
+        );
+        setMessage(error);
+        if (isStaleCandidateError(result.error)) {
+          void loadInitial();
+        }
         return;
       }
       onSelected(result.data);
     } catch {
-      setError(
-        'Połączenie z lokalnym Admin API zostało przerwane podczas zapisu.',
+      setMessage(
+        'Połączenie z lokalnym Admin API zostało przerwane. Wybór nie został potwierdzony.',
       );
     } finally {
-      setSaving(false);
+      setSelectingId(null);
     }
   }
 
@@ -131,22 +187,26 @@ export function SymbolImagePickerModal({
     <dialog
       aria-labelledby="symbol-image-picker-title"
       aria-modal="true"
-      className="paylineDialog"
+      className="symbolImagePickerDialog"
       data-testid="symbol-image-picker"
       open
     >
-      <div className="paylineDialogCard symbolImagePickerCard">
-        <header className="paylineDialogHeader">
+      <div className="symbolImagePickerCard">
+        <header className="symbolImagePickerHeader">
           <div>
-            <p className="eyebrow">
-              Symbol {symbol.mobileCode} · {symbol.code}
+            <p className="eyebrow">Zatwierdzone cropy</p>
+            <h2 id="symbol-image-picker-title">
+              Wybierz grafikę: {symbol.name}
+            </h2>
+            <p>
+              Pokazujemy wyłącznie cropy z plansz zatwierdzonych przez
+              człowieka.
             </p>
-            <h2 id="symbol-image-picker-title">Wybierz grafikę symbolu</h2>
           </div>
           <button
             aria-label="Zamknij wybór grafiki"
             className="iconButton"
-            disabled={saving}
+            disabled={selectingId !== null}
             onClick={onClose}
             type="button"
           >
@@ -154,126 +214,134 @@ export function SymbolImagePickerModal({
           </button>
         </header>
 
-        <label className="symbolImageNameField">
-          <span>Nazwa symbolu</span>
-          <input
-            disabled={saving}
-            maxLength={200}
-            onChange={(event) => setName(event.currentTarget.value)}
-            value={name}
-          />
-          <small>
-            Kod {symbol.code} i mobileCode {symbol.mobileCode} pozostaną bez
-            zmian.
-          </small>
-        </label>
-
-        {loading === 'initial' ? (
-          <div className="modalState">
-            <span aria-hidden="true" className="loadingMark" />
-            <div>
-              <h3>Wczytywanie grafik</h3>
-              <p>Pobieram pierwszych 10 rzeczywistych cropów tej grupy.</p>
-            </div>
-          </div>
+        {message ? (
+          <p
+            className={
+              loadState === 'error'
+                ? 'feedbackBanner feedbackBannerError'
+                : 'formError'
+            }
+            role="alert"
+          >
+            {message}
+          </p>
         ) : null}
 
-        {loading !== 'initial' && candidates.length === 0 && !error ? (
-          <div className="modalState">
-            <span aria-hidden="true" className="stateIcon">
-              0
-            </span>
-            <div>
-              <h3>Brak kandydatów</h3>
-              <p>Ten symbol nie ma dostępnych cropów do wyboru.</p>
-            </div>
+        {loadState === 'loading' && pages.length === 0 ? (
+          <p className="symbolImagePickerLoading" role="status">
+            Wczytywanie zatwierdzonych cropów…
+          </p>
+        ) : null}
+
+        {loadState === 'ready' && candidates.length === 0 ? (
+          <div className="symbolImagePickerEmpty">
+            <span aria-hidden="true">?</span>
+            <p>Najpierw zatwierdź planszę zawierającą ten symbol.</p>
           </div>
         ) : null}
 
         {candidates.length > 0 ? (
-          <div
-            aria-label="Kandydaci na grafikę reprezentatywną"
-            className="symbolImageCandidateGrid"
-          >
+          <div className="symbolImageCandidateGrid">
             {candidates.map((candidate) => {
-              const selected =
-                selectedObservationId === candidate.observationId;
+              const unavailable = unavailableAssetIds.has(
+                candidate.observationId,
+              );
+              const selecting = selectingId === candidate.observationId;
               return (
                 <button
-                  aria-pressed={selected}
-                  className={
-                    selected
-                      ? 'symbolImageCandidate symbolImageCandidateSelected'
-                      : 'symbolImageCandidate'
-                  }
-                  disabled={saving}
+                  aria-busy={selecting}
+                  className="symbolImageCandidate"
+                  disabled={selectingId !== null}
                   key={candidate.observationId}
-                  onClick={() =>
-                    setSelectedObservationId(candidate.observationId)
-                  }
+                  onClick={() => void selectCandidate(candidate)}
                   type="button"
                 >
-                  <Image
-                    alt={`Kandydat dla ${symbol.name}`}
-                    height={160}
-                    src={api.symbolImageCandidateAssetUrl(
-                      gameId,
-                      symbol.id,
-                      candidate.observationId,
+                  <span className="symbolImageCandidatePreview">
+                    {unavailable ? (
+                      <span className="symbolImageCandidateUnavailable">
+                        Plik niedostępny
+                      </span>
+                    ) : (
+                      <Image
+                        alt={`Crop symbolu ${symbol.name}, sekwencja ${candidate.sequenceNumber}, pozycja ${candidate.cellIndex + 1}`}
+                        height={128}
+                        onError={() => {
+                          setUnavailableAssetIds((current) =>
+                            new Set(current).add(candidate.observationId),
+                          );
+                        }}
+                        src={api.approvedSymbolReferenceCandidateAssetUrl(
+                          gameId,
+                          symbol.id,
+                          candidate.observationId,
+                        )}
+                        unoptimized
+                        width={128}
+                      />
                     )}
-                    unoptimized
-                    width={160}
-                  />
-                  <span>{Math.round(candidate.confidence * 100)}%</span>
+                  </span>
+                  <span>
+                    Sekwencja {candidate.sequenceNumber} · pole{' '}
+                    {candidate.cellIndex + 1}
+                  </span>
+                  <small>
+                    {candidate.geometryRevision > 0
+                      ? 'Ręcznie poprawiona geometria'
+                      : 'Zatwierdzona plansza'}
+                  </small>
+                  {selecting ? <strong>Zapisywanie…</strong> : null}
                 </button>
               );
             })}
           </div>
         ) : null}
 
-        {error ? (
-          <div className="symbolImagePickerError" role="alert">
-            <p>{error}</p>
-            {candidates.length === 0 ? (
-              <button
-                className="secondaryButton"
-                disabled={loading !== null}
-                onClick={() => void loadCandidates()}
-                type="button"
-              >
-                Spróbuj ponownie
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <footer className="symbolImagePickerActions">
-          {nextCursor ? (
+        <footer className="symbolImagePickerFooter">
+          <p>
+            Strona {pages.length === 0 ? 0 : pageIndex + 1}
+            {loadState === 'loading' && pages.length > 0
+              ? ' · pobieranie kolejnej…'
+              : ''}
+          </p>
+          <div className="rowActions">
             <button
               className="secondaryButton"
-              disabled={loading !== null || saving}
-              onClick={() => void loadCandidates(nextCursor)}
+              disabled={!canGoPrevious || selectingId !== null}
+              onClick={() => setPageIndex((current) => current - 1)}
               type="button"
             >
-              {loading === 'more' ? 'Wczytywanie…' : 'Załaduj kolejne grafiki'}
+              Poprzednia
             </button>
-          ) : (
-            <span className="symbolImagePickerEnd">
-              {candidates.length > 0
-                ? 'Wyświetlono wszystkie kandydatury.'
-                : ''}
-            </span>
-          )}
-          <button
-            className="primaryButton"
-            disabled={selectedObservationId === null || saving || !name.trim()}
-            onClick={() => void saveSelection()}
-            type="button"
-          >
-            {saving ? 'Zapisywanie…' : 'Zapisz grafikę i nazwę'}
-          </button>
+            <button
+              className="secondaryButton"
+              disabled={
+                !canGoNext || selectingId !== null || loadState === 'loading'
+              }
+              onClick={() => void nextPage()}
+              type="button"
+            >
+              Następna
+            </button>
+            <button
+              className="textButton"
+              disabled={selectingId !== null || loadState === 'loading'}
+              onClick={() => void loadInitial()}
+              type="button"
+            >
+              Odśwież propozycje
+            </button>
+          </div>
         </footer>
       </div>
     </dialog>
+  );
+}
+
+function isStaleCandidateError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'SYMBOL_REFERENCE_CANDIDATE_STALE'
   );
 }

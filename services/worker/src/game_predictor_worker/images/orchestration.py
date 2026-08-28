@@ -129,10 +129,6 @@ class ImageStageExecutor(Protocol):
     ) -> ImageStageExecutionResult: ...
 
 
-class ImageResultRehydrator(Protocol):
-    def rehydrate(self, candidate: ImageBatchCandidate) -> None: ...
-
-
 class ImageBatchStore(Protocol):
     def count_job_files(self, job_id: UUID, *, pipeline_fingerprint: str) -> int: ...
 
@@ -274,18 +270,26 @@ class ImageBatchHandler:
                 "The image import job has no attested source files.",
             )
         progress = _IncrementalBatchStats.from_snapshot(initial_stats)
-        self._recheck_waiting_once(
-            context,
-            job,
-            pipeline_fingerprint,
-            progress,
-        )
+        # A persisted ``waiting_for_review`` checkpoint is written only after
+        # its recognition projection has committed.  Process any unfinished
+        # source files first: replaying thousands of already-pending pages
+        # after a worker restart neither changes their review state nor makes
+        # the new sources available to the operator.  This also keeps resume
+        # latency bounded by actual unfinished work instead of the size of the
+        # existing review queue.
         self._drain_processing(
             context,
             job,
             pipeline_fingerprint,
             progress,
         )
+        if initial_stats.waiting:
+            self._recheck_waiting_once(
+                context,
+                job,
+                pipeline_fingerprint,
+                progress,
+            )
         stats = self._store.batch_stats(
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
@@ -316,7 +320,6 @@ class ImageBatchHandler:
                 candidate,
                 pipeline_fingerprint,
                 progress,
-                rehydrate_review=False,
             )
 
     def _recheck_waiting_once(
@@ -339,7 +342,6 @@ class ImageBatchHandler:
                 candidate,
                 pipeline_fingerprint,
                 progress,
-                rehydrate_review=True,
             )
 
     def _run_candidate(
@@ -349,11 +351,8 @@ class ImageBatchHandler:
         candidate: ImageBatchCandidate,
         pipeline_fingerprint: str,
         progress: _IncrementalBatchStats,
-        *,
-        rehydrate_review: bool,
     ) -> None:
         current = candidate
-        should_rehydrate_review = rehydrate_review
         while True:
             checkpoint = validate_file_checkpoint(current.execution.checkpoint_payload)
             stage = cast(str | None, checkpoint["nextStage"])
@@ -368,14 +367,14 @@ class ImageBatchHandler:
                 executed_at=context.now(),
             )
             try:
-                rehydrate = getattr(self._stage_executor, "rehydrate", None)
-                if (
-                    should_rehydrate_review
-                    and stage in {"manual_review", "validation"}
-                    and callable(rehydrate)
-                ):
-                    cast(ImageResultRehydrator, self._stage_executor).rehydrate(execution_candidate)
-                    should_rehydrate_review = False
+                # ``waiting_for_review`` proves that discovery and recognition
+                # were already projected before its checkpoint was persisted.
+                # Replaying those projections on every worker restart is
+                # redundant and, for large review queues, can hide all
+                # remaining processing behind many minutes of database work.
+                # Shared immutable results still remain explicitly
+                # rehydratable for recovery tooling; normal resume must trust
+                # the durable file checkpoint.
                 result = self._stage_executor.execute_stage(execution_candidate, stage)
             except Exception as error:
                 if (
@@ -408,6 +407,11 @@ class ImageBatchHandler:
                     review_count=stats.review,
                 )
                 return
+            if result is ImageStageExecutionResult.WAITING_FOR_REVIEW:
+                # The file checkpoint is already the exact durable review
+                # boundary.  Do not rewrite it or the job checkpoint while
+                # merely confirming that an unresolved review still exists.
+                return
             advanced = advance_file_checkpoint(checkpoint, result)
             persisted = self._store.save_file_checkpoint(
                 job.id,
@@ -430,10 +434,7 @@ class ImageBatchHandler:
                 failure_count=stats.failed,
                 review_count=stats.review,
             )
-            if (
-                result is ImageStageExecutionResult.WAITING_FOR_REVIEW
-                or persisted.status == "completed"
-            ):
+            if persisted.status == "completed":
                 return
             current = ImageBatchCandidate(
                 execution=persisted,

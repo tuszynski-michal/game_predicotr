@@ -3,6 +3,134 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('generated client previews, starts and reads durable symbol review operations', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const operationId = '22222222-2222-4222-8222-222222222222';
+  const command = {
+    action: 'approve',
+    selection: {
+      kind: 'explicit',
+      targets: [
+        {
+          cellReviewId: '33333333-3333-4333-8333-333333333333',
+          expectedCropChecksumSha256: 'a'.repeat(64),
+          expectedCropSampleId: 'b'.repeat(64),
+          expectedGeometryRevision: 0,
+          expectedRevision: 0,
+        },
+      ],
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ operation: {}, created: true });
+    },
+  });
+
+  await client.previewSymbolCellReviewBulkOperation(gameId, command);
+  await client.startSymbolCellReviewBulkOperation(gameId, {
+    ...command,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
+  await client.getSymbolCellReviewBulkOperation(gameId, operationId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/symbol-cell-review-operations/preview`,
+      ],
+      ['POST', `/api/v1/admin/games/${gameId}/symbol-cell-review-operations`],
+      [
+        'GET',
+        `/api/v1/admin/games/${gameId}/symbol-cell-review-operations/${operationId}`,
+      ],
+    ],
+  );
+  assert.equal(
+    JSON.parse(await requests[1].clone().text()).idempotencyKey,
+    '44444444-4444-4444-8444-444444444444',
+  );
+});
+
+test('generated client applies one symbol-cell decision without a bulk job', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const cellReviewId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ cellReviewId });
+    },
+  });
+
+  await client.applySymbolCellReviewDecision(gameId, cellReviewId, {
+    action: 'reassign',
+    expectedCropChecksumSha256: 'a'.repeat(64),
+    expectedCropSampleId: 'b'.repeat(64),
+    expectedGeometryRevision: 0,
+    expectedRevision: 2,
+    targetSymbolId: '44444444-4444-4444-8444-444444444444',
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/decision`,
+  );
+});
+
+test('generated client pages and selects checksum-bound approved symbol reference candidates', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const symbolId = '22222222-2222-4222-8222-222222222222';
+  const observationId = '33333333-3333-4333-8333-333333333333';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [], nextCursor: null });
+    },
+  });
+
+  await client.listApprovedSymbolReferenceCandidates(
+    gameId,
+    symbolId,
+    'cursor-1',
+  );
+  await client.selectApprovedSymbolReferenceCandidate(
+    gameId,
+    symbolId,
+    observationId,
+    { expectedChecksumSha256: checksum, selectedBy: 'admin-local' },
+  );
+
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates`,
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('afterCursor'),
+    'cursor-1',
+  );
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${observationId}/selection`,
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+  );
+});
+
 test('generated client reads model quality and freezes the confirmed manifest', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -2018,115 +2146,91 @@ test('operational review client forwards resume-at-first-pending in the all queu
   assert.equal(query.get('resumeAtFirstPending'), 'true');
 });
 
-test('symbol bootstrap keeps the game scope and explicit mutation target', async () => {
+test('symbol cell review client binds the keyset filter and checksum asset URL', async () => {
   const requests = [];
   const gameId = '22222222-2222-4222-8222-222222222222';
-  const bootstrapId = '33333333-3333-4333-8333-333333333333';
-  const client = createAdminApiClient({
-    baseUrl: 'http://127.0.0.1:8000',
-    fetch: async (request) => {
-      requests.push(request);
-      return Response.json(null, { status: 200 });
-    },
-  });
-
-  await client.getLatestSymbolBootstrap(gameId);
-  await client.startSymbolBootstrap(gameId, {
-    createdBy: 'local-admin',
-    expectedSymbolCount: 8,
-  });
-  await client.resolveSymbolBootstrap(gameId, bootstrapId, {
-    symbols: [
-      {
-        candidateIds: ['a'.repeat(64)],
-        code: 'lemon',
-        mobileCode: 1,
-        name: 'Lemon',
-      },
-    ],
-  });
-
-  assert.deepEqual(
-    requests.map((request) => [request.method, new URL(request.url).pathname]),
-    [
-      ['GET', `/api/v1/admin/games/${gameId}/symbol-bootstrap`],
-      ['POST', `/api/v1/admin/games/${gameId}/symbol-bootstrap`],
-      [
-        'POST',
-        `/api/v1/admin/games/${gameId}/symbol-bootstrap/${bootstrapId}/resolution`,
-      ],
-    ],
-  );
-  assert.equal(
-    requests[1].headers.get('X-Admin-Target'),
-    `symbol-bootstrap:${gameId}`,
-  );
-  assert.equal(
-    requests[2].headers.get('X-Admin-Target'),
-    `symbol-bootstrap:${bootstrapId}`,
-  );
-});
-
-test('symbol image picker pages candidates and selects only a scoped observation', async () => {
-  const requests = [];
-  const gameId = '22222222-2222-4222-8222-222222222222';
-  const symbolId = '33333333-3333-4333-8333-333333333333';
-  const observationId = '44444444-4444-4444-8444-444444444444';
+  const cellReviewId = '33333333-3333-4333-833333333333';
+  const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000/',
     fetch: async (request) => {
       requests.push(request);
-      return Response.json(
-        request.method === 'GET'
-          ? { items: [], nextCursor: null }
-          : {
-              code: 'lemon',
-              displayOrder: 0,
-              gameId,
-              id: symbolId,
-              imagePath: 'data/crops/lemon.png',
-              isWildcard: false,
-              mobileCode: 1,
-              name: 'Lemon',
-              status: 'active',
-            },
-        { status: 200 },
-      );
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+      });
     },
   });
 
-  await client.listSymbolImageCandidates(gameId, symbolId, 'opaque-cursor');
-  await client.selectSymbolImageCandidate(gameId, symbolId, observationId, {
-    name: 'Lemon',
+  await client.listSymbolCellReviews({
+    afterCursor: 'cursor-after',
+    gameId,
+    limit: 60,
+    state: 'pending',
+    symbolId: 'unknown',
   });
 
+  const requestUrl = new URL(requests[0].url);
   assert.equal(
-    client.symbolImageCandidateAssetUrl(gameId, symbolId, observationId),
-    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates/${observationId}/asset`,
+    requestUrl.pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews`,
   );
+  assert.equal(requestUrl.searchParams.get('symbolId'), 'unknown');
+  assert.equal(requestUrl.searchParams.get('state'), 'pending');
+  assert.equal(requestUrl.searchParams.get('afterCursor'), 'cursor-after');
+  assert.equal(requestUrl.searchParams.get('limit'), '60');
+  assert.equal(
+    client.symbolCellReviewAssetUrl(gameId, cellReviewId, checksum),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/asset?expectedCropChecksumSha256=${checksum}&thumbnailSize=100`,
+  );
+});
+
+test('symbol cell review client reads and starts durable projection preparation', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        activeJobId: null,
+        databaseFreeBytesCurrent: 1_000,
+        expectedBoardCount: 2,
+        expectedCellCount: 30,
+        failureMessage: null,
+        gameId,
+        indexBytesBefore: 0,
+        indexBytesCurrent: 0,
+        invalidCropCount: 0,
+        invalidGeometryCount: 0,
+        missingSequenceCount: 0,
+        persistedCellCount: 0,
+        processedBoardCount: 0,
+        sampleProblemReviewItemIds: [],
+        status: 'not_started',
+        tableBytesBefore: 0,
+        tableBytesCurrent: 0,
+      });
+    },
+  });
+
+  await client.getSymbolCellReviewProjectionStatus(gameId);
+  await client.startSymbolCellReviewProjectionBackfill(gameId);
+
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [
-      [
-        'GET',
-        `/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates`,
-      ],
-      [
-        'POST',
-        `/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates/${observationId}/selection`,
-      ],
+      ['GET', `/api/v1/admin/games/${gameId}/symbol-cell-review-projection`],
+      ['POST', `/api/v1/admin/games/${gameId}/symbol-cell-review-projection`],
     ],
-  );
-  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '10');
-  assert.equal(
-    new URL(requests[0].url).searchParams.get('afterCursor'),
-    'opaque-cursor',
   );
   assert.equal(
     requests[1].headers.get('X-Admin-Target'),
-    `symbol-image:${gameId}:${symbolId}:${observationId}`,
+    `symbol-cell-review-projection:${gameId}`,
   );
-  assert.deepEqual(await requests[1].clone().json(), { name: 'Lemon' });
 });
 
 test('cleanup client binds previews and destructive calls to exact targets', async () => {
@@ -2318,4 +2422,61 @@ test('image selection status request forwards its abort signal', async () => {
     `/api/v1/admin/image-selections/${runId}`,
   );
   assert.equal(requests[0].signal.aborted, true);
+});
+
+test('board search forwards a partial pattern and scope through the generated client', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        gameId,
+        queryCellCount: 2,
+        results: [],
+        scope: 'approved_only',
+      });
+    },
+  });
+
+  await client.searchGameBoards(gameId, {
+    cells: [
+      { cellIndex: 1, symbolCode: 'bell' },
+      { cellIndex: 14, symbolCode: 'seven' },
+    ],
+    limit: 20,
+    scope: 'approved_only',
+  });
+
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search`,
+  );
+  assert.deepEqual(new URL(requests[0].url).searchParams.getAll('cell'), [
+    '1:bell',
+    '14:seven',
+  ]);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('scope'),
+    'approved_only',
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+});
+
+test('board search builds only a scoped board-crop asset URL for a result', () => {
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+  });
+
+  assert.equal(
+    client.operationalImageReviewBoardAssetUrl(
+      '22222222-2222-4222-8222-222222222222',
+      {
+        gameId: '11111111-1111-4111-8111-111111111111',
+        importJobId: '33333333-3333-4333-8333-333333333333',
+      },
+    ),
+    'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
+  );
 });

@@ -13,6 +13,11 @@ sortowanie są czystą logiką w `manual-image-selection.ts`. Indeks przechowuje
 uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej
 strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
+Lista `images` zawsze pozostaje w naturalnym porządku. `currentIndex` jest
+trwałym ordinalem tego źródła; nowa sesja zaczyna od `0`, `→` i Enter zwiększają
+ordinal, a `←` go zmniejsza. Kierunek sesji steruje wyłącznie zmianą zakresu
+`seq_*` po zatwierdzeniu. Dzięki temu IndexedDB, cache, trace i wznowienie
+wskazują ten sam fizyczny JPEG niezależnie od kierunku numeracji plansz.
 
 Sesje są przechowywane w osobnej bazie IndexedDB
 `game-predictor-manual-image-selection`, w magazynie `sessions`. Historyczne
@@ -36,6 +41,25 @@ sesji, z tym samym źródłem, kierunkiem, kolejnością wybranych plików i
 checksumami może przesunąć numerację wszystkich decyzji o jeden stały offset.
 Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
 nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
+Operator może także jawnie zmienić wyłącznie bieżący `nextRangeStart` przez
+zakres `start–start+8`. Taka korekta nie zmienia `firstLayout`, poprzednich
+decyzji ani plików, a po akceptacji następny zakres jest liczony od ręcznie
+podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzają
+każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
+Niepoprawny zakres, obca nazwa `seq_*` lub niezgodna checksum pozostają
+fail-closed.
+
+Rekord lokalnej sesji zapisuje `cursorSemantics: source_path_v3` oraz
+`cursorImagePath`. Ta ścieżka jest trwałą tożsamością bieżącego JPEG-a i przy
+wznowieniu jest ponownie mapowana w naturalnie posortowanym źródle; indeks
+pozostaje wyłącznie pomocniczym ordinalem cache i nawigacji. Rekordy
+historyczne bez ścieżki są jednorazowo migrowane. Rekord `source_path_v2` z
+kierunkiem malejącym jest także historyczny: jego ścieżka mogła już wskazywać
+lustrzany ordinal. W takim przypadku ostatni zatwierdzony plik jest silniejszą
+kotwicą, a następnym zdjęciem jest zawsze kolejny ordinal naturalnej listy.
+Trace `viewed` nie jest dowodem formatu, ponieważ mógł powstać już po błędnym
+wznowieniu. Brak zapisanej ścieżki w źródle blokuje wznowienie zamiast wskazać
+niewłaściwy JPEG. Wynik migracji jest utrwalany przed pokazaniem zdjęcia.
 
 Uchwyt File System Access API reprezentuje tożsamość katalogu, a nie wyłącznie
 jego tekstową ścieżkę. `NotFoundError` po usunięciu, przeniesieniu lub ponownym

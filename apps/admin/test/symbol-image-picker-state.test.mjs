@@ -1,20 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { appendUniqueCandidates } from '../src/features/symbols/symbol-image-picker-state.ts';
+import {
+  appendSymbolReferenceCandidatePage,
+  canGoToNextSymbolReferencePage,
+  canGoToPreviousSymbolReferencePage,
+  currentSymbolReferenceCandidatePage,
+} from '../src/features/symbols/symbol-image-picker-state.ts';
 
-const candidate = (observationId, confidence = 0.9) => ({
-  confidence,
-  cropChecksumSha256: observationId.padEnd(64, '0').slice(0, 64),
-  observationId,
+const first = { items: [{ observationId: 'first' }], nextCursor: 'cursor-1' };
+const last = { items: [{ observationId: 'last' }], nextCursor: null };
+
+test('retains already loaded pages and moves one page at a time', () => {
+  const pages = appendSymbolReferenceCandidatePage([first], last);
+
+  assert.deepEqual(pages, [first, last]);
+  assert.equal(currentSymbolReferenceCandidatePage(pages, 0), first);
+  assert.equal(currentSymbolReferenceCandidatePage(pages, 1), last);
+  assert.equal(canGoToPreviousSymbolReferencePage(0), false);
+  assert.equal(canGoToPreviousSymbolReferencePage(1), true);
+  assert.equal(canGoToNextSymbolReferencePage(pages, 0), true);
+  assert.equal(canGoToNextSymbolReferencePage(pages, 1), false);
 });
 
-test('candidate pages append in server order without repeating observations', () => {
-  const first = [candidate('one'), candidate('two')];
-  const next = [candidate('two', 0.8), candidate('three', 0.7)];
-
-  assert.deepEqual(
-    appendUniqueCandidates(first, next).map((item) => item.observationId),
-    ['one', 'two', 'three'],
-  );
+test('allows fetching an unloaded next page only when the keyset cursor exists', () => {
+  assert.equal(canGoToNextSymbolReferencePage([first], 0), true);
+  assert.equal(canGoToNextSymbolReferencePage([last], 0), false);
+  assert.equal(currentSymbolReferenceCandidatePage([first], 2), null);
 });

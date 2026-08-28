@@ -260,6 +260,15 @@ export function rangeForStart(rangeStart: number): {
   return { end: rangeStart + 8, start: rangeStart };
 }
 
+export function nextManualRangeStart(
+  direction: 'ascending' | 'descending',
+  rangeStart: number,
+): number {
+  return direction === 'ascending'
+    ? rangeStart + 9
+    : Math.max(1, rangeStart - 9);
+}
+
 export function createManualSelectionState(
   firstLayout: number,
   direction: 'ascending' | 'descending',
@@ -284,7 +293,7 @@ export function nextManualSelectionState(
     ...state,
     currentIndex,
     decisions: [...state.decisions, decision],
-    nextRangeStart: state.nextRangeStart + 9,
+    nextRangeStart: nextManualRangeStart(state.direction, decision.rangeStart),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -314,11 +323,6 @@ export function reconcileManualSelectionStateWithOutputManifest(
     throw new Error('Manifest ma nieprawidłowy pierwszy numer planszy.');
   }
 
-  const expectedNextRangeStart = state.firstLayout + state.decisions.length * 9;
-  if (state.nextRangeStart !== expectedNextRangeStart) {
-    throw new Error('Zapisana sesja nie ma ciągłej numeracji zakresów.');
-  }
-
   const accepted = state.decisions.filter(
     (decision) => decision.action === 'accepted',
   );
@@ -328,14 +332,11 @@ export function reconcileManualSelectionStateWithOutputManifest(
 
   const offset = manifest.firstLayout - state.firstLayout;
   let acceptedIndex = 0;
-  const decisions = state.decisions.map((decision, index) => {
-    const oldRangeStart = state.firstLayout + index * 9;
-    const oldRangeEnd = oldRangeStart + 8;
-    if (
-      decision.rangeStart !== oldRangeStart ||
-      decision.rangeEnd !== oldRangeEnd
-    ) {
-      throw new Error('Zapisana sesja zawiera nieciągły zakres decyzji.');
+  const decisions = state.decisions.map((decision) => {
+    const oldRangeStart = decision.rangeStart;
+    const oldRangeEnd = decision.rangeEnd;
+    if (oldRangeEnd !== oldRangeStart + 8) {
+      throw new Error('Zapisana sesja zawiera nieprawidłowy zakres decyzji.');
     }
     const rangeStart = oldRangeStart + offset;
     const rangeEnd = rangeStart + 8;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,7 +13,17 @@ from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.symbol_model_iterations import SymbolModelIterationStatus
 from game_predictor_worker.images.symbol_classifier import TrainingConfig
 from game_predictor_worker.jobs.runtime import JobHandlerError
-from game_predictor_worker.symbols.candidate_gate import SymbolCandidateGateResult
+from game_predictor_worker.symbols.candidate_gate import (
+    SymbolCandidateGateConfiguration,
+    SymbolCandidateGateResult,
+    build_symbol_candidate,
+)
+from game_predictor_worker.symbols.training_dataset import (
+    TrainingDatasetConfig,
+    TrainingSymbol,
+    build_balanced_source_assignments,
+    build_cumulative_training_dataset,
+)
 from game_predictor_worker.symbols.training_job import (
     SymbolTrainingJobHandler,
     _IterationSpec,
@@ -140,6 +151,113 @@ def _job(spec: _IterationSpec) -> Job:
             "idempotency_key": str(uuid4()),
         },
     )
+
+
+def _v2_artifact(root: Path) -> tuple[object, str]:
+    cells: list[dict[str, object]] = []
+    source_checksums: list[str] = []
+    data_root = root / "data"
+    for source_index in range(8):
+        source_checksum = hashlib.sha256(f"v2-source-{source_index}".encode()).hexdigest()
+        source_checksums.append(source_checksum)
+        for cell_index, code in enumerate(("A", "B")):
+            image_path = data_root / "working" / "v2" / f"{source_index}-{code}.png"
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new(
+                "RGB",
+                (20, 20),
+                (240, 20 + source_index, 20) if code == "A" else (20, 20 + source_index, 240),
+            ).save(image_path)
+            content = image_path.read_bytes()
+            crop_checksum = hashlib.sha256(content).hexdigest()
+            cells.append(
+                {
+                    "cellIndex": cell_index,
+                    "cellReviewId": f"cell-{source_index}-{code}",
+                    "cellRevision": 1,
+                    "cropChecksumSha256": crop_checksum,
+                    "cropRelativePath": image_path.relative_to(data_root).as_posix(),
+                    "cropSampleId": hashlib.sha256(
+                        f"v2-sample-{source_index}-{code}".encode()
+                    ).hexdigest(),
+                    "cropperVersion": "v19",
+                    "geometryRevision": 0,
+                    "importJobId": "v2-import",
+                    "recognizedBoardId": f"v2-board-{source_index}",
+                    "reviewItemId": f"v2-review-{source_index}",
+                    "selectionReason": "diverse_approval",
+                    "sequenceNumber": source_index + 1,
+                    "source": {
+                        "checksumSha256": source_checksum,
+                        "relativePath": f"originals/{source_checksum}.jpg",
+                    },
+                    "sourceImageId": f"v2-source-image-{source_index}",
+                    "symbolCode": code,
+                }
+            )
+    cohort = {
+        "cells": cells,
+        "counts": {"cellSamples": len(cells), "sourceImages": 8},
+        "datasetKind": "verified-symbol-cell-training-cohort-v2",
+        "gameId": "00000000-0000-0000-0000-000000000001",
+        "schemaVersion": 2,
+    }
+    content = (
+        json.dumps(cohort, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+    ).encode()
+    cohort_checksum = hashlib.sha256(content).hexdigest()
+    cohort_path = data_root / "training" / "v2-cohort.json"
+    cohort_path.parent.mkdir(parents=True, exist_ok=True)
+    cohort_path.write_bytes(content)
+    artifact = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=cohort_checksum,
+        artifact_root=root,
+        game_code="fixture-v2",
+        symbols=(
+            TrainingSymbol(id="symbol-a", code="A"),
+            TrainingSymbol(id="symbol-b", code="B"),
+        ),
+        config=TrainingDatasetConfig(
+            source_assignments=build_balanced_source_assignments(source_checksums)
+        ),
+    )
+    return artifact, cohort_checksum
+
+
+def _real_candidate_builder(**values: object) -> SymbolCandidateGateResult:
+    return build_symbol_candidate(
+        **values,  # type: ignore[arg-type]
+        configuration=SymbolCandidateGateConfiguration(
+            minimum_accuracy=0,
+            minimum_macro_recall=0,
+            performance_repetitions=1,
+        ),
+    )
+
+
+def test_v2_cell_cohort_completes_training_onnx_and_candidate_gate(
+    tmp_path: Path,
+) -> None:
+    artifact, cohort_checksum = _v2_artifact(tmp_path)
+    spec = _IterationSpec(
+        iteration_id=uuid4(),
+        game_id=uuid4(),
+        game_code="fixture-v2",
+        cohort_id=uuid4(),
+        cohort_checksum=cohort_checksum,
+        configuration=TrainingConfig(epochs=1, batch_size=4, input_size=16),
+        configuration_fingerprint=hashlib.sha256(b"v2-config").hexdigest(),
+        iteration_number=1,
+    )
+    store = FakeTrainingStore(tmp_path, artifact, spec)
+    context = FakeContext(_job(spec))
+
+    SymbolTrainingJobHandler(store, candidate_builder=_real_candidate_builder)(context, context.job)
+
+    assert store.updates[-1]["status"] is SymbolModelIterationStatus.CANDIDATE_READY
+    assert list((tmp_path / "data" / "models").glob("**/*.onnx"))
+    assert context.job.progress_current == 6
 
 
 def test_training_job_writes_immutable_epoch_checkpoints_and_does_not_change_inputs(

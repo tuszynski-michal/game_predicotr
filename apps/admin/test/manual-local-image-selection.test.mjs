@@ -23,6 +23,12 @@ import {
   latestLegacyManualSelectionSession,
   migrateLegacyManualSelectionSession,
 } from '../src/features/manual-image-selection/manual-image-selection-store.ts';
+import {
+  initialManualSelectionCursor,
+  manualSelectionDisplayPosition,
+  moveManualSelectionCursor,
+  resumeManualSelectionCursor,
+} from '../src/features/manual-image-selection/manual-image-selection-cursor.ts';
 
 const workspaceSource = await readFile(
   new URL(
@@ -58,6 +64,220 @@ test('sorts image names in the same numeric order as Explorer', () => {
     '1_10.jpg',
     '1_20.jpg',
   ]);
+});
+
+test('keeps source traversal natural while descending ranges move independently', () => {
+  assert.equal(initialManualSelectionCursor(), 0);
+  assert.equal(moveManualSelectionCursor(2_891, 15_000, 5), 2_896);
+  assert.equal(manualSelectionDisplayPosition(2_896, 15_000), 2_897);
+  assert.equal(moveManualSelectionCursor(2_896, 15_000, -1), 2_895);
+});
+
+test('migrates a legacy descending cursor according to its trace order', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const naturallyPresented = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '002.jpg',
+        kind: 'accepted',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const reversedPresented = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '003.jpg',
+        kind: 'accepted',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+  const untracedLegacy = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+  const canonicalSession = resumeManualSelectionCursor({
+    cursorSemantics: 'source_ordinal_v1',
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(naturallyPresented.currentIndex, 1);
+  assert.equal(reversedPresented.currentIndex, 2);
+  assert.equal(untracedLegacy.currentIndex, 2);
+  assert.equal(canonicalSession.currentIndex, 1);
+  assert.equal(naturallyPresented.migratedLegacyCursor, true);
+  assert.equal(canonicalSession.migratedLegacyCursor, true);
+  assert.equal(reversedPresented.cursorSemantics, 'source_path_v3');
+});
+
+test('does not treat a viewed trace as proof of an old descending cursor order', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    currentIndex: 1,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [
+      {
+        decoded: true,
+        eventIndex: 0,
+        gameId: 'local',
+        imagePath: '002.jpg',
+        kind: 'viewed',
+        rangeEnd: 9,
+        rangeStart: 1,
+        recordedAt: '2026-08-28T10:00:00.000Z',
+        sessionKey: 'session',
+        sourceIndex: 1,
+        visibleMilliseconds: 300,
+      },
+    ],
+  });
+
+  assert.equal(resumed.currentIndex, 2);
+});
+
+test('resumes a v3 descending selection by the persisted source path, not an ordinal', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_path_v3',
+    currentImagePath: '002.jpg',
+    currentIndex: 3,
+    decisions: [],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(resumed.currentIndex, 1);
+  assert.equal(resumed.currentImagePath, '002.jpg');
+  assert.equal(resumed.migratedLegacyCursor, false);
+});
+
+test('repairs a descending v2 source path from the next natural item after the last accepted file', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_path_v2',
+    currentImagePath: '002.jpg',
+    currentIndex: 1,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '003.jpg',
+        outputName: 'seq_10-18.jpg',
+        rangeEnd: 18,
+        rangeStart: 10,
+      },
+    ],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(resumed.currentIndex, 3);
+  assert.equal(resumed.currentImagePath, '004.jpg');
+  assert.equal(resumed.cursorSemantics, 'source_path_v3');
+  assert.equal(resumed.migratedLegacyCursor, true);
+});
+
+test('repairs a previously promoted descending v1 cursor from its last accepted file', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_ordinal_v1',
+    currentIndex: 2,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '003.jpg',
+        outputName: 'seq_1-9.jpg',
+        rangeEnd: 9,
+        rangeStart: 1,
+      },
+    ],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(resumed.currentIndex, 3);
+  assert.equal(resumed.currentImagePath, '004.jpg');
+  assert.equal(resumed.cursorSemantics, 'source_path_v3');
+  assert.equal(resumed.migratedLegacyCursor, true);
+});
+
+test('fails closed when a persisted cursor image no longer exists in the source', () => {
+  assert.throws(
+    () =>
+      resumeManualSelectionCursor({
+        cursorSemantics: 'source_path_v3',
+        currentImagePath: 'missing.jpg',
+        currentIndex: 0,
+        decisions: [],
+        direction: 'descending',
+        images: [{ name: '001.jpg', relativePath: '001.jpg' }],
+        traceEvents: [],
+      }),
+    /MANUAL_SELECTION_CURSOR_IMAGE_MISSING/,
+  );
 });
 
 test('adopts the newest legacy game-scoped session for the independent workspace', () => {
@@ -162,6 +382,16 @@ test('recognizes a stale directory handle and relinks it without resetting state
 test('derives each inclusive nine-layout range from its first number', () => {
   assert.deepEqual(rangeForStart(1), { start: 1, end: 9 });
   assert.deepEqual(rangeForStart(352), { start: 352, end: 360 });
+});
+
+test('offers an explicit nine-layout range correction without enabling shortcuts in its editor', () => {
+  assert.match(workspaceSource, /manualImageSelectionRangeButton/);
+  assert.match(workspaceSource, /openRangeEditor/);
+  assert.match(workspaceSource, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspaceSource, /nextRangeStart: rangeStart/);
+  assert.match(workspaceSource, /busyRef\.current \|\| rangeEditorOpen/);
+  assert.match(stylesSource, /\.manualImageSelectionRangeEditor\s*\{/);
+  assert.match(stylesSource, /\.manualImageSelectionRangeButton\s*\{/);
 });
 
 test('resumes only after synchronizing a matching output manifest', () => {

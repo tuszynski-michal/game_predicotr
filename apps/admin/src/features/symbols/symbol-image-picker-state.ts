@@ -1,16 +1,33 @@
-import type { SymbolImageCandidateResponse } from '@game-predictor/admin-api-client';
+import type { ApprovedSymbolReferenceCandidatePageResponse } from '@game-predictor/admin-api-client';
 
-export function appendUniqueCandidates(
-  current: readonly SymbolImageCandidateResponse[],
-  incoming: readonly SymbolImageCandidateResponse[],
-): readonly SymbolImageCandidateResponse[] {
-  const seen = new Set(current.map((item) => item.observationId));
-  return [
-    ...current,
-    ...incoming.filter((item) => {
-      if (seen.has(item.observationId)) return false;
-      seen.add(item.observationId);
-      return true;
-    }),
-  ];
+export type SymbolReferenceCandidatePage =
+  ApprovedSymbolReferenceCandidatePageResponse;
+
+export function appendSymbolReferenceCandidatePage(
+  pages: readonly SymbolReferenceCandidatePage[],
+  page: SymbolReferenceCandidatePage,
+): readonly SymbolReferenceCandidatePage[] {
+  return [...pages, page];
+}
+
+export function currentSymbolReferenceCandidatePage(
+  pages: readonly SymbolReferenceCandidatePage[],
+  pageIndex: number,
+): SymbolReferenceCandidatePage | null {
+  return pages[pageIndex] ?? null;
+}
+
+export function canGoToNextSymbolReferencePage(
+  pages: readonly SymbolReferenceCandidatePage[],
+  pageIndex: number,
+): boolean {
+  const current = currentSymbolReferenceCandidatePage(pages, pageIndex);
+  return (
+    pageIndex < pages.length - 1 ||
+    (current !== null && current.nextCursor !== null)
+  );
+}
+
+export function canGoToPreviousSymbolReferencePage(pageIndex: number): boolean {
+  return pageIndex > 0;
 }

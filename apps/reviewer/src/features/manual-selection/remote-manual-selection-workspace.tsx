@@ -1,5 +1,8 @@
 'use client';
 
+/* Operator-local previews use browser object URLs and must bypass Next image optimization. */
+/* eslint-disable @next/next/no-img-element */
+
 import {
   MANUAL_IMAGE_NAVIGATION_STEPS,
   adjacentManualNavigationStep,
@@ -71,6 +74,9 @@ export function RemoteManualSelectionWorkspace({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [rangeEditorOpen, setRangeEditorOpen] = useState(false);
+  const [rangeStartDraft, setRangeStartDraft] = useState('');
+  const [rangeEndDraft, setRangeEndDraft] = useState('');
   const batchRef = useRef(batch);
   const busyRef = useRef(false);
   const operationQueue = useRef(Promise.resolve());
@@ -120,6 +126,37 @@ export function RemoteManualSelectionWorkspace({
       Math.min(3000, Math.max(100, currentPercent + delta)),
     );
   }, []);
+
+  function openRangeEditor() {
+    setRangeStartDraft(String(workspace.nextRangeStart));
+    setRangeEndDraft(String(workspace.nextRangeStart + 8));
+    setRangeEditorOpen(true);
+  }
+
+  async function applyRangeEdit() {
+    const rangeStart = Number(rangeStartDraft);
+    const rangeEnd = Number(rangeEndDraft);
+    if (
+      !Number.isSafeInteger(rangeStart) ||
+      !Number.isSafeInteger(rangeEnd) ||
+      rangeStart < 1 ||
+      rangeEnd !== rangeStart + 8
+    ) {
+      setError('Zakres musi zawierać dokładnie 9 kolejnych plansz.');
+      return;
+    }
+    const next = {
+      ...batchRef.current,
+      nextRangeStart: rangeStart,
+      updatedAt: new Date().toISOString(),
+    };
+    await store.saveBatch(next);
+    batchRef.current = next;
+    setBatch(next);
+    setError('');
+    setRangeEditorOpen(false);
+    await persistOperatorLocalManifest(next);
+  }
 
   const reportLocalError = useCallback(
     async (cause: unknown) => {
@@ -365,7 +402,7 @@ export function RemoteManualSelectionWorkspace({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (interactionPaused) return;
+      if (interactionPaused || rangeEditorOpen) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       const action = resolveManualSelectionShortcut({
         altKey: event.altKey,
@@ -405,6 +442,7 @@ export function RemoteManualSelectionWorkspace({
     const next = {
       ...currentBatch,
       cursorIndex: nextIndex,
+      sourceTraversalSemantics: 'natural_v2' as const,
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
@@ -449,14 +487,8 @@ export function RemoteManualSelectionWorkspace({
 
   async function moveImage(delta: number) {
     if (interactionPaused || busy || batch.fileCount === 0) return;
-    const sourceDelta =
-      batchRef.current.direction === 'ascending' ? delta : -delta;
     await persistCursor(
-      clampRemoteWorkspaceIndex(
-        workspace.currentIndex,
-        sourceDelta,
-        batch.fileCount,
-      ),
+      clampRemoteWorkspaceIndex(workspace.currentIndex, delta, batch.fileCount),
     );
   }
 
@@ -469,6 +501,7 @@ export function RemoteManualSelectionWorkspace({
         remoteSelectionWorkspaceState(currentBatch).navigationStep,
         direction,
       ),
+      sourceTraversalSemantics: 'natural_v2' as const,
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
@@ -486,10 +519,10 @@ export function RemoteManualSelectionWorkspace({
     const requestedCurrent = current;
     const requestedRangeStart = workspace.nextRangeStart;
     const requestedScrollPosition = capturePreviewScroll();
-    const nextCursorIndex =
-      batchRef.current.direction === 'ascending'
-        ? Math.min(requestedCurrent.ordinal + 1, batchRef.current.fileCount - 1)
-        : Math.max(requestedCurrent.ordinal - 1, 0);
+    const nextCursorIndex = Math.min(
+      requestedCurrent.ordinal + 1,
+      batchRef.current.fileCount - 1,
+    );
     armPreviewScrollRestore(nextCursorIndex);
     void interactionQueue
       .enqueue(() =>
@@ -543,6 +576,7 @@ export function RemoteManualSelectionWorkspace({
         outputDirectory,
         file,
         requestedRangeStart,
+        requestedRangeStart + 8,
       );
       const decision: RemoteSelectionWorkspaceDecision = {
         action: 'accepted',
@@ -772,11 +806,55 @@ export function RemoteManualSelectionWorkspace({
           <h1>Ręczna selekcja zdjęć</h1>
           <p>
             Zakres{' '}
-            <strong>
+            <button
+              className="manualImageSelectionRangeButton"
+              disabled={busy || interactionPaused}
+              onClick={openRangeEditor}
+              type="button"
+            >
               {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
-            </strong>{' '}
+            </button>{' '}
             · zdjęcie {workspace.currentIndex + 1} / {batch.fileCount}
           </p>
+          {rangeEditorOpen ? (
+            <form
+              className="manualImageSelectionRangeEditor"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void applyRangeEdit().catch((cause) => reportLocalError(cause));
+              }}
+              role="dialog"
+            >
+              <label>
+                Od
+                <input
+                  min="1"
+                  onChange={(event) => setRangeStartDraft(event.target.value)}
+                  type="number"
+                  value={rangeStartDraft}
+                />
+              </label>
+              <label>
+                Do
+                <input
+                  min="1"
+                  onChange={(event) => setRangeEndDraft(event.target.value)}
+                  type="number"
+                  value={rangeEndDraft}
+                />
+              </label>
+              <button className="primaryButton" type="submit">
+                Ustaw
+              </button>
+              <button
+                className="secondaryButton"
+                onClick={() => setRangeEditorOpen(false)}
+                type="button"
+              >
+                Anuluj
+              </button>
+            </form>
+          ) : null}
         </div>
         <div className="manualImageSelectionCounters">
           <span>zatwierdzone: {acceptedCount}</span>
@@ -800,6 +878,7 @@ export function RemoteManualSelectionWorkspace({
               const next = {
                 ...batchRef.current,
                 navigationStep: value,
+                sourceTraversalSemantics: 'natural_v2' as const,
                 updatedAt: new Date().toISOString(),
               };
               void store.saveBatch(next).then(() => {

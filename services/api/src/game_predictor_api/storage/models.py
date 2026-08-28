@@ -190,62 +190,52 @@ class SymbolModel(Base):
     )
 
 
-class SymbolBootstrapRunModel(Base):
-    __tablename__ = "symbol_bootstrap_runs"
+class SymbolReferenceImageModel(Base):
+    """One explicitly selected, immutable image reference for a symbol."""
+
+    __tablename__ = "symbol_reference_images"
     __table_args__ = (
         CheckConstraint(
-            "expected_symbol_count BETWEEN 1 AND 32767",
-            name="ck_symbol_bootstrap_expected_count_range",
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
+            "AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_symbol_reference_images_position",
         ),
         CheckConstraint(
-            "detected_cluster_count > 0",
-            name="ck_symbol_bootstrap_detected_count_positive",
+            "image_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_symbol_reference_images_checksum",
         ),
         CheckConstraint(
-            "source_state_sha256 ~ '^[0-9a-f]{64}$'",
-            name="ck_symbol_bootstrap_source_sha256",
+            r"length(btrim(image_relative_path)) > 0 "
+            r"AND image_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_symbol_reference_images_relative_path",
         ),
-        CheckConstraint(
-            "status IN ('ready', 'conflict', 'applied')",
-            name="ck_symbol_bootstrap_status",
-        ),
-        CheckConstraint(
-            "(status = 'applied' AND resolution IS NOT NULL AND applied_at IS NOT NULL) "
-            "OR (status <> 'applied' AND resolution IS NULL AND applied_at IS NULL)",
-            name="ck_symbol_bootstrap_applied_state",
-        ),
-        UniqueConstraint(
-            "game_id",
-            "source_state_sha256",
-            "expected_symbol_count",
-            name="uq_symbol_bootstrap_source_expectation",
-        ),
-        Index("ix_symbol_bootstrap_game_created", "game_id", "created_at"),
+        Index("ix_symbol_reference_images_game", "game_id"),
     )
 
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    symbol_id: Mapped[UUID] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), primary_key=True
+    )
     game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("games.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    expected_symbol_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    detected_cluster_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    source_state_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
-    candidates: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
-    resolution: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSONB(none_as_null=True),
-        nullable=True,
+    source_review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
     )
-    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
+    source_recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
     )
-    applied_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
+    source_observation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("cell_observations.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    image_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    image_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    selected_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    selected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
@@ -1553,9 +1543,30 @@ class ImageReviewItemModel(Base):
             "recognized_board_id",
             name="uq_image_review_items_board",
         ),
+        Index(
+            "uq_image_review_items_pending_game_sequence",
+            "game_id",
+            "sequence_number",
+            unique=True,
+            postgresql_where=text("status = 'pending' AND sequence_number IS NOT NULL"),
+        ),
+        Index(
+            "ix_image_review_items_import_status",
+            "import_job_id",
+            "status",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     recognized_board_id: Mapped[UUID] = mapped_column(
         ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
         nullable=False,
@@ -1709,6 +1720,391 @@ class ImageReviewResolutionEventModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class ImageSymbolReviewStateModel(Base):
+    """Readiness and resumable progress of a game's symbol-cell backfill."""
+
+    __tablename__ = "image_symbol_review_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('rebuilding', 'ready', 'failed')",
+            name="ck_image_symbol_review_states_status",
+        ),
+        CheckConstraint(
+            "processed_review_item_count >= 0 AND cell_count >= 0 "
+            "AND missing_sequence_count >= 0 AND invalid_crop_count >= 0 "
+            "AND invalid_geometry_count >= 0",
+            name="ck_image_symbol_review_states_counts",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    processed_review_item_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    cell_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    catalog_revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    missing_sequence_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    invalid_crop_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    invalid_geometry_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    last_review_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSymbolReviewCellModel(Base):
+    """Current human-review state for one checksum-bound symbol crop."""
+
+    __tablename__ = "image_symbol_review_cells"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
+            "AND row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4 "
+            "AND cell_index = row_index * 5 + column_index",
+            name="ck_image_symbol_review_cells_position",
+        ),
+        CheckConstraint(
+            "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_cells_checksums",
+        ),
+        CheckConstraint(
+            r"length(btrim(crop_relative_path)) > 0 "
+            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_symbol_review_cells_relative_path",
+        ),
+        CheckConstraint(
+            "geometry_revision >= 0 AND revision >= 0",
+            name="ck_image_symbol_review_cells_revisions",
+        ),
+        CheckConstraint(
+            "review_state IN ('pending', 'approved')",
+            name="ck_image_symbol_review_cells_state",
+        ),
+        CheckConstraint(
+            "assignment_source IN ('model', 'human', 'board_decision', 'backfill')",
+            name="ck_image_symbol_review_cells_source",
+        ),
+        CheckConstraint(
+            "NOT has_grid_issue OR review_state = 'pending'",
+            name="ck_image_symbol_review_cells_grid_issue_state",
+        ),
+        CheckConstraint(
+            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL",
+            name="ck_image_symbol_review_cells_approved_symbol",
+        ),
+        UniqueConstraint(
+            "review_item_id", "cell_index", name="uq_image_symbol_review_cells_item_cell"
+        ),
+        Index(
+            "ix_image_symbol_review_cells_game_symbol_sequence",
+            "game_id",
+            "assigned_symbol_id",
+            "sequence_number",
+            "cell_index",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_cells_game_symbol_state_sequence",
+            "game_id",
+            "assigned_symbol_id",
+            "review_state",
+            "sequence_number",
+            "cell_index",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_cells_grid_issue",
+            "review_item_id",
+            postgresql_where=text("has_grid_issue"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    prediction_symbol_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prediction_revision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_symbol_prediction_revisions.id", ondelete="RESTRICT"), nullable=True
+    )
+    assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    has_grid_issue: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    assignment_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    last_reviewed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    last_reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSymbolReviewEventModel(Base):
+    """Append-only audit trail for later symbol-cell mutations."""
+
+    __tablename__ = "image_symbol_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_events_checksums",
+        ),
+        CheckConstraint(
+            "geometry_revision >= 0 AND cell_revision >= 0",
+            name="ck_image_symbol_review_events_revisions",
+        ),
+        CheckConstraint(
+            "action IN ('approve', 'reassign', 'mark_grid_issue', "
+            "'board_synchronized', 'geometry_invalidated')",
+            name="ck_image_symbol_review_events_action",
+        ),
+        CheckConstraint(
+            "previous_review_state IN ('pending', 'approved') "
+            "AND review_state IN ('pending', 'approved')",
+            name="ck_image_symbol_review_events_states",
+        ),
+        Index("ix_image_symbol_review_events_cell_created", "cell_review_id", "created_at"),
+        Index("ix_image_symbol_review_events_review_item_created", "review_item_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    previous_assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    assigned_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    previous_review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    review_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    operation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageSymbolReviewBulkOperationModel(Base):
+    """Durable snapshot of a local-admin bulk cell-review command."""
+
+    __tablename__ = "image_symbol_review_bulk_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('approve', 'reassign', 'mark_grid_issue')",
+            name="ck_image_symbol_review_bulk_operations_action",
+        ),
+        CheckConstraint(
+            "selection_kind IN ('explicit', 'filter')",
+            name="ck_image_symbol_review_bulk_operations_selection_kind",
+        ),
+        CheckConstraint(
+            "status IN ('created', 'processing', 'completed', 'failed', 'cancelled')",
+            name="ck_image_symbol_review_bulk_operations_status",
+        ),
+        CheckConstraint(
+            "target_count >= 0 AND applied_count >= 0 AND conflict_count >= 0 "
+            "AND failed_count >= 0 AND applied_count + conflict_count + failed_count "
+            "<= target_count",
+            name="ck_image_symbol_review_bulk_operations_counts",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_bulk_operations_command",
+        ),
+        CheckConstraint(
+            "(selection_kind = 'filter' AND catalog_revision IS NOT NULL) OR "
+            "(selection_kind = 'explicit' AND catalog_revision IS NULL)",
+            name="ck_image_symbol_review_bulk_operations_catalog_revision",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_image_symbol_review_bulk_operations_game_idempotency",
+        ),
+        UniqueConstraint("job_id", name="uq_image_symbol_review_bulk_operations_job"),
+        Index(
+            "ix_image_symbol_review_bulk_operations_game_status_created",
+            "game_id",
+            "status",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    target_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    filter_symbol_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    filter_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    catalog_revision: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    applied_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    conflict_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    failed_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default=text("0")
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ImageSymbolReviewBulkTargetModel(Base):
+    """One frozen checksum-bound crop target in a bulk operation."""
+
+    __tablename__ = "image_symbol_review_bulk_targets"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 AND "
+            "expected_revision >= 0 AND expected_geometry_revision >= 0",
+            name="ck_image_symbol_review_bulk_targets_revisions",
+        ),
+        CheckConstraint(
+            "expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
+            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_review_bulk_targets_checksums",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'applied', 'conflict', 'failed')",
+            name="ck_image_symbol_review_bulk_targets_status",
+        ),
+        Index(
+            "ix_image_symbol_review_bulk_targets_operation_status_review",
+            "operation_id",
+            "status",
+            "review_item_id",
+        ),
+        Index(
+            "ix_image_symbol_review_bulk_targets_operation_sequence",
+            "operation_id",
+            "sequence_number",
+            "review_item_id",
+            "cell_index",
+        ),
+    )
+
+    operation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
+        primary_key=True,
+        nullable=False,
+    )
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"),
+        primary_key=True,
+        nullable=False,
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_cell_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
 
@@ -2239,7 +2635,7 @@ class VerifiedTrainingCohortModel(Base):
         ),
         CheckConstraint(
             "resolved_layout_count > 0 "
-            "AND cell_sample_count = resolved_layout_count * 15 "
+            "AND cell_sample_count > 0 "
             "AND source_image_count > 0 "
             "AND pending_item_count >= 0 "
             "AND rejected_item_count >= 0 "
@@ -2275,6 +2671,9 @@ class VerifiedTrainingCohortModel(Base):
     )
     iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
     manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_kind: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="verified-training-cohort-v1"
+    )
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
     command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -2360,6 +2759,63 @@ class VerifiedTrainingCohortItemModel(Base):
     pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     item_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     board_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+
+class VerifiedTrainingCohortCellModel(Base):
+    """One immutable selected cell belonging to a v2 training cohort."""
+
+    __tablename__ = "verified_training_cohort_cells"
+    __table_args__ = (
+        CheckConstraint(
+            "sample_order >= 0 AND sequence_number > 0 AND cell_index BETWEEN 0 AND 14",
+            name="ck_verified_training_cohort_cells_position",
+        ),
+        CheckConstraint(
+            "sample_checksum_sha256 ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohort_cells_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(cell_manifest) = 'object'",
+            name="ck_verified_training_cohort_cells_manifest",
+        ),
+        UniqueConstraint(
+            "cohort_id", "sample_order", name="uq_verified_training_cohort_cells_order"
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "cell_review_id",
+            name="uq_verified_training_cohort_cells_review",
+        ),
+        Index(
+            "ix_verified_training_cohort_cells_cohort_symbol",
+            "cohort_id",
+            "symbol_code",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    sample_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_review_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    symbol_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    sample_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    cell_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
 
 
 class SymbolModelIterationModel(Base):
@@ -3439,6 +3895,284 @@ class ImageSequenceCanonicalModel(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchCandidateModel(Base):
+    """Compact current symbol evidence for a review item search candidate."""
+
+    __tablename__ = "image_board_search_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_candidates_sequence_positive",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_candidates_status",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_search_candidates_checksum",
+        ),
+        CheckConstraint(
+            "board_confidence BETWEEN 0 AND 1 AND sequence_confidence BETWEEN 0 AND 1 "
+            "AND source_pixel_count > 0",
+            name="ck_image_board_search_candidates_scores",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(primary_symbol_codes) = 'array' "
+            "AND jsonb_array_length(primary_symbol_codes) = 15",
+            name="ck_image_board_search_candidates_primary_cells",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(alternative_symbol_codes) = 'array' "
+            "AND jsonb_array_length(alternative_symbol_codes) = 15",
+            name="ck_image_board_search_candidates_alternative_cells",
+        ),
+        Index(
+            "ix_image_board_search_candidates_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+        Index(
+            "ix_image_board_search_candidates_game_status_sequence",
+            "game_id",
+            "status",
+            "sequence_number",
+        ),
+    )
+
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    source_pixel_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    primary_symbol_codes: Mapped[list[str | None]] = mapped_column(JSONB, nullable=False)
+    alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(JSONB, nullable=False)
+    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
+    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchDocumentModel(Base):
+    """Single current search owner for one game sequence number."""
+
+    __tablename__ = "image_board_search_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_documents_sequence_positive",
+        ),
+        CheckConstraint(
+            "selection_kind IN ('canonical', 'pending')",
+            name="ck_image_board_search_documents_selection_kind",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_documents_status",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            name="uq_image_board_search_documents_review_item",
+        ),
+        Index(
+            "ix_image_board_search_documents_game_review",
+            "game_id",
+            "review_item_id",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
+    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False
+    )
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchFastDocumentModel(Base):
+    """Narrow read model containing one selected board per game sequence."""
+
+    __tablename__ = "image_board_search_fast_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_board_search_fast_documents_sequence_positive",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected')",
+            name="ck_image_board_search_fast_documents_status",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            name="uq_image_board_search_fast_documents_review_item",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
+    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
+        ARRAY(SmallInteger), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageBoardSearchProjectionStateModel(Base):
+    """Readiness marker for a game's compact board-search projection."""
+
+    __tablename__ = "image_board_search_projection_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('rebuilding', 'ready', 'failed')",
+            name="ck_image_board_search_projection_states_status",
+        ),
+        CheckConstraint(
+            "candidate_count >= 0 AND document_count >= 0 AND skipped_review_item_count >= 0",
+            name="ck_image_board_search_projection_states_counts",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    candidate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    document_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    skipped_review_item_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -8,7 +8,7 @@ last_updated: 2026-08-23
 
 ## Cel
 
-System ma wykorzystywać ręcznie zweryfikowane plansze do kolejnych,
+System ma wykorzystywać ręcznie zweryfikowane cropy symboli do kolejnych,
 kontrolowanych wersji modelu rozpoznawania symboli. Właściciel może zatwierdzić
 około 100 plansz, ulepszyć model, zatwierdzić kolejne 1000, ponownie ulepszyć
 model, a następnie importować nowe zdjęcia z coraz lepszymi sugestiami.
@@ -22,9 +22,9 @@ Automatyczna operacja nie może zmienić ani ponownie przeliczyć planszy, dla
 której użytkownik zapisał rozstrzygnięcie `accepted`, `corrected` lub
 `rejected`.
 
-- `accepted` i `corrected` są kanoniczną prawdą oraz mogą wejść do zbioru
-  treningowego, jeżeli zawierają zaakceptowaną geometrię i dokładnie komplet
-  etykiet komórek,
+- każda komórka `approved` jest kanoniczną prawdą i może wejść do zbioru
+  treningowego niezależnie od stanu pozostałych komórek planszy, jeżeli wskazuje
+  aktywny symbol, bieżący crop i nie ma flagi błędu siatki,
 - `rejected` pozostaje niezmienną decyzją człowieka, ale nie jest przykładem
   treningowym,
 - wyłącznie element `pending` może otrzymać nową rewizję predykcji,
@@ -44,18 +44,19 @@ ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.
 
 Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
 
-1. pokazuje liczbę pełnych plansz zweryfikowanych przez człowieka,
-2. pokazuje liczbę nowych plansz od ostatniej iteracji oraz pokrycie klas i
+1. pokazuje liczbę zatwierdzonych cropów wybranych do ograniczonej kohorty,
+2. pokazuje liczbę nowych cropów od ostatniej iteracji oraz pokrycie klas i
    źródeł,
 3. zamraża jednoznaczną kohortę przez identyfikatory, rewizje i checksumy,
 4. tworzy niezmienny manifest wejścia,
 5. trenuje od początku na całej skumulowanej kohorcie danej gry.
 
-Wartości 100 i 1000 plansz są progami doradczymi w UI, a nie automatycznym
-wyzwalaczem. Użytkownik może rozpocząć iterację przy innej liczbie, jeżeli
-raport gotowości jawnie pokazuje ryzyko małej lub niezrównoważonej próby.
-Jedynym progiem liczności jest co najmniej jedna kompletna plansza; 5, 10, 63
-lub 100 plansz pozwala uruchomić trening.
+Kohorta v2 wybiera deterministycznie różnorodne przykłady osobno dla każdego
+aktywnego symbolu. Korekty człowieka mają pierwszeństwo, identyczne i bliskie
+wizualnie cropy są redukowane bez macierzy porównań każdy-z-każdym. Cel wynosi
+1000 próbek na symbol, a twarde maksimum 2000; większa liczba zatwierdzeń nie
+powiększa bez końca kosztu jednej iteracji. Jedynym progiem startu pozostaje co
+najmniej jeden kwalifikujący crop.
 
 ## Podział danych i brak przecieku
 

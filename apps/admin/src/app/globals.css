@@ -21,6 +21,43 @@
   gap: 20px;
 }
 
+.modelQualityWorkflowGroup {
+  display: grid;
+  gap: 20px;
+}
+
+.modelQualityWorkflowHeader {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel-soft);
+}
+
+.modelQualityWorkflowHeader span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modelQualityWorkflowHeader h2,
+.modelQualityWorkflowHeader p {
+  margin: 0;
+}
+
+.modelQualityWorkflowHeader p {
+  color: var(--muted);
+}
+
+.modelQualityWorkflowDivider {
+  height: 1px;
+  margin: 0.5rem 0;
+  background: var(--line);
+}
+
 .modelQualitySummaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1020,6 +1057,7 @@ nav {
 }
 
 .manualImageSelectionHeader {
+  position: relative;
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -1040,6 +1078,41 @@ nav {
 .manualImageSelectionHeader strong {
   color: var(--accent);
   font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.manualImageSelectionRangeButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-weight: 700;
+}
+
+.manualImageSelectionRangeEditor {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+}
+
+.manualImageSelectionRangeEditor label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manualImageSelectionRangeEditor input {
+  width: 112px;
 }
 
 .manualImageSelectionSetup {
@@ -2267,65 +2340,197 @@ a:focus-visible {
   gap: 18px;
 }
 
-.symbolBootstrapPanel {
-  padding-top: 22px;
+.symbolManualForm {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
 }
 
-.symbolBootstrapControls {
+.symbolManualForm .formActions {
+  grid-column: 1 / -1;
+}
+
+.symbolCatalogToolbar {
   display: flex;
-  align-items: flex-end;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+}
+
+.symbolIdentityMetadata {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.symbolIdentityMetadata div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.4);
+}
+
+.symbolImagePickerDialog {
+  width: min(980px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: #0c192b;
+  color: var(--text);
+  box-shadow: 0 30px 120px rgba(0, 0, 0, 0.52);
+}
+
+.symbolImagePickerDialog::backdrop {
+  background: rgba(1, 5, 12, 0.74);
+}
+
+.symbolImagePickerCard {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.symbolImagePickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.symbolImagePickerHeader h2 {
+  margin: 0;
+}
+
+.symbolImagePickerHeader p:last-child,
+.symbolImagePickerFooter > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.symbolImagePickerLoading,
+.symbolImagePickerEmpty {
+  display: grid;
+  min-height: 180px;
+  place-content: center;
+  gap: 10px;
+  margin: 0;
+  border: 1px dashed var(--line-strong);
+  border-radius: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.symbolImagePickerEmpty > span {
+  color: var(--accent);
+  font-size: 38px;
+  font-weight: 850;
+}
+
+.symbolImagePickerEmpty > p {
+  margin: 0;
+}
+
+.symbolImageCandidateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 12px;
 }
 
-.symbolBootstrapCountField {
+.symbolImageCandidate {
   display: grid;
-  width: min(100%, 220px);
-  gap: 8px;
-  color: #d9e4f1;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.symbolBootstrapCountField input {
-  width: 100%;
-  min-height: 46px;
-  padding: 0 13px;
-  border: 1px solid var(--line-strong);
+  gap: 6px;
+  min-width: 0;
+  padding: 9px;
+  overflow: hidden;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  outline: none;
-  background: rgba(5, 12, 22, 0.62);
+  background: rgba(5, 12, 22, 0.36);
   color: var(--text);
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background 140ms ease;
+  text-align: left;
 }
 
-.symbolBootstrapCountField input:hover {
-  border-color: rgba(170, 196, 230, 0.4);
-  background: rgba(5, 12, 22, 0.78);
+.symbolImageCandidate:hover:not(:disabled) {
+  border-color: rgba(112, 225, 180, 0.58);
+  background: var(--accent-soft);
 }
 
-.symbolBootstrapCountField input:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+.symbolImageCandidate:disabled {
+  cursor: wait;
+  opacity: 0.66;
 }
 
-.symbolBootstrapCountField input:disabled {
-  color: #8294aa;
-  cursor: not-allowed;
+.symbolImageCandidatePreview {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #050c16;
 }
 
-@media (max-width: 520px) {
-  .symbolBootstrapControls {
-    align-items: stretch;
-    flex-direction: column;
-  }
+.symbolImageCandidatePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 
-  .symbolBootstrapCountField,
-  .symbolBootstrapControls .primaryButton {
-    width: 100%;
-  }
+.symbolImageCandidateUnavailable {
+  padding: 10px;
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 750;
+  text-align: center;
+}
+
+.symbolImageCandidate > span:not(.symbolImageCandidatePreview) {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.symbolImageCandidate small {
+  min-height: 28px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.symbolImageCandidate strong {
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.symbolImagePickerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.symbolImagePickerFooter > p {
+  margin: 0;
+}
+
+.symbolIdentityMetadata dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.symbolIdentityMetadata dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .rulesForm {
@@ -4619,6 +4824,13 @@ div.imageJobInlineError {
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;
+}
+
+.symbolDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .archiveConfirmation {
@@ -8480,5 +8692,342 @@ div.imageJobInlineError {
   .operationalReviewCell small,
   .operationalReviewCell > span {
     font-size: 6px;
+  }
+}
+
+.boardSearchWorkspace {
+  display: grid;
+  gap: 18px;
+}
+
+.boardSearchHeader {
+  margin-bottom: 0;
+}
+
+.boardSearchScope {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+}
+
+.boardSearchScope legend {
+  grid-column: 1 / -1;
+  padding: 0 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchScope label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.boardSearchScope > span {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchComposer {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.62fr) minmax(390px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.boardSearchPalette,
+.boardSearchPattern {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+}
+
+.boardSearchPalette header,
+.boardSearchPattern header {
+  display: grid;
+  gap: 4px;
+}
+
+.boardSearchPalette h2,
+.boardSearchPattern h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.boardSearchPalette p,
+.boardSearchPattern p,
+.boardSearchFeedback,
+.boardSearchEmptyPalette {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.boardSearchPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.boardSearchSymbolButton,
+.boardSearchCell {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.boardSearchSymbolButton {
+  gap: 3px;
+  min-height: 88px;
+  padding: 6px 3px;
+}
+
+.boardSearchSymbolButton:hover,
+.boardSearchSymbolButton:focus-visible,
+.boardSearchCell:hover,
+.boardSearchCell:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(121, 196, 255, 0.16);
+}
+
+.boardSearchSymbolButton > img {
+  width: 38px;
+  height: 38px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+
+.boardSearchSymbolButton > span,
+.boardSearchCell strong {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardSearchSymbolButton > span {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.boardSearchCell small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.boardSearchGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(42px, 56px));
+  gap: 7px;
+  width: fit-content;
+}
+
+.boardSearchCell {
+  gap: 2px;
+  aspect-ratio: 1;
+  padding: 4px 2px;
+}
+
+.boardSearchCell > img {
+  width: min(70%, 38px);
+  aspect-ratio: 1;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+.boardSearchCell strong {
+  font-size: 9px;
+}
+
+.boardSearchCellSelected {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px rgba(121, 196, 255, 0.16);
+}
+
+.boardSearchActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.boardSearchActions .primaryButton {
+  margin-left: auto;
+}
+
+.boardSearchResults {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  outline: none;
+}
+
+.boardSearchResults:focus-visible {
+  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.2);
+}
+
+.boardSearchResults > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.boardSearchResults h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.boardSearchResultMetrics,
+.boardSearchEvidence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.boardSearchResultMetrics {
+  min-width: min(100%, 360px);
+}
+
+.boardSearchResultMetrics div,
+.boardSearchEvidence div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(7, 16, 29, 0.46);
+}
+
+.boardSearchResultMetrics dt,
+.boardSearchEvidence dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.boardSearchResultMetrics dd,
+.boardSearchEvidence dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchBoardAsset {
+  display: block;
+  width: min(100%, 900px);
+  max-height: min(68vh, 760px);
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+  object-fit: contain;
+}
+
+.boardSearchBoardAssetError {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed var(--danger);
+  border-radius: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.boardSearchEvidence {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.boardSearchResultNavigation {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.boardSearchResultNavigation > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .boardSearchComposer {
+    grid-template-columns: 1fr;
+  }
+
+  .boardSearchResults > header {
+    display: grid;
+  }
+}
+
+@media (max-width: 520px) {
+  .boardSearchPaletteGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .boardSearchGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .boardSearchScope {
+    grid-template-columns: 1fr;
+  }
+
+  .boardSearchScope > span {
+    margin-top: -8px;
+  }
+
+  .boardSearchActions .primaryButton {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .boardSearchResultMetrics,
+  .boardSearchEvidence {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .boardSearchResultNavigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .boardSearchResultNavigation > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }

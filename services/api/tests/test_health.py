@@ -9,6 +9,7 @@ def test_health_matches_the_accepted_contract() -> None:
             host="127.0.0.1",
             port=8000,
             admin_origin="http://127.0.0.1:3000",
+            remote_selection_recovery_enabled=False,
         )
     )
 
@@ -25,6 +26,7 @@ def test_cors_allows_configured_local_admin_and_reviewer_origins() -> None:
             host="127.0.0.1",
             port=8000,
             admin_origin="http://localhost:3000",
+            remote_selection_recovery_enabled=False,
         )
     )
 

@@ -21,6 +21,8 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_root.is_absolute()
     assert settings.import_root.name == "imports"
     assert settings.import_max_bytes == 1024 * 1024 * 1024
+    assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
+    assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
     assert settings.remote_manual_selection_host_mapping_enabled is True
     assert settings.remote_selection_deselect_enabled is True
     assert settings.remote_selection_max_file_bytes == 32 * 1024 * 1024
@@ -91,6 +93,14 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_IMPORT_MAX_BYTES": "one"},
             "GAME_PREDICTOR_IMPORT_MAX_BYTES",
+        ),
+        (
+            {"GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES": "0"},
+            "GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES",
+        ),
+        (
+            {"GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES": "one"},
+            "GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES",
         ),
         (
             {"GAME_PREDICTOR_REMOTE_SELECTION_HOST_MAPPING_ENABLED": "yes"},
@@ -178,11 +188,13 @@ def test_import_root_and_limit_are_configurable(tmp_path) -> None:
         {
             "GAME_PREDICTOR_IMPORT_ROOT": str(import_root),
             "GAME_PREDICTOR_IMPORT_MAX_BYTES": "2048",
+            "GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES": "4096",
         }
     )
 
     assert settings.import_root == import_root.resolve()
     assert settings.import_max_bytes == 2048
+    assert settings.browser_layout_import_max_bytes == 4096
 
 
 def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:

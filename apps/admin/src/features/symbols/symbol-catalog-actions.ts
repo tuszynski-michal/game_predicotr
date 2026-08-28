@@ -10,17 +10,14 @@ import type { ValidatedSymbolDraft } from './symbol-catalog-state.ts';
 
 export type SymbolsClient = Pick<
   AdminApiClient,
-  | 'archiveSymbol'
+  | 'deleteSymbol'
   | 'createSymbol'
-  | 'getLatestSymbolBootstrap'
   | 'listGames'
+  | 'listApprovedSymbolReferenceCandidates'
   | 'listSymbols'
-  | 'resolveSymbolBootstrap'
-  | 'listSymbolImageCandidates'
-  | 'selectSymbolImageCandidate'
-  | 'startSymbolBootstrap'
+  | 'approvedSymbolReferenceCandidateAssetUrl'
+  | 'selectApprovedSymbolReferenceCandidate'
   | 'symbolImageAssetUrl'
-  | 'symbolImageCandidateAssetUrl'
   | 'updateSymbol'
 >;
 
@@ -42,24 +39,12 @@ export async function saveSymbol(
     const result =
       intent.mode === 'create'
         ? await api.createSymbol(gameId, {
-            code: draft.code,
-            displayOrder: draft.displayOrder,
-            imagePath: draft.imagePath,
             isWildcard: draft.isWildcard,
-            mobileCode: draft.mobileCode,
             name: draft.name,
-            nameEn: draft.nameEn,
-            namePl: draft.namePl,
-            status: draft.status,
           } satisfies SymbolCreate)
         : await api.updateSymbol(gameId, intent.symbolId, {
-            displayOrder: draft.displayOrder,
-            imagePath: draft.imagePath,
             isWildcard: draft.isWildcard,
             name: draft.name,
-            nameEn: draft.nameEn,
-            namePl: draft.namePl,
-            status: draft.status,
           } satisfies SymbolUpdate);
 
     if (result.error !== undefined || result.data === undefined) {
@@ -78,31 +63,56 @@ export async function saveSymbol(
   }
 }
 
-export type ArchiveSymbolResult =
-  { readonly ok: true } | { readonly error: string; readonly ok: false };
+export type DeleteSymbolResult =
+  | { readonly ok: true }
+  | {
+      readonly blockers: readonly string[];
+      readonly error: string;
+      readonly ok: false;
+    };
 
-export async function archiveSymbol(
+export async function deleteSymbol(
   api: SymbolsClient,
   gameId: string,
   symbolId: string,
-): Promise<ArchiveSymbolResult> {
+): Promise<DeleteSymbolResult> {
   try {
-    const result = await api.archiveSymbol(gameId, symbolId);
+    const result = await api.deleteSymbol(gameId, symbolId);
     if (result.error !== undefined) {
       return {
-        error: apiErrorMessage(
-          result.error,
-          'Nie udało się zarchiwizować symbolu.',
-        ),
+        blockers: symbolDeleteBlockers(result.error.details),
+        error: apiErrorMessage(result.error, 'Nie udało się usunąć symbolu.'),
         ok: false,
       };
     }
     return { ok: true };
   } catch {
     return {
+      blockers: [],
       error:
-        'Połączenie z lokalnym Admin API zostało przerwane. Archiwizacja nie została potwierdzona.',
+        'Połączenie z lokalnym Admin API zostało przerwane. Usunięcie nie zostało potwierdzone.',
       ok: false,
     };
   }
+}
+
+const DELETE_BLOCKER_LABELS: Readonly<Record<string, string>> = {
+  observationPredictions: 'predykcje obserwacji',
+  pendingBoardPredictions: 'oczekujące predykcje plansz',
+  resolvedBoardDecisions: 'rozwiązane plansze',
+  rules: 'reguły',
+  symbolModelActivations: 'aktywacje modelu symboli',
+  symbolModelIterations: 'iteracje modelu symboli',
+  trainingCohorts: 'kohorty treningowe',
+};
+
+function symbolDeleteBlockers(
+  details: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  return Object.entries(DELETE_BLOCKER_LABELS).flatMap(([key, label]) => {
+    const count = details[key];
+    return typeof count === 'number' && Number.isInteger(count) && count > 0
+      ? [`${label}: ${count}`]
+      : [];
+  });
 }

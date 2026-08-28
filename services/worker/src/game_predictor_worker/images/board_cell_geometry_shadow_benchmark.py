@@ -854,7 +854,7 @@ def _stable_cell_payload(cell: BoardCellQuad) -> dict[str, object]:
 
 
 def _stable_estimate_payload(estimate: BoardCellGeometryEstimate) -> dict[str, object]:
-    payload = cast(dict[str, object], estimate.to_dict())
+    payload = estimate.to_dict()
     raw_cells = payload.get("cells")
     if isinstance(raw_cells, list):
         payload["cells"] = [_stable_cell_payload(cell) for cell in estimate.cells]

@@ -41,6 +41,9 @@ class VerifiedTrainingCohortSource:
     rejected_item_count: int
     incomplete_item_count: int
     warnings: tuple[str, ...]
+    dataset_kind: str = VERIFIED_TRAINING_COHORT_DATASET_KIND
+    manifest_schema_version: int = VERIFIED_TRAINING_COHORT_SCHEMA_VERSION
+    cells: tuple[Mapping[str, object], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,15 +307,20 @@ def build_model_quality_summary(
 ) -> ModelQualitySummary:
     """Build one deterministic, game-scoped readiness projection."""
 
+    cohort_items = source.cells if source.cells else source.boards
     current_checksums = {
-        hashlib.sha256(canonical_image_review_bytes(dict(board))).hexdigest()
-        for board in source.boards
+        hashlib.sha256(canonical_image_review_bytes(dict(item))).hexdigest()
+        for item in cohort_items
     }
     previous_checksums = frozenset() if latest_snapshot is None else latest_snapshot.item_checksums
     symbol_counts: Counter[str] = Counter()
-    for board in source.boards:
-        for cell in cast(Sequence[Mapping[str, object]], board["cells"]):
+    if source.cells:
+        for cell in source.cells:
             symbol_counts[cast(str, cell["symbolCode"])] += 1
+    else:
+        for board in source.boards:
+            for cell in cast(Sequence[Mapping[str, object]], board["cells"]):
+                symbol_counts[cast(str, cell["symbolCode"])] += 1
     ordered_symbol_codes = tuple(
         dict.fromkeys((*active_symbol_codes, *sorted(symbol_counts))).keys()
     )

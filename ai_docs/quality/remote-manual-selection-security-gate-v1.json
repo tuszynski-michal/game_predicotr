@@ -21,7 +21,7 @@
       "evidence": [
         "services/api/tests/test_remote_manual_selection_access.py",
         "services/api/tests/test_remote_manual_selection_access_api.py",
-        "services/api/tests/integration/test_remote_manual_selection_repository.py"
+        "services/api/tests/integration/test_remote_manual_selection_repository_integration.py"
       ]
     },
     {
@@ -123,5 +123,5 @@
     "Third-party penetration test",
     "TASK 18 scale rollout"
   ],
-  "contentChecksumSha256": "8386c3676422ecb3d98994c854bb7c447f5c5452592990485f7bd9af3e4b4360"
+  "contentChecksumSha256": "348245b238efd4b2917215c9563231784b432167073a5b63ca1629a4d41b71e6"
 }

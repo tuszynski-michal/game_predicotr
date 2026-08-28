@@ -1,5 +1,8 @@
 'use client';
 
+/* Geometry previews are checksum-bound local assets and must bypass Next image optimization. */
+/* eslint-disable @next/next/no-img-element */
+
 import type {
   AdminApiClient,
   BrowserPageGeometryOverrideCreate,

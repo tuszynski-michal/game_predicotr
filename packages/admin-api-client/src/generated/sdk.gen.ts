@@ -18,6 +18,9 @@ import type {
   ApplyRemoteManualSelectionOperationData,
   ApplyRemoteManualSelectionOperationErrors,
   ApplyRemoteManualSelectionOperationResponses,
+  ApplySymbolCellReviewDecisionData,
+  ApplySymbolCellReviewDecisionErrors,
+  ApplySymbolCellReviewDecisionResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -36,9 +39,6 @@ import type {
   ArchiveRulesVersionData,
   ArchiveRulesVersionErrors,
   ArchiveRulesVersionResponses,
-  ArchiveSymbolData,
-  ArchiveSymbolErrors,
-  ArchiveSymbolResponses,
   BuildMobileReleaseData,
   BuildMobileReleaseErrors,
   BuildMobileReleaseResponses,
@@ -129,6 +129,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeleteSymbolData,
+  DeleteSymbolErrors,
+  DeleteSymbolResponses,
   DiscardDuplicateImageSelectionGroupData,
   DiscardDuplicateImageSelectionGroupErrors,
   DiscardDuplicateImageSelectionGroupResponses,
@@ -153,6 +156,9 @@ import type {
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
+  GetApprovedSymbolReferenceCandidateAssetData,
+  GetApprovedSymbolReferenceCandidateAssetErrors,
+  GetApprovedSymbolReferenceCandidateAssetResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -206,9 +212,6 @@ import type {
   GetJobData,
   GetJobErrors,
   GetJobResponses,
-  GetLatestSymbolBootstrapData,
-  GetLatestSymbolBootstrapErrors,
-  GetLatestSymbolBootstrapResponses,
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
@@ -289,14 +292,20 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetSymbolCellReviewAssetData,
+  GetSymbolCellReviewAssetErrors,
+  GetSymbolCellReviewAssetResponses,
+  GetSymbolCellReviewBulkOperationData,
+  GetSymbolCellReviewBulkOperationErrors,
+  GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewProjectionStatusData,
+  GetSymbolCellReviewProjectionStatusErrors,
+  GetSymbolCellReviewProjectionStatusResponses,
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolImageAssetData,
   GetSymbolImageAssetErrors,
   GetSymbolImageAssetResponses,
-  GetSymbolImageCandidateAssetData,
-  GetSymbolImageCandidateAssetErrors,
-  GetSymbolImageCandidateAssetResponses,
   GetSymbolModelIterationData,
   GetSymbolModelIterationErrors,
   GetSymbolModelIterationResponses,
@@ -313,6 +322,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListApprovedSymbolReferenceCandidatesData,
+  ListApprovedSymbolReferenceCandidatesErrors,
+  ListApprovedSymbolReferenceCandidatesResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -406,9 +418,9 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
-  ListSymbolImageCandidatesData,
-  ListSymbolImageCandidatesErrors,
-  ListSymbolImageCandidatesResponses,
+  ListSymbolCellReviewsData,
+  ListSymbolCellReviewsErrors,
+  ListSymbolCellReviewsResponses,
   ListSymbolModelActivationsData,
   ListSymbolModelActivationsErrors,
   ListSymbolModelActivationsResponses,
@@ -462,6 +474,9 @@ import type {
   PreviewRemoteManualSelectionFinalizationData,
   PreviewRemoteManualSelectionFinalizationErrors,
   PreviewRemoteManualSelectionFinalizationResponses,
+  PreviewSymbolCellReviewBulkOperationData,
+  PreviewSymbolCellReviewBulkOperationErrors,
+  PreviewSymbolCellReviewBulkOperationResponses,
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
@@ -516,9 +531,6 @@ import type {
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
-  ResolveSymbolBootstrapData,
-  ResolveSymbolBootstrapErrors,
-  ResolveSymbolBootstrapResponses,
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
@@ -540,6 +552,12 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SearchGameBoardsData,
+  SearchGameBoardsErrors,
+  SearchGameBoardsResponses,
+  SelectApprovedSymbolReferenceCandidateData,
+  SelectApprovedSymbolReferenceCandidateErrors,
+  SelectApprovedSymbolReferenceCandidateResponses,
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
@@ -549,9 +567,6 @@ import type {
   SelectRemoteManualSelectionHostBaseData,
   SelectRemoteManualSelectionHostBaseErrors,
   SelectRemoteManualSelectionHostBaseResponses,
-  SelectSymbolImageCandidateData,
-  SelectSymbolImageCandidateErrors,
-  SelectSymbolImageCandidateResponses,
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
@@ -570,9 +585,12 @@ import type {
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
-  StartSymbolBootstrapData,
-  StartSymbolBootstrapErrors,
-  StartSymbolBootstrapResponses,
+  StartSymbolCellReviewBulkOperationData,
+  StartSymbolCellReviewBulkOperationErrors,
+  StartSymbolCellReviewBulkOperationResponses,
+  StartSymbolCellReviewProjectionBackfillData,
+  StartSymbolCellReviewProjectionBackfillErrors,
+  StartSymbolCellReviewProjectionBackfillResponses,
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
@@ -801,6 +819,22 @@ export const updateGame = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Find logical boards by a partial symbol pattern
+ */
+export const searchGameBoards = <ThrowOnError extends boolean = false>(
+  options: Options<SearchGameBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchGameBoardsResponses,
+  SearchGameBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    SearchGameBoardsResponses,
+    SearchGameBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
 
 /**
  * List game dataset versions
@@ -1310,38 +1344,24 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get the latest symbol bootstrap run
+ * Start an idempotent local symbol-cell review operation
  */
-export const getLatestSymbolBootstrap = <ThrowOnError extends boolean = false>(
-  options: Options<GetLatestSymbolBootstrapData, ThrowOnError>,
+export const startSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartSymbolCellReviewBulkOperationData, ThrowOnError>,
 ): RequestResult<
-  GetLatestSymbolBootstrapResponses,
-  GetLatestSymbolBootstrapErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).get<
-    GetLatestSymbolBootstrapResponses,
-    GetLatestSymbolBootstrapErrors,
-    ThrowOnError
-  >({ url: '/api/v1/admin/games/{game_id}/symbol-bootstrap', ...options });
-
-/**
- * Build symbol proposals from imported crops
- */
-export const startSymbolBootstrap = <ThrowOnError extends boolean = false>(
-  options: Options<StartSymbolBootstrapData, ThrowOnError>,
-): RequestResult<
-  StartSymbolBootstrapResponses,
-  StartSymbolBootstrapErrors,
+  StartSymbolCellReviewBulkOperationResponses,
+  StartSymbolCellReviewBulkOperationErrors,
   ThrowOnError
 > =>
   (options.client ?? client).post<
-    StartSymbolBootstrapResponses,
-    StartSymbolBootstrapErrors,
+    StartSymbolCellReviewBulkOperationResponses,
+    StartSymbolCellReviewBulkOperationErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap',
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1350,22 +1370,149 @@ export const startSymbolBootstrap = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Resolve a symbol cluster-count conflict
+ * Preview a frozen local symbol-cell review operation
  */
-export const resolveSymbolBootstrap = <ThrowOnError extends boolean = false>(
-  options: Options<ResolveSymbolBootstrapData, ThrowOnError>,
+export const previewSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolCellReviewBulkOperationData, ThrowOnError>,
 ): RequestResult<
-  ResolveSymbolBootstrapResponses,
-  ResolveSymbolBootstrapErrors,
+  PreviewSymbolCellReviewBulkOperationResponses,
+  PreviewSymbolCellReviewBulkOperationErrors,
   ThrowOnError
 > =>
   (options.client ?? client).post<
-    ResolveSymbolBootstrapResponses,
-    ResolveSymbolBootstrapErrors,
+    PreviewSymbolCellReviewBulkOperationResponses,
+    PreviewSymbolCellReviewBulkOperationErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution',
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get durable local symbol-cell review operation status
+ */
+export const getSymbolCellReviewBulkOperation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolCellReviewBulkOperationData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewBulkOperationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewBulkOperationResponses,
+    GetSymbolCellReviewBulkOperationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-operations/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Get symbol-cell review projection readiness and progress
+ */
+export const getSymbolCellReviewProjectionStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolCellReviewProjectionStatusData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewProjectionStatusResponses,
+  GetSymbolCellReviewProjectionStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewProjectionStatusResponses,
+    GetSymbolCellReviewProjectionStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection',
+    ...options,
+  });
+
+/**
+ * Start or resume durable symbol-cell review projection preparation
+ */
+export const startSymbolCellReviewProjectionBackfill = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartSymbolCellReviewProjectionBackfillData, ThrowOnError>,
+): RequestResult<
+  StartSymbolCellReviewProjectionBackfillResponses,
+  StartSymbolCellReviewProjectionBackfillErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSymbolCellReviewProjectionBackfillResponses,
+    StartSymbolCellReviewProjectionBackfillErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-projection',
+    ...options,
+  });
+
+/**
+ * List current symbol-cell reviews with bounded keyset pagination
+ */
+export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolCellReviewsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolCellReviewsResponses,
+  ListSymbolCellReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolCellReviewsResponses,
+    ListSymbolCellReviewsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews', ...options });
+
+/**
+ * Read one current checksum-bound symbol-cell crop
+ */
+export const getSymbolCellReviewAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellReviewAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewAssetResponses,
+  GetSymbolCellReviewAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewAssetResponses,
+    GetSymbolCellReviewAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/asset',
+    ...options,
+  });
+
+/**
+ * Apply one atomic checksum-bound symbol-cell review decision
+ */
+export const applySymbolCellReviewDecision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApplySymbolCellReviewDecisionData, ThrowOnError>,
+): RequestResult<
+  ApplySymbolCellReviewDecisionResponses,
+  ApplySymbolCellReviewDecisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApplySymbolCellReviewDecisionResponses,
+    ApplySymbolCellReviewDecisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1558,14 +1705,14 @@ export const createSymbol = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Archive game symbol
+ * Delete an unused game symbol
  */
-export const archiveSymbol = <ThrowOnError extends boolean = false>(
-  options: Options<ArchiveSymbolData, ThrowOnError>,
-): RequestResult<ArchiveSymbolResponses, ArchiveSymbolErrors, ThrowOnError> =>
+export const deleteSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteSymbolData, ThrowOnError>,
+): RequestResult<DeleteSymbolResponses, DeleteSymbolErrors, ThrowOnError> =>
   (options.client ?? client).delete<
-    ArchiveSymbolResponses,
-    ArchiveSymbolErrors,
+    DeleteSymbolResponses,
+    DeleteSymbolErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
@@ -1606,64 +1753,66 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * List a bounded page of actual crop candidates
+ * List human-approved crop candidates for a symbol reference
  */
-export const listSymbolImageCandidates = <ThrowOnError extends boolean = false>(
-  options: Options<ListSymbolImageCandidatesData, ThrowOnError>,
+export const listApprovedSymbolReferenceCandidates = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListApprovedSymbolReferenceCandidatesData, ThrowOnError>,
 ): RequestResult<
-  ListSymbolImageCandidatesResponses,
-  ListSymbolImageCandidatesErrors,
+  ListApprovedSymbolReferenceCandidatesResponses,
+  ListApprovedSymbolReferenceCandidatesErrors,
   ThrowOnError
 > =>
   (options.client ?? client).get<
-    ListSymbolImageCandidatesResponses,
-    ListSymbolImageCandidatesErrors,
+    ListApprovedSymbolReferenceCandidatesResponses,
+    ListApprovedSymbolReferenceCandidatesErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates',
     ...options,
   });
 
 /**
- * Read one checksum-bound symbol crop candidate
+ * Read one checksum-bound human-approved crop candidate
  */
-export const getSymbolImageCandidateAsset = <
+export const getApprovedSymbolReferenceCandidateAsset = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<GetSymbolImageCandidateAssetData, ThrowOnError>,
+  options: Options<GetApprovedSymbolReferenceCandidateAssetData, ThrowOnError>,
 ): RequestResult<
-  GetSymbolImageCandidateAssetResponses,
-  GetSymbolImageCandidateAssetErrors,
+  GetApprovedSymbolReferenceCandidateAssetResponses,
+  GetApprovedSymbolReferenceCandidateAssetErrors,
   ThrowOnError
 > =>
   (options.client ?? client).get<
-    GetSymbolImageCandidateAssetResponses,
-    GetSymbolImageCandidateAssetErrors,
+    GetApprovedSymbolReferenceCandidateAssetResponses,
+    GetApprovedSymbolReferenceCandidateAssetErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
     ...options,
   });
 
 /**
- * Select a checksum-bound crop as the symbol reference image
+ * Persist one checksum-bound human-approved crop as a symbol reference
  */
-export const selectSymbolImageCandidate = <
+export const selectApprovedSymbolReferenceCandidate = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<SelectSymbolImageCandidateData, ThrowOnError>,
+  options: Options<SelectApprovedSymbolReferenceCandidateData, ThrowOnError>,
 ): RequestResult<
-  SelectSymbolImageCandidateResponses,
-  SelectSymbolImageCandidateErrors,
+  SelectApprovedSymbolReferenceCandidateResponses,
+  SelectApprovedSymbolReferenceCandidateErrors,
   ThrowOnError
 > =>
   (options.client ?? client).post<
-    SelectSymbolImageCandidateResponses,
-    SelectSymbolImageCandidateErrors,
+    SelectApprovedSymbolReferenceCandidateResponses,
+    SelectApprovedSymbolReferenceCandidateErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1672,7 +1821,7 @@ export const selectSymbolImageCandidate = <
   });
 
 /**
- * Read the current checksum-bound symbol reference image
+ * Read the current human-approved symbol reference image
  */
 export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
   options: Options<GetSymbolImageAssetData, ThrowOnError>,

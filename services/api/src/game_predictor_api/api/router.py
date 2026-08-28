@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from game_predictor_api.api.board_cell_geometry_pending import (
     create_board_cell_geometry_pending_router,
 )
+from game_predictor_api.api.board_search import create_board_search_router
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
@@ -21,6 +22,7 @@ from game_predictor_api.api.image_review_cohorts import (
 from game_predictor_api.api.image_reviews import create_image_reviews_router
 from game_predictor_api.api.image_selections import create_image_selections_router
 from game_predictor_api.api.image_storage import create_image_storage_router
+from game_predictor_api.api.image_symbol_reviews import create_image_symbol_reviews_router
 from game_predictor_api.api.jobs import create_jobs_router
 from game_predictor_api.api.layout_import_reports import (
     create_layout_import_reports_router,
@@ -35,8 +37,8 @@ from game_predictor_api.api.remote_manual_selections import (
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
 from game_predictor_api.api.rules import create_rules_router
-from game_predictor_api.api.symbol_bootstrap import create_symbol_bootstrap_router
 from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
+from game_predictor_api.api.symbol_references import create_symbol_references_router
 from game_predictor_api.api.verified_training_cohorts import (
     create_verified_training_cohort_router,
 )
@@ -47,6 +49,7 @@ from game_predictor_api.config import ApiSettings
 def create_api_router(
     settings: ApiSettings,
     catalog_service_dependency: Callable[..., object],
+    board_search_service_dependency: Callable[..., object],
     cleanup_service_dependency: Callable[..., object],
     rules_service_dependency: Callable[..., object],
     dataset_service_dependency: Callable[..., object],
@@ -66,7 +69,11 @@ def create_api_router(
     reviewer_access_service_dependency: Callable[..., object],
     reviewer_ingress_service_dependency: Callable[..., object],
     reviewer_work_lifecycle_service_dependency: Callable[..., object],
-    symbol_bootstrap_service_dependency: Callable[..., object],
+    symbol_reference_service_dependency: Callable[..., object],
+    symbol_cell_review_query_service_dependency: Callable[..., object],
+    symbol_cell_review_mutation_service_dependency: Callable[..., object],
+    symbol_cell_review_bulk_operation_service_dependency: Callable[..., object],
+    symbol_cell_review_backfill_service_dependency: Callable[..., object],
     worker_lane_status_service_dependency: Callable[..., object],
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
@@ -93,6 +100,7 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_board_search_router(board_search_service_dependency))
     router.include_router(create_cleanup_router(cleanup_service_dependency))
     if settings.remote_manual_selection_host_mapping_enabled:
         router.include_router(
@@ -112,8 +120,17 @@ def create_api_router(
             )
         )
     router.include_router(
-        create_symbol_bootstrap_router(
-            symbol_bootstrap_service_dependency,
+        create_symbol_references_router(
+            symbol_reference_service_dependency,
+            settings.artifact_root,
+        )
+    )
+    router.include_router(
+        create_image_symbol_reviews_router(
+            symbol_cell_review_query_service_dependency,
+            symbol_cell_review_mutation_service_dependency,
+            symbol_cell_review_bulk_operation_service_dependency,
+            symbol_cell_review_backfill_service_dependency,
             settings.artifact_root,
         )
     )

@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   GameResponse,
+  ImageReviewGridIssueView,
   ImageReviewView,
   JobResponse,
   OperationalImageReviewPageResponse,
@@ -240,6 +241,7 @@ export async function loadOperationalReviewSymbols(
 
 export interface LoadOperationalReviewPageOptions {
   readonly gameId: string;
+  readonly gridIssueView: ImageReviewGridIssueView;
   readonly importJobId: string;
   readonly view: ImageReviewView;
   readonly afterCursor?: string;
@@ -305,7 +307,7 @@ export async function prefetchOperationalReviewPageBuffer(
   api: OperationalReviewsClient,
   options: Pick<
     LoadOperationalReviewPageOptions,
-    'gameId' | 'importJobId' | 'view'
+    'gameId' | 'gridIssueView' | 'importJobId' | 'view'
   >,
   buffer: OperationalReviewPageBuffer,
 ): Promise<OperationalReviewPageBufferPrefetchResult> {

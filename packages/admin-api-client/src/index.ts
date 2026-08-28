@@ -2,6 +2,7 @@ import { createClient as createGeneratedClient } from './generated/client';
 import {
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
+  applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -11,7 +12,7 @@ import {
   archivePayline as archiveGeneratedPayline,
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
-  archiveSymbol as archiveGeneratedSymbol,
+  deleteSymbol as deleteGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
   closeReviewerWorkAssignment as closeGeneratedReviewerWorkAssignment,
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
@@ -66,6 +67,7 @@ import {
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
+  getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
@@ -79,8 +81,8 @@ import {
   getPendingBoardCellGeometryCorrectionContext as getGeneratedPendingBoardCellGeometryCorrectionContext,
   getPendingBoardCellGeometrySource as getGeneratedPendingBoardCellGeometrySource,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
+  getSymbolCellReviewBulkOperation as getGeneratedSymbolCellReviewBulkOperation,
   getRulesVersion as getGeneratedRulesVersion,
-  getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
   getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
@@ -121,7 +123,8 @@ import {
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSymbols as listGeneratedSymbols,
-  listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
+  listSymbolCellReviews as listGeneratedSymbolCellReviews,
+  listApprovedSymbolReferenceCandidates as listGeneratedApprovedSymbolReferenceCandidates,
   listSymbolModelIterations as listGeneratedSymbolModelIterations,
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
@@ -136,8 +139,10 @@ import {
   previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
+  previewSymbolCellReviewBulkOperation as previewGeneratedSymbolCellReviewBulkOperation,
   startPendingSymbolReinference as startGeneratedPendingSymbolReinference,
   startPendingGridReinference as startGeneratedPendingGridReinference,
+  startSymbolCellReviewBulkOperation as startGeneratedSymbolCellReviewBulkOperation,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   openLocalReviewerWork as openGeneratedLocalReviewerWork,
@@ -160,11 +165,11 @@ import {
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
-  selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
-  resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
-  startSymbolBootstrap as startGeneratedSymbolBootstrap,
+  selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
+  searchGameBoards as searchGeneratedGameBoards,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
+  startSymbolCellReviewProjectionBackfill as startGeneratedSymbolCellReviewProjectionBackfill,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
@@ -184,6 +189,10 @@ import type {
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
+  BoardSearchResponse,
+  BoardSearchResultResponse,
+  BoardSearchScoreResponse,
+  BoardSearchScope,
   CreateJobData,
   GridProfileActivationAction,
   GridProfileActivationCommand,
@@ -204,6 +213,7 @@ import type {
   ImageSequenceSourceOverrideCommand,
   JobStatus,
   JobType,
+  ImageReviewGridIssueView,
   ImageReviewView,
   LayoutImportRowStatus,
   MockDatasetCreate,
@@ -236,12 +246,21 @@ import type {
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
   SymbolCreate,
-  SymbolBootstrapResolveCommand,
-  SymbolBootstrapStartCommand,
-  SymbolImageSelectionCommand,
+  ApprovedSymbolReferenceSelectionCommand,
   SymbolUpdate,
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
+  SymbolCellReviewFilterState,
+  SymbolCellReviewAction,
+  SymbolCellReviewBulkOperationRequest,
+  SymbolCellReviewBulkOperationResponse,
+  SymbolCellReviewBulkOperationStartRequest,
+  SymbolCellReviewBulkOperationStartResponse,
+  SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewMutationRequest,
+  SymbolCellReviewMutationResponse,
+  SymbolCellReviewProjectionStartResponse,
+  SymbolCellReviewProjectionStatusResponse,
   WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
@@ -265,6 +284,10 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  BoardSearchResponse,
+  BoardSearchResultResponse,
+  BoardSearchScoreResponse,
+  BoardSearchScope,
   BrowserImageSelectionCreate,
   BrowserImageSelectionUploadResponse,
   BrowserReadySelectionResponse,
@@ -340,6 +363,7 @@ export type {
   ImageStorageInventoryResponse,
   ImageStorageNamespaceResponse,
   ImageReviewAction,
+  ImageReviewGridIssueView,
   ImageReviewView,
   ImageSequenceSourceCandidateResponse,
   ImageSequenceSourceOverrideCommand,
@@ -404,6 +428,23 @@ export type {
   SymbolModelActivationCommandResponse,
   SymbolModelActivationPreviewResponse,
   SymbolModelActivationResponse,
+  SymbolCellReviewCountsResponse,
+  SymbolCellReviewAction,
+  SymbolCellReviewBulkExplicitSelectionRequest,
+  SymbolCellReviewBulkExplicitTargetRequest,
+  SymbolCellReviewBulkFilterSelectionRequest,
+  SymbolCellReviewBulkOperationRequest,
+  SymbolCellReviewBulkOperationResponse,
+  SymbolCellReviewBulkOperationStartRequest,
+  SymbolCellReviewBulkOperationStartResponse,
+  SymbolCellReviewBulkPreviewResponse,
+  SymbolCellReviewProjectionStartResponse,
+  SymbolCellReviewProjectionStatusResponse,
+  SymbolCellReviewFilterState,
+  SymbolCellReviewListItemResponse,
+  SymbolCellReviewMutationRequest,
+  SymbolCellReviewMutationResponse,
+  SymbolCellReviewPageResponse,
   SymbolTrainingCoverageResponse,
   PaylineCreate,
   PaylineResponse,
@@ -459,17 +500,10 @@ export type {
   RemoteManualSelectionSessionResponse,
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
+  ApprovedSymbolReferenceCandidatePageResponse,
+  ApprovedSymbolReferenceCandidateResponse,
+  ApprovedSymbolReferenceSelectionCommand,
   SymbolCreate,
-  SymbolBootstrapCandidateResponse,
-  SymbolBootstrapDefinitionCommand,
-  SymbolBootstrapDefinitionResponse,
-  SymbolBootstrapResolveCommand,
-  SymbolBootstrapRunResponse,
-  SymbolBootstrapStartCommand,
-  SymbolBootstrapStatus,
-  SymbolImageCandidatePageResponse,
-  SymbolImageCandidateResponse,
-  SymbolImageSelectionCommand,
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
@@ -513,11 +547,21 @@ export interface OperationalImageReviewContext {
 }
 
 export interface ListOperationalImageReviewItemsOptions extends OperationalImageReviewContext {
+  readonly gridIssueView?: ImageReviewGridIssueView;
   readonly view?: ImageReviewView;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface ListSymbolCellReviewsOptions {
+  readonly gameId: string;
+  readonly symbolId: string | 'unknown';
+  readonly state?: SymbolCellReviewFilterState;
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
   readonly limit?: number;
 }
 
@@ -529,6 +573,17 @@ export interface ListPendingBoardCellGeometryOptions extends OperationalImageRev
 
 export interface ListVerifiedImageReviewCohortsOptions extends OperationalImageReviewContext {
   readonly limit?: number;
+}
+
+export interface SearchGameBoardsOptions {
+  readonly cells: readonly BoardSearchQueryCell[];
+  readonly scope?: BoardSearchScope;
+  readonly limit?: number;
+}
+
+export interface BoardSearchQueryCell {
+  readonly cellIndex: number;
+  readonly symbolCode: string;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -1094,61 +1149,38 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
-    getLatestSymbolBootstrap: (gameId: string) =>
-      getGeneratedLatestSymbolBootstrap({
-        client,
-        path: { game_id: gameId },
-      }),
-    startSymbolBootstrap: (gameId: string, body: SymbolBootstrapStartCommand) =>
-      startGeneratedSymbolBootstrap({
-        body,
-        client,
-        headers: confirmedTargetHeaders(`symbol-bootstrap:${gameId}`),
-        path: { game_id: gameId },
-      }),
-    resolveSymbolBootstrap: (
-      gameId: string,
-      bootstrapId: string,
-      body: SymbolBootstrapResolveCommand,
-    ) =>
-      resolveGeneratedSymbolBootstrap({
-        body,
-        client,
-        headers: confirmedTargetHeaders(`symbol-bootstrap:${bootstrapId}`),
-        path: { bootstrap_id: bootstrapId, game_id: gameId },
-      }),
-    listSymbolImageCandidates: (
+    listApprovedSymbolReferenceCandidates: (
       gameId: string,
       symbolId: string,
       afterCursor?: string,
     ) =>
-      listGeneratedSymbolImageCandidates({
+      listGeneratedApprovedSymbolReferenceCandidates({
         client,
         path: { game_id: gameId, symbol_id: symbolId },
         query: {
-          limit: 10,
+          limit: 20,
           ...(afterCursor === undefined ? {} : { afterCursor }),
         },
       }),
-    symbolImageCandidateAssetUrl: (
+    approvedSymbolReferenceCandidateAssetUrl: (
       gameId: string,
       symbolId: string,
       observationId: string,
     ) =>
-      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image-candidates/${encodeURIComponent(observationId)}/asset`,
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(observationId)}/asset`,
     symbolImageAssetUrl: (gameId: string, symbolId: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
-    selectSymbolImageCandidate: (
+    selectApprovedSymbolReferenceCandidate: (
       gameId: string,
       symbolId: string,
       observationId: string,
-      body: SymbolImageSelectionCommand,
+      body: ApprovedSymbolReferenceSelectionCommand,
     ) =>
-      selectGeneratedSymbolImageCandidate({
+      selectGeneratedApprovedSymbolReferenceCandidate({
         body,
         client,
         headers: confirmedTargetHeaders(
-          `symbol-image:${gameId}:${symbolId}:${observationId}`,
+          `symbol-reference:${gameId}:${symbolId}:${observationId}`,
         ),
         path: {
           game_id: gameId,
@@ -1160,6 +1192,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedImageDatasetCompleteness({
         client,
         path: { game_id: gameId },
+      }),
+    searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
+      searchGeneratedGameBoards({
+        client,
+        path: { game_id: gameId },
+        query: {
+          cell: options.cells.map(
+            (cell) => `${cell.cellIndex}:${cell.symbolCode}`,
+          ),
+          ...(options.scope === undefined ? {} : { scope: options.scope }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
       }),
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({
@@ -1187,6 +1231,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: {
           gameId: filters.gameId,
           importJobId: filters.importJobId,
+          ...(filters.gridIssueView === undefined
+            ? {}
+            : { gridIssueView: filters.gridIssueView }),
           ...(filters.view === undefined ? {} : { view: filters.view }),
           ...(filters.afterCursor === undefined
             ? {}
@@ -1448,6 +1495,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { review_item_id: reviewItemId },
         query: context,
       }),
+    operationalImageReviewBoardAssetUrl: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) => {
+      const query = new URLSearchParams({
+        gameId: context.gameId,
+        importJobId: context.importJobId,
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/${encodeURIComponent(reviewItemId)}/assets/board?${query.toString()}`;
+    },
     getOperationalImageReviewCellAsset: (
       reviewItemId: string,
       cellIndex: number,
@@ -1479,6 +1536,79 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    getSymbolCellReviewProjectionStatus: (gameId: string) =>
+      getGeneratedSymbolCellReviewProjectionStatus({
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolCellReviewProjectionBackfill: (gameId: string) =>
+      startGeneratedSymbolCellReviewProjectionBackfill({
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-cell-review-projection:${gameId}`,
+        ),
+        path: { game_id: gameId },
+      }),
+    listSymbolCellReviews: (options: ListSymbolCellReviewsOptions) =>
+      listGeneratedSymbolCellReviews({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          symbolId: options.symbolId,
+          ...(options.state === undefined ? {} : { state: options.state }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.beforeCursor === undefined
+            ? {}
+            : { beforeCursor: options.beforeCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    symbolCellReviewAssetUrl: (
+      gameId: string,
+      cellReviewId: string,
+      expectedCropChecksumSha256: string,
+    ) => {
+      const query = new URLSearchParams({
+        expectedCropChecksumSha256,
+        thumbnailSize: '100',
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/${encodeURIComponent(cellReviewId)}/asset?${query.toString()}`;
+    },
+    applySymbolCellReviewDecision: (
+      gameId: string,
+      cellReviewId: string,
+      body: SymbolCellReviewMutationRequest,
+    ) =>
+      applyGeneratedSymbolCellReviewDecision({
+        body,
+        client,
+        path: { cell_review_id: cellReviewId, game_id: gameId },
+      }),
+    previewSymbolCellReviewBulkOperation: (
+      gameId: string,
+      body: SymbolCellReviewBulkOperationRequest,
+    ) =>
+      previewGeneratedSymbolCellReviewBulkOperation({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolCellReviewBulkOperation: (
+      gameId: string,
+      body: SymbolCellReviewBulkOperationStartRequest,
+    ) =>
+      startGeneratedSymbolCellReviewBulkOperation({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    getSymbolCellReviewBulkOperation: (gameId: string, operationId: string) =>
+      getGeneratedSymbolCellReviewBulkOperation({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
       }),
     listPendingBoardCellGeometry: (
       options: ListPendingBoardCellGeometryOptions,
@@ -1951,8 +2081,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId, symbol_id: symbolId },
       }),
-    archiveSymbol: (gameId: string, symbolId: string) =>
-      archiveGeneratedSymbol({
+    deleteSymbol: (gameId: string, symbolId: string) =>
+      deleteGeneratedSymbol({
         client,
         headers: confirmedTargetHeaders(`symbol:${symbolId}`),
         path: { game_id: gameId, symbol_id: symbolId },

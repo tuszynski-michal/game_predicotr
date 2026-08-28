@@ -264,383 +264,424 @@ export function ModelQualityWorkspace({
 
   return (
     <section className="modelQualityWorkspace">
-      <div className="modelQualitySummaryGrid">
-        <article>
-          <span>Aktywny model</span>
-          <strong>
-            {activeIteration === null
-              ? 'Model bazowy'
-              : `Iteracja #${activeIteration.iterationNumber}`}
-          </strong>
-          <code>
-            {activeIteration?.candidateManifestChecksumSha256
-              ? shortChecksum(activeIteration.candidateManifestChecksumSha256)
-              : 'Wbudowany model startowy'}
-          </code>
-        </article>
-        <article>
-          <span>Zweryfikowane plansze</span>
-          <strong>{quality.resolvedLayoutCount.toLocaleString('pl-PL')}</strong>
-          <small>Nowe od kohorty: {quality.newVerifiedLayoutCount}</small>
-        </article>
-        <article>
-          <span>Zdjęcia źródłowe</span>
-          <strong>{quality.sourceImageCount.toLocaleString('pl-PL')}</strong>
-          <small>
-            Próbki komórek: {quality.cellSampleCount.toLocaleString('pl-PL')}
-          </small>
-        </article>
-        <article>
-          <span>Ostatnia kohorta</span>
-          <strong>
-            {quality.latestCohort === null
-              ? 'Brak'
-              : `#${quality.latestCohort.iterationNumber}`}
-          </strong>
-          <code>
-            {quality.latestCohort === null
-              ? 'Jeszcze nie zamrożono danych'
-              : shortChecksum(quality.latestCohort.manifestChecksumSha256)}
-          </code>
-        </article>
-      </div>
+      <section
+        className="modelQualityWorkflowGroup"
+        aria-labelledby="symbol-quality-workflow-title"
+      >
+        <header className="modelQualityWorkflowHeader">
+          <span>Ulepszanie modelu symboli</span>
+          <h2 id="symbol-quality-workflow-title">Rozpoznawanie symboli</h2>
+          <p>
+            Kohorta powstaje z pojedynczych zatwierdzonych cropów. Nie wymaga
+            zatwierdzenia całej planszy i nie zmienia profilu cięcia siatki.
+          </p>
+        </header>
+        <div className="modelQualitySummaryGrid">
+          <article>
+            <span>Aktywny model</span>
+            <strong>
+              {activeIteration === null
+                ? 'Model bazowy'
+                : `Iteracja #${activeIteration.iterationNumber}`}
+            </strong>
+            <code>
+              {activeIteration?.candidateManifestChecksumSha256
+                ? shortChecksum(activeIteration.candidateManifestChecksumSha256)
+                : 'Wbudowany model startowy'}
+            </code>
+          </article>
+          <article>
+            <span>Plansze reprezentowane w kohorcie</span>
+            <strong>
+              {quality.resolvedLayoutCount.toLocaleString('pl-PL')}
+            </strong>
+            <small>
+              Nowe cropy od kohorty: {quality.newVerifiedLayoutCount}
+            </small>
+          </article>
+          <article>
+            <span>Zdjęcia źródłowe</span>
+            <strong>{quality.sourceImageCount.toLocaleString('pl-PL')}</strong>
+            <small>
+              Próbki komórek: {quality.cellSampleCount.toLocaleString('pl-PL')}
+            </small>
+          </article>
+          <article>
+            <span>Ostatnia kohorta</span>
+            <strong>
+              {quality.latestCohort === null
+                ? 'Brak'
+                : `#${quality.latestCohort.iterationNumber}`}
+            </strong>
+            <code>
+              {quality.latestCohort === null
+                ? 'Jeszcze nie zamrożono danych'
+                : shortChecksum(quality.latestCohort.manifestChecksumSha256)}
+            </code>
+          </article>
+        </div>
 
-      <div className="modelQualityColumns">
-        <section
-          className="modelQualityPanel"
-          aria-labelledby="symbol-coverage-title"
-        >
-          <header>
-            <h3 id="symbol-coverage-title">Pokrycie symboli</h3>
-            <p>
-              Pełna liczba ręcznie potwierdzonych cropów dla każdego symbolu.
-            </p>
-          </header>
-          {quality.symbolCoverage.length === 0 ? (
-            <p className="mutedText">Brak aktywnych symboli.</p>
-          ) : (
-            <ul className="symbolCoverageList">
-              {quality.symbolCoverage.map((item) => (
-                <li key={item.symbolCode}>
-                  <code>{item.symbolCode}</code>
-                  <strong>{item.sampleCount.toLocaleString('pl-PL')}</strong>
+        <div className="modelQualityColumns">
+          <section
+            className="modelQualityPanel"
+            aria-labelledby="symbol-coverage-title"
+          >
+            <header>
+              <h3 id="symbol-coverage-title">Pokrycie symboli</h3>
+              <p>
+                Pełna liczba ręcznie potwierdzonych cropów dla każdego symbolu.
+              </p>
+            </header>
+            {quality.symbolCoverage.length === 0 ? (
+              <p className="mutedText">Brak aktywnych symboli.</p>
+            ) : (
+              <ul className="symbolCoverageList">
+                {quality.symbolCoverage.map((item) => (
+                  <li key={item.symbolCode}>
+                    <code>{item.symbolCode}</code>
+                    <strong>{item.sampleCount.toLocaleString('pl-PL')}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section
+            className="modelQualityPanel"
+            aria-labelledby="readiness-title"
+          >
+            <header>
+              <h3 id="readiness-title">Gotowość iteracji</h3>
+              <p>Progi 100 i 1000 są wskazówką, nie automatyczną blokadą.</p>
+            </header>
+            <ul className="modelQualityThresholds">
+              {quality.advisoryThresholds.map((threshold) => (
+                <li key={threshold.layoutCount}>
+                  <span aria-hidden="true">
+                    {threshold.reached ? '✓' : '○'}
+                  </span>
+                  <span>
+                    {threshold.layoutCount.toLocaleString('pl-PL')} plansz
+                  </span>
+                  <strong>
+                    {threshold.reached ? 'osiągnięty' : 'jeszcze nie'}
+                  </strong>
                 </li>
               ))}
             </ul>
+            <dl className="modelQualityDecisionCounts">
+              <div>
+                <dt>Oczekujące</dt>
+                <dd>{quality.pendingItemCount}</dd>
+              </div>
+              <div>
+                <dt>Odrzucone</dt>
+                <dd>{quality.rejectedItemCount}</dd>
+              </div>
+              <div>
+                <dt>Niekompletne</dt>
+                <dd>{quality.incompleteItemCount}</dd>
+              </div>
+              <div>
+                <dt>Chronione decyzje</dt>
+                <dd>{quality.protectedItemCount}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+
+        <section
+          className="modelQualityPanel"
+          aria-labelledby="candidate-gate-title"
+        >
+          <header>
+            <h3 id="candidate-gate-title">Ostatnia bramka kandydata</h3>
+            <p>
+              Raport ONNX i kalibracji. Kandydat nie zmienia aktywnego modelu
+              bez osobnej aktywacji.
+            </p>
+          </header>
+          {latestIteration === null ? (
+            <p className="mutedText">
+              Nie uruchomiono jeszcze żadnej iteracji.
+            </p>
+          ) : (
+            <>
+              <dl className="modelQualityDecisionCounts">
+                <div>
+                  <dt>Iteracja</dt>
+                  <dd>#{latestIteration.iterationNumber}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{latestIteration.status}</dd>
+                </div>
+                <div>
+                  <dt>Test accuracy</dt>
+                  <dd>
+                    {typeof testAccuracy === 'number' ? testAccuracy : '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Test macro recall</dt>
+                  <dd>
+                    {typeof testMacroRecall === 'number'
+                      ? testMacroRecall
+                      : '—'}
+                  </dd>
+                </div>
+              </dl>
+              {latestIteration.rejectionReasons.length > 0 ? (
+                <ul
+                  className="modelQualityWarnings"
+                  aria-label="Powody odrzucenia kandydata"
+                >
+                  {latestIteration.rejectionReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {latestIteration.gateReportRelativePath ? (
+                <code
+                  title={latestIteration.gateReportChecksumSha256 ?? undefined}
+                >
+                  {latestIteration.gateReportRelativePath}
+                </code>
+              ) : null}
+            </>
           )}
         </section>
 
         <section
           className="modelQualityPanel"
-          aria-labelledby="readiness-title"
+          aria-labelledby="model-registry-title"
         >
           <header>
-            <h3 id="readiness-title">Gotowość iteracji</h3>
-            <p>Progi 100 i 1000 są wskazówką, nie automatyczną blokadą.</p>
+            <h3 id="model-registry-title">Rejestr i aktywacja modelu</h3>
+            <p>
+              Aktywacja i rollback dotyczą wyłącznie nowych jobów. Uruchomiony
+              job zachowuje przypięty model i sumę kontrolną.
+            </p>
           </header>
-          <ul className="modelQualityThresholds">
-            {quality.advisoryThresholds.map((threshold) => (
-              <li key={threshold.layoutCount}>
-                <span aria-hidden="true">{threshold.reached ? '✓' : '○'}</span>
-                <span>
-                  {threshold.layoutCount.toLocaleString('pl-PL')} plansz
-                </span>
-                <strong>
-                  {threshold.reached ? 'osiągnięty' : 'jeszcze nie'}
-                </strong>
-              </li>
-            ))}
-          </ul>
           <dl className="modelQualityDecisionCounts">
             <div>
-              <dt>Oczekujące</dt>
-              <dd>{quality.pendingItemCount}</dd>
+              <dt>Aktywna iteracja</dt>
+              <dd>{activeIterationId ?? 'Model bazowy'}</dd>
             </div>
             <div>
-              <dt>Odrzucone</dt>
-              <dd>{quality.rejectedItemCount}</dd>
-            </div>
-            <div>
-              <dt>Niekompletne</dt>
-              <dd>{quality.incompleteItemCount}</dd>
-            </div>
-            <div>
-              <dt>Chronione decyzje</dt>
-              <dd>{quality.protectedItemCount}</dd>
+              <dt>Historia zmian</dt>
+              <dd>{activations.length}</dd>
             </div>
           </dl>
-        </section>
-      </div>
-
-      <section
-        className="modelQualityPanel"
-        aria-labelledby="candidate-gate-title"
-      >
-        <header>
-          <h3 id="candidate-gate-title">Ostatnia bramka kandydata</h3>
-          <p>
-            Raport ONNX i kalibracji. Kandydat nie zmienia aktywnego modelu bez
-            osobnej aktywacji.
-          </p>
-        </header>
-        {latestIteration === null ? (
-          <p className="mutedText">Nie uruchomiono jeszcze żadnej iteracji.</p>
-        ) : (
-          <>
-            <dl className="modelQualityDecisionCounts">
-              <div>
-                <dt>Iteracja</dt>
-                <dd>#{latestIteration.iterationNumber}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{latestIteration.status}</dd>
-              </div>
-              <div>
-                <dt>Test accuracy</dt>
-                <dd>{typeof testAccuracy === 'number' ? testAccuracy : '—'}</dd>
-              </div>
-              <div>
-                <dt>Test macro recall</dt>
-                <dd>
-                  {typeof testMacroRecall === 'number' ? testMacroRecall : '—'}
-                </dd>
-              </div>
-            </dl>
-            {latestIteration.rejectionReasons.length > 0 ? (
-              <ul
-                className="modelQualityWarnings"
-                aria-label="Powody odrzucenia kandydata"
-              >
-                {latestIteration.rejectionReasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-            ) : null}
-            {latestIteration.gateReportRelativePath ? (
-              <code
-                title={latestIteration.gateReportChecksumSha256 ?? undefined}
-              >
-                {latestIteration.gateReportRelativePath}
+          <div className="buttonRow">
+            <button
+              className="primaryButton"
+              disabled={
+                latestIteration === null ||
+                latestIteration.status !== 'candidate_ready' ||
+                latestIteration.id === activeIterationId ||
+                activating
+              }
+              onClick={() =>
+                latestIteration === null
+                  ? undefined
+                  : void prepareActivation('activate', latestIteration.id)
+              }
+              type="button"
+            >
+              Aktywuj ostatniego kandydata
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={rollbackIterationId === null || activating}
+              onClick={() =>
+                rollbackIterationId === null
+                  ? undefined
+                  : void prepareActivation('rollback', rollbackIterationId)
+              }
+              type="button"
+            >
+              Przywróć poprzedni model
+            </button>
+          </div>
+          {activations.length > 0 ? (
+            <ol className="modelQualityActivationHistory">
+              {activations.slice(0, 5).map((activation) => (
+                <li key={activation.id}>
+                  <strong>{activation.action}</strong>{' '}
+                  <code>{activation.modelIterationId}</code>{' '}
+                  <time dateTime={activation.createdAt}>
+                    {new Date(activation.createdAt).toLocaleString('pl-PL')}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mutedText">Brak ręcznych zmian aktywnego modelu.</p>
+          )}
+          {activationPreview !== null ? (
+            <section
+              className="modelQualityConfirmation"
+              aria-label="Potwierdzenie modelu"
+            >
+              <h3>
+                {activationAction === 'rollback'
+                  ? 'Potwierdź rollback modelu'
+                  : 'Potwierdź aktywację modelu'}
+              </h3>
+              <code title={activationPreview.candidateManifestChecksumSha256}>
+                SHA-256: {activationPreview.candidateManifestChecksumSha256}
               </code>
-            ) : null}
-          </>
-        )}
-      </section>
+              <p>
+                Iteracja: {activationPreview.modelIterationId}. Bieżąca
+                iteracja:{' '}
+                {activationPreview.currentModelIterationId ?? 'model bazowy'}.
+              </p>
+              <div className="buttonRow">
+                <button
+                  className="primaryButton"
+                  disabled={activating || !activationPreview.canActivate}
+                  onClick={() => void applyActivation()}
+                  type="button"
+                >
+                  {activating ? 'Zapisywanie…' : 'Potwierdź zmianę'}
+                </button>
+                <button
+                  className="secondaryButton"
+                  disabled={activating}
+                  onClick={() => setActivationPreview(null)}
+                  type="button"
+                >
+                  Anuluj
+                </button>
+              </div>
+            </section>
+          ) : null}
+        </section>
 
-      <section
-        className="modelQualityPanel"
-        aria-labelledby="model-registry-title"
-      >
-        <header>
-          <h3 id="model-registry-title">Rejestr i aktywacja modelu</h3>
-          <p>
-            Aktywacja i rollback dotyczą wyłącznie nowych jobów. Uruchomiony job
-            zachowuje przypięty model i sumę kontrolną.
+        {quality.warnings.length > 0 ? (
+          <aside
+            className="modelQualityWarnings"
+            aria-label="Ostrzeżenia jakości"
+          >
+            <strong>Ostrzeżenia</strong>
+            <ul>
+              {quality.warnings.map((warning) => (
+                <li key={warning}>{warningLabel(warning)}</li>
+              ))}
+            </ul>
+          </aside>
+        ) : null}
+
+        {notice ? (
+          <p className="modelQualityNotice" role="status">
+            {notice}
           </p>
-        </header>
-        <dl className="modelQualityDecisionCounts">
-          <div>
-            <dt>Aktywna iteracja</dt>
-            <dd>{activeIterationId ?? 'Model bazowy'}</dd>
+        ) : null}
+        {error ? (
+          <p className="modelQualityError" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {!confirming ? (
+          <div className="buttonRow">
+            <button
+              className="primaryButton"
+              disabled={!quality.canFreeze || loading}
+              onClick={() => {
+                setError('');
+                setNotice('');
+                setConfirming(true);
+              }}
+              type="button"
+            >
+              Ulepsz rozpoznawanie
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={recalculating || pendingPreview?.pendingCount === 0}
+              onClick={() => void recalculatePendingSymbols()}
+              type="button"
+            >
+              {recalculating
+                ? 'Przeliczanie…'
+                : `Przelicz oczekujące (${pendingPreview?.pendingCount ?? '…'})`}
+            </button>
           </div>
-          <div>
-            <dt>Historia zmian</dt>
-            <dd>{activations.length}</dd>
-          </div>
-        </dl>
-        <div className="buttonRow">
-          <button
-            className="primaryButton"
-            disabled={
-              latestIteration === null ||
-              latestIteration.status !== 'candidate_ready' ||
-              latestIteration.id === activeIterationId ||
-              activating
-            }
-            onClick={() =>
-              latestIteration === null
-                ? undefined
-                : void prepareActivation('activate', latestIteration.id)
-            }
-            type="button"
-          >
-            Aktywuj ostatniego kandydata
-          </button>
-          <button
-            className="secondaryButton"
-            disabled={rollbackIterationId === null || activating}
-            onClick={() =>
-              rollbackIterationId === null
-                ? undefined
-                : void prepareActivation('rollback', rollbackIterationId)
-            }
-            type="button"
-          >
-            Przywróć poprzedni model
-          </button>
-        </div>
-        {activations.length > 0 ? (
-          <ol className="modelQualityActivationHistory">
-            {activations.slice(0, 5).map((activation) => (
-              <li key={activation.id}>
-                <strong>{activation.action}</strong>{' '}
-                <code>{activation.modelIterationId}</code>{' '}
-                <time dateTime={activation.createdAt}>
-                  {new Date(activation.createdAt).toLocaleString('pl-PL')}
-                </time>
-              </li>
-            ))}
-          </ol>
         ) : (
-          <p className="mutedText">Brak ręcznych zmian aktywnego modelu.</p>
-        )}
-        {activationPreview !== null ? (
           <section
             className="modelQualityConfirmation"
-            aria-label="Potwierdzenie modelu"
+            aria-label="Potwierdzenie manifestu"
           >
-            <h3>
-              {activationAction === 'rollback'
-                ? 'Potwierdź rollback modelu'
-                : 'Potwierdź aktywację modelu'}
-            </h3>
-            <code title={activationPreview.candidateManifestChecksumSha256}>
-              SHA-256: {activationPreview.candidateManifestChecksumSha256}
+            <h3>Potwierdź niezmienny manifest</h3>
+            <code title={preview.manifestChecksumSha256}>
+              SHA-256: {preview.manifestChecksumSha256}
             </code>
+            <dl>
+              <div>
+                <dt>Do treningu</dt>
+                <dd>{preview.cellSampleCount}</dd>
+              </div>
+              <div>
+                <dt>Oczekujące</dt>
+                <dd>{preview.pendingItemCount}</dd>
+              </div>
+              <div>
+                <dt>Odrzucone</dt>
+                <dd>{preview.rejectedItemCount}</dd>
+              </div>
+              <div>
+                <dt>Niekompletne</dt>
+                <dd>{preview.incompleteItemCount}</dd>
+              </div>
+              <div>
+                <dt>Chronione</dt>
+                <dd>{preview.protectedItemCount}</dd>
+              </div>
+            </dl>
             <p>
-              Iteracja: {activationPreview.modelIterationId}. Bieżąca iteracja:{' '}
-              {activationPreview.currentModelIterationId ?? 'model bazowy'}.
+              Ta operacja zamrozi wskazaną wersję danych i uruchomi trwały
+              trening w tle. Nie zmieni żadnej decyzji użytkownika ani aktywnego
+              modelu.
             </p>
             <div className="buttonRow">
               <button
                 className="primaryButton"
-                disabled={activating || !activationPreview.canActivate}
-                onClick={() => void applyActivation()}
+                disabled={freezing}
+                onClick={() => void confirmFreeze()}
                 type="button"
               >
-                {activating ? 'Zapisywanie…' : 'Potwierdź zmianę'}
+                {freezing ? 'Zamrażanie…' : 'Potwierdź manifest'}
               </button>
               <button
                 className="secondaryButton"
-                disabled={activating}
-                onClick={() => setActivationPreview(null)}
+                disabled={freezing}
+                onClick={() => setConfirming(false)}
                 type="button"
               >
                 Anuluj
               </button>
             </div>
           </section>
-        ) : null}
+        )}
       </section>
 
-      <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
-
-      {quality.warnings.length > 0 ? (
-        <aside
-          className="modelQualityWarnings"
-          aria-label="Ostrzeżenia jakości"
-        >
-          <strong>Ostrzeżenia</strong>
-          <ul>
-            {quality.warnings.map((warning) => (
-              <li key={warning}>{warningLabel(warning)}</li>
-            ))}
-          </ul>
-        </aside>
-      ) : null}
-
-      {notice ? (
-        <p className="modelQualityNotice" role="status">
-          {notice}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="modelQualityError" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {!confirming ? (
-        <div className="buttonRow">
-          <button
-            className="primaryButton"
-            disabled={!quality.canFreeze || loading}
-            onClick={() => {
-              setError('');
-              setNotice('');
-              setConfirming(true);
-            }}
-            type="button"
-          >
-            Ulepsz rozpoznawanie
-          </button>
-          <button
-            className="secondaryButton"
-            disabled={recalculating || pendingPreview?.pendingCount === 0}
-            onClick={() => void recalculatePendingSymbols()}
-            type="button"
-          >
-            {recalculating
-              ? 'Przeliczanie…'
-              : `Przelicz oczekujące (${pendingPreview?.pendingCount ?? '…'})`}
-          </button>
-        </div>
-      ) : (
-        <section
-          className="modelQualityConfirmation"
-          aria-label="Potwierdzenie manifestu"
-        >
-          <h3>Potwierdź niezmienny manifest</h3>
-          <code title={preview.manifestChecksumSha256}>
-            SHA-256: {preview.manifestChecksumSha256}
-          </code>
-          <dl>
-            <div>
-              <dt>Do treningu</dt>
-              <dd>{preview.resolvedLayoutCount}</dd>
-            </div>
-            <div>
-              <dt>Oczekujące</dt>
-              <dd>{preview.pendingItemCount}</dd>
-            </div>
-            <div>
-              <dt>Odrzucone</dt>
-              <dd>{preview.rejectedItemCount}</dd>
-            </div>
-            <div>
-              <dt>Niekompletne</dt>
-              <dd>{preview.incompleteItemCount}</dd>
-            </div>
-            <div>
-              <dt>Chronione</dt>
-              <dd>{preview.protectedItemCount}</dd>
-            </div>
-          </dl>
+      <section
+        className="modelQualityWorkflowGroup"
+        aria-labelledby="grid-quality-workflow-title"
+      >
+        <div className="modelQualityWorkflowDivider" aria-hidden="true" />
+        <header className="modelQualityWorkflowHeader">
+          <span>Ulepszanie geometrii</span>
+          <h2 id="grid-quality-workflow-title">Cięcie siatki</h2>
           <p>
-            Ta operacja zamrozi wskazaną wersję danych i uruchomi trwały trening
-            w tle. Nie zmieni żadnej decyzji użytkownika ani aktywnego modelu.
+            Profil geometrii jest trenowany i aktywowany niezależnie od modelu
+            symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
           </p>
-          <div className="buttonRow">
-            <button
-              className="primaryButton"
-              disabled={freezing}
-              onClick={() => void confirmFreeze()}
-              type="button"
-            >
-              {freezing ? 'Zamrażanie…' : 'Potwierdź manifest'}
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={freezing}
-              onClick={() => setConfirming(false)}
-              type="button"
-            >
-              Anuluj
-            </button>
-          </div>
-        </section>
-      )}
+        </header>
+        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+      </section>
     </section>
   );
 }

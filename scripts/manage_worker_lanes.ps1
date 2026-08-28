@@ -117,7 +117,7 @@ $laneDefinitions = [ordered]@{
         argument = 'general'
         displayName = 'General worker'
         threadBudget = $GeneralThreadBudget
-        nativeThreadBudget = $GeneralThreadBudget
+        nativeThreadBudget = 1
     }
     'image-selection' = [ordered]@{
         argument = 'image-selection'

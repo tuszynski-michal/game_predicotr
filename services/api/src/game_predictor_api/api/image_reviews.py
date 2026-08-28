@@ -28,6 +28,7 @@ from game_predictor_api.application.reviewer_access import (
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageReviewGeometryPoint,
+    ImageReviewGridIssueView,
     ImageReviewResolutionCell,
     ImageReviewView,
 )
@@ -166,6 +167,10 @@ def create_image_reviews_router(
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
         view: ImageReviewView = ImageReviewView.PENDING,
+        grid_issue_view: Annotated[
+            ImageReviewGridIssueView,
+            Query(alias="gridIssueView"),
+        ] = ImageReviewGridIssueView.ALL,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         sequence_number: Annotated[
@@ -184,6 +189,7 @@ def create_image_reviews_router(
                 game_id=game_id,
                 import_job_id=import_job_id,
                 view=view,
+                grid_issue_view=grid_issue_view,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 sequence_number=sequence_number,

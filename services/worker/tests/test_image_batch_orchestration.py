@@ -82,6 +82,7 @@ class MemoryImageBatchStore:
         self.executions: dict[str, ImageFileExecution] = {}
         self.associations: dict[UUID, list[tuple[int, str, str]]] = {}
         self.batch_stats_calls = 0
+        self.save_file_checkpoint_calls = 0
 
     def register(
         self,
@@ -157,6 +158,7 @@ class MemoryImageBatchStore:
         checkpointed_at: datetime,
     ) -> ImageFileExecution:
         del lease_token, checkpointed_at
+        self.save_file_checkpoint_calls += 1
         expected = validate_file_checkpoint(expected_checkpoint)
         current = validate_file_checkpoint(checkpoint_payload)
         validate_checkpoint_transition(expected, current)
@@ -443,14 +445,55 @@ def test_review_files_do_not_block_diagnostics_and_resume_to_completion() -> Non
         ("session/page-002.jpg", "manual_review"),
         ("session/page-002.jpg", "validation"),
     ]
-    assert executor.rehydrated == [
-        "session/page-001.jpg",
-        "session/page-002.jpg",
-    ]
+    assert executor.rehydrated == []
     assert resumed_context.checkpoints[-1]["current"] == 2
     assert resumed_context.checkpoints[-1]["success_count"] == 2
     assert resumed_context.checkpoints[-1]["failure_count"] == 0
     assert resumed_context.checkpoints[-1]["review_count"] == 2
+
+
+def test_resume_processes_unfinished_sources_before_existing_review_queue() -> None:
+    job = _leased_image_job()
+    store = MemoryImageBatchStore()
+    _register_two(store, job)
+    executor = ReviewAwareExecutor()
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+
+    store.register(
+        job.id,
+        checksum="3" * 64,
+        pipeline_fingerprint=PIPELINE_FINGERPRINT,
+        path="session/page-003.jpg",
+        order_index=2,
+    )
+    calls_before_resume = len(executor.calls)
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+
+    assert executor.calls[calls_before_resume : calls_before_resume + len(PIPELINE_STAGES[:7])] == [
+        ("session/page-003.jpg", stage) for stage in PIPELINE_STAGES[:7]
+    ]
+    assert executor.rehydrated == []
+
+
+def test_resume_does_not_rewrite_unresolved_review_boundaries() -> None:
+    job = _leased_image_job()
+    store = MemoryImageBatchStore()
+    _register_two(store, job)
+    executor = ReviewAwareExecutor()
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+    saves_before_resume = store.save_file_checkpoint_calls
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+
+    assert store.save_file_checkpoint_calls == saves_before_resume
+    assert executor.rehydrated == []
 
 
 def test_batch_stats_aggregation_count_is_constant_across_all_file_stages() -> None:

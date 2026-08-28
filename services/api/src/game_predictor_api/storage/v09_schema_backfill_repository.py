@@ -8,11 +8,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_topology import BoardTopology
-from game_predictor_api.domain.image_symbol_reviews import SymbolCellQualityIssue
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -270,27 +269,7 @@ class SqlAlchemyV09SchemaBackfillRepository:
             )
             or 0
         )
-        inconsistent_quality = int(
-            self._session.scalar(
-                select(func.count(ImageSymbolReviewCellModel.id)).where(
-                    ImageSymbolReviewCellModel.game_id == game_id,
-                    or_(
-                        and_(
-                            ImageSymbolReviewCellModel.has_grid_issue.is_(True),
-                            or_(
-                                ImageSymbolReviewCellModel.quality_issue.is_(None),
-                                ImageSymbolReviewCellModel.quality_issue != "grid_issue",
-                            ),
-                        ),
-                        and_(
-                            ImageSymbolReviewCellModel.has_grid_issue.is_(False),
-                            ImageSymbolReviewCellModel.quality_issue == "grid_issue",
-                        ),
-                    ),
-                )
-            )
-            or 0
-        )
+        inconsistent_quality = 0
         missing_approved_crop = int(
             self._session.scalar(
                 select(func.count(ImageSymbolReviewCellModel.id)).where(
@@ -396,20 +375,7 @@ class SqlAlchemyV09SchemaBackfillRepository:
                 .with_for_update()
             ).all()
         for cell in cells:
-            expected_quality = (
-                SymbolCellQualityIssue.GRID_ISSUE.value if cell.has_grid_issue else None
-            )
-            if cell.quality_issue not in (None, expected_quality):
-                raise V09SchemaBackfillError(
-                    "SYMBOL_CELL_QUALITY_INCONSISTENT",
-                    "A persisted crop has conflicting legacy and v0.9 quality states.",
-                    game_id=game_id,
-                    board_ids=(board.id,),
-                )
             cell_changed = False
-            if cell.quality_issue != expected_quality:
-                cell.quality_issue = expected_quality
-                cell_changed = True
             if cell.review_state == "approved":
                 approved_identity = (
                     cell.approved_crop_sample_id,

@@ -358,3 +358,29 @@ TASK 10.
 
 TASK 12 — usunięcie zbędnej projekcji i indeksów. Nie rozpoczęto go w ramach
 TASK 11; przed destrukcyjną migracją wymagany jest osobny checkpoint.
+
+### v0.9.12 — usunięcie zbędnej projekcji i indeksów
+
+- Bieżący synchronizator wyszukiwania zapisuje wyłącznie kandydatów oraz
+  `image_board_search_fast_documents`; stara szeroka projekcja nie uczestniczy
+  już w runtime.
+- Migracja 0075 usuwa `image_board_search_documents`, tekstowe tokeny i GIN-y
+  kandydatów oraz legacy `has_grid_issue`. `quality_issue` pozostaje jedynym
+  trwałym źródłem jakości cropa.
+- Downgrade odtwarza strukturę i dane starej projekcji deterministycznie z
+  kandydatów i fast documents. Dodano read-only raport rozmiarów przed/po bez
+  `VACUUM FULL` i bez usuwania plików obrazów.
+
+#### Outcome TASK 12
+
+- Celowane testy domeny, repozytoriów i migracji przechodzą; rzeczywisty cykl
+  PostgreSQL `0074 → 0075 → 0074 → 0075` przeszedł na izolowanej bazie.
+- Migracji 0075 nie uruchomiono na danych użytkownika. Jej wykonanie wymaga
+  osobnego checkpointu, raportu rozmiaru i kontroli wolnego miejsca.
+- Nie usunięto źródeł, cropów, obserwacji ani rewizji i nie uruchomiono
+  `VACUUM FULL`.
+
+## Następny etap po TASK 12
+
+TASK 13 — cutover, odbiór i dokumentacja 0.9. Nie rozpoczęto go w ramach
+TASK 12.

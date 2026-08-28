@@ -618,7 +618,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                     row_by_cell_id[command.cell_review_id][0].review_state
                 ),
                 assigned_symbol_id=row_by_cell_id[command.cell_review_id][0].assigned_symbol_id,
-                has_grid_issue=bool(row_by_cell_id[command.cell_review_id][0].has_grid_issue),
+                has_grid_issue=(
+                    _quality_issue_from_model(row_by_cell_id[command.cell_review_id][0])
+                    == SymbolCellQualityIssue.GRID_ISSUE.value
+                ),
                 quality_issue=(
                     None
                     if (
@@ -1453,7 +1456,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                         else active_symbol_ids.get(review.assigned_symbol_code)
                     ),
                     review_state=review.review_state.value,
-                    has_grid_issue=review.has_grid_issue,
                     assignment_source=review.assignment_source.value,
                     quality_issue=(
                         None if review.quality_issue is None else review.quality_issue.value
@@ -1493,7 +1495,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                 target = _CellProjection(
                     assigned_symbol_id=resolved_symbol_id,
                     review_state=SymbolCellReviewState.APPROVED.value,
-                    has_grid_issue=False,
                     assignment_source=(
                         existing_cell.assignment_source
                         if preserve_approved_crop and existing_cell is not None
@@ -1525,7 +1526,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                 target = _CellProjection(
                     assigned_symbol_id=prediction_symbol_id,
                     review_state=SymbolCellReviewState.PENDING.value,
-                    has_grid_issue=False,
                     assignment_source=SymbolCellAssignmentSource.MODEL.value,
                     quality_issue=None,
                     approved_crop_sample_id=None,
@@ -1537,7 +1537,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                 target = _CellProjection(
                     assigned_symbol_id=existing_cell.assigned_symbol_id,
                     review_state=existing_cell.review_state,
-                    has_grid_issue=existing_cell.has_grid_issue,
                     assignment_source=existing_cell.assignment_source,
                     quality_issue=_quality_issue_from_model(existing_cell),
                     approved_crop_sample_id=existing_cell.approved_crop_sample_id,
@@ -1549,7 +1548,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                 target = _CellProjection(
                     assigned_symbol_id=prediction_symbol_id,
                     review_state=SymbolCellReviewState.PENDING.value,
-                    has_grid_issue=False,
                     assignment_source=SymbolCellAssignmentSource.MODEL.value,
                     quality_issue=None,
                     approved_crop_sample_id=None,
@@ -1579,7 +1577,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                         prediction_revision_id=prediction_revision_id,
                         assigned_symbol_id=target.assigned_symbol_id,
                         review_state=target.review_state,
-                        has_grid_issue=target.has_grid_issue,
                         quality_issue=target.quality_issue,
                         approved_crop_sample_id=target.approved_crop_sample_id,
                         approved_crop_checksum_sha256=target.approved_crop_checksum_sha256,
@@ -1810,7 +1807,6 @@ class SymbolCellReviewWriteThroughCoordinator:
 class _CellProjection:
     assigned_symbol_id: UUID | None
     review_state: str
-    has_grid_issue: bool
     assignment_source: str
     quality_issue: str | None
     approved_crop_sample_id: str | None
@@ -1822,7 +1818,6 @@ class _CellProjection:
 class _CellPreviousState:
     assigned_symbol_id: UUID | None
     review_state: str
-    has_grid_issue: bool
     quality_issue: str | None
     approved_crop_sample_id: str | None
     approved_crop_checksum_sha256: str | None
@@ -1833,7 +1828,6 @@ class _CellPreviousState:
         return cls(
             assigned_symbol_id=cell.assigned_symbol_id,
             review_state=cell.review_state,
-            has_grid_issue=cell.has_grid_issue,
             quality_issue=_quality_issue_from_model(cell),
             approved_crop_sample_id=cell.approved_crop_sample_id,
             approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
@@ -1953,7 +1947,7 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         assigned_symbol_name=cast(str | None, row[4]),
         prediction_symbol_code=cell.prediction_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
-        has_grid_issue=bool(cell.has_grid_issue),
+        has_grid_issue=(review.quality_issue is SymbolCellQualityIssue.GRID_ISSUE),
         quality_issue=review.quality_issue,
         crop_approval_state=review.crop_approval_state,
         revision=int(cell.revision),
@@ -1990,7 +1984,7 @@ def _symbol_cell_review_from_model(
         predicted_symbol_code=_known_symbol_code(cell.prediction_symbol_code),
         assigned_symbol_code=assigned_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
-        has_grid_issue=bool(cell.has_grid_issue),
+        has_grid_issue=(quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value),
         assignment_source=SymbolCellAssignmentSource(cell.assignment_source),
         revision=int(cell.revision),
         quality_issue=(None if quality_issue is None else SymbolCellQualityIssue(quality_issue)),
@@ -2077,7 +2071,6 @@ def _apply_symbol_cell_review_transition(
         )
     cell.assigned_symbol_id = assigned_symbol_id
     cell.review_state = review.review_state.value
-    cell.has_grid_issue = review.has_grid_issue
     cell.quality_issue = None if review.quality_issue is None else review.quality_issue.value
     cell.approved_crop_sample_id = (
         None if review.approved_crop is None else review.approved_crop.crop_sample_id
@@ -2115,8 +2108,6 @@ def _append_symbol_cell_event(
             assigned_symbol_id=cell.assigned_symbol_id,
             previous_review_state=previous.review_state,
             review_state=cell.review_state,
-            previous_has_grid_issue=previous.has_grid_issue,
-            has_grid_issue=cell.has_grid_issue,
             previous_quality_issue=previous.quality_issue,
             quality_issue=cell.quality_issue,
             previous_approved_crop_sample_id=previous.approved_crop_sample_id,
@@ -2165,15 +2156,13 @@ def _known_symbol_code(value: str | None) -> str | None:
 
 
 def _quality_issue_from_model(cell: ImageSymbolReviewCellModel) -> str | None:
-    if cell.quality_issue is not None:
-        return cell.quality_issue
-    return SymbolCellQualityIssue.GRID_ISSUE.value if cell.has_grid_issue else None
+    return cell.quality_issue
 
 
 def _is_human_cell_decision(cell: ImageSymbolReviewCellModel) -> bool:
     return (
         cell.review_state == SymbolCellReviewState.APPROVED.value
-        or cell.has_grid_issue
+        or cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
         or cell.assignment_source
         in {
             SymbolCellAssignmentSource.HUMAN.value,
@@ -2203,7 +2192,6 @@ def _cell_matches_projection(
         and cell.prediction_revision_id == prediction_revision_id
         and cell.assigned_symbol_id == target.assigned_symbol_id
         and cell.review_state == target.review_state
-        and bool(cell.has_grid_issue) == target.has_grid_issue
         and cell.quality_issue == target.quality_issue
         and cell.approved_crop_sample_id == target.approved_crop_sample_id
         and cell.approved_crop_checksum_sha256 == target.approved_crop_checksum_sha256
@@ -2233,7 +2221,6 @@ def _apply_cell_projection(
     cell.prediction_revision_id = prediction_revision_id
     cell.assigned_symbol_id = target.assigned_symbol_id
     cell.review_state = target.review_state
-    cell.has_grid_issue = target.has_grid_issue
     cell.quality_issue = target.quality_issue
     cell.approved_crop_sample_id = target.approved_crop_sample_id
     cell.approved_crop_checksum_sha256 = target.approved_crop_checksum_sha256
@@ -2682,7 +2669,6 @@ class SqlAlchemyImageSymbolReviewRepository:
                             if approved
                             else SymbolCellReviewState.PENDING.value
                         ),
-                        "has_grid_issue": False,
                         "quality_issue": None,
                         "approved_crop_sample_id": (
                             review.crop.crop_sample_id if approved else None

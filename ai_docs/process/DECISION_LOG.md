@@ -5977,6 +5977,25 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** nowy crop wymaga ponownego zatwierdzenia przed treningiem;
   korekta etykiety nie blokuje uczenia geometrii z zatwierdzonego quada.
 
+## D-249 — Fast documents jest jedyną bieżącą projekcją wyszukiwania
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** runtime utrzymuje `image_board_search_candidates` oraz jedną
+  wąską projekcję `image_board_search_fast_documents`. Stara tabela
+  `image_board_search_documents`, tekstowe tokeny dopasowań i legacy
+  `has_grid_issue` są usuwane przez migrację 0075. `quality_issue` jest jedynym
+  trwałym źródłem jakości komórki.
+- **Context:** właściciele starej i szybkiej projekcji są zgodni, a produkcyjne
+  odczyty korzystają z fast documents. Dalszy dual-write zwiększa koszt zapisu
+  i zajęte miejsce bez dostarczania odrębnej funkcji.
+- **Safety:** downgrade deterministycznie odbudowuje starą strukturę z
+  kandydatów i fast documents. Migracja nie usuwa obrazów, obserwacji ani
+  audytu i nie wykonuje `VACUUM FULL`. Przed uruchomieniem na danych użytkownika
+  wymagany jest raport rozmiaru i osobny checkpoint.
+- **Consequences:** publiczne `hasGridIssue` pozostaje czasowo wyliczane dla
+  zgodności API, ale ORM i zapisy nie zależą od usuniętej kolumny.
+
 ## Szablon nowej decyzji
 
 ```text

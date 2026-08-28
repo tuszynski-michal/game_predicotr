@@ -209,7 +209,7 @@ def test_document_selection_prefers_canonical_then_best_waiting_pending() -> Non
     assert canonical_selection.selection_kind == "canonical"
 
 
-def test_projection_tokens_exclude_unknown_symbols() -> None:
+def test_projection_evidence_positions_exclude_unknown_symbols() -> None:
     candidate = _candidate(
         identifier=1,
         sequence_number=1,
@@ -227,9 +227,7 @@ def test_projection_tokens_exclude_unknown_symbols() -> None:
         source_pixel_count=1_000,
     )
 
-    assert payload.primary_match_tokens == ("0:seven",)
-    assert payload.alternative_match_tokens(0) == ("0:bell",)
-    assert payload.alternative_match_tokens(1) == ("0:lemon",)
+    assert payload.known_evidence_positions == ("0",)
 
 
 @pytest.mark.parametrize(

@@ -124,23 +124,6 @@ class BoardSearchProjectionPayload:
             raise ValueError("board_checksum_sha256 must be a SHA-256 digest")
 
     @property
-    def primary_match_tokens(self) -> tuple[str, ...]:
-        return tuple(
-            _match_token(index, symbol)
-            for index, symbol in enumerate(self.candidate.primary_symbol_codes)
-            if _is_known_symbol(symbol)
-        )
-
-    def alternative_match_tokens(self, rank: int) -> tuple[str, ...]:
-        if not 0 <= rank < len(BOARD_SEARCH_ALTERNATIVE_WEIGHTS):
-            raise ValueError("alternative rank is outside the ranking contract")
-        return tuple(
-            _match_token(index, alternatives[rank])
-            for index, alternatives in enumerate(self.candidate.alternative_symbol_codes)
-            if rank < len(alternatives) and _is_known_symbol(alternatives[rank])
-        )
-
-    @property
     def known_evidence_positions(self) -> tuple[str, ...]:
         """Return cells with any permissible evidence for mismatch accounting.
 
@@ -385,12 +368,6 @@ def _selection_sort_key(
 
 def _is_known_symbol(symbol: str | None) -> bool:
     return symbol not in {None, UNKNOWN_SYMBOL_CODE}
-
-
-def _match_token(cell_index: int, symbol_code: str | None) -> str:
-    if not _is_known_symbol(symbol_code):
-        raise ValueError("a token requires a known symbol")
-    return f"{cell_index}:{symbol_code}"
 
 
 __all__ = [

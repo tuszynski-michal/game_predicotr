@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import String, and_, case, exists, func, literal, or_, select, tuple_
+from sqlalchemy import String, and_, case, exists, func, literal, select, tuple_
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
 
@@ -304,10 +304,7 @@ def _current_grid_issue_exists() -> Any:
             cell.review_item_id == ImageReviewItemModel.id,
             cell.recognized_board_id == RecognizedBoardModel.id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,
-            or_(
-                cell.quality_issue == "grid_issue",
-                and_(cell.quality_issue.is_(None), cell.has_grid_issue.is_(True)),
-            ),
+            cell.quality_issue == "grid_issue",
         )
     )
 

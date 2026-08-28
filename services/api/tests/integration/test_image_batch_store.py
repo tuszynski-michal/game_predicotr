@@ -927,7 +927,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             assert len(cells) == 15
             assert all(cell.geometry_revision == 1 for cell in cells)
             assert all(cell.review_state == "approved" for cell in cells)
-            assert all(cell.has_grid_issue is False for cell in cells)
+            assert all(cell.quality_issue is None for cell in cells)
             assert all(cell.assigned_symbol_id == symbol.id for cell in cells)
             assert all(cell.approved_geometry_revision == 0 for cell in cells)
             assert all(
@@ -1268,10 +1268,10 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 .order_by(ImageSymbolReviewCellModel.cell_index)
             ).all()
             assert cells[1].review_state == "pending"
-            assert cells[1].has_grid_issue is False
+            assert cells[1].quality_issue is None
             assert cells[1].quality_issue == "unreadable"
             assert all(
-                cell.review_state == "approved" and cell.has_grid_issue is False
+                cell.review_state == "approved" and cell.quality_issue is None
                 for index, cell in enumerate(cells)
                 if index != 1
             )
@@ -1812,7 +1812,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
                     ImageSymbolReviewCellModel.review_item_id == first_board.id
                 )
             ).all()
-            assert sum(cell.has_grid_issue for cell in first_board_cells) == 0
+            assert sum(cell.quality_issue == "grid_issue" for cell in first_board_cells) == 0
             assert sum(cell.quality_issue == "unreadable" for cell in first_board_cells) == 14
 
             # Model a concurrent full-page geometry save before the next

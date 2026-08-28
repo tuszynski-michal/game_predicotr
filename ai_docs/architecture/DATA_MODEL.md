@@ -860,7 +860,7 @@ TASK-0294 dodaje do tego samego read modelu wirtualny widok
 `needs_grid_fix`. Nie jest to flaga planszy ani kolejna projekcja: element
 należy do widoku wyłącznie wtedy, gdy dla jego bieżącej rewizji geometrii
 istnieje co najmniej jedna `image_symbol_review_cells` z
-`review_state = pending` i `has_grid_issue = true`. Repozytorium używa
+`review_state = pending` i `quality_issue = grid_issue`. Repozytorium używa
 skorelowanego `EXISTS`, dlatego wiele oznaczonych komórek nadal zwraca jedną
 planszę. Zapis nowej geometrii tworzy nową rewizję, resetuje wszystkie 15
 komórek i usuwa poprzednie flagi, więc plansza znika z tego widoku bez osobnego
@@ -898,7 +898,8 @@ zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
 wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
 `NULL` w przypisaniu oznacza techniczne `?`; zwykłe `approve` wymaga realnego
 symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domenowe
-`?`. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
+`?`. Problem `quality_issue = grid_issue` może wystąpić wyłącznie przy stanie
+`pending`.
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
 
@@ -951,10 +952,10 @@ Wymiary komórek nie są własnością tej projekcji. Pochodzą z
 i snapshotowane na rozpoznanej planszy. Wartość `NULL` przypisania może stać
 się ręcznie zatwierdzonym domenowym `?`; nie tworzy rekordu w `symbols` i nigdy
 nie kwalifikuje cropa do treningu. Trwałość tych pól wprowadza migracja
-`0073_topology_geometry_crop_provenance`. Do czasu usunięcia legacy pola zapis
-jest podwójny: `quality_issue = grid_issue` odpowiada
-`has_grid_issue = true`, a odczyt starszego rekordu bez `quality_issue`
-interpretuje legacy bool. Bounded backfill przypina wyłącznie wersję reguł
+`0073_topology_geometry_crop_provenance`. Migracja 0075 kończy okres dual-write:
+`quality_issue` jest jedynym trwałym źródłem jakości, a publiczne pole
+`hasGridIssue` pozostaje wyłącznie zgodnym wstecznie polem wyliczanym.
+Bounded backfill przypina wyłącznie wersję reguł
 zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz oraz
 uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
 grę raportem; nie jest naprawiana heurystycznie.
@@ -968,8 +969,9 @@ cropperem o innych wymiarach.
 
 Migracja dodaje również `image_board_geometry_review_events` jako append-only
 audyt zatwierdzenia geometrii. Nie przechowuje obrazów ani overlayów. Migracja
-0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths;
-usunięcie `has_grid_issue` pozostaje zakresem późniejszej migracji 0075.
+0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths.
+Migracja 0075 usuwa legacy `has_grid_issue` dopiero po przełączeniu wszystkich
+odczytów i zapisów na `quality_issue`.
 
 Kolejka nieczytelnych plansz nie ma osobnej tabeli. Jest wyliczana przez
 `EXISTS` po bieżących `image_symbol_review_cells` i łączona z
@@ -1780,10 +1782,11 @@ Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć p
 ## Projekcja wyszukiwania plansz częściowym układem
 
 Wyszukiwanie Admina nie skanuje surowych obserwacji komórek ani obrazów. Trwała
-projekcja kandydatów zachowuje dowód symboli dla wszystkich pozycji review, a
-`image_board_search_documents` wybiera deterministycznie jednego właściciela
-dla `game_id + sequence_number`. Obie projekcje są aktualizowane w tej samej
-transakcji co import, nowa predykcja, korekta geometrii lub decyzja review.
+projekcja `image_board_search_candidates` zachowuje dowód symboli dla wszystkich
+pozycji review, a `image_board_search_fast_documents` wybiera deterministycznie
+jednego właściciela dla `game_id + sequence_number`. Obie projekcje są
+aktualizowane w tej samej transakcji co import, nowa predykcja, korekta
+geometrii lub decyzja review.
 
 `image_board_search_fast_documents` jest wąskim, fizycznym read modelem
 wyłącznie aktualnie wybranego dokumentu. Zachowuje identyfikatory planszy,
@@ -1800,9 +1803,12 @@ symbolem katalogowym i zostaje usunięte przed wyliczeniem denominatora.
 
 Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
 `review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.
-Migracja najpierw kopiuje istniejące dokumenty, a synchronizator zapisuje oba
-read modele atomowo. Obrazy nadal są assetami filesystemu powiązanymi przez
-`review_item_id` i checksumę; żadna z tych tabel nie przechowuje JPEG-a.
+Od migracji 0075 synchronizator buduje fast documents bezpośrednio z kandydatów
+i canonical ownership. Stara tabela `image_board_search_documents`, tekstowe
+tokeny dopasowań oraz ich GIN-y są usunięte. Downgrade odtwarza je
+deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
+filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
+nie przechowuje JPEG-a.
 
 ## Mock data M1
 

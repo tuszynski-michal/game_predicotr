@@ -1848,10 +1848,6 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_source",
         ),
         CheckConstraint(
-            "NOT has_grid_issue OR review_state = 'pending'",
-            name="ck_image_symbol_review_cells_grid_issue_state",
-        ),
-        CheckConstraint(
             "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL "
             "OR (quality_issue IS NOT NULL AND quality_issue = 'unreadable')",
             name="ck_image_symbol_review_cells_approved_symbol",
@@ -1894,11 +1890,6 @@ class ImageSymbolReviewCellModel(Base):
             "sequence_number",
             "cell_index",
             "review_item_id",
-        ),
-        Index(
-            "ix_image_symbol_review_cells_grid_issue",
-            "review_item_id",
-            postgresql_where=text("has_grid_issue"),
         ),
         Index(
             "ix_image_symbol_review_cells_grid_quality_issue",
@@ -1946,9 +1937,6 @@ class ImageSymbolReviewCellModel(Base):
         ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
     )
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
-    has_grid_issue: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("false")
-    )
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -2048,8 +2036,6 @@ class ImageSymbolReviewEventModel(Base):
     )
     previous_review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
-    previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
     previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     previous_approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -4137,100 +4123,6 @@ class ImageBoardSearchCandidateModel(Base):
     source_pixel_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     primary_symbol_codes: Mapped[list[str | None]] = mapped_column(JSONB, nullable=False)
     alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(JSONB, nullable=False)
-    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
-    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
-    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
-
-class ImageBoardSearchDocumentModel(Base):
-    """Single current search owner for one game sequence number."""
-
-    __tablename__ = "image_board_search_documents"
-    __table_args__ = (
-        CheckConstraint(
-            "sequence_number > 0",
-            name="ck_image_board_search_documents_sequence_positive",
-        ),
-        CheckConstraint(
-            "selection_kind IN ('canonical', 'pending')",
-            name="ck_image_board_search_documents_selection_kind",
-        ),
-        CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected')",
-            name="ck_image_board_search_documents_status",
-        ),
-        UniqueConstraint(
-            "review_item_id",
-            name="uq_image_board_search_documents_review_item",
-        ),
-        Index(
-            "ix_image_board_search_documents_game_review",
-            "game_id",
-            "review_item_id",
-        ),
-    )
-
-    game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
-    )
-    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    review_item_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
-    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
-    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
-    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
-    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
     known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
     primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
         ARRAY(SmallInteger), nullable=False

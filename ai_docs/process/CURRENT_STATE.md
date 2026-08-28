@@ -3568,3 +3568,16 @@ Preview jakości raportuje wykluczenia `unknown`, `unreadable`, `grid_issue`,
 bieżącego właściciela logicznej planszy oraz zatwierdzonej rewizji geometrii;
 nie zależy od statusu ani treści etykiet symboli. Nie zmieniono architektury
 modelu ML, nie uruchomiono treningu ani operacji na danych użytkownika.
+
+Commit `v0.9.12` kończy runtime'owy cutover wyszukiwania plansz na
+`image_board_search_candidates` i `image_board_search_fast_documents`.
+Synchronizator nie zapisuje już starej szerokiej projekcji ani tekstowych
+tokenów. `quality_issue` jest jedynym trwałym źródłem problemu jakości cropa;
+publiczne `hasGridIssue` pozostaje polem wyliczanym dla zgodności kontraktu.
+
+Migracja 0075 usuwa legacy tabelę, tokeny, GIN-y i bool jakości. Jej downgrade
+odtwarza dane deterministycznie z bieżących kandydatów i fast documents.
+Dodano read-only raport rozmiarów przed/po. Migracja została sprawdzona na
+izolowanym PostgreSQL, ale nie została wykonana na bazie użytkownika; przed tym
+wymagany jest osobny checkpoint. Nie uruchomiono `VACUUM FULL` ani operacji na
+plikach obrazów.

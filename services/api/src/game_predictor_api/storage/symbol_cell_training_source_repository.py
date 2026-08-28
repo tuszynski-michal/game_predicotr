@@ -94,7 +94,6 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.review_item_id = c.review_item_id
                   WHERE c.game_id = :game_id
                     AND c.review_state = 'approved'
-                    AND c.has_grid_issue = false
                     AND c.quality_issue IS NULL
                     AND c.approved_crop_sample_id = c.crop_sample_id
                     AND c.approved_crop_checksum_sha256 = c.crop_checksum_sha256
@@ -165,18 +164,13 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 SELECT
                   count(*) FILTER (
                     WHERE quality_issue IS NULL
-                      AND has_grid_issue = false
                       AND assigned_symbol_id IS NULL
                   ) AS unknown_count,
                   count(*) FILTER (WHERE quality_issue = 'unreadable') AS unreadable_count,
-                  count(*) FILTER (
-                    WHERE quality_issue = 'grid_issue'
-                       OR (quality_issue IS NULL AND has_grid_issue = true)
-                  ) AS grid_issue_count,
+                  count(*) FILTER (WHERE quality_issue = 'grid_issue') AS grid_issue_count,
                   count(*) FILTER (
                     WHERE review_state = 'approved'
                       AND quality_issue IS NULL
-                      AND has_grid_issue = false
                       AND assigned_symbol_id IS NOT NULL
                       AND symbol_status = 'active'
                       AND (

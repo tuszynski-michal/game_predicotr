@@ -36,8 +36,7 @@ def _board(*, geometry_revision: int = 0):
 
 def _cell(*, approved: bool, grid_issue: bool = False):
     return SimpleNamespace(
-        has_grid_issue=grid_issue,
-        quality_issue=None,
+        quality_issue="grid_issue" if grid_issue else None,
         review_state="approved" if approved else "pending",
         crop_sample_id=_sha(1),
         crop_checksum_sha256=_sha(2),
@@ -70,7 +69,7 @@ def test_backfill_accepted_board_sets_topology_geometry_and_crop_provenance() ->
     )
 
     assert changed is True
-    assert updated_cells == 2
+    assert updated_cells == 1
     assert (board.grid_rows, board.grid_columns) == (3, 5)
     assert board.approved_geometry_revision == 3
     assert board.geometry_approved_by == "owner"
@@ -233,7 +232,7 @@ def test_pin_fails_when_no_rules_version_matches_existing_data(
     assert error.value.code == "GAME_BOARD_TOPOLOGY_RULES_MISMATCH"
 
 
-def test_symbol_review_dual_reads_legacy_grid_and_writes_v09_provenance() -> None:
+def test_symbol_review_reads_quality_issue_and_writes_v09_provenance() -> None:
     symbol_id = uuid4()
     cell = SimpleNamespace(
         id=uuid4(),
@@ -246,8 +245,7 @@ def test_symbol_review_dual_reads_legacy_grid_and_writes_v09_provenance() -> Non
         prediction_symbol_code="cherries",
         assigned_symbol_id=symbol_id,
         review_state="pending",
-        has_grid_issue=True,
-        quality_issue=None,
+        quality_issue="grid_issue",
         assignment_source="human",
         revision=5,
         approved_crop_sample_id=None,
@@ -276,7 +274,6 @@ def test_symbol_review_dual_reads_legacy_grid_and_writes_v09_provenance() -> Non
         actor="operator",
     )
 
-    assert cell.has_grid_issue is False
     assert cell.quality_issue is None
     assert cell.approved_crop_sample_id == cell.crop_sample_id
     assert cell.approved_crop_checksum_sha256 == cell.crop_checksum_sha256

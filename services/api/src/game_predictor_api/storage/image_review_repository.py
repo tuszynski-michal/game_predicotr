@@ -2170,7 +2170,7 @@ def _current_grid_issue_exists() -> ColumnElement[bool]:
             ImageSymbolReviewCellModel.review_item_id == ImageReviewItemModel.id,
             ImageSymbolReviewCellModel.geometry_revision == RecognizedBoardModel.geometry_revision,
             ImageSymbolReviewCellModel.review_state == "pending",
-            ImageSymbolReviewCellModel.has_grid_issue.is_(True),
+            ImageSymbolReviewCellModel.quality_issue == "grid_issue",
         )
         .exists(),
     )

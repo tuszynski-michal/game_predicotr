@@ -42,7 +42,7 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.models import (
     ImageBoardSearchCandidateModel,
-    ImageBoardSearchDocumentModel,
+    ImageBoardSearchFastDocumentModel,
     SymbolModel,
 )
 from sqlalchemy import select
@@ -150,7 +150,7 @@ def _load_query_cells(
         raise RuntimeError("The selected game has no active catalog symbols.")
 
     candidate = ImageBoardSearchCandidateModel
-    document = ImageBoardSearchDocumentModel
+    document = ImageBoardSearchFastDocumentModel
     statement = (
         select(candidate.primary_symbol_codes)
         .join(document, document.review_item_id == candidate.review_item_id)

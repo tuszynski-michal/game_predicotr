@@ -275,6 +275,18 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def preview(item_id: str) -> dict[str, str]:
         return {"itemId": item_id}
 
+    @app.post("/api/v1/admin/image-reviews/{item_id}/geometry-approval")
+    def approve_grid(item_id: str) -> dict[str, str]:
+        return {"itemId": item_id, "operation": "approval"}
+
+    @app.post("/api/v1/admin/image-reviews/{item_id}/geometry-preview")
+    def preview_grid(item_id: str) -> dict[str, str]:
+        return {"itemId": item_id, "operation": "preview"}
+
+    @app.post("/api/v1/admin/image-reviews/{item_id}/geometry-revisions")
+    def revise_grid(item_id: str) -> dict[str, str]:
+        return {"itemId": item_id, "operation": "revision"}
+
     @app.post("/api/v1/admin/jobs")
     def create_job() -> dict[str, bool]:
         return {"created": True}
@@ -299,6 +311,18 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "/api/v1/admin/image-review-items/review-item/geometry-preview",
             headers=headers,
         )
+        accepted_grid_approval = client.post(
+            "/api/v1/admin/image-reviews/review-item/geometry-approval",
+            headers=headers,
+        )
+        accepted_grid_preview = client.post(
+            "/api/v1/admin/image-reviews/review-item/geometry-preview",
+            headers=headers,
+        )
+        accepted_grid_revision = client.post(
+            "/api/v1/admin/image-reviews/review-item/geometry-revisions",
+            headers=headers,
+        )
         forbidden_admin_mutation = client.post(
             "/api/v1/admin/jobs",
             headers=headers,
@@ -315,6 +339,12 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
 
     assert accepted.status_code == 200
     assert accepted.json() == {"itemId": "review-item"}
+    assert accepted_grid_approval.status_code == 200
+    assert accepted_grid_approval.json() == {"itemId": "review-item", "operation": "approval"}
+    assert accepted_grid_preview.status_code == 200
+    assert accepted_grid_preview.json() == {"itemId": "review-item", "operation": "preview"}
+    assert accepted_grid_revision.status_code == 200
+    assert accepted_grid_revision.json() == {"itemId": "review-item", "operation": "revision"}
     assert accepted_pending_resolution.status_code == 200
     assert accepted_pending_resolution.json() == {"pendingId": "pending"}
     assert forbidden_admin_mutation.status_code == 403

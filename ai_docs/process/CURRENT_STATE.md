@@ -38,6 +38,11 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   globalnego Admina. Tokeny ciemnego motywu, tło, focusy i bazowe style
   kontrolek należą teraz także do Reviewera, dzięki czemu „Zatwierdzanie
   cięcia siatki” zachowuje wygląd aplikacji po niezależnym buildzie Reviewera.
+- `v0.9.15` synchronizuje lokalną allowlistę mutacji Reviewera z endpointami
+  walidacji siatki v0.9. Origin `127.0.0.1:3001` może wykonać wyłącznie
+  zatwierdzenie geometrii, podgląd oraz zapis rewizji; nadal wymaga loopbacku
+  i stałego nagłówka intencji. Naprawa nie rozszerza zdalnego Reviewera ani
+  pozostałych mutacji Admin API.
 
 ### Niezależne ulepszanie symboli i siatki — TASK-0303
 

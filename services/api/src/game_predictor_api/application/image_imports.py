@@ -29,6 +29,7 @@ from game_predictor_worker.images.selection.sequence_bounds import (
     parse_sequence_bounds_display_name,
 )
 
+from game_predictor_api.application.browser_staging_retention import BrowserStagingRetention
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
@@ -358,6 +359,7 @@ class BrowserImageSelectionService:
         max_bytes: int,
         photo_selection_max_bytes: int | None = None,
         clock: Callable[[], datetime] | None = None,
+        retention: BrowserStagingRetention | None = None,
     ) -> None:
         self._selection_service = selection_service
         self._upload_root = upload_root.resolve() / "browser-selections"
@@ -365,6 +367,7 @@ class BrowserImageSelectionService:
         self._max_bytes = max_bytes
         self._photo_selection_max_bytes = photo_selection_max_bytes or max_bytes
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._retention = retention
         self._uploads: dict[UUID, BrowserImageUpload] = {}
         self._lock = Lock()
 
@@ -605,8 +608,25 @@ class BrowserImageSelectionService:
                 selection_id=upload.upload_id,
                 managed=True,
             )
+            if self._retention is not None:
+                self._retention.record_ready(
+                    upload_id=upload.upload_id,
+                    game_id=upload.game_id,
+                    display_name=upload.display_name,
+                    manifest_checksum_sha256=manifest_sha256,
+                    finalized_at=completed_at,
+                )
             self._uploads.pop(upload_id, None)
             return selected
+
+    def mark_in_use(self, upload_id: UUID, *, game_id: UUID, job_id: UUID) -> None:
+        if self._retention is not None:
+            self._retention.record_in_use(
+                upload_id=upload_id,
+                game_id=game_id,
+                job_id=job_id,
+                used_at=self._clock(),
+            )
 
     def get(self, upload_id: UUID) -> BrowserImageUpload:
         with self._lock:

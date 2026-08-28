@@ -622,6 +622,65 @@ def test_game_less_ready_staging_is_bound_once(tmp_path: Path) -> None:
     assert error.value.code == "IMAGE_FOLDER_SELECTION_GAME_MISMATCH"
 
 
+def test_finalized_browser_staging_persists_ready_and_in_use_lifecycle(
+    tmp_path: Path,
+) -> None:
+    class RetentionSpy:
+        def __init__(self) -> None:
+            self.ready: dict[str, object] | None = None
+            self.in_use: dict[str, object] | None = None
+
+        def record_ready(self, **values: object) -> None:
+            self.ready = values
+
+        def record_in_use(self, **values: object) -> None:
+            self.in_use = values
+
+        def record_ingested(self, _handoff: object) -> None:
+            raise AssertionError("ingestion belongs to the worker")
+
+    retention = RetentionSpy()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+        retention=retention,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (20, 30, 40)).save(stream, "JPEG")
+    content = stream.getvalue()
+    game_id = uuid4()
+    upload = service.begin(
+        display_name="1-9",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+        game_id=game_id,
+    )
+    service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="1-9/seq_1-9.jpg",
+        content=content,
+    )
+
+    service.finalize(upload.upload_id)
+    job_id = uuid4()
+    service.mark_in_use(upload.upload_id, game_id=game_id, job_id=job_id)
+
+    assert retention.ready is not None
+    assert retention.ready["upload_id"] == upload.upload_id
+    assert retention.ready["game_id"] == game_id
+    assert retention.ready["finalized_at"] == NOW
+    assert retention.in_use == {
+        "upload_id": upload.upload_id,
+        "game_id": game_id,
+        "job_id": job_id,
+        "used_at": NOW,
+    }
+
+
 def test_browser_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
     client, _game_id = _client(tmp_path, None)
 

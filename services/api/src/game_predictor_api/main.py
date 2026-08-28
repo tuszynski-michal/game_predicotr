@@ -213,6 +213,9 @@ from game_predictor_api.storage.board_cell_geometry_pending_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.browser_staging_retention_repository import (
+    SqlAlchemyBrowserStagingRetentionRepository,
+)
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
@@ -640,6 +643,7 @@ def create_app(
         resolved_settings.import_root,
         max_bytes=resolved_settings.browser_layout_import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
+        retention=SqlAlchemyBrowserStagingRetentionRepository(session_factory),
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service

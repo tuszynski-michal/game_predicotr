@@ -871,6 +871,14 @@ i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
 `00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
 `relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
 
+Finalizacja zapisuje trwały stan `ready`, a start preflightu lub importu stan
+`in_use`. Worker może zapisać `ingested` dopiero po skopiowaniu i ponownej
+weryfikacji rozmiaru oraz SHA-256 każdego JPEG-a z manifestu — również źródeł,
+które później zostaną pominięte jako kanoniczne lub odroczone przez geometrię.
+Po tym handoffie staging może stać się kandydatem GC po 24 godzinach od
+ostatniej aktywnej zależności. Historia importu i rerun korzystają wtedy z
+niezmiennego manifestu managed originals, a nie z browserowej kopii.
+
 Browserowy import plansz ma osobny limit
 `GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES`, domyślnie 20 GiB. Nie dzieli
 limitu 1 GiB przeznaczonego dla ręcznych plików CSV/JSONL ani limitu selekcji
@@ -885,7 +893,8 @@ backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 
-Staging z `purpose=layout_import` może zostać usunięty wyłącznie jawną akcją
-Admina. Staging przypisany do innej gry jest ukryty przed bieżącą grą i blokuje
-próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
+Pierwsze czyszczenie istniejących stagingów wymaga jawnego preview i akceptacji
+Admina. Po włączeniu zatwierdzonej polityki automatycznej usuwalne są wyłącznie
+stagingi z kompletnym handoffem; staging przypisany do innej gry jest ukryty
+przed bieżącą grą i blokuje próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
 logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.

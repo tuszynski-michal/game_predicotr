@@ -9,14 +9,17 @@ import os
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
+from uuid import UUID
 
 import cv2
 import numpy as np
 from game_predictor_api.application.board_cell_geometry_pending import (
     ManagedBoardCellProcessingManifestStore,
 )
+from game_predictor_api.application.browser_staging_retention import ManagedOriginalsHandoff
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
@@ -25,6 +28,9 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
     bootstrap_symbol_model_snapshot,
+)
+from game_predictor_api.storage.browser_staging_retention_repository import (
+    SqlAlchemyBrowserStagingRetentionRepository,
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -83,7 +89,12 @@ from .source_direct_crops import (
     SOURCE_DIRECT_CROPPER_VERSION,
     SourceDirectBoardCellCropper,
 )
-from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginal, ManagedOriginalStore
+from .source_ingestion import (
+    ImageSourceIngestionHandler,
+    ManagedOriginal,
+    ManagedOriginalStore,
+    ManagedSourceManifest,
+)
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
@@ -121,6 +132,9 @@ class ProductionImageImportWorkflow:
         self._repository_root = repository_root.resolve()
         self._original_store = ManagedOriginalStore(self._artifact_root)
         self._source_handler = ImageSourceIngestionHandler(self._original_store)
+        self._browser_staging_retention = SqlAlchemyBrowserStagingRetentionRepository(
+            session_factory
+        )
         self._batch_store = SqlAlchemyImageBatchStore(session_factory)
         self._projection_store = SqlAlchemyImagePipelineStore(session_factory)
         self._board_cell_geometry_deferred_writer = BoardCellGeometryDeferredWriter(
@@ -133,6 +147,18 @@ class ProductionImageImportWorkflow:
             job,
             source_directory=_source_directory(job),
         )
+        all_source_count = len(manifest.originals)
+        source_context = _ProgressWindowContext(
+            context,
+            current_offset=0,
+            total=max(1, all_source_count),
+            stage_prefix="image_source",
+        )
+        manifest = self._source_handler.ingest(
+            cast(JobExecutionContext, source_context),
+            job,
+        )
+        self._record_browser_staging_handoff(job, manifest, completed_at=context.now())
         geometry_manifest = _page_geometry_manifest(job, self._artifact_root)
         unresolved_originals = _filter_canonical_originals(manifest.originals, job)
         canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
@@ -152,24 +178,13 @@ class ProductionImageImportWorkflow:
                     "schema_version": 1,
                 },
                 stage="image_deferred_geometry_skip",
-                current=0,
-                total=0,
-                success_count=0,
+                current=all_source_count,
+                total=all_source_count,
+                success_count=all_source_count,
                 failure_count=0,
                 review_count=0,
             )
             return
-        source_context = _ProgressWindowContext(
-            context,
-            current_offset=0,
-            total=source_count * 2,
-            stage_prefix="image_source",
-        )
-        manifest = self._source_handler.ingest(
-            cast(JobExecutionContext, source_context),
-            job,
-            originals=pipeline_originals,
-        )
         registrations = tuple(
             ImageFileRegistration(
                 source_checksum_sha256=original.checksum_sha256,
@@ -220,12 +235,37 @@ class ProductionImageImportWorkflow:
         )
         pipeline_context = _ProgressWindowContext(
             context,
-            current_offset=source_count,
-            total=source_count * 2,
+            current_offset=all_source_count,
+            total=all_source_count + source_count,
             stage_prefix="image_pipeline",
-            success_offset=source_count,
+            success_offset=all_source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+    def _record_browser_staging_handoff(
+        self,
+        job: Job,
+        manifest: ManagedSourceManifest,
+        *,
+        completed_at: datetime,
+    ) -> None:
+        raw_upload_id = job.input_payload.get("source_selection_id")
+        if job.game_id is None or not isinstance(raw_upload_id, str):
+            return
+        try:
+            upload_id = UUID(raw_upload_id)
+        except ValueError:
+            return
+        self._browser_staging_retention.record_ingested(
+            ManagedOriginalsHandoff(
+                upload_id=upload_id,
+                game_id=job.game_id,
+                import_job_id=job.id,
+                manifest_relative_path=manifest.relative_path,
+                manifest_checksum_sha256=manifest.checksum_sha256,
+                completed_at=completed_at,
+            )
+        )
 
 
 def _filter_canonical_originals(

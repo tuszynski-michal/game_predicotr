@@ -69,3 +69,9 @@ przypinają wersję adaptera i zapisują tylko checksumę znormalizowanych pikse
 pełnowymiarowy PNG nie jest tworzony. Brak snapshotu wersji oznacza historyczny
 v1, który przy retry odbudowuje brakujący PNG z managed original i wymaga
 identycznej checksummy.
+
+TASK 3 utrwala lifecycle browser stagingu: finalizacja zapisuje `ready`, start
+preflightu/importu zapisuje `in_use`, a worker zapisuje `ingested` i termin
+retencji dopiero po checksumowanym handoffie wszystkich źródeł. Kopiowanie
+poprzedza canonical/deferred filtering, więc rerun nie zależy od zachowania
+browserowej kopii.

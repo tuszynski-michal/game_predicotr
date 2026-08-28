@@ -1293,6 +1293,11 @@ każdym spinie.
 - trwały model retencji rozdziela read-only inwentarz, niezmienny preview i
   przyszły job `storage_gc`; kandydaci przechowują w bazie wyłącznie metadane i
   ścieżki względne, a nie binaria,
+- `browser_selection_retention_states` przechowuje lifecycle browser stagingu;
+  API zapisuje `ready`/`in_use`, a worker zapisuje `ingested` dopiero po
+  weryfikacji wszystkich managed originals. Kopiowanie poprzedza filtrowanie
+  kanoniczne i geometrii, dzięki czemu cleanup stagingu nie odbiera źródła do
+  późniejszego rerunu,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

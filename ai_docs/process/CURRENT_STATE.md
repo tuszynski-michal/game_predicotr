@@ -3464,3 +3464,17 @@ pojedynczy finalny resampling każdej komórki. Automatyczny v20 pozostaje
 wersjonowanym adapterem 3 × 5 i dla innych wymiarów zwraca
 `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`. Historyczne artefakty bez topologii
 zachowują dotychczasowy fingerprint i interpretację 3 × 5.
+
+Commit `v0.9.4` spina zatwierdzenie geometrii, stan komórek i materializowaną
+decyzję planszy w jednej transakcji. Agregacja wymaga zatwierdzonej bieżącej
+rewizji geometrii oraz kompletnego zestawu `rows × columns`; do aktualizacji
+canonical, stagingu, kolejki, statusu joba i szybkiej projekcji wyszukiwania
+wykorzystuje istniejący mechanizm pełnej decyzji.
+
+Recrop zwykłego zatwierdzonego pola zachowuje etykietę i tożsamość poprzednio
+zatwierdzonych pikseli, dlatego nowy crop jest `changed_since_approval` i nie
+trafia do treningu. Pole oznaczone `grid_issue` po recropie wraca jako
+`pending` bez problemu jakości. Ręczny zapis geometrii zatwierdza utworzoną
+rewizję, zapisuje append-only event i może ponownie domknąć planszę tylko przy
+komplecie logicznych etykiet. Rewizja katalogu wzrasta najwyżej raz w tej samej
+transakcji. Publiczne endpointy kolejki geometrii pozostają zakresem TASK 5.

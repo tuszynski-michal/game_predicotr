@@ -10,11 +10,13 @@ last_updated: 2026-08-28
 
 `in_progress`
 
-TASK 1–3 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
-kontrolowany backfill metadanych, a TASK 3 przenosi przypiętą topologię przez
-snapshot, fingerprint, geometrię, cropper i ręczny preview. Migracja nie została
-jeszcze zastosowana na roboczej bazie: wymaga osobnego checkpointu SQL i okna
-operacyjnego. HTTP, worker oraz UI pozostają celowo bez zmian.
+TASK 1–4 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
+kontrolowany backfill metadanych, TASK 3 przenosi przypiętą topologię przez
+snapshot, fingerprint, geometrię, cropper i ręczny preview, a TASK 4 atomowo
+synchronizuje zatwierdzenie geometrii, proweniencję cropów i istniejące
+projekcje planszy. Migracja nie została jeszcze zastosowana na roboczej bazie:
+wymaga osobnego checkpointu SQL i okna operacyjnego. Publiczne HTTP oraz UI
+pozostają celowo bez zmian.
 
 ## Goal
 
@@ -119,8 +121,30 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
 - Celowane testy worker/API, Ruff, ograniczony mypy oraz OpenAPI z generowanym
   klientem przechodzą. Baza użytkownika nadal pozostaje na 0072.
 
+### v0.9.4 — atomowa synchronizacja geometrii, etykiet i cropów
+
+- Wspólny koordynator storage zatwierdza dokładnie bieżącą rewizję geometrii,
+  zapisuje append-only event i zwiększa rewizję katalogu najwyżej raz w
+  transakcji.
+- Agregacja planszy wymaga kompletnej liczby komórek wynikającej ze snapshotu
+  topologii oraz zatwierdzonej bieżącej geometrii. Domknięcie korzysta z
+  istniejącego mechanizmu decyzji planszy, więc canonical, staging, kolejka,
+  status joba i projekcja wyszukiwania zmieniają się atomowo.
+- Recrop zwykłego zatwierdzonego pola zachowuje etykietę i poprzednią
+  proweniencję zatwierdzonych pikseli. Nowy crop ma stan
+  `changed_since_approval` i pozostaje poza treningiem do ponownego
+  zatwierdzenia.
+- Recrop pola `grid_issue` usuwa problem jakości i pozostawia to pole jako
+  `pending`; pozostałe poprawne etykiety nie są niepotrzebnie kasowane.
+- Ręczny zapis geometrii jednocześnie zatwierdza nową rewizję i próbuje
+  ponownie zmaterializować decyzję planszy wyłącznie wtedy, gdy wszystkie
+  logiczne etykiety są kompletne.
+- Celowane testy ścieżek API/worker oraz dwa izolowane testy PostgreSQL
+  potwierdzają rollback całej planszy, idempotentne zatwierdzenie geometrii i
+  dokładną tożsamość cropa po ponownej weryfikacji.
+
 ## Następny etap
 
 Checkpoint operacyjny TASK 2 pozostaje: migracja 0073 i bounded backfill na
 danych użytkownika dopiero po zakończeniu aktywnych pipeline'ów. Następny etap
-implementacyjny to TASK 4 — atomowa synchronizacja geometrii, komórek i planszy.
+implementacyjny to TASK 5 — API kolejki walidacji geometrii.

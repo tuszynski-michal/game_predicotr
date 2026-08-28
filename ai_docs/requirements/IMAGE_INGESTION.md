@@ -264,7 +264,12 @@ odtwarzalny, lecz nie obsługuje aktywnego edytora v19.
 
 Zapis zachowuje istniejący source-native obraz referencyjny bez tworzenia
 pośredniej planszy `500 × 300`, tworzy nowe `cropSampleId` dla 15 nowych
-checksum i ponownie otwiera tylko bieżącą planszę do weryfikacji symboli.
+checksum i zatwierdza utworzoną rewizję geometrii. Zatwierdzone etykiety
+pozostają logicznie zatwierdzone, lecz ich poprzednia tożsamość cropa nie jest
+automatycznie przepisywana na nowe piksele. Nowy crop nie kwalifikuje się do
+treningu do czasu jawnej ponownej weryfikacji. Pole oznaczone wcześniej jako
+`grid_issue` wraca po recropie jako `pending`; komplet pozostałych etykiet może
+ponownie domknąć planszę przez atomowy koordynator decyzji.
 Nie aktywuje estymatora v19 dla pipeline'u ani pending-only recropu innych
 plansz.
 

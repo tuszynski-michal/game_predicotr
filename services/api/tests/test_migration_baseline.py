@@ -82,6 +82,7 @@ PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
 SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job"
 SYMBOL_CELL_TRAINING_COHORTS_REVISION = "0071_symbol_cell_training_cohorts"
 VERIFIED_TRAINING_COHORT_CELLS_REVISION = "0072_verified_training_cohort_cells"
+TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION = "0073_topology_geometry_crop_provenance"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -187,12 +188,19 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_cell_review_backfill_job = script.get_revision(SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION)
     symbol_cell_training_cohorts = script.get_revision(SYMBOL_CELL_TRAINING_COHORTS_REVISION)
     verified_training_cohort_cells = script.get_revision(VERIFIED_TRAINING_COHORT_CELLS_REVISION)
-    assert script.get_heads() == [VERIFIED_TRAINING_COHORT_CELLS_REVISION]
+    topology_geometry_crop_provenance = script.get_revision(
+        TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION
+    )
+    assert script.get_heads() == [TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION]
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
     assert verified_training_cohort_cells is not None
     assert verified_training_cohort_cells.down_revision == SYMBOL_CELL_TRAINING_COHORTS_REVISION
+    assert topology_geometry_crop_provenance is not None
+    assert (
+        topology_geometry_crop_provenance.down_revision == VERIFIED_TRAINING_COHORT_CELLS_REVISION
+    )
     assert baseline.down_revision is None
     assert catalog is not None
     assert catalog.down_revision == BASELINE_REVISION
@@ -607,6 +615,31 @@ def test_image_symbol_review_cells_migration_is_reversible() -> None:
     assert "ix_image_symbol_review_cells_grid_issue" in upgrade_sql
     assert "drop table image_symbol_review_cells" in downgrade_sql
     assert "drop table image_symbol_review_events" in downgrade_sql
+
+
+def test_topology_geometry_crop_provenance_migration_is_additive_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{VERIFIED_TRAINING_COHORT_CELLS_REVISION}:{TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION}:{VERIFIED_TRAINING_COHORT_CELLS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "add column board_topology_rules_version_id uuid" in upgrade_sql
+    assert "add column approved_geometry_revision integer" in upgrade_sql
+    assert "add column quality_issue varchar(20)" in upgrade_sql
+    assert "create table image_board_geometry_review_events" in upgrade_sql
+    assert "ix_image_symbol_review_cells_unreadable_quality_issue" in upgrade_sql
+    assert "drop table image_board_geometry_review_events" in downgrade_sql
+    assert "drop column board_topology_rules_version_id" in downgrade_sql
 
 
 def test_symbol_cell_review_catalog_revision_migration_is_reversible() -> None:

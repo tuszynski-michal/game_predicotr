@@ -936,9 +936,19 @@ Wymiary komórek nie są własnością tej projekcji. Pochodzą z
 `rules_versions.rows/columns`, są przypinane przez grę przed pierwszym importem
 i snapshotowane na rozpoznanej planszy. Wartość `NULL` przypisania może stać
 się ręcznie zatwierdzonym domenowym `?`; nie tworzy rekordu w `symbols` i nigdy
-nie kwalifikuje cropa do treningu. Trwałość tych pól wprowadza dopiero migracja
-0073, dlatego czysta domena TASK-0304 zachowuje kompatybilność odczytu starszych
-rekordów bez proweniencji, ale uznaje je za nietreningowe.
+nie kwalifikuje cropa do treningu. Trwałość tych pól wprowadza migracja
+`0073_topology_geometry_crop_provenance`. Do czasu usunięcia legacy pola zapis
+jest podwójny: `quality_issue = grid_issue` odpowiada
+`has_grid_issue = true`, a odczyt starszego rekordu bez `quality_issue`
+interpretuje legacy bool. Bounded backfill przypina wyłącznie wersję reguł
+zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz oraz
+uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
+grę raportem; nie jest naprawiana heurystycznie.
+
+Migracja dodaje również `image_board_geometry_review_events` jako append-only
+audyt zatwierdzenia geometrii. Nie przechowuje obrazów ani overlayów. Migracja
+0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths;
+usunięcie `has_grid_issue` pozostaje zakresem późniejszej migracji 0075.
 
 Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
 `image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w

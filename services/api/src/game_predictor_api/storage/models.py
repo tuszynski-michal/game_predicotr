@@ -70,6 +70,10 @@ class GameModel(Base):
             name="ck_games_expected_layout_count_range",
         ),
         UniqueConstraint("code", name="uq_games_code"),
+        Index(
+            "ix_games_board_topology_rules_version",
+            "board_topology_rules_version_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -90,6 +94,10 @@ class GameModel(Base):
         nullable=False,
         default=500_000,
         server_default=text("500000"),
+    )
+    board_topology_rules_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("rules_versions.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1440,6 +1448,25 @@ class RecognizedBoardModel(Base):
             "geometry_revision >= 0",
             name="ck_recognized_boards_geometry_revision",
         ),
+        CheckConstraint(
+            "(grid_rows IS NULL AND grid_columns IS NULL) OR "
+            "(grid_rows IS NOT NULL AND grid_columns IS NOT NULL "
+            "AND grid_rows > 0 AND grid_columns > 0)",
+            name="ck_recognized_boards_grid_topology",
+        ),
+        CheckConstraint(
+            "approved_geometry_revision IS NULL OR "
+            "(approved_geometry_revision >= 0 "
+            "AND approved_geometry_revision <= geometry_revision)",
+            name="ck_recognized_boards_geometry_approval_revision",
+        ),
+        CheckConstraint(
+            "(approved_geometry_revision IS NULL AND geometry_approved_at IS NULL "
+            "AND geometry_approved_by IS NULL) OR "
+            "(approved_geometry_revision IS NOT NULL AND geometry_approved_at IS NOT NULL "
+            "AND geometry_approved_by IS NOT NULL AND length(btrim(geometry_approved_by)) > 0)",
+            name="ck_recognized_boards_geometry_approval_metadata",
+        ),
         UniqueConstraint(
             "source_image_id",
             "position_index",
@@ -1449,6 +1476,12 @@ class RecognizedBoardModel(Base):
             "ix_recognized_boards_source_status",
             "source_image_id",
             "status",
+        ),
+        Index(
+            "ix_recognized_boards_geometry_review",
+            "geometry_revision",
+            "approved_geometry_revision",
+            "id",
         ),
     )
 
@@ -1473,6 +1506,13 @@ class RecognizedBoardModel(Base):
         default=0,
         server_default=text("0"),
     )
+    grid_rows: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    grid_columns: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    geometry_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    geometry_approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1812,8 +1852,28 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_grid_issue_state",
         ),
         CheckConstraint(
-            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL",
+            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL "
+            "OR (quality_issue IS NOT NULL AND quality_issue = 'unreadable')",
             name="ck_image_symbol_review_cells_approved_symbol",
+        ),
+        CheckConstraint(
+            "quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable')",
+            name="ck_image_symbol_review_cells_quality_issue",
+        ),
+        CheckConstraint(
+            "quality_issue <> 'grid_issue' OR review_state = 'pending'",
+            name="ck_image_symbol_review_cells_grid_quality_state",
+        ),
+        CheckConstraint(
+            "(approved_crop_sample_id IS NULL AND approved_crop_checksum_sha256 IS NULL "
+            "AND approved_geometry_revision IS NULL) OR "
+            "(approved_crop_sample_id IS NOT NULL "
+            "AND approved_crop_checksum_sha256 IS NOT NULL "
+            "AND approved_geometry_revision IS NOT NULL "
+            "AND approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_cells_approved_crop_identity",
         ),
         UniqueConstraint(
             "review_item_id", "cell_index", name="uq_image_symbol_review_cells_item_cell"
@@ -1839,6 +1899,20 @@ class ImageSymbolReviewCellModel(Base):
             "ix_image_symbol_review_cells_grid_issue",
             "review_item_id",
             postgresql_where=text("has_grid_issue"),
+        ),
+        Index(
+            "ix_image_symbol_review_cells_grid_quality_issue",
+            "game_id",
+            "review_item_id",
+            "cell_index",
+            postgresql_where=text("quality_issue = 'grid_issue'"),
+        ),
+        Index(
+            "ix_image_symbol_review_cells_unreadable_quality_issue",
+            "game_id",
+            "review_item_id",
+            "cell_index",
+            postgresql_where=text("quality_issue = 'unreadable'"),
         ),
     )
 
@@ -1875,6 +1949,10 @@ class ImageSymbolReviewCellModel(Base):
     has_grid_issue: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
+    quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assignment_source: Mapped[str] = mapped_column(String(30), nullable=False)
     revision: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
@@ -1917,6 +1995,35 @@ class ImageSymbolReviewEventModel(Base):
             "AND review_state IN ('pending', 'approved')",
             name="ck_image_symbol_review_events_states",
         ),
+        CheckConstraint(
+            "(previous_quality_issue IS NULL OR "
+            "previous_quality_issue IN ('grid_issue', 'unreadable')) AND "
+            "(quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable'))",
+            name="ck_image_symbol_review_events_quality_issue",
+        ),
+        CheckConstraint(
+            "(previous_approved_crop_sample_id IS NULL "
+            "AND previous_approved_crop_checksum_sha256 IS NULL "
+            "AND previous_approved_geometry_revision IS NULL) OR "
+            "(previous_approved_crop_sample_id IS NOT NULL "
+            "AND previous_approved_crop_checksum_sha256 IS NOT NULL "
+            "AND previous_approved_geometry_revision IS NOT NULL "
+            "AND previous_approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND previous_approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND previous_approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_events_approved_crop_identity",
+        ),
+        CheckConstraint(
+            "(approved_crop_sample_id IS NULL AND approved_crop_checksum_sha256 IS NULL "
+            "AND approved_geometry_revision IS NULL) OR "
+            "(approved_crop_sample_id IS NOT NULL "
+            "AND approved_crop_checksum_sha256 IS NOT NULL "
+            "AND approved_geometry_revision IS NOT NULL "
+            "AND approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_events_current_approved_crop_identity",
+        ),
         Index("ix_image_symbol_review_events_cell_created", "cell_review_id", "created_at"),
         Index("ix_image_symbol_review_events_review_item_created", "review_item_id", "created_at"),
     )
@@ -1943,6 +2050,16 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
     has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    previous_approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     operation_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
         nullable=True,
@@ -2214,6 +2331,55 @@ class ImageBoardGeometryRevisionModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class ImageBoardGeometryReviewEventModel(Base):
+    """Append-only approval audit for one exact board geometry revision."""
+
+    __tablename__ = "image_board_geometry_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "geometry_revision >= 0 AND approved_geometry_revision >= 0 "
+            "AND approved_geometry_revision <= geometry_revision",
+            name="ck_image_board_geometry_review_events_revisions",
+        ),
+        CheckConstraint(
+            "grid_rows > 0 AND grid_columns > 0",
+            name="ck_image_board_geometry_review_events_topology",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_geometry_review_events_checksum",
+        ),
+        CheckConstraint(
+            "action IN ('approved', 'geometry_saved', 'backfilled')",
+            name="ck_image_board_geometry_review_events_action",
+        ),
+        Index(
+            "ix_image_board_geometry_review_events_board_created",
+            "recognized_board_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    grid_rows: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    grid_columns: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    previous_approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 

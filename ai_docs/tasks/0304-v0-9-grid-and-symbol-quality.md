@@ -10,9 +10,10 @@ last_updated: 2026-08-28
 
 `in_progress`
 
-TASK 1 został ukończony jako czysty fundament domenowy. Schemat, backfill,
-HTTP, worker oraz UI pozostają celowo bez zmian do kolejnych, osobno
-weryfikowanych etapów.
+TASK 1 został ukończony jako czysty fundament domenowy. TASK 2 dodaje
+addytywny schemat 0073 i kontrolowany backfill metadanych. Migracja nie została
+jeszcze zastosowana na roboczej bazie: wymaga osobnego checkpointu SQL i okna
+operacyjnego. HTTP, worker oraz UI pozostają celowo bez zmian.
 
 ## Goal
 
@@ -76,8 +77,31 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
   migracji 0073 nie są one uznawane przez nową bramkę treningową.
 - Nie zmieniono SQL, ORM, HTTP, workera ani UI.
 
+### v0.9.2 — addytywny schemat i backfill 0073
+
+- Migracja `0073_topology_geometry_crop_provenance` dodaje przypięcie topologii
+  gry, snapshot wymiarów i zatwierdzenie geometrii planszy, jakość cropa oraz
+  dokładną tożsamość cropa zatwierdzonego z etykietą.
+- `has_grid_issue` pozostaje tymczasowo dostępne. Odczyt preferuje
+  `quality_issue`, ale rozumie legacy bool; bieżące mutacje zapisują oba pola.
+- Dodano append-only `image_board_geometry_review_events` oraz rozszerzono
+  istniejący audyt komórek o jakość i proweniencję zatwierdzonego cropa.
+- Bounded backfill blokuje grę podczas przypinania najnowszej zgodnej wersji
+  reguł, przetwarza maksymalnie 200 plansz w transakcji i nie zgaduje topologii
+  przy niespójnych danych.
+- Plansze `accepted/corrected` otrzymują zatwierdzenie bieżącej geometrii,
+  jednoznacznie ręczne rewizje również mogą zostać uznane za zatwierdzone, a
+  pipeline'owe pending pozostają `needs_validation`.
+- Zatwierdzone komórki otrzymują bieżącą tożsamość zatwierdzonego cropa.
+  Backfill nie kopiuje obrazów i nie tworzy sztucznych eventów.
+- `scripts/backfill_v09_schema.py` zapisuje atomowy checkpoint po każdej
+  zatwierdzonej partii. Powtórzenie jest idempotentne; raport końcowy wymienia
+  braki topologii, geometrii, jakości i proweniencji.
+- Cykl migracji 0072 → 0073 → 0072 → 0073 przeszedł na izolowanej bazie
+  testowej. Migracja i backfill nie zostały uruchomione na danych użytkownika.
+
 ## Następny etap
 
-TASK 2: addytywna migracja 0073, modele ORM i bounded, idempotentny backfill.
-Przed uruchomieniem na danych wymaga osobnego review SQL, locków i raportu
-spójności.
+Checkpoint operacyjny TASK 2: review SQL, locków i przewidywanego czasu
+indeksowania, następnie migracja 0073 i bounded backfill na danych użytkownika.
+TASK 3 nie rozpoczyna się przed odebraniem tego checkpointu.

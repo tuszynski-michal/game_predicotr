@@ -13,7 +13,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.8 implementation: board search and review data quality`
+`Version 0.9 implementation: grid validation and symbol quality`
 
 ### Niezależne ulepszanie symboli i siatki — TASK-0303
 
@@ -3441,7 +3441,17 @@ rozwiązane realnym symbolem albo domenowym `?` i nadal pozostaje nietreningowe.
 Agregacja planszy wymaga zatwierdzonej geometrii oraz kompletnej liczby komórek
 wynikającej z topologii.
 
-SQL, ORM, API, worker, Admin i Reviewer nie zostały jeszcze przełączone.
-Aktualne rekordy bez zapisanej proweniencji zachowują dotychczasową
-idempotencję, lecz nowa bramka treningowa ich nie dopuszcza. Następnym etapem
-jest osobno kontrolowana migracja 0073 i bounded backfill z TASK 2.
+Commit `v0.9.2` przygotowuje addytywną migrację
+`0073_topology_geometry_crop_provenance`, zgodne modele ORM oraz bounded,
+idempotentny backfill. Schemat zachowuje `has_grid_issue` i zapisuje równolegle
+nowe `quality_issue`; zatwierdzone komórki otrzymują dokładną tożsamość cropa,
+a plansze `accepted/corrected` zatwierdzenie bieżącej geometrii. Pending z
+pipeline'u pozostaje do walidacji. Skrypt operatorski utrwala checkpoint po
+każdej transakcji obejmującej maksymalnie 200 plansz i raportuje niespójności
+bez heurystycznej naprawy.
+
+Cykl upgrade/downgrade 0073 przeszedł na izolowanej bazie testowej. Robocza
+baza użytkownika nadal pozostaje na `0072`; indeksy i backfill 0073 nie zostały
+uruchomione podczas aktywnego przetwarzania. Wymagają osobnego checkpointu SQL
+i kontrolowanego okna. API, worker, Admin i Reviewer nie zostały jeszcze
+przełączone na nowy workflow.

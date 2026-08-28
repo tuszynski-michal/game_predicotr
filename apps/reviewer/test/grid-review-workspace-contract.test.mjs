@@ -32,6 +32,18 @@ const proxy = await readFile(
   new URL('../src/security/reviewer-proxy-policy.ts', import.meta.url),
   'utf8',
 );
+const reviewerCss = await readFile(
+  new URL('../src/app/reviewer.css', import.meta.url),
+  'utf8',
+);
+
+test('grid reviewer owns the dark application foundation and styled controls', () => {
+  assert.match(reviewerCss, /:root\s*\{[\s\S]*--background:\s*#07101d/);
+  assert.match(reviewerCss, /color-scheme:\s*dark/);
+  assert.match(reviewerCss, /button\s*\{[\s\S]*appearance:\s*none/);
+  assert.match(reviewerCss, /\.gridReviewHeader\s*\{[\s\S]*background:/);
+  assert.match(reviewerCss, /\.gridReviewActions\s*\{[\s\S]*background:/);
+});
 
 test('local grid workspace keeps remote reviewer on the restricted legacy path', () => {
   assert.match(gate, /gridValidationEnabled[\s\S]*GridReviewWorkspace/);

@@ -34,6 +34,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   zatwierdzonej geometrii i zero zatwierdzonych komórek bez proweniencji.
 - Odroczony upload zastępczego zdjęcia jednej planszy ma osobny
   `TASK-0305`. Nie należy implementować go jako rozszerzenia 0.9.
+- `v0.9.14` uniezależnia wizualną podstawę lokalnego Reviewera od arkusza
+  globalnego Admina. Tokeny ciemnego motywu, tło, focusy i bazowe style
+  kontrolek należą teraz także do Reviewera, dzięki czemu „Zatwierdzanie
+  cięcia siatki” zachowuje wygląd aplikacji po niezależnym buildzie Reviewera.
 
 ### Niezależne ulepszanie symboli i siatki — TASK-0303
 

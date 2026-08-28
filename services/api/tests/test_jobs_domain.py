@@ -304,6 +304,28 @@ def test_job_type_requires_its_assigned_execution_lane() -> None:
         execution_slot=JobExecutionSlot.IMAGE_SELECTION,
         started_at=now,
     )
+
+    storage_gc = create_job(
+        JobType.STORAGE_GC,
+        game_id=None,
+        input_payload={
+            "schema_version": 1,
+            "storage_gc_run_id": str(uuid4()),
+            "policy_version": "storage-retention-v1",
+            "manifest_checksum_sha256": "a" * 64,
+            "mode": "manual",
+        },
+    )
+    storage_started = start_job(
+        storage_gc,
+        worker_version="worker-v10-general",
+        worker_id="general-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_slot=JobExecutionSlot.GENERAL,
+        started_at=now,
+    )
+    assert storage_started.execution_slot == JobExecutionSlot.GENERAL
     assert claimed.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
 
 

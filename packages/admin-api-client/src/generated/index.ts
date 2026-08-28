@@ -1503,6 +1503,7 @@ export type {
   StopReviewerIngressErrors,
   StopReviewerIngressResponse,
   StopReviewerIngressResponses,
+  StorageGcJobPayload,
   SymbolCellReviewAction,
   SymbolCellReviewBackfillJobPayload,
   SymbolCellReviewBulkExplicitSelectionRequest,

@@ -1289,6 +1289,9 @@ każdym spinie.
 - FastAPI, Next.js i worker uruchamiane lokalnie,
 - Admin web i Reviewer web są osobnymi procesami Next.js na różnych portach,
 - lokalny system plików dla zdjęć i artefaktów,
+- trwały model retencji rozdziela read-only inwentarz, niezmienny preview i
+  przyszły job `storage_gc`; kandydaci przechowują w bazie wyłącznie metadane i
+  ścieżki względne, a nie binaria,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

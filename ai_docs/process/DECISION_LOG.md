@@ -5997,6 +5997,23 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** publiczne `hasGridIssue` pozostaje czasowo wyliczane dla
   zgodności API, ale ORM i zapisy nie zależą od usuniętej kolumny.
 
+## D-250 — Retencja storage jest manifestowana i fail-closed
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** odtwarzalne artefakty image pipeline'u mają domyślną retencję
+  24 h. Kwalifikacja jest deterministyczna i zapisywana w niezmiennym
+  manifeście. Aktywna zależność, niepełny handoff stagingu, chroniona
+  przestrzeń nazw, symlink albo niebezpieczna ścieżka zawsze blokują usunięcie.
+- **Context:** trwałe pełnowymiarowe bitmapy normalizacji, browserowe stagingi i
+  payloady etapów powodują liniowy wzrost dysku przy kolejnych rerunach.
+- **Safety:** pierwszy cleanup jest tylko preview i wymaga jawnego
+  potwierdzenia. GC nie usuwa originals, referencjonowanych cropów, modeli,
+  kohort, release'ów, audytu ani ręcznej selekcji. Nie uruchamia `VACUUM FULL`
+  ani kompaktowania VHDX.
+- **Consequences:** przyszłe usuwanie musi ponownie sprawdzić manifest, mtime,
+  rozmiar, zależności i granice zarządzanego rootu przed każdą partią.
+
 ## Szablon nowej decyzji
 
 ```text

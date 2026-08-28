@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-28
+last_updated: 2026-08-29
 ---
 
 # Current State
@@ -13,7 +13,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.9 complete: grid validation and symbol quality`
+`Version 0.9 active: bounded storage retention and garbage collection`
+
+### Ograniczenie zużycia dysku — TASK-0306
+
+- Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi
+  24 godziny, a domyślne progi wolnego miejsca to: ostrzeżenie 80 GiB,
+  automatyczny GC 60 GiB, cel po GC 80 GiB i twarda rezerwa 30 GiB.
+- TASK 1 definiuje deterministyczną kwalifikację bez fizycznego usuwania.
+  `storage_gc_runs` wiąże przyszły job z niezmiennym manifestem kandydatów,
+  `storage_usage_snapshots` przechowuje bounded pomiary, a
+  `browser_selection_retention_states` przygotowuje trwały lifecycle stagingu.
+- Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
+  użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
+  referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.
 
 ### Odbiór wersji 0.9 — TASK-0304
 

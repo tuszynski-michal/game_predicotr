@@ -4041,6 +4041,7 @@ export type JobResponse = {
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | StorageGcJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -4089,7 +4090,8 @@ export type JobType =
   | 'image_symbol_reinference'
   | 'image_grid_reinference'
   | 'image_symbol_review_bulk'
-  | 'image_symbol_review_backfill';
+  | 'image_symbol_review_backfill'
+  | 'storage_gc';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -7793,6 +7795,32 @@ export type SnapshotJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+};
+
+/**
+ * StorageGcJobPayload
+ */
+export type StorageGcJobPayload = {
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Mode
+   */
+  mode: 'manual' | 'automatic';
+  /**
+   * Policyversion
+   */
+  policyVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Storagegcrunid
+   */
+  storageGcRunId: string;
 };
 
 /**

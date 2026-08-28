@@ -784,6 +784,15 @@ Automatyczne usuwanie jest wyłączone dla każdej przestrzeni. `originals` i
 `models` mają politykę `preserve`; pozostałe dane są wersjonowane, ale również
 nie mogą zostać usunięte przez TASK-0073.
 
+TASK-0306 zastępuje ogólną blokadę usuwania precyzyjną polityką retencji dla
+danych odtwarzalnych. Kwalifikacja wymaga niezmiennego manifestu, upływu 24 h
+od ostatniej zależności i braku joba `created`/`processing`. `originals`,
+referencjonowane cropy, modele, kohorty, snapshoty, release'y, audyt, eksporty
+i ręczna selekcja nadal nie podlegają automatycznemu usuwaniu. Browserowy
+staging może zostać zakwalifikowany dopiero po kompletnym, checksumowanym
+handoffie wszystkich JPEG-ów do managed originals i zakończeniu zależnych
+preflightów/importów.
+
 Wyjątkiem jest jawny reset danych layoutów gry z TASK-0133. Po pokazaniu
 pełnego preview i mocnym potwierdzeniu może usunąć zarządzane oryginały oraz
 pochodne artefakty należące do resetowanej gry. Fizyczny plik content-addressed

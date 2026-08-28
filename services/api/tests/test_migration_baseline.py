@@ -85,6 +85,7 @@ VERIFIED_TRAINING_COHORT_CELLS_REVISION = "0072_verified_training_cohort_cells"
 TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION = "0073_topology_geometry_crop_provenance"
 UNKNOWN_LAYOUT_CELLS_REVISION = "0074_unknown_layout_cells"
 OBSOLETE_BOARD_SEARCH_STORAGE_REVISION = "0075_remove_obsolete_board_search_storage"
+STORAGE_RETENTION_REVISION = "0076_storage_retention_and_gc"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -94,6 +95,34 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     config = Config(str(ALEMBIC_INI), output_buffer=output_buffer)
     config.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
     return config
+
+
+def test_storage_retention_migration_adds_gc_inventory_and_staging_state() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{OBSOLETE_BOARD_SEARCH_STORAGE_REVISION}:{STORAGE_RETENTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{STORAGE_RETENTION_REVISION}:{OBSOLETE_BOARD_SEARCH_STORAGE_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "alter type job_type add value if not exists 'storage_gc'" in upgrade_sql
+    assert "create table storage_gc_runs" in upgrade_sql
+    assert "create table storage_usage_snapshots" in upgrade_sql
+    assert "create table browser_selection_retention_states" in upgrade_sql
+    assert "ix_browser_selection_retention_state_eligible" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table browser_selection_retention_states" in downgrade_sql
+    assert "drop table storage_usage_snapshots" in downgrade_sql
+    assert "drop table storage_gc_runs" in downgrade_sql
 
 
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
@@ -195,7 +224,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     unknown_layout_cells = script.get_revision(UNKNOWN_LAYOUT_CELLS_REVISION)
     obsolete_board_search_storage = script.get_revision(OBSOLETE_BOARD_SEARCH_STORAGE_REVISION)
-    assert script.get_heads() == [OBSOLETE_BOARD_SEARCH_STORAGE_REVISION]
+    storage_retention = script.get_revision(STORAGE_RETENTION_REVISION)
+    assert script.get_heads() == [STORAGE_RETENTION_REVISION]
+    assert storage_retention is not None
+    assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

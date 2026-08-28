@@ -22,6 +22,7 @@ class JobType(StrEnum):
     IMAGE_GRID_REINFERENCE = "image_grid_reinference"
     IMAGE_SYMBOL_REVIEW_BULK = "image_symbol_review_bulk"
     IMAGE_SYMBOL_REVIEW_BACKFILL = "image_symbol_review_backfill"
+    STORAGE_GC = "storage_gc"
 
 
 class JobStatus(StrEnum):

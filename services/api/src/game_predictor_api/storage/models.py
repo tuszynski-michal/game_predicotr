@@ -4950,3 +4950,151 @@ class RemoteManualSelectionAuditEventModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class StorageGcRunModel(Base):
+    __tablename__ = "storage_gc_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('manual', 'automatic')",
+            name="ck_storage_gc_runs_mode",
+        ),
+        CheckConstraint(
+            "status IN ('previewed', 'created', 'processing', 'completed', 'failed', 'cancelled')",
+            name="ck_storage_gc_runs_status",
+        ),
+        CheckConstraint(
+            "retention_hours > 0 AND candidate_count >= 0 AND candidate_bytes >= 0 "
+            "AND protected_count >= 0 AND protected_bytes >= 0 "
+            "AND deleted_count >= 0 AND deleted_bytes >= 0 "
+            "AND conflict_count >= 0 AND failed_count >= 0 AND checkpoint_index >= 0",
+            name="ck_storage_gc_runs_counters",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND preview_token ~ '^[0-9a-f]{64}$'",
+            name="ck_storage_gc_runs_checksums",
+        ),
+        CheckConstraint(
+            "length(btrim(policy_version)) > 0 AND length(btrim(manifest_relative_path)) > 0",
+            name="ck_storage_gc_runs_required_text",
+        ),
+        UniqueConstraint("job_id", name="uq_storage_gc_runs_job"),
+        Index("ix_storage_gc_runs_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    retention_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    preview_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    candidate_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    protected_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    protected_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    deleted_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    deleted_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    conflict_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    failed_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    checkpoint_index: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    inventory_before: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    inventory_after: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StorageUsageSnapshotModel(Base):
+    __tablename__ = "storage_usage_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "root_kind IN ('artifact', 'import', 'database', 'docker')",
+            name="ck_storage_usage_snapshots_root_kind",
+        ),
+        CheckConstraint(
+            "measurement_source IN ('scan', 'accounting', 'database', 'filesystem')",
+            name="ck_storage_usage_snapshots_measurement_source",
+        ),
+        CheckConstraint(
+            "file_count >= 0 AND size_bytes >= 0 "
+            "AND (free_bytes IS NULL OR free_bytes >= 0) "
+            "AND (total_bytes IS NULL OR total_bytes >= 0)",
+            name="ck_storage_usage_snapshots_counters",
+        ),
+        Index(
+            "ix_storage_usage_snapshots_root_measured",
+            "root_kind",
+            "measured_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    root_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    namespace: Mapped[str | None] = mapped_column(String(100))
+    volume_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    measurement_source: Mapped[str] = mapped_column(String(20), nullable=False)
+    file_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    free_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    total_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    details: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class BrowserSelectionRetentionModel(Base):
+    __tablename__ = "browser_selection_retention_states"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('ready', 'in_use', 'ingested', 'cleanup_eligible', 'blocked')",
+            name="ck_browser_selection_retention_state",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND (managed_manifest_checksum_sha256 IS NULL OR "
+            "managed_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_browser_selection_retention_checksums",
+        ),
+        CheckConstraint(
+            "(managed_manifest_relative_path IS NULL) = (managed_manifest_checksum_sha256 IS NULL)",
+            name="ck_browser_selection_retention_managed_manifest",
+        ),
+        Index("ix_browser_selection_retention_state_eligible", "state", "eligible_at"),
+    )
+
+    upload_id: Mapped[UUID] = mapped_column(primary_key=True)
+    game_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=True
+    )
+    import_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    managed_manifest_relative_path: Mapped[str | None] = mapped_column(Text)
+    managed_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    finalized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_dependency_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    eligible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

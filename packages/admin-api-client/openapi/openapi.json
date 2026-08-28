@@ -7159,6 +7159,9 @@
                 "$ref": "#/components/schemas/SymbolCellReviewBackfillJobPayload"
               },
               {
+                "$ref": "#/components/schemas/StorageGcJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -7262,7 +7265,8 @@
           "image_symbol_reinference",
           "image_grid_reinference",
           "image_symbol_review_bulk",
-          "image_symbol_review_backfill"
+          "image_symbol_review_backfill",
+          "storage_gc"
         ],
         "title": "JobType",
         "type": "string"
@@ -13488,6 +13492,49 @@
           "mobileReleaseId"
         ],
         "title": "SnapshotJobPayload",
+        "type": "object"
+      },
+      "StorageGcJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "manual",
+              "automatic"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "policyVersion": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "storageGcRunId": {
+            "format": "uuid",
+            "title": "Storagegcrunid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storageGcRunId",
+          "policyVersion",
+          "manifestChecksumSha256",
+          "mode"
+        ],
+        "title": "StorageGcJobPayload",
         "type": "object"
       },
       "SymbolCellReviewAction": {

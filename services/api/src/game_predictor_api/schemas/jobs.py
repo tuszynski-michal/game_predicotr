@@ -298,6 +298,14 @@ class PendingGridReinferenceJobPayload(ApiModel):
         return self
 
 
+class StorageGcJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    storage_gc_run_id: UUID
+    policy_version: str = Field(min_length=1, max_length=64)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["manual", "automatic"]
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -356,6 +364,7 @@ JobPayloadResponse = (
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | StorageGcJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -676,6 +685,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BACKFILL:
         return SymbolCellReviewBackfillJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_GC:
+        return StorageGcJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

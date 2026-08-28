@@ -742,6 +742,10 @@ ukończony import.
   trwałych przejść statusu pojedynczego pliku,
 - liczba pełnych agregacji jednego wykonania handlera jest stała i nie rośnie z
   liczbą zdjęć ani etapów,
+- wznowienie najpierw opróżnia wyłącznie trwałe checkpointy `processing`; już
+  zapisany checkpoint `waiting_for_review` jest dowodem ukończonej projekcji i
+  nie może być ponownie rehydratowany ani zapisywany tylko po to, aby
+  potwierdzić nadal oczekującą decyzję,
 - początkowo wykonywane jest najwyżej jedno ciężkie zadanie naraz.
 
 ## Przechowywanie plików

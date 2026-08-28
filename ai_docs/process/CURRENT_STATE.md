@@ -55,6 +55,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   z użyciem append-only trace, aby po `Wznów poprzednią sesję` nie wskazać
   lustrzanego JPEG-a. Zdalny workspace już używał ordinalu źródła i nie wymaga
   zmiany.
+- `v0.8.60` usuwa fałszywe „zawieszenie” wznowionego importu plansz: zapisane
+  strony `waiting_for_review` nie są już kosztownie rehydratowane i zapisywane
+  ponownie po restarcie workera. Niedokończone źródła `processing` przechodzą
+  jako pierwsze, a trwałe checkpointy review pozostają źródłem prawdy.
 
 ### Duże browserowe importy plansz
 

@@ -23,6 +23,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--game-id", type=UUID, required=True)
     parser.add_argument("--batch-size", type=int, default=200)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--progress-every", type=int, default=10)
     return parser.parse_args()
 
 
@@ -80,6 +81,9 @@ def main() -> int:
     if not 1 <= arguments.batch_size <= 200:
         print("--batch-size must be between 1 and 200", file=sys.stderr)
         return 2
+    if arguments.progress_every < 1:
+        print("--progress-every must be positive", file=sys.stderr)
+        return 2
     checkpoint_path = arguments.checkpoint or _default_checkpoint(arguments.game_id)
     try:
         after_board_id = _read_checkpoint(checkpoint_path, arguments.game_id)
@@ -88,6 +92,21 @@ def main() -> int:
         processed = 0
         updated_boards = 0
         updated_cells = 0
+        batch_number = 0
+        print(
+            json.dumps(
+                {
+                    "status": "running",
+                    "gameId": str(arguments.game_id),
+                    "checkpoint": str(checkpoint_path),
+                    "resumingAfterBoardId": (
+                        None if after_board_id is None else str(after_board_id)
+                    ),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
         while True:
             with factory.begin() as session:
                 step = SqlAlchemyV09SchemaBackfillRepository(session).backfill_next_batch(
@@ -98,12 +117,30 @@ def main() -> int:
             processed += step.processed_board_count
             updated_boards += step.updated_board_count
             updated_cells += step.updated_cell_count
+            batch_number += 1
             after_board_id = step.next_board_id
             _write_checkpoint(
                 checkpoint_path,
                 game_id=arguments.game_id,
                 board_id=after_board_id,
             )
+            if batch_number % arguments.progress_every == 0 or not step.has_more:
+                print(
+                    json.dumps(
+                        {
+                            "status": "running",
+                            "batch": batch_number,
+                            "processedBoardCount": processed,
+                            "updatedBoardCount": updated_boards,
+                            "updatedCellCount": updated_cells,
+                            "lastCommittedBoardId": (
+                                None if after_board_id is None else str(after_board_id)
+                            ),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
             if not step.has_more:
                 break
         with factory.begin() as session:

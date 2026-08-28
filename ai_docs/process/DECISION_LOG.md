@@ -5927,17 +5927,18 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Decision:** nowa kolejka `Zatwierdzanie cięcia siatki` działa domyślnie
   wyłącznie w lokalnym Reviewerze. Zdalna sesja zachowuje istniejący,
   scope-bound workflow i nie otrzymuje dostępu do game-wide endpointów Admin
-  API. Poprzedni lokalny widok pozostaje czasowo za ustawieniem
-  `REVIEWER_GRID_VALIDATION=legacy`.
+  API. Po odbiorze 0.9 lokalny fallback zostaje usunięty.
 - **Context:** API TASK 5 świadomie korzysta z lokalnego aktora Admina i może
   listować kolejkę całej gry. Rozszerzenie allowlisty publicznego proxy
   zwiększyłoby uprawnienia tokenu udostępnianego osobie trzeciej.
 - **Safety:** proxy zdalnego Reviewera pozostaje bez zmian. Nowy ekran jest
   wybierany dopiero po jednoczesnym potwierdzeniu trybu lokalnego, loopbacku i
   poprawnego scope gry/importu.
-- **Consequences:** lokalny operator otrzymuje docelowy szybki workflow, a
+- **Consequences:** lokalny operator zawsze otrzymuje docelowy workflow, a
   udostępniane linki zachowują dotychczasowe możliwości do czasu osobnego
-  projektu bezpiecznego kontraktu zdalnej walidacji geometrii.
+  projektu bezpiecznego kontraktu zdalnej walidacji geometrii. Rollback 0.9
+  wyłącza nowe mutacje bez niszczenia danych zamiast przywracać stary lokalny
+  ekran.
 - **Alternatives:** mapowanie game-wide endpointów przez publiczny proxy
   odrzucono z powodu zbyt szerokiego scope i ryzyka ujawnienia innych importów.
 

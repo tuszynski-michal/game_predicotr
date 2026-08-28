@@ -207,6 +207,8 @@ def test_pin_uses_latest_matching_rules_and_retry_is_idempotent(
     assert selected_again == rules_id
     assert topology_again == topology
     session.flush.assert_not_called()
+    repository._board_count.assert_called_once_with(game_id)
+    repository._observed_legacy_topology.assert_called_once_with(game_id)
 
 
 def test_pin_fails_when_no_rules_version_matches_existing_data(

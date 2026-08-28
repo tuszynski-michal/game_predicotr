@@ -40,9 +40,7 @@ export default async function HomePage({
   return (
     <ReviewerAccessGate
       apiBaseUrl={apiBaseUrl}
-      gridValidationEnabled={
-        localMode && process.env.REVIEWER_GRID_VALIDATION !== 'legacy'
-      }
+      gridValidationEnabled={localMode}
       localScope={localMode ? { gameId, importJobId } : null}
       sessionId={sessionId}
     />

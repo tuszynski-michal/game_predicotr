@@ -1886,7 +1886,9 @@ Odpowiedź nowej rewizji jest topology-aware: zwraca `gridRows`, `gridColumns`
 i dowolną dodatnią liczbę cropów indeksowanych row-major przy użyciu
 `gridColumns`. Nie dziedziczy ograniczenia dokładnie 15 komórek ze starego
 operacyjnego kontraktu 3 × 5. Historyczne endpointy `/image-review-items/...`
-pozostają tymczasowymi aliasami do czasu odbioru nowego UI.
+pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
+korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
+scope'u.
 
 Jawny pending-only recrop v19 wykorzystuje:
 

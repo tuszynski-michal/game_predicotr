@@ -403,7 +403,25 @@ Następnie:
 2. wybierz aktywną grę i jej import zdjęć,
 3. kliknij `Otwórz lokalnie`,
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
-   import bez tunelu oraz kodu.
+   import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
+
+Lokalny widok geometrii jest obowiązującym workflowem 0.9 i nie ma zmiennej
+przywracającej poprzedni ekran. Zdalny link nadal otwiera osobny, ograniczony
+workflow przypisany do konkretnej gry i importu; nie otrzymuje dostępu do
+game-wide kolejki walidacji.
+
+Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
+API, workerze, Adminie i Reviewerze:
+
+```powershell
+.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label before --output .runtime\v09-storage-cleanup-before.json
+.venv\Scripts\python.exe -m alembic upgrade head
+.venv\Scripts\python.exe scripts\backfill_v09_schema.py --game-id <GAME_UUID> --batch-size 200
+.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label after --output .runtime\v09-storage-cleanup-after.json
+```
+
+Backfill zapisuje checkpoint w `.runtime` i można go bezpiecznie wznowić.
+Nie uruchamiaj `VACUUM FULL` jako części aktualizacji.
 
 Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
 lokalny wykorzysta gotowy proces na porcie 3001. Przycisk

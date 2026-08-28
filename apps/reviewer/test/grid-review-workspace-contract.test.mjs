@@ -24,6 +24,10 @@ const gate = await readFile(
   new URL('../src/features/access/reviewer-access-gate.tsx', import.meta.url),
   'utf8',
 );
+const page = await readFile(
+  new URL('../src/app/page.tsx', import.meta.url),
+  'utf8',
+);
 const proxy = await readFile(
   new URL('../src/security/reviewer-proxy-policy.ts', import.meta.url),
   'utf8',
@@ -32,6 +36,8 @@ const proxy = await readFile(
 test('local grid workspace keeps remote reviewer on the restricted legacy path', () => {
   assert.match(gate, /gridValidationEnabled[\s\S]*GridReviewWorkspace/);
   assert.match(gate, /OperationalReviewWorkspace/);
+  assert.match(page, /gridValidationEnabled=\{localMode\}/);
+  assert.doesNotMatch(page, /REVIEWER_GRID_VALIDATION/);
   assert.doesNotMatch(proxy, /\/grid-reviews/);
   assert.doesNotMatch(proxy, /\/image-reviews\//);
 });

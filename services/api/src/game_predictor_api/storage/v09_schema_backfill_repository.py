@@ -89,24 +89,24 @@ class SqlAlchemyV09SchemaBackfillRepository:
                 "The selected game does not exist.",
                 game_id=game_id,
             )
-        board_count = self._board_count(game_id)
-        if board_count == 0:
-            return None, None
-
-        observed = self._observed_legacy_topology(game_id)
         if game.board_topology_rules_version_id is not None:
             pinned = self._session.get(RulesVersionModel, game.board_topology_rules_version_id)
-            if pinned is None or (pinned.rows, pinned.columns) != (
-                observed.rows,
-                observed.columns,
-            ):
+            if pinned is None:
                 raise V09SchemaBackfillError(
                     "GAME_BOARD_TOPOLOGY_INCONSISTENT",
-                    "The pinned rules version conflicts with existing board data.",
+                    "The pinned topology rules version no longer exists.",
                     game_id=game_id,
                 )
             return pinned.id, BoardTopology(rows=pinned.rows, columns=pinned.columns)
 
+        board_count = self._board_count(game_id)
+        if board_count == 0:
+            return None, None
+
+        # The complete legacy evidence scan is needed exactly once, while the
+        # topology is being pinned. Repeating it for every bounded batch turns
+        # a resumable linear backfill into thousands of full-table scans.
+        observed = self._observed_legacy_topology(game_id)
         rules_version = self._session.scalar(
             select(RulesVersionModel)
             .where(

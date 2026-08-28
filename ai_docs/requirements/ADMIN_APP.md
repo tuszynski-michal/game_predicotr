@@ -345,10 +345,11 @@ cofać punkt, resetować szkic oraz obejrzeć dynamiczne `rows × columns` cropy
 przed atomowym zapisem i zatwierdzeniem rewizji. Ekran nie pozwala edytować
 symboli i nie zapisuje JPEG-a z overlayem.
 
-Nowy workflow jest lokalny. Zdalna sesja Reviewera zachowuje wąsko ograniczoną
-ścieżkę legacy i nie otrzymuje game-wide endpointów administracyjnych. Do czasu
-odbioru ustawienie `REVIEWER_GRID_VALIDATION=legacy` przywraca lokalnie
-poprzedni widok bez zmiany danych.
+Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
+zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide
+endpointów administracyjnych. Lokalny Reviewer nie ma już przełącznika powrotu
+do poprzedniego widoku; rollback polega na wyłączeniu nowych mutacji i
+zachowaniu danych 0.9, nie na uruchomieniu starego lokalnego UI.
 
 ### Katalog symboli i grafiki referencyjne
 

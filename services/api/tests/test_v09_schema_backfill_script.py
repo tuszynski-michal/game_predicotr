@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from scripts.backfill_v09_schema import _read_checkpoint, _write_checkpoint
+from scripts.backfill_v09_schema import _arguments, _read_checkpoint, _write_checkpoint
 
 
 def test_v09_backfill_checkpoint_round_trip(tmp_path) -> None:
@@ -23,3 +23,15 @@ def test_v09_backfill_checkpoint_rejects_another_game(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="different game"):
         _read_checkpoint(checkpoint, uuid4())
+
+
+def test_v09_backfill_progress_interval_defaults_to_ten(monkeypatch) -> None:
+    game_id = uuid4()
+    monkeypatch.setattr(
+        "sys.argv",
+        ["backfill_v09_schema.py", "--game-id", str(game_id)],
+    )
+
+    arguments = _arguments()
+
+    assert arguments.progress_every == 10

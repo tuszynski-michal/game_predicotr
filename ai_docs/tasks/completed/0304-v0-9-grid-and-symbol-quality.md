@@ -1,6 +1,6 @@
 ---
 title: TASK-0304 — Walidacja geometrii, jakość symboli i topologia planszy 0.9
-status: in_progress
+status: done
 last_updated: 2026-08-28
 ---
 
@@ -8,16 +8,11 @@ last_updated: 2026-08-28
 
 ## Status
 
-`in_progress`
+`done`
 
-TASK 1–5 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
-kontrolowany backfill metadanych, TASK 3 przenosi przypiętą topologię przez
-snapshot, fingerprint, geometrię, cropper i ręczny preview, a TASK 4 atomowo
-synchronizuje zatwierdzenie geometrii, proweniencję cropów i istniejące
-projekcje planszy. TASK 5 dostarcza bounded lokalne API kolejki walidacji.
-Migracja nie została jeszcze zastosowana na roboczej bazie i wymaga osobnego
-checkpointu SQL oraz okna operacyjnego. Lokalne Admin HTTP jest gotowe, a UI
-pozostaje celowo bez zmian.
+TASK 1–13 zostały ukończone. Migracje 0073–0075 są zastosowane na roboczej
+bazie, bounded backfill zakończył się stanem `ready`, nowe lokalne workflowy są
+włączone, a odroczone zastępcze zdjęcie planszy ma osobny TASK-0305.
 
 ## Goal
 
@@ -63,8 +58,8 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
 - [x] `grid_issue` wraca jako pending, a `unreadable` można rozwiązać symbolem
   albo logicznym `?` bez kwalifikowania cropa do treningu.
 - [x] Agregacja planszy uwzględnia zatwierdzenie geometrii i topologię.
-- [ ] Migracje 0073–0075 i backfill są wdrożone i odebrane.
-- [ ] Pipeline, API, Admin, Reviewer, dataset, mobile i payout przeszły cutover.
+- [x] Migracje 0073–0075 i backfill są wdrożone i odebrane.
+- [x] Pipeline, API, Admin, Reviewer, dataset, mobile i payout przeszły cutover.
 
 ## Progress
 
@@ -196,8 +191,8 @@ implementacyjny to TASK 6 — UI „Zatwierdzanie cięcia siatki”.
 - Widok geometrii nie pobiera katalogu ani nie edytuje symboli. Nie zapisuje
   osobnego obrazu overlay.
 - Zdalny Reviewer pozostaje na dotychczasowej ścieżce scope-bound. Jego proxy
-  nie dostało dostępu do nowych endpointów Admin API. Lokalny legacy workflow
-  pozostaje do odbioru za `REVIEWER_GRID_VALIDATION=legacy`.
+  nie dostało dostępu do nowych endpointów Admin API. Lokalny fallback był
+  dostępny wyłącznie do odbioru i TASK 13 usuwa jego przełącznik po cutoverze.
 
 #### Outcome TASK 6
 
@@ -380,7 +375,29 @@ TASK 11; przed destrukcyjną migracją wymagany jest osobny checkpoint.
 - Nie usunięto źródeł, cropów, obserwacji ani rewizji i nie uruchomiono
   `VACUUM FULL`.
 
-## Następny etap po TASK 12
+### v0.9.13 — cutover, odbiór i dokumentacja 0.9
 
-TASK 13 — cutover, odbiór i dokumentacja 0.9. Nie rozpoczęto go w ramach
-TASK 12.
+- Usunięto lokalną flagę powrotu do starego widoku. Lokalny Reviewer zawsze
+  korzysta z kolejki walidacji geometrii, natomiast zdalny Reviewer zachowuje
+  ograniczony historyczny kontrakt i nie otrzymuje nowych uprawnień.
+- Migracje 0073–0075 zastosowano na danych użytkownika. Wznawialny backfill
+  objął `397 976` plansz i `3 572 295` komórek oraz zakończył się `ready=true`.
+- Finalna walidacja wykazała po `0` braków: topologii planszy, zatwierdzonej
+  geometrii zakończonej planszy, proweniencji zatwierdzonego cropa i
+  niespójności jakości. Fast documents ma zero zduplikowanych właścicieli.
+- Usunięcie legacy storage zmniejszyło monitorowane relacje o `758 005 760`
+  bajtów. Nie wykonano `VACUUM FULL`, benchmarku ani operacji na plikach
+  obrazów.
+- Raport odbiorczy znajduje się w
+  `ai_docs/quality/V0_9_GRID_AND_SYMBOL_QUALITY_ACCEPTANCE.md`.
+- Funkcja zastępczego zdjęcia pojedynczej planszy została świadomie odroczona
+  do `TASK-0305` i nie jest częścią implementacji 0.9.
+
+#### Outcome TASK 13
+
+- Testy domeny/API: `61 passed`; testy workera: `41 passed`; pełne testy
+  Admina: `296 passed`; celowane testy lokalnego Reviewera: `7 passed`.
+- Ruff, formatowanie zmienionych plików, lint i typecheck Admina/Reviewera,
+  produkcyjne buildy obu aplikacji oraz kontrola OpenAPI przechodzą.
+- Celowany mypy API nadal raportuje wcześniejszy brak markerów `py.typed`
+  pakietu workera. Nie jest to regresja ani zakres TASK-0304.

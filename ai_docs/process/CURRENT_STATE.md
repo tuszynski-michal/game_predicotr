@@ -13,7 +13,27 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.9 implementation: grid validation and symbol quality`
+`Version 0.9 complete: grid validation and symbol quality`
+
+### Odbiór wersji 0.9 — TASK-0304
+
+- Commity `v0.9.1–v0.9.13` rozdzielają zatwierdzoną etykietę symbolu,
+  jakość cropa, proweniencję pikseli oraz zatwierdzenie geometrii. Lokalny
+  Reviewer zawsze otwiera nowy workflow walidacji siatki; ograniczony zdalny
+  Reviewer zachowuje istniejący kontrakt bez rozszerzenia uprawnień.
+- Robocza baza jest na migracji `0075`. Bounded, wznawialny backfill zakończył
+  się stanem `ready` dla `397 976` plansz i `3 572 295` komórek: zero braków
+  topologii, zatwierdzenia geometrii, proweniencji zatwierdzonych cropów oraz
+  zero niespójności jakości.
+- Cutover usunął starą projekcję `image_board_search_documents`, tekstowe
+  tokeny/GIN-y i legacy `has_grid_issue`. Raport przed/po wskazuje spadek
+  monitorowanych relacji z `6 968 860 672` do `6 210 854 912` bajtów, bez
+  `VACUUM FULL` i bez usuwania obrazów, obserwacji lub audytu.
+- Kontrola rzeczywistych danych potwierdza zero podwójnych właścicieli w fast
+  documents, zero plansz bez snapshotu topologii, zero zakończonych plansz bez
+  zatwierdzonej geometrii i zero zatwierdzonych komórek bez proweniencji.
+- Odroczony upload zastępczego zdjęcia jednej planszy ma osobny
+  `TASK-0305`. Nie należy implementować go jako rozszerzenia 0.9.
 
 ### Niezależne ulepszanie symboli i siatki — TASK-0303
 
@@ -3501,8 +3521,8 @@ Edytor przyjmuje cztery punkty LT/PT/PD/LD, pozwala przeciągać narożnik albo
 całą siatkę, cofać i resetować szkic oraz generuje preview zależne od
 `rows × columns`. Zapis używa source-direct endpointu TASK 5 i jednocześnie
 zatwierdza nową rewizję. Nie edytuje symboli i nie tworzy pliku overlay.
-Zdalny Reviewer pozostaje na ograniczonej ścieżce legacy; lokalny rollback jest
-dostępny przez `REVIEWER_GRID_VALIDATION=legacy`.
+Zdalny Reviewer pozostaje na ograniczonej ścieżce operacyjnej; lokalny
+fallback był czasowy i zostaje usunięty przy końcowym cutoverze TASK 13.
 
 Commit `v0.9.7` rozdziela w `Weryfikacji symboli` dwa problemy jakościowe.
 `Zła siatka` zapisuje `quality_issue = grid_issue` i kieruje planszę do kolejki

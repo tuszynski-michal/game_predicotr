@@ -3455,3 +3455,12 @@ baza użytkownika nadal pozostaje na `0072`; indeksy i backfill 0073 nie został
 uruchomione podczas aktywnego przetwarzania. Wymagają osobnego checkpointu SQL
 i kontrolowanego okna. API, worker, Admin i Reviewer nie zostały jeszcze
 przełączone na nowy workflow.
+
+Commit `v0.9.3` usuwa stałą 15 ze wspólnej ścieżki geometrii i croppera.
+Snapshot nowego importu, fingerprint croppera i manifest odroczenia przypinają
+topologię oraz wersję reguł, a `recognized_boards` zapisuje użyte wymiary.
+Ręczna geometria działa dla dowolnego `rows × columns` w row-major i wykonuje
+pojedynczy finalny resampling każdej komórki. Automatyczny v20 pozostaje
+wersjonowanym adapterem 3 × 5 i dla innych wymiarów zwraca
+`IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`. Historyczne artefakty bez topologii
+zachowują dotychczasowy fingerprint i interpretację 3 × 5.

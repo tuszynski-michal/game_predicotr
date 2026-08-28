@@ -13,7 +13,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .board_cell_geometry_contract import (
-    BOARD_CELL_COUNT,
     BOARD_CELL_GEOMETRY_VERSION,
     BOARD_COLUMNS,
     BOARD_ROWS,
@@ -22,6 +21,7 @@ from .board_cell_geometry_contract import (
     BoardCellGeometryContractError,
     BoardCellGeometryEntry,
     BoardCellQuad,
+    BoardCellTopology,
     EvidenceKind,
     Quad,
     derive_board_cell_quads,
@@ -104,11 +104,20 @@ class BoardCellGeometrySourceDirectCropper:
 
     version = CROPPER_VERSION
 
-    def __init__(self, *, cell_output_size: int) -> None:
+    def __init__(
+        self,
+        *,
+        cell_output_size: int,
+        topology: BoardCellTopology | None = None,
+    ) -> None:
         if cell_output_size <= 0:
             raise ValueError("cell_output_size must be positive")
         self.cell_output_size = cell_output_size
-        self.fingerprint_sha256 = cropper_fingerprint_sha256(cell_output_size=cell_output_size)
+        self.topology = topology or BoardCellTopology(rows=BOARD_ROWS, columns=BOARD_COLUMNS)
+        self.fingerprint_sha256 = cropper_fingerprint_sha256(
+            cell_output_size=cell_output_size,
+            topology=topology,
+        )
 
     def crop(
         self,
@@ -126,12 +135,17 @@ class BoardCellGeometrySourceDirectCropper:
             or geometry.source_image_height != image_height
         ):
             return self._needs_review(geometry, "BOARD_CELL_CROP_IMAGE_DIMENSIONS_MISMATCH")
-        reason = _geometry_review_reason(geometry)
+        if geometry.topology != self.topology:
+            return self._needs_review(geometry, "BOARD_CELL_CROP_TOPOLOGY_MISMATCH")
+        reason = _geometry_review_reason(geometry, topology=self.topology)
         if reason is not None:
             return self._needs_review(geometry, reason)
 
-        padded_quads = _padded_source_quads(geometry.lattice_bounds_quad)
-        if len(padded_quads) != BOARD_CELL_COUNT or not all(
+        padded_quads = _padded_source_quads(
+            geometry.lattice_bounds_quad,
+            topology=self.topology,
+        )
+        if len(padded_quads) != self.topology.cell_count or not all(
             _quad_has_full_source_support(
                 quad,
                 source_width=image_width,
@@ -186,7 +200,11 @@ class BoardCellGeometrySourceDirectCropper:
         )
 
 
-def cropper_fingerprint_sha256(*, cell_output_size: int) -> str:
+def cropper_fingerprint_sha256(
+    *,
+    cell_output_size: int,
+    topology: BoardCellTopology | None = None,
+) -> str:
     """Return the immutable fingerprint for one pinned raster-output contract."""
 
     if cell_output_size <= 0:
@@ -202,19 +220,27 @@ def cropper_fingerprint_sha256(*, cell_output_size: int) -> str:
         "paddingVersion": PADDING_VERSION,
         "sourceImageContract": "rgb-uint8-exif-normalized-v1",
     }
+    if topology is not None:
+        payload["gridRows"] = topology.rows
+        payload["gridColumns"] = topology.columns
+        payload["topologyRulesVersionId"] = topology.rules_version_id
     encoded = (
         json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _geometry_review_reason(geometry: BoardCellGeometryEntry) -> str | None:
-    if not _evidence_is_valid(geometry.evidence.kind, geometry):
+def _geometry_review_reason(
+    geometry: BoardCellGeometryEntry,
+    *,
+    topology: BoardCellTopology,
+) -> str | None:
+    if not _evidence_is_valid(geometry.evidence.kind, geometry, topology=topology):
         return "BOARD_CELL_CROP_EVIDENCE_INVALID"
-    if len(geometry.cells) != BOARD_CELL_COUNT:
+    if len(geometry.cells) != topology.cell_count:
         return "BOARD_CELL_CROP_CELL_COUNT_INVALID"
     if [(cell.row_index, cell.column_index) for cell in geometry.cells] != [
-        (row, column) for row in range(BOARD_ROWS) for column in range(BOARD_COLUMNS)
+        (row, column) for row in range(topology.rows) for column in range(topology.columns)
     ]:
         return "BOARD_CELL_CROP_CELL_ORDER_INVALID"
     try:
@@ -222,6 +248,7 @@ def _geometry_review_reason(geometry: BoardCellGeometryEntry) -> str | None:
             geometry.lattice_bounds_quad,
             source_image_width=geometry.source_image_width,
             source_image_height=geometry.source_image_height,
+            topology=topology,
         )
     except BoardCellGeometryContractError as error:
         return error.code
@@ -233,7 +260,12 @@ def _geometry_review_reason(geometry: BoardCellGeometryEntry) -> str | None:
     return None
 
 
-def _evidence_is_valid(kind: EvidenceKind, geometry: BoardCellGeometryEntry) -> bool:
+def _evidence_is_valid(
+    kind: EvidenceKind,
+    geometry: BoardCellGeometryEntry,
+    *,
+    topology: BoardCellTopology,
+) -> bool:
     evidence = geometry.evidence
     if kind == "automatic":
         slots = evidence.inlier_slots
@@ -244,8 +276,8 @@ def _evidence_is_valid(kind: EvidenceKind, geometry: BoardCellGeometryEntry) -> 
             and evidence.inlier_count >= MIN_INLIER_COUNT
             and evidence.inlier_count == len(slots)
             and len(set(slots)) == len(slots)
-            and {row for row, _ in slots} == set(range(BOARD_ROWS))
-            and {column for _, column in slots} == set(range(BOARD_COLUMNS))
+            and {row for row, _ in slots} == set(range(topology.rows))
+            and {column for _, column in slots} == set(range(topology.columns))
             and evidence.inlier_p95_residual_px is not None
             and math.isfinite(evidence.inlier_p95_residual_px)
             and evidence.locator_version is not None
@@ -277,24 +309,28 @@ def _cell_matches(actual: BoardCellQuad, expected: BoardCellQuad) -> bool:
     )
 
 
-def _padded_source_quads(lattice_bounds_quad: Quad) -> tuple[Quad, ...]:
+def _padded_source_quads(
+    lattice_bounds_quad: Quad,
+    *,
+    topology: BoardCellTopology,
+) -> tuple[Quad, ...]:
     canonical = np.asarray(
         (
             (0.0, 0.0),
-            (float(BOARD_COLUMNS) * CANONICAL_CELL_SIZE, 0.0),
+            (float(topology.columns) * CANONICAL_CELL_SIZE, 0.0),
             (
-                float(BOARD_COLUMNS) * CANONICAL_CELL_SIZE,
-                float(BOARD_ROWS) * CANONICAL_CELL_SIZE,
+                float(topology.columns) * CANONICAL_CELL_SIZE,
+                float(topology.rows) * CANONICAL_CELL_SIZE,
             ),
-            (0.0, float(BOARD_ROWS) * CANONICAL_CELL_SIZE),
+            (0.0, float(topology.rows) * CANONICAL_CELL_SIZE),
         ),
         dtype=np.float32,
     )
     source = np.asarray(lattice_bounds_quad, dtype=np.float32)
     canonical_to_source = cv2.getPerspectiveTransform(canonical, source)
     quads: list[Quad] = []
-    for row in range(BOARD_ROWS):
-        for column in range(BOARD_COLUMNS):
+    for row in range(topology.rows):
+        for column in range(topology.columns):
             left = column * CANONICAL_CELL_SIZE + FIXED_PADDING_CANONICAL_PX
             top = row * CANONICAL_CELL_SIZE + FIXED_PADDING_CANONICAL_PX
             right = (column + 1) * CANONICAL_CELL_SIZE - FIXED_PADDING_CANONICAL_PX

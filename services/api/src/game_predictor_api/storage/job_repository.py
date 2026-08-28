@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import (
+    BoardTopologyJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     LayoutImportRulesReference,
@@ -42,6 +43,35 @@ class SqlAlchemyJobRepository(JobRepository):
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
+
+    def get_or_pin_board_topology(
+        self,
+        game_id: UUID,
+    ) -> BoardTopologyJobReference | None:
+        game = self._session.scalar(
+            select(GameModel).where(GameModel.id == game_id).with_for_update()
+        )
+        if game is None:
+            return None
+        rules = None
+        if game.board_topology_rules_version_id is not None:
+            rules = self._session.get(RulesVersionModel, game.board_topology_rules_version_id)
+        if rules is None:
+            rules = self._session.scalar(
+                select(RulesVersionModel)
+                .where(RulesVersionModel.game_id == game_id)
+                .order_by(RulesVersionModel.version.desc(), RulesVersionModel.id)
+                .limit(1)
+            )
+            if rules is None:
+                return None
+            game.board_topology_rules_version_id = rules.id
+            self._session.flush()
+        return BoardTopologyJobReference(
+            rules_version_id=rules.id,
+            rows=rules.rows,
+            columns=rules.columns,
+        )
 
     def get_layout_import_rules_reference(
         self,

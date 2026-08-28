@@ -434,6 +434,14 @@ export type BoardCellProcessingJobSnapshotPayload = {
    */
   geometryVersion: string;
   /**
+   * Gridcolumns
+   */
+  gridColumns?: number | null;
+  /**
+   * Gridrows
+   */
+  gridRows?: number | null;
+  /**
    * Homographyversion
    */
   homographyVersion: string;
@@ -457,6 +465,14 @@ export type BoardCellProcessingJobSnapshotPayload = {
    * Thresholdsversion
    */
   thresholdsVersion: string;
+  /**
+   * Topologyfingerprintsha256
+   */
+  topologyFingerprintSha256?: string | null;
+  /**
+   * Topologyrulesversionid
+   */
+  topologyRulesVersionId?: string | null;
 };
 
 /**
@@ -7371,7 +7387,8 @@ export type SnapshotJobPayload = {
 /**
  * SymbolCellReviewAction
  */
-export type SymbolCellReviewAction = 'approve' | 'reassign' | 'mark_grid_issue';
+export type SymbolCellReviewAction =
+  'approve' | 'reassign' | 'mark_grid_issue' | 'mark_unreadable';
 
 /**
  * SymbolCellReviewBackfillJobPayload

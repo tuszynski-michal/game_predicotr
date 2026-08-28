@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from uuid import UUID
 
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
@@ -107,6 +108,11 @@ class BoardCellGeometryDeferredWriter:
                 expected_review_resolution_revision=(
                     0 if review is None else review.resolution_revision
                 ),
+                grid_rows=_snapshot_optional_integer(processing_snapshot, "gridRows"),
+                grid_columns=_snapshot_optional_integer(processing_snapshot, "gridColumns"),
+                topology_rules_version_id=_snapshot_optional_uuid(
+                    processing_snapshot, "topologyRulesVersionId"
+                ),
             )
 
         try:
@@ -127,6 +133,31 @@ def _snapshot_text(value: Mapping[str, object], field: str) -> str:
             "The pinned v20 board-cell processing snapshot is incomplete.",
         )
     return result
+
+
+def _snapshot_optional_integer(value: Mapping[str, object], field: str) -> int | None:
+    result = value.get(field)
+    if result is None:
+        return None
+    if isinstance(result, bool) or not isinstance(result, int) or result < 1:
+        raise JobHandlerError(
+            "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
+            "The pinned v20 board-cell topology is invalid.",
+        )
+    return result
+
+
+def _snapshot_optional_uuid(value: Mapping[str, object], field: str) -> UUID | None:
+    result = value.get(field)
+    if result is None:
+        return None
+    try:
+        return UUID(str(result))
+    except ValueError as error:
+        raise JobHandlerError(
+            "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
+            "The pinned v20 board-cell topology rules version is invalid.",
+        ) from error
 
 
 __all__ = ["BoardCellGeometryDeferredWriter"]

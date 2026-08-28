@@ -5900,6 +5900,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   uznanie nowych cropów za zatwierdzone odrzucono odpowiednio z powodu utraty
   pracy człowieka i ryzyka zanieczyszczenia kohorty.
 
+## D-245 — Topologia jest częścią artefaktu geometrii i fingerprintu
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** każdy nowy import przypina `rows`, `columns` i wersję reguł w
+  snapshotcie przetwarzania, fingerprintcie croppera oraz manifeście
+  odroczenia. Wspólny source-direct cropper i ręczna geometria są generyczne,
+  natomiast automatyczny adapter v20 jawnie obsługuje wyłącznie 3 × 5.
+- **Context:** stałe 15 komórek były rozproszone między manifestem, cropperem i
+  preview. Sama zmiana reguł mogła przez to nie wejść do tożsamości joba.
+- **Safety:** stare artefakty bez pól topologii zachowują dokładną serializację,
+  fingerprint i interpretację 3 × 5. Inna topologia nie uruchamia automatycznego
+  v20 i kończy się `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`; ręczna geometria
+  nadal może wygenerować dokładnie `rows × columns` cropów jednym
+  source-to-output resamplingiem na komórkę.
+- **Consequences:** nowe wyniki zapisują snapshot wymiarów na rozpoznanej
+  planszy, a replay nie może przypadkiem użyć croppera o innej topologii.
+- **Alternatives:** globalną zamianę stałych historycznych adapterów odrzucono,
+  ponieważ złamałaby odtwarzalność istniejących jobów i manifestów.
+
 ## Szablon nowej decyzji
 
 ```text

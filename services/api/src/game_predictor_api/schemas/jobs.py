@@ -67,6 +67,27 @@ class BoardCellProcessingJobSnapshotPayload(ApiModel):
     shadow_benchmark_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_version: str = Field(min_length=1, max_length=255)
+    grid_rows: int | None = Field(default=None, ge=1, le=32767)
+    grid_columns: int | None = Field(default=None, ge=1, le=32767)
+    topology_rules_version_id: UUID | None = None
+    topology_fingerprint_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    @model_validator(mode="after")
+    def validate_topology_snapshot(self) -> Self:
+        values = (
+            self.grid_rows,
+            self.grid_columns,
+            self.topology_rules_version_id,
+            self.topology_fingerprint_sha256,
+        )
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError("pinned board topology fields must be complete")
+        return self
 
 
 class ImageImportJobPayload(ApiModel):

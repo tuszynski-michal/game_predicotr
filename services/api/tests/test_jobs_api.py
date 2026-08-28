@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import cast
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
     ImageSelectionJobDeletionReference,
@@ -17,7 +18,7 @@ from game_predictor_api.application.jobs import (
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.datasets import DatasetVersionStatus
-from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
+from game_predictor_api.domain.jobs import Job, JobError, JobStatus, JobType, create_job
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -326,11 +327,38 @@ def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     assert isinstance(processing, dict)
     assert processing["activationVersion"] == "board-cell-processing-v20-verified-v19-v1"
     assert processing["rolloutMode"] == "default_v19"
-    assert pinned.input_payload["pipeline_fingerprint"] != historical.input_payload[
-        "pipeline_fingerprint"
-    ]
+    assert processing["gridRows"] == 3
+    assert processing["gridColumns"] == 5
+    assert processing["topologyRulesVersionId"] == str(_repository.topology_rules_version_id)
+    assert (
+        pinned.input_payload["pipeline_fingerprint"]
+        != historical.input_payload["pipeline_fingerprint"]
+    )
     response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["boardCellProcessing"] == processing
+
+
+def test_verified_v20_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    source = tmp_path / "curated"
+    source.mkdir()
+    common = {
+        "game_id": game_id,
+        "source_directory": source,
+        "source_display_name": "v20",
+        "pipeline_fingerprint": "a" * 64,
+        "use_verified_board_cell_geometry": True,
+    }
+
+    repository.board_topology = None
+    with pytest.raises(JobError) as missing:
+        service.create_image_import_job(selection_id=uuid4(), **common)
+    assert missing.value.code == "GAME_BOARD_TOPOLOGY_REQUIRED"
+
+    repository.board_topology = (2, 4)
+    with pytest.raises(JobError) as unsupported:
+        service.create_image_import_job(selection_id=uuid4(), **common)
+    assert unsupported.value.code == "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
 
 
 class _MutableSymbolModelResolver:

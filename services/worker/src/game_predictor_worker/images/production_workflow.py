@@ -35,12 +35,14 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 from .board_cell_geometry_activation import (
     BOARD_CELL_PROCESSING_VERSION,
     BoardCellRecropSnapshotError,
+    require_v20_supported_topology,
     validate_board_cell_processing_snapshot,
 )
 from .board_cell_geometry_contract import (
     BoardCellGeometryEntry,
     BoardCellGeometryEvidence,
     BoardCellQuad,
+    BoardCellTopology,
     EvidenceKind,
 )
 from .board_cell_geometry_contract import (
@@ -365,6 +367,11 @@ class ProductionImageStageAdapterSuite:
         self._image_selection_run_id = image_selection_run_id
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._board_cell_processing = dict(board_cell_processing or {})
+        self._board_topology = (
+            require_v20_supported_topology(self._board_cell_processing)
+            if self._board_cell_processing
+            else BoardCellTopology(rows=3, columns=5)
+        )
         self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -383,6 +390,11 @@ class ProductionImageStageAdapterSuite:
         )
         self._v19_cropper = BoardCellGeometrySourceDirectCropper(
             cell_output_size=self._symbol_model_snapshot.input_size,
+            topology=(
+                self._board_topology
+                if self._board_cell_processing.get("topologyRulesVersionId") is not None
+                else None
+            ),
         )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
@@ -416,11 +428,7 @@ class ProductionImageStageAdapterSuite:
                     "board_crops",
                     V19_CROPPER_VERSION if self._board_cell_processing else CROP_ADAPTER_VERSION,
                     self.board_crops,
-                    (
-                        self.persist_board_crop_deferrals
-                        if self._board_cell_processing
-                        else None
-                    ),
+                    (self.persist_board_crop_deferrals if self._board_cell_processing else None),
                 ),
                 FunctionImageStageAdapter(
                     "sequence_ocr",
@@ -619,7 +627,7 @@ class ProductionImageStageAdapterSuite:
                 estimate.status == "estimated"
                 and estimate.lattice_bounds_quad is not None
                 and estimate.evidence is not None
-                and len(estimate.cells) == 15
+                and len(estimate.cells) == self._board_topology.cell_count
             ):
                 entry = BoardCellGeometryEntry(
                     source_order_index=0,
@@ -635,6 +643,7 @@ class ProductionImageStageAdapterSuite:
                     lattice_bounds_quad=estimate.lattice_bounds_quad,
                     cells=estimate.cells,
                     evidence=estimate.evidence,
+                    topology=self._board_topology,
                 )
                 projected.append(
                     {
@@ -645,8 +654,7 @@ class ProductionImageStageAdapterSuite:
                 )
                 continue
             estimator_reason = (
-                estimate.fallback_reason
-                or "BOARD_CELL_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
+                estimate.fallback_reason or "BOARD_CELL_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
             )
             reason = _pending_reason(estimator_reason)
             projected.append(
@@ -665,6 +673,9 @@ class ProductionImageStageAdapterSuite:
                 "configurationFingerprintSha256"
             ],
             "processingVersion": BOARD_CELL_PROCESSING_VERSION,
+            "gridRows": self._board_topology.rows,
+            "gridColumns": self._board_topology.columns,
+            "topologyRulesVersionId": self._board_topology.rules_version_id,
         }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -718,9 +729,7 @@ class ProductionImageStageAdapterSuite:
             cells: list[dict[str, object]] = []
             for cell in board.cells:
                 relative = (
-                    root
-                    / "cells"
-                    / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
+                    root / "cells" / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
                 ).as_posix()
                 cells.append(
                     {
@@ -764,7 +773,7 @@ class ProductionImageStageAdapterSuite:
                 _mapping(geometry_board.get("cellGeometry"), "cellGeometry")
             )
             cropped = self._v19_cropper.crop(rgb, entry)
-            if cropped.status != "cropped" or len(cropped.cells) != 15:
+            if cropped.status != "cropped" or len(cropped.cells) != self._board_topology.cell_count:
                 estimator_reason = (
                     cropped.review_reasons[0]
                     if cropped.review_reasons
@@ -818,6 +827,9 @@ class ProductionImageStageAdapterSuite:
                     "displayAssetKind": "source_context",
                     "positionIndex": position,
                     "sourceContextBounds": context_bounds,
+                    "gridRows": self._board_topology.rows,
+                    "gridColumns": self._board_topology.columns,
+                    "topologyRulesVersionId": self._board_topology.rules_version_id,
                 }
             )
         return {"boards": projected, "deferredBoards": deferred}
@@ -881,9 +893,7 @@ class ProductionImageStageAdapterSuite:
                 for board in _boards(_previous(context, "board_crops"))
             }
             detections = tuple(
-                board
-                for board in detections
-                if _integer(board, "positionIndex") in crop_positions
+                board for board in detections if _integer(board, "positionIndex") in crop_positions
             )
         if context.attested_sequence_range is not None:
             return _attested_sequence_payload(
@@ -1230,14 +1240,25 @@ def _board_cell_processing_snapshot(job: Job) -> dict[str, object] | None:
     if value is None:
         return None
     try:
-        return validate_board_cell_processing_snapshot(
+        snapshot = validate_board_cell_processing_snapshot(
             value,
             cell_output_size=_symbol_model_snapshot(job).input_size,
         )
+        require_v20_supported_topology(snapshot)
+        return snapshot
     except BoardCellRecropSnapshotError as error:
+        code = (
+            "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
+            if str(error).startswith("IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED")
+            else "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID"
+        )
         raise JobHandlerError(
-            "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
-            "The pinned v20 board-cell processing snapshot is invalid.",
+            code,
+            (
+                "The active v20 geometry adapter supports only 3x5 boards."
+                if code == "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
+                else "The pinned v20 board-cell processing snapshot is invalid."
+            ),
         ) from error
 
 
@@ -1664,6 +1685,11 @@ def _boards(value: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
 
 
 def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometryEntry:
+    topology = BoardCellTopology(
+        rows=_integer(value, "gridRows") if "gridRows" in value else 3,
+        columns=_integer(value, "gridColumns") if "gridColumns" in value else 5,
+        rules_version_id=cast(str | None, value.get("topologyRulesVersionId")),
+    )
     cells = tuple(
         BoardCellQuad(
             row_index=_integer(cell, "rowIndex"),
@@ -1707,9 +1733,7 @@ def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometry
         inlier_count=_integer(evidence_value, "inlierCount"),
         inlier_slots=slots,
         inlier_p95_residual_px=None if residual is None else float(residual),
-        decision_checksum_sha256=cast(
-            str | None, evidence_value.get("decisionChecksumSha256")
-        ),
+        decision_checksum_sha256=cast(str | None, evidence_value.get("decisionChecksumSha256")),
     )
     tags = _sequence(value.get("conditionTags"), "cellGeometry.conditionTags")
     return BoardCellGeometryEntry(
@@ -1723,11 +1747,10 @@ def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometry
         condition_tags=tuple(cast(str, item) for item in tags),
         sequence_number=_integer(value, "sequenceNumber"),
         position_index=_integer(value, "positionIndex"),
-        lattice_bounds_quad=_contract_quad(
-            value.get("latticeBoundsQuad")
-        ),
+        lattice_bounds_quad=_contract_quad(value.get("latticeBoundsQuad")),
         cells=cells,
         evidence=evidence,
+        topology=topology,
     )
 
 

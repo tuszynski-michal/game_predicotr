@@ -300,6 +300,14 @@ jawnie, a brak pola w API również wybiera v19.
 Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
 niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
 snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
+Nowe snapshoty przypinają także `gridRows`, `gridColumns` i
+`topologyRulesVersionId`. Automatyczny adapter
+`board-cell-processing-v20-verified-v19-v1` deklaruje wyłącznie obsługę 3 × 5
+i odrzuca inną topologię stabilnym `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`.
+Wspólny source-direct cropper oraz ręczna geometria dzielą quad generycznie na
+`rows × columns` w kolejności row-major; nie tworzą pośredniej bitmapy planszy.
+Historyczne snapshoty bez topologii pozostają interpretowane jako 3 × 5 i
+zachowują dotychczasowe fingerprinty.
 
 Przed etapem `board_crops` executor zapisuje osobny, niezmienny wynik
 `board_cell_geometry`. Dla każdej z dziewięciu plansz dozwolony jest wyłącznie

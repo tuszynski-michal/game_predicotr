@@ -945,6 +945,13 @@ zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz or
 uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
 grę raportem; nie jest naprawiana heurystycznie.
 
+Nowy import z aktywnym pipeline'em geometrii przypina tę samą topologię w
+jobowym snapshotcie, fingerprintcie croppera i content-addressed manifeście
+odroczenia. `recognized_boards.grid_rows/grid_columns` zapisują wymiary użyte
+przy utworzeniu cropów. Historyczne artefakty bez pól topologii pozostają
+odtwarzalne jako 3 × 5; jawnie przypięty artefakt nie może być przetworzony
+cropperem o innych wymiarach.
+
 Migracja dodaje również `image_board_geometry_review_events` jako append-only
 audyt zatwierdzenia geometrii. Nie przechowuje obrazów ani overlayów. Migracja
 0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths;

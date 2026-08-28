@@ -16,6 +16,7 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_processing_snapshot,
     board_cell_recrop_snapshot,
 )
+from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -44,6 +45,13 @@ PAYOUT_ALGORITHM_VERSION = "payout-v2"
 class LayoutImportRulesReference:
     game_id: UUID
     status: RulesVersionStatus
+
+
+@dataclass(frozen=True, slots=True)
+class BoardTopologyJobReference:
+    rules_version_id: UUID
+    rows: int
+    columns: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +215,11 @@ class ManagedImageSelectionDeletionArtifactStore:
 
 class JobRepository(Protocol):
     def game_exists(self, game_id: UUID) -> bool: ...
+
+    def get_or_pin_board_topology(
+        self,
+        game_id: UUID,
+    ) -> BoardTopologyJobReference | None: ...
 
     def get_layout_import_rules_reference(
         self,
@@ -434,12 +447,31 @@ class JobService:
             if page_geometry_manifest is not None:
                 input_payload["page_geometry_manifest"] = dict(page_geometry_manifest)
         if use_verified_board_cell_geometry:
+            topology_reference = self._repository.get_or_pin_board_topology(game_id)
+            if topology_reference is None:
+                raise JobError(
+                    "GAME_BOARD_TOPOLOGY_REQUIRED",
+                    "A rules version must define board dimensions before boards can be imported.",
+                )
+            if (topology_reference.rows, topology_reference.columns) != (3, 5):
+                raise JobError(
+                    "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED",
+                    "The active v20 geometry adapter supports only 3x5 boards.",
+                    details={
+                        "rows": topology_reference.rows,
+                        "columns": topology_reference.columns,
+                        "topologyRulesVersionId": str(topology_reference.rules_version_id),
+                    },
+                )
             processing_snapshot = board_cell_processing_snapshot(
-                cell_output_size=symbol_model.input_size
+                cell_output_size=symbol_model.input_size,
+                topology=BoardCellTopology(
+                    rows=topology_reference.rows,
+                    columns=topology_reference.columns,
+                    rules_version_id=str(topology_reference.rules_version_id),
+                ),
             )
-            configuration_fingerprint = processing_snapshot[
-                "configurationFingerprintSha256"
-            ]
+            configuration_fingerprint = processing_snapshot["configurationFingerprintSha256"]
             if not isinstance(configuration_fingerprint, str):
                 raise JobError(
                     "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
@@ -670,12 +702,31 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
+        topology_reference = self._repository.get_or_pin_board_topology(source.game_id)
+        if topology_reference is None:
+            raise JobError(
+                "GAME_BOARD_TOPOLOGY_REQUIRED",
+                "A rules version must define board dimensions before boards can be imported.",
+            )
+        if (topology_reference.rows, topology_reference.columns) != (3, 5):
+            raise JobError(
+                "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED",
+                "The active v20 geometry adapter supports only 3x5 boards.",
+                details={
+                    "rows": topology_reference.rows,
+                    "columns": topology_reference.columns,
+                    "topologyRulesVersionId": str(topology_reference.rules_version_id),
+                },
+            )
         processing_snapshot = board_cell_processing_snapshot(
-            cell_output_size=symbol_model.input_size
+            cell_output_size=symbol_model.input_size,
+            topology=BoardCellTopology(
+                rows=topology_reference.rows,
+                columns=topology_reference.columns,
+                rules_version_id=str(topology_reference.rules_version_id),
+            ),
         )
-        configuration_fingerprint = processing_snapshot[
-            "configurationFingerprintSha256"
-        ]
+        configuration_fingerprint = processing_snapshot["configurationFingerprintSha256"]
         if not isinstance(configuration_fingerprint, str):
             raise JobError(
                 "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",

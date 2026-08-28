@@ -19,6 +19,7 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import (
     BoardCellGeometryEvidence,
+    BoardCellTopology,
     derive_board_cell_quads,
 )
 from game_predictor_worker.images.board_cell_geometry_estimator import (
@@ -527,7 +528,14 @@ def test_explicit_v20_pipeline_crops_only_verified_boards_and_defers_the_rest(
         repository_root=Path.cwd(),
         symbol_model=snapshot,
         attested_sequence_ranges={"c" * 64: (1, 9)},
-        board_cell_processing=board_cell_processing_snapshot(cell_output_size=32),
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=32,
+            topology=BoardCellTopology(
+                rows=3,
+                columns=5,
+                rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+            ),
+        ),
         board_cell_geometry_deferred_writer=writer,
     )
     calls = 0
@@ -649,6 +657,10 @@ def test_explicit_v20_pipeline_crops_only_verified_boards_and_defers_the_rest(
     )
 
     assert [board["status"] for board in geometry["boards"]].count("verified") == 1
+    assert geometry["gridRows"] == 3
+    assert geometry["gridColumns"] == 5
+    assert crops["boards"][0]["gridRows"] == 3
+    assert crops["boards"][0]["gridColumns"] == 5
     assert len(crops["boards"]) == 1
     assert len(crops["boards"][0]["cells"]) == 15
     assert len(symbols["boards"]) == 1

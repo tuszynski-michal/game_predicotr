@@ -751,6 +751,32 @@
             "title": "Geometryversion",
             "type": "string"
           },
+          "gridColumns": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gridcolumns"
+          },
+          "gridRows": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gridrows"
+          },
           "homographyVersion": {
             "maxLength": 255,
             "minLength": 1,
@@ -786,6 +812,30 @@
             "minLength": 1,
             "title": "Thresholdsversion",
             "type": "string"
+          },
+          "topologyFingerprintSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topologyfingerprintsha256"
+          },
+          "topologyRulesVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topologyrulesversionid"
           }
         },
         "required": [
@@ -12760,7 +12810,8 @@
         "enum": [
           "approve",
           "reassign",
-          "mark_grid_issue"
+          "mark_grid_issue",
+          "mark_unreadable"
         ],
         "title": "SymbolCellReviewAction",
         "type": "string"

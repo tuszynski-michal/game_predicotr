@@ -10,8 +10,9 @@ last_updated: 2026-08-28
 
 `in_progress`
 
-TASK 1 został ukończony jako czysty fundament domenowy. TASK 2 dodaje
-addytywny schemat 0073 i kontrolowany backfill metadanych. Migracja nie została
+TASK 1–3 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
+kontrolowany backfill metadanych, a TASK 3 przenosi przypiętą topologię przez
+snapshot, fingerprint, geometrię, cropper i ręczny preview. Migracja nie została
 jeszcze zastosowana na roboczej bazie: wymaga osobnego checkpointu SQL i okna
 operacyjnego. HTTP, worker oraz UI pozostają celowo bez zmian.
 
@@ -100,8 +101,26 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
 - Cykl migracji 0072 → 0073 → 0072 → 0073 przeszedł na izolowanej bazie
   testowej. Migracja i backfill nie zostały uruchomione na danych użytkownika.
 
+### v0.9.3 — topologiczna geometria i source-direct cropper
+
+- Nowy snapshot importu przypina `gridRows`, `gridColumns`,
+  `topologyRulesVersionId` i fingerprint topologii; wersja reguł zostaje
+  atomowo przypięta pod blokadą rekordu gry.
+- Generyczne wyprowadzenie quadów, source-direct cropper i ręczny preview
+  obsługują dowolne poprawne `rows × columns`, zachowując row-major i dokładnie
+  jeden finalny `warpPerspective` na komórkę.
+- Automatyczny adapter `board-cell-processing-v20-verified-v19-v1` pozostaje
+  jawnie 3 × 5. Inna topologia jest blokowana kodem
+  `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`, bez uruchomienia częściowego pipeline'u.
+- `recognized_boards` otrzymuje snapshot wymiarów użytych przez nowy pipeline,
+  a manifest odroczenia wiąże wymiary i wersję reguł z checksumą.
+- Historyczne snapshoty, manifesty i fingerprint croppera bez topologii nie
+  zmieniły bajtów ani interpretacji 3 × 5.
+- Celowane testy worker/API, Ruff, ograniczony mypy oraz OpenAPI z generowanym
+  klientem przechodzą. Baza użytkownika nadal pozostaje na 0072.
+
 ## Następny etap
 
-Checkpoint operacyjny TASK 2: review SQL, locków i przewidywanego czasu
-indeksowania, następnie migracja 0073 i bounded backfill na danych użytkownika.
-TASK 3 nie rozpoczyna się przed odebraniem tego checkpointu.
+Checkpoint operacyjny TASK 2 pozostaje: migracja 0073 i bounded backfill na
+danych użytkownika dopiero po zakończeniu aktywnych pipeline'ów. Następny etap
+implementacyjny to TASK 4 — atomowa synchronizacja geometrii, komórek i planszy.

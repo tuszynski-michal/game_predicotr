@@ -18,12 +18,11 @@ from game_predictor_worker.filesystem import long_path_aware
 from .board_cell_geometry_contract import (
     BOARD_CELL_COORDINATE_SPACE,
     BOARD_CELL_CORNER_SEMANTICS,
-    BOARD_CELL_COUNT,
     BOARD_CELL_GEOMETRY_VERSION,
-    BOARD_COLUMNS,
-    BOARD_ROWS,
+    LEGACY_BOARD_CELL_TOPOLOGY,
     BoardCellGeometryEntry,
     BoardCellGeometryEvidence,
+    BoardCellTopology,
     Quad,
     canonical_json_bytes,
     derive_board_cell_quads,
@@ -83,6 +82,7 @@ class ManualBoardCellGeometryPreview:
     cropper_version: str
     cropper_fingerprint_sha256: str
     cells: tuple[ManualBoardCellGeometryCellPreview, ...]
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,10 +118,11 @@ class ManualBoardCellGeometryArtifacts:
     cropper_version: str
     cropper_fingerprint_sha256: str
     cells: tuple[ManualBoardCellGeometryCellArtifact, ...]
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
 
 
 class ManualBoardCellGeometryPreviewer:
-    """Validate one manual lattice and render its 15 final v19 crops."""
+    """Validate one manual lattice and render all topology-defined crops."""
 
     version = MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_VERSION
 
@@ -129,8 +130,13 @@ class ManualBoardCellGeometryPreviewer:
         self,
         *,
         cell_output_size: int = MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_CELL_SIZE,
+        topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
     ) -> None:
-        self._cropper = BoardCellGeometrySourceDirectCropper(cell_output_size=cell_output_size)
+        self._topology = topology
+        self._cropper = BoardCellGeometrySourceDirectCropper(
+            cell_output_size=cell_output_size,
+            topology=topology if topology != LEGACY_BOARD_CELL_TOPOLOGY else None,
+        )
 
     def preview(
         self,
@@ -180,12 +186,14 @@ class ManualBoardCellGeometryPreviewer:
             expected_resolution_revision=expected_resolution_revision,
             command_checksum_sha256=command_checksum_sha256,
             cropper_fingerprint_sha256=self._cropper.fingerprint_sha256,
+            topology=self._topology,
         )
         try:
             cells = derive_board_cell_quads(
                 lattice_bounds_quad,
                 source_image_width=image_width,
                 source_image_height=image_height,
+                topology=self._topology,
             )
         except ValueError as error:
             code = getattr(error, "code", "BOARD_CELL_GEOMETRY_PREVIEW_INVALID")
@@ -216,9 +224,10 @@ class ManualBoardCellGeometryPreviewer:
                 inlier_p95_residual_px=None,
                 decision_checksum_sha256=decision_checksum_sha256,
             ),
+            topology=self._topology,
         )
         result = self._cropper.crop(rgb, geometry)
-        if result.status != "cropped" or len(result.cells) != BOARD_CELL_COUNT:
+        if result.status != "cropped" or len(result.cells) != self._topology.cell_count:
             reason = result.review_reasons[0] if result.review_reasons else "unknown"
             raise ManualBoardCellGeometryPreviewError(
                 reason,
@@ -235,7 +244,7 @@ class ManualBoardCellGeometryPreviewer:
             )
             for cell in result.cells
         )
-        contact_sheet = _contact_sheet(result.cells)
+        contact_sheet = _contact_sheet(result.cells, topology=self._topology)
         contact_sheet_png = _encode_png(contact_sheet)
         return ManualBoardCellGeometryPreview(
             review_item_id=review_item_id,
@@ -261,6 +270,7 @@ class ManualBoardCellGeometryPreviewer:
             cropper_version=CROPPER_VERSION,
             cropper_fingerprint_sha256=result.cropper_fingerprint_sha256,
             cells=previews,
+            topology=self._topology,
         )
 
     def persist(
@@ -293,6 +303,7 @@ class ManualBoardCellGeometryPreviewer:
             expected_resolution_revision=preview.expected_resolution_revision,
             command_checksum_sha256=preview.command_checksum_sha256,
             cropper_fingerprint_sha256=self._cropper.fingerprint_sha256,
+            topology=preview.topology,
         )
         if (
             preview.decision_checksum_sha256 != expected_decision_checksum
@@ -300,18 +311,21 @@ class ManualBoardCellGeometryPreviewer:
             or preview.cropper_version != CROPPER_VERSION
             or preview.cropper_fingerprint_sha256 != self._cropper.fingerprint_sha256
             or preview.cell_output_size != self._cropper.cell_output_size
+            or preview.topology != self._topology
         ):
             raise ManualBoardCellGeometryPreviewError(
                 "BOARD_CELL_GEOMETRY_ARTIFACT_PROVENANCE_DRIFT",
                 "The validated board-cell geometry provenance changed before persistence.",
             )
         expected_order = [
-            (row, column) for row in range(BOARD_ROWS) for column in range(BOARD_COLUMNS)
+            (row, column)
+            for row in range(self._topology.rows)
+            for column in range(self._topology.columns)
         ]
         if [(cell.row_index, cell.column_index) for cell in preview.cells] != expected_order:
             raise ManualBoardCellGeometryPreviewError(
                 "BOARD_CELL_GEOMETRY_ARTIFACT_CELLS_INVALID",
-                "A manual board-cell geometry revision requires 15 row-major crops.",
+                "A manual board-cell geometry revision requires complete row-major crops.",
             )
         review_path_material = preview.review_item_id
         if namespace_discriminator is not None:
@@ -380,6 +394,7 @@ class ManualBoardCellGeometryPreviewer:
             cropper_version=preview.cropper_version,
             cropper_fingerprint_sha256=preview.cropper_fingerprint_sha256,
             cells=tuple(artifacts),
+            topology=preview.topology,
         )
 
 
@@ -399,6 +414,7 @@ def manual_board_cell_geometry_decision_checksum(
     expected_resolution_revision: int,
     command_checksum_sha256: str,
     cropper_fingerprint_sha256: str,
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
 ) -> str:
     """Bind a human v19 decision to source, position, versions and actor."""
 
@@ -440,6 +456,10 @@ def manual_board_cell_geometry_decision_checksum(
         "sourceImageRelativePath": source_image_relative_path,
         "sourceOrderIndex": source_order_index,
     }
+    if topology.rules_version_id is not None or not topology.is_legacy_3x5:
+        payload["gridRows"] = topology.rows
+        payload["gridColumns"] = topology.columns
+        payload["topologyRulesVersionId"] = topology.rules_version_id
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
@@ -455,15 +475,17 @@ def _read_source(path: Path) -> bytes:
 
 def _contact_sheet(
     cells: tuple[BoardCellGeometrySourceCrop, ...],
+    *,
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
 ) -> NDArray[np.uint8]:
-    if len(cells) != BOARD_CELL_COUNT:
+    if len(cells) != topology.cell_count:
         raise ManualBoardCellGeometryPreviewError(
             "BOARD_CELL_GEOMETRY_PREVIEW_CELL_COUNT_INVALID",
-            "Board-cell geometry preview requires exactly 15 crops.",
+            "Board-cell geometry preview requires a complete topology.",
         )
     rows = []
-    for row_index in range(BOARD_ROWS):
-        row_cells = cells[row_index * BOARD_COLUMNS : (row_index + 1) * BOARD_COLUMNS]
+    for row_index in range(topology.rows):
+        row_cells = cells[row_index * topology.columns : (row_index + 1) * topology.columns]
         rows.append(np.concatenate([cell.rgb for cell in row_cells], axis=1))
     return cast(NDArray[np.uint8], np.concatenate(rows, axis=0))
 

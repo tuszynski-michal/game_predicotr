@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.jobs import (
+    BoardTopologyJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
@@ -46,9 +47,26 @@ class MemoryJobRepository(JobRepository):
         self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
         self.payout_rules: dict[UUID, PayoutRulesReference] = {}
         self.image_selection_deletions: dict[UUID, ImageSelectionJobDeletionReference] = {}
+        self.topology_rules_version_id = uuid4()
+        self.board_topology: tuple[int, int] | None = (3, 5)
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
+
+    def get_or_pin_board_topology(
+        self,
+        game_id: UUID,
+    ) -> BoardTopologyJobReference | None:
+        if game_id != self.game_id:
+            return None
+        if self.board_topology is None:
+            return None
+        rows, columns = self.board_topology
+        return BoardTopologyJobReference(
+            rules_version_id=self.topology_rules_version_id,
+            rows=rows,
+            columns=columns,
+        )
 
     def get_layout_import_rules_reference(
         self,

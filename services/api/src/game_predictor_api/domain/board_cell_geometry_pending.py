@@ -48,6 +48,9 @@ class BoardCellProcessingManifestV1:
     cropper_fingerprint_sha256: str
     expected_geometry_revision: int
     expected_review_resolution_revision: int
+    grid_rows: int | None = None
+    grid_columns: int | None = None
+    topology_rules_version_id: UUID | None = None
     schema_version: Literal["board-cell-processing-manifest-v1"] = (
         BOARD_CELL_PROCESSING_MANIFEST_SCHEMA
     )
@@ -71,10 +74,27 @@ class BoardCellProcessingManifestV1:
             raise _invalid_manifest("Pinned revisions cannot be negative.")
         if not self.estimator_version.strip() or not self.cropper_version.strip():
             raise _invalid_manifest("Estimator and cropper versions are required.")
+        topology_values = (
+            self.grid_rows,
+            self.grid_columns,
+            self.topology_rules_version_id,
+        )
+        if any(value is not None for value in topology_values) and not all(
+            value is not None for value in topology_values
+        ):
+            raise _invalid_manifest("Pinned board topology fields must be complete.")
+        if self.grid_rows is not None and (
+            self.grid_rows < 1
+            or self.grid_rows > 32767
+            or self.grid_columns is None
+            or self.grid_columns < 1
+            or self.grid_columns > 32767
+        ):
+            raise _invalid_manifest("Pinned board topology dimensions are invalid.")
         _require_safe_relative_path(self.source_relative_path)
 
     def payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "cropperFingerprintSha256": self.cropper_fingerprint_sha256,
             "cropperVersion": self.cropper_version,
             "estimatorFingerprintSha256": self.estimator_fingerprint_sha256,
@@ -91,6 +111,11 @@ class BoardCellProcessingManifestV1:
             "sourceImageId": str(self.source_image_id),
             "sourceRelativePath": self.source_relative_path,
         }
+        if self.topology_rules_version_id is not None:
+            payload["gridRows"] = self.grid_rows
+            payload["gridColumns"] = self.grid_columns
+            payload["topologyRulesVersionId"] = str(self.topology_rules_version_id)
+        return payload
 
     def canonical_bytes(self) -> bytes:
         return json.dumps(

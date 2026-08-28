@@ -7,6 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytest
+from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from game_predictor_worker.images.manual_board_cell_geometry_preview import (
     MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_CELL_SIZE,
@@ -109,6 +110,48 @@ def test_manual_v19_preview_contains_exactly_15_final_source_direct_crops(
         cropper_fingerprint_sha256=preview.cropper_fingerprint_sha256,
     )
     assert list(tmp_path.iterdir()) == [tmp_path / "source.png"]
+
+
+@pytest.mark.parametrize(("rows", "columns"), [(2, 4), (4, 4)])
+def test_manual_preview_supports_pinned_non_legacy_topology(
+    tmp_path: Path,
+    rows: int,
+    columns: int,
+) -> None:
+    rgb = np.full((500, 500, 3), 40, dtype=np.uint8)
+    encoded, payload = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    assert encoded
+    content = bytes(payload)
+    source = tmp_path / f"source-{rows}x{columns}.png"
+    source.write_bytes(content)
+    topology = BoardCellTopology(
+        rows=rows,
+        columns=columns,
+        rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+    )
+
+    preview = ManualBoardCellGeometryPreviewer(topology=topology).preview(
+        source_path=source,
+        expected_source_sha256=hashlib.sha256(content).hexdigest(),
+        review_item_id="review-id",
+        source_order_index=0,
+        source_image_id="source-id",
+        source_image_relative_path=source.name,
+        source_group="import-id",
+        sequence_number=1,
+        position_index=0,
+        lattice_bounds_quad=((40.0, 40.0), (460.0, 40.0), (460.0, 460.0), (40.0, 460.0)),
+        corrected_by="local-owner",
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        command_checksum_sha256="a" * 64,
+    )
+
+    assert preview.topology == topology
+    assert len(preview.cells) == rows * columns
+    assert [(cell.row_index, cell.column_index) for cell in preview.cells] == [
+        (row, column) for row in range(rows) for column in range(columns)
+    ]
 
 
 def test_manual_v19_persistence_is_append_only_and_keeps_exact_preview_crops(

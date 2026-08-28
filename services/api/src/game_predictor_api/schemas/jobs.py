@@ -98,6 +98,7 @@ class ImageImportJobPayload(ApiModel):
     source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID | None = None
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     source_manifest_sha256: str | None = Field(
@@ -132,6 +133,7 @@ class BrowserImageImportJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     start_mode: Literal["reuse_exact", "rerun_current_models"]
@@ -151,6 +153,7 @@ class CuratedImageImportJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID
     curated_image_import_source_id: UUID
     curated_image_import_batch_id: UUID
@@ -171,6 +174,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID | None = None
     managed_source_job_id: UUID
     symbol_model: SymbolModelJobSnapshotPayload

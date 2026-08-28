@@ -1122,6 +1122,18 @@
             "title": "Importkind",
             "type": "string"
           },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
+          },
           "pageGeometryManifest": {
             "anyOf": [
               {
@@ -2443,6 +2455,18 @@
             "const": "image_directory",
             "title": "Importkind",
             "type": "string"
+          },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
           },
           "pipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4592,6 +4616,18 @@
             "const": "image_directory",
             "title": "Importkind",
             "type": "string"
+          },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
           },
           "pipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -7945,6 +7981,18 @@
             "format": "uuid",
             "title": "Managedsourcejobid",
             "type": "string"
+          },
+          "normalizationAdapterVersion": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalizationadapterversion"
           },
           "pipelineFingerprint": {
             "pattern": "^[0-9a-f]{64}$",

@@ -107,20 +107,23 @@ zależy później od obecności folderu użytkownika.
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,
-- kontrakt `image-normalization-v1` stosuje wartości Orientation 1–8 przez
-  `ImageOps.exif_transpose`; brak tagu zapisuje jawne `null`,
-- wynik jest czystym RGB PNG bez EXIF i bez kolejnej stratnej kompresji,
+- kontrakt `image-normalization-v2-in-memory-source-v1` stosuje wartości
+  Orientation 1–8 przez `ImageOps.exif_transpose`,
+- wynik jest czystą macierzą RGB utrzymywaną wyłącznie w ograniczonym cache
+  bieżącego wykonania; stage result zapisuje wymiary, orientację i checksumę
+  pikseli, ale nie pełnowymiarowy PNG,
 - przygotowanie kopii roboczych w przestrzeniach kolorów potrzebnych algorytmom,
 - opcjonalna korekta jasności i kontrastu wyłącznie w kopii,
 - zachowanie oryginału bez modyfikacji,
 - ponowna weryfikacja discovery manifestu i SHA-256 przed dekodowaniem,
-- content-addressed, niezmienne artefakty poza katalogiem źródłowym,
-- diagnostyka zawierająca źródłowy/wynikowy SHA-256, wymiary, tryb, orientację,
-  transformację, ścieżkę względną i wersje pipeline/Pillow,
+- managed original pozostaje niezmiennym źródłem ponownego dekodowania,
+- diagnostyka zawiera źródłowy SHA-256, checksumę pikseli, wymiary, tryb,
+  orientację, transformację i wersję adaptera,
 - limit 50 000 000 pikseli na źródło ze stabilnym błędem.
 
-Retry zwraca istniejący artefakt tylko po porównaniu pełnych bajtów. Odmienna
-zawartość pod tą samą ścieżką jest kolizją i nie zostaje nadpisana.
+Historyczny kontrakt v1 pozostaje odtwarzalny. Jeśli jego PNG został bezpiecznie
+usunięty, retry odbudowuje dokładne bajty z managed original i wymaga zgodności
+z checksumą stage result; drift kończy się fail-closed.
 
 ### 3. Detekcja strony i layoutów
 

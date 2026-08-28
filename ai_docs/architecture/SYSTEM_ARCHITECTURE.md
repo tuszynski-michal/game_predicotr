@@ -665,12 +665,13 @@ pod wieloma nazwami tworzą jedną tożsamość treści z listą ścieżek. Znan
 manifest pozwala wybrać wyłącznie nowe checksumy bez zmiany pełnego manifestu
 źródła. Manifest nie zawiera ścieżki absolutnej ani binarnej treści zdjęcia.
 
-Normalizacja używa kontraktu `image-normalization-v1` i Pillow
-`ImageOps.exif_transpose`. Po ponownej kontroli manifestu i SHA-256 zapisuje
-czyste RGB PNG jako
-`image-normalization-v1/<prefix>/<source-sha256>/normalized.png` oraz
-`diagnostic.json`. Artefakty są względne wobec osobnego working root,
-content-addressed i niezmienne; retry porównuje bajty, a kolizji nie nadpisuje.
+Nowe joby używają `image-normalization-v2-in-memory-source-v1` i Pillow
+`ImageOps.exif_transpose`. Znormalizowana macierz RGB jest przechowywana tylko
+w cache jednego bieżącego file execution, a trwały stage result zawiera
+tożsamość managed original, wymiary, orientację i checksumę pikseli. Downstream
+korzysta ze wspólnego loadera i nie wymaga pełnowymiarowego `normalized.png`.
+Historyczny v1 pozostaje przypięty do starych jobów; brakujący PNG może zostać
+odbudowany wyłącznie przy identycznej checksumie oczekiwanych bajtów.
 
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje

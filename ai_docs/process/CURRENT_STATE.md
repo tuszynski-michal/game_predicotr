@@ -27,6 +27,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
   użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
   referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.
+- `v0.9.17` przełącza nowe importy na normalizację RGB w pamięci. Stage result
+  nie wskazuje `normalized.png`; przechowuje źródło, orientację, wymiary i
+  checksumę pikseli. Historyczne joby bez snapshotu adaptera nadal używają v1
+  i potrafią fail-closed odbudować brakującą bitmapę z managed original.
 
 ### Odbiór wersji 0.9 — TASK-0304
 

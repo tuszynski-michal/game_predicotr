@@ -63,3 +63,9 @@ TASK 1 wprowadza czystą domenę kwalifikacji, deterministyczny manifest/token,
 `JobType.STORAGE_GC` oraz migrację `0076` z tabelami runów GC, snapshotów
 inwentarza i trwałego stanu retencji stagingu. Fizyczne usuwanie pozostaje
 poza tym commitem.
+
+TASK 2 wprowadza `image-normalization-v2-in-memory-source-v1`. Nowe joby
+przypinają wersję adaptera i zapisują tylko checksumę znormalizowanych pikseli;
+pełnowymiarowy PNG nie jest tworzony. Brak snapshotu wersji oznacza historyczny
+v1, który przy retry odbudowuje brakujący PNG z managed original i wymaga
+identycznej checksummy.

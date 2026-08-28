@@ -64,6 +64,7 @@ from .page_geometry_registration import (
     VerifiedPageRegistrar,
     is_complete_ordered_grid,
 )
+from .pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
 from .pipeline_execution import (
     FunctionImageStageAdapter,
     ImagePipelineExecutionError,
@@ -86,7 +87,8 @@ from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginal, Mana
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
-NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
+NORMALIZATION_ADAPTER_VERSION = CURRENT_NORMALIZATION_ADAPTER_VERSION
+LEGACY_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
 DETECTION_ADAPTER_VERSION = "page-board-detector-v4-verified-registration-v1"
 CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
@@ -201,6 +203,7 @@ class ProductionImageImportWorkflow:
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
             board_cell_processing=board_cell_processing,
+            normalization_adapter_version=_normalization_adapter_version(job),
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
                 if board_cell_processing is not None
@@ -356,9 +359,20 @@ class ProductionImageStageAdapterSuite:
         attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
         board_cell_processing: Mapping[str, object] | None = None,
         board_cell_geometry_deferred_writer: BoardCellGeometryDeferrer | None = None,
+        normalization_adapter_version: str = NORMALIZATION_ADAPTER_VERSION,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
+        self._normalized_images = _ExecutionScopedNormalizedImageLoader(self._artifacts)
+        if normalization_adapter_version not in {
+            LEGACY_NORMALIZATION_ADAPTER_VERSION,
+            NORMALIZATION_ADAPTER_VERSION,
+        }:
+            raise ImagePipelineExecutionError(
+                "IMAGE_NORMALIZATION_ADAPTER_UNSUPPORTED",
+                "The pinned normalization adapter is not supported.",
+            )
+        self._normalization_adapter_version = normalization_adapter_version
         self._repository_root = repository_root
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._grid_profile = dict(grid_profile or {})
@@ -404,7 +418,7 @@ class ProductionImageStageAdapterSuite:
             FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
             FunctionImageStageAdapter(
                 "normalization",
-                NORMALIZATION_ADAPTER_VERSION,
+                self._normalization_adapter_version,
                 self.normalization,
             ),
             FunctionImageStageAdapter(
@@ -465,36 +479,52 @@ class ProductionImageStageAdapterSuite:
         try:
             with Image.open(source) as image:
                 image.load()
+                source_width, source_height = image.size
+                source_mode = image.mode
+                orientation_value = image.getexif().get(274)
                 oriented = ImageOps.exif_transpose(image).convert("RGB")
-                output = io.BytesIO()
-                oriented.save(output, format="PNG", optimize=False, compress_level=6)
-                content = output.getvalue()
                 width, height = oriented.size
+                rgb = np.ascontiguousarray(np.asarray(oriented, dtype=np.uint8))
         except (OSError, UnidentifiedImageError) as error:
             raise ImagePipelineExecutionError(
                 "IMAGE_NORMALIZATION_DECODE_FAILED",
                 "The managed source JPEG cannot be normalized.",
             ) from error
-        relative = (
-            PurePosixPath(
-                "working",
-                NORMALIZATION_ADAPTER_VERSION,
-                context.file_execution_key[:2],
-                context.file_execution_key,
-            )
-            / "normalized.png"
-        ).as_posix()
-        checksum = self._artifacts.write_immutable(relative, content)
+        self._normalized_images.remember(context, rgb)
+        if self._normalization_adapter_version == LEGACY_NORMALIZATION_ADAPTER_VERSION:
+            relative = (
+                PurePosixPath(
+                    "working",
+                    LEGACY_NORMALIZATION_ADAPTER_VERSION,
+                    context.file_execution_key[:2],
+                    context.file_execution_key,
+                )
+                / "normalized.png"
+            ).as_posix()
+            return {
+                "height": height,
+                "normalizedChecksumSha256": self._artifacts.write_immutable(
+                    relative,
+                    _encode_rgb_png(rgb),
+                ),
+                "normalizedRelativePath": relative,
+                "width": width,
+            }
         return {
             "height": height,
-            "normalizedChecksumSha256": checksum,
-            "normalizedRelativePath": relative,
+            "normalizedPixelChecksumSha256": _rgb_pixel_checksum(rgb),
+            "orientationAction": _orientation_action(orientation_value),
+            "sourceChecksumSha256": context.source_checksum_sha256,
+            "sourceHeight": source_height,
+            "sourceMode": source_mode,
+            "sourceRelativePath": context.source_relative_path,
+            "sourceWidth": source_width,
             "width": width,
         }
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         pinned = _registered_page_geometry(
             self._page_geometry_manifest,
             context.source_checksum_sha256,
@@ -608,7 +638,7 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_CELL_ATTESTED_RANGE_INVALID",
                 "The attested sequence range differs from the verified page geometry.",
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         projected: list[dict[str, object]] = []
         for board in detections:
             position = _integer(board, "positionIndex")
@@ -693,7 +723,7 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_CROP_GEOMETRY_UNVERIFIED",
                 "Cell crops require a complete verified 3x3 page geometry.",
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         geometry = PageGeometry(
             status="detected",
             image_width=int(rgb.shape[1]),
@@ -761,7 +791,7 @@ class ProductionImageStageAdapterSuite:
             for board in _boards(_previous(context, "board_detection"))
         }
         geometry_boards = _boards(_previous(context, "board_cell_geometry"))
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         projected: list[dict[str, object]] = []
         deferred: list[dict[str, object]] = []
         for geometry_board in geometry_boards:
@@ -901,7 +931,7 @@ class ProductionImageStageAdapterSuite:
                 context.attested_sequence_range,
                 allow_sparse=self._board_cell_processing is not None,
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
         crop_quads: list[list[dict[str, float]] | None] = []
@@ -1087,6 +1117,115 @@ class ProductionImageStageAdapterSuite:
         return self._symbol_model
 
 
+def _rgb_pixel_checksum(rgb: NDArray[np.uint8]) -> str:
+    contiguous = np.ascontiguousarray(rgb, dtype=np.uint8)
+    digest = hashlib.sha256()
+    digest.update(b"rgb-uint8-v1\0")
+    digest.update(int(contiguous.shape[1]).to_bytes(8, "big"))
+    digest.update(int(contiguous.shape[0]).to_bytes(8, "big"))
+    digest.update(contiguous.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def _orientation_action(value: object) -> str:
+    actions = {
+        1: "identity",
+        2: "flip_left_right",
+        3: "rotate_180",
+        4: "flip_top_bottom",
+        5: "transpose",
+        6: "rotate_90_clockwise",
+        7: "transverse",
+        8: "rotate_90_counterclockwise",
+    }
+    return actions.get(value, "none")
+
+
+def _encode_rgb_png(rgb: NDArray[np.uint8]) -> bytes:
+    output = io.BytesIO()
+    Image.fromarray(rgb, mode="RGB").save(
+        output,
+        format="PNG",
+        optimize=False,
+        compress_level=6,
+    )
+    return output.getvalue()
+
+
+class _ExecutionScopedNormalizedImageLoader:
+    """Keep at most one normalized source in memory for sequential stage execution."""
+
+    def __init__(self, artifacts: _ManagedImageArtifacts) -> None:
+        self._artifacts = artifacts
+        self._cache_key: str | None = None
+        self._cache_rgb: NDArray[np.uint8] | None = None
+
+    def remember(self, context: ImageStageContext, rgb: NDArray[np.uint8]) -> None:
+        self._cache_key = context.file_execution_key
+        self._cache_rgb = rgb
+
+    def load(
+        self,
+        context: ImageStageContext,
+        normalization: Mapping[str, object],
+    ) -> NDArray[np.uint8]:
+        if self._cache_key == context.file_execution_key and self._cache_rgb is not None:
+            return self._cache_rgb
+        relative = normalization.get("normalizedRelativePath")
+        if isinstance(relative, str) and relative:
+            rgb = self._load_or_rebuild_legacy(context, normalization, relative)
+        else:
+            source_relative = _text(normalization, "sourceRelativePath")
+            if source_relative != context.source_relative_path:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_SOURCE_DRIFT",
+                    "The normalization result references a different managed original.",
+                )
+            rgb = self._artifacts.load_rgb(source_relative)
+            expected = _text(normalization, "normalizedPixelChecksumSha256")
+            if _rgb_pixel_checksum(rgb) != expected:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_PIXEL_CHECKSUM_MISMATCH",
+                    "Normalized source pixels differ from the persisted stage result.",
+                )
+        self.remember(context, rgb)
+        return rgb
+
+    def _load_or_rebuild_legacy(
+        self,
+        context: ImageStageContext,
+        normalization: Mapping[str, object],
+        relative: str,
+    ) -> NDArray[np.uint8]:
+        path = self._artifacts.path(relative)
+        expected = normalization.get("normalizedChecksumSha256")
+        if path.exists():
+            try:
+                content = path.read_bytes()
+            except OSError as error:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_ARTIFACT_UNREADABLE",
+                    "The historical normalization bitmap cannot be read.",
+                ) from error
+            if isinstance(expected, str) and hashlib.sha256(content).hexdigest() != expected:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_ARTIFACT_CHECKSUM_MISMATCH",
+                    "The historical normalization bitmap differs from its stage result.",
+                )
+            return self._artifacts.load_rgb(relative)
+
+        rgb = self._artifacts.load_rgb(context.source_relative_path)
+        content = _encode_rgb_png(rgb)
+        checksum = hashlib.sha256(content).hexdigest()
+        if not isinstance(expected, str) or checksum != expected:
+            raise ImagePipelineExecutionError(
+                "IMAGE_NORMALIZATION_REBUILD_CHECKSUM_MISMATCH",
+                "The historical normalization bitmap cannot be reproduced exactly.",
+            )
+        self._artifacts.write_immutable(relative, content)
+        return rgb
+
+
 class _ManagedImageArtifacts:
     def __init__(self, artifact_root: Path) -> None:
         self._root = artifact_root.resolve() / "data"
@@ -1194,6 +1333,21 @@ def _source_directory(job: Job) -> Path:
             "The image import source directory is missing.",
         )
     return Path(value)
+
+
+def _normalization_adapter_version(job: Job) -> str:
+    value = job.input_payload.get("normalization_adapter_version")
+    if value is None:
+        return LEGACY_NORMALIZATION_ADAPTER_VERSION
+    if value not in {
+        LEGACY_NORMALIZATION_ADAPTER_VERSION,
+        NORMALIZATION_ADAPTER_VERSION,
+    }:
+        raise JobHandlerError(
+            "IMAGE_NORMALIZATION_ADAPTER_UNSUPPORTED",
+            "The image import pins an unsupported normalization adapter.",
+        )
+    return str(value)
 
 
 def _pipeline_fingerprint(job: Job) -> str:

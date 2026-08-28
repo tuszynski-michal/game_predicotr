@@ -17,6 +17,7 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
+from game_predictor_worker.images.pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -418,6 +419,7 @@ class JobService:
             "source_display_name": source_display_name,
             "pipeline_fingerprint": effective_pipeline_fingerprint,
             "source_pipeline_fingerprint": pipeline_fingerprint,
+            "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "symbol_model": symbol_model.to_payload(),
         }
         if start_mode is not None:
@@ -624,6 +626,7 @@ class JobService:
                 "source_display_name": source_display_name,
                 "pipeline_fingerprint": effective_pipeline_fingerprint,
                 "source_pipeline_fingerprint": pipeline_fingerprint,
+                "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
                 "image_selection_run_id": str(image_selection_run_id),
                 "curated_image_import_source_id": str(source_id),
                 "curated_image_import_batch_id": str(batch_id),
@@ -698,6 +701,7 @@ class JobService:
             ),
             "pipeline_fingerprint": effective_pipeline_fingerprint,
             "source_pipeline_fingerprint": pipeline_fingerprint,
+            "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "managed_source_job_id": str(source.id),
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,

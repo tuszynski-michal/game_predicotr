@@ -628,6 +628,10 @@ export type BrowserImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
   pageGeometryManifest?: PageGeometryManifestJobPayload | null;
   /**
    * Pipelinefingerprint
@@ -1357,6 +1361,10 @@ export type CuratedImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
   /**
    * Pipelinefingerprint
    */
@@ -2648,6 +2656,10 @@ export type ImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
   /**
    * Pipelinefingerprint
    */
@@ -4487,6 +4499,10 @@ export type ManagedImageReprocessJobPayload = {
    * Managedsourcejobid
    */
   managedSourceJobId: string;
+  /**
+   * Normalizationadapterversion
+   */
+  normalizationAdapterVersion?: string | null;
   /**
    * Pipelinefingerprint
    */

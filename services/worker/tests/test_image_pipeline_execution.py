@@ -26,6 +26,7 @@ from game_predictor_worker.images.pipeline_execution import (
     ManifestDiscoveryStageAdapter,
     StoredImageStageResult,
     continuity_issues,
+    validate_stage_payload,
 )
 from game_predictor_worker.images.pipeline_store import SqlAlchemyImagePipelineStore
 from PIL import Image
@@ -279,6 +280,35 @@ def _candidate() -> ImageBatchCandidate:
         lease_token=uuid4(),
         executed_at=NOW,
     )
+
+
+def test_storage_bounded_normalization_payload_is_source_bound() -> None:
+    candidate = _candidate()
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key=candidate.execution.file_execution_key,
+        source_checksum_sha256=CHECKSUM,
+        source_relative_path="batch/page-001.jpg",
+        pipeline_fingerprint=PIPELINE,
+        previous_results={},
+    )
+    payload = {
+        "height": 960,
+        "normalizedPixelChecksumSha256": "c" * 64,
+        "orientationAction": "rotate_90_clockwise",
+        "sourceChecksumSha256": CHECKSUM,
+        "sourceHeight": 960,
+        "sourceMode": "RGB",
+        "sourceRelativePath": "batch/page-001.jpg",
+        "sourceWidth": 1280,
+        "width": 1280,
+    }
+
+    assert validate_stage_payload("normalization", payload, context) == payload
+    payload["sourceRelativePath"] = "batch/other.jpg"
+    with pytest.raises(ImagePipelineExecutionError) as raised:
+        validate_stage_payload("normalization", payload, context)
+    assert raised.value.code == "IMAGE_STAGE_RESULT_INVALID"
 
 
 class _ScalarSequenceSession:

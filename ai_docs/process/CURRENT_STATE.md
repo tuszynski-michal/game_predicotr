@@ -64,6 +64,12 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   rekordu historycznego ostatnio zatwierdzony plik jest kotwicą naprawczą dla
   błędnie wcześniej utrwalonego indeksu; brak tej ścieżki blokuje wznowienie
   fail-closed zamiast wskazać lustrzane zdjęcie.
+- `v0.8.62` rozdziela porządek JPEG-ów od kierunku numeracji plansz. Lokalny i
+  operator-local workspace zawsze zaczynają od pierwszego pliku naturalnej
+  listy, a `→` oraz Enter idą do następnego ordinalu katalogu. Kierunek
+  rosnący/malejący zmienia wyłącznie kolejny zakres `seq_*`. Malejące rekordy
+  `source_path_v2` są jednorazowo naprawiane z ostatniego zaakceptowanego JPEG-a
+  do `source_path_v3`, aby indeks i zdjęcie nie wskazywały lustrzanego miejsca.
 
 ### Duże browserowe importy plansz
 

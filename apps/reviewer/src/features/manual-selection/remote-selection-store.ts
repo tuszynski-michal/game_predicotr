@@ -30,6 +30,8 @@ const MAX_PAGE_SIZE = 500;
 export type RemoteSourcePermissionState =
   'granted' | 'prompt' | 'denied' | 'unsupported' | 'error';
 
+export type RemoteSelectionSourceTraversalSemantics = 'natural_v2';
+
 export interface RemoteSelectionLocalSessionRecord {
   readonly schemaVersion: 1;
   readonly sessionId: string;
@@ -57,6 +59,12 @@ export interface RemoteSelectionLocalBatchRecord {
   readonly sourceManifestChecksumSha256: string;
   readonly firstLayout: number;
   readonly direction: RemoteManualSelectionDirection;
+  /**
+   * New batches always walk source ordinals in manifest order. Older
+   * descending batches inverted that order and are repaired from the last
+   * durable decision on restore.
+   */
+  readonly sourceTraversalSemantics?: RemoteSelectionSourceTraversalSemantics;
   readonly cursorIndex: number;
   readonly fileCount: number;
   readonly totalBytes: number;
@@ -200,13 +208,19 @@ export function remoteSelectionWorkspaceState(
 ): RemoteSelectionWorkspaceState {
   const decisions = batch.decisions ?? [];
   const lastDecision = decisions.at(-1);
+  const repairLegacyDescendingTraversal =
+    batch.direction === 'descending' &&
+    batch.sourceTraversalSemantics !== 'natural_v2';
+  const currentIndex = repairLegacyDescendingTraversal
+    ? Math.min((lastDecision?.sourceIndex ?? -1) + 1, batch.fileCount - 1)
+    : batch.cursorIndex;
   const navigationStep = MANUAL_IMAGE_NAVIGATION_STEPS.includes(
     batch.navigationStep as (typeof MANUAL_IMAGE_NAVIGATION_STEPS)[number],
   )
     ? (batch.navigationStep ?? 1)
     : 1;
   return {
-    currentIndex: batch.cursorIndex,
+    currentIndex,
     decisions,
     navigationStep,
     nextRangeStart:
@@ -223,10 +237,11 @@ export function restartRemoteSelectionLocalBatch(
 ): RemoteSelectionLocalBatchRecord {
   const restarted: RemoteSelectionLocalBatchRecord = {
     ...batch,
-    cursorIndex: batch.direction === 'ascending' ? 0 : batch.fileCount - 1,
+    cursorIndex: 0,
     decisions: [],
     hostRegistered: true,
     nextRangeStart: batch.firstLayout,
+    sourceTraversalSemantics: 'natural_v2',
     status: 'active',
     updatedAt,
   };
@@ -610,6 +625,7 @@ export class RemoteSelectionIndexedDbStore {
           batch.direction,
           decision.rangeStart,
         ),
+        sourceTraversalSemantics: 'natural_v2',
         updatedAt: queuedAt,
       };
       validateWorkspaceBatch(next);
@@ -669,6 +685,7 @@ export class RemoteSelectionIndexedDbStore {
           batch.direction,
           input.decision.rangeStart,
         ),
+        sourceTraversalSemantics: 'natural_v2',
         updatedAt,
       };
       validateWorkspaceBatch(next);
@@ -725,6 +742,7 @@ export class RemoteSelectionIndexedDbStore {
         decisions: workspace.decisions.slice(0, -1),
         navigationStep: workspace.navigationStep,
         nextRangeStart: last.rangeStart,
+        sourceTraversalSemantics: 'natural_v2',
         updatedAt,
       };
       validateWorkspaceBatch(next);

@@ -5,10 +5,10 @@ import type {
 } from '@game-predictor/manual-image-selection-core';
 
 export type ManualSelectionCursorSemantics =
-  'source_ordinal_v1' | 'source_path_v2';
+  'source_ordinal_v1' | 'source_path_v2' | 'source_path_v3';
 
 export const MANUAL_SELECTION_CURSOR_SEMANTICS: ManualSelectionCursorSemantics =
-  'source_path_v2';
+  'source_path_v3';
 
 type Direction = 'ascending' | 'descending';
 
@@ -34,33 +34,26 @@ function clampCursorIndex(index: number, imageCount: number): number {
   return Math.max(0, Math.min(imageCount - 1, index));
 }
 
-export function initialManualSelectionCursor(
-  direction: Direction,
-  imageCount: number,
-): number {
-  if (imageCount === 0) return 0;
-  return direction === 'ascending' ? 0 : imageCount - 1;
+export function initialManualSelectionCursor(): number {
+  // The source directory defines photo traversal. Range direction affects only
+  // seq_* numbering and must never reverse the source-list cursor.
+  return 0;
 }
 
 export function moveManualSelectionCursor(
   currentIndex: number,
-  direction: Direction,
   imageCount: number,
-  selectionDelta: number,
+  sourceDelta: number,
 ): number {
-  const sourceDelta =
-    direction === 'ascending' ? selectionDelta : -selectionDelta;
   return clampCursorIndex(currentIndex + sourceDelta, imageCount);
 }
 
 export function manualSelectionDisplayPosition(
   currentIndex: number,
-  direction: Direction,
   imageCount: number,
 ): number {
   if (imageCount === 0) return 0;
-  const sourceIndex = clampCursorIndex(currentIndex, imageCount);
-  return direction === 'ascending' ? sourceIndex + 1 : imageCount - sourceIndex;
+  return clampCursorIndex(currentIndex, imageCount) + 1;
 }
 
 function legacyCursorOrderFromTrace(
@@ -105,7 +98,6 @@ function legacyCursorOrderFromTrace(
 function cursorAfterLastAcceptedDecision(
   decisions: readonly ManualSelectionDecision[],
   images: readonly ManualImageDescriptor[],
-  direction: Direction,
 ): number | null {
   const accepted = [...decisions]
     .reverse()
@@ -118,7 +110,7 @@ function cursorAfterLastAcceptedDecision(
     (image) => image.relativePath === accepted.imagePath,
   );
   if (sourceIndex < 0) return null;
-  return moveManualSelectionCursor(sourceIndex, direction, images.length, 1);
+  return moveManualSelectionCursor(sourceIndex, images.length, 1);
 }
 
 function imagePathAt(
@@ -135,7 +127,33 @@ export function resumeManualSelectionCursor(
     input.currentIndex,
     input.images.length,
   );
-  if (input.currentImagePath !== undefined) {
+  // v0.8.61 stored a source path, but its descending traversal still used the
+  // old reverse cursor. Its path can therefore point to the mirror position
+  // (e.g. 2,892 instead of 11,526). An accepted decision is immutable and
+  // identifies the last source JPEG actually used, so repair those records
+  // from the next natural source item before trusting the v2 path.
+  const isDescendingV2Record =
+    input.direction === 'descending' &&
+    input.cursorSemantics === 'source_path_v2';
+  if (isDescendingV2Record) {
+    const decisionCursor = cursorAfterLastAcceptedDecision(
+      input.decisions,
+      input.images,
+    );
+    const repairedIndex = decisionCursor ?? 0;
+    return {
+      currentIndex: repairedIndex,
+      currentImagePath: imagePathAt(input.images, repairedIndex),
+      cursorSemantics: MANUAL_SELECTION_CURSOR_SEMANTICS,
+      migratedLegacyCursor: true,
+    };
+  }
+
+  if (
+    input.currentImagePath !== undefined &&
+    (input.cursorSemantics === MANUAL_SELECTION_CURSOR_SEMANTICS ||
+      input.cursorSemantics === 'source_path_v2')
+  ) {
     const sourceIndex = input.images.findIndex(
       (image) => image.relativePath === input.currentImagePath,
     );
@@ -156,11 +174,7 @@ export function resumeManualSelectionCursor(
   // representation. Skipped decisions intentionally keep this same image.
   const decisionCursor =
     input.direction === 'descending'
-      ? cursorAfterLastAcceptedDecision(
-          input.decisions,
-          input.images,
-          input.direction,
-        )
+      ? cursorAfterLastAcceptedDecision(input.decisions, input.images)
       : null;
   if (decisionCursor !== null) {
     return {

@@ -16,13 +16,15 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 ## Przebieg
 
 - Ręczna selekcja jest niezależna od gry. Przed rozpoczęciem operator wybiera
-  pierwszy numer layoutu, kierunek kolejności zdjęć, folder źródłowy i folder
+  pierwszy numer layoutu, kierunek numeracji plansz, folder źródłowy i folder
   wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
   nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
-  sesji i indeksu w IndexedDB; kierunek nie odwraca tablicy plików, tylko
-  wyznacza pierwszy indeks oraz zwrot nawigacji i przejścia po zatwierdzeniu.
+  sesji i indeksu w IndexedDB. Pierwsze zdjęcie ma ordinal `0`, a `→` i Enter
+  zawsze przechodzą do kolejnego ordinalu katalogu; `←` przechodzi do
+  poprzedniego. Kierunek wpływa wyłącznie na kolejną numerację `seq_*` po
+  zatwierdzeniu, nigdy na kolejność zdjęć.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
@@ -70,13 +72,13 @@ historyczny nie jest usuwany. Uchwyt folderu może wymagać ponownego nadania
 uprawnień przez przeglądarkę.
 
 `currentIndex` lokalnej sesji jest zawsze ordinalem naturalnie posortowanego
-źródła. Dla kierunku malejącego pierwszy obraz ma ordinal `liczba_plików - 1`,
-a pozycja pokazywana operatorowi jest liczona w kierunku pracy. Nowe sesje
+źródła. Nowa sesja zaczyna się od ordinalu `0`, a pozycja pokazywana operatorowi
+to `currentIndex + 1`, niezależnie od kierunku numeracji plansz. Nowe sesje
 utrwalają także względną ścieżkę bieżącego JPEG-a; wznowienie najpierw mapuje
 ten plik w bieżącej naturalnej liście, a indeks pozostaje wyłącznie pomocą dla
-starych rekordów. Historyczna sesja malejąca bez ścieżki odzyskuje pozycję z
-ostatniego zatwierdzonego pliku i dopiero potem utrwala nowy format. Brak
-zapisanego JPEG-a blokuje wznowienie zamiast otworzyć inne zdjęcie.
+starych rekordów. Historyczna sesja bez ścieżki odzyskuje pozycję z ostatniego
+zatwierdzonego pliku i ustawia następny ordinal katalogu, po czym utrwala nowy
+format. Brak zapisanego JPEG-a blokuje wznowienie zamiast otworzyć inne zdjęcie.
 
 Przy wznowieniu aplikacja odczytuje należący do tej samej sesji manifest
 `manual-image-selection-output-v1.json`. Jeżeli komplet istniejących wyborów
@@ -183,9 +185,10 @@ nieaktywny usuwa go z cache. API, baza i logi nadal przechowują wyłącznie has
 a inny komputer Admina oraz sesje utworzone przed tą zmianą nie mogą odzyskać
 surowego kodu.
 
-Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie,
-okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę skoku, fullscreen i
-zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
+Zdalny workspace zachowuje semantykę lokalnego narzędzia: naturalne sortowanie
+i zawsze rosnący ordinal zdjęcia dla `→`/Enter, niezależny od kierunku
+numeracji plansz, okno podglądów `±3`, `Enter/F`, `Tab`, `A/Ctrl+Z`, zmianę
+skoku, fullscreen i zoom `100–3000%`. Viewport ma poziomy i pionowy scroll przy powiększeniu;
 pozycje są przechwytywane bezpośrednio przed zmianą kursora React, po trwałym
 zapisie decyzji, i odtwarzane po załadowaniu docelowego podglądu. Oczekujące
 odtworzenie jest przypięte do docelowego ordinalu; render stanu `busy` na

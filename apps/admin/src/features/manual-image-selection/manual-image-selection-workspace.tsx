@@ -122,11 +122,7 @@ function LocalManualImageSelectionWorkspace() {
   const currentImagePosition =
     state === null
       ? 0
-      : manualSelectionDisplayPosition(
-          state.currentIndex,
-          state.direction,
-          images.length,
-        );
+      : manualSelectionDisplayPosition(state.currentIndex, images.length);
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
@@ -471,7 +467,7 @@ function LocalManualImageSelectionWorkspace() {
     const initialState = createManualSelectionState(parsed, direction);
     const next = {
       ...initialState,
-      currentIndex: initialManualSelectionCursor(direction, images.length),
+      currentIndex: initialManualSelectionCursor(),
     };
     const nextRecord: ManualSelectionSessionRecord = {
       cursorImagePath: images[next.currentIndex]?.relativePath,
@@ -695,12 +691,7 @@ function LocalManualImageSelectionWorkspace() {
       const nextState = nextManualSelectionState(
         currentState,
         decision,
-        moveManualSelectionCursor(
-          currentState.currentIndex,
-          currentState.direction,
-          images.length,
-          1,
-        ),
+        moveManualSelectionCursor(currentState.currentIndex, images.length, 1),
       );
       await persist(nextState);
       await new FileSystemManualSelectionOutputAdapter(
@@ -869,7 +860,6 @@ function LocalManualImageSelectionWorkspace() {
     const navigationStep = normalizeNavigationStep(currentState.navigationStep);
     const nextIndex = moveManualSelectionCursor(
       currentState.currentIndex,
-      currentState.direction,
       images.length,
       delta * navigationStep,
     );
@@ -1253,12 +1243,8 @@ function LocalManualImageSelectionWorkspace() {
           aria-label="Poprzednie zdjęcie"
           className="manualImageSelectionNav"
           disabled={
-            moveManualSelectionCursor(
-              state.currentIndex,
-              state.direction,
-              images.length,
-              -1,
-            ) === state.currentIndex || busy
+            moveManualSelectionCursor(state.currentIndex, images.length, -1) ===
+              state.currentIndex || busy
           }
           onClick={() => moveImage(-1)}
           type="button"
@@ -1313,12 +1299,8 @@ function LocalManualImageSelectionWorkspace() {
           aria-label="Następne zdjęcie"
           className="manualImageSelectionNav"
           disabled={
-            moveManualSelectionCursor(
-              state.currentIndex,
-              state.direction,
-              images.length,
-              1,
-            ) === state.currentIndex || busy
+            moveManualSelectionCursor(state.currentIndex, images.length, 1) ===
+              state.currentIndex || busy
           }
           onClick={() => moveImage(1)}
           type="button"

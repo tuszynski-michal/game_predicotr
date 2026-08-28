@@ -442,6 +442,7 @@ export function RemoteManualSelectionWorkspace({
     const next = {
       ...currentBatch,
       cursorIndex: nextIndex,
+      sourceTraversalSemantics: 'natural_v2' as const,
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
@@ -486,14 +487,8 @@ export function RemoteManualSelectionWorkspace({
 
   async function moveImage(delta: number) {
     if (interactionPaused || busy || batch.fileCount === 0) return;
-    const sourceDelta =
-      batchRef.current.direction === 'ascending' ? delta : -delta;
     await persistCursor(
-      clampRemoteWorkspaceIndex(
-        workspace.currentIndex,
-        sourceDelta,
-        batch.fileCount,
-      ),
+      clampRemoteWorkspaceIndex(workspace.currentIndex, delta, batch.fileCount),
     );
   }
 
@@ -506,6 +501,7 @@ export function RemoteManualSelectionWorkspace({
         remoteSelectionWorkspaceState(currentBatch).navigationStep,
         direction,
       ),
+      sourceTraversalSemantics: 'natural_v2' as const,
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
@@ -523,10 +519,10 @@ export function RemoteManualSelectionWorkspace({
     const requestedCurrent = current;
     const requestedRangeStart = workspace.nextRangeStart;
     const requestedScrollPosition = capturePreviewScroll();
-    const nextCursorIndex =
-      batchRef.current.direction === 'ascending'
-        ? Math.min(requestedCurrent.ordinal + 1, batchRef.current.fileCount - 1)
-        : Math.max(requestedCurrent.ordinal - 1, 0);
+    const nextCursorIndex = Math.min(
+      requestedCurrent.ordinal + 1,
+      batchRef.current.fileCount - 1,
+    );
     armPreviewScrollRestore(nextCursorIndex);
     void interactionQueue
       .enqueue(() =>
@@ -882,6 +878,7 @@ export function RemoteManualSelectionWorkspace({
               const next = {
                 ...batchRef.current,
                 navigationStep: value,
+                sourceTraversalSemantics: 'natural_v2' as const,
                 updatedAt: new Date().toISOString(),
               };
               void store.saveBatch(next).then(() => {

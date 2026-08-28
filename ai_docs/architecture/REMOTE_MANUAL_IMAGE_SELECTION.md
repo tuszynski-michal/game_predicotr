@@ -41,6 +41,11 @@ flowchart LR
 - Poprawny istniejący manifest odtwarza kursor, następny zakres, kierunek i
   decyzje również pod nową access session. Identyfikatory zdjęć są ponownie
   mapowane na świeży IndexedDB po ordinalu i względnej ścieżce.
+- Ordinal źródłowego JPEG-a zawsze rośnie przy `→` oraz Enter i maleje przy
+  `←`, niezależnie od kierunku numeracji plansz. Kierunek zmienia wyłącznie
+  kolejne `rangeStart` po decyzji, dzięki czemu folder ułożony od wysokich do
+  niskich numerów jest przeglądany konsekwentnie od pierwszego pliku do
+  ostatniego również po wznowieniu.
 - Checksum-bound ownership blokuje nadpisanie lub usunięcie obcego pliku.
 - Kursor, zakres i decyzje są transakcyjne w IndexedDB operatora; zoom oraz obie
   osie scrolla są per session+batch w localStorage operatora.

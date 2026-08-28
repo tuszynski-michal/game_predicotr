@@ -529,6 +529,7 @@ export function RemoteManualSelectionWorkspaceFoundation({
       hostRegistered: false,
       navigationStep: 1,
       nextRangeStart: parsedFirstLayout,
+      sourceTraversalSemantics: 'natural_v2',
       sessionId,
       sourceDirectoryName: indexed.sourceDirectoryName,
       sourceKind: indexed.manifest.sourceKind,
@@ -878,10 +879,11 @@ export function RemoteManualSelectionWorkspaceFoundation({
         batchName: batchName.trim(),
         collectionId,
         collectionName: collectionName.trim(),
-        cursorIndex: direction === 'ascending' ? 0 : batch.fileCount - 1,
+        cursorIndex: 0,
         direction,
         firstLayout: parsedFirstLayout,
         nextRangeStart: parsedFirstLayout,
+        sourceTraversalSemantics: 'natural_v2',
         updatedAt: new Date().toISOString(),
       };
       const configuredWorkspace = remoteSelectionWorkspaceState(configured);

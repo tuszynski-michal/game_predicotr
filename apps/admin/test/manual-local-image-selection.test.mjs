@@ -66,21 +66,11 @@ test('sorts image names in the same numeric order as Explorer', () => {
   ]);
 });
 
-test('keeps source ordering canonical while descending selection moves from the end', () => {
-  assert.equal(initialManualSelectionCursor('ascending', 15_000), 0);
-  assert.equal(initialManualSelectionCursor('descending', 15_000), 14_999);
-  assert.equal(
-    moveManualSelectionCursor(14_999, 'descending', 15_000, 10_000),
-    4_999,
-  );
-  assert.equal(
-    manualSelectionDisplayPosition(4_999, 'descending', 15_000),
-    10_001,
-  );
-  assert.equal(
-    moveManualSelectionCursor(4_999, 'descending', 15_000, -1),
-    5_000,
-  );
+test('keeps source traversal natural while descending ranges move independently', () => {
+  assert.equal(initialManualSelectionCursor(), 0);
+  assert.equal(moveManualSelectionCursor(2_891, 15_000, 5), 2_896);
+  assert.equal(manualSelectionDisplayPosition(2_896, 15_000), 2_897);
+  assert.equal(moveManualSelectionCursor(2_896, 15_000, -1), 2_895);
 });
 
 test('migrates a legacy descending cursor according to its trace order', () => {
@@ -154,7 +144,7 @@ test('migrates a legacy descending cursor according to its trace order', () => {
   assert.equal(canonicalSession.currentIndex, 1);
   assert.equal(naturallyPresented.migratedLegacyCursor, true);
   assert.equal(canonicalSession.migratedLegacyCursor, true);
-  assert.equal(reversedPresented.cursorSemantics, 'source_path_v2');
+  assert.equal(reversedPresented.cursorSemantics, 'source_path_v3');
 });
 
 test('does not treat a viewed trace as proof of an old descending cursor order', () => {
@@ -189,7 +179,7 @@ test('does not treat a viewed trace as proof of an old descending cursor order',
   assert.equal(resumed.currentIndex, 2);
 });
 
-test('resumes descending selections by the persisted source path, not an ordinal', () => {
+test('resumes a v3 descending selection by the persisted source path, not an ordinal', () => {
   const images = [
     { name: '001.jpg', relativePath: '001.jpg' },
     { name: '002.jpg', relativePath: '002.jpg' },
@@ -197,7 +187,7 @@ test('resumes descending selections by the persisted source path, not an ordinal
     { name: '004.jpg', relativePath: '004.jpg' },
   ];
   const resumed = resumeManualSelectionCursor({
-    cursorSemantics: 'source_path_v2',
+    cursorSemantics: 'source_path_v3',
     currentImagePath: '002.jpg',
     currentIndex: 3,
     decisions: [],
@@ -209,6 +199,38 @@ test('resumes descending selections by the persisted source path, not an ordinal
   assert.equal(resumed.currentIndex, 1);
   assert.equal(resumed.currentImagePath, '002.jpg');
   assert.equal(resumed.migratedLegacyCursor, false);
+});
+
+test('repairs a descending v2 source path from the next natural item after the last accepted file', () => {
+  const images = [
+    { name: '001.jpg', relativePath: '001.jpg' },
+    { name: '002.jpg', relativePath: '002.jpg' },
+    { name: '003.jpg', relativePath: '003.jpg' },
+    { name: '004.jpg', relativePath: '004.jpg' },
+  ];
+  const resumed = resumeManualSelectionCursor({
+    cursorSemantics: 'source_path_v2',
+    currentImagePath: '002.jpg',
+    currentIndex: 1,
+    decisions: [
+      {
+        action: 'accepted',
+        imageChecksum: 'a'.repeat(64),
+        imagePath: '003.jpg',
+        outputName: 'seq_10-18.jpg',
+        rangeEnd: 18,
+        rangeStart: 10,
+      },
+    ],
+    direction: 'descending',
+    images,
+    traceEvents: [],
+  });
+
+  assert.equal(resumed.currentIndex, 3);
+  assert.equal(resumed.currentImagePath, '004.jpg');
+  assert.equal(resumed.cursorSemantics, 'source_path_v3');
+  assert.equal(resumed.migratedLegacyCursor, true);
 });
 
 test('repairs a previously promoted descending v1 cursor from its last accepted file', () => {
@@ -236,9 +258,9 @@ test('repairs a previously promoted descending v1 cursor from its last accepted 
     traceEvents: [],
   });
 
-  assert.equal(resumed.currentIndex, 1);
-  assert.equal(resumed.currentImagePath, '002.jpg');
-  assert.equal(resumed.cursorSemantics, 'source_path_v2');
+  assert.equal(resumed.currentIndex, 3);
+  assert.equal(resumed.currentImagePath, '004.jpg');
+  assert.equal(resumed.cursorSemantics, 'source_path_v3');
   assert.equal(resumed.migratedLegacyCursor, true);
 });
 
@@ -246,7 +268,7 @@ test('fails closed when a persisted cursor image no longer exists in the source'
   assert.throws(
     () =>
       resumeManualSelectionCursor({
-        cursorSemantics: 'source_path_v2',
+        cursorSemantics: 'source_path_v3',
         currentImagePath: 'missing.jpg',
         currentIndex: 0,
         decisions: [],

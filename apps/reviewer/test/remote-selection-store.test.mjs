@@ -546,7 +546,41 @@ test('resumes an edited descending range from its last decision, not decision co
   assert.equal(remoteSelectionWorkspaceState(next).nextRangeStart, 10);
 });
 
-test('restarts an operator-local batch at the first directional image and first range', async () => {
+test('repairs a legacy descending batch to the next natural source item', () => {
+  const workspace = remoteSelectionWorkspaceState({
+    schemaVersion: 1,
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    sourceDirectoryName: 'source',
+    sourceKind: 'directory_picker',
+    sourceManifestChecksumSha256: 'a'.repeat(64),
+    firstLayout: 453_744,
+    direction: 'descending',
+    cursorIndex: 2_891,
+    fileCount: 14_418,
+    totalBytes: 1,
+    decisions: [
+      {
+        action: 'accepted',
+        operationId: 'operation-1',
+        fileId: 'file-1',
+        sourceIndex: 11_525,
+        imagePath: '11526.jpg',
+        imageChecksumSha256: 'b'.repeat(64),
+        outputName: 'seq_441073-441081.jpg',
+        rangeStart: 441_073,
+        rangeEnd: 441_081,
+        selectionGeneration: 1,
+      },
+    ],
+    updatedAt: '2026-08-28T10:00:00.000Z',
+  });
+
+  assert.equal(workspace.currentIndex, 11_526);
+  assert.equal(workspace.nextRangeStart, 441_064);
+});
+
+test('restarts an operator-local batch at the first source image and first range', async () => {
   const { store } = await fixture(3);
   const source = await store.loadSourceItem('session-1', 'batch-1', 0);
   const selected = await store.appendLocalWorkspaceDecision({
@@ -584,7 +618,7 @@ test('restarts an operator-local batch at the first directional image and first 
     ...selected,
     direction: 'descending',
   });
-  assert.equal(descending.cursorIndex, 2);
+  assert.equal(descending.cursorIndex, 0);
   assert.equal(descending.nextRangeStart, 1);
   assert.deepEqual(descending.decisions, []);
 });

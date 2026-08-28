@@ -65,6 +65,19 @@ ani kopiowania JPEG-ów do repozytorium.
 
 ## Progress
 
+### v0.8.62 — niezależny porządek źródła i numeracji
+
+- Lokalny i operator-local workspace zawsze rozpoczynają od pierwszego
+  ordinalu naturalnie posortowanego folderu. `→` oraz Enter przechodzą do
+  kolejnego pliku, a `←` do poprzedniego, niezależnie od wybranego kierunku.
+- `malejąco` steruje wyłącznie kolejnym zakresem po zatwierdzeniu. Dzięki temu
+  wznowiona selekcja folderu z malejącymi numerami plansz nie przechodzi przez
+  `→` do wyższych plansz ani nie wymaga odwracania klawiszy.
+- Historyczny lokalny rekord `source_path_v2` z kierunkiem malejącym jest
+  naprawiany z ostatniego zaakceptowanego JPEG-a do następnego naturalnego
+  ordinalu, a następnie utrwalany jako `source_path_v3`. Nie dziedziczy już
+  lustrzanego indeksu po dawnym odwracaniu kursora.
+
 ### v0.8.31 — jawna korekta bieżącego zakresu
 
 - Lokalny oraz operator-local workspace pozwalają kliknąć aktualny zakres i

@@ -36,6 +36,20 @@ test('remote workspace persists an explicit nine-layout range correction', async
   assert.match(css, /\.manualImageSelectionRangeButton\s*\{/);
 });
 
+test('remote source navigation stays in natural folder order for descending ranges', async () => {
+  const workspace = await readFile(workspacePath, 'utf8');
+
+  assert.match(
+    workspace,
+    /clampRemoteWorkspaceIndex\(\s*workspace\.currentIndex,\s*delta,\s*batch\.fileCount,/,
+  );
+  assert.doesNotMatch(workspace, /direction === 'ascending' \? delta : -delta/);
+  assert.match(
+    workspace,
+    /const nextCursorIndex = Math\.min\(\s*requestedCurrent\.ordinal \+ 1,/,
+  );
+});
+
 test('remote preview scrolls and restores both axes after layout', async () => {
   const workspace = await readFile(workspacePath, 'utf8');
   const css = await readFile(reviewerCssPath, 'utf8');

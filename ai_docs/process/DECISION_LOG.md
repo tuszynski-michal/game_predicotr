@@ -5875,6 +5875,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   każdym odrzucono odpowiednio z powodu sztucznego blokowania feedbacku oraz
   kwadratowego kosztu.
 
+## D-244 — Etykieta, jakość cropa i przydatność treningowa są niezależne
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** logiczna etykieta komórki, problem jakościowy bieżącego cropa
+  oraz zgodność cropa z ostatnim zatwierdzeniem są niezależnymi osiami. Recrop
+  zachowuje zatwierdzoną etykietę, lecz nowy crop nie jest treningowy do czasu
+  osobnej weryfikacji. `grid_issue` ponownie otwiera pole po recropie, a
+  `unreadable` może zostać rozwiązane realnym symbolem albo domenowym `?` bez
+  uczynienia słabego cropa próbką treningową.
+- **Context:** dotychczas zatwierdzenie etykiety było utożsamiane z
+  zatwierdzeniem pikseli. Po korekcie geometrii nowy, nieobejrzany crop mógł
+  odziedziczyć status nadający go do treningu.
+- **Safety:** przydatność treningowa wymaga aktywnego realnego symbolu,
+  aktualnego właściciela planszy, braku problemu jakości, identycznej tożsamości
+  i SHA-256 bieżącego oraz zatwierdzonego cropa i zweryfikowanego pliku.
+  Topologia pochodzi z przypiętej wersji reguł; po pierwszym imporcie jej
+  wymiary są niezmienne. `?` nie jest rekordem katalogu symboli.
+- **Consequences:** geometria, review symboli i trening mogą być rozwijane
+  niezależnie bez utraty decyzji człowieka. Aktualne rekordy bez proweniencji
+  pozostają nietreningowe do czasu kontrolowanego backfillu 0073.
+- **Alternatives:** reset wszystkich etykiet po recropie oraz automatyczne
+  uznanie nowych cropów za zatwierdzone odrzucono odpowiednio z powodu utraty
+  pracy człowieka i ryzyka zanieczyszczenia kohorty.
+
 ## Szablon nowej decyzji
 
 ```text

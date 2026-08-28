@@ -3427,3 +3427,21 @@ symbol inference. Admin automatycznie tworzy lub odzyskuje preflight po
 pokazaniu raportu, pokazuje nierozpoznane strony jako odroczone i ukrywa ich
 ręczną korektę pod sekcją „zostaw na koniec”. Wygasający 15-minutowy token
 legacy nie usuwa już sfinalizowanego browser stagingu.
+
+## Wersja 0.9 — fundament domenowy geometrii i jakości symboli
+
+TASK-0304 rozpoczął tor 0.9. Commit `v0.9.1` dodaje wyłącznie czystą domenę:
+topologię planszy wyprowadzaną z wersji reguł, wyliczany stan walidacji
+geometrii oraz niezależne osie etykiety, jakości i proweniencji cropa.
+
+Recrop zatwierdzonego pola zachowuje decyzję logiczną, ale nowy crop ma stan
+`changed_since_approval` i nie kwalifikuje się do treningu. `grid_issue` wraca
+po recropie jako pending bez problemu jakości, natomiast `unreadable` może być
+rozwiązane realnym symbolem albo domenowym `?` i nadal pozostaje nietreningowe.
+Agregacja planszy wymaga zatwierdzonej geometrii oraz kompletnej liczby komórek
+wynikającej z topologii.
+
+SQL, ORM, API, worker, Admin i Reviewer nie zostały jeszcze przełączone.
+Aktualne rekordy bez zapisanej proweniencji zachowują dotychczasową
+idempotencję, lecz nowa bramka treningowa ich nie dopuszcza. Następnym etapem
+jest osobno kontrolowana migracja 0073 i bounded backfill z TASK 2.

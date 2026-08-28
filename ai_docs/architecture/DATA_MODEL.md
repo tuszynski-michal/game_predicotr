@@ -922,6 +922,24 @@ Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.
 
+Docelowy model 0.9 rozszerza tę projekcję bez łączenia jej z niezmiennymi
+`cell_observations`. `review_state` opisuje wyłącznie logiczną etykietę,
+`quality_issue` rozróżnia `grid_issue` i `unreadable`, a pola
+`approved_crop_sample_id`, `approved_crop_checksum_sha256` oraz
+`approved_geometry_revision` wskazują dokładne piksele ostatnio zatwierdzone
+przez człowieka. Stan `current`, `changed_since_approval` albo `unverified` jest
+wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop nie kasuje
+zatwierdzonej etykiety, ale do czasu ponownej weryfikacji nowych pikseli blokuje
+ich udział w treningu.
+
+Wymiary komórek nie są własnością tej projekcji. Pochodzą z
+`rules_versions.rows/columns`, są przypinane przez grę przed pierwszym importem
+i snapshotowane na rozpoznanej planszy. Wartość `NULL` przypisania może stać
+się ręcznie zatwierdzonym domenowym `?`; nie tworzy rekordu w `symbols` i nigdy
+nie kwalifikuje cropa do treningu. Trwałość tych pól wprowadza dopiero migracja
+0073, dlatego czysta domena TASK-0304 zachowuje kompatybilność odczytu starszych
+rekordów bez proweniencji, ale uznaje je za nietreningowe.
+
 Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
 `image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w
 `image_symbol_review_states`, dlatego restart workera nie cofa kursora.

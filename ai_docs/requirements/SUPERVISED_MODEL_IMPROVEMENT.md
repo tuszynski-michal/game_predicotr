@@ -22,9 +22,14 @@ Automatyczna operacja nie może zmienić ani ponownie przeliczyć planszy, dla
 której użytkownik zapisał rozstrzygnięcie `accepted`, `corrected` lub
 `rejected`.
 
-- każda komórka `approved` jest kanoniczną prawdą i może wejść do zbioru
-  treningowego niezależnie od stanu pozostałych komórek planszy, jeżeli wskazuje
-  aktywny symbol, bieżący crop i nie ma flagi błędu siatki,
+- każda komórka `approved` jest kanoniczną prawdą logiczną niezależnie od stanu
+  pozostałych komórek planszy, ale do zbioru treningowego może wejść wyłącznie,
+  gdy wskazuje aktywny realny symbol, nie ma problemu jakości, należy do
+  aktualnego właściciela planszy, a bieżący crop i jego SHA-256 są zgodne z
+  dokładną tożsamością cropa ostatnio zatwierdzonego przez człowieka,
+- recrop zachowuje logiczną etykietę, lecz wyłącza nowe piksele z treningu do
+  czasu osobnego zatwierdzenia bieżącego cropa; `unreadable` i domenowe `?` nie
+  są przykładami treningowymi,
 - `rejected` pozostaje niezmienną decyzją człowieka, ale nie jest przykładem
   treningowym,
 - wyłącznie element `pending` może otrzymać nową rewizję predykcji,

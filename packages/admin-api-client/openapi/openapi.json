@@ -13585,6 +13585,284 @@
         "title": "StorageGcJobPayload",
         "type": "object"
       },
+      "StorageGcPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateBytes": {
+            "title": "Candidatebytes",
+            "type": "integer"
+          },
+          "candidateCount": {
+            "title": "Candidatecount",
+            "type": "integer"
+          },
+          "categoryCounts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Categorycounts",
+            "type": "object"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestRelativePath": {
+            "title": "Manifestrelativepath",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "policyVersion": {
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "predictedFreeBytes": {
+            "title": "Predictedfreebytes",
+            "type": "integer"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "protectedBytes": {
+            "title": "Protectedbytes",
+            "type": "integer"
+          },
+          "protectedCount": {
+            "title": "Protectedcount",
+            "type": "integer"
+          },
+          "protectionReasonCounts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Protectionreasoncounts",
+            "type": "object"
+          },
+          "retentionHours": {
+            "title": "Retentionhours",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "policyVersion",
+          "retentionHours",
+          "manifestRelativePath",
+          "manifestChecksumSha256",
+          "previewToken",
+          "candidateCount",
+          "candidateBytes",
+          "protectedCount",
+          "protectedBytes",
+          "predictedFreeBytes",
+          "categoryCounts",
+          "protectionReasonCounts",
+          "createdAt"
+        ],
+        "title": "StorageGcPreviewResponse",
+        "type": "object"
+      },
+      "StorageGcRunCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "manifestChecksumSha256": {
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "previewId": {
+            "format": "uuid",
+            "title": "Previewid",
+            "type": "string"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "previewId",
+          "manifestChecksumSha256",
+          "previewToken",
+          "confirmed"
+        ],
+        "title": "StorageGcRunCreate",
+        "type": "object"
+      },
+      "StorageGcRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateBytes": {
+            "title": "Candidatebytes",
+            "type": "integer"
+          },
+          "candidateCount": {
+            "title": "Candidatecount",
+            "type": "integer"
+          },
+          "checkpointIndex": {
+            "title": "Checkpointindex",
+            "type": "integer"
+          },
+          "conflictCount": {
+            "title": "Conflictcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deletedBytes": {
+            "title": "Deletedbytes",
+            "type": "integer"
+          },
+          "deletedCount": {
+            "title": "Deletedcount",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "failedCount": {
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "protectedBytes": {
+            "title": "Protectedbytes",
+            "type": "integer"
+          },
+          "protectedCount": {
+            "title": "Protectedcount",
+            "type": "integer"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "status",
+          "mode",
+          "candidateCount",
+          "candidateBytes",
+          "protectedCount",
+          "protectedBytes",
+          "deletedCount",
+          "deletedBytes",
+          "conflictCount",
+          "failedCount",
+          "checkpointIndex",
+          "errorCode",
+          "errorMessage",
+          "createdAt",
+          "updatedAt",
+          "startedAt",
+          "finishedAt"
+        ],
+        "title": "StorageGcRunResponse",
+        "type": "object"
+      },
       "SymbolCellReviewAction": {
         "enum": [
           "approve",
@@ -27681,6 +27959,220 @@
           }
         },
         "summary": "Get read-only managed image storage inventory",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/gc-previews": {
+      "post": {
+        "operationId": "createStorageGcPreview",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageGcPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Managed storage conflict"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create an immutable dry-run manifest for safe storage cleanup",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/gc-runs": {
+      "post": {
+        "operationId": "startStorageGcRun",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageGcRunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageGcRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Managed storage conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start a confirmed durable storage cleanup run",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/gc-runs/{run_id}": {
+      "get": {
+        "operationId": "getStorageGcRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageGcRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Managed storage conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read durable storage cleanup progress",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/inventory-refresh": {
+      "post": {
+        "operationId": "refreshImageStorageInventory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageStorageInventoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Managed storage conflict"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Refresh the bounded managed image storage inventory",
         "tags": [
           "image-storage"
         ]

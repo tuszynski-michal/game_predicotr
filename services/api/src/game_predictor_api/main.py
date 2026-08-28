@@ -124,6 +124,7 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
 from game_predictor_api.application.symbol_references import (
@@ -291,6 +292,7 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
 )
@@ -858,6 +860,13 @@ def create_app(
                 yield ImageStorageService(
                     SqlAlchemyImageJobOperationsRepository(session),
                     ImageArtifactStore(resolved_settings.artifact_root),
+                    StorageGcService(
+                        SqlAlchemyStorageGcRepository(session_factory),
+                        StorageGcArtifactStore(
+                            resolved_settings.artifact_root,
+                            resolved_settings.import_root,
+                        ),
+                    ),
                 )
                 session.commit()
             except BaseException:

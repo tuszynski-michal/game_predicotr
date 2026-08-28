@@ -123,6 +123,9 @@ import type {
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
+  CreateStorageGcPreviewData,
+  CreateStorageGcPreviewErrors,
+  CreateStorageGcPreviewResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
@@ -301,6 +304,9 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetStorageGcRunData,
+  GetStorageGcRunErrors,
+  GetStorageGcRunResponses,
   GetSymbolCellReviewAssetData,
   GetSymbolCellReviewAssetErrors,
   GetSymbolCellReviewAssetResponses,
@@ -519,6 +525,9 @@ import type {
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshImageStorageInventoryData,
+  RefreshImageStorageInventoryErrors,
+  RefreshImageStorageInventoryResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -609,6 +618,9 @@ import type {
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartStorageGcRunData,
+  StartStorageGcRunErrors,
+  StartStorageGcRunResponses,
   StartSymbolCellReviewBulkOperationData,
   StartSymbolCellReviewBulkOperationErrors,
   StartSymbolCellReviewBulkOperationResponses,
@@ -3573,6 +3585,88 @@ export const getImageStorageInventory = <ThrowOnError extends boolean = false>(
     GetImageStorageInventoryErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/image-storage', ...options });
+
+/**
+ * Create an immutable dry-run manifest for safe storage cleanup
+ */
+export const createStorageGcPreview = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateStorageGcPreviewData, ThrowOnError>,
+): RequestResult<
+  CreateStorageGcPreviewResponses,
+  CreateStorageGcPreviewErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    CreateStorageGcPreviewResponses,
+    CreateStorageGcPreviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/gc-previews',
+    ...options,
+  });
+
+/**
+ * Start a confirmed durable storage cleanup run
+ */
+export const startStorageGcRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartStorageGcRunData, ThrowOnError>,
+): RequestResult<
+  StartStorageGcRunResponses,
+  StartStorageGcRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartStorageGcRunResponses,
+    StartStorageGcRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/gc-runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read durable storage cleanup progress
+ */
+export const getStorageGcRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetStorageGcRunData, ThrowOnError>,
+): RequestResult<
+  GetStorageGcRunResponses,
+  GetStorageGcRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetStorageGcRunResponses,
+    GetStorageGcRunErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-storage/gc-runs/{run_id}', ...options });
+
+/**
+ * Refresh the bounded managed image storage inventory
+ */
+export const refreshImageStorageInventory = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<RefreshImageStorageInventoryData, ThrowOnError>,
+): RequestResult<
+  RefreshImageStorageInventoryResponses,
+  RefreshImageStorageInventoryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    RefreshImageStorageInventoryResponses,
+    RefreshImageStorageInventoryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/inventory-refresh',
+    ...options,
+  });
 
 /**
  * List a bounded set of newest jobs

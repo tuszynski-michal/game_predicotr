@@ -1298,6 +1298,12 @@ każdym spinie.
   weryfikacji wszystkich managed originals. Kopiowanie poprzedza filtrowanie
   kanoniczne i geometrii, dzięki czemu cleanup stagingu nie odbiera źródła do
   późniejszego rerunu,
+- `storage_gc` wykonuje wyłącznie niezmienny manifest utworzony przez lokalne
+  API. Partie są ograniczone do 250 ścieżek lub 512 MiB; każda ścieżka jest
+  ponownie walidowana, atomowo przenoszona do trash na tym samym woluminie i
+  usuwana. Trwały marker po przeniesieniu pozwala rozpoznać usunięcie po crashu
+  przed checkpointem. Korzenie przestrzeni nazw, symlinki i ścieżki poza
+  allowlistą nigdy nie są usuwane,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

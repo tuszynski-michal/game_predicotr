@@ -1581,6 +1581,31 @@ Zwraca read-only inwentarz dokładnie sześciu przestrzeni pod zarządzanym root
 `automaticDeletion = false`. Endpoint nie przyjmuje ścieżki i nie wykonuje
 operacji destrukcyjnej.
 
+### POST `/api/v1/admin/image-storage/inventory-refresh`
+
+Odświeża bounded inwentarz zarządzanych przestrzeni. Nie tworzy preview i nie
+usuwa danych.
+
+### POST `/api/v1/admin/image-storage/gc-previews`
+
+Tworzy dry-run zgodny z `storage-retention-v1`. Odpowiedź zawiera kategorie i
+powody ochrony z licznikami/bajtami, przewidywane wolne miejsce, względną
+ścieżkę niezmiennego manifestu, SHA-256 i token preview. Manifest obejmuje
+wyłącznie stare bitmapy normalizacji, rozpoznane osierocone pliki tymczasowe i
+stagingi z kompletnym handoffem managed originals.
+
+### POST `/api/v1/admin/image-storage/gc-runs`
+
+Wymaga `previewId`, checksummy manifestu, tokenu i `confirmed=true`. Powtórzenie
+tego samego startu zwraca ten sam job. Zmieniony token/checksum zwraca
+`STORAGE_GC_PREVIEW_STALE`; API nigdy nie przyjmuje arbitralnej ścieżki.
+
+### GET `/api/v1/admin/image-storage/gc-runs/{runId}`
+
+Zwraca trwały postęp, odzyskane bajty, checkpoint oraz liczniki konfliktów i
+błędów. Worker ponownie sprawdza mtime, rozmiar, fingerprint drzewa, symlinki i
+aktywne zależności przed każdą partią.
+
 ### POST `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports`
 
 Tworzy kanoniczny manifest `image-job-diagnostics-v1` z dokładnymi agregatami

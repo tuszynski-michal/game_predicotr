@@ -14,6 +14,11 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol
 from uuid import UUID
 
+from game_predictor_api.application.storage_gc import (
+    StorageGcPreview,
+    StorageGcRun,
+    StorageGcService,
+)
 from game_predictor_api.domain.jobs import JobConflictError, JobNotFoundError
 
 DIAGNOSTIC_EXPORT_SCHEMA = "image-job-diagnostics-v1"
@@ -304,12 +309,42 @@ class ImageStorageService:
         self,
         repository: ImageDiagnosticRepository,
         artifact_store: ImageArtifactStore,
+        storage_gc_service: StorageGcService | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_store = artifact_store
+        self._storage_gc_service = storage_gc_service
 
     def inventory(self) -> ImageStorageInventory:
         return self._artifact_store.inventory()
+
+    def create_gc_preview(self) -> StorageGcPreview:
+        return self._require_gc().preview()
+
+    def start_gc(
+        self,
+        *,
+        preview_id: UUID,
+        manifest_checksum_sha256: str,
+        preview_token: str,
+        confirmed: bool,
+    ) -> StorageGcRun:
+        return self._require_gc().start(
+            preview_id=preview_id,
+            manifest_checksum_sha256=manifest_checksum_sha256,
+            preview_token=preview_token,
+            confirmed=confirmed,
+        )
+
+    def get_gc_run(self, run_id: UUID) -> StorageGcRun:
+        return self._require_gc().get_run(run_id)
+
+    def _require_gc(self) -> StorageGcService:
+        if self._storage_gc_service is None:
+            raise JobConflictError(
+                "STORAGE_GC_UNAVAILABLE", "Managed storage cleanup is not configured."
+            )
+        return self._storage_gc_service
 
     def create_diagnostic_export(
         self,

@@ -7840,6 +7840,188 @@ export type StorageGcJobPayload = {
 };
 
 /**
+ * StorageGcPreviewResponse
+ */
+export type StorageGcPreviewResponse = {
+  /**
+   * Candidatebytes
+   */
+  candidateBytes: number;
+  /**
+   * Candidatecount
+   */
+  candidateCount: number;
+  /**
+   * Categorycounts
+   */
+  categoryCounts: {
+    [key: string]: {
+      [key: string]: number;
+    };
+  };
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Manifestrelativepath
+   */
+  manifestRelativePath: string;
+  /**
+   * Mode
+   */
+  mode: string;
+  /**
+   * Policyversion
+   */
+  policyVersion: string;
+  /**
+   * Predictedfreebytes
+   */
+  predictedFreeBytes: number;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Protectedbytes
+   */
+  protectedBytes: number;
+  /**
+   * Protectedcount
+   */
+  protectedCount: number;
+  /**
+   * Protectionreasoncounts
+   */
+  protectionReasonCounts: {
+    [key: string]: {
+      [key: string]: number;
+    };
+  };
+  /**
+   * Retentionhours
+   */
+  retentionHours: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * StorageGcRunCreate
+ */
+export type StorageGcRunCreate = {
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Previewid
+   */
+  previewId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * StorageGcRunResponse
+ */
+export type StorageGcRunResponse = {
+  /**
+   * Candidatebytes
+   */
+  candidateBytes: number;
+  /**
+   * Candidatecount
+   */
+  candidateCount: number;
+  /**
+   * Checkpointindex
+   */
+  checkpointIndex: number;
+  /**
+   * Conflictcount
+   */
+  conflictCount: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Deletedbytes
+   */
+  deletedBytes: number;
+  /**
+   * Deletedcount
+   */
+  deletedCount: number;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Failedcount
+   */
+  failedCount: number;
+  /**
+   * Finishedat
+   */
+  finishedAt: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  /**
+   * Mode
+   */
+  mode: string;
+  /**
+   * Protectedbytes
+   */
+  protectedBytes: number;
+  /**
+   * Protectedcount
+   */
+  protectedCount: number;
+  /**
+   * Startedat
+   */
+  startedAt: string | null;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
  * SymbolCellReviewAction
  */
 export type SymbolCellReviewAction =
@@ -15481,6 +15663,139 @@ export type GetImageStorageInventoryResponses = {
 
 export type GetImageStorageInventoryResponse =
   GetImageStorageInventoryResponses[keyof GetImageStorageInventoryResponses];
+
+export type CreateStorageGcPreviewData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-storage/gc-previews';
+};
+
+export type CreateStorageGcPreviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Managed storage conflict
+   */
+  409: ErrorResponse;
+};
+
+export type CreateStorageGcPreviewError =
+  CreateStorageGcPreviewErrors[keyof CreateStorageGcPreviewErrors];
+
+export type CreateStorageGcPreviewResponses = {
+  /**
+   * Successful Response
+   */
+  201: StorageGcPreviewResponse;
+};
+
+export type CreateStorageGcPreviewResponse =
+  CreateStorageGcPreviewResponses[keyof CreateStorageGcPreviewResponses];
+
+export type StartStorageGcRunData = {
+  body: StorageGcRunCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-storage/gc-runs';
+};
+
+export type StartStorageGcRunErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Managed storage conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartStorageGcRunError =
+  StartStorageGcRunErrors[keyof StartStorageGcRunErrors];
+
+export type StartStorageGcRunResponses = {
+  /**
+   * Successful Response
+   */
+  201: StorageGcRunResponse;
+};
+
+export type StartStorageGcRunResponse =
+  StartStorageGcRunResponses[keyof StartStorageGcRunResponses];
+
+export type GetStorageGcRunData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-storage/gc-runs/{run_id}';
+};
+
+export type GetStorageGcRunErrors = {
+  /**
+   * Managed storage conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetStorageGcRunError =
+  GetStorageGcRunErrors[keyof GetStorageGcRunErrors];
+
+export type GetStorageGcRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: StorageGcRunResponse;
+};
+
+export type GetStorageGcRunResponse =
+  GetStorageGcRunResponses[keyof GetStorageGcRunResponses];
+
+export type RefreshImageStorageInventoryData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-storage/inventory-refresh';
+};
+
+export type RefreshImageStorageInventoryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Managed storage conflict
+   */
+  409: ErrorResponse;
+};
+
+export type RefreshImageStorageInventoryError =
+  RefreshImageStorageInventoryErrors[keyof RefreshImageStorageInventoryErrors];
+
+export type RefreshImageStorageInventoryResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageStorageInventoryResponse;
+};
+
+export type RefreshImageStorageInventoryResponse =
+  RefreshImageStorageInventoryResponses[keyof RefreshImageStorageInventoryResponses];
 
 export type ListJobsData = {
   body?: never;

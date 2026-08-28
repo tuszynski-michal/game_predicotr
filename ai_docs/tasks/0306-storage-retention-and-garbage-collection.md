@@ -75,3 +75,10 @@ preflightu/importu zapisuje `in_use`, a worker zapisuje `ingested` i termin
 retencji dopiero po checksumowanym handoffie wszystkich źródeł. Kopiowanie
 poprzedza canonical/deferred filtering, więc rerun nie zależy od zachowania
 browserowej kopii.
+
+TASK 4 dodaje API preview/start/status i general-lane `storage_gc`. Manifest
+jest content-addressed i zawiera dokładną obserwację każdego kandydata. Worker
+ponownie sprawdza zależności i tożsamość źródła, przetwarza partie 250 ścieżek
+lub 512 MiB, korzysta z same-volume trash i trwałych markerów recovery. Kod nie
+uruchamia żadnego cleanupu automatycznie ani nie usuwa istniejących danych bez
+jawnego, zgodnego preview.

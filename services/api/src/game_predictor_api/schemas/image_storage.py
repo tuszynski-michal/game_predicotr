@@ -10,6 +10,7 @@ from game_predictor_api.application.image_storage import (
     ImageDiagnosticExportCreation,
     ImageStorageInventory,
 )
+from game_predictor_api.application.storage_gc import StorageGcPreview, StorageGcRun
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -53,6 +54,64 @@ class ImageStorageInventoryResponse(ApiModel):
                 for item in value.namespaces
             ],
         )
+
+
+class StorageGcPreviewResponse(ApiModel):
+    id: UUID
+    status: str
+    mode: str
+    policy_version: str
+    retention_hours: int
+    manifest_relative_path: str
+    manifest_checksum_sha256: str
+    preview_token: str
+    candidate_count: int
+    candidate_bytes: int
+    protected_count: int
+    protected_bytes: int
+    predicted_free_bytes: int
+    category_counts: dict[str, dict[str, int]]
+    protection_reason_counts: dict[str, dict[str, int]]
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, value: StorageGcPreview) -> StorageGcPreviewResponse:
+        return cls(**value.__dict__) if hasattr(value, "__dict__") else cls(
+            **{field: getattr(value, field) for field in cls.model_fields}
+        )
+
+
+class StorageGcRunCreate(ApiModel):
+    preview_id: UUID
+    manifest_checksum_sha256: str
+    preview_token: str
+    confirmed: bool
+
+
+class StorageGcRunResponse(ApiModel):
+    id: UUID
+    job_id: UUID | None
+    status: str
+    mode: str
+    candidate_count: int
+    candidate_bytes: int
+    protected_count: int
+    protected_bytes: int
+    deleted_count: int
+    deleted_bytes: int
+    conflict_count: int
+    failed_count: int
+    checkpoint_index: int
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, value: StorageGcRun) -> StorageGcRunResponse:
+        return cls(**{field: getattr(value, field) for field in cls.model_fields})
 
 
 class ImageDiagnosticExportResponse(ApiModel):
@@ -101,4 +160,7 @@ __all__ = [
     "ImageDiagnosticExportCreationResponse",
     "ImageDiagnosticExportResponse",
     "ImageStorageInventoryResponse",
+    "StorageGcPreviewResponse",
+    "StorageGcRunCreate",
+    "StorageGcRunResponse",
 ]

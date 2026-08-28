@@ -20,6 +20,11 @@ class StorageArtifactClass(StrEnum):
     PROTECTED_NAMESPACE = "protected_namespace"
 
 
+class StorageRootKind(StrEnum):
+    ARTIFACT = "artifact"
+    IMPORT = "import"
+
+
 class StorageProtectionReason(StrEnum):
     ACTIVE_JOB_DEPENDENCY = "active_job_dependency"
     RETENTION_NOT_ELAPSED = "retention_not_elapsed"
@@ -75,6 +80,8 @@ class StorageArtifactObservation:
     managed_originals_verified: bool = False
     last_dependency_at: datetime | None = None
     is_symlink: bool = False
+    root_kind: StorageRootKind = StorageRootKind.ARTIFACT
+    observation_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if self.size_bytes < 0:
@@ -83,6 +90,14 @@ class StorageArtifactObservation:
             raise ValueError("Storage artifact modified_at must be timezone-aware.")
         if self.last_dependency_at is not None and self.last_dependency_at.tzinfo is None:
             raise ValueError("Storage artifact last_dependency_at must be timezone-aware.")
+        if self.observation_checksum_sha256 is not None and (
+            len(self.observation_checksum_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in self.observation_checksum_sha256
+            )
+        ):
+            raise ValueError("Storage observation checksum must be lowercase SHA-256.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +116,8 @@ class StorageGcManifestEntry:
     artifact_class: StorageArtifactClass
     eligibility_basis: str
     dependency_job_statuses: tuple[str, ...]
+    root_kind: StorageRootKind = StorageRootKind.ARTIFACT
+    observation_checksum_sha256: str | None = None
 
 
 def is_safe_managed_relative_path(relative_path: str) -> bool:
@@ -172,6 +189,8 @@ def manifest_entry_from_decision(
         artifact_class=observation.artifact_class,
         eligibility_basis=f"retention_elapsed_at:{decision.eligible_at.isoformat()}",
         dependency_job_statuses=tuple(sorted(observation.dependency_job_statuses)),
+        root_kind=observation.root_kind,
+        observation_checksum_sha256=observation.observation_checksum_sha256,
     )
 
 
@@ -202,6 +221,8 @@ def canonical_gc_manifest_bytes(
                 "artifactClass": entry.artifact_class.value,
                 "eligibilityBasis": entry.eligibility_basis,
                 "dependencyJobStatuses": list(entry.dependency_job_statuses),
+                "rootKind": entry.root_kind.value,
+                "observationChecksumSha256": entry.observation_checksum_sha256,
             }
             for entry in ordered
         ],

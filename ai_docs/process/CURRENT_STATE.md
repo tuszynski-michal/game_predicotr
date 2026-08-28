@@ -27,6 +27,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   wymaga zweryfikowanych kopii wszystkich źródeł w managed originals i zapisuje
   24-godzinny termin retencji. Fizyczne usuwanie nadal jest wyłączone do czasu
   wdrożenia GC oraz zatwierdzenia pierwszego preview.
+- TASK 4 udostępnia niezmienny dry-run oraz trwały job `storage_gc` z
+  rewalidacją ścieżek, zależności, rozmiaru, mtime i fingerprintu. Destrukcja
+  korzysta z same-volume trash i markerów recovery; żaden run nie został
+  automatycznie uruchomiony na obecnych danych.
   `storage_gc_runs` wiąże przyszły job z niezmiennym manifestem kandydatów,
   `storage_usage_snapshots` przechowuje bounded pomiary, a
   `browser_selection_retention_states` przygotowuje trwały lifecycle stagingu.

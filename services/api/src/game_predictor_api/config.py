@@ -38,6 +38,10 @@ class ApiSettings:
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     browser_layout_import_max_bytes: int = _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
+    storage_warning_gib: int = 80
+    storage_automatic_gc_gib: int = 60
+    storage_target_gib: int = 80
+    storage_hard_reserve_gib: int = 30
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
     remote_manual_selection_host_mapping_enabled: bool = True
@@ -106,6 +110,22 @@ class ApiSettings:
                 str(_DEFAULT_IMAGE_SELECTION_MAX_BYTES),
             ),
             variable_name="GAME_PREDICTOR_IMAGE_SELECTION_MAX_BYTES",
+        )
+        storage_warning_gib = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_STORAGE_WARNING_GIB", "80"),
+            variable_name="GAME_PREDICTOR_STORAGE_WARNING_GIB",
+        )
+        storage_automatic_gc_gib = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_STORAGE_AUTOMATIC_GC_GIB", "60"),
+            variable_name="GAME_PREDICTOR_STORAGE_AUTOMATIC_GC_GIB",
+        )
+        storage_target_gib = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_STORAGE_TARGET_GIB", "80"),
+            variable_name="GAME_PREDICTOR_STORAGE_TARGET_GIB",
+        )
+        storage_hard_reserve_gib = _parse_positive_integer(
+            source.get("GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB", "30"),
+            variable_name="GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB",
         )
         review_crop_root = _parse_local_root(
             source.get(
@@ -199,6 +219,10 @@ class ApiSettings:
             import_max_bytes=import_max_bytes,
             browser_layout_import_max_bytes=browser_layout_import_max_bytes,
             image_selection_max_bytes=image_selection_max_bytes,
+            storage_warning_gib=storage_warning_gib,
+            storage_automatic_gc_gib=storage_automatic_gc_gib,
+            storage_target_gib=storage_target_gib,
+            storage_hard_reserve_gib=storage_hard_reserve_gib,
             review_crop_root=review_crop_root,
             review_source_root=review_source_root,
             remote_manual_selection_host_mapping_enabled=(

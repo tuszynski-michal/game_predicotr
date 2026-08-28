@@ -12,6 +12,7 @@ from game_predictor_api.domain.jobs import (
     checkpoint_job,
     complete_job,
     create_job,
+    defer_job_for_storage,
     fail_job,
     recover_expired_job,
     renew_job_lease,
@@ -217,6 +218,23 @@ class MemoryWorkerJobStore:
         self.jobs[job_id] = updated
         return updated
 
+    def defer_for_storage(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        checkpoint_payload: dict[str, object],
+        deferred_at: datetime,
+    ) -> Job:
+        updated = defer_job_for_storage(
+            self.jobs[job_id],
+            lease_token=lease_token,
+            checkpoint_payload=checkpoint_payload,
+            deferred_at=deferred_at,
+        )
+        self.jobs[job_id] = updated
+        return updated
+
 
 class CountingHeartbeatJobStore(MemoryWorkerJobStore):
     def __init__(self, jobs: list[Job]) -> None:
@@ -404,6 +422,25 @@ def test_waiting_for_review_releases_the_single_execution_slot() -> None:
 
     assert _worker(store, clock, next_handler).run_once() is JobExecutionResult.COMPLETED
     assert processed == [next_job.id]
+
+
+def test_waiting_for_storage_requeues_with_checkpoint_and_releases_slot() -> None:
+    clock = MutableClock()
+    job = _job(clock)
+    store = MemoryWorkerJobStore([job])
+
+    def handler(context: JobExecutionContext, _job: Job) -> None:
+        context.wait_for_storage(
+            checkpoint_payload={"schema_version": 1, "cursor": 12}
+        )
+
+    assert _worker(store, clock, handler).run_once() is JobExecutionResult.WAITING_FOR_STORAGE
+    deferred = store.jobs[job.id]
+    assert deferred.status is JobStatus.CREATED
+    assert deferred.stage == "waiting_for_storage"
+    assert deferred.checkpoint_payload == {"schema_version": 1, "cursor": 12}
+    assert deferred.execution_slot is None
+    assert deferred.lease_token is None
 
 
 def test_dedicated_lanes_claim_only_their_job_types_and_run_concurrently() -> None:

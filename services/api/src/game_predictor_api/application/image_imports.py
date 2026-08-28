@@ -360,6 +360,7 @@ class BrowserImageSelectionService:
         photo_selection_max_bytes: int | None = None,
         clock: Callable[[], datetime] | None = None,
         retention: BrowserStagingRetention | None = None,
+        capacity_guard: object | None = None,
     ) -> None:
         self._selection_service = selection_service
         self._upload_root = upload_root.resolve() / "browser-selections"
@@ -368,6 +369,7 @@ class BrowserImageSelectionService:
         self._photo_selection_max_bytes = photo_selection_max_bytes or max_bytes
         self._clock = clock or (lambda: datetime.now(UTC))
         self._retention = retention
+        self._capacity_guard = capacity_guard
         self._uploads: dict[UUID, BrowserImageUpload] = {}
         self._lock = Lock()
 
@@ -424,6 +426,9 @@ class BrowserImageSelectionService:
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
+        if self._capacity_guard is not None:
+            check = getattr(self._capacity_guard, "check_image_write")
+            check(expected_total_bytes)
         upload_id = uuid4()
         upload_path = self._upload_root / str(upload_id)
         free_bytes = shutil.disk_usage(self._upload_root.parent).free

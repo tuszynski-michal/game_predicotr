@@ -124,6 +124,7 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
@@ -200,6 +201,7 @@ from game_predictor_api.domain.rules import (
     RulesError,
     RulesNotFoundError,
 )
+from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
 from game_predictor_api.security.local_admin import (
     ADMIN_CONFIRMATION_HEADER,
     ADMIN_INTENT_HEADER,
@@ -640,12 +642,34 @@ def create_app(
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
     )
+    storage_capacity_policy = StorageCapacityPolicy(
+        warning_bytes=resolved_settings.storage_warning_gib * GIB,
+        automatic_gc_bytes=resolved_settings.storage_automatic_gc_gib * GIB,
+        target_bytes=resolved_settings.storage_target_gib * GIB,
+        hard_reserve_bytes=resolved_settings.storage_hard_reserve_gib * GIB,
+    )
+    automatic_storage_gc_service = StorageGcService(
+        SqlAlchemyStorageGcRepository(session_factory),
+        StorageGcArtifactStore(
+            resolved_settings.artifact_root,
+            resolved_settings.import_root,
+        ),
+    )
+    storage_capacity_guard = StorageCapacityGuard(
+        {
+            "artifact": resolved_settings.artifact_root,
+            "import": resolved_settings.import_root,
+        },
+        policy=storage_capacity_policy,
+        ensure_automatic_gc=automatic_storage_gc_service.ensure_automatic_run,
+    )
     default_browser_image_selection_service = BrowserImageSelectionService(
         default_image_folder_selection_service,
         resolved_settings.import_root,
         max_bytes=resolved_settings.browser_layout_import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
         retention=SqlAlchemyBrowserStagingRetentionRepository(session_factory),
+        capacity_guard=storage_capacity_guard,
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service

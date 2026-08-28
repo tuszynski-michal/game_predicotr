@@ -8,6 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.application.storage_gc import (
@@ -60,6 +61,19 @@ class SqlAlchemyStorageGcRepository:
             for key, statuses in grouped.items()
         }
 
+    def active_automatic_run(self) -> StorageGcRun | None:
+        with self._session_factory() as session:
+            row = session.scalar(
+                select(StorageGcRunModel)
+                .where(
+                    StorageGcRunModel.mode == "automatic",
+                    StorageGcRunModel.status.in_(("previewed", "created", "processing")),
+                )
+                .order_by(StorageGcRunModel.created_at, StorageGcRunModel.id)
+                .limit(1)
+            )
+            return None if row is None else _run(row)
+
     def browser_staging_sources(self) -> Sequence[BrowserStagingGcSource]:
         with self._session_factory() as session:
             states = session.scalars(select(BrowserSelectionRetentionModel)).all()
@@ -109,34 +123,44 @@ class SqlAlchemyStorageGcRepository:
         inventory_before: Mapping[str, object],
         created_at: datetime,
     ) -> StorageGcPreview:
-        with self._session_factory.begin() as session:
-            row = StorageGcRunModel(
-                id=preview_id,
-                job_id=None,
-                mode=mode,
-                status="previewed",
-                policy_version=policy.version,
-                retention_hours=int(policy.retention.total_seconds() // 3600),
-                manifest_relative_path=manifest_relative_path,
-                manifest_checksum_sha256=manifest_checksum_sha256,
-                preview_token=preview_token,
-                candidate_count=candidate_count,
-                candidate_bytes=candidate_bytes,
-                protected_count=protected_count,
-                protected_bytes=protected_bytes,
-                deleted_count=0,
-                deleted_bytes=0,
-                conflict_count=0,
-                failed_count=0,
-                checkpoint_index=0,
-                inventory_before=dict(inventory_before),
-                inventory_after=None,
-                error_code=None,
-                error_message=None,
-                created_at=created_at,
-                updated_at=created_at,
-            )
-            session.add(row)
+        try:
+            with self._session_factory.begin() as session:
+                row = StorageGcRunModel(
+                    id=preview_id,
+                    job_id=None,
+                    mode=mode,
+                    status="previewed",
+                    policy_version=policy.version,
+                    retention_hours=int(policy.retention.total_seconds() // 3600),
+                    manifest_relative_path=manifest_relative_path,
+                    manifest_checksum_sha256=manifest_checksum_sha256,
+                    preview_token=preview_token,
+                    candidate_count=candidate_count,
+                    candidate_bytes=candidate_bytes,
+                    protected_count=protected_count,
+                    protected_bytes=protected_bytes,
+                    deleted_count=0,
+                    deleted_bytes=0,
+                    conflict_count=0,
+                    failed_count=0,
+                    checkpoint_index=0,
+                    inventory_before=dict(inventory_before),
+                    inventory_after=None,
+                    error_code=None,
+                    error_message=None,
+                    created_at=created_at,
+                    updated_at=created_at,
+                )
+                session.add(row)
+        except IntegrityError:
+            if mode == "automatic":
+                active = self.active_automatic_run()
+                if active is not None:
+                    with self._session_factory() as session:
+                        existing = session.get(StorageGcRunModel, active.id)
+                        if existing is not None:
+                            return _preview(existing)
+            raise
         return _preview(row)
 
     def start_run(

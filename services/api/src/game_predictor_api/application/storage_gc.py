@@ -6,7 +6,7 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -88,6 +88,7 @@ class StorageGcRun:
 
 
 class StorageGcRepository(Protocol):
+    def active_automatic_run(self) -> StorageGcRun | None: ...
     def normalization_dependency_statuses(
         self, execution_keys: Sequence[str]
     ) -> Mapping[str, tuple[str, ...]]: ...
@@ -350,7 +351,7 @@ class StorageGcService:
         artifact_store: StorageGcArtifactStore,
         *,
         policy: StorageRetentionPolicy | None = None,
-        clock=None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_store = artifact_store
@@ -413,6 +414,22 @@ class StorageGcService:
 
     def get_run(self, run_id: UUID) -> StorageGcRun:
         return self._repository.get_run(run_id)
+
+    def ensure_automatic_run(self) -> StorageGcRun | None:
+        """Create at most one policy-only automatic cleanup run."""
+
+        active = self._repository.active_automatic_run()
+        if active is not None:
+            return active
+        preview = self.preview(mode="automatic")
+        if preview.candidate_count == 0:
+            return None
+        return self._repository.start_run(
+            preview_id=preview.id,
+            expected_manifest_checksum_sha256=preview.manifest_checksum_sha256,
+            expected_preview_token=preview.preview_token,
+            mode="automatic",
+        )
 
 
 def _safe_path(root: Path, relative_path: str) -> Path:

@@ -34,6 +34,10 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `storage_gc_runs` wiąże przyszły job z niezmiennym manifestem kandydatów,
   `storage_usage_snapshots` przechowuje bounded pomiary, a
   `browser_selection_retention_states` przygotowuje trwały lifecycle stagingu.
+- TASK 5 chroni upload i wykonanie pipeline'u progami per unikalny wolumin.
+  Automatyczny GC jest idempotentny, ma pierwszeństwo w general lane, a job
+  obrazowy przy presji zapisuje etap `waiting_for_storage` i oddaje lease bez
+  utraty checkpointu. Wznowienie wymaga osiągnięcia celu 80 GiB.
 - Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
   użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
   referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.

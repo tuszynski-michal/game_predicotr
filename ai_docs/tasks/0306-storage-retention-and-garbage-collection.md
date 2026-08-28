@@ -82,3 +82,10 @@ ponownie sprawdza zależności i tożsamość źródła, przetwarza partie 250 �
 lub 512 MiB, korzysta z same-volume trash i trwałych markerów recovery. Kod nie
 uruchamia żadnego cleanupu automatycznie ani nie usuwa istniejących danych bez
 jawnego, zgodnego preview.
+
+TASK 5 dodaje konfigurowalny capacity guard. Upload jest oceniany stałoczasowo
+per unikalny wolumin z konserwatywną estymacją 8× i marginesem 20%. Poniżej
+60 GiB powstaje co najwyżej jeden automatyczny run GC, a operacja, która
+naruszyłaby rezerwę 30 GiB, jest blokowana. Worker sprawdza miejsce pomiędzy
+źródłami, zapisuje `waiting_for_storage`, oddaje lease i wznawia dopiero po
+osiągnięciu celu 80 GiB. Job GC ma pierwszeństwo w general lane.

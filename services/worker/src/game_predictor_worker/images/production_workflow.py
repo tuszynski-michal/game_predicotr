@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -127,11 +128,18 @@ class ProductionImageImportWorkflow:
         artifact_root: Path,
         *,
         repository_root: Path,
+        hard_reserve_bytes: int = 30 * 1024**3,
+        resume_target_bytes: int = 80 * 1024**3,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
+        self._hard_reserve_bytes = hard_reserve_bytes
+        self._resume_target_bytes = resume_target_bytes
         self._original_store = ManagedOriginalStore(self._artifact_root)
-        self._source_handler = ImageSourceIngestionHandler(self._original_store)
+        self._source_handler = ImageSourceIngestionHandler(
+            self._original_store,
+            before_original=self._has_pipeline_capacity,
+        )
         self._browser_staging_retention = SqlAlchemyBrowserStagingRetentionRepository(
             session_factory
         )
@@ -232,6 +240,7 @@ class ProductionImageImportWorkflow:
                 adapters,
                 attested_sequence_ranges=attested_sequence_ranges,
             ),
+            before_candidate=lambda: self._has_pipeline_capacity(context.job),
         )
         pipeline_context = _ProgressWindowContext(
             context,
@@ -241,6 +250,14 @@ class ProductionImageImportWorkflow:
             success_offset=all_source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+    def _has_pipeline_capacity(self, job: Job) -> bool:
+        required = (
+            self._resume_target_bytes
+            if job.stage == "waiting_for_storage"
+            else self._hard_reserve_bytes
+        )
+        return shutil.disk_usage(self._artifact_root).free >= required
 
     def _record_browser_staging_handoff(
         self,
@@ -354,6 +371,14 @@ class _ProgressWindowContext:
 
     def wait_for_review(self) -> None:
         self._context.wait_for_review()
+
+    def wait_for_storage(self, *, checkpoint_payload: dict[str, object]) -> None:
+        self._context.wait_for_storage(
+            checkpoint_payload={
+                **checkpoint_payload,
+                "workflow_phase": self._stage_prefix,
+            }
+        )
 
     def checkpoint(
         self,

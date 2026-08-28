@@ -2651,3 +2651,7 @@ nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
 kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
 ma tylko checksumę źródła, rozmiar obrazu,
 dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.
+Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
+konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
+automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
+pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.

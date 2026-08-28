@@ -365,6 +365,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
             session_factory,
             artifact_root,
             repository_root=Path.cwd(),
+            hard_reserve_bytes=settings.storage_hard_reserve_gib * 1024**3,
+            resume_target_bytes=settings.storage_target_gib * 1024**3,
         )
         import_dispatch_handler = ImportJobDispatchHandler(
             import_handler,

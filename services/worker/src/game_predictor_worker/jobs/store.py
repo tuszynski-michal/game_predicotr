@@ -14,6 +14,7 @@ from game_predictor_api.domain.jobs import (
     acknowledge_job_cancellation,
     checkpoint_job,
     complete_job,
+    defer_job_for_storage,
     fail_job,
     recover_expired_job,
     renew_job_lease,
@@ -31,7 +32,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewBulkOperationModel,
     JobModel,
 )
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -77,7 +78,11 @@ class SqlAlchemyWorkerJobStore:
                             JobModel.status == JobStatus.CREATED,
                             JobModel.job_type.in_(tuple(allowed_job_types)),
                         )
-                        .order_by(JobModel.created_at, JobModel.id)
+                        .order_by(
+                            case((JobModel.job_type == JobType.STORAGE_GC, 0), else_=1),
+                            JobModel.created_at,
+                            JobModel.id,
+                        )
                         .limit(1)
                         .with_for_update(skip_locked=True)
                     )
@@ -260,6 +265,26 @@ class SqlAlchemyWorkerJobStore:
             projection.reconcile_import_job(job_id)
             if updated.status is JobStatus.WAITING_FOR_REVIEW and updated.game_id is not None:
                 projection.mark_live_projection_ready(updated.game_id)
+            return updated
+
+    def defer_for_storage(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        checkpoint_payload: dict[str, object],
+        deferred_at: datetime,
+    ) -> Job:
+        with self._session_factory() as session, session.begin():
+            record = _locked_job(session, job_id)
+            updated = defer_job_for_storage(
+                job_from_record(record),
+                lease_token=lease_token,
+                checkpoint_payload=checkpoint_payload,
+                deferred_at=deferred_at,
+            )
+            apply_job_to_record(record, updated)
+            session.flush()
             return updated
 
     def recover_expired(

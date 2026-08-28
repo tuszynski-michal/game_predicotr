@@ -70,6 +70,10 @@ import {
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
+  getStorageGcRun as getGeneratedStorageGcRun,
+  createStorageGcPreview as createGeneratedStorageGcPreview,
+  refreshImageStorageInventory as refreshGeneratedImageStorageInventory,
+  startStorageGcRun as startGeneratedStorageGcRun,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getUnreadableBoardReview as getGeneratedUnreadableBoardReview,
   getJob as getGeneratedJob,
@@ -273,6 +277,7 @@ import type {
   SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  StorageGcRunCreate,
   ResolveUnreadableCellRequest,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewCellResponse,
@@ -388,6 +393,9 @@ export type {
   ImageJobOperationsResponse,
   ImageJobStageCountResponse,
   ImageStorageInventoryResponse,
+  StorageGcPreviewResponse,
+  StorageGcRunCreate,
+  StorageGcRunResponse,
   ImageStorageNamespaceResponse,
   ImageReviewAction,
   ImageReviewGridIssueView,
@@ -1200,6 +1208,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
+    refreshImageStorageInventory: () =>
+      refreshGeneratedImageStorageInventory({ client }),
+    createStorageGcPreview: () => createGeneratedStorageGcPreview({ client }),
+    startStorageGcRun: (body: StorageGcRunCreate) =>
+      startGeneratedStorageGcRun({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`storage-gc:${body.previewId}`),
+      }),
+    getStorageGcRun: (runId: string) =>
+      getGeneratedStorageGcRun({ client, path: { run_id: runId } }),
     listApprovedSymbolReferenceCandidates: (
       gameId: string,
       symbolId: string,

@@ -781,7 +781,8 @@ data/
 Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje dużych zdjęć w głównych tabelach domenowych ani w mobilnym SQLite.
 
 Od M7.3 katalog `data/` jest jedynym zarządzanym rootem image storage.
-Inwentarz może odczytywać wyłącznie sześć powyższych przestrzeni, nie podąża
+Inwentarz może odczytywać wyłącznie zarządzane przestrzenie `staging`,
+`originals`, `working`, `crops`, `training`, `models` i `exports`, nie podąża
 za dowiązaniami symbolicznymi i raportuje liczbę pominiętych dowiązań.
 Automatyczne usuwanie jest wyłączone dla każdej przestrzeni. `originals` i
 `models` mają politykę `preserve`; pozostałe dane są wersjonowane, ale również
@@ -795,6 +796,15 @@ i ręczna selekcja nadal nie podlegają automatycznemu usuwaniu. Browserowy
 staging może zostać zakwalifikowany dopiero po kompletnym, checksumowanym
 handoffie wszystkich JPEG-ów do managed originals i zakończeniu zależnych
 preflightów/importów.
+
+Pełny pomiar przestrzeni nazw jest wykonywany przez bounded job
+`storage_inventory` w general lane i zapisywany jako snapshot. Wejście do
+panelu nie uruchamia synchronicznego skanu drzewa plików. Panel pokazuje
+ostatni pomiar i jawnie rozróżnia tryb obserwacji od aktywnego automatycznego
+usuwania.
+Do zakończenia pierwszego odbioru ustawienie
+`GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY` domyślnie ma wartość `true`; capacity
+guard nadal blokuje ryzykowne zapisy, ale nie uruchamia destrukcyjnego GC.
 
 Wyjątkiem jest jawny reset danych layoutów gry z TASK-0133. Po pokazaniu
 pełnego preview i mocnym potwierdzeniu może usunąć zarządzane oryginały oraz

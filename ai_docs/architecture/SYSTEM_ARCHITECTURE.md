@@ -1304,6 +1304,10 @@ każdym spinie.
   usuwana. Trwały marker po przeniesieniu pozwala rozpoznać usunięcie po crashu
   przed checkpointem. Korzenie przestrzeni nazw, symlinki i ścieżki poza
   allowlistą nigdy nie są usuwane,
+- `storage_inventory` wykonuje pełny skan przestrzeni nazw poza cyklem requestu,
+  deduplikuje wspólne woluminy `artifact_root`/`import_root` i zapisuje
+  `storage_usage_snapshots`; GET panelu czyta ostatni snapshot oraz bieżące
+  metadane wolnego miejsca bez materializowania listy plików,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

@@ -5,6 +5,7 @@ export const ADMIN_WORKSPACES = [
   'image-selection',
   'manual-image-selection',
   'symbol-verification',
+  'storage',
 ] as const;
 export type AdminWorkspace = (typeof ADMIN_WORKSPACES)[number];
 

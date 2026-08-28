@@ -14,6 +14,7 @@ from game_predictor_api.schemas.image_storage import (
     StorageGcRunCreate,
     StorageGcRunResponse,
 )
+from game_predictor_api.schemas.jobs import JobResponse
 
 ImageStorageServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -41,15 +42,15 @@ def create_image_storage_router(
 
     @router.post(
         "/inventory-refresh",
-        response_model=ImageStorageInventoryResponse,
+        response_model=JobResponse,
         operation_id="refreshImageStorageInventory",
         summary="Refresh the bounded managed image storage inventory",
         responses=ERROR_RESPONSES,
     )
     def refresh_image_storage_inventory(
         service: Annotated[ImageStorageService, service_parameter],
-    ) -> ImageStorageInventoryResponse:
-        return ImageStorageInventoryResponse.from_domain(service.inventory())
+    ) -> JobResponse:
+        return JobResponse.from_domain(service.refresh_inventory())
 
     @router.post(
         "/gc-previews",

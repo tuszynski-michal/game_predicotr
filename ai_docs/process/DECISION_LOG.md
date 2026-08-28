@@ -6014,6 +6014,22 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** przyszłe usuwanie musi ponownie sprawdzić manifest, mtime,
   rozmiar, zależności i granice zarządzanego rootu przed każdą partią.
 
+## D-251 — Pełny inwentarz storage jest trwałym jobem, nie requestem UI
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** pełne liczenie plików i bajtów wykonuje idempotentny job
+  `storage_inventory` w general lane. GET panelu korzysta z ostatniego
+  `storage_usage_snapshots` i bieżących stałoczasowych metadanych woluminów.
+- **Context:** zarządzany storage zawiera miliony plików. Synchroniczny skan po
+  otwarciu widoku blokowałby request, zwiększał obciążenie dysku i mógłby
+  powodować nakładające się pomiary.
+- **Safety:** job niczego nie usuwa, nie podąża za symlinkami i zapisuje tylko
+  agregaty. Równoległe starty są serializowane, a GC nadal wymaga osobnego
+  niezmiennego preview i jawnego potwierdzenia.
+- **Consequences:** wartości rozmiarów mogą być starsze do czasu jawnego
+  odświeżenia, dlatego panel zawsze pokazuje czas pomiaru.
+
 ## Szablon nowej decyzji
 
 ```text

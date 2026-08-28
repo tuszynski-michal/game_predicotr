@@ -1575,16 +1575,20 @@ odświeżony kontrakt operations.
 
 ### GET `/api/v1/admin/image-storage`
 
-Zwraca read-only inwentarz dokładnie sześciu przestrzeni pod zarządzanym rootem
-`data`: nazwę, `retentionPolicy`, `protected`, `exists`, `fileCount`,
+Zwraca ostatni trwały, read-only inwentarz zarządzanych przestrzeni `staging`,
+`originals`, `working`, `crops`, `training`, `models` i `exports`: nazwę,
+`retentionPolicy`, `protected`, `exists`, `fileCount`,
 `sizeBytes` i `ignoredSymlinkCount`. Odpowiedź zawiera sumy oraz
-`automaticDeletion = false`. Endpoint nie przyjmuje ścieżki i nie wykonuje
-operacji destrukcyjnej.
+`automaticDeletion = false`, czas pomiaru, deduplikowane woluminy oraz logiczny
+rozmiar PostgreSQL. Endpoint nie przyjmuje ścieżki, nie skanuje synchronicznie
+drzewa i nie wykonuje operacji destrukcyjnej.
 
 ### POST `/api/v1/admin/image-storage/inventory-refresh`
 
-Odświeża bounded inwentarz zarządzanych przestrzeni. Nie tworzy preview i nie
-usuwa danych.
+Idempotentnie tworzy albo zwraca aktywny job `storage_inventory` w general
+lane. Job skanuje zarządzane przestrzenie, zapisuje snapshot i nie tworzy
+preview ani nie usuwa danych. Równoległe wywołania są serializowane blokadą
+transakcyjną i zwracają ten sam aktywny job.
 
 ### POST `/api/v1/admin/image-storage/gc-previews`
 

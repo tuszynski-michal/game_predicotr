@@ -1729,6 +1729,19 @@ pliku. Layouty są odczytywane keysetowo i zapisywane partiami po 1000, z jawną
 kontrolą ciągłości. Kompletny plik tymczasowy jest publikowany atomowo, a
 istniejący cel nie może zostać nadpisany.
 
+## Inwentarz i garbage collector storage
+
+`storage_usage_snapshots` przechowuje wyłącznie agregaty pomiaru: przestrzeń
+nazw, wolumin, liczbę plików, bajty, wolne/całkowite miejsce, źródło pomiaru i
+czas. Pełny pomiar zapisuje wspólny `measured_at`, dzięki czemu GET może
+odtworzyć jeden spójny snapshot bez skanowania systemu plików.
+
+`storage_gc_runs` i jego kandydaci przechowują trwały przebieg, statusy oraz
+metadane niezmiennego manifestu, nigdy binaria. `browser_selection_retention_states`
+przechowuje potwierdzony lifecycle handoffu browserowego stagingu. Job
+`storage_inventory` jest read-only; job `storage_gc` może wykonać wyłącznie
+wcześniej utworzony checksum-bound preview.
+
 ## Produkcyjny manifest i katalog artefaktu
 
 Manifest M3 ma `manifestVersion = 1` i zawiera:

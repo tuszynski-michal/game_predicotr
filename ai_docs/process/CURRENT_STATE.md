@@ -38,6 +38,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Automatyczny GC jest idempotentny, ma pierwszeństwo w general lane, a job
   obrazowy przy presji zapisuje etap `waiting_for_storage` i oddaje lease bez
   utraty checkpointu. Wznowienie wymaga osiągnięcia celu 80 GiB.
+- TASK 6 dodaje główny workspace Admina `Pamięć i czyszczenie`. Pełny skan
+  katalogów działa jako idempotentny job `storage_inventory` w general lane i
+  zapisuje trwały snapshot; zwykły GET nie skanuje drzewa plików. Panel pokazuje
+  woluminy, PostgreSQL, przestrzenie nazw, presję miejsca oraz checksum-bound
+  dry-run i postęp GC. Automatyczne usuwanie nadal pozostaje w trybie
+  `observe_only` (domyślnie wymuszone konfiguracją) do kontrolowanego odbioru
+  TASK 8.
 - Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
   użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
   referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.

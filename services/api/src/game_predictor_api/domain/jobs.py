@@ -23,6 +23,7 @@ class JobType(StrEnum):
     IMAGE_SYMBOL_REVIEW_BULK = "image_symbol_review_bulk"
     IMAGE_SYMBOL_REVIEW_BACKFILL = "image_symbol_review_backfill"
     STORAGE_GC = "storage_gc"
+    STORAGE_INVENTORY = "storage_inventory"
 
 
 class JobStatus(StrEnum):

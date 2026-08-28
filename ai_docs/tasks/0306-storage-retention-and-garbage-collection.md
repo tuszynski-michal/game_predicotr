@@ -89,3 +89,10 @@ per unikalny wolumin z konserwatywną estymacją 8× i marginesem 20%. Poniżej
 naruszyłaby rezerwę 30 GiB, jest blokowana. Worker sprawdza miejsce pomiędzy
 źródłami, zapisuje `waiting_for_storage`, oddaje lease i wznawia dopiero po
 osiągnięciu celu 80 GiB. Job GC ma pierwszeństwo w general lane.
+
+TASK 6 dodaje lokalny workspace `Pamięć i czyszczenie`. Bounded pomiar jest
+trwałym, idempotentnym jobem `storage_inventory`; odczyt strony korzysta z
+ostatniego snapshotu i nie skanuje synchronicznie milionów plików. Panel
+pokazuje rozmiary przestrzeni, woluminy i presję, uruchamia dry-run oraz wymaga
+jawnego potwierdzenia przed startem GC. Polityka nadal raportuje
+`automaticDeletion = false`, ponieważ pierwszy cleanup nie został zatwierdzony.

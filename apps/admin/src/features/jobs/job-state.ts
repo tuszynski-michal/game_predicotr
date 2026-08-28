@@ -25,6 +25,8 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   image_grid_reinference: 'Przeliczenie oczekującej siatki',
   image_symbol_review_bulk: 'Masowa weryfikacja symboli',
   image_symbol_review_backfill: 'Przygotowanie weryfikacji symboli',
+  storage_gc: 'Bezpieczne czyszczenie pamięci',
+  storage_inventory: 'Pomiar zajętości pamięci',
 };
 
 export const JOB_STATUS_OPTIONS = Object.keys(

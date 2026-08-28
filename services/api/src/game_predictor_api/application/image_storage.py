@@ -6,12 +6,13 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.application.storage_gc import (
@@ -19,11 +20,18 @@ from game_predictor_api.application.storage_gc import (
     StorageGcRun,
     StorageGcService,
 )
-from game_predictor_api.domain.jobs import JobConflictError, JobNotFoundError
+from game_predictor_api.domain.jobs import (
+    Job,
+    JobConflictError,
+    JobNotFoundError,
+    JobType,
+    create_job,
+)
 
 DIAGNOSTIC_EXPORT_SCHEMA = "image-job-diagnostics-v1"
 DIAGNOSTIC_ERROR_LIMIT = 10_000
 MANAGED_STORAGE_NAMESPACES = (
+    "staging",
     "originals",
     "working",
     "crops",
@@ -33,6 +41,7 @@ MANAGED_STORAGE_NAMESPACES = (
 )
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _RETENTION_POLICIES = {
+    "staging": ("verified-handoff-derived", False),
     "originals": ("preserve", True),
     "working": ("versioned-derived", False),
     "crops": ("versioned-derived", True),
@@ -60,6 +69,18 @@ class ImageStorageInventory:
     total_file_count: int
     total_size_bytes: int
     namespaces: Sequence[ImageStorageNamespace]
+    measured_at: datetime
+    volumes: Sequence[ImageStorageVolume]
+    database_size_bytes: int | None
+    wal_size_bytes: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class ImageStorageVolume:
+    key: str
+    roots: tuple[str, ...]
+    total_bytes: int
+    free_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,15 +138,31 @@ class ImageDiagnosticRepository(Protocol):
         error_limit: int,
     ) -> ImageDiagnosticSnapshot: ...
 
+    def database_storage_sizes(self) -> tuple[int | None, int | None]: ...
+
+    def active_storage_inventory_job(self) -> Job | None: ...
+
+    def add_job(self, job: Job) -> Job: ...
+
+    def get_or_create_storage_inventory_job(self, *, requested_at: datetime) -> Job: ...
+
+    def latest_storage_inventory(self) -> ImageStorageInventory | None: ...
+
 
 class ImageArtifactStore:
     """Filesystem boundary restricted to ``<artifact-root>/data``."""
 
-    def __init__(self, artifact_root: Path) -> None:
+    def __init__(self, artifact_root: Path, import_root: Path | None = None) -> None:
         self._artifact_root = artifact_root.resolve()
         self._managed_root = self._artifact_root / "data"
+        self._import_root = (import_root or artifact_root).resolve()
 
-    def inventory(self) -> ImageStorageInventory:
+    def inventory(
+        self,
+        *,
+        database_size_bytes: int | None = None,
+        wal_size_bytes: int | None = None,
+    ) -> ImageStorageInventory:
         namespaces = tuple(self._namespace_inventory(name) for name in MANAGED_STORAGE_NAMESPACES)
         return ImageStorageInventory(
             root_name="data",
@@ -133,7 +170,42 @@ class ImageArtifactStore:
             total_file_count=sum(item.file_count for item in namespaces),
             total_size_bytes=sum(item.size_bytes for item in namespaces),
             namespaces=namespaces,
+            measured_at=datetime.now().astimezone(),
+            volumes=self._volumes(),
+            database_size_bytes=database_size_bytes,
+            wal_size_bytes=wal_size_bytes,
         )
+
+    def inventory_metadata_only(
+        self,
+        *,
+        database_size_bytes: int | None,
+        wal_size_bytes: int | None,
+    ) -> ImageStorageInventory:
+        return ImageStorageInventory(
+            root_name="data",
+            automatic_deletion=False,
+            total_file_count=0,
+            total_size_bytes=0,
+            namespaces=(),
+            measured_at=datetime.now().astimezone(),
+            volumes=self._volumes(),
+            database_size_bytes=database_size_bytes,
+            wal_size_bytes=wal_size_bytes,
+        )
+
+    def _volumes(self) -> tuple[ImageStorageVolume, ...]:
+        grouped: dict[str, tuple[Path, list[str]]] = {}
+        for name, root in (("artifacts", self._artifact_root), ("imports", self._import_root)):
+            key = (root.drive or root.anchor).casefold()
+            if key not in grouped:
+                grouped[key] = (root, [])
+            grouped[key][1].append(name)
+        result = []
+        for key, (root, names) in sorted(grouped.items()):
+            usage = shutil.disk_usage(root)
+            result.append(ImageStorageVolume(key, tuple(names), usage.total, usage.free))
+        return tuple(result)
 
     def create_diagnostic_export(
         self,
@@ -252,7 +324,11 @@ class ImageArtifactStore:
         return path, export
 
     def _namespace_inventory(self, name: str) -> ImageStorageNamespace:
-        path = self._managed_root / name
+        path = (
+            self._import_root / "browser-selections"
+            if name == "staging"
+            else self._managed_root / name
+        )
         policy, protected = _RETENTION_POLICIES[name]
         if not path.exists():
             return ImageStorageNamespace(
@@ -316,7 +392,43 @@ class ImageStorageService:
         self._storage_gc_service = storage_gc_service
 
     def inventory(self) -> ImageStorageInventory:
-        return self._artifact_store.inventory()
+        cached_reader = getattr(self._repository, "latest_storage_inventory", None)
+        if cached_reader is None:
+            return self._artifact_store.inventory()
+        cached = cast(ImageStorageInventory | None, cached_reader())
+        if cached is not None:
+            return cached
+        sizes = self._repository.database_storage_sizes()
+        empty = self._artifact_store.inventory_metadata_only(
+            database_size_bytes=sizes[0],
+            wal_size_bytes=sizes[1],
+        )
+        return empty
+
+    def refresh_inventory(self) -> Job:
+        atomic_creator = getattr(
+            self._repository,
+            "get_or_create_storage_inventory_job",
+            None,
+        )
+        now = datetime.now().astimezone()
+        if atomic_creator is not None:
+            return cast(Job, atomic_creator(requested_at=now))
+        active = self._repository.active_storage_inventory_job()
+        if active is not None:
+            return active
+        return self._repository.add_job(
+            create_job(
+                JobType.STORAGE_INVENTORY,
+                game_id=None,
+                input_payload={
+                    "schema_version": 1,
+                    "inventory_kind": "managed_image_storage",
+                    "requested_at": now.isoformat(),
+                },
+                created_at=now,
+            )
+        )
 
     def create_gc_preview(self) -> StorageGcPreview:
         return self._require_gc().preview()

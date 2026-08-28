@@ -3835,6 +3835,14 @@ export type ImageStorageInventoryResponse = {
    */
   automaticDeletion: boolean;
   /**
+   * Databasesizebytes
+   */
+  databaseSizeBytes: number | null;
+  /**
+   * Measuredat
+   */
+  measuredAt: string;
+  /**
    * Namespaces
    */
   namespaces: Array<ImageStorageNamespaceResponse>;
@@ -3850,6 +3858,14 @@ export type ImageStorageInventoryResponse = {
    * Totalsizebytes
    */
   totalSizeBytes: number;
+  /**
+   * Volumes
+   */
+  volumes: Array<ImageStorageVolumeResponse>;
+  /**
+   * Walsizebytes
+   */
+  walSizeBytes: number | null;
 };
 
 /**
@@ -3884,6 +3900,28 @@ export type ImageStorageNamespaceResponse = {
    * Sizebytes
    */
   sizeBytes: number;
+};
+
+/**
+ * ImageStorageVolumeResponse
+ */
+export type ImageStorageVolumeResponse = {
+  /**
+   * Freebytes
+   */
+  freeBytes: number;
+  /**
+   * Key
+   */
+  key: string;
+  /**
+   * Roots
+   */
+  roots: Array<string>;
+  /**
+   * Totalbytes
+   */
+  totalBytes: number;
 };
 
 /**
@@ -4054,6 +4092,7 @@ export type JobResponse = {
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
     | StorageGcJobPayload
+    | StorageInventoryJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -4103,7 +4142,8 @@ export type JobType =
   | 'image_grid_reinference'
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
-  | 'storage_gc';
+  | 'storage_gc'
+  | 'storage_inventory';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -8019,6 +8059,24 @@ export type StorageGcRunResponse = {
    * Updatedat
    */
   updatedAt: string;
+};
+
+/**
+ * StorageInventoryJobPayload
+ */
+export type StorageInventoryJobPayload = {
+  /**
+   * Inventorykind
+   */
+  inventoryKind: 'managed_image_storage';
+  /**
+   * Requestedat
+   */
+  requestedAt: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
 };
 
 /**
@@ -15791,7 +15849,7 @@ export type RefreshImageStorageInventoryResponses = {
   /**
    * Successful Response
    */
-  200: ImageStorageInventoryResponse;
+  200: JobResponse;
 };
 
 export type RefreshImageStorageInventoryResponse =

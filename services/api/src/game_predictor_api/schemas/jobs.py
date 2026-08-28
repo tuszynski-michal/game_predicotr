@@ -310,6 +310,12 @@ class StorageGcJobPayload(ApiModel):
     mode: Literal["manual", "automatic"]
 
 
+class StorageInventoryJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    inventory_kind: Literal["managed_image_storage"]
+    requested_at: datetime
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -369,6 +375,7 @@ JobPayloadResponse = (
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
     | StorageGcJobPayload
+    | StorageInventoryJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -691,6 +698,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SymbolCellReviewBackfillJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_GC:
         return StorageGcJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_INVENTORY:
+        return StorageInventoryJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

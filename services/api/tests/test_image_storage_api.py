@@ -14,6 +14,7 @@ from game_predictor_api.application.image_storage import (
 )
 from game_predictor_api.application.storage_gc import StorageGcPreview, StorageGcRun
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.jobs import Job, JobType
 from game_predictor_api.main import create_app
 
 NOW = datetime(2026, 7, 29, 22, 0, tzinfo=UTC)
@@ -31,6 +32,14 @@ class MemoryDiagnosticRepository:
         self.job_id = job_id
         self.source_relative_path = source_relative_path
         self.received_limits: list[int] = []
+        self.inventory_job: Job | None = None
+
+    def active_storage_inventory_job(self) -> Job | None:
+        return self.inventory_job
+
+    def add_job(self, job: Job) -> Job:
+        self.inventory_job = job
+        return job
 
     def diagnostic_snapshot(
         self,
@@ -109,6 +118,7 @@ def test_inventory_is_read_only_bounded_to_managed_namespaces(
     assert payload["totalFileCount"] == 1
     assert payload["totalSizeBytes"] == len(b"source")
     assert [item["name"] for item in payload["namespaces"]] == [
+        "staging",
         "originals",
         "working",
         "crops",
@@ -116,12 +126,26 @@ def test_inventory_is_read_only_bounded_to_managed_namespaces(
         "models",
         "exports",
     ]
-    originals = payload["namespaces"][0]
-    models = payload["namespaces"][4]
+    originals = payload["namespaces"][1]
+    models = payload["namespaces"][5]
     assert originals["retentionPolicy"] == "preserve"
     assert originals["protected"] is True
     assert models["protected"] is True
     assert outside.read_bytes() == b"outside"
+
+
+def test_inventory_refresh_returns_one_idempotent_durable_job(tmp_path: Path) -> None:
+    client, _job_id, repository = _client(tmp_path)
+
+    with client:
+        first = client.post("/api/v1/admin/image-storage/inventory-refresh")
+        second = client.post("/api/v1/admin/image-storage/inventory-refresh")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert first.json()["jobType"] == JobType.STORAGE_INVENTORY.value
+    assert repository.inventory_job is not None
 
 
 def test_diagnostic_export_is_immutable_idempotent_and_downloadable(

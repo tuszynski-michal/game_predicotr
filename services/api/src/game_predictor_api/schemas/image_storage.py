@@ -30,6 +30,10 @@ class ImageStorageInventoryResponse(ApiModel):
     total_file_count: int
     total_size_bytes: int
     namespaces: list[ImageStorageNamespaceResponse]
+    measured_at: datetime
+    volumes: list[ImageStorageVolumeResponse]
+    database_size_bytes: int | None
+    wal_size_bytes: int | None
 
     @classmethod
     def from_domain(
@@ -53,7 +57,26 @@ class ImageStorageInventoryResponse(ApiModel):
                 )
                 for item in value.namespaces
             ],
+            measured_at=value.measured_at,
+            volumes=[
+                ImageStorageVolumeResponse(
+                    key=item.key,
+                    roots=list(item.roots),
+                    total_bytes=item.total_bytes,
+                    free_bytes=item.free_bytes,
+                )
+                for item in value.volumes
+            ],
+            database_size_bytes=value.database_size_bytes,
+            wal_size_bytes=value.wal_size_bytes,
         )
+
+
+class ImageStorageVolumeResponse(ApiModel):
+    key: str
+    roots: list[str]
+    total_bytes: int
+    free_bytes: int
 
 
 class StorageGcPreviewResponse(ApiModel):
@@ -76,8 +99,10 @@ class StorageGcPreviewResponse(ApiModel):
 
     @classmethod
     def from_domain(cls, value: StorageGcPreview) -> StorageGcPreviewResponse:
-        return cls(**value.__dict__) if hasattr(value, "__dict__") else cls(
-            **{field: getattr(value, field) for field in cls.model_fields}
+        return (
+            cls(**value.__dict__)
+            if hasattr(value, "__dict__")
+            else cls(**{field: getattr(value, field) for field in cls.model_fields})
         )
 
 

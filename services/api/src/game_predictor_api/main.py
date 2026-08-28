@@ -661,7 +661,11 @@ def create_app(
             "import": resolved_settings.import_root,
         },
         policy=storage_capacity_policy,
-        ensure_automatic_gc=automatic_storage_gc_service.ensure_automatic_run,
+        ensure_automatic_gc=(
+            None
+            if resolved_settings.storage_gc_observe_only
+            else automatic_storage_gc_service.ensure_automatic_run
+        ),
     )
     default_browser_image_selection_service = BrowserImageSelectionService(
         default_image_folder_selection_service,
@@ -883,7 +887,10 @@ def create_app(
             try:
                 yield ImageStorageService(
                     SqlAlchemyImageJobOperationsRepository(session),
-                    ImageArtifactStore(resolved_settings.artifact_root),
+                    ImageArtifactStore(
+                        resolved_settings.artifact_root,
+                        resolved_settings.import_root,
+                    ),
                     StorageGcService(
                         SqlAlchemyStorageGcRepository(session_factory),
                         StorageGcArtifactStore(

@@ -6785,6 +6785,22 @@
             "title": "Automaticdeletion",
             "type": "boolean"
           },
+          "databaseSizeBytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databasesizebytes"
+          },
+          "measuredAt": {
+            "format": "date-time",
+            "title": "Measuredat",
+            "type": "string"
+          },
           "namespaces": {
             "items": {
               "$ref": "#/components/schemas/ImageStorageNamespaceResponse"
@@ -6803,6 +6819,24 @@
           "totalSizeBytes": {
             "title": "Totalsizebytes",
             "type": "integer"
+          },
+          "volumes": {
+            "items": {
+              "$ref": "#/components/schemas/ImageStorageVolumeResponse"
+            },
+            "title": "Volumes",
+            "type": "array"
+          },
+          "walSizeBytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Walsizebytes"
           }
         },
         "required": [
@@ -6810,7 +6844,11 @@
           "automaticDeletion",
           "totalFileCount",
           "totalSizeBytes",
-          "namespaces"
+          "namespaces",
+          "measuredAt",
+          "volumes",
+          "databaseSizeBytes",
+          "walSizeBytes"
         ],
         "title": "ImageStorageInventoryResponse",
         "type": "object"
@@ -6857,6 +6895,38 @@
           "ignoredSymlinkCount"
         ],
         "title": "ImageStorageNamespaceResponse",
+        "type": "object"
+      },
+      "ImageStorageVolumeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "freeBytes": {
+            "title": "Freebytes",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "roots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roots",
+            "type": "array"
+          },
+          "totalBytes": {
+            "title": "Totalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "roots",
+          "totalBytes",
+          "freeBytes"
+        ],
+        "title": "ImageStorageVolumeResponse",
         "type": "object"
       },
       "ImportJobCreate": {
@@ -7198,6 +7268,9 @@
                 "$ref": "#/components/schemas/StorageGcJobPayload"
               },
               {
+                "$ref": "#/components/schemas/StorageInventoryJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -7302,7 +7375,8 @@
           "image_grid_reinference",
           "image_symbol_review_bulk",
           "image_symbol_review_backfill",
-          "storage_gc"
+          "storage_gc",
+          "storage_inventory"
         ],
         "title": "JobType",
         "type": "string"
@@ -13861,6 +13935,33 @@
           "finishedAt"
         ],
         "title": "StorageGcRunResponse",
+        "type": "object"
+      },
+      "StorageInventoryJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "inventoryKind": {
+            "const": "managed_image_storage",
+            "title": "Inventorykind",
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "title": "Requestedat",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "inventoryKind",
+          "requestedAt"
+        ],
+        "title": "StorageInventoryJobPayload",
         "type": "object"
       },
       "SymbolCellReviewAction": {
@@ -28140,7 +28241,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImageStorageInventoryResponse"
+                  "$ref": "#/components/schemas/JobResponse"
                 }
               }
             },

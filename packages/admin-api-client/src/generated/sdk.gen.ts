@@ -21,6 +21,9 @@ import type {
   ApplySymbolCellReviewDecisionData,
   ApplySymbolCellReviewDecisionErrors,
   ApplySymbolCellReviewDecisionResponses,
+  ApproveImageGridReviewGeometryData,
+  ApproveImageGridReviewGeometryErrors,
+  ApproveImageGridReviewGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -75,6 +78,9 @@ import type {
   CreateImageFolderImportData,
   CreateImageFolderImportErrors,
   CreateImageFolderImportResponses,
+  CreateImageGridReviewGeometryRevisionData,
+  CreateImageGridReviewGeometryRevisionErrors,
+  CreateImageGridReviewGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -185,6 +191,9 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGridReviewSourceAssetData,
+  GetImageGridReviewSourceAssetErrors,
+  GetImageGridReviewSourceAssetResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
@@ -351,6 +360,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageGridReviewsData,
+  ListImageGridReviewsErrors,
+  ListImageGridReviewsResponses,
   ListImageSelectionGroupCandidatesData,
   ListImageSelectionGroupCandidatesErrors,
   ListImageSelectionGroupCandidatesResponses,
@@ -447,6 +459,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageGridReviewGeometryData,
+  PreviewImageGridReviewGeometryErrors,
+  PreviewImageGridReviewGeometryResponses,
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
@@ -1029,6 +1044,22 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List current game-wide board geometries with bounded keyset pagination
+ */
+export const listImageGridReviews = <ThrowOnError extends boolean = false>(
+  options: Options<ListImageGridReviewsData, ThrowOnError>,
+): RequestResult<
+  ListImageGridReviewsResponses,
+  ListImageGridReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageGridReviewsResponses,
+    ListImageGridReviewsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
 
 /**
  * List durable board-cell geometry fallback items
@@ -2883,6 +2914,105 @@ export const listOperationalImageReviewResolutionEvents = <
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events',
+    ...options,
+  });
+
+/**
+ * Approve one exact current board geometry revision
+ */
+export const approveImageGridReviewGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveImageGridReviewGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveImageGridReviewGeometryResponses,
+  ApproveImageGridReviewGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveImageGridReviewGeometryResponses,
+    ApproveImageGridReviewGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview corrected topology-aware board-cell crops without persistence
+ */
+export const previewImageGridReviewGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageGridReviewGeometryData, ThrowOnError>,
+): RequestResult<
+  PreviewImageGridReviewGeometryResponses,
+  PreviewImageGridReviewGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageGridReviewGeometryResponses,
+    PreviewImageGridReviewGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Persist and approve one topology-aware geometry revision
+ */
+export const createImageGridReviewGeometryRevision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateImageGridReviewGeometryRevisionData, ThrowOnError>,
+): RequestResult<
+  CreateImageGridReviewGeometryRevisionResponses,
+  CreateImageGridReviewGeometryRevisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGridReviewGeometryRevisionResponses,
+    CreateImageGridReviewGeometryRevisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one current checksum-bound source image for grid validation
+ */
+export const getImageGridReviewSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGridReviewSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGridReviewSourceAssetResponses,
+  GetImageGridReviewSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGridReviewSourceAssetResponses,
+    GetImageGridReviewSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-reviews/{review_item_id}/source-asset',
     ...options,
   });
 

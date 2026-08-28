@@ -16,6 +16,7 @@ from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryManualResolutionProjection,
 )
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkExplicitTarget,
@@ -32,7 +33,11 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellProcessingManifestV1,
 )
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
-from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.domain.image_grid_reviews import (
+    ImageGridReviewError,
+    ImageGridReviewState,
+    ImageGridReviewView,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewConflictError,
@@ -62,6 +67,9 @@ from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
+)
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
@@ -715,6 +723,51 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             session.commit()
 
         with Session(engine, expire_on_commit=False) as session:
+            grid_service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+            grid_page = grid_service.list(
+                game_id=game.id,
+                view=ImageGridReviewView.NEEDS_VALIDATION,
+                import_job_id=None,
+                after_cursor=None,
+                before_cursor=None,
+                limit=10,
+            )
+            assert len(grid_page.items) == 1
+            grid_item = grid_page.items[0]
+            assert grid_item.review_item_id == review_item_id
+            assert grid_item.state is ImageGridReviewState.NEEDS_VALIDATION
+            assert grid_page.counts.needs_validation == 1
+            with pytest.raises(ImageGridReviewError) as conflict:
+                grid_service.approve(
+                    game_id=game.id,
+                    review_item_id=review_item_id,
+                    expected_resolution_revision=grid_item.resolution_revision,
+                    expected_geometry_revision=grid_item.geometry_revision,
+                    expected_source_checksum_sha256="0" * 64,
+                    expected_source_width=grid_item.source_width,
+                    expected_source_height=grid_item.source_height,
+                    expected_grid_rows=grid_item.topology.rows,
+                    expected_grid_columns=grid_item.topology.columns,
+                    actor="grid-reviewer",
+                )
+            assert conflict.value.code == "IMAGE_GRID_REVIEW_SOURCE_DRIFT"
+            approval = grid_service.approve(
+                game_id=game.id,
+                review_item_id=review_item_id,
+                expected_resolution_revision=grid_item.resolution_revision,
+                expected_geometry_revision=grid_item.geometry_revision,
+                expected_source_checksum_sha256=grid_item.source_checksum_sha256,
+                expected_source_width=grid_item.source_width,
+                expected_source_height=grid_item.source_height,
+                expected_grid_rows=grid_item.topology.rows,
+                expected_grid_columns=grid_item.topology.columns,
+                actor="grid-reviewer",
+            )
+            assert approval.changed is True
+            assert approval.item.state is ImageGridReviewState.APPROVED
+            session.rollback()
+
+        with Session(engine, expire_on_commit=False) as session:
             repository = SqlAlchemyOperationalImageReviewRepository(session)
             service = OperationalImageReviewService(repository)
             item = service.get_item(
@@ -949,6 +1002,16 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
             state = session.get(ImageSymbolReviewStateModel, game.id)
             assert state is not None
             assert state.catalog_revision == 5
+            grid_page = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session)).list(
+                game_id=game.id,
+                view=ImageGridReviewView.ALL,
+                import_job_id=None,
+                after_cursor=None,
+                before_cursor=None,
+                limit=10,
+            )
+            assert grid_page.items == ()
+            assert grid_page.counts.total == 0
     finally:
         engine.dispose()
 

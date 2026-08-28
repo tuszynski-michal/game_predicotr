@@ -3478,3 +3478,16 @@ trafia do treningu. Pole oznaczone `grid_issue` po recropie wraca jako
 rewizję, zapisuje append-only event i może ponownie domknąć planszę tylko przy
 komplecie logicznych etykiet. Rewizja katalogu wzrasta najwyżej raz w tej samej
 transakcji. Publiczne endpointy kolejki geometrii pozostają zakresem TASK 5.
+
+Commit `v0.9.5` dodaje lokalne Admin API game-wide kolejki walidacji geometrii.
+Widoki `needs_validation`, `needs_correction` i `all` używają bounded keysetu
+`(sequence_number, review_item_id)`, opcjonalnego scope importu i wyłącznie
+bieżącego właściciela z `image_board_search_fast_documents`. Opaque cursor jest
+związany z grą, filtrem, importem i kierunkiem.
+
+Źródło jest serwowane wyłącznie po ponownej kontroli ścieżki oraz SHA-256.
+Zatwierdzenie, preview i zapis wiążą rewizję decyzji i geometrii, checksumę i
+wymiary źródła oraz snapshot topologii. Aktor zapisu pochodzi z lokalnego
+kontekstu API. Nowa odpowiedź rewizji nie dziedziczy historycznego limitu 15:
+zwraca dynamiczne `rows × columns` i oblicza indeks row-major z bieżącej liczby
+kolumn. OpenAPI i generowany klient TypeScript są zgodne. UI pozostaje TASK 6.

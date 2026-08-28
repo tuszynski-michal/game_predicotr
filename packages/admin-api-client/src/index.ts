@@ -3,6 +3,7 @@ import {
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
   applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
+  approveImageGridReviewGeometry as approveGeneratedImageGridReviewGeometry,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -26,6 +27,7 @@ import {
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
+  createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
@@ -54,6 +56,7 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getBrowserPageGeometrySourceAsset as getGeneratedBrowserPageGeometrySourceAsset,
   getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
@@ -99,6 +102,7 @@ import {
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listImageGridReviews as listGeneratedImageGridReviews,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
   listImageSelections as listGeneratedImageSelections,
@@ -136,6 +140,7 @@ import {
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
+  previewImageGridReviewGeometry as previewGeneratedImageGridReviewGeometry,
   previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
@@ -202,6 +207,10 @@ import type {
   CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
+  ImageGridReviewApprovalCommand,
+  ImageGridReviewGeometryCommand,
+  ImageGridReviewGeometryPreviewCommand,
+  ImageGridReviewView,
   ImageSelectionCreate,
   ImageSelectionDuplicateRangeCommand,
   ImageSelectionGroupDecisionCommand,
@@ -330,6 +339,15 @@ export type {
   ImageFolderImportCreate,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
+  ImageGridReviewApprovalCommand,
+  ImageGridReviewApprovalResponse,
+  ImageGridReviewGeometryCommand,
+  ImageGridReviewGeometryPreviewCommand,
+  ImageGridReviewGeometryResponse,
+  ImageGridReviewItemResponse,
+  ImageGridReviewPageResponse,
+  ImageGridReviewState,
+  ImageGridReviewView,
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
   ImageSelectionDuplicateRangeCommand,
@@ -544,6 +562,17 @@ export interface ListReviewItemsOptions {
 export interface OperationalImageReviewContext {
   readonly gameId: string;
   readonly importJobId: string;
+}
+
+export type ImageGridReviewContext = OperationalImageReviewContext;
+
+export interface ListImageGridReviewsOptions {
+  readonly gameId: string;
+  readonly view?: ImageGridReviewView;
+  readonly importJobId?: string;
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
+  readonly limit?: number;
 }
 
 export interface ListOperationalImageReviewItemsOptions extends OperationalImageReviewContext {
@@ -1532,6 +1561,78 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       body: OperationalImageReviewGeometryCommand,
     ) =>
       createGeneratedOperationalImageReviewGeometryRevision({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    listImageGridReviews: (options: ListImageGridReviewsOptions) =>
+      listGeneratedImageGridReviews({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.view === undefined ? {} : { view: options.view }),
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.beforeCursor === undefined
+            ? {}
+            : { beforeCursor: options.beforeCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getImageGridReviewSourceAsset: (
+      reviewItemId: string,
+      gameId: string,
+      expectedSourceChecksumSha256: string,
+    ) =>
+      getGeneratedImageGridReviewSourceAsset({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: { expectedSourceChecksumSha256, gameId },
+      }),
+    imageGridReviewSourceAssetUrl: (
+      reviewItemId: string,
+      gameId: string,
+      expectedSourceChecksumSha256: string,
+    ) => {
+      const query = new URLSearchParams({
+        expectedSourceChecksumSha256,
+        gameId,
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-reviews/${encodeURIComponent(reviewItemId)}/source-asset?${query.toString()}`;
+    },
+    approveImageGridReviewGeometry: (
+      reviewItemId: string,
+      gameId: string,
+      body: ImageGridReviewApprovalCommand,
+    ) =>
+      approveGeneratedImageGridReviewGeometry({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: { gameId },
+      }),
+    previewImageGridReviewGeometry: (
+      reviewItemId: string,
+      context: ImageGridReviewContext,
+      body: ImageGridReviewGeometryPreviewCommand,
+    ) =>
+      previewGeneratedImageGridReviewGeometry({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    createImageGridReviewGeometryRevision: (
+      reviewItemId: string,
+      context: ImageGridReviewContext,
+      body: ImageGridReviewGeometryCommand,
+    ) =>
+      createGeneratedImageGridReviewGeometryRevision({
         body,
         client,
         path: { review_item_id: reviewItemId },

@@ -3933,6 +3933,628 @@
         "title": "ImageFolderSelectionResponse",
         "type": "object"
       },
+      "ImageGridReviewApprovalCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedGridColumns": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridcolumns",
+            "type": "integer"
+          },
+          "expectedGridRows": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridrows",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          },
+          "expectedSourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourceheight",
+            "type": "integer"
+          },
+          "expectedSourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourcewidth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedResolutionRevision",
+          "expectedGeometryRevision",
+          "expectedSourceChecksumSha256",
+          "expectedSourceWidth",
+          "expectedSourceHeight",
+          "expectedGridRows",
+          "expectedGridColumns"
+        ],
+        "title": "ImageGridReviewApprovalCommand",
+        "type": "object"
+      },
+      "ImageGridReviewApprovalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ImageGridReviewItemResponse"
+          }
+        },
+        "required": [
+          "item",
+          "changed"
+        ],
+        "title": "ImageGridReviewApprovalResponse",
+        "type": "object"
+      },
+      "ImageGridReviewCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "approved": {
+            "minimum": 0.0,
+            "title": "Approved",
+            "type": "integer"
+          },
+          "needsCorrection": {
+            "minimum": 0.0,
+            "title": "Needscorrection",
+            "type": "integer"
+          },
+          "needsValidation": {
+            "minimum": 0.0,
+            "title": "Needsvalidation",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "needsValidation",
+          "needsCorrection",
+          "approved",
+          "total"
+        ],
+        "title": "ImageGridReviewCountsResponse",
+        "type": "object"
+      },
+      "ImageGridReviewGeometryCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "cropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropchecksumsha256",
+            "type": "string"
+          },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
+          "rowIndex": {
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "cropSampleId",
+          "cropChecksumSha256"
+        ],
+        "title": "ImageGridReviewGeometryCellResponse",
+        "type": "object"
+      },
+      "ImageGridReviewGeometryCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "corners": {
+            "description": "Source-image outer corners in row-major winding",
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedGridColumns": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridcolumns",
+            "type": "integer"
+          },
+          "expectedGridRows": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridrows",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          },
+          "expectedSourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourceheight",
+            "type": "integer"
+          },
+          "expectedSourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourcewidth",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "corners",
+          "expectedSourceChecksumSha256",
+          "expectedSourceWidth",
+          "expectedSourceHeight",
+          "expectedGridRows",
+          "expectedGridColumns",
+          "idempotencyKey"
+        ],
+        "title": "ImageGridReviewGeometryCommand",
+        "type": "object"
+      },
+      "ImageGridReviewGeometryPreviewCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "corners": {
+            "description": "Source-image outer corners in row-major winding",
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedGridColumns": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridcolumns",
+            "type": "integer"
+          },
+          "expectedGridRows": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedgridrows",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          },
+          "expectedSourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourceheight",
+            "type": "integer"
+          },
+          "expectedSourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expectedsourcewidth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "corners",
+          "expectedSourceChecksumSha256",
+          "expectedSourceWidth",
+          "expectedSourceHeight",
+          "expectedGridRows",
+          "expectedGridColumns"
+        ],
+        "title": "ImageGridReviewGeometryPreviewCommand",
+        "type": "object"
+      },
+      "ImageGridReviewGeometryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "geometryRevision": {
+            "$ref": "#/components/schemas/ImageGridReviewGeometryRevisionResponse"
+          }
+        },
+        "required": [
+          "geometryRevision",
+          "created"
+        ],
+        "title": "ImageGridReviewGeometryResponse",
+        "type": "object"
+      },
+      "ImageGridReviewGeometryRevisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGridReviewGeometryCellResponse"
+            },
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          },
+          "commandSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "corners": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "correctedBy": {
+            "title": "Correctedby",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "decisionChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decisionchecksumsha256"
+          },
+          "gridColumns": {
+            "exclusiveMinimum": 0.0,
+            "title": "Gridcolumns",
+            "type": "integer"
+          },
+          "gridRows": {
+            "exclusiveMinimum": 0.0,
+            "title": "Gridrows",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewItemId",
+          "recognizedBoardId",
+          "revision",
+          "idempotencyKey",
+          "commandSha256",
+          "decisionChecksumSha256",
+          "corners",
+          "boardChecksumSha256",
+          "cropperVersion",
+          "gridRows",
+          "gridColumns",
+          "cells",
+          "correctedBy",
+          "createdAt"
+        ],
+        "title": "ImageGridReviewGeometryRevisionResponse",
+        "type": "object"
+      },
+      "ImageGridReviewItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "approvedGeometryRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvedgeometryrevision"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometry": {
+            "additionalProperties": true,
+            "title": "Geometry",
+            "type": "object"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "gridColumns": {
+            "exclusiveMinimum": 0.0,
+            "title": "Gridcolumns",
+            "type": "integer"
+          },
+          "gridRows": {
+            "exclusiveMinimum": 0.0,
+            "title": "Gridrows",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "resolutionRevision": {
+            "minimum": 0.0,
+            "title": "Resolutionrevision",
+            "type": "integer"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourceheight",
+            "type": "integer"
+          },
+          "sourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcewidth",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ImageGridReviewState"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "gameId",
+          "importJobId",
+          "recognizedBoardId",
+          "sequenceNumber",
+          "sourceChecksumSha256",
+          "sourceWidth",
+          "sourceHeight",
+          "geometryRevision",
+          "resolutionRevision",
+          "gridRows",
+          "gridColumns",
+          "geometry",
+          "state"
+        ],
+        "title": "ImageGridReviewItemResponse",
+        "type": "object"
+      },
+      "ImageGridReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/ImageGridReviewCountsResponse"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageGridReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "previousCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouscursor"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ImageGridReviewView"
+          }
+        },
+        "required": [
+          "gameId",
+          "view",
+          "importJobId",
+          "items",
+          "counts",
+          "previousCursor",
+          "nextCursor"
+        ],
+        "title": "ImageGridReviewPageResponse",
+        "type": "object"
+      },
+      "ImageGridReviewState": {
+        "enum": [
+          "needs_validation",
+          "needs_correction",
+          "approved"
+        ],
+        "title": "ImageGridReviewState",
+        "type": "string"
+      },
+      "ImageGridReviewView": {
+        "enum": [
+          "needs_validation",
+          "needs_correction",
+          "all"
+        ],
+        "title": "ImageGridReviewView",
+        "type": "string"
+      },
       "ImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -16751,6 +17373,139 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-reviews": {
+      "get": {
+        "operationId": "listImageGridReviews",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImageGridReviewView",
+              "default": "needs_validation"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftercursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "beforeCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Beforecursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGridReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "summary": "List current game-wide board geometries with bounded keyset pagination",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending": {
       "get": {
         "operationId": "listPendingBoardCellGeometry",
@@ -23902,6 +24657,391 @@
         "summary": "List append-only operational review decisions",
         "tags": [
           "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/geometry-approval": {
+      "post": {
+        "operationId": "approveImageGridReviewGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGridReviewApprovalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGridReviewApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Approve one exact current board geometry revision",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/geometry-preview": {
+      "post": {
+        "operationId": "previewImageGridReviewGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGridReviewGeometryPreviewCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Board-cell contact sheet"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview corrected topology-aware board-cell crops without persistence",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions": {
+      "post": {
+        "operationId": "createImageGridReviewGeometryRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGridReviewGeometryCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGridReviewGeometryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Persist and approve one topology-aware geometry revision",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/source-asset": {
+      "get": {
+        "operationId": "getImageGridReviewSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedSourceChecksumSha256",
+            "required": true,
+            "schema": {
+              "title": "Expectedsourcechecksumsha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "summary": "Read one current checksum-bound source image for grid validation",
+        "tags": [
+          "image-grid-reviews"
         ]
       }
     },

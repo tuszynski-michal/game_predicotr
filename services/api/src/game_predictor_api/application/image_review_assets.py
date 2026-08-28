@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Final
 
 from game_predictor_api.domain.board_cell_geometry_pending import ImageBoardGeometryPending
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewSourceAsset
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     ImageReviewItem,
@@ -34,6 +35,18 @@ def resolve_operational_source_asset(
         item.source_relative_path,
         item.source_checksum_sha256,
         asset_kind="source",
+    )
+
+
+def resolve_grid_review_source_asset(
+    item: ImageGridReviewSourceAsset,
+    artifact_root: Path,
+) -> OperationalReviewAsset:
+    return _resolve(
+        artifact_root,
+        item.source_relative_path,
+        item.source_checksum_sha256,
+        asset_kind="grid-review-source",
     )
 
 
@@ -133,6 +146,7 @@ def _sha256(path: Path) -> str:
 
 __all__ = [
     "OperationalReviewAsset",
+    "resolve_grid_review_source_asset",
     "resolve_operational_board_asset",
     "resolve_operational_cell_asset",
     "resolve_operational_source_asset",

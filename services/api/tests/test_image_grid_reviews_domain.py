@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_grid_reviews import (
+    ImageGridReviewCursorDirection,
     ImageGridReviewError,
+    ImageGridReviewListFilter,
     ImageGridReviewState,
+    ImageGridReviewView,
     approve_image_grid_review,
+    decode_image_grid_review_cursor,
     derive_image_grid_review,
+    encode_image_grid_review_cursor,
 )
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellQualityIssue
 
@@ -69,3 +76,45 @@ def test_grid_approval_is_revision_bound_and_rejects_unfixed_grid_issues() -> No
         approve_image_grid_review(needs_correction)
 
     assert error.value.code == "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED"
+
+
+def test_grid_review_cursor_is_bound_to_game_view_import_and_direction() -> None:
+    review_filter = ImageGridReviewListFilter(
+        game_id=uuid4(),
+        view=ImageGridReviewView.NEEDS_VALIDATION,
+        import_job_id=uuid4(),
+    )
+    key = (101, str(uuid4()))
+    cursor = encode_image_grid_review_cursor(
+        review_filter=review_filter,
+        direction=ImageGridReviewCursorDirection.AFTER,
+        key=key,
+    )
+
+    assert (
+        decode_image_grid_review_cursor(
+            cursor,
+            review_filter=review_filter,
+            direction=ImageGridReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+    with pytest.raises(ImageGridReviewError) as wrong_view:
+        decode_image_grid_review_cursor(
+            cursor,
+            review_filter=ImageGridReviewListFilter(
+                game_id=review_filter.game_id,
+                view=ImageGridReviewView.ALL,
+                import_job_id=review_filter.import_job_id,
+            ),
+            direction=ImageGridReviewCursorDirection.AFTER,
+        )
+    with pytest.raises(ImageGridReviewError) as wrong_direction:
+        decode_image_grid_review_cursor(
+            cursor,
+            review_filter=review_filter,
+            direction=ImageGridReviewCursorDirection.BEFORE,
+        )
+
+    assert wrong_view.value.code == "IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID"
+    assert wrong_direction.value.code == "IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID"

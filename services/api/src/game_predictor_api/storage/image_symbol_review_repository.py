@@ -2638,4 +2638,5 @@ __all__ = [
     "SymbolCellReviewBackfillError",
     "SymbolCellReviewBackfillReport",
     "SymbolCellReviewBackfillStep",
+    "symbol_cell_review_projection_is_available",
 ]

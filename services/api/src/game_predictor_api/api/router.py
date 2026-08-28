@@ -14,6 +14,7 @@ from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
 from game_predictor_api.api.health import create_health_router
+from game_predictor_api.api.image_grid_reviews import create_image_grid_reviews_router
 from game_predictor_api.api.image_imports import create_image_imports_router
 from game_predictor_api.api.image_jobs import create_image_jobs_router
 from game_predictor_api.api.image_review_cohorts import (
@@ -62,6 +63,7 @@ def create_api_router(
     image_sequence_canonical_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
+    image_grid_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
     layout_import_report_service_dependency: Callable[..., object],
     mobile_release_service_dependency: Callable[..., object],
@@ -168,6 +170,13 @@ def create_api_router(
             settings.artifact_root,
             reviewer_access_service_dependency,
             job_service_dependency,
+        )
+    )
+    router.include_router(
+        create_image_grid_reviews_router(
+            image_grid_review_service_dependency,
+            image_review_service_dependency,
+            settings.artifact_root,
         )
     )
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))

@@ -10,13 +10,14 @@ last_updated: 2026-08-28
 
 `in_progress`
 
-TASK 1–4 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
+TASK 1–5 zostały ukończone w kodzie. TASK 2 dodaje addytywny schemat 0073 i
 kontrolowany backfill metadanych, TASK 3 przenosi przypiętą topologię przez
 snapshot, fingerprint, geometrię, cropper i ręczny preview, a TASK 4 atomowo
 synchronizuje zatwierdzenie geometrii, proweniencję cropów i istniejące
-projekcje planszy. Migracja nie została jeszcze zastosowana na roboczej bazie:
-wymaga osobnego checkpointu SQL i okna operacyjnego. Publiczne HTTP oraz UI
-pozostają celowo bez zmian.
+projekcje planszy. TASK 5 dostarcza bounded lokalne API kolejki walidacji.
+Migracja nie została jeszcze zastosowana na roboczej bazie i wymaga osobnego
+checkpointu SQL oraz okna operacyjnego. Lokalne Admin HTTP jest gotowe, a UI
+pozostaje celowo bez zmian.
 
 ## Goal
 
@@ -143,8 +144,42 @@ osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
   potwierdzają rollback całej planszy, idempotentne zatwierdzenie geometrii i
   dokładną tożsamość cropa po ponownej weryfikacji.
 
+### v0.9.5 — API kolejki walidacji geometrii
+
+- Dodano lokalne endpointy listy game-wide, checksum-bound źródła, szybkiego
+  zatwierdzenia oraz topology-aware preview i zapisu rewizji.
+- Lista używa wyłącznie bieżącego właściciela `image_board_search_fast_documents`,
+  keysetu `(sequence_number, review_item_id)` oraz cursorów związanych z grą,
+  widokiem, importem i kierunkiem. Limit domyślny to 25, maksymalny 100.
+- Zatwierdzenie pod blokadą ponownie sprawdza rewizję decyzji i geometrii,
+  checksumę oraz wymiary źródła i przypiętą topologię. `grid_issue` blokuje
+  zatwierdzenie do czasu zapisania poprawionej rewizji.
+- Asset ponownie sprawdza SHA-256 przed wysłaniem. Klient nie przesyła ścieżki
+  ani aktora.
+- Odpowiedź zapisu geometrii obsługuje dynamiczne `rows × columns` i nie
+  dziedziczy historycznego constraintu dokładnie 15 komórek.
+- OpenAPI i generowany klient zostały zaktualizowane. Celowane testy domeny,
+  API i OpenAPI oraz izolowany test PostgreSQL przechodzą.
+
+#### Outcome TASK 5
+
+- Ruff dla zmienionych modułów: bez błędów.
+- Celowane testy domeny/API/OpenAPI: `23 passed`.
+- Regresja istniejącego operacyjnego review: `14 passed`.
+- Izolowany test PostgreSQL bieżącego właściciela, konfliktu checksummy i
+  zatwierdzenia: `1 passed`.
+- OpenAPI check, typecheck i test wygenerowanego klienta: `47 passed`.
+- Ograniczony mypy dla nowych modułów domeny/aplikacji/repozytorium: bez
+  błędów. Pełny mypy repozytorium nadal raportuje wcześniejsze braki `py.typed`
+  workera oraz niezwiązany błąd repozytorium kohort.
+- Globalny `format:check` pozostaje czerwony wyłącznie na wcześniejszych,
+  niezwiązanych plikach `apps/admin/next-env.d.ts`,
+  `apps/reviewer/next-env.d.ts` i
+  `apps/admin/test/reviewer-access-state.test.mjs`; nie zmieniano ich w TASK 5.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
 ## Następny etap
 
 Checkpoint operacyjny TASK 2 pozostaje: migracja 0073 i bounded backfill na
 danych użytkownika dopiero po zakończeniu aktywnych pipeline'ów. Następny etap
-implementacyjny to TASK 5 — API kolejki walidacji geometrii.
+implementacyjny to TASK 6 — UI „Zatwierdzanie cięcia siatki”.

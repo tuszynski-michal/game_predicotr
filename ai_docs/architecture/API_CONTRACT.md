@@ -1823,6 +1823,38 @@ i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
 Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
 UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
 
+### Lokalna kolejka walidacji geometrii 0.9
+
+Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
+łączy pozycję z bieżącym właścicielem `image_board_search_fast_documents`:
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-reviews
+GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
+```
+
+Lista ma widoki `needs_validation | needs_correction | all`, opcjonalny filtr
+`importJobId`, limit domyślny 25 i maksymalny 100. Keyset opiera się na
+`(sequence_number, review_item_id)`. Opaque cursor jest związany z grą,
+widokiem, importem i kierunkiem; nie może zostać odtworzony w innym scope.
+Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego scope
+gry/importu.
+
+Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
+artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
+oczekiwaną rewizję decyzji, rewizję geometrii, checksumę i wymiary źródła oraz
+snapshot `rows × columns`. Korekta i preview używają tych samych zabezpieczeń;
+aktor pochodzi z lokalnego kontekstu Admin API, a nie z pola klienta.
+
+Odpowiedź nowej rewizji jest topology-aware: zwraca `gridRows`, `gridColumns`
+i dowolną dodatnią liczbę cropów indeksowanych row-major przy użyciu
+`gridColumns`. Nie dziedziczy ograniczenia dokładnie 15 komórek ze starego
+operacyjnego kontraktu 3 × 5. Historyczne endpointy `/image-review-items/...`
+pozostają tymczasowymi aliasami do czasu odbioru nowego UI.
+
 Jawny pending-only recrop v19 wykorzystuje:
 
 ```text

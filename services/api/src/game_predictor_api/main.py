@@ -34,6 +34,7 @@ from game_predictor_api.application.cleanup import (
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -151,6 +152,7 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
@@ -226,6 +228,9 @@ from game_predictor_api.storage.grid_calibration_repository import (
 )
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
+)
+from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
 )
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
@@ -323,6 +328,7 @@ def create_app(
     iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
+    image_grid_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
@@ -366,6 +372,7 @@ def create_app(
             iterative_image_import_service_dependency,
             image_storage_service_dependency,
             image_review_service_dependency,
+            image_grid_review_service_dependency,
             image_review_cohort_service_dependency,
             layout_import_report_service_dependency,
             mobile_release_service_dependency,
@@ -852,6 +859,19 @@ def create_app(
         image_review_service_dependency or default_image_review_service_dependency
     )
 
+    def default_image_grid_review_service_dependency() -> Iterator[ImageGridReviewService]:
+        with session_factory() as session:
+            try:
+                yield ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_grid_review_dependency = (
+        image_grid_review_service_dependency or default_image_grid_review_service_dependency
+    )
+
     def default_image_review_cohort_service_dependency() -> Iterator[VerifiedCohortService]:
         with session_factory() as session:
             try:
@@ -1124,6 +1144,7 @@ def create_app(
             resolved_image_sequence_canonical_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
+            resolved_image_grid_review_dependency,
             resolved_image_review_cohort_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
@@ -1243,6 +1264,31 @@ def create_app(
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(ImageGridReviewError)
+    async def handle_image_grid_review_error(
+        _request: Request,
+        error: ImageGridReviewError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code in {"GAME_NOT_FOUND", "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND"}:
+            status_code = 404
+        elif error.code in {
+            "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE",
+            "IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID",
+            "IMAGE_GRID_REVIEW_CURSOR_DIRECTION_CONFLICT",
+            "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
+            "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
+            "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
+            "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+        }:
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(CleanupError)

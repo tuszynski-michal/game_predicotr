@@ -304,6 +304,25 @@ innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
 
+### Walidacja cięcia siatki 0.9
+
+Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
+`Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do
+importu. Każdy logiczny numer planszy występuje najwyżej raz: źródłem pozycji
+jest bieżący właściciel szybkiej projekcji wyszukiwania, a nie suma stagingów.
+
+Lista jest pobierana bounded keysetem. Szybkie zatwierdzenie zawsze dotyczy
+dokładnej rewizji decyzji i geometrii, checksummy oraz wymiarów źródła i
+przypiętej topologii. Zmiana któregokolwiek elementu po załadowaniu ekranu
+powoduje czytelny konflikt i wymaga odświeżenia pozycji. Źródło obrazu jest
+checksum-bound i nie ujawnia ścieżki systemowej.
+
+Preview oraz zapis korekty otrzymują cztery narożniki w przestrzeni obrazu
+źródłowego i topologię gry. Liczba zwracanych cropów wynika z `rows × columns`,
+nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
+kontekstu Admin API. Sam ekran i skróty operatorskie są wdrażane w następnym
+etapie; obecny pion dostarcza jego stabilny kontrakt HTTP.
+
 ### Katalog symboli i grafiki referencyjne
 
 Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia

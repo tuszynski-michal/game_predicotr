@@ -14884,7 +14884,6 @@
             "items": {
               "$ref": "#/components/schemas/SymbolCellReviewListItemResponse"
             },
-            "maxItems": 500,
             "title": "Items",
             "type": "array"
           },
@@ -20174,7 +20173,6 @@
             "required": false,
             "schema": {
               "default": 500,
-              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -20223,7 +20221,7 @@
             "description": "Invalid symbol-cell review query"
           }
         },
-        "summary": "List current symbol-cell reviews with bounded keyset pagination",
+        "summary": "List current symbol-cell reviews with keyset pagination",
         "tags": [
           "symbol-cell-reviews"
         ]

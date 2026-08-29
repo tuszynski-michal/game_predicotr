@@ -17,11 +17,19 @@ const styles = await readFile(
   'utf8',
 );
 
-test('provides game, symbol, state and unknown filters', () => {
+test('provides confirmable game, symbol, state, page-size and unknown filters', () => {
   assert.match(source, /Weryfikacja symboli/);
   assert.match(source, /Nierozpoznany \(\?\)/);
   assert.match(source, /Zatwierdzone/);
   assert.match(source, /Oczekujące/);
+  assert.match(source, /Ilość na stronę/);
+  assert.match(source, /Zatwierdź wybór/);
+  assert.match(source, /Zmień wybór/);
+  assert.match(source, /filtersConfirmed/);
+  assert.match(
+    styles,
+    /\.filters fieldset \{[\s\S]*grid-column: 1 \/ span 3;/,
+  );
   assert.match(source, /state: 'pending'/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
@@ -36,11 +44,11 @@ test('uses lazy, checksum-bound assets with a local fallback per failed image', 
   assert.match(source, /Brak aktualnego cropa/);
 });
 
-test('keeps one bounded five-hundred-item page with background bulk controls', () => {
+test('keeps one bounded configurable page with background bulk controls', () => {
   assert.doesNotMatch(source, /IntersectionObserver/);
   assert.doesNotMatch(source, /prefetchingCursorRef/);
   assert.match(source, /pagePositionRef/);
-  assert.match(source, /maks\. 500 symboli/);
+  assert.match(source, /maks\. \$\{filters\.pageSize\} symboli/);
   assert.match(source, /Poprzednia strona/);
   assert.match(source, /Następna strona/);
   assert.match(styles, /repeat\(auto-fill, 100px\)/);

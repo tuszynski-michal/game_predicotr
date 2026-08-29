@@ -382,15 +382,20 @@ a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
 Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
-`Oczekujące`. Widok pobiera jedną stronę maksymalnie 500 aktualnych cropów i
-udostępnia jawne przyciski poprzedniej/następnej strony. Nie wykonuje read-ahead,
+`Oczekujące`. Wejście do zakładki nie pobiera strony cropów: operator najpierw
+ustawia grę, symbol, stan oraz dowolną dodatnią liczbę pozycji, a następnie wybiera
+`Zatwierdź wybór`. Dopiero ta jawna akcja pobiera jedną bounded stronę. Po
+zatwierdzeniu ustawienia są zablokowane; `Zmień wybór` czyści bieżącą stronę i
+pozwala ponownie ustawić parametry. Domyślna liczba pozycji wynosi 500 dla
+zgodności z poprzednim widokiem. Widok udostępnia jawne przyciski
+poprzedniej/następnej strony. Nie wykonuje read-ahead,
 nie utrzymuje stron sąsiednich ani nie scala danych z cache aplikacji. Miniatury
 są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu
 pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
 pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
 stanie aplikacji.
-Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji (np.
-`1–500`, `501–1000`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
+Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji zależny od
+zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
 wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
 wyników.
 Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,

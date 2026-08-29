@@ -117,7 +117,7 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   &state=all|approved|pending
   &afterCursor=...
   &beforeCursor=...
-  &limit=1..500
+  &limit=positive-integer
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
@@ -158,8 +158,8 @@ do katalogu danych PostgreSQL.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
-`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów i jest to
-również twarde maksimum. Lista używa keysetu
+`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów, a operator
+może podać dowolny dodatni limit. Lista używa keysetu
 `(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
 symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
 scope.
@@ -189,7 +189,8 @@ filtr, checksum lub limit `422`.
 Admin przechowuje tylko jedną odpowiedź strony. Po udanej decyzji ponownie
 wywołuje ten sam endpoint z kursorem, którym otworzył bieżącą stronę. Serwer
 wykonuje wtedy świeże zapytanie keysetowe i naturalnie uzupełnia usunięte z
-filtra pozycje kolejnymi rekordami do limitu 500. Nie istnieje osobny endpoint
+filtra pozycje kolejnymi rekordami do dokładnego limitu żądanego przez operatora.
+Nie istnieje osobny endpoint
 łączenia braków po przesłanych ID, ponieważ taki merge powielałby semantykę
 keysetu i mógłby mieszać rewizje katalogu.
 

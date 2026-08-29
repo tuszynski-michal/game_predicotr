@@ -122,6 +122,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
     {
       afterCursor: 'after-page',
       gameId,
+      limit: 42,
       state: 'pending',
       symbolId: 'unknown',
     },
@@ -130,7 +131,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
   assert.deepEqual(request, {
     afterCursor: 'after-page',
     gameId,
-    limit: 500,
+    limit: 42,
     state: 'pending',
     symbolId: 'unknown',
   });
@@ -147,7 +148,7 @@ test('exposes a controlled rebuilding state instead of treating it as an empty p
         },
       }),
     }),
-    { gameId, state: 'all', symbolId: 'symbol-1' },
+    { gameId, limit: 12, state: 'all', symbolId: 'symbol-1' },
   );
 
   assert.equal(result.ok, false);

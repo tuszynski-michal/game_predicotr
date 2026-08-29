@@ -27,7 +27,7 @@
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 16px;
   border: 1px solid var(--line);
@@ -52,7 +52,28 @@
   width: 100%;
 }
 
+.filters input {
+  width: 100%;
+}
+
+.filterActions {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+}
+
+.filterActions button {
+  width: 100%;
+}
+
+.filterActions span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .filters fieldset {
+  grid-column: 1 / span 3;
   grid-template-columns: repeat(3, auto);
   align-content: end;
   align-items: center;
@@ -400,6 +421,10 @@
 
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .filters fieldset {
+    grid-column: auto;
   }
 
   .summary,

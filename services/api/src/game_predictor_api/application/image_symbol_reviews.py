@@ -1,4 +1,4 @@
-"""Read-only use cases for the bounded symbol-cell review workspace."""
+"""Read-only use cases for the symbol-cell review workspace."""
 
 from __future__ import annotations
 
@@ -20,12 +20,11 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 
 DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
-MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
 
 
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewListSlice:
-    """One already ordered, bounded keyset query result."""
+    """One already ordered keyset query result."""
 
     items: tuple[SymbolCellReviewListItem, ...]
     has_previous: bool
@@ -70,10 +69,10 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPage:
-        if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
+        if limit < 1:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PAGE_INVALID",
-                "The symbol-cell review page limit must be between 1 and 500.",
+                "The symbol-cell review page limit must be a positive integer.",
             )
         if after_cursor and before_cursor:
             raise SymbolCellReviewError(
@@ -171,7 +170,6 @@ class SymbolCellReviewQueryService:
 
 __all__ = [
     "DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE",
-    "MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE",
     "SymbolCellReviewListSlice",
     "SymbolCellReviewQueryRepository",
     "SymbolCellReviewQueryService",

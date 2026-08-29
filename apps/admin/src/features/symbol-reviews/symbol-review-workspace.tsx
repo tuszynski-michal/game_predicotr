@@ -56,6 +56,8 @@ import {
 } from './symbol-review-selection-state';
 import {
   createSymbolReviewWorkspaceState,
+  DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
+  MIN_SYMBOL_REVIEW_PAGE_SIZE,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
@@ -86,6 +88,7 @@ type SymbolReviewOperationDialog =
 
 const INITIAL_FILTERS: SymbolReviewFilters = {
   gameId: null,
+  pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   state: 'pending',
   symbolId: null,
 };
@@ -151,11 +154,13 @@ export function SymbolReviewWorkspace({
   const [reassignTargetSymbolId, setReassignTargetSymbolId] = useState<
     string | null
   >(null);
+  const [filtersConfirmed, setFiltersConfirmed] = useState(false);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
   const projectionRequestId = useRef(0);
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
+  const filtersConfirmedRef = useRef(false);
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
 
@@ -186,6 +191,7 @@ export function SymbolReviewWorkspace({
   const currentPageRange = symbolReviewPageRange(
     currentPageNumber,
     currentPage?.items.length ?? 0,
+    filters.pageSize,
     currentFilteredCount,
   );
   const hasLoadError =
@@ -214,7 +220,11 @@ export function SymbolReviewWorkspace({
       setProjectionStatus(null);
       setProjectionState(nextFilters.gameId === null ? 'ready' : 'loading');
     }
-    setPageState(asPageFilters(nextFilters) === null ? 'ready' : 'loading');
+    setPageState(
+      asPageFilters(nextFilters) === null || !filtersConfirmedRef.current
+        ? 'ready'
+        : 'loading',
+    );
     dispatch({ filters: nextFilters, type: 'filters_changed' });
   }, []);
 
@@ -226,6 +236,8 @@ export function SymbolReviewWorkspace({
     setProjectionState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionStatus(null);
     setPageState('ready');
+    filtersConfirmedRef.current = false;
+    setFiltersConfirmed(false);
     pagePositionRef.current = { number: 1 };
     dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
@@ -241,6 +253,43 @@ export function SymbolReviewWorkspace({
     },
     [applyFilters, selectedCount],
   );
+
+  const confirmFilters = useCallback(() => {
+    if (
+      filters.gameId === null ||
+      filters.symbolId === null ||
+      interactionBusy
+    ) {
+      return;
+    }
+    pageRequestId.current += 1;
+    pagePositionRef.current = { number: 1 };
+    setError('');
+    setSelection(createEmptySymbolReviewSelection());
+    setHiddenCellIds(new Set());
+    dispatch({ type: 'clear_page' });
+    filtersConfirmedRef.current = true;
+    setFiltersConfirmed(true);
+    setPageState(projectionStatus?.status === 'ready' ? 'loading' : 'ready');
+  }, [
+    filters.gameId,
+    filters.symbolId,
+    interactionBusy,
+    projectionStatus?.status,
+  ]);
+
+  const unlockFilters = useCallback(() => {
+    if (interactionBusy || selectedCount > 0) return;
+    pageRequestId.current += 1;
+    pagePositionRef.current = { number: 1 };
+    setError('');
+    setSelection(createEmptySymbolReviewSelection());
+    setHiddenCellIds(new Set());
+    dispatch({ type: 'clear_page' });
+    filtersConfirmedRef.current = false;
+    setFiltersConfirmed(false);
+    setPageState('ready');
+  }, [interactionBusy, selectedCount]);
 
   useEffect(() => {
     if (toast === null) return;
@@ -318,7 +367,9 @@ export function SymbolReviewWorkspace({
         setError(result.error);
         return;
       }
-      if (result.status.status === 'ready') setPageState('loading');
+      if (result.status.status === 'ready' && filtersConfirmedRef.current) {
+        setPageState('loading');
+      }
       setProjectionStatus(result.status);
       setProjectionState('ready');
     });
@@ -350,7 +401,9 @@ export function SymbolReviewWorkspace({
         timerId = window.setTimeout(() => void poll(), 2_000);
         return;
       }
-      if (result.status.status === 'ready') setPageState('loading');
+      if (result.status.status === 'ready' && filtersConfirmedRef.current) {
+        setPageState('loading');
+      }
       setProjectionStatus(result.status);
       if (result.status.status === 'rebuilding') {
         timerId = window.setTimeout(() => void poll(), 2_000);
@@ -370,7 +423,13 @@ export function SymbolReviewWorkspace({
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
-    if (pageFilters === null || projectionStatus?.status !== 'ready') return;
+    if (
+      !filtersConfirmed ||
+      pageFilters === null ||
+      projectionStatus?.status !== 'ready'
+    ) {
+      return;
+    }
     const requestId = ++pageRequestId.current;
     const position = pagePositionRef.current;
     void loadSymbolReviewPage(api, {
@@ -387,12 +446,23 @@ export function SymbolReviewWorkspace({
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
-  }, [api, filters, projectionStatus?.status, reloadRevision]);
+  }, [
+    api,
+    filters,
+    filtersConfirmed,
+    projectionStatus?.status,
+    reloadRevision,
+  ]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {
       const pageFilters = asPageFilters(filters);
-      if (pagingRef.current || pageFilters === null || currentPage === null) {
+      if (
+        !filtersConfirmed ||
+        pagingRef.current ||
+        pageFilters === null ||
+        currentPage === null
+      ) {
         return;
       }
       const cursor =
@@ -423,7 +493,7 @@ export function SymbolReviewWorkspace({
       setSelection(createEmptySymbolReviewSelection());
       setHiddenCellIds(new Set());
     },
-    [api, currentPage, currentPageNumber, filters],
+    [api, currentPage, currentPageNumber, filters, filtersConfirmed],
   );
 
   async function prepareProjection() {
@@ -623,7 +693,9 @@ export function SymbolReviewWorkspace({
         <label>
           Gra
           <select
-            disabled={gamesState !== 'ready' || interactionBusy}
+            disabled={
+              gamesState !== 'ready' || interactionBusy || filtersConfirmed
+            }
             onChange={(event) =>
               requestFilterChange({
                 ...filters,
@@ -647,7 +719,8 @@ export function SymbolReviewWorkspace({
             disabled={
               filters.gameId === null ||
               symbolsState !== 'ready' ||
-              interactionBusy
+              interactionBusy ||
+              filtersConfirmed
             }
             onChange={(event) =>
               requestFilterChange({
@@ -668,11 +741,56 @@ export function SymbolReviewWorkspace({
             <option value="unknown">Nierozpoznany (?)</option>
           </select>
         </label>
+        <label>
+          Ilość na stronę
+          <input
+            disabled={interactionBusy || filtersConfirmed}
+            min={MIN_SYMBOL_REVIEW_PAGE_SIZE}
+            onChange={(event) => {
+              const nextPageSize = Number(event.target.value);
+              if (
+                !Number.isInteger(nextPageSize) ||
+                nextPageSize < MIN_SYMBOL_REVIEW_PAGE_SIZE
+              ) {
+                return;
+              }
+              requestFilterChange({ ...filters, pageSize: nextPageSize });
+            }}
+            step={1}
+            type="number"
+            value={filters.pageSize}
+          />
+        </label>
+        <div className={styles.filterActions}>
+          <button
+            className="primaryButton"
+            disabled={
+              interactionBusy ||
+              (filtersConfirmed
+                ? selectedCount > 0
+                : filters.gameId === null || filters.symbolId === null)
+            }
+            onClick={() => {
+              if (filtersConfirmed) {
+                unlockFilters();
+                return;
+              }
+              confirmFilters();
+            }}
+            type="button"
+          >
+            {filtersConfirmed ? 'Zmień wybór' : 'Zatwierdź wybór'}
+          </button>
+          {filtersConfirmed && selectedCount > 0 ? (
+            <span>Wyczyść zaznaczenie, aby zmienić filtry.</span>
+          ) : null}
+        </div>
         <fieldset
           disabled={
             filters.gameId === null ||
             symbolsState !== 'ready' ||
-            interactionBusy
+            interactionBusy ||
+            filtersConfirmed
           }
         >
           <legend>Stan</legend>
@@ -762,6 +880,12 @@ export function SymbolReviewWorkspace({
           status={projectionStatus}
         />
       ) : null}
+      {projectionStatus?.status === 'ready' && !filtersConfirmed ? (
+        <SymbolReviewStatus
+          text="Wybierz grę, symbol, stan i liczbę cropów, a następnie zatwierdź wybór. Lista nie została jeszcze pobrana."
+          title="Ustaw parametry widoku"
+        />
+      ) : null}
       {projectionStatus?.status === 'ready' &&
       pageState === 'ready' &&
       currentPage !== null ? (
@@ -829,7 +953,7 @@ export function SymbolReviewWorkspace({
               <span>
                 {paging
                   ? 'Wczytywanie strony…'
-                  : `Strona ${currentPageNumber} · maks. 500 symboli`}
+                  : `Strona ${currentPageNumber} · maks. ${filters.pageSize} symboli`}
               </span>
               <button
                 className="secondaryButton"
@@ -1405,6 +1529,7 @@ function asPageFilters(
   }
   return {
     gameId: filters.gameId,
+    limit: filters.pageSize,
     state: filters.state,
     symbolId: filters.symbolId,
   };

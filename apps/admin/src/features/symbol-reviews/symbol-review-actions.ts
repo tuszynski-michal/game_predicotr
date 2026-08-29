@@ -11,8 +11,6 @@ import type { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
-import { SYMBOL_REVIEW_PAGE_SIZE } from './symbol-review-state.ts';
-
 export type SymbolReviewClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'listGames'
@@ -88,6 +86,7 @@ export interface LoadSymbolReviewPageOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly gameId: string;
+  readonly limit: number;
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'unknown';
 }
@@ -175,7 +174,6 @@ export async function loadSymbolReviewPage(
   try {
     const result = await api.listSymbolCellReviews({
       ...options,
-      limit: SYMBOL_REVIEW_PAGE_SIZE,
     });
     if (result.error !== undefined || result.data === undefined) {
       return {

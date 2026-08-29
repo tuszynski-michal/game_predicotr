@@ -308,8 +308,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - `v0.8.47` naprawia kontrakt odpowiedzi strony Weryfikacji symboli. Request i
   repozytorium obsługiwały ustalony limit 500, ale schema odpowiedzi nadal
   odrzucała więcej niż 100 elementów, przez co kompletna strona kończyła się
-  HTTP 500. Limit requestu, odpowiedzi i OpenAPI korzysta teraz z jednego
-  application constant; regresja serializuje rzeczywistą stronę 500 cropów.
+  HTTP 500. Następnie panel i API przeszły na dodatni limit wybierany przez
+  operatora; domyślną wartością pozostaje 500.
 - `v0.8.48` przenosi page-local operacje masowe Weryfikacji symboli do tła UI.
   Każdy trwały job zachowuje osobny status i spinner na swoich targetach, ale
   nie blokuje przejścia na inną stronę ani wysłania kolejnej operacji. Pełny
@@ -3517,6 +3517,11 @@ ręczną korektę pod sekcją „zostaw na koniec”. Wygasający 15-minutowy to
 legacy nie usuwa już sfinalizowanego browser stagingu.
 
 ## Wersja 0.9 — fundament domenowy geometrii i jakości symboli
+
+- `Weryfikacja symboli` nie pobiera już domyślnej strony 500 cropów po samym
+  wejściu do zakładki. Operator jawnie zatwierdza grę, symbol, stan oraz limit
+  `1..500`; po zatwierdzeniu parametry są zablokowane do akcji `Zmień wybór`, a
+  keysetowa paginacja i zakres strony używają zatwierdzonego limitu.
 
 TASK-0304 rozpoczął tor 0.9. Commit `v0.9.1` dodaje wyłącznie czystą domenę:
 topologię planszy wyprowadzaną z wersji reguł, wyliczany stan walidacji

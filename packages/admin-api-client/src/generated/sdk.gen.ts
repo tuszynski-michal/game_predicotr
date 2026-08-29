@@ -1512,7 +1512,7 @@ export const startSymbolCellReviewProjectionBackfill = <
   });
 
 /**
- * List current symbol-cell reviews with bounded keyset pagination
+ * List current symbol-cell reviews with keyset pagination
  */
 export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
   options: Options<ListSymbolCellReviewsData, ThrowOnError>,

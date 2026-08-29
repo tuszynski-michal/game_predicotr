@@ -3,13 +3,15 @@ import test from 'node:test';
 
 import {
   createSymbolReviewWorkspaceState,
-  SYMBOL_REVIEW_PAGE_SIZE,
+  DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
+  MIN_SYMBOL_REVIEW_PAGE_SIZE,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
 const filters = {
   gameId: 'game-1',
+  pageSize: 500,
   state: 'pending',
   symbolId: 'symbol-1',
 };
@@ -24,8 +26,9 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
   };
 }
 
-test('uses a single bounded five-hundred-item page without adjacent data cache', () => {
-  assert.equal(SYMBOL_REVIEW_PAGE_SIZE, 500);
+test('uses a single bounded configurable page without adjacent data cache', () => {
+  assert.equal(DEFAULT_SYMBOL_REVIEW_PAGE_SIZE, 500);
+  assert.equal(MIN_SYMBOL_REVIEW_PAGE_SIZE, 1);
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
     page: page('first', { nextCursor: 'after-first' }),
@@ -88,18 +91,22 @@ test('fresh keyset reload replaces changed rows instead of merging a page cache'
   assert.deepEqual(state.currentPage.position, position);
 });
 
-test('reports the one-based range represented by a bounded page', () => {
-  assert.deepEqual(symbolReviewPageRange(1, 500, 1_240), {
+test('reports the one-based range represented by the confirmed page size', () => {
+  assert.deepEqual(symbolReviewPageRange(1, 500, 500, 1_240), {
     start: 1,
     end: 500,
   });
-  assert.deepEqual(symbolReviewPageRange(2, 500, 1_240), {
+  assert.deepEqual(symbolReviewPageRange(2, 500, 500, 1_240), {
     start: 501,
     end: 1_000,
   });
-  assert.deepEqual(symbolReviewPageRange(3, 240, 1_240), {
+  assert.deepEqual(symbolReviewPageRange(3, 240, 500, 1_240), {
     start: 1_001,
     end: 1_240,
   });
-  assert.equal(symbolReviewPageRange(1, 0, 0), null);
+  assert.deepEqual(symbolReviewPageRange(3, 20, 100, 220), {
+    start: 201,
+    end: 220,
+  });
+  assert.equal(symbolReviewPageRange(1, 0, 100, 0), null);
 });

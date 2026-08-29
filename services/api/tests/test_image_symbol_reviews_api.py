@@ -641,7 +641,9 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
 
 
-def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) -> None:
+def test_list_endpoint_accepts_an_operator_chosen_page_size_above_five_hundred(
+    tmp_path: Path,
+) -> None:
     game_id, symbol_id = uuid4(), uuid4()
     items = tuple(
         _item(
@@ -651,7 +653,7 @@ def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) 
             cell_index=index % 15,
             review_item_id=UUID(int=index + 1),
         )
-        for index in range(500)
+        for index in range(501)
     )
     repository = MemorySymbolCellReviewRepository(
         game_id=game_id,
@@ -660,19 +662,14 @@ def test_list_endpoint_supports_bounded_five_hundred_item_pages(tmp_path: Path) 
     )
 
     with _client(repository, artifact_root=tmp_path) as client:
-        accepted = client.get(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "limit": 500},
-        )
-        rejected = client.get(
+        response = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
             params={"symbolId": str(symbol_id), "limit": 501},
         )
 
-    assert accepted.status_code == 200
-    assert len(accepted.json()["items"]) == 500
-    assert repository.limits == [500]
-    assert rejected.status_code == 422
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 501
+    assert repository.limits == [501]
 
 
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:

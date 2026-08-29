@@ -161,6 +161,31 @@ croppera ani inferencji symboli i nie zastępują bramek TASK-0311. Wynik wiąż
 źródło, topologię, profil, wersję konfiguracji oraz metryki checksumą, ale nie
 tworzy bitmapy. TASK-0310 nie podłącza silnika do pipeline'u produkcyjnego.
 
+### 2.3. Niezależne lokalne dopasowanie plansz 0.10
+
+`structured-opencv-independent-board-refinement-v1` konsumuje początkowe ROI
+TASK-0310 osobno dla każdego aktywnego slotu. ROI jest prostowane wyłącznie w
+pamięci i wyłącznie do analizy linii. LSD grupuje sześć pionowych oraz cztery
+poziome granice siatki 5 × 3, a odpornie dopasowana homografia idealnej siatki
+jest następnie rzutowana do źródła. Finalny quad nie musi być prostokątem,
+rombem ani mieć kątów prostych w przestrzeni zdjęcia.
+
+Automatyczny wynik wymaga jednocześnie kompletu czterech granic z dowodem linii
+lub czerwonej ramki, co najmniej 5/6 pionów, 3/4 poziomów, 18/24 wspartych
+przecięć, p95 reprojekcji nie większego niż 2,5 px na obrazie 50%, pełnego
+source support wszystkich padded cell quads, zgodności z inicjalizacją,
+row-major oraz braku niedozwolonego nakładania plansz. Jedna brakująca linia
+wewnętrzna może zostać wyprowadzona tylko przy kompletnych granicach
+zewnętrznych; nie może przesunąć indeksów siatki.
+
+Confidence geometrii składa się jawnie z globalnej rejestracji, pokrycia linii
+i przecięć, regularności odstępów, reprojekcji, dowodu ramki, kolejności slotu
+oraz source support. Nie przyjmuje etykiet ani confidence klasyfikatora symboli.
+Próg co najmniej `0,85` wraz ze wszystkimi hard gates daje `automatic`, zakres
+`0,65–0,85` albo miękka niezgodność daje `needs_manual_review`, a niższy wynik
+lub dowolny hard failure daje `needs_manual_correction` ze stabilnymi reason
+codes. TASK-0311 nadal nie podłącza wyniku do produkcyjnego pipeline'u.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

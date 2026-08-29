@@ -742,6 +742,15 @@ homografię, metryki ORB albo frame/gradient/LSD oraz początkowe quady slotów.
 Te quady nie są finalnymi `board_geometries`; trwały zapis kompletnej geometrii
 może nastąpić dopiero po niezależnym lokalnym dopasowaniu w kolejnym etapie.
 
+Wynik lokalnego etapu TASK-0311 jest na razie kontraktem pamięciowym, bez nowej
+tabeli i bez zapisu bitmap. Dla każdego aktywnego slotu zawiera niezależny
+`finalQuad`, homografię idealnej siatki do źródła, obserwowane i ewentualnie
+jedną wyprowadzoną linię, pokrycie przecięć, p95 reprojekcji, osiem składowych
+confidence, disposition oraz stabilne reason codes. Checksum wyniku źródła
+wiąże kolejność slotów, źródło, topologię i wersje konfiguracji. Slot bez
+pełnego dowodu może zachować dane diagnostyczne, lecz nie jest finalną
+geometrią uprawniającą do renderowania komórek.
+
 `image_geometry_rollout_states` jest jednym rekordem per gra. Oddziela rollout
 geometrii (`legacy`, `structured_shadow`, `structured_review`,
 `structured_default`) od sposobu dostarczania assetów komórek

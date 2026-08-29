@@ -17,8 +17,10 @@ from game_predictor_worker.images.normalization import (
 )
 from game_predictor_worker.images.page_geometry_registration import PAGE_REGISTRATION_VERSION
 from game_predictor_worker.images.structured_geometry import (
+    BoardGeometryReasonCode,
     GlobalInitializationMethod,
     GlobalInitializationStatus,
+    SourceGeometryStatus,
     StructuredGeometryInitializationRequest,
     StructuredOpenCvGeometryEngine,
 )
@@ -245,6 +247,44 @@ def test_global_initialization_is_deterministic() -> None:
     assert first.status is GlobalInitializationStatus.INITIALIZED
     assert first.to_payload() == second.to_payload()
     assert first.result_checksum_sha256 == second.result_checksum_sha256
+
+
+def test_full_engine_returns_one_independent_row_major_quad_per_active_slot() -> None:
+    anchor, quads = _page(active_count=9)
+    target, _ = _warp(
+        anchor,
+        quads,
+        corners=((18, 13), (742, 28), (756, 607), (7, 594)),
+    )
+    frame = _frame(target, source_checksum="1" * 64)
+    engine = StructuredOpenCvGeometryEngine(load_anchor_rgb=lambda _checksum: anchor)
+
+    result = engine.detect(frame, _request(frame, active_count=9, profile=_profile(quads)))
+
+    assert result.status in {
+        SourceGeometryStatus.READY,
+        SourceGeometryStatus.NEEDS_MANUAL_REVIEW,
+    }
+    assert len(result.boards) == 9
+    assert all(board.final_quad is not None for board in result.boards)
+    assert all(
+        BoardGeometryReasonCode.SLOT_ORDER_INVALID not in board.reason_codes
+        and BoardGeometryReasonCode.BOARD_OVERLAP_DETECTED not in board.reason_codes
+        for board in result.boards
+    )
+    centres = [
+        np.mean(
+            np.asarray(
+                [[point.x, point.y] for point in board.final_quad.corners],
+                dtype=np.float64,
+            ),
+            axis=0,
+        )
+        for board in result.boards
+        if board.final_quad is not None
+    ]
+    assert all(centres[index][0] < centres[index + 1][0] for index in (0, 1, 3, 4, 6, 7))
+    assert all(centres[index][1] < centres[index + 3][1] for index in range(6))
 
 
 def test_insufficient_generic_evidence_requires_manual_review() -> None:

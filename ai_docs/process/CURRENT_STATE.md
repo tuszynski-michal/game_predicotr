@@ -86,6 +86,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pipeline'u, finalny local line refinement, UI i rollout pozostają poza
   TASK-0310.
 
+### Niezależne dopracowanie plansz — TASK-0311
+
+- `v0.10.4` dodaje lokalny refiner LSD dla każdej aktywnej planszy osobno.
+  Tymczasowa rektyfikacja służy wyłącznie analizie sześciu pionowych i czterech
+  poziomych linii; finalny quad wraca do współrzędnych źródła i nie jest
+  wymuszany do prostokąta w zdjęciu.
+- Hard gates wymagają granic zewnętrznych, co najmniej 5/6 pionów, 3/4
+  poziomów, 18/24 przecięć, p95 reprojekcji do 2,5 px na skali 50%, pełnego
+  source support, zachowania row-major i braku nakładania. Niepełny dowód daje
+  stabilny reason code i korektę ręczną zamiast false-success.
+- Osiem składników confidence jest całkowicie niezależnych od modelu symboli.
+  Wynik źródła jest checksumowany i agreguje najgorszy status niezależnych
+  slotów. Testy obejmują glare, mocną okluzję/rękę, brak linii, overlap,
+  kolejność oraz historyczny obraz false-success.
+- TASK-0311 nie zmienia pipeline'u v20, bazy, API, UI, croppera ani rolloutu.
+  Produkcyjna integracja pozostaje odroczona.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

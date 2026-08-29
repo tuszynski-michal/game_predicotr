@@ -702,6 +702,21 @@ pozycji i nie uprawnia do cropowania. Niewystarczający dowód jest kontrolowany
 `needs_manual_review`. Końcowe lokalne dopasowanie linii pozostaje osobnym
 etapem TASK-0311, a produkcyjny v20 nie został przełączony w TASK-0310.
 
+TASK-0311 dodaje drugi, nadal nieprodukcyjny etap
+`structured-opencv-independent-board-refinement-v1`. Każdy aktywny slot jest
+analizowany niezależnie przez tymczasową rektyfikację ROI, LSD, uporządkowane
+rodziny sześciu pionów i czterech poziomów oraz RANSAC homografii idealnej
+siatki. Wynik jest ponownie wyrażany wyłącznie we współrzędnych źródłowych;
+rektyfikacja pomocnicza nie staje się artefaktem ani finalną geometrią.
+
+`StructuredOpenCvGeometryEngine.detect()` zachowuje jeden wynik na poświadczony
+slot row-major. Warstwa źródłowa sprawdza najbliższe początkowe ROI, kolejność
+wierszy i kolumn oraz przecięcia finalnych quadów. Confidence i reason codes są
+oddzielne per plansza, a status źródła jest najgorszym statusem jego aktywnych
+slotów. Brak pełnego lokalnego dowodu kończy się kontrolowaną korektą ręczną i
+nie może zostać uratowany przez wynik rozpoznawania symboli. Integracja z bazą,
+API, cropperem i rolloutem pozostaje zakresem późniejszych tasków.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

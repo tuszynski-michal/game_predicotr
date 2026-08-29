@@ -6160,6 +6160,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   brakujących slotów odrzucono z powodu wcześniejszych false-successów i ryzyka
   przesunięcia symboli.
 
+## D-258 — Finalna geometria wymaga niezależnego dowodu linii każdej planszy
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** każdy aktywny slot otrzymuje własne lokalne dopasowanie sześciu
+  pionowych i czterech poziomych linii. Tymczasowa rektyfikacja służy wyłącznie
+  analizie, a finalna homografia oraz quad są wyrażone w źródle bez wymagania
+  prostokąta. Automatyczny wynik wymaga wszystkich wersjonowanych hard gates;
+  confidence klasyfikatora symboli nie jest wejściem geometrii.
+- **Context:** globalna rejestracja dobrze inicjalizuje stronę, lecz wcześniejsze
+  false-successy przenosiły lub syntetyzowały błędne quady mimo czytelnego
+  obrazu. Krzywizna i perspektywa ekranu wymagają lokalnego dowodu osobno dla
+  każdej planszy.
+- **Safety:** jedna brakująca linia wewnętrzna może zostać wyprowadzona tylko z
+  kompletnych granic zewnętrznych, a minimum linii, przecięć, reprojekcja,
+  source support, row-major i overlap pozostają twardymi bramkami. Slot bez
+  dowodu trafia do review albo korekty, nigdy do automatycznego cropowania.
+- **Consequences:** wynik zawiera per-slot evidence, składowe confidence i
+  stabilne reason codes. TASK-0311 pozostaje bez integracji produkcyjnej, bazy,
+  API i UI; późniejszy rollout musi skonsumować dokładnie ten wersjonowany
+  kontrakt.
+- **Alternatives:** wspólna końcowa homografia strony, wymuszanie kątów prostych
+  w zdjęciu, ML/keypoint fallback i segmentacja zostały odrzucone w tym etapie.
+
 ## Szablon nowej decyzji
 
 ```text

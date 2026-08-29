@@ -1,5 +1,24 @@
 """Structured OpenCV geometry stages kept separate from legacy v20."""
 
+from .confidence import (
+    DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS,
+    STRUCTURED_GEOMETRY_CONFIDENCE_VERSION,
+    BoardGeometryDisposition,
+    BoardGeometryEvidence,
+    BoardGeometryReasonCode,
+    GeometryConfidenceComponents,
+    StructuredGeometryValidationThresholds,
+    evaluate_geometry_confidence,
+)
+from .geometry_engine import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    STRUCTURED_SOURCE_GEOMETRY_VERSION,
+    BoardGeometryResult,
+    GeometryEngine,
+    SourceGeometryResult,
+    SourceGeometryStatus,
+    StructuredOpenCvGeometryEngine,
+)
 from .global_initialization import (
     STRUCTURED_GEOMETRY_ENGINE_ID,
     STRUCTURED_GEOMETRY_GLOBAL_INITIALIZATION_VERSION,
@@ -10,18 +29,53 @@ from .global_initialization import (
     StructuredGeometryInitializationError,
     StructuredGeometryInitializationRequest,
     StructuredGeometryInitializationThresholds,
-    StructuredOpenCvGeometryEngine,
+)
+from .global_initialization import (
+    StructuredOpenCvGeometryEngine as StructuredGeometryGlobalInitializer,
+)
+from .line_refinement import (
+    DEFAULT_STRUCTURED_BOARD_LINE_THRESHOLDS,
+    STRUCTURED_BOARD_LINE_REFINEMENT_VERSION,
+    BoardLineRefinementResult,
+    BoardLineRefiner,
+    GridLineOrientation,
+    RefinedGridLine,
+    StructuredBoardLineRefinementError,
+    StructuredBoardLineThresholds,
 )
 
 __all__ = [
     "STRUCTURED_GEOMETRY_ENGINE_ID",
+    "STRUCTURED_GEOMETRY_CONFIDENCE_VERSION",
     "STRUCTURED_GEOMETRY_GLOBAL_INITIALIZATION_VERSION",
+    "STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION",
+    "STRUCTURED_SOURCE_GEOMETRY_VERSION",
+    "STRUCTURED_BOARD_LINE_REFINEMENT_VERSION",
     "ActiveSlotInitialization",
+    "BoardGeometryDisposition",
+    "BoardGeometryEvidence",
+    "BoardGeometryReasonCode",
+    "BoardGeometryResult",
+    "BoardLineRefinementResult",
+    "BoardLineRefiner",
+    "DEFAULT_STRUCTURED_BOARD_LINE_THRESHOLDS",
+    "DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS",
+    "GeometryConfidenceComponents",
+    "GeometryEngine",
     "GlobalInitializationMethod",
     "GlobalInitializationResult",
     "GlobalInitializationStatus",
+    "GridLineOrientation",
+    "RefinedGridLine",
+    "SourceGeometryResult",
+    "SourceGeometryStatus",
+    "StructuredBoardLineRefinementError",
+    "StructuredBoardLineThresholds",
+    "StructuredGeometryGlobalInitializer",
     "StructuredGeometryInitializationError",
     "StructuredGeometryInitializationRequest",
     "StructuredGeometryInitializationThresholds",
+    "StructuredGeometryValidationThresholds",
     "StructuredOpenCvGeometryEngine",
+    "evaluate_geometry_confidence",
 ]

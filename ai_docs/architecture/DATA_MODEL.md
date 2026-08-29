@@ -759,6 +759,13 @@ geometrii (`legacy`, `structured_shadow`, `structured_review`,
 checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
 brakujący rekord jest tworzony wyłącznie jako legacy.
 
+TASK-0318 nie dodaje pól ani tabel dla raportu jakości. Raport jest niezmiennym
+dowodem poza głównymi tabelami domenowymi, a czysta polityka wyprowadza z niego
+co najwyżej rekomendowaną parę trybów. Sam raport nie mutuje stanu gry.
+Promocja albo rollback wymagają osobnej, audytowalnej transakcji zwiększającej
+`revision`; nie wolno edytować snapshotów już utworzonych jobów. Brak
+kompletnego raportu pozostawia istniejący rekord bez zmian.
+
 Przy tworzeniu joba stan jest zamrażany jako checksum-bound
 `image_geometry_rollout` w input payloadzie. Snapshot zawiera rewizję oraz
 wersje silnika geometrii, virtual renderera i preprocessingu. Legacy nie zmienia

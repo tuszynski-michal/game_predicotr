@@ -213,6 +213,20 @@ finalnej geometrii.
   `game + sequence_number`; wynik człowieka wygrywa, a nowe źródło jest jedynie
   alternatywą. Replay identycznych checkpointów jest idempotentny.
 
+Cutover jest fail-closed i używa wyłącznie kompletnego raportu board-level.
+Próbka musi obejmować minimum 100 ręcznie sprawdzonych źródeł, 500 aktywnych
+plansz, pięć bucketów jakości/kąta, wszystkie historyczne false-success i
+failures oraz holdout rozłączny od strojenia. Wynik co najmniej 98% jako jedyny
+pozwala wybrać `structured_default` / `virtual_default`; 95–98% pozostaje w
+`structured_review` / `virtual_shadow`, a wynik poniżej 95% utrzymuje
+`legacy` / `legacy_files`. Brak raportu albo niegotowa walidacja proweniencji
+nie zmienia bieżącego trybu i nie jest traktowana jak wynik poniżej 95%.
+
+Odbiór TASK-0318 nie znalazł kompletnego raportu 0.10, dlatego nie promuje
+żadnej gry ani domyślnego silnika. Stare cropy, aliasy Reviewera i ścieżki
+legacy pozostają wymaganym rollbackiem. Szczegóły dowodów i procedura są w
+`ai_docs/quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md`.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

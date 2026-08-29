@@ -1941,6 +1941,14 @@ drugi start zwraca ten sam aktywny job, a stan `ready` bez nowych źródeł nie
 tworzy kolejnego. Job skanuje najwyżej 100 źródeł na transakcję w general lane,
 nie konwertuje rekordów legacy i nie zmienia trybu rolloutu gry.
 
+TASK-0318 nie dodaje publicznego endpointu promocji. Stan `ready` potwierdza
+wyłącznie spójność proweniencji i nie oznacza zaliczenia bramki jakości.
+`structured_default` może zostać ustawiony dopiero w osobnym, audytowalnym
+cutoverze opartym na zaakceptowanym raporcie minimum 100 źródeł / 500 plansz /
+5 bucketów i wyniku board-level co najmniej 98%. Brak raportu nie zmienia trybu.
+Endpointy status/start pozostają bez zmian, dlatego OpenAPI i wygenerowany
+klient nie otrzymują w TASK-0318 nowej mutacji.
+
 Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
 artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
 oczekiwaną rewizję decyzji, rewizję geometrii, checksumę i wymiary źródła oraz

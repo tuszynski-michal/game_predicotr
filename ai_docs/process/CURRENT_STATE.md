@@ -186,6 +186,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Waliduje najwyżej 100 źródeł na transakcję, zapisuje source cursor i stany
   `not_started/processing/ready/failed`; drugi start aktywnego joba jest
   idempotentny. Nie konwertuje legacy ani nie zmienia trybu rolloutu gry.
+
+### Finalny cutover wirtualnej geometrii — TASK-0318
+
+- Domena koduje fail-closed bramkę odbiorczą: minimum 100 źródeł, 500 aktywnych
+  plansz, pięć bucketów, komplet historycznych błędów, holdout i gotowa
+  walidacja proweniencji. Tylko board-level `>=98%` rekomenduje
+  `structured_default/virtual_default`; `95–98%` pozostaje w review, a `<95%`
+  utrzymuje legacy i może uzasadnić TASK-0319.
+- Audyt nie znalazł kompletnego raportu 0.10, a Outcome TASK-0317 potwierdza,
+  że operacyjnego backfillu nie uruchamiano. Decyzja odbiorcza brzmi
+  `insufficient_evidence`: żaden tryb gry ani domyślny engine nie został
+  promowany, a TASK-0319 nie został uruchomiony bez rzeczywistego wyniku `<95%`.
+- Legacy cropy, aliasy Reviewera, source geometry i dual-schema pozostają.
+  Raport `V0_10_VIRTUAL_GEOMETRY_CUTOVER.md` opisuje pełny rollback operacyjny;
+  nie wykonuje się destrukcyjnego downgrade'u 0082 po pojawieniu się danych
+  `virtual_source`.
 - Bramka sprawdza kanoniczne metadane RGB, pełną source geometry, obserwacje,
   bieżące komórki i manualne rewizje `virtual_source`. Po walidacji odtwarza
   compact candidate/fast document aktualnego właściciela, dzięki czemu lokalna

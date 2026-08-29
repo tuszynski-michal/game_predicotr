@@ -758,6 +758,21 @@ zachowuje ludzkie etykiety i zatwierdzoną proweniencję poprzednich pikseli ora
 aktualizuje bieżące komórki. Brak zgodności source, topologii, rewizji albo
 checksummy kończy się fail-closed; legacy zapis pozostaje bez zmian.
 
+TASK-0318 domyka politykę cutoveru niezależną od transportu HTTP i SQL.
+`assess_geometry_cutover` przyjmuje wyłącznie zagregowane dowody z ręcznie
+sprawdzonego holdoutu. Najpierw egzekwuje minimalną próbkę, komplet historycznych
+błędów i gotową walidację TASK-0317, a dopiero potem porównuje board-level z
+progami 95% i 98%. Niepełny dowód nie zwraca rekomendowanego trybu, więc nie
+może zostać przypadkiem zinterpretowany jako zgoda na default ani jako sygnał
+uruchomienia modelu keypoint.
+
+W odbiorze 2026-08-29 nie było kompletnego raportu 0.10. Produkcyjne tryby nie
+zostały promowane, a aliasy, legacy cropy i dual-schema pozostają. Jest to
+świadomy finalny stan bezpiecznego cutoveru, nie automatyczne zaliczenie jakości.
+Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
+`legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
+canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

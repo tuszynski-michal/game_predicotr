@@ -6236,6 +6236,34 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Alternatives:** automatyczna konwersja legacy, materializacja nowych PNG i
   promocja gry po samym backfillu zostały odrzucone jako zbyt ryzykowne.
 
+## D-261 — Brak kompletnego raportu nie promuje rolloutu geometrii
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `structured_default` / `virtual_default` jest dozwolone wyłącznie
+  po zaakceptowanym holdoucie obejmującym minimum 100 źródeł, 500 aktywnych
+  plansz, pięć bucketów oraz wszystkie historyczne failures i false-successy,
+  z board-level automatic correctness co najmniej 98%. Wynik 95–98% pozostaje
+  w `structured_review` / `virtual_shadow`, a wynik poniżej 95% utrzymuje
+  `legacy` / `legacy_files`. Brak raportu albo niegotowa walidacja proweniencji
+  nie zmienia bieżącego trybu i nie uruchamia TASK-0319.
+- **Context:** TASK-0317 wdrożył bounded walidację i ręczny zapis virtual, ale
+  jego Outcome jawnie potwierdza brak operacyjnego backfillu. Repozytorium nie
+  zawiera kompletnego raportu 0.10, więc wynik board-level nie może zostać
+  wyliczony bez zgadywania lub użycia danych niespełniających kontraktu.
+- **Safety:** polityka progów jest czysta i deterministyczna. Niepełny dowód
+  zwraca `insufficient_evidence` bez rekomendacji trybu. TASK-0318 nie mutuje
+  stanów gry, nie usuwa aliasów, legacy cropów, source geometry, canonical
+  ownership ani zweryfikowanych etykiet.
+- **Consequences:** kod 0.10 pozostaje dostępny per gra w trybach kontrolowanych,
+  lecz domyślny cutover jest wstrzymany do prawidłowego odbioru. Pełny rollback
+  tworzy nową rewizję `legacy/legacy_files` dla przyszłych jobów; nie przepisuje
+  snapshotów istniejących jobów i nie wykonuje downgrade'u 0082 po zapisaniu
+  danych virtual.
+- **Alternatives:** promocja po samym stanie `ready`, traktowanie braku raportu
+  jak `<95%` oraz usunięcie legacy po przejściu testów jednostkowych odrzucono,
+  ponieważ nie mierzą rzeczywistej poprawności plansz i osłabiają rollback.
+
 ## Szablon nowej decyzji
 
 ```text

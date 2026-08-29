@@ -10,7 +10,8 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, and_, delete, func, or_, select
+from sqlalchemy import Float, String, and_, delete, func, or_, select
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import ColumnElement, Select
@@ -374,6 +375,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 assigned_symbol.id.label("assigned_symbol_id"),
                 assigned_symbol.code.label("assigned_symbol_code"),
                 assigned_symbol.name.label("assigned_symbol_name"),
+                _prediction_confidence_expression().label("prediction_confidence"),
             )
             .outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
         )
@@ -381,6 +383,8 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
+        prediction_revision = ImageSymbolPredictionRevisionModel
+        observation = CellObservationModel
         statement = (
             select(cell)
             .join(
@@ -394,6 +398,18 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 ),
             )
             .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+            .outerjoin(
+                prediction_revision,
+                prediction_revision.id == cell.prediction_revision_id,
+            )
+            .outerjoin(
+                observation,
+                and_(
+                    observation.recognized_board_id == cell.recognized_board_id,
+                    observation.row_index == cell.row_index,
+                    observation.column_index == cell.column_index,
+                ),
+            )
             .where(
                 cell.game_id == review_filter.game_id,
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
@@ -405,6 +421,11 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
         if review_filter.state is not SymbolCellReviewFilterState.ALL:
             statement = statement.where(cell.review_state == review_filter.state.value)
+        confidence = _prediction_confidence_expression()
+        if review_filter.min_confidence is not None:
+            statement = statement.where(confidence >= review_filter.min_confidence)
+        if review_filter.max_confidence is not None:
+            statement = statement.where(confidence <= review_filter.max_confidence)
         return statement
 
     def _has_item_after(
@@ -2007,6 +2028,35 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         crop_sample_id=cell.crop_sample_id,
         crop_checksum_sha256=cell.crop_checksum_sha256,
         board_status=cast(str, row[1]),
+        prediction_confidence=(None if row[5] is None else float(row[5])),
+        asset_mode=cell.asset_mode,
+        render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+    )
+
+
+def _prediction_confidence_expression() -> ColumnElement[float | None]:
+    """Read the latest review confidence without materialising a new projection.
+
+    Pending reinference stores the current per-cell confidence in the linked
+    prediction revision. Legacy rows retain it in ``cell_observations``.  The
+    list and frozen bulk filter use the same expression so a filter snapshot
+    cannot silently broaden between preview and execution.
+    """
+
+    cell = ImageSymbolReviewCellModel
+    revision = ImageSymbolPredictionRevisionModel
+    observation = CellObservationModel
+    revision_confidence = sql_cast(
+        revision.predictions.op("->")(cell.cell_index).op("->>")("confidence"),
+        Float(),
+    )
+    legacy_confidence = sql_cast(
+        observation.prediction.op("->>")("confidence"),
+        Float(),
+    )
+    return cast(
+        ColumnElement[float | None],
+        func.coalesce(revision_confidence, legacy_confidence),
     )
 
 

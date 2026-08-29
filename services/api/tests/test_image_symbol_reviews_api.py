@@ -106,6 +106,20 @@ class MemorySymbolCellReviewRepository:
                 review_filter.state is SymbolCellReviewFilterState.ALL
                 or item.review_state.value == review_filter.state.value
             )
+            and (
+                review_filter.min_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence >= review_filter.min_confidence
+                )
+            )
+            and (
+                review_filter.max_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence <= review_filter.max_confidence
+                )
+            )
         )
         if after_key is not None:
             start = next(
@@ -138,7 +152,27 @@ class MemorySymbolCellReviewRepository:
 
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         visible = tuple(
-            item for item in self.items if item.assigned_symbol_id == review_filter.symbol_id
+            item
+            for item in self.items
+            if (item.assigned_symbol_id == review_filter.symbol_id)
+            and (
+                review_filter.state is SymbolCellReviewFilterState.ALL
+                or item.review_state.value == review_filter.state.value
+            )
+            and (
+                review_filter.min_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence >= review_filter.min_confidence
+                )
+            )
+            and (
+                review_filter.max_confidence is None
+                or (
+                    item.prediction_confidence is not None
+                    and item.prediction_confidence <= review_filter.max_confidence
+                )
+            )
         )
         approved = sum(item.review_state is SymbolCellReviewState.APPROVED for item in visible)
         pending = len(visible) - approved
@@ -432,6 +466,7 @@ def _item(
     sequence_number: int,
     cell_index: int,
     review_item_id: UUID,
+    prediction_confidence: float | None = None,
     state: SymbolCellReviewState = SymbolCellReviewState.PENDING,
 ) -> SymbolCellReviewListItem:
     return SymbolCellReviewListItem(
@@ -456,6 +491,7 @@ def _item(
         crop_sample_id="b" * 64,
         crop_checksum_sha256="a" * 64,
         board_status="pending",
+        prediction_confidence=prediction_confidence,
     )
 
 
@@ -732,7 +768,7 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
 
 
-def test_list_endpoint_accepts_an_operator_chosen_page_size_above_five_hundred(
+def test_list_endpoint_rejects_a_page_size_above_five_hundred(
     tmp_path: Path,
 ) -> None:
     game_id, symbol_id = uuid4(), uuid4()
@@ -758,9 +794,53 @@ def test_list_endpoint_accepts_an_operator_chosen_page_size_above_five_hundred(
             params={"symbolId": str(symbol_id), "limit": 501},
         )
 
-    assert response.status_code == 200
-    assert len(response.json()["items"]) == 501
-    assert repository.limits == [501]
+    assert response.status_code == 422
+    assert repository.limits == []
+
+
+def test_list_endpoint_binds_confidence_filter_to_keyset_cursor(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index,
+            cell_index=0,
+            prediction_confidence=confidence,
+            review_item_id=UUID(int=index),
+        )
+        for index, confidence in ((1, 0.2), (2, 0.55), (3, 0.65), (4, 0.95))
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=items,
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        first = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "limit": 1,
+                "minConfidence": 0.5,
+                "maxConfidence": 0.8,
+            },
+        )
+        invalid_scope = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={
+                "symbolId": str(symbol_id),
+                "afterCursor": first.json()["nextCursor"],
+                "minConfidence": 0.8,
+            },
+        )
+
+    assert first.status_code == 200
+    assert [item["sequenceNumber"] for item in first.json()["items"]] == [2]
+    assert first.json()["items"][0]["predictionConfidence"] == 0.55
+    assert invalid_scope.status_code == 409
+    assert invalid_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
 
 
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:
@@ -1100,6 +1180,8 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
             "symbolId": str(source_symbol_id),
             "state": "pending",
             "catalogRevision": 17,
+            "minConfidence": 0.5,
+            "maxConfidence": 0.8,
             "excludedCellReviewIds": [],
         },
     }
@@ -1131,6 +1213,10 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
     assert status.status_code == 200
     assert status.json()["pendingCount"] == 3
     assert {request.actor for request in bulk.requests} == {"local-admin"}
+    selection = bulk.requests[0].filter_selection
+    assert selection is not None
+    assert selection.min_confidence == 0.5
+    assert selection.max_confidence == 0.8
 
 
 def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> None:

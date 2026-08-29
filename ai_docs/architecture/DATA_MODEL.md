@@ -1068,6 +1068,13 @@ zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz or
 uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
 grę raportem; nie jest naprawiana heurystycznie.
 
+TASK-0315 nie dodaje tabel, binariów ani trwałego cache'u listy. Bounded odczyt
+`symbol-cell-reviews` wylicza bieżącą confidence z rewizji predykcji albo
+historycznej obserwacji, a odpowiedź wskazuje `asset_mode` oraz checksumę render
+specu wirtualnego assetu. Klient przechowuje co najwyżej trzy strony metadanych;
+atlas maksymalnie 100 widocznych komórek pozostaje odtwarzalnym cache'em working
+i nie ma encji domenowej.
+
 Nowy import z aktywnym pipeline'em geometrii przypina tę samą topologię w
 jobowym snapshotcie, fingerprintcie croppera i content-addressed manifeście
 odroczenia. `recognized_boards.grid_rows/grid_columns` zapisują wymiary użyte

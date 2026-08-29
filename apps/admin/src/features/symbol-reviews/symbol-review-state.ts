@@ -5,6 +5,10 @@ import type {
 
 export const DEFAULT_SYMBOL_REVIEW_PAGE_SIZE = 500;
 export const MIN_SYMBOL_REVIEW_PAGE_SIZE = 1;
+export const MAX_SYMBOL_REVIEW_PAGE_SIZE = 500;
+export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
+
+export type SymbolReviewConfidenceFilter = 'all' | 'high' | 'low' | 'medium';
 
 export interface SymbolReviewPageRange {
   readonly end: number;
@@ -12,6 +16,7 @@ export interface SymbolReviewPageRange {
 }
 
 export interface SymbolReviewFilters {
+  readonly confidence: SymbolReviewConfidenceFilter;
   readonly gameId: string | null;
   readonly pageSize: number;
   readonly state: SymbolCellReviewFilterState;
@@ -32,6 +37,7 @@ export interface SymbolReviewCurrentPage {
 export interface SymbolReviewWorkspaceState {
   readonly currentPage: SymbolReviewCurrentPage | null;
   readonly filters: SymbolReviewFilters;
+  readonly pages: readonly SymbolReviewCurrentPage[];
 }
 
 export type SymbolReviewWorkspaceAction =
@@ -41,12 +47,41 @@ export type SymbolReviewWorkspaceAction =
       readonly page: SymbolCellReviewPageResponse;
       readonly position: SymbolReviewPagePosition;
     }
+  | {
+      readonly type: 'page_prefetched';
+      readonly page: SymbolCellReviewPageResponse;
+      readonly position: SymbolReviewPagePosition;
+    }
   | { readonly type: 'clear_page' };
 
 export function createSymbolReviewWorkspaceState(
   filters: SymbolReviewFilters,
 ): SymbolReviewWorkspaceState {
-  return { currentPage: null, filters };
+  return { currentPage: null, filters, pages: [] };
+}
+
+export function symbolReviewConfidenceRange(
+  confidence: SymbolReviewConfidenceFilter,
+): { readonly maxConfidence?: number; readonly minConfidence?: number } {
+  switch (confidence) {
+    case 'low':
+      return { maxConfidence: 0.499_999 };
+    case 'medium':
+      return { maxConfidence: 0.799_999, minConfidence: 0.5 };
+    case 'high':
+      return { minConfidence: 0.8 };
+    default:
+      return {};
+  }
+}
+
+export function findCachedSymbolReviewPage(
+  state: SymbolReviewWorkspaceState,
+  pageNumber: number,
+): SymbolReviewCurrentPage | null {
+  return (
+    state.pages.find((page) => page.position.number === pageNumber) ?? null
+  );
 }
 
 export function symbolReviewPageRange(
@@ -79,11 +114,45 @@ export function symbolReviewWorkspaceReducer(
     case 'filters_changed':
       return createSymbolReviewWorkspaceState(action.filters);
     case 'clear_page':
-      return { ...state, currentPage: null };
+      return { ...state, currentPage: null, pages: [] };
     case 'page_loaded':
       return {
         ...state,
         currentPage: { page: action.page, position: action.position },
+        pages: retainNearbyPages(
+          state.pages,
+          { page: action.page, position: action.position },
+          action.position.number,
+        ),
+      };
+    case 'page_prefetched':
+      return {
+        ...state,
+        pages: retainNearbyPages(
+          state.pages,
+          { page: action.page, position: action.position },
+          state.currentPage?.position.number ?? action.position.number,
+        ),
       };
   }
+}
+
+function retainNearbyPages(
+  existing: readonly SymbolReviewCurrentPage[],
+  incoming: SymbolReviewCurrentPage,
+  currentPageNumber: number,
+): readonly SymbolReviewCurrentPage[] {
+  const byPageNumber = new Map<number, SymbolReviewCurrentPage>(
+    existing.map((page) => [page.position.number, page]),
+  );
+  byPageNumber.set(incoming.position.number, incoming);
+  return [...byPageNumber.values()]
+    .sort(
+      (left, right) =>
+        Math.abs(left.position.number - currentPageNumber) -
+          Math.abs(right.position.number - currentPageNumber) ||
+        left.position.number - right.position.number,
+    )
+    .slice(0, MAX_SYMBOL_REVIEW_CACHED_PAGES)
+    .sort((left, right) => left.position.number - right.position.number);
 }

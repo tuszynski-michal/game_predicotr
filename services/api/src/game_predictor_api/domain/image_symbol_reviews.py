@@ -102,6 +102,30 @@ class SymbolCellReviewListFilter:
     game_id: UUID
     symbol_id: UUID | None
     state: SymbolCellReviewFilterState
+    min_confidence: float | None = None
+    max_confidence: float | None = None
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("min_confidence", self.min_confidence),
+            ("max_confidence", self.max_confidence),
+        ):
+            if value is not None and (
+                isinstance(value, bool) or not 0.0 <= value <= 1.0
+            ):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CONFIDENCE_INVALID",
+                    f"{name} must be a number between 0 and 1.",
+                )
+        if (
+            self.min_confidence is not None
+            and self.max_confidence is not None
+            and self.min_confidence > self.max_confidence
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CONFIDENCE_RANGE_INVALID",
+                "min_confidence cannot be greater than max_confidence.",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +153,9 @@ class SymbolCellReviewListItem:
     crop_sample_id: str
     crop_checksum_sha256: str
     board_status: str
+    prediction_confidence: float | None = None
+    asset_mode: str = "legacy_file"
+    render_spec_checksum_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if self.sequence_number < 1:
@@ -141,6 +168,14 @@ class SymbolCellReviewListItem:
             raise ValueError("review and geometry revisions cannot be negative")
         if not _is_sha256(self.crop_sample_id) or not _is_sha256(self.crop_checksum_sha256):
             raise ValueError("crop identity must contain SHA-256 digests")
+        if self.prediction_confidence is not None and not 0.0 <= self.prediction_confidence <= 1.0:
+            raise ValueError("prediction_confidence must be between 0 and 1")
+        if self.asset_mode not in {"legacy_file", "virtual_source"}:
+            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        if self.asset_mode == "virtual_source" and not _is_sha256(
+            self.render_spec_checksum_sha256 or ""
+        ):
+            raise ValueError("virtual_source requires a render spec checksum")
 
     @property
     def cursor_key(self) -> tuple[int, int, str]:
@@ -703,9 +738,11 @@ def encode_symbol_cell_review_cursor(
         "direction": direction.value,
         "gameId": str(review_filter.game_id),
         "key": list(key),
+        "maxConfidence": review_filter.max_confidence,
+        "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
         "symbolId": "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id),
-        "version": 1,
+        "version": 2,
     }
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
@@ -728,6 +765,8 @@ def decode_symbol_cell_review_cursor(
         parsed_symbol_id = payload["symbolId"]
         parsed_direction = SymbolCellReviewCursorDirection(payload["direction"])
         parsed_state = SymbolCellReviewFilterState(payload["state"])
+        parsed_min_confidence = payload.get("minConfidence")
+        parsed_max_confidence = payload.get("maxConfidence")
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
@@ -736,11 +775,13 @@ def decode_symbol_cell_review_cursor(
 
     expected_symbol = "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
     if (
-        payload.get("version") != 1
+        payload.get("version") != 2
         or parsed_game_id != review_filter.game_id
         or parsed_symbol_id != expected_symbol
         or parsed_state is not review_filter.state
         or parsed_direction is not direction
+        or parsed_min_confidence != review_filter.min_confidence
+        or parsed_max_confidence != review_filter.max_confidence
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",

@@ -19,6 +19,8 @@ export type SymbolReviewClient = Pick<
   | 'getSymbolCellReviewProjectionStatus'
   | 'startSymbolCellReviewProjectionBackfill'
   | 'symbolCellReviewAssetUrl'
+  | 'createVirtualCellPreviewBatch'
+  | 'virtualCellPreviewAtlasUrl'
 >;
 
 export type SymbolReviewProjectionResult =
@@ -87,6 +89,8 @@ export interface LoadSymbolReviewPageOptions {
   readonly beforeCursor?: string;
   readonly gameId: string;
   readonly limit: number;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'unknown';
 }

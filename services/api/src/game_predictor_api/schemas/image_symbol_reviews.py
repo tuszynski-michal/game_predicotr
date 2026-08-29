@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -66,6 +66,11 @@ class SymbolCellReviewListItemResponse(ApiModel):
     crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     board_status: str
+    prediction_confidence: float | None = Field(default=None, ge=0, le=1)
+    asset_mode: Literal["legacy_file", "virtual_source"] = "legacy_file"
+    render_spec_checksum_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$"
+    )
 
 
 class SymbolCellReviewPageResponse(ApiModel):
@@ -150,11 +155,23 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
     kind: Literal["filter"]
     symbol_id: UUID | Literal["unknown"]
     state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL
+    min_confidence: float | None = Field(default=None, ge=0, le=1)
+    max_confidence: float | None = Field(default=None, ge=0, le=1)
     catalog_revision: int = Field(ge=0)
     excluded_cell_review_ids: tuple[UUID, ...] = Field(
         default=(),
         max_length=MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS,
     )
+
+    @model_validator(mode="after")
+    def validate_confidence_range(self) -> SymbolCellReviewBulkFilterSelectionRequest:
+        if (
+            self.min_confidence is not None
+            and self.max_confidence is not None
+            and self.min_confidence > self.max_confidence
+        ):
+            raise ValueError("minConfidence cannot be greater than maxConfidence.")
+        return self
 
 
 SymbolCellReviewBulkSelectionRequest = Annotated[
@@ -468,6 +485,8 @@ def to_symbol_cell_review_bulk_request(
         filter_selection=SymbolCellReviewBulkFilterSelection(
             symbol_id=symbol_id,
             state=selection.state,
+            min_confidence=selection.min_confidence,
+            max_confidence=selection.max_confidence,
             catalog_revision=selection.catalog_revision,
             excluded_cell_review_ids=selection.excluded_cell_review_ids,
         ),
@@ -543,6 +562,9 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         crop_sample_id=item.crop_sample_id,
         crop_checksum_sha256=item.crop_checksum_sha256,
         board_status=item.board_status,
+        prediction_confidence=item.prediction_confidence,
+        asset_mode=cast(Literal["legacy_file", "virtual_source"], item.asset_mode),
+        render_spec_checksum_sha256=item.render_spec_checksum_sha256,
     )
 
 

@@ -4,12 +4,14 @@ import test from 'node:test';
 import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
-  MIN_SYMBOL_REVIEW_PAGE_SIZE,
+  MAX_SYMBOL_REVIEW_CACHED_PAGES,
+  symbolReviewConfidenceRange,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
 
 const filters = {
+  confidence: 'all',
   gameId: 'game-1',
   pageSize: 500,
   state: 'pending',
@@ -26,9 +28,9 @@ function page(id, { nextCursor = null, previousCursor = null } = {}) {
   };
 }
 
-test('uses a single bounded configurable page without adjacent data cache', () => {
+test('keeps at most three bounded metadata pages around the current keyset page', () => {
   assert.equal(DEFAULT_SYMBOL_REVIEW_PAGE_SIZE, 500);
-  assert.equal(MIN_SYMBOL_REVIEW_PAGE_SIZE, 1);
+  assert.equal(MAX_SYMBOL_REVIEW_CACHED_PAGES, 3);
   let state = createSymbolReviewWorkspaceState(filters);
   state = symbolReviewWorkspaceReducer(state, {
     page: page('first', { nextCursor: 'after-first' }),
@@ -46,7 +48,20 @@ test('uses a single bounded configurable page without adjacent data cache', () =
     afterCursor: 'after-first',
     number: 2,
   });
-  assert.equal('pages' in state, false);
+  assert.equal(state.pages.length, 2);
+
+  for (const pageNumber of [3, 4]) {
+    state = symbolReviewWorkspaceReducer(state, {
+      page: page(`page-${pageNumber}`),
+      position: { number: pageNumber },
+      type: 'page_prefetched',
+    });
+  }
+  assert.equal(state.pages.length, 3);
+  assert.deepEqual(
+    state.pages.map((cached) => cached.position.number),
+    [1, 2, 3],
+  );
 });
 
 test('changing filters and explicit clearing discard the current page', () => {
@@ -89,6 +104,10 @@ test('fresh keyset reload replaces changed rows instead of merging a page cache'
     ['replacement', 'next'],
   );
   assert.deepEqual(state.currentPage.position, position);
+  assert.deepEqual(
+    state.pages[0]?.page.items.map((item) => item.id),
+    ['replacement', 'next'],
+  );
 });
 
 test('reports the one-based range represented by the confirmed page size', () => {
@@ -109,4 +128,16 @@ test('reports the one-based range represented by the confirmed page size', () =>
     end: 220,
   });
   assert.equal(symbolReviewPageRange(1, 0, 100, 0), null);
+});
+
+test('maps stable confidence bands to the API range snapshot', () => {
+  assert.deepEqual(symbolReviewConfidenceRange('all'), {});
+  assert.deepEqual(symbolReviewConfidenceRange('low'), {
+    maxConfidence: 0.499999,
+  });
+  assert.deepEqual(symbolReviewConfidenceRange('medium'), {
+    maxConfidence: 0.799999,
+    minConfidence: 0.5,
+  });
+  assert.deepEqual(symbolReviewConfidenceRange('high'), { minConfidence: 0.8 });
 });

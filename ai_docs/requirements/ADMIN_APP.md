@@ -375,7 +375,8 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
-`Nierozpoznany (?)`) i stan `Wszystkie` / `Zatwierdzone` / `Oczekujące`.
+`Nierozpoznany (?)`), stan `Wszystkie` / `Zatwierdzone` / `Oczekujące` oraz
+opcjonalny przedział pewności predykcji `wszystkie` / niska / średnia / wysoka.
 Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
 operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
@@ -383,17 +384,16 @@ starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
 Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
 `Oczekujące`. Wejście do zakładki nie pobiera strony cropów: operator najpierw
-ustawia grę, symbol, stan oraz dowolną dodatnią liczbę pozycji, a następnie wybiera
-`Zatwierdź wybór`. Dopiero ta jawna akcja pobiera jedną bounded stronę. Po
-zatwierdzeniu ustawienia są zablokowane; `Zmień wybór` czyści bieżącą stronę i
-pozwala ponownie ustawić parametry. Domyślna liczba pozycji wynosi 500 dla
-zgodności z poprzednim widokiem. Widok udostępnia jawne przyciski
-poprzedniej/następnej strony. Nie wykonuje read-ahead,
-nie utrzymuje stron sąsiednich ani nie scala danych z cache aplikacji. Miniatury
-są ładowane leniwie spod checksum-bound lokalnego Admin API; brak jednego assetu
-pokazuje placeholder tylko tej karty. Natywny immutable cache miniaturek
-pozostaje, ponieważ ogranicza transfer i nie przechowuje metadanych stron w
-stanie aplikacji.
+ustawia filtry, a następnie wybiera `Zatwierdź wybór`. Dopiero ta jawna akcja
+pobiera stronę o stałym rozmiarze 500 metadanych. Po zatwierdzeniu ustawienia są
+zablokowane; `Zmień wybór` czyści strony, wirtualny viewport i zaznaczenie, a
+następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
+poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
+w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
+całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Dla
+`virtual_source` Admin tworzy atlas maksymalnie 100 aktualnie widocznych kart;
+legacy asset jest nadal pobierany leniwie jako checksum-bound thumbnail. Brak
+jednego assetu pokazuje placeholder wyłącznie tej karty.
 Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji zależny od
 zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
 wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
@@ -419,14 +419,16 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   z kompletnej projekcji zachowuje odczyt oraz mutacje istniejących cropów także
   podczas przetwarzania; początkowy lub niekompletny backfill pozostaje
   fail-closed.
-  Zaznaczanie i masowe
-operacje działają bez pobierania całego wyniku do przeglądarki. Operator może
-zaznaczać pojedyncze karty albo całą bieżącą stronę; Admin nie oferuje
-zaznaczenia niewidocznego całego filtra. Zmiana gry, symbolu, stanu lub strony
-czyści zaznaczenie. Wysłana operacja masowa przechodzi do tła: jej dokładne
-targety pozostają wyszarzone ze spinnerem, ale operator może przejść na inną
-stronę i uruchomić kolejną niezależną operację. Zablokowane pozostają wyłącznie
-targety już wysłane oraz krótki foreground start/preview bieżącej decyzji.
+Zaznaczanie i masowe operacje działają bez pobierania całego wyniku do
+przeglądarki. Operator może zaznaczać pojedyncze karty albo całą bieżącą stronę
+jawnie do 10 000 pozycji. Opcja `Zaznacz wyniki filtra` zapisuje snapshot gry,
+symbolu, stanu, przedziału confidence i rewizji katalogu wraz z co najwyżej
+10 000 `excludedIds`; nie przesyła ani nie utrwala ID wszystkich wyników.
+Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
+operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
+wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić
+kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
+oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
 symbol`, `Zła siatka` i `Nieczytelny symbol`. `Zła siatka` kieruje pole do

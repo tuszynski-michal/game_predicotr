@@ -14343,6 +14343,32 @@
             "title": "Kind",
             "type": "string"
           },
+          "maxConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxconfidence"
+          },
+          "minConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minconfidence"
+          },
           "state": {
             "$ref": "#/components/schemas/SymbolCellReviewFilterState",
             "default": "all"
@@ -14723,6 +14749,15 @@
       "SymbolCellReviewListItemResponse": {
         "additionalProperties": false,
         "properties": {
+          "assetMode": {
+            "default": "legacy_file",
+            "enum": [
+              "legacy_file",
+              "virtual_source"
+            ],
+            "title": "Assetmode",
+            "type": "string"
+          },
           "assignedSymbolCode": {
             "anyOf": [
               {
@@ -14810,6 +14845,19 @@
             "title": "Isunknown",
             "type": "boolean"
           },
+          "predictionConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictionconfidence"
+          },
           "predictionSymbolCode": {
             "anyOf": [
               {
@@ -14836,6 +14884,18 @@
             "format": "uuid",
             "title": "Recognizedboardid",
             "type": "string"
+          },
+          "renderSpecChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderspecchecksumsha256"
           },
           "reviewItemId": {
             "format": "uuid",
@@ -20490,10 +20550,47 @@
           },
           {
             "in": "query",
+            "name": "minConfidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Minconfidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maxConfidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Maxconfidence"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 500,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"

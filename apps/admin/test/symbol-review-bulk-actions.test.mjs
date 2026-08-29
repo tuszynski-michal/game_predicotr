@@ -8,6 +8,7 @@ import {
   startSymbolReviewBulkOperation,
 } from '../src/features/symbol-reviews/symbol-review-bulk-actions.ts';
 import {
+  createAllMatchingFilterSymbolReviewSelection,
   createEmptySymbolReviewSelection,
   toggleSymbolReviewItem,
 } from '../src/features/symbol-reviews/symbol-review-selection-state.ts';
@@ -55,6 +56,34 @@ test('builds only explicit page-local crop-bound commands', () => {
       .action,
     'mark_unreadable',
   );
+});
+
+test('creates a frozen filter command without materializing matching crop IDs', () => {
+  const selection = createAllMatchingFilterSymbolReviewSelection({
+    catalogRevision: 9,
+    gameId: 'game-1',
+    matchedCount: 250_000,
+    maxConfidence: 0.8,
+    minConfidence: 0.5,
+    state: 'pending',
+    symbolId: 'symbol-1',
+  });
+  const command = createSymbolReviewBulkCommand(
+    'mark_unreadable',
+    selection,
+    null,
+  );
+
+  assert.deepEqual(command?.request.selection, {
+    catalogRevision: 9,
+    excludedCellReviewIds: [],
+    kind: 'filter',
+    maxConfidence: 0.8,
+    minConfidence: 0.5,
+    state: 'pending',
+    symbolId: 'symbol-1',
+  });
+  assert.doesNotMatch(JSON.stringify(command), /cell-\d/);
 });
 
 test('delegates preview and start to the local client with one idempotency key', async () => {

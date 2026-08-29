@@ -8274,6 +8274,14 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    * Kind
    */
   kind: 'filter';
+  /**
+   * Maxconfidence
+   */
+  maxConfidence?: number | null;
+  /**
+   * Minconfidence
+   */
+  minConfidence?: number | null;
   state?: SymbolCellReviewFilterState;
   /**
    * Symbolid
@@ -8480,6 +8488,10 @@ export type SymbolCellReviewFilterState = 'all' | 'approved' | 'pending';
  */
 export type SymbolCellReviewListItemResponse = {
   /**
+   * Assetmode
+   */
+  assetMode?: 'legacy_file' | 'virtual_source';
+  /**
    * Assignedsymbolcode
    */
   assignedSymbolCode: string | null;
@@ -8536,6 +8548,10 @@ export type SymbolCellReviewListItemResponse = {
    */
   isUnknown: boolean;
   /**
+   * Predictionconfidence
+   */
+  predictionConfidence?: number | null;
+  /**
    * Predictionsymbolcode
    */
   predictionSymbolCode: string | null;
@@ -8547,6 +8563,10 @@ export type SymbolCellReviewListItemResponse = {
    * Recognizedboardid
    */
   recognizedBoardId: string;
+  /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256?: string | null;
   /**
    * Reviewitemid
    */
@@ -11621,6 +11641,14 @@ export type ListSymbolCellReviewsData = {
      * Beforecursor
      */
     beforeCursor?: string | null;
+    /**
+     * Minconfidence
+     */
+    minConfidence?: number | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number | null;
     /**
      * Limit
      */

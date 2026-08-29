@@ -17,45 +17,45 @@ const styles = await readFile(
   'utf8',
 );
 
-test('provides confirmable game, symbol, state, page-size and unknown filters', () => {
+test('provides confirmable game, symbol, state, confidence and unknown filters', () => {
   assert.match(source, /Weryfikacja symboli/);
   assert.match(source, /Nierozpoznany \(\?\)/);
   assert.match(source, /Zatwierdzone/);
   assert.match(source, /Oczekujące/);
-  assert.match(source, /Ilość na stronę/);
+  assert.match(source, /Pewność predykcji/);
   assert.match(source, /Zatwierdź wybór/);
   assert.match(source, /Zmień wybór/);
   assert.match(source, /filtersConfirmed/);
-  assert.match(
-    styles,
-    /\.filters fieldset \{[\s\S]*grid-column: 1 \/ span 3;/,
-  );
+  assert.match(styles, /\.filters fieldset \{[\s\S]*grid-column: 1 \/ span 3;/);
   assert.match(source, /state: 'pending'/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
   assert.match(source, /mark_unreadable/);
 });
 
-test('uses lazy, checksum-bound assets with a local fallback per failed image', () => {
+test('uses checksum-bound legacy assets and bounded virtual atlas previews', () => {
   assert.match(source, /symbolCellReviewAssetUrl/);
   assert.match(source, /item\.cropChecksumSha256/);
   assert.match(source, /loading="lazy"/);
   assert.match(source, /onError=\{\(\) => setImageFailed\(true\)\}/);
   assert.match(source, /Brak aktualnego cropa/);
+  assert.match(source, /loadSymbolReviewVirtualPreviews/);
+  assert.match(source, /SymbolReviewVirtualGrid/);
+  assert.match(source, /virtualPreviewTiles/);
 });
 
-test('keeps one bounded configurable page with background bulk controls', () => {
+test('keeps a three-page metadata window with virtual cards and background bulk controls', () => {
   assert.doesNotMatch(source, /IntersectionObserver/);
-  assert.doesNotMatch(source, /prefetchingCursorRef/);
+  assert.match(source, /page_prefetched/);
+  assert.match(source, /findCachedSymbolReviewPage/);
   assert.match(source, /pagePositionRef/);
   assert.match(source, /maks\. \$\{filters\.pageSize\} symboli/);
   assert.match(source, /Poprzednia strona/);
   assert.match(source, /Następna strona/);
-  assert.match(styles, /repeat\(auto-fill, 100px\)/);
   assert.match(styles, /width: 100px/);
   assert.match(styles, /height: 100px/);
-  assert.match(source, /Zaznacz całą stronę/);
-  assert.doesNotMatch(source, /Zaznacz wszystkie wyniki filtra/);
+  assert.match(source, /Zaznacz stronę/);
+  assert.match(source, /Zaznacz wyniki filtra/);
   assert.match(
     source,
     /disabled=\{interactionBusy \|\| pendingCellIds\.has\(item\.id\)\}/,

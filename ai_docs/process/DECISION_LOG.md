@@ -5808,7 +5808,7 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 
 ## D-241 — Weryfikacja symboli utrzymuje jedną keysetową stronę 500 cropów
 
-- **Status:** accepted
+- **Status:** superseded by D-259
 - **Date:** 2026-08-27
 - **Decision:** Admin pokazuje jedną stronę maksymalnie 500 cropów, domyślnie w
   stanie `pending`. Nie prefetchuje i nie przechowuje stron sąsiednich. Operator
@@ -6183,6 +6183,34 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   kontrakt.
 - **Alternatives:** wspólna końcowa homografia strony, wymuszanie kątów prostych
   w zdjęciu, ML/keypoint fallback i segmentacja zostały odrzucone w tym etapie.
+
+## D-259 — Weryfikacja symboli wirtualizuje strony i zamraża pełny filtr
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** lokalny Admin zachowuje jawne keysetowe strony po 500
+  metadanych, lecz renderuje wyłącznie viewport z małym overscanem przez
+  `@tanstack/react-virtual`. Trzyma najwyżej trzy najbliższe strony metadanych
+  oraz prefetchuje wyłącznie jedną następną stronę. Wirtualne assety są
+  pobierane atlasem dla najwyżej 100 aktualnie renderowanych komórek; klient nie
+  pobiera 10 000 obrazów ani pełnej listy ID.
+- **Context:** jednoczesne wyrenderowanie i pobranie miniaturek dla strony 500
+  cropów obciążało przeglądarkę mimo bounded keysetu. Poprzednia decyzja D-241
+  eliminowała każdy prefetch i snapshot filtra, co chroniło prostotę, ale
+  ograniczało płynność oraz bezpieczną operację na większym zbiorze.
+- **Safety:** cursor oraz snapshot wiążą grę, symbol, stan, przedział
+  confidence i rewizję katalogu. Zaznaczenie jawne pozostaje ograniczone do
+  10 000 targetów; `Zaznacz wyniki filtra` przekazuje wyłącznie ten snapshot i
+  maksymalnie 10 000 wykluczeń. Zmiana filtra po zaznaczeniu wymaga
+  potwierdzenia i czyści selection. Jedna jawna komórka nadal używa
+  synchronicznej, checksum-bound mutacji, większe zbiory zachowują trwały job.
+- **Consequences:** interfejs nie wraca do infinite scrolla ani offsetów;
+  nawigacja stron pozostaje widoczna i deterministyczna. Backend ogranicza
+  pojedynczy odczyt do 500, a confidence jest częścią scope cursorów i filtra
+  operacji masowej. Zdalny Reviewer nie dostaje nowych endpointów Admina.
+- **Alternatives:** renderowanie całych stron, pobieranie obrazów dla 10 000
+  targetów i lokalne materializowanie całego filtra odrzucono z powodu pamięci,
+  transferu oraz ryzyka starej rewizji katalogu.
 
 ## Szablon nowej decyzji
 

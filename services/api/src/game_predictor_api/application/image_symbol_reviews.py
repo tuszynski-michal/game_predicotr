@@ -21,6 +21,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 
 DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
+MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,12 +76,14 @@ class SymbolCellReviewQueryService:
         state: SymbolCellReviewFilterState,
         after_cursor: str | None,
         before_cursor: str | None,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPage:
-        if limit < 1:
+        if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PAGE_INVALID",
-                "The symbol-cell review page limit must be a positive integer.",
+                "The symbol-cell review page limit must be between 1 and 500.",
             )
         if after_cursor and before_cursor:
             raise SymbolCellReviewError(
@@ -91,6 +94,8 @@ class SymbolCellReviewQueryService:
             game_id=game_id,
             symbol_id=symbol_id,
             state=state,
+            min_confidence=min_confidence,
+            max_confidence=max_confidence,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -265,6 +270,7 @@ class SymbolCellReviewQueryService:
 
 __all__ = [
     "DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE",
+    "MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE",
     "SymbolCellReviewListSlice",
     "SymbolCellReviewQueryRepository",
     "SymbolCellReviewQueryService",

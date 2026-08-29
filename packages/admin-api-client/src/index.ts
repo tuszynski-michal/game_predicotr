@@ -28,6 +28,7 @@ import {
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
+  createVirtualCellPreviewBatch as createGeneratedVirtualCellPreviewBatch,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
@@ -278,6 +279,8 @@ import type {
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
   StorageGcRunCreate,
+  VirtualCellPreviewBatchRequest,
+  VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
   UnreadableBoardReviewDetailResponse,
   UnreadableBoardReviewCellResponse,
@@ -480,6 +483,8 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  VirtualCellPreviewBatchRequest,
+  VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
   UnreadableBoardReviewCellResponse,
   UnreadableBoardReviewDetailResponse,
@@ -616,6 +621,8 @@ export interface ListSymbolCellReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
 }
 
 export interface ListUnreadableBoardReviewsOptions {
@@ -1710,8 +1717,26 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.maxConfidence === undefined
+            ? {}
+            : { maxConfidence: options.maxConfidence }),
+          ...(options.minConfidence === undefined
+            ? {}
+            : { minConfidence: options.minConfidence }),
         },
       }),
+    createVirtualCellPreviewBatch: (
+      gameId: string,
+      body: VirtualCellPreviewBatchRequest,
+    ) =>
+      createGeneratedVirtualCellPreviewBatch({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`virtual-cell-preview:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    virtualCellPreviewAtlasUrl: (gameId: string, batchKey: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/virtual-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
     symbolCellReviewAssetUrl: (
       gameId: string,
       cellReviewId: string,

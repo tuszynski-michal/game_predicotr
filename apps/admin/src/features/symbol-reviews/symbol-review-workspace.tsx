@@ -47,22 +47,31 @@ import {
   type SymbolReviewMutationClient,
 } from './symbol-review-mutation-actions';
 import {
+  createAllMatchingFilterSymbolReviewSelection,
   createEmptySymbolReviewSelection,
   isSymbolReviewItemSelected,
   selectVisibleSymbolReviewItems,
   selectedSymbolReviewCount,
+  symbolReviewSelectionCurrentItemIds,
   toggleSymbolReviewItem,
   type SymbolReviewSelection,
 } from './symbol-review-selection-state';
 import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
-  MIN_SYMBOL_REVIEW_PAGE_SIZE,
+  findCachedSymbolReviewPage,
+  symbolReviewConfidenceRange,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
   type SymbolReviewPagePosition,
 } from './symbol-review-state';
+import {
+  loadSymbolReviewVirtualPreviews,
+  type SymbolReviewVirtualPreviewTile,
+} from './symbol-review-virtual-previews.ts';
+import { SymbolReviewVirtualGrid } from './symbol-review-virtual-grid.tsx';
+import { shouldApplyVirtualPreviewResult } from './symbol-review-virtual-window.ts';
 import styles from './symbol-review-workspace.module.css';
 
 type LoadState = 'error' | 'loading' | 'ready';
@@ -87,6 +96,7 @@ type SymbolReviewOperationDialog =
   | { readonly error: string; readonly kind: 'error' };
 
 const INITIAL_FILTERS: SymbolReviewFilters = {
+  confidence: 'all',
   gameId: null,
   pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   state: 'pending',
@@ -155,6 +165,12 @@ export function SymbolReviewWorkspace({
     string | null
   >(null);
   const [filtersConfirmed, setFiltersConfirmed] = useState(false);
+  const [visibleItems, setVisibleItems] = useState<
+    readonly SymbolCellReviewListItemResponse[]
+  >([]);
+  const [virtualPreviewTiles, setVirtualPreviewTiles] = useState<
+    Readonly<Record<string, SymbolReviewVirtualPreviewTile>>
+  >({});
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
@@ -163,6 +179,7 @@ export function SymbolReviewWorkspace({
   const filtersConfirmedRef = useRef(false);
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
+  const virtualPreviewRequestId = useRef(0);
 
   const filters = workspace.filters;
   const currentPage = workspace.currentPage?.page ?? null;
@@ -213,6 +230,8 @@ export function SymbolReviewWorkspace({
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
+    setVisibleItems([]);
+    setVirtualPreviewTiles({});
     setReassignTargetSymbolId(null);
     if (previousFilters.gameId !== nextFilters.gameId) {
       setSymbols([]);
@@ -267,6 +286,8 @@ export function SymbolReviewWorkspace({
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
+    setVisibleItems([]);
+    setVirtualPreviewTiles({});
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = true;
     setFiltersConfirmed(true);
@@ -285,6 +306,8 @@ export function SymbolReviewWorkspace({
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
+    setVisibleItems([]);
+    setVirtualPreviewTiles({});
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = false;
     setFiltersConfirmed(false);
@@ -454,6 +477,70 @@ export function SymbolReviewWorkspace({
     reloadRevision,
   ]);
 
+  useEffect(() => {
+    const pageFilters = asPageFilters(filters);
+    if (
+      !filtersConfirmed ||
+      pageFilters === null ||
+      currentPage === null ||
+      currentPage.nextCursor === null
+    ) {
+      return;
+    }
+    const position: SymbolReviewPagePosition = {
+      afterCursor: currentPage.nextCursor,
+      number: currentPageNumber + 1,
+    };
+    if (findCachedSymbolReviewPage(workspace, position.number) !== null) {
+      return;
+    }
+    let cancelled = false;
+    void loadSymbolReviewPage(api, {
+      ...pageFilters,
+      ...symbolReviewPageCursorOptions(position),
+    }).then((result) => {
+      if (cancelled || !result.ok) return;
+      dispatch({ page: result.page, position, type: 'page_prefetched' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    api,
+    currentPage,
+    currentPageNumber,
+    filters,
+    filtersConfirmed,
+    workspace,
+  ]);
+
+  useEffect(() => {
+    if (filters.gameId === null) {
+      return;
+    }
+    const requestId = ++virtualPreviewRequestId.current;
+    let cancelled = false;
+    void loadSymbolReviewVirtualPreviews(
+      api,
+      filters.gameId,
+      visibleItems,
+    ).then((result) => {
+      if (
+        cancelled ||
+        !shouldApplyVirtualPreviewResult(
+          requestId,
+          virtualPreviewRequestId.current,
+        )
+      ) {
+        return;
+      }
+      setVirtualPreviewTiles(result.ok ? result.tilesByCellReviewId : {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, filters.gameId, visibleItems]);
+
   const movePage = useCallback(
     async (direction: -1 | 1) => {
       const pageFilters = asPageFilters(filters);
@@ -475,6 +562,18 @@ export function SymbolReviewWorkspace({
               beforeCursor: cursor,
               number: Math.max(1, currentPageNumber - 1),
             };
+      const cached = findCachedSymbolReviewPage(workspace, position.number);
+      if (cached !== null) {
+        pagePositionRef.current = position;
+        dispatch({
+          page: cached.page,
+          position: cached.position,
+          type: 'page_loaded',
+        });
+        setSelection(createEmptySymbolReviewSelection());
+        setHiddenCellIds(new Set());
+        return;
+      }
       pagingRef.current = true;
       setPaging(true);
       setError('');
@@ -493,7 +592,7 @@ export function SymbolReviewWorkspace({
       setSelection(createEmptySymbolReviewSelection());
       setHiddenCellIds(new Set());
     },
-    [api, currentPage, currentPageNumber, filters, filtersConfirmed],
+    [api, currentPage, currentPageNumber, filters, filtersConfirmed, workspace],
   );
 
   async function prepareProjection() {
@@ -520,6 +619,28 @@ export function SymbolReviewWorkspace({
     }
   }
 
+  function selectAllMatchingFilter() {
+    if (
+      filters.gameId === null ||
+      filters.symbolId === null ||
+      currentPage === null
+    ) {
+      return;
+    }
+    const confidenceRange = symbolReviewConfidenceRange(filters.confidence);
+    setSelection(
+      createAllMatchingFilterSymbolReviewSelection({
+        catalogRevision: currentPage.catalogRevision,
+        gameId: filters.gameId,
+        matchedCount: currentFilteredCount,
+        maxConfidence: confidenceRange.maxConfidence ?? null,
+        minConfidence: confidenceRange.minConfidence ?? null,
+        state: filters.state,
+        symbolId: filters.symbolId,
+      }),
+    );
+  }
+
   function toggleItem(item: SymbolCellReviewListItemResponse) {
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
@@ -533,8 +654,9 @@ export function SymbolReviewWorkspace({
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
-    const targets = Object.values(selection.targetsById);
-    if (targets.length === 1) {
+    const targets =
+      selection.kind === 'explicit' ? Object.values(selection.targetsById) : [];
+    if (selection.kind === 'explicit' && targets.length === 1) {
       const target = targets[0]!;
       setDirectPendingCellIds(new Set([target.cellReviewId]));
       const result = await applySingleSymbolReviewDecision(
@@ -631,9 +753,10 @@ export function SymbolReviewWorkspace({
     ) {
       return;
     }
-    const submittedCellIds = currentItems
-      .filter((item) => isSymbolReviewItemSelected(selection, item))
-      .map((item) => item.id);
+    const submittedCellIds = symbolReviewSelectionCurrentItemIds(
+      selection,
+      currentItems,
+    );
     setIsStartingOperation(true);
     const result = await startSymbolReviewBulkOperation(
       api,
@@ -742,24 +865,23 @@ export function SymbolReviewWorkspace({
           </select>
         </label>
         <label>
-          Ilość na stronę
-          <input
+          Pewność predykcji
+          <select
             disabled={interactionBusy || filtersConfirmed}
-            min={MIN_SYMBOL_REVIEW_PAGE_SIZE}
-            onChange={(event) => {
-              const nextPageSize = Number(event.target.value);
-              if (
-                !Number.isInteger(nextPageSize) ||
-                nextPageSize < MIN_SYMBOL_REVIEW_PAGE_SIZE
-              ) {
-                return;
-              }
-              requestFilterChange({ ...filters, pageSize: nextPageSize });
-            }}
-            step={1}
-            type="number"
-            value={filters.pageSize}
-          />
+            onChange={(event) =>
+              requestFilterChange({
+                ...filters,
+                confidence: event.target
+                  .value as SymbolReviewFilters['confidence'],
+              })
+            }
+            value={filters.confidence}
+          >
+            <option value="all">Wszystkie</option>
+            <option value="low">Niska (poniżej 50%)</option>
+            <option value="medium">Średnia (50–79%)</option>
+            <option value="high">Wysoka (80%+)</option>
+          </select>
         </label>
         <div className={styles.filterActions}>
           <button
@@ -830,10 +952,12 @@ export function SymbolReviewWorkspace({
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
+          onSelectAllMatchingFilter={selectAllMatchingFilter}
           onSelectVisible={selectVisiblePage}
           onTargetSymbolChange={setReassignTargetSymbolId}
           reassignTargetSymbolId={reassignTargetSymbolId}
           selectedCount={selectedCount}
+          selectionKind={selection.kind}
           symbols={symbols}
         />
       ) : null}
@@ -924,20 +1048,25 @@ export function SymbolReviewWorkspace({
             {currentItems.length === 0 ? (
               <SymbolReviewEmpty />
             ) : (
-              <div className={styles.grid}>
-                {currentItems.map((item) => (
+              <SymbolReviewVirtualGrid
+                items={currentItems}
+                onVisibleItemsChange={setVisibleItems}
+                pageNumber={currentPageNumber}
+                renderCard={(item) => (
                   <SymbolReviewCard
                     api={api}
+                    disabled={interactionBusy || pendingCellIds.has(item.id)}
                     gameId={filters.gameId!}
                     item={item}
                     key={item.id}
                     onToggle={() => toggleItem(item)}
-                    disabled={interactionBusy || pendingCellIds.has(item.id)}
                     pending={pendingCellIds.has(item.id)}
+                    previewTile={virtualPreviewTiles[item.id]}
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
-                ))}
-              </div>
+                )}
+                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}:${filters.state}:${filters.confidence}`}
+              />
             )}
             <div className={styles.pagination}>
               <button
@@ -1022,6 +1151,7 @@ function SymbolReviewCard({
   item,
   onToggle,
   pending,
+  previewTile,
   selected,
 }: {
   readonly api: SymbolReviewClient;
@@ -1030,6 +1160,7 @@ function SymbolReviewCard({
   readonly item: SymbolCellReviewListItemResponse;
   readonly onToggle: () => void;
   readonly pending: boolean;
+  readonly previewTile: SymbolReviewVirtualPreviewTile | undefined;
   readonly selected: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -1038,6 +1169,7 @@ function SymbolReviewCard({
     item.id,
     item.cropChecksumSha256,
   );
+  const isVirtualSource = item.assetMode === 'virtual_source';
   return (
     <article
       className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}`}
@@ -1050,7 +1182,25 @@ function SymbolReviewCard({
         onClick={onToggle}
         type="button"
       >
-        {imageFailed ? (
+        {previewTile !== undefined ? (
+          <span
+            aria-label={`Wirtualny podgląd: ${item.assignedSymbolName ?? 'nierozpoznany'}`}
+            className={styles.virtualPreview}
+            role="img"
+            style={{
+              backgroundImage: `url(${previewTile.atlasUrl})`,
+              backgroundPosition: `-${previewTile.tile.x}px -${previewTile.tile.y}px`,
+            }}
+          />
+        ) : isVirtualSource ? (
+          <span
+            aria-label="Ładowanie wirtualnego podglądu cropa"
+            className={styles.assetFallback}
+            role="status"
+          >
+            …
+          </span>
+        ) : imageFailed ? (
           <span
             aria-label="Brak aktualnego cropa"
             className={styles.assetFallback}
@@ -1097,10 +1247,12 @@ function SymbolReviewSelectionToolbar({
   onMarkGridIssue,
   onMarkUnreadable,
   onReassign,
+  onSelectAllMatchingFilter,
   onSelectVisible,
   onTargetSymbolChange,
   reassignTargetSymbolId,
   selectedCount,
+  selectionKind,
   symbols,
 }: {
   readonly busy: boolean;
@@ -1112,10 +1264,12 @@ function SymbolReviewSelectionToolbar({
   readonly onMarkGridIssue: () => void;
   readonly onMarkUnreadable: () => void;
   readonly onReassign: () => void;
+  readonly onSelectAllMatchingFilter: () => void;
   readonly onSelectVisible: () => void;
   readonly onTargetSymbolChange: (symbolId: string | null) => void;
   readonly reassignTargetSymbolId: string | null;
   readonly selectedCount: number;
+  readonly selectionKind: SymbolReviewSelection['kind'];
   readonly symbols: readonly SymbolResponse[];
 }) {
   const actionsDisabled = busy || selectedCount === 0;
@@ -1132,7 +1286,17 @@ function SymbolReviewSelectionToolbar({
           onClick={onSelectVisible}
           type="button"
         >
-          Zaznacz całą stronę
+          Zaznacz stronę
+        </button>
+        <button
+          className="secondaryButton"
+          disabled={
+            busy || !canSelectVisible || selectionKind === 'all_matching_filter'
+          }
+          onClick={onSelectAllMatchingFilter}
+          type="button"
+        >
+          Zaznacz wyniki filtra
         </button>
         <button
           className="secondaryButton"
@@ -1528,6 +1692,7 @@ function asPageFilters(
     return null;
   }
   return {
+    ...symbolReviewConfidenceRange(filters.confidence),
     gameId: filters.gameId,
     limit: filters.pageSize,
     state: filters.state,

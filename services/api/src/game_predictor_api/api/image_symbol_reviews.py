@@ -334,7 +334,9 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
-        limit: Annotated[int, Query(ge=1)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+        min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
+        max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
         return to_symbol_cell_review_page_response(
             service.list(
@@ -343,6 +345,8 @@ def create_image_symbol_reviews_router(
                 state=state,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
                 limit=limit,
             )
         )

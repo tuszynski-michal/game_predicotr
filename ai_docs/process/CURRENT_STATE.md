@@ -162,6 +162,24 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   aby nie zastąpić proweniencji wirtualnej fizycznymi cropami przed backfillem
   i walidacją TASK-0317.
 
+### Wirtualizowana Weryfikacja Symboli — TASK-0315
+
+- `v0.10.8` zachowuje keysetową nawigację po stałych stronach 500 cropów, ale
+  Admin renderuje wyłącznie viewport i mały overscan przez
+  `@tanstack/react-virtual`. Metadane są ograniczone do bieżącej strony oraz
+  maksymalnie dwóch sąsiednich; jedyny prefetch pobiera kolejną stronę bez
+  assetów.
+- Wirtualny renderer żąda checksum-bound atlasu wyłącznie dla aktualnie
+  widocznych kart `virtual_source`, maksymalnie 100 komórek. Legacy assety
+  zachowują dotychczasowy lazy thumbnail. W DOM ani w pamięci nie powstaje
+  zestaw 500 obrazów, a tym bardziej lista 10 000 obrazów.
+- Filtr confidence (`niska`, `średnia`, `wysoka`) jest częścią zapytania,
+  cursorów i snapshotu masowej operacji. Operator może wybrać bieżącą stronę
+  jawnie albo wszystkie wyniki filtra przez snapshot rewizji katalogu i
+  ograniczone `excludedIds`; pojedyncza jawna decyzja nadal nie tworzy joba.
+- D-241 została zastąpiona przez D-259. Zdalny Reviewer pozostaje poza nową
+  powierzchnią lokalnego Admin API.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

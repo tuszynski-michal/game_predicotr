@@ -115,9 +115,11 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   ?symbolId={UUID|unknown}
   &state=all|approved|pending
+  &minConfidence=0..1
+  &maxConfidence=0..1
   &afterCursor=...
   &beforeCursor=...
-  &limit=positive-integer
+  &limit=1..500
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
@@ -172,17 +174,20 @@ czyta swój istniejący PNG/JPEG.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` oznacza techniczne
-`?` (`assigned_symbol_id = NULL`). Domyślna strona ma 500 elementów, a operator
-może podać dowolny dodatni limit. Lista używa keysetu
-`(sequence_number, cell_index, review_item_id)`; cursor wiąże grę, wybrany
-symbol, stan filtra, kierunek oraz ostatni klucz i nie może być użyty w innym
-scope.
+`?` (`assigned_symbol_id = NULL`). Admin zawsze używa strony 500, a kontrakt
+backendowy ogranicza każde żądanie do `1..500`. `minConfidence` i
+`maxConfidence` są domkniętym przedziałem `0..1`; brak wartości nie ogranicza
+listy. Lista używa keysetu `(sequence_number, cell_index, review_item_id)`;
+cursor wiąże grę, wybrany symbol, stan, oba krańce confidence, kierunek oraz
+ostatni klucz i nie może być użyty w innym scope.
 
 Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
 właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
-rewizję komórki i geometrii, liczniki po filtrowaniu, monotoniczną
-`catalogRevision` i kursory poprzedniej/następnej strony. `cropSampleId` wraz
-z checksumą jest obowiązkową tożsamością jawnego targetu masowej operacji.
+rewizję komórki i geometrii, aktualną pewność predykcji, tryb assetu oraz — dla
+`virtual_source` — checksumę render specu. Zwraca też liczniki po filtrowaniu,
+monotoniczną `catalogRevision` i kursory poprzedniej/następnej strony.
+`cropSampleId` wraz z checksumą jest obowiązkową tożsamością jawnego targetu
+masowej operacji.
 Łączenie z
 `image_board_search_fast_documents` oraz bieżącą rewizją geometrii eliminuje
 superseded, alternatywne oraz nieaktualne cropy bez materializowania całego
@@ -200,13 +205,12 @@ sprzeczne kierunki zwracają `409`; drift cropa i jego checksumy również
 zwracają `409`. Brak gry lub aktualnego cropa zwraca `404`, a nieprawidłowy
 filtr, checksum lub limit `422`.
 
-Admin przechowuje tylko jedną odpowiedź strony. Po udanej decyzji ponownie
-wywołuje ten sam endpoint z kursorem, którym otworzył bieżącą stronę. Serwer
-wykonuje wtedy świeże zapytanie keysetowe i naturalnie uzupełnia usunięte z
-filtra pozycje kolejnymi rekordami do dokładnego limitu żądanego przez operatora.
-Nie istnieje osobny endpoint
-łączenia braków po przesłanych ID, ponieważ taki merge powielałby semantykę
-keysetu i mógłby mieszać rewizje katalogu.
+Admin przechowuje maksymalnie trzy sąsiednie odpowiedzi metadanych i pobiera
+wyłącznie jedną następną stronę z keysetu jako prefetch. Wirtualizuje karty
+wewnątrz strony; atlas preview obejmuje najwyżej 100 bieżąco renderowanych
+komórek i nie jest częścią odpowiedzi listy. Nie istnieje endpoint scalający
+braki po przesłanych ID, ponieważ taki merge powielałby semantykę keysetu i
+mógłby mieszać rewizje katalogu.
 
 `POST .../{cellReviewId}/decision` jest szybką ścieżką wyłącznie dla jednego
 jawnego cropa. Request zawiera akcję, oczekiwaną rewizję komórki i geometrii,
@@ -245,8 +249,9 @@ Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
 albo `mark_grid_issue`, albo `mark_unreadable` oraz jeden z dwóch modeli
 zaznaczenia: jawne cropy z
 oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
-`symbol + state + catalogRevision` wraz z wykluczeniami. `approve` nie jest
-dostępne dla filtra technicznego `unknown`.
+`symbol + state + minConfidence/maxConfidence + catalogRevision` wraz z co
+najwyżej 10 000 wykluczeń. Snapshot filtra nie przekazuje ID całego wyniku.
+`approve` nie jest dostępne dla filtra technicznego `unknown`.
 
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
@@ -258,11 +263,10 @@ jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
 `applied` i niewykonane jako `pending`; retry joba wznawia wyłącznie pending.
 Admin tworzy jeden idempotency key dopiero po udanym preview i odpytywa status
 sekwencyjnie, więc nie wysyła równoległych odczytów tej samej operacji.
-Admin używa tej trwałej ścieżki wyłącznie dla co najmniej dwóch jawnych cropów
-bieżącej strony. Kontrakt snapshotu całego filtra pozostaje kompatybilny dla
-innych klientów, ale bieżący Admin go nie tworzy. Jeden jawny crop korzysta z
-bezpośredniej decyzji opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po
-symbolu nie zapełnia historii Jobów.
+Admin używa tej trwałej ścieżki dla co najmniej dwóch jawnych cropów albo dla
+snapshotu całego filtra. Jeden jawny crop korzysta z bezpośredniej decyzji
+opisanej wyżej, dzięki czemu zwykłe poprawianie symbol po symbolu nie zapełnia
+historii Jobów.
 
 ### Host base zdalnej ręcznej selekcji
 

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   createEmptySymbolReviewSelection,
+  createAllMatchingFilterSymbolReviewSelection,
   isSymbolReviewItemSelected,
   MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION,
   selectVisibleSymbolReviewItems,
@@ -34,7 +35,7 @@ function item(id, sequenceNumber = 1) {
   };
 }
 
-test('selects only explicit items from the current five-hundred-item page', () => {
+test('selects only explicit items from the current page', () => {
   const first = item('cell-1', 1);
   const second = item('cell-2', 2);
   let selection = createEmptySymbolReviewSelection();
@@ -42,7 +43,7 @@ test('selects only explicit items from the current five-hundred-item page', () =
   selection = toggleSymbolReviewItem(selection, first).selection;
   selection = selectVisibleSymbolReviewItems(selection, [second]).selection;
 
-  assert.equal(MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION, 500);
+  assert.equal(MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION, 10_000);
   assert.equal(selectedSymbolReviewCount(selection), 2);
   assert.equal(isSymbolReviewItemSelected(selection, first), true);
   assert.equal(
@@ -56,8 +57,8 @@ test('selects only explicit items from the current five-hundred-item page', () =
   assert.equal(selection.kind, 'explicit');
 });
 
-test('page-local selection never exceeds five hundred exact targets', () => {
-  const items = Array.from({ length: 501 }, (_, index) =>
+test('page-local selection never exceeds ten thousand exact targets', () => {
+  const items = Array.from({ length: 10_001 }, (_, index) =>
     item(`cell-${index}`, index),
   );
   const result = selectVisibleSymbolReviewItems(
@@ -65,6 +66,27 @@ test('page-local selection never exceeds five hundred exact targets', () => {
     items,
   );
 
-  assert.equal(selectedSymbolReviewCount(result.selection), 500);
+  assert.equal(selectedSymbolReviewCount(result.selection), 10_000);
   assert.equal(result.rejectedCount, 1);
+});
+
+test('all-filter selection keeps only exclusions locally', () => {
+  const first = item('cell-1', 1);
+  const second = item('cell-2', 2);
+  let selection = createAllMatchingFilterSymbolReviewSelection({
+    catalogRevision: 7,
+    gameId: 'game-1',
+    matchedCount: 25_000,
+    maxConfidence: 0.8,
+    minConfidence: 0.5,
+    state: 'pending',
+    symbolId: 'symbol-1',
+  });
+
+  selection = toggleSymbolReviewItem(selection, first).selection;
+  assert.equal(selection.kind, 'all_matching_filter');
+  assert.equal(isSymbolReviewItemSelected(selection, first), false);
+  assert.equal(isSymbolReviewItemSelected(selection, second), true);
+  assert.equal(selectedSymbolReviewCount(selection), 24_999);
+  assert.equal(selection.excludedIds.size, 1);
 });

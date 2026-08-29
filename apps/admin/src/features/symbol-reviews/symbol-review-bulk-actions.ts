@@ -37,10 +37,21 @@ export function createSymbolReviewBulkCommand(
     action,
     request: {
       action,
-      selection: {
-        kind: 'explicit',
-        targets: Object.values(selection.targetsById),
-      },
+      selection:
+        selection.kind === 'explicit'
+          ? {
+              kind: 'explicit',
+              targets: Object.values(selection.targetsById),
+            }
+          : {
+              catalogRevision: selection.snapshot.catalogRevision,
+              excludedCellReviewIds: [...selection.excludedIds],
+              kind: 'filter',
+              maxConfidence: selection.snapshot.maxConfidence,
+              minConfidence: selection.snapshot.minConfidence,
+              state: selection.snapshot.state,
+              symbolId: selection.snapshot.symbolId,
+            },
       ...(action === 'reassign' ? { targetSymbolId } : {}),
     },
   };

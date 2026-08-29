@@ -6,10 +6,12 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast as typing_cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Select, and_, func, insert, literal, select
+from sqlalchemy import Float, Select, and_, cast, func, insert, literal, select
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql import ColumnElement
 
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkFilterSelection,
@@ -37,8 +39,10 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    CellObservationModel,
     GameModel,
     ImageBoardSearchFastDocumentModel,
+    ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewBulkOperationModel,
     ImageSymbolReviewBulkTargetModel,
     ImageSymbolReviewCellModel,
@@ -81,9 +85,7 @@ class _FrozenTarget:
     expected_crop_checksum_sha256: str
 
 
-class SqlAlchemySymbolCellReviewBulkOperationRepository(
-    SymbolCellReviewBulkOperationRepository
-):
+class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOperationRepository):
     """Start/query operations inside the same request transaction as the snapshot."""
 
     def __init__(self, session: Session) -> None:
@@ -161,9 +163,7 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(
             action=request.action.value,
             target_symbol_id=request.target_symbol_id,
             selection_kind=request.selection_kind.value,
-            filter_symbol_id=(
-                None if filter_selection is None else filter_selection.symbol_id
-            ),
+            filter_symbol_id=(None if filter_selection is None else filter_selection.symbol_id),
             filter_state=(None if filter_selection is None else filter_selection.state.value),
             catalog_revision=(
                 None if filter_selection is None else filter_selection.catalog_revision
@@ -346,11 +346,7 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
         operation_id = _operation_id_from_job(job)
         with self._session_factory() as session:
             operation = session.get(ImageSymbolReviewBulkOperationModel, operation_id)
-            if (
-                operation is None
-                or operation.game_id != job.game_id
-                or operation.job_id != job.id
-            ):
+            if operation is None or operation.game_id != job.game_id or operation.job_id != job.id:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_BULK_OPERATION_MISSING",
                     "The durable symbol-cell bulk operation is unavailable for this job.",
@@ -500,8 +496,7 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
                     )
                     if (
                         persisted_target is None
-                        or persisted_target.status
-                        != SymbolCellReviewBulkTargetStatus.PENDING.value
+                        or persisted_target.status != SymbolCellReviewBulkTargetStatus.PENDING.value
                     ):
                         raise SymbolCellReviewError(
                             "SYMBOL_CELL_REVIEW_BULK_TARGET_STATE_CONFLICT",
@@ -652,6 +647,8 @@ def _visible_cells_statement(
 ) -> Select[tuple[ImageSymbolReviewCellModel]]:
     cell = ImageSymbolReviewCellModel
     document = ImageBoardSearchFastDocumentModel
+    prediction_revision = ImageSymbolPredictionRevisionModel
+    observation = CellObservationModel
     statement = (
         select(cell)
         .join(
@@ -665,6 +662,18 @@ def _visible_cells_statement(
             ),
         )
         .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+        .outerjoin(
+            prediction_revision,
+            prediction_revision.id == cell.prediction_revision_id,
+        )
+        .outerjoin(
+            observation,
+            and_(
+                observation.recognized_board_id == cell.recognized_board_id,
+                observation.row_index == cell.row_index,
+                observation.column_index == cell.column_index,
+            ),
+        )
         .where(
             cell.game_id == game_id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,
@@ -678,9 +687,32 @@ def _visible_cells_statement(
         statement = statement.where(cell.assigned_symbol_id == selection.symbol_id)
     if selection.state is not SymbolCellReviewFilterState.ALL:
         statement = statement.where(cell.review_state == selection.state.value)
+    confidence = _prediction_confidence_expression()
+    if selection.min_confidence is not None:
+        statement = statement.where(confidence >= selection.min_confidence)
+    if selection.max_confidence is not None:
+        statement = statement.where(confidence <= selection.max_confidence)
     if selection.excluded_cell_review_ids:
         statement = statement.where(cell.id.not_in(selection.excluded_cell_review_ids))
     return statement
+
+
+def _prediction_confidence_expression() -> ColumnElement[float | None]:
+    """Use the same persisted confidence sources as the bounded list API."""
+
+    cell = ImageSymbolReviewCellModel
+    revision = ImageSymbolPredictionRevisionModel
+    observation = CellObservationModel
+    return typing_cast(
+        ColumnElement[float | None],
+        func.coalesce(
+            cast(
+                revision.predictions.op("->")(cell.cell_index).op("->>")("confidence"),
+                Float(),
+            ),
+            cast(observation.prediction.op("->>")("confidence"), Float()),
+        ),
+    )
 
 
 def _frozen_target(cell: ImageSymbolReviewCellModel) -> _FrozenTarget:
@@ -724,11 +756,7 @@ def _locked_operation_for_job(
         .where(ImageSymbolReviewBulkOperationModel.id == operation_id)
         .with_for_update()
     )
-    if (
-        operation is None
-        or operation.game_id != job.game_id
-        or operation.job_id != job.id
-    ):
+    if operation is None or operation.game_id != job.game_id or operation.job_id != job.id:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_BULK_OPERATION_MISSING",
             "The durable bulk operation does not match the worker job.",

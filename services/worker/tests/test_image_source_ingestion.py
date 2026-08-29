@@ -297,6 +297,20 @@ def test_ingestion_rejects_unsupported_image_issue(tmp_path: Path) -> None:
     assert caught.value.code == "IMAGE_DISCOVERY_REQUIRES_REVIEW"
 
 
+def test_ingestion_rejects_an_invalid_seq_range_with_the_shared_parser(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_1-10.jpg", "JPEG")
+
+    with pytest.raises(JobHandlerError) as caught:
+        ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+            _job(source),
+            source_directory=source,
+        )
+
+    assert caught.value.code == "IMAGE_SEQUENCE_FILENAME_INVALID"
+
+
 def test_curated_ingestion_uses_only_the_pinned_manifest_slice(tmp_path: Path) -> None:
     source = tmp_path / "curated"
     images = source / "images"

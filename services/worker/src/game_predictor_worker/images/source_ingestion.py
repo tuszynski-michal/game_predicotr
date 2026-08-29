@@ -13,6 +13,11 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 from uuid import UUID
 
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    is_sequence_range_filename_candidate,
+    parse_attested_sequence_range_filename,
+)
 from game_predictor_api.domain.image_sequence_canonical import (
     parse_browser_sequence_manifest,
 )
@@ -38,10 +43,6 @@ SOURCE_INGESTION_CONTRACT = "image-source-ingestion-v1"
 BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
 COPY_CHECKPOINT_BATCH_SIZE = 25
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-SEQUENCE_RANGE_FILENAME_PATTERN = re.compile(
-    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?P<extension>jpg|jpeg)$",
-    re.IGNORECASE,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -437,7 +438,7 @@ class ImageSourceIngestionHandler:
 def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
     all_source_paths = [file.relative_path for image in manifest.images for file in image.files]
     has_attested_names = any(
-        Path(path).name.lower().startswith("seq_") for path in all_source_paths
+        is_sequence_range_filename_candidate(path) for path in all_source_paths
     )
     attested_ranges: dict[str, tuple[int, int]] = {}
     sequence_range_warnings: list[dict[str, int | str]] = []
@@ -445,13 +446,13 @@ def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
         parsed_ranges: list[tuple[str, int, int]] = []
         for relative_path in all_source_paths:
             try:
-                start, end = _parse_sequence_range_filename(relative_path)
-            except ValueError as error:
+                sequence_range = parse_attested_sequence_range_filename(relative_path)
+            except ImageGeometryContractError as error:
                 raise JobHandlerError(
                     "IMAGE_SEQUENCE_FILENAME_INVALID",
                     f"The seq_* import contains an invalid filename: {relative_path}.",
                 ) from error
-            parsed_ranges.append((relative_path, start, end))
+            parsed_ranges.append((relative_path, sequence_range.start, sequence_range.end))
         ordered_ranges = sorted(parsed_ranges, key=lambda item: (item[1], item[2], item[0]))
         for index, (relative_path, start, end) in enumerate(ordered_ranges):
             if index and start > ordered_ranges[index - 1][2] + 1:
@@ -767,17 +768,6 @@ def _parse_original(value: object) -> ManagedOriginal:
         cast(int | None, range_end),
         cast(str | None, range_source),
     )
-
-
-def _parse_sequence_range_filename(relative_path: str) -> tuple[int, int]:
-    match = SEQUENCE_RANGE_FILENAME_PATTERN.fullmatch(Path(relative_path).name)
-    if match is None:
-        raise ValueError("invalid seq filename")
-    start = int(match.group("start"))
-    end = int(match.group("end"))
-    if end < start or end - start > 8:
-        raise ValueError("invalid seq range")
-    return start, end
 
 
 def _safe_source_path(root: Path, relative_path: str) -> Path:

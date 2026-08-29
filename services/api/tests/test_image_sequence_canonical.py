@@ -59,6 +59,16 @@ def test_preflight_rejects_overlapping_ranges(tmp_path: Path) -> None:
     assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_RANGE_OVERLAP"
 
 
+def test_preflight_rejects_an_invalid_seq_filename(tmp_path: Path) -> None:
+    _touch(tmp_path, "seq_1-10.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set()))
+
+    with pytest.raises(JobConflictError) as error:
+        service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID"
+
+
 def test_preflight_reports_non_attested_folder(tmp_path: Path) -> None:
     _touch(tmp_path, "photo.jpg")
     service = ImageSequenceCanonicalService(_Repository(set()))

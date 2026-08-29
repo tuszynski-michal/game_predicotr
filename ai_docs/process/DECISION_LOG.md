@@ -6068,6 +6068,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   dane spełniające zatwierdzoną politykę. Brak bezpiecznych kandydatów blokuje
   nowe zapisy zamiast usuwać dane chronione.
 
+## D-254 — `seq_*` przypina aktywne sloty, a komórka 0.10 jest wirtualna
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `seq_<start>-<end>.jpg|jpeg` deklaruje dokładnie od jednej do
+  dziewięciu kolejnych plansz. Aktywne pozycje są wyłącznie row-major prefiksem
+  `0..N-1` strony 3 × 3. Geometria 0.10 używa współrzędnych RGB po jednym EXIF
+  transpose i wypukłych source quadów; nie wymaga prostokątów, rombów,
+  równoległości ani kątów prostych na zdjęciu. Komórka otrzymuje trwałą
+  logiczną tożsamość niezależną od geometrii oraz odrębną tożsamość renderowania
+  zależną od źródła, quada, topologii, rewizji i konfiguracji.
+- **Context:** obecne parsery i v20 znają zakresy `seq_*`, ale ich semantyka
+  aktywnych slotów nie była jednym wspólnym kontraktem, a trwały crop mieszał
+  dane logiczne z aktualnymi pikselami. Częściowa ostatnia strona i recrop
+  wymagają jawnych, deterministycznych reguł przed migracją oraz OpenCV.
+- **Safety:** TASK-0307 nie uruchamia nowego silnika, nie zmienia danych ani
+  HTTP i nie tworzy bitmap. Stare artefakty pozostają odtwarzalne. Kolejne
+  taski mogą podpiąć nową geometrię tylko za feature flagą i z kontrolą
+  proweniencji pikseli.
+- **Consequences:** parser API i worker używają jednej walidacji. Wirtualny
+  renderer może wyprowadzać każdą komórkę bezpośrednio ze źródła jednym
+  resamplingiem, zachowując oddzielnie wcześniejsze verified labels.
+- **Alternatives:** wykrywanie liczby plansz z obrazu, dopuszczanie dziur w
+  częściowej stronie oraz prostokątne ograniczenie quada odrzucono, ponieważ
+  stoją w sprzeczności z poświadczoną nazwą, kolejnością i perspektywą zdjęć.
+
 ## Szablon nowej decyzji
 
 ```text

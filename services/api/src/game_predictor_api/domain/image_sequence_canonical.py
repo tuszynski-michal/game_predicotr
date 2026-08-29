@@ -9,11 +9,13 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
 
+from .image_geometry_v2 import (
+    ImageGeometryContractError,
+    is_sequence_range_filename_candidate,
+    parse_attested_sequence_range_filename,
+)
 from .jobs import JobConflictError
 
-_SEQ_NAME = re.compile(
-    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?:jpg|jpeg)$", re.IGNORECASE
-)
 _STORED_NAME = re.compile(r"^[0-9]{8}\.(?:jpg|jpeg)$", re.IGNORECASE)
 
 
@@ -114,18 +116,17 @@ class ImageSequenceCanonicalService:
             source_file_count = len(file_paths)
             ranges = []
             for path in file_paths:
-                match = _SEQ_NAME.fullmatch(path.name)
-                if match is None:
+                if not is_sequence_range_filename_candidate(path.name):
                     continue
-                start = int(match.group("start"))
-                end = int(match.group("end"))
-                if end < start or end - start > 8:
+                try:
+                    sequence_range = parse_attested_sequence_range_filename(path.name)
+                except ImageGeometryContractError as error:
                     raise JobConflictError(
                         "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
                         "A seq_* filename contains an invalid inclusive range.",
                         details={"fileName": path.name},
-                    )
-                ranges.append((path, start, end, ""))
+                    ) from error
+                ranges.append((path, sequence_range.start, sequence_range.end, ""))
         warnings: list[str] = list(manifest.warnings) if manifest is not None else []
         if manifest is not None and any(
             item.sequence_range is None for item in manifest.files
@@ -133,7 +134,7 @@ class ImageSequenceCanonicalService:
             warnings.append("IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED")
         elif manifest is None:
             for path in file_paths:
-                if not _SEQ_NAME.fullmatch(path.name):
+                if not is_sequence_range_filename_candidate(path.name):
                     warnings.append("IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED")
         if not ranges:
             warnings.append("IMAGE_SEQUENCE_RANGE_NOT_ATTESTED")
@@ -275,15 +276,18 @@ def parse_browser_sequence_manifest(
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MANIFEST_INVALID", "A browser manifest path is unsafe."
             )
-        match = _SEQ_NAME.fullmatch(logical.name)
-        sequence_range = (
-            None if match is None else (int(match.group("start")), int(match.group("end")))
-        )
-        if sequence_range is not None and sequence_range[1] - sequence_range[0] > 8:
-            raise JobConflictError(
-                "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
-                "A seq_* filename contains an invalid inclusive range.",
-            )
+        sequence_range: tuple[int, int] | None
+        if is_sequence_range_filename_candidate(logical.name):
+            try:
+                parsed_range = parse_attested_sequence_range_filename(logical.name)
+            except ImageGeometryContractError as error:
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_PREFLIGHT_RANGE_INVALID",
+                    "A seq_* filename contains an invalid inclusive range.",
+                ) from error
+            sequence_range = (parsed_range.start, parsed_range.end)
+        else:
+            sequence_range = None
         any_attested = any_attested or sequence_range is not None
         any_unattested = any_unattested or sequence_range is None
         parsed.append(

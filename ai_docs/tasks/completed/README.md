@@ -50,6 +50,10 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 - [TASK-0278 — Purpose-scoped sesja, kod i writer lease](0278-remote-manual-selection-access-and-writer-lease.md)
 - [TASK-0279 — Osobna powierzchnia Reviewera i reuse ingressu](0279-remote-manual-selection-reviewer-ingress.md)
 
+## Wersja 0.10
+
+- [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)
+
 ## Zawartość
 
 - [TASK-0001 — Architecture clarification](0001-architecture-clarification.md)

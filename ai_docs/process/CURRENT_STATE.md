@@ -13,7 +13,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.9 active: bounded storage retention and garbage collection`
+`Version 0.10 active: virtual geometry and structured-CV rollout`
+
+### Fundament 0.10 — TASK-0307
+
+- `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.
+  Parser `seq_*` używany przez API i worker waliduje jeden ciągły zakres
+  `1..9`; jego aktywne sloty są zawsze prefiksem row-major strony 3 × 3, więc
+  częściowa ostatnia strona nie może zawierać dziury między planszami.
+- Nowe typy opisują współrzędne RGB po pojedynczej normalizacji EXIF,
+  wypukły source quad bez wymagania prostokąta, geometrię aktywnej planszy oraz
+  geometry-bound render spec komórki. Nie ma jeszcze migracji, endpointu,
+  flagi runtime, pipeline'u OpenCV ani zapisu nowych cropów.
+- Logical identity komórki jest niezależne od rewizji geometrii; render identity
+  wiąże źródło, topologię, quad, rewizję i konfigurację bezpośredniego
+  renderowania. Następny task wykorzysta te kontrakty do addytywnego schematu
+  i bezpiecznej ścieżki kompatybilności.
 
 ### Ograniczenie zużycia dysku — TASK-0306
 

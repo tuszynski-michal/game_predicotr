@@ -42,18 +42,32 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   katalogów działa jako idempotentny job `storage_inventory` w general lane i
   zapisuje trwały snapshot; zwykły GET nie skanuje drzewa plików. Panel pokazuje
   woluminy, PostgreSQL, przestrzenie nazw, presję miejsca oraz checksum-bound
-  dry-run i postęp GC. Automatyczne usuwanie nadal pozostaje w trybie
-  `observe_only` (domyślnie wymuszone konfiguracją) do kontrolowanego odbioru
-  TASK 8.
+  dry-run i postęp GC. Po poprawnym odbiorze TASK 8 automatyczne usuwanie jest
+  domyślnie aktywne; `observe_only` pozostaje jawnym trybem diagnostycznym.
 - TASK 7 (`v0.9.22`) dodaje bounded kompakcję odtwarzalnych payloadów
   `board_cell_geometry`, `board_crops`, `sequence_ocr` i `symbol_inference`.
   Niezmienny manifest terminalny zachowuje wersje adapterów, checksumy etapów
   oraz identyfikatory finalnych wyników. `discovery`, `normalization` i
   `board_detection` pozostają, ponieważ nadal uczestniczą w retry i korekcie
-  geometrii. Kompakcja jest osobnym, wznawialnym jobem i nie została jeszcze
-  uruchomiona na obecnych danych.
-- Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
-  użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
+  geometrii. Kompakcja jest osobnym, wznawialnym jobem. Pierwszy run zakończył
+  się dla 25 899 wykonań bez konfliktów.
+- Pierwszy dry-run kompakcji v2 zakończył się bez modyfikacji danych: 25 899
+  wykonań, 89 639 późnych payloadów i 3 095 375 375 bajtów logicznego JSON.
+  Serwerowy SHA-256 ograniczył czas raportu do około 71 sekund. To nie jest
+  prognoza fizycznego zmniejszenia VHDX; `VACUUM (ANALYZE)` udostępni strony
+  PostgreSQL do ponownego użycia, ale nie kurczy pliku dysku.
+- Bounded inventory po cleanupie zakończył się pomiarem 7/7 przestrzeni.
+  `working` spadło z 85 995 384 923 B do 23 803 702 034 B. Chronione cropy
+  (65 904 043 884 B), staging (11 141 120 426 B), originals
+  (10 211 507 189 B), modele (115 224 119 B) i training (22 404 184 B)
+  pozostały bez zmian. Wolne miejsce wzrosło do około 97,54 GiB. Snapshot
+  inwentarza jest publikowany dopiero po zapisaniu terminalnego wiersza bazy,
+  a skan po restarcie wznawia się od następnej przestrzeni nazw.
+- Zatwierdzony run GC `9e67b906-b04f-48c7-9719-1d608ade7511` usunął
+  39 514 historycznych bitmap normalizacji i odzyskał 62 191 682 889 B.
+  Jeden plik zmieniony po preview pozostał jako konflikt, bez błędów usuwania.
+  13 073 chronione obserwacje oraz 16 historycznych stagingów pozostały na
+  dysku. Automatyczne GC jest aktywne po poprawnym odbiorze; oryginały,
   referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.
 - `v0.9.17` przełącza nowe importy na normalizację RGB w pamięci. Stage result
   nie wskazuje `normalized.png`; przechowuje źródło, orientację, wymiary i

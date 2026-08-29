@@ -93,7 +93,12 @@ class SqlAlchemyImageJobOperationsRepository(
         return SqlAlchemyJobRepository(self._session).add_job(job)
 
     def latest_storage_inventory(self) -> ImageStorageInventory | None:
-        measured_at = self._session.scalar(select(func.max(StorageUsageSnapshotModel.measured_at)))
+        measured_at = self._session.scalar(
+            select(func.max(StorageUsageSnapshotModel.measured_at)).where(
+                StorageUsageSnapshotModel.root_kind == "database",
+                StorageUsageSnapshotModel.measurement_source == "database",
+            )
+        )
         if measured_at is None:
             return None
         rows = self._session.scalars(

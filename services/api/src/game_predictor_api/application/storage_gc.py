@@ -149,12 +149,9 @@ class StorageGcArtifactStore:
         observations.extend(self._temporary_observations(repository))
         observations.extend(self._browser_staging_observations(repository))
         decisions = tuple(
-            evaluate_storage_retention(item, policy=policy, now=now)
-            for item in observations
+            evaluate_storage_retention(item, policy=policy, now=now) for item in observations
         )
-        entries = tuple(
-            manifest_entry_from_decision(item) for item in decisions if item.eligible
-        )
+        entries = tuple(manifest_entry_from_decision(item) for item in decisions if item.eligible)
         free_bytes = min(
             os.statvfs(root).f_bavail * os.statvfs(root).f_frsize
             if hasattr(os, "statvfs")
@@ -254,9 +251,7 @@ class StorageGcArtifactStore:
         for path in paths:
             key = _execution_key_from_path(path)
             stat = path.stat(follow_symlinks=False)
-            dependency_statuses = (
-                ("processing",) if key is None else statuses.get(key, ())
-            )
+            dependency_statuses = ("processing",) if key is None else statuses.get(key, ())
             observations.append(
                 StorageArtifactObservation(
                     relative_path=path.relative_to(self._artifact_root).as_posix(),
@@ -274,14 +269,15 @@ class StorageGcArtifactStore:
         self, repository: StorageGcRepository
     ) -> Iterable[StorageArtifactObservation]:
         observations: list[StorageArtifactObservation] = []
-        for source in repository.browser_staging_sources():
+        sources = repository.browser_staging_sources()
+        tracked_paths = {source.relative_path for source in sources}
+        for source in sources:
             path = self._import_path(source.relative_path)
             if not path.exists():
                 continue
             size_bytes, modified_at, fingerprint, is_symlink = _tree_observation(path)
-            originals_verified = (
-                source.managed_originals_verified
-                and self.verify_managed_manifest(source)
+            originals_verified = source.managed_originals_verified and self.verify_managed_manifest(
+                source
             )
             observations.append(
                 StorageArtifactObservation(
@@ -298,6 +294,26 @@ class StorageGcArtifactStore:
                     observation_checksum_sha256=fingerprint,
                 )
             )
+        staging_root = self._import_root / "browser-selections"
+        if staging_root.is_dir() and not staging_root.is_symlink():
+            for path in sorted(staging_root.iterdir(), key=lambda item: item.name.casefold()):
+                relative_path = path.relative_to(self._import_root).as_posix()
+                if relative_path in tracked_paths:
+                    continue
+                size_bytes, modified_at, fingerprint, is_symlink = _tree_observation(path)
+                observations.append(
+                    StorageArtifactObservation(
+                        relative_path=relative_path,
+                        size_bytes=size_bytes,
+                        modified_at=modified_at,
+                        artifact_class=StorageArtifactClass.BROWSER_STAGING,
+                        linked_import_exists=False,
+                        managed_originals_verified=False,
+                        is_symlink=is_symlink,
+                        root_kind=StorageRootKind.IMPORT,
+                        observation_checksum_sha256=fingerprint,
+                    )
+                )
         return observations
 
     def verify_managed_manifest(self, source: BrowserStagingGcSource) -> bool:
@@ -361,9 +377,10 @@ class StorageGcService:
     def preview(self, *, mode: str = "manual") -> StorageGcPreview:
         now = self._clock()
         scan = self._artifact_store.scan(self._repository, policy=self._policy, now=now)
-        identity = canonical_gc_manifest_bytes(
-            scan.entries, policy=self._policy
-        ) + now.isoformat().encode()
+        identity = (
+            canonical_gc_manifest_bytes(scan.entries, policy=self._policy)
+            + now.isoformat().encode()
+        )
         run_id = UUID(bytes=hashlib.sha256(identity).digest()[:16])
         relative, checksum, token = self._artifact_store.persist_manifest(
             scan.entries,

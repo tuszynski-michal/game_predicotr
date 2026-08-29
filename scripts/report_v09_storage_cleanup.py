@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.database import create_database_engine
 from sqlalchemy import text
+from sqlalchemy.engine import RowMapping
 
 _RELATIONS = (
     "image_board_search_candidates",
@@ -34,7 +35,9 @@ def _arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_report(*, label: str, rows: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+def build_report(
+    *, label: str, rows: Iterable[Mapping[str, Any] | RowMapping]
+) -> dict[str, object]:
     relations = {
         str(row["relation_name"]): {
             "exists": bool(row["exists"]),

@@ -1361,7 +1361,9 @@ class ImagePipelineTerminalManifestModel(Base):
 
     __tablename__ = "image_pipeline_terminal_manifests"
     __table_args__ = (
-        CheckConstraint("schema_version = 1", name="ck_image_pipeline_terminal_manifest_schema"),
+        CheckConstraint(
+            "schema_version IN (1, 2)", name="ck_image_pipeline_terminal_manifest_schema"
+        ),
         CheckConstraint(
             "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_pipeline_terminal_manifest_checksum",
@@ -1387,7 +1389,7 @@ class ImagePipelineTerminalManifestModel(Base):
         ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
         nullable=False,
     )
-    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     manifest_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     stage_result_count: Mapped[int] = mapped_column(Integer, nullable=False)

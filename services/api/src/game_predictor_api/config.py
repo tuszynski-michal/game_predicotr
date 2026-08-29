@@ -42,7 +42,7 @@ class ApiSettings:
     storage_automatic_gc_gib: int = 60
     storage_target_gib: int = 80
     storage_hard_reserve_gib: int = 30
-    storage_gc_observe_only: bool = True
+    storage_gc_observe_only: bool = False
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
     remote_manual_selection_host_mapping_enabled: bool = True
@@ -129,7 +129,7 @@ class ApiSettings:
             variable_name="GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB",
         )
         storage_gc_observe_only = _parse_boolean(
-            source.get("GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY", "true"),
+            source.get("GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY", "false"),
             variable_name="GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY",
         )
         review_crop_root = _parse_local_root(

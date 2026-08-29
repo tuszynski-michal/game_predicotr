@@ -1,8 +1,10 @@
+import hashlib
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.domain.pipeline_state_compaction import PIPELINE_COMPACTION_SCHEMA
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from game_predictor_worker.pipeline_state_compaction import (
     PipelineStateCompactionHandler,
@@ -33,9 +35,7 @@ def test_pipeline_compaction_manifest_path_stays_in_managed_exports(tmp_path: Pa
         "data/exports/storage-gc/pipeline-state/run/other.jsonl",
     ),
 )
-def test_pipeline_compaction_rejects_unsafe_manifest_paths(
-    tmp_path: Path, relative: str
-) -> None:
+def test_pipeline_compaction_rejects_unsafe_manifest_paths(tmp_path: Path, relative: str) -> None:
     job = create_job(
         JobType.STORAGE_PIPELINE_COMPACTION,
         game_id=None,
@@ -54,3 +54,25 @@ def test_pipeline_compaction_rejects_invalid_manifest_header(tmp_path: Path) -> 
     with pytest.raises(JobHandlerError) as error:
         _manifest_entries(manifest)
     assert error.value.code == "STORAGE_PIPELINE_COMPACTION_SOURCE_CHANGED"
+
+
+def test_pipeline_compaction_starts_without_a_checkpoint(tmp_path: Path) -> None:
+    relative = "data/exports/storage-gc/pipeline-state/run/manifest.jsonl"
+    manifest = tmp_path / Path(relative)
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        f'{{"schemaVersion":"{PIPELINE_COMPACTION_SCHEMA}","candidateCount":0}}\n',
+        encoding="utf-8",
+    )
+    job = create_job(
+        JobType.STORAGE_PIPELINE_COMPACTION,
+        game_id=None,
+        input_payload={
+            "schema_version": 1,
+            "mode": "execute",
+            "manifest_relative_path": relative,
+            "manifest_checksum_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        },
+    )
+
+    _handler(tmp_path)(cast(Any, object()), job)

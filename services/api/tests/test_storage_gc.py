@@ -11,6 +11,7 @@ from game_predictor_api.application.storage_gc import (
 )
 from game_predictor_api.domain.storage_retention import (
     StorageArtifactClass,
+    StorageProtectionReason,
     StorageRetentionPolicy,
     StorageRootKind,
 )
@@ -126,19 +127,39 @@ def test_staging_requires_a_verified_complete_managed_manifest(tmp_path: Path) -
     assert len(blocked.protected) == 1
 
 
+def test_untracked_browser_staging_is_visible_and_fail_closed(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifacts"
+    imports = tmp_path / "imports"
+    artifact.mkdir()
+    staging = imports / "browser-selections" / str(uuid4())
+    staging.mkdir(parents=True)
+    staged = staging / "00000001.jpg"
+    staged.write_bytes(b"legacy-staging")
+    _old(staged)
+    _old(staging)
+
+    scan = StorageGcArtifactStore(artifact, imports).scan(
+        GcSourceRepository(), policy=StorageRetentionPolicy(), now=NOW
+    )
+
+    assert scan.entries == ()
+    assert len(scan.protected) == 1
+    decision = scan.protected[0]
+    assert decision.observation.relative_path == staging.relative_to(imports).as_posix()
+    assert decision.observation.size_bytes == len(b"legacy-staging")
+    assert decision.protection_reasons == (
+        StorageProtectionReason.MANAGED_ORIGINALS_INCOMPLETE,
+        StorageProtectionReason.STAGING_IMPORT_MISSING,
+    )
+
+
 def test_gc_manifest_is_immutable_and_contains_observation_identity(tmp_path: Path) -> None:
     artifact = tmp_path / "artifacts"
     imports = tmp_path / "imports"
     imports.mkdir()
     key = "c" * 64
     normalized = (
-        artifact
-        / "data"
-        / "working"
-        / "image-normalization-v1"
-        / "cc"
-        / key
-        / "normalized.png"
+        artifact / "data" / "working" / "image-normalization-v1" / "cc" / key / "normalized.png"
     )
     normalized.parent.mkdir(parents=True)
     normalized.write_bytes(b"pixels")

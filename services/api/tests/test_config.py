@@ -23,7 +23,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
     assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
-    assert settings.storage_gc_observe_only is True
+    assert settings.storage_gc_observe_only is False
     assert settings.remote_manual_selection_host_mapping_enabled is True
     assert settings.remote_selection_deselect_enabled is True
     assert settings.remote_selection_max_file_bytes == 32 * 1024 * 1024

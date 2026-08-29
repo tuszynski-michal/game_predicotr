@@ -803,7 +803,7 @@ panelu nie uruchamia synchronicznego skanu drzewa plików. Panel pokazuje
 ostatni pomiar i jawnie rozróżnia tryb obserwacji od aktywnego automatycznego
 usuwania.
 Do zakończenia pierwszego odbioru ustawienie
-`GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY` domyślnie ma wartość `true`; capacity
+`GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY` domyślnie ma wartość `false`; capacity
 guard nadal blokuje ryzykowne zapisy, ale nie uruchamia destrukcyjnego GC.
 
 Terminalne wykonania pipeline'u mogą po 24 godzinach utracić ciężkie,

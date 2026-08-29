@@ -427,8 +427,7 @@ class BrowserImageSelectionService:
         with self._lock:
             self._remove_expired(now)
         if self._capacity_guard is not None:
-            check = getattr(self._capacity_guard, "check_image_write")
-            check(expected_total_bytes)
+            self._capacity_guard.check_image_write(expected_total_bytes)
         upload_id = uuid4()
         upload_path = self._upload_root / str(upload_id)
         free_bytes = shutil.disk_usage(self._upload_root.parent).free

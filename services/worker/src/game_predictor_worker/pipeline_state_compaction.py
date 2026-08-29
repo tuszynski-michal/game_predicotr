@@ -13,7 +13,6 @@ from game_predictor_api.domain.pipeline_state_compaction import (
     DISPOSABLE_STAGE_PAYLOADS,
     PIPELINE_COMPACTION_SCHEMA,
     manifest_checksum,
-    stage_digest,
 )
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
@@ -23,6 +22,9 @@ from game_predictor_api.storage.models import (
     ImagePipelineTerminalManifestModel,
     JobModel,
     SourceImageModel,
+)
+from game_predictor_api.storage.pipeline_state_compaction_repository import (
+    load_pipeline_stage_digests,
 )
 from sqlalchemy import delete, exists, select, text
 from sqlalchemy.engine import Engine
@@ -58,7 +60,7 @@ class PipelineStateCompactionHandler:
                 "STORAGE_PIPELINE_COMPACTION_PAYLOAD_INVALID",
                 "The pipeline compaction mode is invalid.",
             )
-        checkpoint = job.checkpoint_payload
+        checkpoint = job.checkpoint_payload or {}
         start_index = int(checkpoint.get("checkpoint_index", 0))
         compacted = int(checkpoint.get("compacted_count", 0))
         compacted_bytes = int(checkpoint.get("compacted_bytes", 0))
@@ -72,9 +74,7 @@ class PipelineStateCompactionHandler:
             batch.append(entry)
             if len(batch) < BATCH_SIZE:
                 continue
-            applied, freed, blocked = self._process_batch(
-                batch, mode=mode, now=context.now()
-            )
+            applied, freed, blocked = self._process_batch(batch, mode=mode, now=context.now())
             compacted += applied
             compacted_bytes += freed
             conflicts += blocked
@@ -97,9 +97,7 @@ class PipelineStateCompactionHandler:
             )
             batch = []
         if batch:
-            applied, freed, blocked = self._process_batch(
-                batch, mode=mode, now=context.now()
-            )
+            applied, freed, blocked = self._process_batch(batch, mode=mode, now=context.now())
             compacted += applied
             compacted_bytes += freed
             conflicts += blocked
@@ -213,19 +211,8 @@ def _compact_entry(
     )
     if active_job or unresolved:
         return False, 0
-    rows = session.scalars(
-        select(ImagePipelineStageResultModel)
-        .where(ImagePipelineStageResultModel.file_execution_key == key)
-        .order_by(ImagePipelineStageResultModel.stage)
-        .with_for_update()
-    ).all()
     current = {
-        item.stage: stage_digest(
-            stage=item.stage,
-            adapter_version=item.adapter_version,
-            payload=item.result_payload,
-        )
-        for item in rows
+        item.stage: item for item in load_pipeline_stage_digests(session, (key,)).get(key, ())
     }
     terminal_payload = entry.get("terminalManifest")
     if not isinstance(terminal_payload, Mapping):
@@ -242,18 +229,15 @@ def _compact_entry(
             if stage in DISPOSABLE_STAGE_PAYLOADS:
                 continue
             return False, 0
-        if (
-            observed.adapter_version != expected.get("adapterVersion")
-            or observed.payload_checksum_sha256 != expected.get("payloadChecksumSha256")
-        ):
+        if observed.adapter_version != expected.get(
+            "adapterVersion"
+        ) or observed.payload_checksum_sha256 != expected.get("payloadChecksumSha256"):
             return False, 0
     checksum = manifest_checksum(terminal_payload)
     if checksum != entry.get("terminalManifestChecksumSha256"):
         return False, 0
     disposable_bytes = sum(
-        item.payload_bytes
-        for item in current.values()
-        if item.stage in DISPOSABLE_STAGE_PAYLOADS
+        item.payload_bytes for item in current.values() if item.stage in DISPOSABLE_STAGE_PAYLOADS
     )
     record = session.scalar(
         select(ImagePipelineTerminalManifestModel)
@@ -268,7 +252,7 @@ def _compact_entry(
             return True, 0
         record = ImagePipelineTerminalManifestModel(
             file_execution_key=key,
-            schema_version=1,
+            schema_version=2,
             manifest_checksum_sha256=checksum,
             manifest_payload=dict(terminal_payload),
             stage_result_count=len(current),

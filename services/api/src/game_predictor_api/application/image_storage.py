@@ -194,6 +194,14 @@ class ImageArtifactStore:
             wal_size_bytes=wal_size_bytes,
         )
 
+    def namespace_inventory(self, name: str) -> ImageStorageNamespace:
+        if name not in MANAGED_STORAGE_NAMESPACES:
+            raise ValueError(f"Unknown managed storage namespace: {name}")
+        return self._namespace_inventory(name)
+
+    def volumes(self) -> tuple[ImageStorageVolume, ...]:
+        return self._volumes()
+
     def _volumes(self) -> tuple[ImageStorageVolume, ...]:
         grouped: dict[str, tuple[Path, list[str]]] = {}
         for name, root in (("artifacts", self._artifact_root), ("imports", self._import_root)):

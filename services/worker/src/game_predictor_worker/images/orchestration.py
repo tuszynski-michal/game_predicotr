@@ -517,7 +517,6 @@ __all__ = [
     "ImageBatchStore",
     "ImageFileExecution",
     "ImageFileRegistration",
-    "ImageResultRehydrator",
     "ImageStageExecutionResult",
     "ImageStageExecutor",
     "advance_file_checkpoint",

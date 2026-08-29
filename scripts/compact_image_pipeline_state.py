@@ -91,7 +91,7 @@ def _start(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, ob
     if checksum != arguments.manifest_checksum_sha256:
         raise ValueError("Manifest checksum differs from the approved preview.")
     expected_token = hashlib.sha256(
-        f"{checksum}:pipeline-compaction-confirmation-v1".encode("ascii")
+        f"{checksum}:pipeline-compaction-confirmation-v2".encode("ascii")
     ).hexdigest()
     if arguments.preview_token != expected_token:
         raise ValueError("Preview token differs from the approved preview.")

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from sqlalchemy import exists, select
+from sqlalchemy import Text, cast, exists, func, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.pipeline_state_compaction import (
@@ -20,7 +20,6 @@ from game_predictor_api.domain.pipeline_state_compaction import (
     PipelineStageDigest,
     canonical_json_bytes,
     manifest_checksum,
-    stage_digest,
     terminal_manifest_payload,
 )
 from game_predictor_api.storage.models import (
@@ -33,7 +32,9 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 
-PREVIEW_PAGE_SIZE = 200
+# The preview retains only compact digests. A larger keyset window avoids
+# hundreds of repeated PostgreSQL round-trips while keeping memory bounded.
+PREVIEW_PAGE_SIZE = 2_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +125,7 @@ class SqlAlchemyPipelineStateCompactionRepository:
         entries_path.unlink(missing_ok=True)
         checksum = _file_sha256(destination)
         token = hashlib.sha256(
-            f"{checksum}:pipeline-compaction-confirmation-v1".encode("ascii")
+            f"{checksum}:pipeline-compaction-confirmation-v2".encode("ascii")
         ).hexdigest()
         return PipelineCompactionPreview(
             preview_id=preview_id,
@@ -163,8 +164,7 @@ class SqlAlchemyPipelineStateCompactionRepository:
                 SourceImageModel.id == ImageBoardGeometryPendingModel.source_image_id,
             )
             .where(
-                SourceImageModel.file_execution_key
-                == ImageFileExecutionModel.file_execution_key,
+                SourceImageModel.file_execution_key == ImageFileExecutionModel.file_execution_key,
                 ImageBoardGeometryPendingModel.status != "resolved",
             )
         )
@@ -193,24 +193,7 @@ class SqlAlchemyPipelineStateCompactionRepository:
         return tuple(self._session.scalars(statement).all())
 
     def _stages(self, keys: tuple[str, ...]) -> dict[str, tuple[PipelineStageDigest, ...]]:
-        grouped: dict[str, list[PipelineStageDigest]] = {key: [] for key in keys}
-        rows = self._session.scalars(
-            select(ImagePipelineStageResultModel)
-            .where(ImagePipelineStageResultModel.file_execution_key.in_(keys))
-            .order_by(
-                ImagePipelineStageResultModel.file_execution_key,
-                ImagePipelineStageResultModel.stage,
-            )
-        ).all()
-        for row in rows:
-            grouped[row.file_execution_key].append(
-                stage_digest(
-                    stage=row.stage,
-                    adapter_version=row.adapter_version,
-                    payload=row.result_payload,
-                )
-            )
-        return {key: tuple(value) for key, value in grouped.items()}
+        return load_pipeline_stage_digests(self._session, keys)
 
     def _final_ids(
         self, keys: tuple[str, ...]
@@ -246,4 +229,43 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-__all__ = ["PipelineCompactionPreview", "SqlAlchemyPipelineStateCompactionRepository"]
+def load_pipeline_stage_digests(
+    session: Session,
+    keys: tuple[str, ...],
+) -> dict[str, tuple[PipelineStageDigest, ...]]:
+    """Hash JSONB in PostgreSQL so previews do not transfer large payloads."""
+
+    grouped: dict[str, list[PipelineStageDigest]] = {key: [] for key in keys}
+    payload_text = cast(ImagePipelineStageResultModel.result_payload, Text)
+    payload_bytes = func.convert_to(payload_text, "UTF8")
+    rows = session.execute(
+        select(
+            ImagePipelineStageResultModel.file_execution_key,
+            ImagePipelineStageResultModel.stage,
+            ImagePipelineStageResultModel.adapter_version,
+            func.encode(func.digest(payload_bytes, "sha256"), "hex"),
+            func.octet_length(payload_bytes),
+        )
+        .where(ImagePipelineStageResultModel.file_execution_key.in_(keys))
+        .order_by(
+            ImagePipelineStageResultModel.file_execution_key,
+            ImagePipelineStageResultModel.stage,
+        )
+    ).all()
+    for key, stage, adapter_version, checksum, size in rows:
+        grouped[key].append(
+            PipelineStageDigest(
+                stage=str(stage),
+                adapter_version=str(adapter_version),
+                payload_checksum_sha256=str(checksum),
+                payload_bytes=int(size),
+            )
+        )
+    return {key: tuple(value) for key, value in grouped.items()}
+
+
+__all__ = [
+    "PipelineCompactionPreview",
+    "SqlAlchemyPipelineStateCompactionRepository",
+    "load_pipeline_stage_digests",
+]

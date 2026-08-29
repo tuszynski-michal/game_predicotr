@@ -31,7 +31,6 @@ export function StorageWorkspace({
   const pollActive = useRef(false);
 
   const loadInventory = useCallback(async () => {
-    setError(null);
     const result = await api.getImageStorageInventory();
     if (result.error !== undefined || result.data === undefined) {
       setError('Nie udało się odświeżyć inwentarza pamięci.');
@@ -40,7 +39,20 @@ export function StorageWorkspace({
     setInventory(result.data);
   }, [api]);
 
-  useEffect(() => void loadInventory(), [loadInventory]);
+  useEffect(() => {
+    let active = true;
+    void api.getImageStorageInventory().then((result) => {
+      if (!active) return;
+      if (result.error !== undefined || result.data === undefined) {
+        setError('Nie udało się odświeżyć inwentarza pamięci.');
+        return;
+      }
+      setInventory(result.data);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api]);
 
   async function refresh() {
     setBusy(true);

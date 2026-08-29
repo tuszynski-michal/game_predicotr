@@ -8,8 +8,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-PIPELINE_COMPACTION_SCHEMA = "image-pipeline-compaction-preview-v1"
-TERMINAL_MANIFEST_SCHEMA = "image-pipeline-terminal-manifest-v1"
+PIPELINE_COMPACTION_SCHEMA = "image-pipeline-compaction-preview-v2"
+TERMINAL_MANIFEST_SCHEMA = "image-pipeline-terminal-manifest-v2"
 DISPOSABLE_STAGE_PAYLOADS = frozenset(
     {"board_cell_geometry", "board_crops", "sequence_ocr", "symbol_inference"}
 )
@@ -25,8 +25,7 @@ class PipelineStageDigest:
 
 def canonical_json_bytes(value: object) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        + "\n"
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
     ).encode("utf-8")
 
 

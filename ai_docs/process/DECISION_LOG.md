@@ -6048,6 +6048,26 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** kolejny rerun rekonstruuje brakujące późne etapy z managed
   original; wcześniejsze manifesty pozostają audytowalne jako osobne wersje.
 
+## D-253 — Automatyczny GC jest aktywny po kontrolowanym odbiorze
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** po udanym, jawnie zatwierdzonym pierwszym cleanupie
+  `storage_gc_observe_only` ma domyślną wartość `false`. Tryb obserwacyjny
+  pozostaje dostępny przez zmienną środowiskową do diagnostyki i kolejnych
+  kontrolowanych rolloutów.
+- **Context:** pierwszy run usunął 39 514 bitmap i odzyskał 62 191 682 889 B,
+  pozostawiając jeden zmieniony kandydat jako konflikt. Inwentarz potwierdził
+  brak zmian w originals, cropach, modelach, training i stagingu. Kompakcja
+  PostgreSQL zakończyła 25 899 wykonań bez konfliktów.
+- **Safety:** progi 60/30/80 GiB, rewalidacja manifestu, zależności, mtime,
+  rozmiaru i ścieżki pozostają obowiązkowe. Automatyczny GC nie rozszerza
+  zakresu na chronione przestrzenie i nadal nie uruchamia `VACUUM FULL` ani
+  kompaktowania VHDX.
+- **Consequences:** po restarcie API system może automatycznie odzyskać tylko
+  dane spełniające zatwierdzoną politykę. Brak bezpiecznych kandydatów blokuje
+  nowe zapisy zamiast usuwać dane chronione.
+
 ## Szablon nowej decyzji
 
 ```text

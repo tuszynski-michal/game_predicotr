@@ -520,6 +520,7 @@ def create_image_imports_router(
                 )
             job = existing
             created = False
+        service.mark_in_use(upload_id, game_id=payload.game_id, job_id=job.id)
         return BrowserImageImportStartResponse(
             created=created,
             job=JobResponse.from_domain(job),
@@ -569,6 +570,7 @@ def create_image_imports_router(
                 raise
             job = job_service.get_job(UUID(existing_id))
             created = False
+        service.mark_in_use(upload_id, game_id=payload.game_id, job_id=job.id)
         return BrowserPageGeometryPreflightResponse(
             created=created,
             job=JobResponse.from_domain(job),

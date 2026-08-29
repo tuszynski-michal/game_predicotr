@@ -14,12 +14,15 @@ from game_predictor_worker.domain import (
     PayoutRuleDefinition,
     PayoutSymbolDefinition,
     SymbolDefinition,
+    decode_layout_signature,
     decode_signature,
+    encode_layout_signature,
     encode_signature,
     encode_signature_prefix,
     validate_board_prefix,
     validate_full_board,
     validate_game_config,
+    validate_layout_board,
     validate_paylines,
     validate_payout_rules,
     validate_payout_symbols,
@@ -109,6 +112,21 @@ def test_signature_codec_reports_stable_validation_codes() -> None:
                 case.get("expectedCellCount"),
             ),
         )
+
+
+def test_layout_codec_allows_unknown_without_weakening_user_board_codec() -> None:
+    game = _game_from_fixture(_load_fixture()["validation"]["game"])
+    cells = (0, *(_load_fixture()["validation"]["fullBoard"][1:]))
+
+    signature = encode_layout_signature(cells, game.signature_cell_width)
+
+    assert decode_layout_signature(signature, game.signature_cell_width, len(cells)) == cells
+    validate_layout_board(cells, game)
+    _assert_domain_error(
+        "invalid_symbol_code",
+        lambda: encode_signature(cells, game.signature_cell_width),
+    )
+    _assert_domain_error("invalid_board_symbol", lambda: validate_full_board(cells, game))
 
 
 def test_valid_shared_domain_configuration_passes_validation() -> None:

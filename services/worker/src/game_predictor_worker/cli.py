@@ -96,6 +96,7 @@ from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
 from game_predictor_worker.payouts.handler import PayoutBatchHandler
 from game_predictor_worker.payouts.readiness import PayoutReadinessService
 from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
+from game_predictor_worker.pipeline_state_compaction import PipelineStateCompactionHandler
 from game_predictor_worker.releases import (
     PowerShellAndroidReleaseBuilder,
     ReleaseWorkflowHandler,
@@ -106,6 +107,8 @@ from game_predictor_worker.snapshots import (
     ProductionSnapshotGenerator,
     SqlAlchemyProductionSnapshotStore,
 )
+from game_predictor_worker.storage_gc import StorageGcHandler
+from game_predictor_worker.storage_inventory import StorageInventoryHandler
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
@@ -364,6 +367,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
             session_factory,
             artifact_root,
             repository_root=Path.cwd(),
+            hard_reserve_bytes=getattr(settings, "storage_hard_reserve_gib", 30) * 1024**3,
+            resume_target_bytes=getattr(settings, "storage_target_gib", 80) * 1024**3,
         )
         import_dispatch_handler = ImportJobDispatchHandler(
             import_handler,
@@ -403,6 +408,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.STORAGE_GC: StorageGcHandler(
+                session_factory,
+                artifact_root,
+                settings.import_root,
+            ),
+            JobType.STORAGE_INVENTORY: StorageInventoryHandler(
+                session_factory,
+                artifact_root,
+                settings.import_root,
+            ),
+            JobType.STORAGE_PIPELINE_COMPACTION: PipelineStateCompactionHandler(
+                session_factory,
+                artifact_root,
+                engine,
+            ),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

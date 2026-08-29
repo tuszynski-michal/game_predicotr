@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   createBoardSearchEditorState,
+  boardSearchPatternCellCount,
   placeBoardSearchSymbol,
+  placeBoardSearchUnknown,
   resetBoardSearchEditor,
   selectBoardSearchCell,
   selectedBoardSearchCells,
@@ -45,4 +47,21 @@ test('resets the partial pattern and its history without a search request', () =
   assert.deepEqual(selectedBoardSearchCells(state), []);
   assert.equal(state.history.length, 0);
   assert.equal(state.selectedCellIndex, 0);
+});
+
+test('keeps logical unknown in the editor but omits it from search evidence', () => {
+  let state = createBoardSearchEditorState();
+  state = placeBoardSearchUnknown(state);
+  state = placeBoardSearchSymbol(state, 'bell');
+
+  assert.deepEqual(state.cells.slice(0, 2), ['?', 'bell']);
+  assert.equal(boardSearchPatternCellCount(state), 2);
+  assert.deepEqual(selectedBoardSearchCells(state), [
+    { cellIndex: 1, symbolCode: 'bell' },
+  ]);
+
+  state = undoBoardSearchEdit(state);
+  assert.deepEqual(state.cells.slice(0, 2), ['?', null]);
+  state = resetBoardSearchEditor(state);
+  assert.equal(boardSearchPatternCellCount(state), 0);
 });

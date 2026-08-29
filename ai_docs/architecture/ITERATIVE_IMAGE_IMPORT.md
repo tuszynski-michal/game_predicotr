@@ -181,7 +181,7 @@ ponowienia lub ręcznej korekty. Kolejny import ze świeżym manifestem ponownie
 wykorzystuje rejestr kanoniczny, więc wcześniej zatwierdzone plansze nie są
 przetwarzane drugi raz.
 
-## Podgląd Reviewera
+## Walidacja geometrii w Reviewerze
 
 Etap OCR zachowuje quad obszaru etykiety numeru. Reviewer pobiera checksum-bound
 oryginał i renderuje w canvasie viewport będący sumą planszy oraz etykiety.
@@ -189,10 +189,19 @@ Nie tworzy kolejnego dużego artefaktu. Dla danych historycznych viewport
 rozszerza quad planszy o margines z przewagą dolnej części.
 
 Pierwszy `sourceContextBounds` pozostaje metadanym kadrem referencyjnym przez
-wszystkie ręczne rewizje geometrii. Rewizja nadal materializuje nową planszę
-roboczą i 15 cropów bezpośrednio z oryginału, ale nie zmienia kadru ani skali
-prawego podglądu. Zwykły podgląd i canvas używają osobnych kluczy cache oraz
-CORS, aby ponowne otwarcie edytora nie dziedziczyło niezgodnej odpowiedzi obrazu.
+wszystkie ręczne rewizje geometrii. Rewizja materializuje nową planszę roboczą
+i `rows × columns` cropów bezpośrednio z oryginału, ale nie tworzy obrazu z
+narysowanym overlayem. Overlay jest wyłącznie warstwą canvasa w lokalnym
+Reviewerze.
+
+Kolejka game-wide korzysta z jednego właściciela logicznego numeru oraz
+bounded keysetu. Szybkie zatwierdzenie i edycja wiążą rewizję decyzji,
+geometrii, checksumę i wymiary źródła oraz snapshot topologii. Edytor używa
+czterech narożników w kolejności LT, PT, PD, LD; linie wewnętrzne i cropy są
+wyprowadzane z topologii planszy. Nowy widok nie ładuje katalogu symboli.
+
+Rollout pozostaje lokalny. Remote Reviewer nadal używa dotychczasowego,
+scope-bound API i jego proxy nie dopuszcza nowych game-wide endpointów.
 
 ## Obserwowalność
 

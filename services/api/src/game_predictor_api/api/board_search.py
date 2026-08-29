@@ -80,7 +80,12 @@ def _parse_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
                 "BOARD_SEARCH_CELL_INVALID",
                 "Each board-search cell index must be an integer between 0 and 14.",
             ) from error
-        parsed.append(BoardSearchQueryCell(cell_index=cell_index, symbol_code=symbol_code))
+        parsed.append(
+            BoardSearchQueryCell(
+                cell_index=cell_index,
+                symbol_code=None if symbol_code == "?" else symbol_code,
+            )
+        )
     return tuple(parsed)
 
 

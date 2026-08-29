@@ -25,7 +25,21 @@ from game_predictor_api.application.image_symbol_reviews import (
     SymbolCellReviewListSlice,
     SymbolCellReviewQueryRepository,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    ResolveUnreadableCellCommand,
+    UnreadableBoardReviewCell,
+    UnreadableBoardReviewDetail,
+    UnreadableBoardReviewListItem,
+    UnreadableBoardReviewRepository,
+    UnreadableBoardReviewSlice,
+    UnreadableBoardReviewView,
+)
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.image_grid_reviews import (
+    approve_image_grid_review,
+    derive_image_grid_review,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewCell,
@@ -33,8 +47,10 @@ from game_predictor_api.domain.image_reviews import (
     canonical_image_review_bytes,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellApprovedCropIdentity,
     SymbolCellAssignmentSource,
     SymbolCellCropIdentity,
+    SymbolCellQualityIssue,
     SymbolCellReview,
     SymbolCellReviewAction,
     SymbolCellReviewAsset,
@@ -47,14 +63,18 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewTransition,
     approve_symbol_cell_review,
     derive_symbol_cell_board_resolution,
+    invalidate_symbol_cell_reviews_for_geometry,
     map_current_symbol_cell_reviews,
     mark_symbol_cell_grid_issue,
+    mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
+    resolve_unreadable_symbol_cell_review,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
+    ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
@@ -292,21 +312,21 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             current_geometry_revision=int(current_geometry_revision),
         )
 
-    def _list_statement(
-        self, *, review_filter: SymbolCellReviewListFilter
-    ) -> Select[Any]:
+    def _list_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         assigned_symbol = aliased(SymbolModel)
-        return self._visible_statement(review_filter=review_filter).add_columns(
-            ImageBoardSearchFastDocumentModel.status.label("board_status"),
-            assigned_symbol.id.label("assigned_symbol_id"),
-            assigned_symbol.code.label("assigned_symbol_code"),
-            assigned_symbol.name.label("assigned_symbol_name"),
-        ).outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
+        return (
+            self._visible_statement(review_filter=review_filter)
+            .add_columns(
+                ImageBoardSearchFastDocumentModel.status.label("board_status"),
+                assigned_symbol.id.label("assigned_symbol_id"),
+                assigned_symbol.code.label("assigned_symbol_code"),
+                assigned_symbol.name.label("assigned_symbol_name"),
+            )
+            .outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
+        )
 
-    def _visible_statement(
-        self, *, review_filter: SymbolCellReviewListFilter
-    ) -> Select[Any]:
+    def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
         statement = (
@@ -502,6 +522,8 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         board_resolution = derive_symbol_cell_board_resolution(
             reviews=current_board_reviews,
             active_symbol_codes=tuple(symbol_codes.values()),
+            topology=_board_topology(board),
+            geometry_approved=board.approved_geometry_revision == board.geometry_revision,
         )
         any_changed = any(changed_by_cell_id.values())
         board_reopened = False
@@ -511,7 +533,11 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             (
                 command
                 for command in commands
-                if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE
+                if command.action
+                in {
+                    SymbolCellReviewAction.MARK_GRID_ISSUE,
+                    SymbolCellReviewAction.MARK_UNREADABLE,
+                }
                 and changed_by_cell_id[command.cell_review_id]
             ),
             None,
@@ -519,7 +545,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         if reopen_command is not None and item.status in {"accepted", "corrected"}:
             updated, board_reopened = SqlAlchemyOperationalImageReviewRepository(
                 self._session
-            ).reopen_for_symbol_cell_grid_issue(
+            ).reopen_for_symbol_cell_issue(
                 review_item_id=item.id,
                 game_id=game_id,
                 import_job_id=source.import_job_id,
@@ -527,6 +553,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 command_sha256=_symbol_cell_mutation_checksum(reopen_command),
                 reopened_by=reopen_command.actor.strip(),
                 reopened_at=datetime.now(UTC),
+                reason=reopen_command.action.value,
             )
             board_status = updated.status
         elif board_resolution is not None and (any_changed or item.status == "pending"):
@@ -551,7 +578,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 ImageReviewResolutionCell(
                     cell_index=review.cell_index,
                     crop_sample_id=review.crop.crop_sample_id,
-                    symbol_code=review.assigned_symbol_code or "",
+                    symbol_code=review.assigned_symbol_code,
                 )
                 for review in current_board_reviews
             )
@@ -569,6 +596,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 cells=cells,
                 rejection_reason=None,
                 resolved_by=commands[0].actor.strip(),
+                allow_unknown_cells=any(cell.symbol_code is None for cell in cells),
             )
             board_status = updated.status
             board_resolution_action = aggregate_action.value
@@ -590,7 +618,20 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                     row_by_cell_id[command.cell_review_id][0].review_state
                 ),
                 assigned_symbol_id=row_by_cell_id[command.cell_review_id][0].assigned_symbol_id,
-                has_grid_issue=bool(row_by_cell_id[command.cell_review_id][0].has_grid_issue),
+                has_grid_issue=(
+                    _quality_issue_from_model(row_by_cell_id[command.cell_review_id][0])
+                    == SymbolCellQualityIssue.GRID_ISSUE.value
+                ),
+                quality_issue=(
+                    None
+                    if (
+                        issue := _quality_issue_from_model(
+                            row_by_cell_id[command.cell_review_id][0]
+                        )
+                    )
+                    is None
+                    else SymbolCellQualityIssue(issue)
+                ),
                 board_status=board_status,
                 board_resolution_action=board_resolution_action,
                 board_reopened=board_reopened,
@@ -748,14 +789,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             )
 
     def _active_symbols(self, game_id: UUID) -> tuple[dict[UUID, str], dict[str, UUID]]:
-        rows = self._session.execute(
-            select(SymbolModel.id, SymbolModel.code).where(
-                SymbolModel.game_id == game_id,
-                SymbolModel.status == SymbolStatus.ACTIVE,
-            )
-        ).all()
-        symbol_code_by_id = {symbol_id: code for symbol_id, code in rows}
-        return symbol_code_by_id, {code: symbol_id for symbol_id, code in rows}
+        return _active_symbol_maps(self._session, game_id)
 
     def _locked_current_board_reviews(
         self,
@@ -767,34 +801,235 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         geometry_revision: int,
         symbol_code_by_id: Mapping[UUID, str],
     ) -> tuple[SymbolCellReview, ...]:
-        rows = tuple(
-            self._session.scalars(
-                select(ImageSymbolReviewCellModel)
+        board = self._session.get(RecognizedBoardModel, recognized_board_id)
+        if board is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT",
+                "The current board disappeared before its crop decisions were aggregated.",
+            )
+        return _locked_board_reviews(
+            self._session,
+            game_id=game_id,
+            review_item_id=review_item_id,
+            recognized_board_id=recognized_board_id,
+            sequence_number=sequence_number,
+            geometry_revision=geometry_revision,
+            symbol_code_by_id=symbol_code_by_id,
+            topology=_board_topology(board),
+        )
+
+
+class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository):
+    """Current-owner board queue built directly from unreadable cell state."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def require_ready_game(self, game_id: UUID) -> None:
+        SqlAlchemySymbolCellReviewQueryRepository(self._session).require_ready_game(game_id)
+
+    def list_boards(
+        self,
+        *,
+        game_id: UUID,
+        view: UnreadableBoardReviewView,
+        after_key: tuple[int, str] | None,
+        limit: int,
+    ) -> UnreadableBoardReviewSlice:
+        cell = ImageSymbolReviewCellModel
+        document = ImageBoardSearchFastDocumentModel
+        unreadable_count = (
+            select(func.count(cell.id))
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == document.review_item_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+                cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
+            )
+            .correlate(document, RecognizedBoardModel)
+            .scalar_subquery()
+        )
+        pending_count = (
+            select(func.count(cell.id))
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == document.review_item_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+                cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
+                cell.review_state == SymbolCellReviewState.PENDING.value,
+            )
+            .correlate(document, RecognizedBoardModel)
+            .scalar_subquery()
+        )
+        statement = (
+            select(
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
+                document.sequence_number,
+                document.status,
+                RecognizedBoardModel.grid_rows,
+                RecognizedBoardModel.grid_columns,
+                unreadable_count.label("unreadable_count"),
+                pending_count.label("pending_count"),
+            )
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == document.recognized_board_id)
+            .where(document.game_id == game_id, unreadable_count > 0)
+        )
+        if view is UnreadableBoardReviewView.PENDING:
+            statement = statement.where(pending_count > 0)
+        if after_key is not None:
+            statement = statement.where(
+                or_(
+                    document.sequence_number > after_key[0],
+                    and_(
+                        document.sequence_number == after_key[0],
+                        document.review_item_id.cast(String) > after_key[1],
+                    ),
+                )
+            )
+        rows = self._session.execute(
+            statement.order_by(document.sequence_number, document.review_item_id).limit(limit + 1)
+        ).all()
+        visible = rows[:limit]
+        return UnreadableBoardReviewSlice(
+            items=tuple(
+                UnreadableBoardReviewListItem(
+                    review_item_id=row.review_item_id,
+                    recognized_board_id=row.recognized_board_id,
+                    import_job_id=row.import_job_id,
+                    sequence_number=int(row.sequence_number),
+                    board_status=str(row.status),
+                    grid_rows=int(row.grid_rows or 3),
+                    grid_columns=int(row.grid_columns or 5),
+                    unreadable_count=int(row.unreadable_count),
+                    pending_unreadable_count=int(row.pending_count),
+                )
+                for row in visible
+            ),
+            has_next=len(rows) > limit,
+        )
+
+    def get_board(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+    ) -> UnreadableBoardReviewDetail | None:
+        document = ImageBoardSearchFastDocumentModel
+        board_row = self._session.execute(
+            select(document, RecognizedBoardModel)
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == document.recognized_board_id)
+            .where(
+                document.game_id == game_id,
+                document.review_item_id == review_item_id,
+                select(ImageSymbolReviewCellModel.id)
                 .where(
                     ImageSymbolReviewCellModel.game_id == game_id,
                     ImageSymbolReviewCellModel.review_item_id == review_item_id,
-                    ImageSymbolReviewCellModel.recognized_board_id == recognized_board_id,
+                    ImageSymbolReviewCellModel.geometry_revision
+                    == RecognizedBoardModel.geometry_revision,
+                    ImageSymbolReviewCellModel.quality_issue
+                    == SymbolCellQualityIssue.UNREADABLE.value,
                 )
-                .order_by(ImageSymbolReviewCellModel.cell_index)
-                .with_for_update()
+                .exists(),
+            )
+        ).one_or_none()
+        if board_row is None:
+            return None
+        current, board = board_row
+        assigned = aliased(SymbolModel)
+        rows = self._session.execute(
+            select(ImageSymbolReviewCellModel, assigned)
+            .outerjoin(assigned, assigned.id == ImageSymbolReviewCellModel.assigned_symbol_id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                ImageSymbolReviewCellModel.recognized_board_id == board.id,
+                ImageSymbolReviewCellModel.geometry_revision == board.geometry_revision,
+            )
+            .order_by(ImageSymbolReviewCellModel.cell_index)
+        ).all()
+        topology = _board_topology(board)
+        if len(rows) != topology.cell_count:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+                "The unreadable board does not contain every current topology cell.",
+            )
+        return UnreadableBoardReviewDetail(
+            review_item_id=current.review_item_id,
+            recognized_board_id=current.recognized_board_id,
+            import_job_id=current.import_job_id,
+            sequence_number=int(current.sequence_number),
+            board_status=str(current.status),
+            grid_rows=topology.rows,
+            grid_columns=topology.columns,
+            cells=tuple(
+                UnreadableBoardReviewCell(
+                    cell_review_id=cell_row.id,
+                    cell_index=int(cell_row.cell_index),
+                    row_index=int(cell_row.row_index),
+                    column_index=int(cell_row.column_index),
+                    assigned_symbol_id=cell_row.assigned_symbol_id,
+                    assigned_symbol_code=None if symbol is None else symbol.code,
+                    assigned_symbol_name=None if symbol is None else symbol.name,
+                    prediction_symbol_code=_known_symbol_code(cell_row.prediction_symbol_code),
+                    review_state=cell_row.review_state,
+                    quality_issue=_quality_issue_from_model(cell_row),
+                    revision=int(cell_row.revision),
+                    geometry_revision=int(cell_row.geometry_revision),
+                    crop_sample_id=cell_row.crop_sample_id,
+                    crop_checksum_sha256=cell_row.crop_checksum_sha256,
+                )
+                for cell_row, symbol in rows
+            ),
+        )
+
+    def resolve_cell(
+        self,
+        command: ResolveUnreadableCellCommand,
+    ) -> SymbolCellReviewMutationResult:
+        cell_id = self._session.scalar(
+            select(ImageSymbolReviewCellModel.id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                and_(
+                    ImageBoardSearchFastDocumentModel.game_id == ImageSymbolReviewCellModel.game_id,
+                    ImageBoardSearchFastDocumentModel.review_item_id
+                    == ImageSymbolReviewCellModel.review_item_id,
+                    ImageBoardSearchFastDocumentModel.recognized_board_id
+                    == ImageSymbolReviewCellModel.recognized_board_id,
+                ),
+            )
+            .where(
+                ImageSymbolReviewCellModel.game_id == command.game_id,
+                ImageSymbolReviewCellModel.review_item_id == command.review_item_id,
+                ImageSymbolReviewCellModel.cell_index == command.cell_index,
             )
         )
-        if (
-            len(rows) != 15
-            or [cell.cell_index for cell in rows] != list(range(15))
-            or any(
-                cell.sequence_number != sequence_number
-                or cell.geometry_revision != geometry_revision
-                for cell in rows
-            )
-        ):
+        if cell_id is None:
             raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
-                "The current board does not have exactly 15 matching symbol-cell crops.",
+                "UNREADABLE_BOARD_REVIEW_CELL_NOT_FOUND",
+                "The selected unreadable cell is not part of the current logical board.",
             )
-        return tuple(
-            _symbol_cell_review_from_model(cell, symbol_code_by_id=symbol_code_by_id)
-            for cell in rows
+        action = (
+            SymbolCellReviewAction.APPROVE
+            if command.target_symbol_id is None
+            else SymbolCellReviewAction.REASSIGN
+        )
+        return SqlAlchemySymbolCellReviewMutationRepository(self._session).apply_mutation(
+            SymbolCellReviewMutationCommand(
+                game_id=command.game_id,
+                cell_review_id=cell_id,
+                action=action,
+                expected_revision=command.expected_revision,
+                expected_geometry_revision=command.expected_geometry_revision,
+                expected_crop_sample_id=command.expected_crop_sample_id,
+                expected_crop_checksum_sha256=command.expected_crop_checksum_sha256,
+                target_symbol_id=command.target_symbol_id,
+                actor=command.actor,
+                resolve_unreadable=True,
+            )
         )
 
 
@@ -887,6 +1122,193 @@ class SymbolCellReviewWriteThroughCoordinator:
         self._touch_catalog_revision(state)
         return True
 
+    def approve_current_geometry(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        expected_geometry_revision: int,
+        actor: str,
+        approved_at: datetime,
+    ) -> bool:
+        """Approve one exact geometry revision and aggregate its logical board."""
+
+        from game_predictor_api.storage.image_review_repository import (
+            acquire_image_review_sequence_locks,
+        )
+
+        acquire_image_review_sequence_locks(
+            self._session,
+            game_id=game_id,
+            review_item_id=review_item_id,
+            requested_sequence_number=None,
+        )
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return False
+        row = self._review_row(game_id=game_id, review_item_id=review_item_id)
+        if row is None:
+            return False
+        item, board, _source, _queue_item, _job = row
+        locked_board = self._session.get(RecognizedBoardModel, board.id, with_for_update=True)
+        if locked_board is None or locked_board.geometry_revision != expected_geometry_revision:
+            raise SymbolCellReviewError(
+                "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+                "The board geometry changed before it could be approved.",
+            )
+        board = locked_board
+        topology = _board_topology(board)
+        cells = tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .with_for_update()
+            )
+        )
+        if len(cells) != topology.cell_count or [cell.cell_index for cell in cells] != list(
+            range(topology.cell_count)
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
+                "Geometry approval requires every configured symbol-cell crop.",
+            )
+        quality_issues = tuple(_quality_issue_from_model(cell) for cell in cells)
+        grid_review = derive_image_grid_review(
+            topology=topology,
+            geometry_revision=board.geometry_revision,
+            approved_geometry_revision=board.approved_geometry_revision,
+            cell_quality_issues=tuple(
+                None if issue is None else SymbolCellQualityIssue(issue) for issue in quality_issues
+            ),
+        )
+        transition = approve_image_grid_review(grid_review)
+        if not transition.changed:
+            return False
+        previous = board.approved_geometry_revision
+        board.approved_geometry_revision = transition.review.approved_geometry_revision
+        board.geometry_approved_at = approved_at
+        board.geometry_approved_by = actor
+        self._session.add(
+            ImageBoardGeometryReviewEventModel(
+                review_item_id=item.id,
+                recognized_board_id=board.id,
+                geometry_revision=board.geometry_revision,
+                grid_rows=topology.rows,
+                grid_columns=topology.columns,
+                board_checksum_sha256=board.board_checksum_sha256,
+                action="approved",
+                previous_approved_geometry_revision=previous,
+                approved_geometry_revision=board.geometry_revision,
+                actor=actor,
+                created_at=approved_at,
+            )
+        )
+        self._session.flush()
+        self._touch_catalog_revision(state)
+        self.synchronize_board_from_cells(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=actor,
+        )
+        return True
+
+    def synchronize_board_from_cells(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        actor: str,
+    ) -> bool:
+        """Materialize a complete parent decision from current cell state.
+
+        Geometry approval and all current cell labels are checked again under
+        the same transaction.  Crop provenance is deliberately not promoted:
+        resolving the logical board after a recrop must not make the new
+        pixels training-eligible.
+        """
+
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return False
+        row = self._review_row(game_id=game_id, review_item_id=review_item_id)
+        if row is None:
+            return False
+        item, board, source, _queue_item, _job = row
+        if item.status != "pending":
+            return False
+        sequence_number = _current_sequence_number(item=item, board=board)
+        if sequence_number is None:
+            self._mark_integrity_failure(
+                state,
+                "SYMBOL_CELL_REVIEW_SEQUENCE_MISSING",
+                "An active board has no resolved sequence number.",
+            )
+            return False
+        topology = _board_topology(board)
+        symbol_codes, _symbol_ids = _active_symbol_maps(self._session, game_id)
+        reviews = _locked_board_reviews(
+            self._session,
+            game_id=game_id,
+            review_item_id=item.id,
+            recognized_board_id=board.id,
+            sequence_number=sequence_number,
+            geometry_revision=board.geometry_revision,
+            symbol_code_by_id=symbol_codes,
+            topology=topology,
+        )
+        resolution = derive_symbol_cell_board_resolution(
+            reviews=reviews,
+            active_symbol_codes=tuple(symbol_codes.values()),
+            topology=topology,
+            geometry_approved=board.approved_geometry_revision == board.geometry_revision,
+        )
+        if resolution is None:
+            return False
+
+        from game_predictor_api.application.image_reviews import OperationalImageReviewService
+        from game_predictor_api.storage.image_review_repository import (
+            SqlAlchemyOperationalImageReviewRepository,
+        )
+
+        repository = SqlAlchemyOperationalImageReviewRepository(self._session)
+        current = repository.get_item(
+            item.id,
+            game_id=game_id,
+            import_job_id=source.import_job_id,
+            for_update=True,
+        )
+        if current is None or current.status != "pending":
+            return False
+        action = resolution.action
+        if (
+            action is ImageReviewAction.ACCEPTED
+            and current.suggested_sequence_number != sequence_number
+        ):
+            action = ImageReviewAction.CORRECTED
+        OperationalImageReviewService(repository).resolve_item(
+            item.id,
+            game_id=game_id,
+            import_job_id=source.import_job_id,
+            idempotency_key=uuid4(),
+            expected_revision=current.resolution_revision,
+            action=action,
+            sequence_number=sequence_number,
+            geometry_revision=current.geometry_revision,
+            cells=tuple(
+                ImageReviewResolutionCell(
+                    cell_index=review.cell_index,
+                    crop_sample_id=review.crop.crop_sample_id,
+                    symbol_code=review.assigned_symbol_code,
+                )
+                for review in reviews
+            ),
+            rejection_reason=None,
+            resolved_by=actor,
+            allow_unknown_cells=any(review.assigned_symbol_code is None for review in reviews),
+        )
+        return True
+
     def synchronize_for_backfill_reconciliation(
         self,
         *,
@@ -963,7 +1385,8 @@ class SymbolCellReviewWriteThroughCoordinator:
                 .with_for_update()
             )
         }
-        if existing and set(existing) != set(range(15)):
+        topology = _board_topology(board)
+        if existing and set(existing) != set(range(topology.cell_count)):
             if repair_incomplete_backfill and not any(
                 _is_human_cell_decision(cell) for cell in existing.values()
             ):
@@ -977,8 +1400,8 @@ class SymbolCellReviewWriteThroughCoordinator:
                 self._mark_integrity_failure(
                     state,
                     "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
-                    "Existing symbol-cell review state does not contain exactly "
-                    "15 row-major cells.",
+                    "Existing symbol-cell review state does not contain every configured "
+                    "row-major cell.",
                 )
                 return False
 
@@ -994,6 +1417,7 @@ class SymbolCellReviewWriteThroughCoordinator:
         resolved_symbol_ids = self._resolved_symbol_ids(
             item=item,
             active_symbol_ids=active_symbol_ids,
+            cell_count=topology.cell_count,
         )
         if item.status in {"accepted", "corrected"} and resolved_symbol_ids is None:
             self._mark_integrity_failure(
@@ -1008,40 +1432,127 @@ class SymbolCellReviewWriteThroughCoordinator:
             or cell.crop_checksum_sha256 != current_cells[cell.cell_index].crop_checksum_sha256
             for cell in existing.values()
         )
+        recropped_targets: dict[int, _CellProjection] = {}
+        if geometry_changed and existing:
+            symbol_code_by_id = {symbol_id: code for code, symbol_id in active_symbol_ids.items()}
+            recropped = invalidate_symbol_cell_reviews_for_geometry(
+                existing_reviews=tuple(
+                    _symbol_cell_review_from_model(
+                        existing[index],
+                        symbol_code_by_id=symbol_code_by_id,
+                    )
+                    for index in range(topology.cell_count)
+                ),
+                current_cells=current_cells,
+                geometry_revision=board.geometry_revision,
+                cropper_version=cropper_version,
+                topology=topology,
+            )
+            recropped_targets = {
+                review.cell_index: _CellProjection(
+                    assigned_symbol_id=(
+                        None
+                        if review.assigned_symbol_code is None
+                        else active_symbol_ids.get(review.assigned_symbol_code)
+                    ),
+                    review_state=review.review_state.value,
+                    assignment_source=review.assignment_source.value,
+                    quality_issue=(
+                        None if review.quality_issue is None else review.quality_issue.value
+                    ),
+                    approved_crop_sample_id=(
+                        None
+                        if review.approved_crop is None
+                        else review.approved_crop.crop_sample_id
+                    ),
+                    approved_crop_checksum_sha256=(
+                        None
+                        if review.approved_crop is None
+                        else review.approved_crop.crop_checksum_sha256
+                    ),
+                    approved_geometry_revision=(
+                        None
+                        if review.approved_crop is None
+                        else review.approved_crop.geometry_revision
+                    ),
+                )
+                for review in recropped
+            }
         changed = False
         for review_cell in current_cells:
             existing_cell = existing.get(review_cell.cell_index)
             prediction_symbol_id = active_symbol_ids.get(review_cell.predicted_symbol_code)
-            if resolved_symbol_ids is not None:
+            if geometry_changed and existing_cell is not None:
+                target = recropped_targets[review_cell.cell_index]
+                event_action = "geometry_invalidated"
+            elif resolved_symbol_ids is not None:
+                resolved_symbol_id = resolved_symbol_ids[review_cell.cell_index]
+                preserve_approved_crop = (
+                    existing_cell is not None
+                    and existing_cell.review_state == SymbolCellReviewState.APPROVED.value
+                    and existing_cell.assigned_symbol_id == resolved_symbol_id
+                )
                 target = _CellProjection(
-                    assigned_symbol_id=resolved_symbol_ids[review_cell.cell_index],
+                    assigned_symbol_id=resolved_symbol_id,
                     review_state=SymbolCellReviewState.APPROVED.value,
-                    has_grid_issue=False,
-                    assignment_source=SymbolCellAssignmentSource.BOARD_DECISION.value,
+                    assignment_source=(
+                        existing_cell.assignment_source
+                        if preserve_approved_crop and existing_cell is not None
+                        else SymbolCellAssignmentSource.BOARD_DECISION.value
+                    ),
+                    quality_issue=(
+                        _quality_issue_from_model(existing_cell)
+                        if preserve_approved_crop and existing_cell is not None
+                        else None
+                    ),
+                    approved_crop_sample_id=(
+                        existing_cell.approved_crop_sample_id
+                        if preserve_approved_crop and existing_cell is not None
+                        else review_cell.crop_sample_id
+                    ),
+                    approved_crop_checksum_sha256=(
+                        existing_cell.approved_crop_checksum_sha256
+                        if preserve_approved_crop and existing_cell is not None
+                        else review_cell.crop_checksum_sha256
+                    ),
+                    approved_geometry_revision=(
+                        existing_cell.approved_geometry_revision
+                        if preserve_approved_crop and existing_cell is not None
+                        else board.geometry_revision
+                    ),
                 )
                 event_action = "board_synchronized"
             elif geometry_changed or reason == "board_reopened":
                 target = _CellProjection(
                     assigned_symbol_id=prediction_symbol_id,
                     review_state=SymbolCellReviewState.PENDING.value,
-                    has_grid_issue=False,
                     assignment_source=SymbolCellAssignmentSource.MODEL.value,
+                    quality_issue=None,
+                    approved_crop_sample_id=None,
+                    approved_crop_checksum_sha256=None,
+                    approved_geometry_revision=None,
                 )
                 event_action = "geometry_invalidated" if geometry_changed else "board_synchronized"
             elif existing_cell is not None and _is_human_cell_decision(existing_cell):
                 target = _CellProjection(
                     assigned_symbol_id=existing_cell.assigned_symbol_id,
                     review_state=existing_cell.review_state,
-                    has_grid_issue=existing_cell.has_grid_issue,
                     assignment_source=existing_cell.assignment_source,
+                    quality_issue=_quality_issue_from_model(existing_cell),
+                    approved_crop_sample_id=existing_cell.approved_crop_sample_id,
+                    approved_crop_checksum_sha256=existing_cell.approved_crop_checksum_sha256,
+                    approved_geometry_revision=existing_cell.approved_geometry_revision,
                 )
                 event_action = None
             else:
                 target = _CellProjection(
                     assigned_symbol_id=prediction_symbol_id,
                     review_state=SymbolCellReviewState.PENDING.value,
-                    has_grid_issue=False,
                     assignment_source=SymbolCellAssignmentSource.MODEL.value,
+                    quality_issue=None,
+                    approved_crop_sample_id=None,
+                    approved_crop_checksum_sha256=None,
+                    approved_geometry_revision=None,
                 )
                 event_action = None
             if existing_cell is None:
@@ -1066,7 +1577,10 @@ class SymbolCellReviewWriteThroughCoordinator:
                         prediction_revision_id=prediction_revision_id,
                         assigned_symbol_id=target.assigned_symbol_id,
                         review_state=target.review_state,
-                        has_grid_issue=target.has_grid_issue,
+                        quality_issue=target.quality_issue,
+                        approved_crop_sample_id=target.approved_crop_sample_id,
+                        approved_crop_checksum_sha256=target.approved_crop_checksum_sha256,
+                        approved_geometry_revision=target.approved_geometry_revision,
                         assignment_source=target.assignment_source,
                         revision=0,
                         last_reviewed_by=actor,
@@ -1232,20 +1746,20 @@ class SymbolCellReviewWriteThroughCoordinator:
         *,
         item: ImageReviewItemModel,
         active_symbol_ids: Mapping[str, UUID],
-    ) -> tuple[UUID, ...] | None:
+        cell_count: int,
+    ) -> tuple[UUID | None, ...] | None:
         if item.status not in {"accepted", "corrected"}:
             return None
         resolved = cast(Mapping[str, object] | None, item.resolved_value)
         raw_codes = None if resolved is None else resolved.get("symbolCodes")
-        if not isinstance(raw_codes, list | tuple) or len(raw_codes) != 15:
+        if not isinstance(raw_codes, list | tuple) or len(raw_codes) != cell_count:
             return None
-        symbol_ids = tuple(
-            active_symbol_ids.get(code) if isinstance(code, str) else None for code in raw_codes
-        )
-        return (
-            None
-            if any(symbol_id is None for symbol_id in symbol_ids)
-            else cast(tuple[UUID, ...], symbol_ids)
+        if any(code is not None and not isinstance(code, str) for code in raw_codes):
+            return None
+        if any(isinstance(code, str) and code not in active_symbol_ids for code in raw_codes):
+            return None
+        return tuple(
+            None if code is None else active_symbol_ids[cast(str, code)] for code in raw_codes
         )
 
     def _append_event(
@@ -1293,22 +1807,31 @@ class SymbolCellReviewWriteThroughCoordinator:
 class _CellProjection:
     assigned_symbol_id: UUID | None
     review_state: str
-    has_grid_issue: bool
     assignment_source: str
+    quality_issue: str | None
+    approved_crop_sample_id: str | None
+    approved_crop_checksum_sha256: str | None
+    approved_geometry_revision: int | None
 
 
 @dataclass(frozen=True, slots=True)
 class _CellPreviousState:
     assigned_symbol_id: UUID | None
     review_state: str
-    has_grid_issue: bool
+    quality_issue: str | None
+    approved_crop_sample_id: str | None
+    approved_crop_checksum_sha256: str | None
+    approved_geometry_revision: int | None
 
     @classmethod
     def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CellPreviousState:
         return cls(
             assigned_symbol_id=cell.assigned_symbol_id,
             review_state=cell.review_state,
-            has_grid_issue=cell.has_grid_issue,
+            quality_issue=_quality_issue_from_model(cell),
+            approved_crop_sample_id=cell.approved_crop_sample_id,
+            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+            approved_geometry_revision=cell.approved_geometry_revision,
         )
 
 
@@ -1316,6 +1839,67 @@ class _CellPreviousState:
 class _CatalogRevisionTransactionMarker:
     transaction: object
     game_ids: set[UUID]
+
+
+def _board_topology(board: RecognizedBoardModel) -> BoardTopology:
+    return BoardTopology(
+        rows=board.grid_rows or 3,
+        columns=board.grid_columns or 5,
+    )
+
+
+def _active_symbol_maps(
+    session: Session,
+    game_id: UUID,
+) -> tuple[dict[UUID, str], dict[str, UUID]]:
+    rows = session.execute(
+        select(SymbolModel.id, SymbolModel.code).where(
+            SymbolModel.game_id == game_id,
+            SymbolModel.status == SymbolStatus.ACTIVE,
+        )
+    ).all()
+    symbol_code_by_id = {symbol_id: code for symbol_id, code in rows}
+    return symbol_code_by_id, {code: symbol_id for symbol_id, code in rows}
+
+
+def _locked_board_reviews(
+    session: Session,
+    *,
+    game_id: UUID,
+    review_item_id: UUID,
+    recognized_board_id: UUID,
+    sequence_number: int,
+    geometry_revision: int,
+    symbol_code_by_id: Mapping[UUID, str],
+    topology: BoardTopology,
+) -> tuple[SymbolCellReview, ...]:
+    rows = tuple(
+        session.scalars(
+            select(ImageSymbolReviewCellModel)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                ImageSymbolReviewCellModel.recognized_board_id == recognized_board_id,
+            )
+            .order_by(ImageSymbolReviewCellModel.cell_index)
+            .with_for_update()
+        )
+    )
+    if (
+        len(rows) != topology.cell_count
+        or [cell.cell_index for cell in rows] != list(range(topology.cell_count))
+        or any(
+            cell.sequence_number != sequence_number or cell.geometry_revision != geometry_revision
+            for cell in rows
+        )
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
+            "The current board does not have every configured matching symbol-cell crop.",
+        )
+    return tuple(
+        _symbol_cell_review_from_model(cell, symbol_code_by_id=symbol_code_by_id) for cell in rows
+    )
 
 
 def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
@@ -1343,6 +1927,12 @@ def _symbol_cell_review_before_key(key: tuple[int, int, str]) -> ColumnElement[b
 
 def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
     cell = cast(ImageSymbolReviewCellModel, row[0])
+    review = _symbol_cell_review_from_model(
+        cell,
+        symbol_code_by_id=(
+            {} if row[2] is None or row[3] is None else {cast(UUID, row[2]): cast(str, row[3])}
+        ),
+    )
     return SymbolCellReviewListItem(
         cell_review_id=cell.id,
         review_item_id=cell.review_item_id,
@@ -1357,7 +1947,9 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         assigned_symbol_name=cast(str | None, row[4]),
         prediction_symbol_code=cell.prediction_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
-        has_grid_issue=bool(cell.has_grid_issue),
+        has_grid_issue=(review.quality_issue is SymbolCellQualityIssue.GRID_ISSUE),
+        quality_issue=review.quality_issue,
+        crop_approval_state=review.crop_approval_state,
         revision=int(cell.revision),
         geometry_revision=int(cell.geometry_revision),
         crop_sample_id=cell.crop_sample_id,
@@ -1371,10 +1963,9 @@ def _symbol_cell_review_from_model(
     *,
     symbol_code_by_id: Mapping[UUID, str],
 ) -> SymbolCellReview:
+    quality_issue = _quality_issue_from_model(cell)
     assigned_symbol_code = (
-        None
-        if cell.assigned_symbol_id is None
-        else symbol_code_by_id.get(cell.assigned_symbol_id)
+        None if cell.assigned_symbol_id is None else symbol_code_by_id.get(cell.assigned_symbol_id)
     )
     if cell.assigned_symbol_id is not None and assigned_symbol_code is None:
         raise SymbolCellReviewError(
@@ -1393,9 +1984,21 @@ def _symbol_cell_review_from_model(
         predicted_symbol_code=_known_symbol_code(cell.prediction_symbol_code),
         assigned_symbol_code=assigned_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
-        has_grid_issue=bool(cell.has_grid_issue),
+        has_grid_issue=(quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value),
         assignment_source=SymbolCellAssignmentSource(cell.assignment_source),
         revision=int(cell.revision),
+        quality_issue=(None if quality_issue is None else SymbolCellQualityIssue(quality_issue)),
+        approved_crop=(
+            None
+            if cell.approved_crop_sample_id is None
+            or cell.approved_crop_checksum_sha256 is None
+            or cell.approved_geometry_revision is None
+            else SymbolCellApprovedCropIdentity(
+                crop_sample_id=cell.approved_crop_sample_id,
+                crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+                geometry_revision=int(cell.approved_geometry_revision),
+            )
+        ),
     )
 
 
@@ -1406,6 +2009,22 @@ def _apply_symbol_cell_command(
     active_symbol_codes: Sequence[str],
     symbol_code_by_id: Mapping[UUID, str],
 ) -> SymbolCellReviewTransition:
+    if command.resolve_unreadable:
+        target_symbol_code = (
+            None
+            if command.target_symbol_id is None
+            else symbol_code_by_id.get(command.target_symbol_id)
+        )
+        if command.target_symbol_id is not None and target_symbol_code is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID",
+                "The target symbol is not active for this game.",
+            )
+        return resolve_unreadable_symbol_cell_review(
+            review,
+            target_symbol_code=target_symbol_code,
+            active_symbol_codes=active_symbol_codes,
+        )
     if command.action is SymbolCellReviewAction.APPROVE:
         return approve_symbol_cell_review(review, active_symbol_codes=active_symbol_codes)
     if command.action is SymbolCellReviewAction.REASSIGN:
@@ -1425,6 +2044,8 @@ def _apply_symbol_cell_command(
         )
     if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
         return mark_symbol_cell_grid_issue(review)
+    if command.action is SymbolCellReviewAction.MARK_UNREADABLE:
+        return mark_symbol_cell_unreadable(review)
     raise SymbolCellReviewError(
         "SYMBOL_CELL_REVIEW_ACTION_INVALID",
         "The symbol-cell review action is not supported.",
@@ -1450,7 +2071,16 @@ def _apply_symbol_cell_review_transition(
         )
     cell.assigned_symbol_id = assigned_symbol_id
     cell.review_state = review.review_state.value
-    cell.has_grid_issue = review.has_grid_issue
+    cell.quality_issue = None if review.quality_issue is None else review.quality_issue.value
+    cell.approved_crop_sample_id = (
+        None if review.approved_crop is None else review.approved_crop.crop_sample_id
+    )
+    cell.approved_crop_checksum_sha256 = (
+        None if review.approved_crop is None else review.approved_crop.crop_checksum_sha256
+    )
+    cell.approved_geometry_revision = (
+        None if review.approved_crop is None else review.approved_crop.geometry_revision
+    )
     cell.assignment_source = review.assignment_source.value
     cell.revision = review.revision
     cell.last_reviewed_by = actor
@@ -1478,8 +2108,14 @@ def _append_symbol_cell_event(
             assigned_symbol_id=cell.assigned_symbol_id,
             previous_review_state=previous.review_state,
             review_state=cell.review_state,
-            previous_has_grid_issue=previous.has_grid_issue,
-            has_grid_issue=cell.has_grid_issue,
+            previous_quality_issue=previous.quality_issue,
+            quality_issue=cell.quality_issue,
+            previous_approved_crop_sample_id=previous.approved_crop_sample_id,
+            approved_crop_sample_id=cell.approved_crop_sample_id,
+            previous_approved_crop_checksum_sha256=(previous.approved_crop_checksum_sha256),
+            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+            previous_approved_geometry_revision=previous.approved_geometry_revision,
+            approved_geometry_revision=cell.approved_geometry_revision,
             operation_id=operation_id,
             actor=actor,
         )
@@ -1519,10 +2155,14 @@ def _known_symbol_code(value: str | None) -> str | None:
     return value if value is not None and value != "?" else None
 
 
+def _quality_issue_from_model(cell: ImageSymbolReviewCellModel) -> str | None:
+    return cell.quality_issue
+
+
 def _is_human_cell_decision(cell: ImageSymbolReviewCellModel) -> bool:
     return (
         cell.review_state == SymbolCellReviewState.APPROVED.value
-        or cell.has_grid_issue
+        or cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
         or cell.assignment_source
         in {
             SymbolCellAssignmentSource.HUMAN.value,
@@ -1552,7 +2192,10 @@ def _cell_matches_projection(
         and cell.prediction_revision_id == prediction_revision_id
         and cell.assigned_symbol_id == target.assigned_symbol_id
         and cell.review_state == target.review_state
-        and bool(cell.has_grid_issue) == target.has_grid_issue
+        and cell.quality_issue == target.quality_issue
+        and cell.approved_crop_sample_id == target.approved_crop_sample_id
+        and cell.approved_crop_checksum_sha256 == target.approved_crop_checksum_sha256
+        and cell.approved_geometry_revision == target.approved_geometry_revision
         and cell.assignment_source == target.assignment_source
     )
 
@@ -1578,7 +2221,10 @@ def _apply_cell_projection(
     cell.prediction_revision_id = prediction_revision_id
     cell.assigned_symbol_id = target.assigned_symbol_id
     cell.review_state = target.review_state
-    cell.has_grid_issue = target.has_grid_issue
+    cell.quality_issue = target.quality_issue
+    cell.approved_crop_sample_id = target.approved_crop_sample_id
+    cell.approved_crop_checksum_sha256 = target.approved_crop_checksum_sha256
+    cell.approved_geometry_revision = target.approved_geometry_revision
     cell.assignment_source = target.assignment_source
     cell.revision += 1
     cell.last_reviewed_by = actor
@@ -1737,9 +2383,7 @@ class SqlAlchemyImageSymbolReviewRepository:
         return SymbolCellReviewReconciliationStep(
             report=self._report_from_state(
                 state,
-                sample_problem_review_item_ids=(
-                    problem_ids if state.status == "failed" else ()
-                ),
+                sample_problem_review_item_ids=(problem_ids if state.status == "failed" else ()),
             ),
             processed_review_item_count=processed,
             has_more=state.status == "rebuilding" and len(problem_ids) == batch_size,
@@ -1915,9 +2559,9 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ImageBoardGeometryRevisionModel.revision,
             )
         ):
-            revisions_by_board[
-                geometry_revision_record.recognized_board_id
-            ] = geometry_revision_record
+            revisions_by_board[geometry_revision_record.recognized_board_id] = (
+                geometry_revision_record
+            )
         prediction_by_item: dict[UUID, ImageSymbolPredictionRevisionModel] = {}
         for prediction in self._session.scalars(
             select(ImageSymbolPredictionRevisionModel)
@@ -2025,7 +2669,16 @@ class SqlAlchemyImageSymbolReviewRepository:
                             if approved
                             else SymbolCellReviewState.PENDING.value
                         ),
-                        "has_grid_issue": False,
+                        "quality_issue": None,
+                        "approved_crop_sample_id": (
+                            review.crop.crop_sample_id if approved else None
+                        ),
+                        "approved_crop_checksum_sha256": (
+                            review.crop.crop_checksum_sha256 if approved else None
+                        ),
+                        "approved_geometry_revision": (
+                            review.crop.geometry_revision if approved else None
+                        ),
                         "assignment_source": (
                             SymbolCellAssignmentSource.BOARD_DECISION.value
                             if approved
@@ -2233,9 +2886,11 @@ def _current_cropper_version(
 __all__ = [
     "SqlAlchemySymbolCellReviewQueryRepository",
     "SqlAlchemySymbolCellReviewMutationRepository",
+    "SqlAlchemyUnreadableBoardReviewRepository",
     "SymbolCellReviewWriteThroughCoordinator",
     "SqlAlchemyImageSymbolReviewRepository",
     "SymbolCellReviewBackfillError",
     "SymbolCellReviewBackfillReport",
     "SymbolCellReviewBackfillStep",
+    "symbol_cell_review_projection_is_available",
 ]

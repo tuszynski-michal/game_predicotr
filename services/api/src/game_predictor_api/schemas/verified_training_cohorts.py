@@ -10,6 +10,7 @@ from pydantic import Field
 
 from game_predictor_api.domain.verified_training_cohorts import (
     ModelQualitySummary,
+    SymbolCellTrainingExclusionCounts,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSource,
 )
@@ -24,6 +25,14 @@ class VerifiedTrainingCohortFreezeCommand(ApiModel):
     expected_manifest_checksum_sha256: Sha256
 
 
+class SymbolTrainingExclusionCountsResponse(ApiModel):
+    unknown: int = Field(ge=0)
+    unreadable: int = Field(ge=0)
+    grid_issue: int = Field(ge=0)
+    changed_crop: int = Field(ge=0)
+    missing_asset: int = Field(ge=0)
+
+
 class VerifiedTrainingCohortPreviewResponse(ApiModel):
     game_id: UUID
     manifest_schema_version: int = Field(ge=1)
@@ -36,6 +45,7 @@ class VerifiedTrainingCohortPreviewResponse(ApiModel):
     incomplete_item_count: int = Field(ge=0)
     protected_item_count: int = Field(ge=0)
     warnings: list[str]
+    training_exclusions: SymbolTrainingExclusionCountsResponse
 
 
 class SymbolTrainingCoverageResponse(ApiModel):
@@ -79,6 +89,7 @@ class ModelQualityResponse(ApiModel):
     game_id: UUID
     active_model: ActiveSymbolModelResponse | None
     latest_cohort: VerifiedTrainingCohortResponse | None
+    manifest_schema_version: int = Field(ge=1)
     manifest_checksum_sha256: Sha256
     resolved_layout_count: int = Field(ge=0)
     new_verified_layout_count: int = Field(ge=0)
@@ -93,6 +104,19 @@ class ModelQualityResponse(ApiModel):
     warnings: list[str]
     active_heavy_job: bool
     can_freeze: bool
+    training_exclusions: SymbolTrainingExclusionCountsResponse
+
+
+def _training_exclusions(
+    exclusions: SymbolCellTrainingExclusionCounts,
+) -> SymbolTrainingExclusionCountsResponse:
+    return SymbolTrainingExclusionCountsResponse(
+        unknown=exclusions.unknown,
+        unreadable=exclusions.unreadable,
+        grid_issue=exclusions.grid_issue,
+        changed_crop=exclusions.changed_crop,
+        missing_asset=exclusions.missing_asset,
+    )
 
 
 def to_preview_response(
@@ -100,7 +124,7 @@ def to_preview_response(
 ) -> VerifiedTrainingCohortPreviewResponse:
     return VerifiedTrainingCohortPreviewResponse(
         game_id=value.game_id,
-        manifest_schema_version=1,
+        manifest_schema_version=value.manifest_schema_version,
         manifest_checksum_sha256=value.manifest_checksum_sha256,
         resolved_layout_count=value.resolved_layout_count,
         cell_sample_count=value.cell_sample_count,
@@ -112,6 +136,7 @@ def to_preview_response(
             value.resolved_layout_count + value.rejected_item_count + value.incomplete_item_count
         ),
         warnings=list(value.warnings),
+        training_exclusions=_training_exclusions(value.training_exclusions),
     )
 
 
@@ -128,6 +153,7 @@ def to_model_quality_response(value: ModelQualitySummary) -> ModelQualityRespons
         latest_cohort=(
             None if value.latest_cohort is None else to_cohort_response(value.latest_cohort)
         ),
+        manifest_schema_version=value.manifest_schema_version,
         manifest_checksum_sha256=value.manifest_checksum_sha256,
         resolved_layout_count=value.resolved_layout_count,
         new_verified_layout_count=value.new_verified_layout_count,
@@ -154,6 +180,7 @@ def to_model_quality_response(value: ModelQualitySummary) -> ModelQualityRespons
         warnings=list(value.warnings),
         active_heavy_job=value.active_heavy_job,
         can_freeze=value.can_freeze,
+        training_exclusions=_training_exclusions(value.training_exclusions),
     )
 
 
@@ -183,6 +210,7 @@ __all__ = [
     "ModelQualityAdvisoryThresholdResponse",
     "ModelQualityResponse",
     "SymbolTrainingCoverageResponse",
+    "SymbolTrainingExclusionCountsResponse",
     "VerifiedTrainingCohortFreezeCommand",
     "VerifiedTrainingCohortFreezeResponse",
     "VerifiedTrainingCohortPreviewResponse",

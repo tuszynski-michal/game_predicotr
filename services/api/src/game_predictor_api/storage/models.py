@@ -70,6 +70,10 @@ class GameModel(Base):
             name="ck_games_expected_layout_count_range",
         ),
         UniqueConstraint("code", name="uq_games_code"),
+        Index(
+            "ix_games_board_topology_rules_version",
+            "board_topology_rules_version_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -90,6 +94,10 @@ class GameModel(Base):
         nullable=False,
         default=500_000,
         server_default=text("500000"),
+    )
+    board_topology_rules_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("rules_versions.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1348,6 +1356,51 @@ class ImagePipelineStageResultModel(Base):
     )
 
 
+class ImagePipelineTerminalManifestModel(Base):
+    """Compact audit envelope retained after reproducible stage payload removal."""
+
+    __tablename__ = "image_pipeline_terminal_manifests"
+    __table_args__ = (
+        CheckConstraint(
+            "schema_version IN (1, 2)", name="ck_image_pipeline_terminal_manifest_schema"
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_pipeline_terminal_manifest_checksum",
+        ),
+        CheckConstraint(
+            "stage_result_count > 0 AND stage_result_bytes >= 0",
+            name="ck_image_pipeline_terminal_manifest_counters",
+        ),
+        UniqueConstraint(
+            "file_execution_key",
+            "manifest_checksum_sha256",
+            name="uq_image_pipeline_terminal_manifest_version",
+        ),
+        Index(
+            "ix_image_pipeline_terminal_manifests_compacted",
+            "compacted_at",
+            "file_execution_key",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    file_execution_key: Mapped[str] = mapped_column(
+        ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    stage_result_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_result_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    compacted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SourceImageModel(Base):
     __tablename__ = "source_images"
     __table_args__ = (
@@ -1440,6 +1493,25 @@ class RecognizedBoardModel(Base):
             "geometry_revision >= 0",
             name="ck_recognized_boards_geometry_revision",
         ),
+        CheckConstraint(
+            "(grid_rows IS NULL AND grid_columns IS NULL) OR "
+            "(grid_rows IS NOT NULL AND grid_columns IS NOT NULL "
+            "AND grid_rows > 0 AND grid_columns > 0)",
+            name="ck_recognized_boards_grid_topology",
+        ),
+        CheckConstraint(
+            "approved_geometry_revision IS NULL OR "
+            "(approved_geometry_revision >= 0 "
+            "AND approved_geometry_revision <= geometry_revision)",
+            name="ck_recognized_boards_geometry_approval_revision",
+        ),
+        CheckConstraint(
+            "(approved_geometry_revision IS NULL AND geometry_approved_at IS NULL "
+            "AND geometry_approved_by IS NULL) OR "
+            "(approved_geometry_revision IS NOT NULL AND geometry_approved_at IS NOT NULL "
+            "AND geometry_approved_by IS NOT NULL AND length(btrim(geometry_approved_by)) > 0)",
+            name="ck_recognized_boards_geometry_approval_metadata",
+        ),
         UniqueConstraint(
             "source_image_id",
             "position_index",
@@ -1449,6 +1521,12 @@ class RecognizedBoardModel(Base):
             "ix_recognized_boards_source_status",
             "source_image_id",
             "status",
+        ),
+        Index(
+            "ix_recognized_boards_geometry_review",
+            "geometry_revision",
+            "approved_geometry_revision",
+            "id",
         ),
     )
 
@@ -1473,6 +1551,13 @@ class RecognizedBoardModel(Base):
         default=0,
         server_default=text("0"),
     )
+    grid_rows: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    grid_columns: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    geometry_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    geometry_approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1808,12 +1893,28 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_source",
         ),
         CheckConstraint(
-            "NOT has_grid_issue OR review_state = 'pending'",
-            name="ck_image_symbol_review_cells_grid_issue_state",
+            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL "
+            "OR (quality_issue IS NOT NULL AND quality_issue = 'unreadable')",
+            name="ck_image_symbol_review_cells_approved_symbol",
         ),
         CheckConstraint(
-            "review_state <> 'approved' OR assigned_symbol_id IS NOT NULL",
-            name="ck_image_symbol_review_cells_approved_symbol",
+            "quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable')",
+            name="ck_image_symbol_review_cells_quality_issue",
+        ),
+        CheckConstraint(
+            "quality_issue <> 'grid_issue' OR review_state = 'pending'",
+            name="ck_image_symbol_review_cells_grid_quality_state",
+        ),
+        CheckConstraint(
+            "(approved_crop_sample_id IS NULL AND approved_crop_checksum_sha256 IS NULL "
+            "AND approved_geometry_revision IS NULL) OR "
+            "(approved_crop_sample_id IS NOT NULL "
+            "AND approved_crop_checksum_sha256 IS NOT NULL "
+            "AND approved_geometry_revision IS NOT NULL "
+            "AND approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_cells_approved_crop_identity",
         ),
         UniqueConstraint(
             "review_item_id", "cell_index", name="uq_image_symbol_review_cells_item_cell"
@@ -1836,9 +1937,18 @@ class ImageSymbolReviewCellModel(Base):
             "review_item_id",
         ),
         Index(
-            "ix_image_symbol_review_cells_grid_issue",
+            "ix_image_symbol_review_cells_grid_quality_issue",
+            "game_id",
             "review_item_id",
-            postgresql_where=text("has_grid_issue"),
+            "cell_index",
+            postgresql_where=text("quality_issue = 'grid_issue'"),
+        ),
+        Index(
+            "ix_image_symbol_review_cells_unreadable_quality_issue",
+            "game_id",
+            "review_item_id",
+            "cell_index",
+            postgresql_where=text("quality_issue = 'unreadable'"),
         ),
     )
 
@@ -1872,9 +1982,10 @@ class ImageSymbolReviewCellModel(Base):
         ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
     )
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
-    has_grid_issue: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("false")
-    )
+    quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assignment_source: Mapped[str] = mapped_column(String(30), nullable=False)
     revision: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
@@ -1908,7 +2019,7 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_revisions",
         ),
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue', "
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable', "
             "'board_synchronized', 'geometry_invalidated')",
             name="ck_image_symbol_review_events_action",
         ),
@@ -1916,6 +2027,35 @@ class ImageSymbolReviewEventModel(Base):
             "previous_review_state IN ('pending', 'approved') "
             "AND review_state IN ('pending', 'approved')",
             name="ck_image_symbol_review_events_states",
+        ),
+        CheckConstraint(
+            "(previous_quality_issue IS NULL OR "
+            "previous_quality_issue IN ('grid_issue', 'unreadable')) AND "
+            "(quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable'))",
+            name="ck_image_symbol_review_events_quality_issue",
+        ),
+        CheckConstraint(
+            "(previous_approved_crop_sample_id IS NULL "
+            "AND previous_approved_crop_checksum_sha256 IS NULL "
+            "AND previous_approved_geometry_revision IS NULL) OR "
+            "(previous_approved_crop_sample_id IS NOT NULL "
+            "AND previous_approved_crop_checksum_sha256 IS NOT NULL "
+            "AND previous_approved_geometry_revision IS NOT NULL "
+            "AND previous_approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND previous_approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND previous_approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_events_approved_crop_identity",
+        ),
+        CheckConstraint(
+            "(approved_crop_sample_id IS NULL AND approved_crop_checksum_sha256 IS NULL "
+            "AND approved_geometry_revision IS NULL) OR "
+            "(approved_crop_sample_id IS NOT NULL "
+            "AND approved_crop_checksum_sha256 IS NOT NULL "
+            "AND approved_geometry_revision IS NOT NULL "
+            "AND approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
+            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND approved_geometry_revision >= 0)",
+            name="ck_image_symbol_review_events_current_approved_crop_identity",
         ),
         Index("ix_image_symbol_review_events_cell_created", "cell_review_id", "created_at"),
         Index("ix_image_symbol_review_events_review_item_created", "review_item_id", "created_at"),
@@ -1941,8 +2081,16 @@ class ImageSymbolReviewEventModel(Base):
     )
     previous_review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
-    previous_has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    has_grid_issue: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    previous_approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     operation_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_symbol_review_bulk_operations.id", ondelete="RESTRICT"),
         nullable=True,
@@ -1959,7 +2107,7 @@ class ImageSymbolReviewBulkOperationModel(Base):
     __tablename__ = "image_symbol_review_bulk_operations"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue')",
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable')",
             name="ck_image_symbol_review_bulk_operations_action",
         ),
         CheckConstraint(
@@ -2214,6 +2362,55 @@ class ImageBoardGeometryRevisionModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class ImageBoardGeometryReviewEventModel(Base):
+    """Append-only approval audit for one exact board geometry revision."""
+
+    __tablename__ = "image_board_geometry_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "geometry_revision >= 0 AND approved_geometry_revision >= 0 "
+            "AND approved_geometry_revision <= geometry_revision",
+            name="ck_image_board_geometry_review_events_revisions",
+        ),
+        CheckConstraint(
+            "grid_rows > 0 AND grid_columns > 0",
+            name="ck_image_board_geometry_review_events_topology",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_geometry_review_events_checksum",
+        ),
+        CheckConstraint(
+            "action IN ('approved', 'geometry_saved', 'backfilled')",
+            name="ck_image_board_geometry_review_events_action",
+        ),
+        Index(
+            "ix_image_board_geometry_review_events_board_created",
+            "recognized_board_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    grid_rows: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    grid_columns: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    previous_approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
@@ -3064,7 +3261,7 @@ class ImageLayoutStagingRowModel(Base):
             name="ck_image_layout_staging_sequence_positive",
         ),
         CheckConstraint(
-            "cardinality(cells) = 15 AND 1 <= ALL(cells) AND 32767 >= ALL(cells)",
+            "cardinality(cells) > 0 AND 0 <= ALL(cells) AND 32767 >= ALL(cells)",
             name="ck_image_layout_staging_cells",
         ),
         UniqueConstraint(
@@ -3122,7 +3319,7 @@ class LayoutImportRowModel(Base):
             name="ck_layout_import_rows_cells_not_empty",
         ),
         CheckConstraint(
-            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            "cells IS NULL OR (0 <= ALL(cells) AND 32767 >= ALL(cells))",
             name="ck_layout_import_rows_cells_mobile_code_range",
         ),
         CheckConstraint(
@@ -3180,7 +3377,7 @@ class LayoutImportNormalizedRowModel(Base):
             name="ck_layout_import_normalized_rows_cells_not_empty",
         ),
         CheckConstraint(
-            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            "cells IS NULL OR (0 <= ALL(cells) AND 32767 >= ALL(cells))",
             name="ck_layout_import_normalized_rows_cells_code_range",
         ),
         CheckConstraint(
@@ -3339,7 +3536,7 @@ class LayoutModel(Base):
             name="ck_layouts_cells_not_empty",
         ),
         CheckConstraint(
-            "1 <= ALL(cells) AND 32767 >= ALL(cells)",
+            "0 <= ALL(cells) AND 32767 >= ALL(cells)",
             name="ck_layouts_cells_mobile_code_range",
         ),
         UniqueConstraint(
@@ -3971,100 +4168,6 @@ class ImageBoardSearchCandidateModel(Base):
     source_pixel_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     primary_symbol_codes: Mapped[list[str | None]] = mapped_column(JSONB, nullable=False)
     alternative_symbol_codes: Mapped[list[list[str | None]]] = mapped_column(JSONB, nullable=False)
-    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
-    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
-    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
-
-class ImageBoardSearchDocumentModel(Base):
-    """Single current search owner for one game sequence number."""
-
-    __tablename__ = "image_board_search_documents"
-    __table_args__ = (
-        CheckConstraint(
-            "sequence_number > 0",
-            name="ck_image_board_search_documents_sequence_positive",
-        ),
-        CheckConstraint(
-            "selection_kind IN ('canonical', 'pending')",
-            name="ck_image_board_search_documents_selection_kind",
-        ),
-        CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected')",
-            name="ck_image_board_search_documents_status",
-        ),
-        UniqueConstraint(
-            "review_item_id",
-            name="uq_image_board_search_documents_review_item",
-        ),
-        Index(
-            "ix_image_board_search_documents_game_review",
-            "game_id",
-            "review_item_id",
-        ),
-    )
-
-    game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
-    )
-    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    review_item_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_board_search_candidates.review_item_id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    selection_kind: Mapped[str] = mapped_column(String(20), nullable=False)
-    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
-    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
-    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    primary_match_tokens: Mapped[list[str]] = mapped_column(ARRAY(String(80)), nullable=False)
-    alternative_rank_1_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_2_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_3_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
-    alternative_rank_4_match_tokens: Mapped[list[str]] = mapped_column(
-        ARRAY(String(80)), nullable=False
-    )
     known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
     primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
         ARRAY(SmallInteger), nullable=False
@@ -4890,5 +4993,153 @@ class RemoteManualSelectionAuditEventModel(Base):
     outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class StorageGcRunModel(Base):
+    __tablename__ = "storage_gc_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('manual', 'automatic')",
+            name="ck_storage_gc_runs_mode",
+        ),
+        CheckConstraint(
+            "status IN ('previewed', 'created', 'processing', 'completed', 'failed', 'cancelled')",
+            name="ck_storage_gc_runs_status",
+        ),
+        CheckConstraint(
+            "retention_hours > 0 AND candidate_count >= 0 AND candidate_bytes >= 0 "
+            "AND protected_count >= 0 AND protected_bytes >= 0 "
+            "AND deleted_count >= 0 AND deleted_bytes >= 0 "
+            "AND conflict_count >= 0 AND failed_count >= 0 AND checkpoint_index >= 0",
+            name="ck_storage_gc_runs_counters",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND preview_token ~ '^[0-9a-f]{64}$'",
+            name="ck_storage_gc_runs_checksums",
+        ),
+        CheckConstraint(
+            "length(btrim(policy_version)) > 0 AND length(btrim(manifest_relative_path)) > 0",
+            name="ck_storage_gc_runs_required_text",
+        ),
+        UniqueConstraint("job_id", name="uq_storage_gc_runs_job"),
+        Index("ix_storage_gc_runs_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    retention_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    preview_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    candidate_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    protected_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    protected_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    deleted_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    deleted_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    conflict_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    failed_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    checkpoint_index: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    inventory_before: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    inventory_after: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StorageUsageSnapshotModel(Base):
+    __tablename__ = "storage_usage_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "root_kind IN ('artifact', 'import', 'database', 'docker')",
+            name="ck_storage_usage_snapshots_root_kind",
+        ),
+        CheckConstraint(
+            "measurement_source IN ('scan', 'accounting', 'database', 'filesystem')",
+            name="ck_storage_usage_snapshots_measurement_source",
+        ),
+        CheckConstraint(
+            "file_count >= 0 AND size_bytes >= 0 "
+            "AND (free_bytes IS NULL OR free_bytes >= 0) "
+            "AND (total_bytes IS NULL OR total_bytes >= 0)",
+            name="ck_storage_usage_snapshots_counters",
+        ),
+        Index(
+            "ix_storage_usage_snapshots_root_measured",
+            "root_kind",
+            "measured_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    root_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    namespace: Mapped[str | None] = mapped_column(String(100))
+    volume_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    measurement_source: Mapped[str] = mapped_column(String(20), nullable=False)
+    file_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    free_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    total_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    details: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class BrowserSelectionRetentionModel(Base):
+    __tablename__ = "browser_selection_retention_states"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('ready', 'in_use', 'ingested', 'cleanup_eligible', 'blocked')",
+            name="ck_browser_selection_retention_state",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND (managed_manifest_checksum_sha256 IS NULL OR "
+            "managed_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_browser_selection_retention_checksums",
+        ),
+        CheckConstraint(
+            "(managed_manifest_relative_path IS NULL) = (managed_manifest_checksum_sha256 IS NULL)",
+            name="ck_browser_selection_retention_managed_manifest",
+        ),
+        Index("ix_browser_selection_retention_state_eligible", "state", "eligible_at"),
+    )
+
+    upload_id: Mapped[UUID] = mapped_column(primary_key=True)
+    game_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=True
+    )
+    import_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    managed_manifest_relative_path: Mapped[str | None] = mapped_column(Text)
+    managed_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    finalized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_dependency_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    eligible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -29,7 +29,7 @@
         "maturity": "deterministic"
       },
       "normalization": {
-        "adapterVersion": "image-normalization-v1",
+        "adapterVersion": "image-normalization-v2-in-memory-source-v1",
         "artifacts": [],
         "maturity": "deterministic"
       },
@@ -120,6 +120,6 @@
       "validation"
     ]
   },
-  "pipelineFingerprint": "c1fc1534b0963f2204a021d6b995b68ce88126c84ba3ae352c4f467542b4ce84",
+  "pipelineFingerprint": "09dd04c2892b5bf601224558ee07a63c7981f7e1186a6796b2f72758306182fd",
   "schemaVersion": 1
 }

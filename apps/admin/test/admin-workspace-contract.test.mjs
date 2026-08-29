@@ -11,7 +11,7 @@ const shellSource = await readFile(
   'utf8',
 );
 
-test('preserves existing workspaces and adds symbol verification as a main workspace', () => {
+test('preserves existing workspaces and adds operational main workspaces', () => {
   assert.match(workspaceSource, /Zarządzanie grami/);
   assert.match(workspaceSource, /Wersje Android/);
   assert.match(workspaceSource, /Joby/);
@@ -23,6 +23,12 @@ test('preserves existing workspaces and adds symbol verification as a main works
   assert.match(
     workspaceSource,
     /<SymbolReviewWorkspace apiBaseUrl=\{apiBaseUrl\} \/>/,
+  );
+  assert.match(workspaceSource, /Pamięć i czyszczenie/);
+  assert.match(workspaceSource, /id: 'storage'/);
+  assert.match(
+    workspaceSource,
+    /<StorageWorkspace apiBaseUrl=\{apiBaseUrl\} \/>/,
   );
 });
 

@@ -14,8 +14,8 @@ from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 
-CURRENT_ALGORITHM_VERSION: Final = "payout-v2"
-CURRENT_SNAPSHOT_SCHEMA_VERSION: Final = 3
+CURRENT_ALGORITHM_VERSION: Final = "payout-v3-unknown-prefix-stop"
+CURRENT_SNAPSHOT_SCHEMA_VERSION: Final = 4
 MAX_RELEASE_GAMES: Final = 15
 MAX_RELEASE_VERSION_LENGTH: Final = 100
 _RELEASE_VERSION_PATTERN: Final = re.compile(

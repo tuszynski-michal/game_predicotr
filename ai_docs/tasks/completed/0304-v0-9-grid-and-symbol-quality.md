@@ -1,0 +1,403 @@
+---
+title: TASK-0304 — Walidacja geometrii, jakość symboli i topologia planszy 0.9
+status: done
+last_updated: 2026-08-28
+---
+
+# TASK-0304 — Walidacja geometrii, jakość symboli i topologia planszy 0.9
+
+## Status
+
+`done`
+
+TASK 1–13 zostały ukończone. Migracje 0073–0075 są zastosowane na roboczej
+bazie, bounded backfill zakończył się stanem `ready`, nowe lokalne workflowy są
+włączone, a odroczone zastępcze zdjęcie planszy ma osobny TASK-0305.
+
+## Goal
+
+Rozdzielić logiczną etykietę symbolu, jakość bieżącego cropa i możliwość użycia
+cropa w treningu; przypiąć topologię planszy do wersji reguł oraz dostarczyć
+osobne workflowy walidacji geometrii i rozwiązywania nieczytelnych symboli.
+
+## Relevant docs
+
+- `AGENTS.md`
+- `ai_docs/process/CURRENT_STATE.md`
+- `ai_docs/process/DECISION_LOG.md`
+- `ai_docs/requirements/IMAGE_INGESTION.md`
+- `ai_docs/requirements/SUPERVISED_MODEL_IMPROVEMENT.md`
+- `ai_docs/architecture/DATA_MODEL.md`
+- `ai_docs/process/DEFINITION_OF_DONE.md`
+
+## Scope
+
+- topologia planszy przypinana z wersji reguł przed pierwszym importem,
+- niezależne stany geometrii, etykiety, jakości i proweniencji cropa,
+- `?` jako wartość domenowa, a nie symbol katalogowy,
+- topologicznie poprawna geometria i source-direct cropy,
+- osobna walidacja geometrii oraz rozwiązywanie nieczytelnych pól,
+- unknown w wyszukiwaniu, datasecie, snapshotach i payoutach,
+- bezpieczne kohorty treningowe po recropie,
+- usunięcie legacy storage dopiero po pełnym cutoverze.
+
+## Out of scope
+
+- zastępcze zdjęcie jednej planszy — osobny task wersji 0.10,
+- automatyczny detektor dla topologii innych niż jawnie wspierane,
+- osobna tabela kolejki nieczytelnych plansz,
+- zapis JPEG-a z narysowanym overlayem,
+- migracje, API i UI w TASK 1.
+
+## Acceptance criteria
+
+- [x] Czysta domena definiuje topologię bez nowej stałej 15.
+- [x] Geometria rozróżnia `needs_validation`, `needs_correction` i `approved`.
+- [x] Komórka rozróżnia etykietę, jakość i proweniencję cropa.
+- [x] Recrop zachowuje zatwierdzoną etykietę, ale wyłącza nowy crop z treningu.
+- [x] `grid_issue` wraca jako pending, a `unreadable` można rozwiązać symbolem
+  albo logicznym `?` bez kwalifikowania cropa do treningu.
+- [x] Agregacja planszy uwzględnia zatwierdzenie geometrii i topologię.
+- [x] Migracje 0073–0075 i backfill są wdrożone i odebrane.
+- [x] Pipeline, API, Admin, Reviewer, dataset, mobile i payout przeszły cutover.
+
+## Progress
+
+### v0.9.1 — model domenowy i blokada topologii
+
+- Dodano `BoardTopology`, przypięcie do wersji reguł oraz walidację niezmiennych
+  wymiarów.
+- Dodano wyliczany stan review geometrii z pierwszeństwem `grid_issue`.
+- Rozszerzono czystą domenę komórek o `quality_issue`, tożsamość zatwierdzonego
+  cropa, stan proweniencji i pełny predykat `trainingEligible`.
+- Recrop zachowuje bezpieczną decyzję logiczną. Nowe piksele pozostają
+  nietreningowe do jawnego zatwierdzenia; pole z błędem siatki wraca do pending.
+- Zachowano kompatybilność aktualnych rekordów bez proweniencji. Do czasu
+  migracji 0073 nie są one uznawane przez nową bramkę treningową.
+- Nie zmieniono SQL, ORM, HTTP, workera ani UI.
+
+### v0.9.2 — addytywny schemat i backfill 0073
+
+- Migracja `0073_topology_geometry_crop_provenance` dodaje przypięcie topologii
+  gry, snapshot wymiarów i zatwierdzenie geometrii planszy, jakość cropa oraz
+  dokładną tożsamość cropa zatwierdzonego z etykietą.
+- `has_grid_issue` pozostaje tymczasowo dostępne. Odczyt preferuje
+  `quality_issue`, ale rozumie legacy bool; bieżące mutacje zapisują oba pola.
+- Dodano append-only `image_board_geometry_review_events` oraz rozszerzono
+  istniejący audyt komórek o jakość i proweniencję zatwierdzonego cropa.
+- Bounded backfill blokuje grę podczas przypinania najnowszej zgodnej wersji
+  reguł, przetwarza maksymalnie 200 plansz w transakcji i nie zgaduje topologii
+  przy niespójnych danych.
+- Plansze `accepted/corrected` otrzymują zatwierdzenie bieżącej geometrii,
+  jednoznacznie ręczne rewizje również mogą zostać uznane za zatwierdzone, a
+  pipeline'owe pending pozostają `needs_validation`.
+- Zatwierdzone komórki otrzymują bieżącą tożsamość zatwierdzonego cropa.
+  Backfill nie kopiuje obrazów i nie tworzy sztucznych eventów.
+- `scripts/backfill_v09_schema.py` zapisuje atomowy checkpoint po każdej
+  zatwierdzonej partii. Powtórzenie jest idempotentne; raport końcowy wymienia
+  braki topologii, geometrii, jakości i proweniencji.
+- Cykl migracji 0072 → 0073 → 0072 → 0073 przeszedł na izolowanej bazie
+  testowej. Migracja i backfill nie zostały uruchomione na danych użytkownika.
+
+### v0.9.3 — topologiczna geometria i source-direct cropper
+
+- Nowy snapshot importu przypina `gridRows`, `gridColumns`,
+  `topologyRulesVersionId` i fingerprint topologii; wersja reguł zostaje
+  atomowo przypięta pod blokadą rekordu gry.
+- Generyczne wyprowadzenie quadów, source-direct cropper i ręczny preview
+  obsługują dowolne poprawne `rows × columns`, zachowując row-major i dokładnie
+  jeden finalny `warpPerspective` na komórkę.
+- Automatyczny adapter `board-cell-processing-v20-verified-v19-v1` pozostaje
+  jawnie 3 × 5. Inna topologia jest blokowana kodem
+  `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`, bez uruchomienia częściowego pipeline'u.
+- `recognized_boards` otrzymuje snapshot wymiarów użytych przez nowy pipeline,
+  a manifest odroczenia wiąże wymiary i wersję reguł z checksumą.
+- Historyczne snapshoty, manifesty i fingerprint croppera bez topologii nie
+  zmieniły bajtów ani interpretacji 3 × 5.
+- Celowane testy worker/API, Ruff, ograniczony mypy oraz OpenAPI z generowanym
+  klientem przechodzą. Baza użytkownika nadal pozostaje na 0072.
+
+### v0.9.4 — atomowa synchronizacja geometrii, etykiet i cropów
+
+- Wspólny koordynator storage zatwierdza dokładnie bieżącą rewizję geometrii,
+  zapisuje append-only event i zwiększa rewizję katalogu najwyżej raz w
+  transakcji.
+- Agregacja planszy wymaga kompletnej liczby komórek wynikającej ze snapshotu
+  topologii oraz zatwierdzonej bieżącej geometrii. Domknięcie korzysta z
+  istniejącego mechanizmu decyzji planszy, więc canonical, staging, kolejka,
+  status joba i projekcja wyszukiwania zmieniają się atomowo.
+- Recrop zwykłego zatwierdzonego pola zachowuje etykietę i poprzednią
+  proweniencję zatwierdzonych pikseli. Nowy crop ma stan
+  `changed_since_approval` i pozostaje poza treningiem do ponownego
+  zatwierdzenia.
+- Recrop pola `grid_issue` usuwa problem jakości i pozostawia to pole jako
+  `pending`; pozostałe poprawne etykiety nie są niepotrzebnie kasowane.
+- Ręczny zapis geometrii jednocześnie zatwierdza nową rewizję i próbuje
+  ponownie zmaterializować decyzję planszy wyłącznie wtedy, gdy wszystkie
+  logiczne etykiety są kompletne.
+- Celowane testy ścieżek API/worker oraz dwa izolowane testy PostgreSQL
+  potwierdzają rollback całej planszy, idempotentne zatwierdzenie geometrii i
+  dokładną tożsamość cropa po ponownej weryfikacji.
+
+### v0.9.5 — API kolejki walidacji geometrii
+
+- Dodano lokalne endpointy listy game-wide, checksum-bound źródła, szybkiego
+  zatwierdzenia oraz topology-aware preview i zapisu rewizji.
+- Lista używa wyłącznie bieżącego właściciela `image_board_search_fast_documents`,
+  keysetu `(sequence_number, review_item_id)` oraz cursorów związanych z grą,
+  widokiem, importem i kierunkiem. Limit domyślny to 25, maksymalny 100.
+- Zatwierdzenie pod blokadą ponownie sprawdza rewizję decyzji i geometrii,
+  checksumę oraz wymiary źródła i przypiętą topologię. `grid_issue` blokuje
+  zatwierdzenie do czasu zapisania poprawionej rewizji.
+- Asset ponownie sprawdza SHA-256 przed wysłaniem. Klient nie przesyła ścieżki
+  ani aktora.
+- Odpowiedź zapisu geometrii obsługuje dynamiczne `rows × columns` i nie
+  dziedziczy historycznego constraintu dokładnie 15 komórek.
+- OpenAPI i generowany klient zostały zaktualizowane. Celowane testy domeny,
+  API i OpenAPI oraz izolowany test PostgreSQL przechodzą.
+
+#### Outcome TASK 5
+
+- Ruff dla zmienionych modułów: bez błędów.
+- Celowane testy domeny/API/OpenAPI: `23 passed`.
+- Regresja istniejącego operacyjnego review: `14 passed`.
+- Izolowany test PostgreSQL bieżącego właściciela, konfliktu checksummy i
+  zatwierdzenia: `1 passed`.
+- OpenAPI check, typecheck i test wygenerowanego klienta: `47 passed`.
+- Ograniczony mypy dla nowych modułów domeny/aplikacji/repozytorium: bez
+  błędów. Pełny mypy repozytorium nadal raportuje wcześniejsze braki `py.typed`
+  workera oraz niezwiązany błąd repozytorium kohort.
+- Globalny `format:check` pozostaje czerwony wyłącznie na wcześniejszych,
+  niezwiązanych plikach `apps/admin/next-env.d.ts`,
+  `apps/reviewer/next-env.d.ts` i
+  `apps/admin/test/reviewer-access-state.test.mjs`; nie zmieniano ich w TASK 5.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
+## Następny etap
+
+Checkpoint operacyjny TASK 2 pozostaje: migracja 0073 i bounded backfill na
+danych użytkownika dopiero po zakończeniu aktywnych pipeline'ów. Następny etap
+implementacyjny to TASK 6 — UI „Zatwierdzanie cięcia siatki”.
+
+### v0.9.6 — UI „Zatwierdzanie cięcia siatki”
+
+- Lokalny Reviewer korzysta z game-wide kolejki TASK 5 zawężonej do wybranego
+  importu. Dostępne są widoki `needs_validation`, `needs_correction` i `all`.
+- Jeden checksum-bound oryginał jest renderowany w canvasie z dynamicznym
+  overlayem. Skróty `Enter` i `F` zatwierdzają i przechodzą dalej; blokada
+  klienta zapobiega podwójnemu submitowi.
+- Korekta obsługuje cztery kliknięcia LT/PT/PD/LD, drag narożnika, drag całej
+  siatki, undo, reset oraz topology-aware preview `rows × columns`.
+- Widok geometrii nie pobiera katalogu ani nie edytuje symboli. Nie zapisuje
+  osobnego obrazu overlay.
+- Zdalny Reviewer pozostaje na dotychczasowej ścieżce scope-bound. Jego proxy
+  nie dostało dostępu do nowych endpointów Admin API. Lokalny fallback był
+  dostępny wyłącznie do odbioru i TASK 13 usuwa jego przełącznik po cutoverze.
+
+#### Outcome TASK 6
+
+- Dodano 7 celowanych testów stanu i kontraktu nowego workspace'u; wszystkie
+  przechodzą.
+- Reviewer lint, typecheck i produkcyjny build przechodzą.
+- Build Admina pozostaje zablokowany przez wcześniejszą, niezwiązaną
+  niekompletność TASK 7: `operationLabel` nie obsługuje jeszcze akcji
+  `mark_unreadable` w `symbol-review-workspace.tsx`. Plik nie był zmieniany w
+  TASK 6.
+- Pełny zestaw Reviewera zachowuje wcześniejszą, niezwiązaną regresję testu
+  nawigacji malejącej zdalnej selekcji. Pozostałe testy, w tym nowy pion,
+  przechodzą.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
+## Następny etap po TASK 6
+
+TASK 7 — rozdzielenie `Nieczytelnego symbolu` od `Złej siatki`.
+
+### v0.9.7 — nieczytelny symbol a błąd siatki
+
+- Bezpośrednia i masowa mutacja obsługują `mark_unreadable` z tą samą kontrolą
+  rewizji, crop sample ID i checksummy co pozostałe akcje.
+- `mark_unreadable` ustawia pole jako pending z `quality_issue = unreadable`,
+  nie tworzy logicznego `?` i nie kwalifikuje planszy do korekty geometrii.
+- Domknięta plansza jest ponownie otwierana dla obu nierozwiązanych problemów,
+  a append-only event zapisuje dokładny rodzaj akcji i przyczynę reopen.
+- Lista API ujawnia `qualityIssue`, `isUnknown` i `cropApprovalState`; Admin
+  pokazuje badge jakości/proweniencji oraz osobne akcje `Zła siatka` i
+  `Nieczytelny symbol`.
+- Kandydaci kohorty treningowej wymagają braku dowolnego `quality_issue`.
+- Constraint migracji 0073 dopuszcza `mark_unreadable`; upgrade/downgrade oraz
+  bezpośrednia i masowa ścieżka przeszły na izolowanym PostgreSQL.
+
+#### Outcome TASK 7
+
+- Celowane testy domeny i API: `23 passed`.
+- Izolowane testy PostgreSQL bezpośredniej i masowej mutacji oraz cyklu
+  migracji 0073: `3 passed`.
+- Admin typecheck, pełny zestaw `292 passed` i produkcyjny build przechodzą;
+  10 celowanych testów sprawdza dodatkowo dokładny request `mark_unreadable`.
+- Migracji 0073 ani backfillu na danych użytkownika nie uruchamiano.
+
+## Następny etap po TASK 7
+
+TASK 8 — `Weryfikacja symbolu na planszy` dla ręcznego rozwiązania pól
+nieczytelnych realnym symbolem albo logicznym `?`.
+
+### v0.9.8 — weryfikacja symbolu na planszy
+
+- Lokalna kolejka gry ma widoki `Do ustalenia` oraz `Wszystkie nieczytelne`,
+  bounded keyset `(sequence_number, review_item_id)` i wyłącznie bieżących
+  właścicieli z szybkiej projekcji.
+- Detail zwraca wszystkie komórki zgodnie z topologią planszy; operator może
+  rozwiązać pending unreadable aktywnym symbolem albo domenowym `?`.
+- Mutacja jest checksum-bound, korzysta z istniejących blokad, eventów i
+  agregacji rodzica. Nie tworzy nowego joba ani tabeli kolejki.
+- Jakość `unreadable` pozostaje po rozwiązaniu, więc crop nie trafia do
+  treningu. Ostatnia decyzja może domknąć planszę jako corrected.
+- Unknown zachowuje canonical i szybki read model, lecz do TASK 10 nie tworzy
+  stagingu datasetu, którego bieżący constraint nie obsługuje jeszcze kodu 0.
+- Admin renderuje dynamiczne `rows × columns`, pozwala poruszać się po bounded
+  kolejce i blokuje podwójne decyzje podczas zapisu.
+
+#### Outcome TASK 8
+
+- Testy domeny/API/Reviewera: `43 passed`; testy Admina: `295 passed`.
+- Izolowany PostgreSQL potwierdził pełną transakcję realnego workflowu,
+  rozwiązanie `?`, canonical ownership i brak niezgodnego stagingu.
+- OpenAPI oraz generowany klient są zgodne. Nie uruchamiano migracji ani
+  pipeline'u na danych użytkownika.
+
+### v0.9.9 — unknown jako brak dowodu w wyszukiwaniu
+
+- Ranking `partial-board-ranking-v2-unknown-missing-evidence` usuwa `?` z
+  zapytania przed wyliczeniem denominatora.
+- Literalne `cell=index:?` jest akceptowane przez API, ale wzór bez choć jednego
+  znanego symbolu zwraca `BOARD_SEARCH_QUERY_EMPTY`.
+- Unknown zapisane w planszy nie jest exact match ani mismatch; znany symbol
+  zapytania otrzymuje dla tej pozycji zero dowodu.
+- Admin pozwala umieścić `?` w edytorze, obejmuje je historią i resetem oraz nie
+  wysyła go jako znanej pozycji wyszukiwania.
+
+#### Outcome TASK 9
+
+- Testy domeny/API/projekcji: `20 passed`; testy Admina: `296 passed`; testy
+  klienta: `47 passed`.
+- Ruff, lint i typecheck obu pakietów TypeScript, OpenAPI check oraz produkcyjny
+  build Admina przechodzą.
+- Pełny mypy API nadal jest blokowany przez wcześniejsze brakujące markery
+  `py.typed` workera i niezwiązany błąd typu w repozytorium kohort. TASK 9 nie
+  zmienia tych modułów.
+- Nie dodano migracji i nie uruchamiano pipeline'u ani operacji na danych
+  użytkownika.
+
+## Następny etap po TASK 9
+
+TASK 10 — dataset, snapshot v4 i payout z unknown. Nie rozpoczęto go w ramach
+TASK 9.
+
+### v0.9.10 — dataset, snapshot v4 i payout z unknown
+
+- Dodano odrębne kodeki trwałych layoutów w Pythonie i TypeScript. Dopuszczają
+  sentinel `0`, podczas gdy dotychczasowy kodek planszy gracza nadal go
+  odrzuca.
+- Migracja 0074 dopuszcza zero w stagingu/importach/datasetach i pozostawia
+  katalog symboli bez zmian. Rozwiązana plansza z logical unknown tworzy
+  staging z `0`, zamiast tracić gotowy layout.
+- Produkcyjny snapshot v4 deklaruje `unknown_layout_mobile_code = 0`; mobile
+  obsługuje v3/v4 i renderuje zero jako `?`.
+- Nowy `payout-v3-unknown-prefix-stop` kończy analizę na pierwszym unknown.
+  Historyczne joby `payout-v2` są nadal obsługiwane wersjonowanym adapterem.
+
+#### Outcome TASK 10
+
+- Celowane testy workera dla domeny, payoutu i snapshotu: `55 passed`; pełny
+  zestaw testów Admina: `296 passed`; wspólne kontrakty TypeScript: `25 passed`.
+- Dodatkowe zestawy API, datasetu i migracji: `71 passed` oraz `66 passed`;
+  testy snapshotu produkcyjnego i artefaktu: `25 passed`; celowane testy Mobile:
+  `30 passed`.
+- Ruff, lint Admina i Mobile, typecheck Shared/Mobile/Admin, OpenAPI check oraz
+  produkcyjny build Admina przechodzą. Globalny `format:check` nadal wskazuje
+  wyłącznie wcześniejsze, niezwiązane pliki `next-env.d.ts` i test dostępu
+  Reviewera; pełny mypy nadal ma wcześniejszy błąd repozytorium kohort.
+- Test wspólnego kodeka TypeScript oraz test renderowania Mobile potwierdzają,
+  że zero działa tylko w odczycie layoutu, a wejście gracza pozostaje strict.
+- Migracji 0074 nie uruchamiano na bazie użytkownika.
+
+## Następny etap po TASK 10
+
+TASK 11 — bezpieczne kohorty treningowe po recropie. Nie rozpoczęto go w ramach
+TASK 10.
+
+### v0.9.11 — bezpieczne kohorty treningowe po recropie
+
+- Bieżąca kohorta symboli ma schema v3 i utrwala zarówno aktualną, jak i
+  zatwierdzoną tożsamość cropa.
+- Do treningu trafia wyłącznie crop aktualnego właściciela, bez problemu
+  jakości, z realnym aktywnym symbolem, którego sample ID, check­suma i rewizja
+  geometrii są identyczne z zatwierdzoną proweniencją.
+- Odczyt pliku ponownie sprawdza bezpieczną ścieżkę i SHA-256. Drift jest
+  wykluczeniem, a nie cichym użyciem nowych pikseli ze starą etykietą.
+- Preview kohorty raportuje unknown, unreadable, grid issue, changed crop i
+  missing asset.
+- Kohorta geometrii wymaga zatwierdzonej bieżącej rewizji geometrii i
+  aktualnego właściciela, ale nie zależy od etykiet symboli.
+- Historyczne manifesty v1/v2 pozostają obsługiwane do reprodukcji.
+
+#### Outcome TASK 11
+
+- Celowane testy domeny, repozytoriów, API oraz loadera workera potwierdzają
+  odrzucenie cropa zmienionego po zatwierdzeniu i zachowanie historycznych
+  manifestów.
+- Admin pokazuje liczniki przyczyn wykluczeń oraz wersję schematu manifestu.
+- Nie zmieniono modelu ML, schematu bazy ani danych użytkownika.
+
+## Następny etap po TASK 11
+
+TASK 12 — usunięcie zbędnej projekcji i indeksów. Nie rozpoczęto go w ramach
+TASK 11; przed destrukcyjną migracją wymagany jest osobny checkpoint.
+
+### v0.9.12 — usunięcie zbędnej projekcji i indeksów
+
+- Bieżący synchronizator wyszukiwania zapisuje wyłącznie kandydatów oraz
+  `image_board_search_fast_documents`; stara szeroka projekcja nie uczestniczy
+  już w runtime.
+- Migracja 0075 usuwa `image_board_search_documents`, tekstowe tokeny i GIN-y
+  kandydatów oraz legacy `has_grid_issue`. `quality_issue` pozostaje jedynym
+  trwałym źródłem jakości cropa.
+- Downgrade odtwarza strukturę i dane starej projekcji deterministycznie z
+  kandydatów i fast documents. Dodano read-only raport rozmiarów przed/po bez
+  `VACUUM FULL` i bez usuwania plików obrazów.
+
+#### Outcome TASK 12
+
+- Celowane testy domeny, repozytoriów i migracji przechodzą; rzeczywisty cykl
+  PostgreSQL `0074 → 0075 → 0074 → 0075` przeszedł na izolowanej bazie.
+- Migracji 0075 nie uruchomiono na danych użytkownika. Jej wykonanie wymaga
+  osobnego checkpointu, raportu rozmiaru i kontroli wolnego miejsca.
+- Nie usunięto źródeł, cropów, obserwacji ani rewizji i nie uruchomiono
+  `VACUUM FULL`.
+
+### v0.9.13 — cutover, odbiór i dokumentacja 0.9
+
+- Usunięto lokalną flagę powrotu do starego widoku. Lokalny Reviewer zawsze
+  korzysta z kolejki walidacji geometrii, natomiast zdalny Reviewer zachowuje
+  ograniczony historyczny kontrakt i nie otrzymuje nowych uprawnień.
+- Migracje 0073–0075 zastosowano na danych użytkownika. Wznawialny backfill
+  objął `397 976` plansz i `3 572 295` komórek oraz zakończył się `ready=true`.
+- Finalna walidacja wykazała po `0` braków: topologii planszy, zatwierdzonej
+  geometrii zakończonej planszy, proweniencji zatwierdzonego cropa i
+  niespójności jakości. Fast documents ma zero zduplikowanych właścicieli.
+- Usunięcie legacy storage zmniejszyło monitorowane relacje o `758 005 760`
+  bajtów. Nie wykonano `VACUUM FULL`, benchmarku ani operacji na plikach
+  obrazów.
+- Raport odbiorczy znajduje się w
+  `ai_docs/quality/V0_9_GRID_AND_SYMBOL_QUALITY_ACCEPTANCE.md`.
+- Funkcja zastępczego zdjęcia pojedynczej planszy została świadomie odroczona
+  do `TASK-0305` i nie jest częścią implementacji 0.9.
+
+#### Outcome TASK 13
+
+- Testy domeny/API: `61 passed`; testy workera: `41 passed`; pełne testy
+  Admina: `296 passed`; celowane testy lokalnego Reviewera: `7 passed`.
+- Ruff, formatowanie zmienionych plików, lint i typecheck Admina/Reviewera,
+  produkcyjne buildy obu aplikacji oraz kontrola OpenAPI przechodzą.
+- Celowany mypy API nadal raportuje wcześniejszy brak markerów `py.typed`
+  pakietu workera. Nie jest to regresja ani zakres TASK-0304.

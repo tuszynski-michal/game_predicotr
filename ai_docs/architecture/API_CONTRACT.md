@@ -75,12 +75,14 @@ Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do 
 ### Wyszukiwanie plansz częściowym układem
 
 ```text
-GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode}&limit=1..100
+GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode|?}&limit=1..100
 ```
 
-Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem i
-określa tylko znane pozycje układu 3 × 5; co najmniej jedna pozycja jest
-wymagana. `?` nigdy nie jest prawidłowym symbolem zapytania. `all_searchable`
+Endpoint jest wyłącznie do odczytu. `cell` jest powtarzalnym parametrem układu
+3 × 5. Znany symbol tworzy dowód, natomiast literalne `?` jest akceptowane jako
+brak wartości, usuwane przed rankingiem i nie trafia do denominatora. Co
+najmniej jedna znana pozycja pozostaje wymagana; same `?` zwracają
+`BOARD_SEARCH_QUERY_EMPTY`. `all_searchable`
 zwraca deterministycznie wybrany dokument logicznej planszy dla każdego numeru
 sekwencji (accepted/corrected albo oczekujący), a `approved_only` ogranicza
 wyniki do decyzji accepted/corrected.
@@ -98,6 +100,11 @@ Ranking czyta wyłącznie gotowy, wąski read model aktualnej planszy per
 zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, że
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
+
+Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
+`NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
+rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
+sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 
@@ -117,6 +124,15 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   &thumbnailSize=100
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
+
+GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
+  ?view=pending|all
+  &afterCursor=...
+  &limit=1..100
+
+GET /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}
+
+POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/{cellIndex}/resolve
 ```
 
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
@@ -185,6 +201,22 @@ append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
 Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
 kontekstu serwera.
 
+Endpointy `unreadable-board-reviews` są lokalną, game-wide kolejką aktualnych
+właścicieli logicznych plansz. `pending` wymaga co najmniej jednej komórki
+`quality_issue = unreadable` i `review_state = pending`; `all` obejmuje również
+rozwiązane nieczytelne pola. Lista używa keysetu
+`(sequence_number, review_item_id)`, a detail zwraca wszystkie komórki bieżącej
+topologii, nie tylko nieczytelne.
+
+Rozwiązanie jest rozłączne: `{kind: symbol, symbolId}` albo `{kind: unknown}`.
+Request wymaga oczekiwanej rewizji komórki i geometrii, crop sample ID oraz
+SHA-256. Mutacja używa tej samej blokady i agregacji planszy co decyzja
+pojedynczego cropa, zachowuje `quality_issue = unreadable` i nie kwalifikuje
+obrazu do treningu. Logiczne unknown zapisuje `symbolCode = null`, a w stagingu
+datasetu materializuje odpowiadającą komórkę jako sentinel `mobileCode = 0`.
+Canonical, audyt i szybki bieżący właściciel pozostają aktualne. Sentinel nie
+jest dozwolony w katalogu symboli ani w planszy wprowadzanej przez gracza.
+
 ### Trwałe operacje masowe weryfikacji cropów
 
 ```text
@@ -195,7 +227,8 @@ GET  /api/v1/admin/games/{gameId}/symbol-cell-review-operations/{operationId}
 
 Te endpointy są wyłącznie częścią lokalnego Admin API; token zdalnego
 Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
-albo `mark_grid_issue` oraz jeden z dwóch modeli zaznaczenia: jawne cropy z
+albo `mark_grid_issue`, albo `mark_unreadable` oraz jeden z dwóch modeli
+zaznaczenia: jawne cropy z
 oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
 `symbol + state + catalogRevision` wraz z wykluczeniami. `approve` nie jest
 dostępne dla filtra technicznego `unknown`.
@@ -1542,11 +1575,40 @@ odświeżony kontrakt operations.
 
 ### GET `/api/v1/admin/image-storage`
 
-Zwraca read-only inwentarz dokładnie sześciu przestrzeni pod zarządzanym rootem
-`data`: nazwę, `retentionPolicy`, `protected`, `exists`, `fileCount`,
+Zwraca ostatni trwały, read-only inwentarz zarządzanych przestrzeni `staging`,
+`originals`, `working`, `crops`, `training`, `models` i `exports`: nazwę,
+`retentionPolicy`, `protected`, `exists`, `fileCount`,
 `sizeBytes` i `ignoredSymlinkCount`. Odpowiedź zawiera sumy oraz
-`automaticDeletion = false`. Endpoint nie przyjmuje ścieżki i nie wykonuje
-operacji destrukcyjnej.
+`automaticDeletion = false`, czas pomiaru, deduplikowane woluminy oraz logiczny
+rozmiar PostgreSQL. Endpoint nie przyjmuje ścieżki, nie skanuje synchronicznie
+drzewa i nie wykonuje operacji destrukcyjnej.
+
+### POST `/api/v1/admin/image-storage/inventory-refresh`
+
+Idempotentnie tworzy albo zwraca aktywny job `storage_inventory` w general
+lane. Job skanuje zarządzane przestrzenie, zapisuje snapshot i nie tworzy
+preview ani nie usuwa danych. Równoległe wywołania są serializowane blokadą
+transakcyjną i zwracają ten sam aktywny job.
+
+### POST `/api/v1/admin/image-storage/gc-previews`
+
+Tworzy dry-run zgodny z `storage-retention-v1`. Odpowiedź zawiera kategorie i
+powody ochrony z licznikami/bajtami, przewidywane wolne miejsce, względną
+ścieżkę niezmiennego manifestu, SHA-256 i token preview. Manifest obejmuje
+wyłącznie stare bitmapy normalizacji, rozpoznane osierocone pliki tymczasowe i
+stagingi z kompletnym handoffem managed originals.
+
+### POST `/api/v1/admin/image-storage/gc-runs`
+
+Wymaga `previewId`, checksummy manifestu, tokenu i `confirmed=true`. Powtórzenie
+tego samego startu zwraca ten sam job. Zmieniony token/checksum zwraca
+`STORAGE_GC_PREVIEW_STALE`; API nigdy nie przyjmuje arbitralnej ścieżki.
+
+### GET `/api/v1/admin/image-storage/gc-runs/{runId}`
+
+Zwraca trwały postęp, odzyskane bajty, checkpoint oraz liczniki konfliktów i
+błędów. Worker ponownie sprawdza mtime, rozmiar, fingerprint drzewa, symlinki i
+aktywne zależności przed każdą partią.
 
 ### POST `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports`
 
@@ -1823,6 +1885,40 @@ i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
 Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
 UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
 
+### Lokalna kolejka walidacji geometrii 0.9
+
+Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
+łączy pozycję z bieżącym właścicielem `image_board_search_fast_documents`:
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-reviews
+GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
+```
+
+Lista ma widoki `needs_validation | needs_correction | all`, opcjonalny filtr
+`importJobId`, limit domyślny 25 i maksymalny 100. Keyset opiera się na
+`(sequence_number, review_item_id)`. Opaque cursor jest związany z grą,
+widokiem, importem i kierunkiem; nie może zostać odtworzony w innym scope.
+Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego scope
+gry/importu.
+
+Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
+artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
+oczekiwaną rewizję decyzji, rewizję geometrii, checksumę i wymiary źródła oraz
+snapshot `rows × columns`. Korekta i preview używają tych samych zabezpieczeń;
+aktor pochodzi z lokalnego kontekstu Admin API, a nie z pola klienta.
+
+Odpowiedź nowej rewizji jest topology-aware: zwraca `gridRows`, `gridColumns`
+i dowolną dodatnią liczbę cropów indeksowanych row-major przy użyciu
+`gridColumns`. Nie dziedziczy ograniczenia dokładnie 15 komórek ze starego
+operacyjnego kontraktu 3 × 5. Historyczne endpointy `/image-review-items/...`
+pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
+korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
+scope'u.
+
 Jawny pending-only recrop v19 wykorzystuje:
 
 ```text
@@ -2063,7 +2159,8 @@ wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
-Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
+Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), wersję
+manifestu, liczby
 próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,
 pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
 ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta v1 porównuje checksumy
@@ -2080,14 +2177,17 @@ operacji.
 Zwraca dokładne liczniki wybranych elementów, źródeł i ostrzeżeń,
 checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
 `resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
-`incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
+`incompleteItemCount` i `protectedItemCount`. Pole `trainingExclusions`
+raportuje `unknown`, `unreadable`, `gridIssue`, `changedCrop` i `missingAsset`.
+Progi 100 i 1000 są informacją,
 nie warunkiem endpointu.
 
-GET jest odczytem bez `FOR UPDATE`. Dla v2 pobiera bounded pulę aktualnych
-komórek `approved`, ponownie sprawdza checksumy cropów i wylicza dHash w
+GET jest odczytem bez `FOR UPDATE`. Dla v3 pobiera bounded pulę aktualnych
+komórek `approved`, których bieżąca i zatwierdzona tożsamość cropa jest
+identyczna, ponownie sprawdza checksumy plików i wylicza dHash w
 ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
 równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
-stary właściciel sekwencji nie są odczytywane. Jawny POST blokuje grę i
+stary właściciel sekwencji nie są wybierane. Jawny POST blokuje grę i
 ponownie weryfikuje bajty przed zapisem.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
@@ -2555,3 +2655,7 @@ nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
 kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
 ma tylko checksumę źródła, rozmiar obrazu,
 dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.
+Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
+konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
+automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
+pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.

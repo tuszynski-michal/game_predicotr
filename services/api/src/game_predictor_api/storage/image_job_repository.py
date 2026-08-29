@@ -21,15 +21,21 @@ from game_predictor_api.application.image_storage import (
     ImageDiagnosticFailure,
     ImageDiagnosticRepository,
     ImageDiagnosticSnapshot,
+    ImageStorageInventory,
+    ImageStorageNamespace,
+    ImageStorageVolume,
 )
 from game_predictor_api.domain.jobs import (
+    Job,
     JobConflictError,
     JobNotFoundError,
     JobStatus,
     JobType,
+    create_job,
     requeue_job,
 )
 from game_predictor_api.storage.job_repository import (
+    SqlAlchemyJobRepository,
     apply_job_to_record,
     job_from_record,
 )
@@ -37,6 +43,7 @@ from game_predictor_api.storage.models import (
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     JobModel,
+    StorageUsageSnapshotModel,
 )
 
 
@@ -46,6 +53,98 @@ class SqlAlchemyImageJobOperationsRepository(
 ):
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def database_storage_sizes(self) -> tuple[int | None, int | None]:
+        size = self._session.scalar(select(func.pg_database_size(func.current_database())))
+        return (None if size is None else int(size), None)
+
+    def active_storage_inventory_job(self) -> Job | None:
+        record = self._session.scalar(
+            select(JobModel)
+            .where(
+                JobModel.job_type == JobType.STORAGE_INVENTORY,
+                JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
+            )
+            .order_by(JobModel.created_at, JobModel.id)
+            .limit(1)
+        )
+        return None if record is None else job_from_record(record)
+
+    def get_or_create_storage_inventory_job(self, *, requested_at: datetime) -> Job:
+        # Serialize the singleton decision without locking the jobs table.
+        self._session.execute(select(func.pg_advisory_xact_lock(1_809_771_001)))
+        active = self.active_storage_inventory_job()
+        if active is not None:
+            return active
+        return self.add_job(
+            create_job(
+                JobType.STORAGE_INVENTORY,
+                game_id=None,
+                input_payload={
+                    "schema_version": 1,
+                    "inventory_kind": "managed_image_storage",
+                    "requested_at": requested_at.isoformat(),
+                },
+                created_at=requested_at,
+            )
+        )
+
+    def add_job(self, job: Job) -> Job:
+        return SqlAlchemyJobRepository(self._session).add_job(job)
+
+    def latest_storage_inventory(self) -> ImageStorageInventory | None:
+        measured_at = self._session.scalar(
+            select(func.max(StorageUsageSnapshotModel.measured_at)).where(
+                StorageUsageSnapshotModel.root_kind == "database",
+                StorageUsageSnapshotModel.measurement_source == "database",
+            )
+        )
+        if measured_at is None:
+            return None
+        rows = self._session.scalars(
+            select(StorageUsageSnapshotModel).where(
+                StorageUsageSnapshotModel.measured_at == measured_at
+            )
+        ).all()
+        namespaces = []
+        volumes = []
+        database_size = None
+        for row in rows:
+            if row.measurement_source == "scan" and row.namespace is not None:
+                namespaces.append(
+                    ImageStorageNamespace(
+                        name=row.namespace,
+                        retention_policy=str(row.details.get("retentionPolicy", "unknown")),
+                        protected=bool(row.details.get("protected", True)),
+                        exists=True,
+                        file_count=row.file_count,
+                        size_bytes=row.size_bytes,
+                        ignored_symlink_count=int(row.details.get("ignoredSymlinkCount", 0)),
+                    )
+                )
+            elif row.measurement_source == "filesystem":
+                roots = row.details.get("roots", [])
+                volumes.append(
+                    ImageStorageVolume(
+                        key=row.volume_id,
+                        roots=tuple(str(item) for item in roots) if isinstance(roots, list) else (),
+                        total_bytes=row.total_bytes or 0,
+                        free_bytes=row.free_bytes or 0,
+                    )
+                )
+            elif row.root_kind == "database":
+                database_size = row.size_bytes
+        return ImageStorageInventory(
+            root_name="data",
+            automatic_deletion=False,
+            total_file_count=sum(item.file_count for item in namespaces),
+            total_size_bytes=sum(item.size_bytes for item in namespaces),
+            namespaces=tuple(sorted(namespaces, key=lambda item: item.name)),
+            measured_at=measured_at,
+            volumes=tuple(sorted(volumes, key=lambda item: item.key)),
+            database_size_bytes=database_size,
+            wal_size_bytes=None,
+        )
 
     def get_operations(
         self,

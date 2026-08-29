@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-28
+last_updated: 2026-08-29
 ---
 
 # Current State
@@ -13,7 +13,95 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.8 implementation: board search and review data quality`
+`Version 0.9 active: bounded storage retention and garbage collection`
+
+### Ograniczenie zużycia dysku — TASK-0306
+
+- Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi
+  24 godziny, a domyślne progi wolnego miejsca to: ostrzeżenie 80 GiB,
+  automatyczny GC 60 GiB, cel po GC 80 GiB i twarda rezerwa 30 GiB.
+- TASK 1 definiuje deterministyczną kwalifikację bez fizycznego usuwania.
+- TASK 2 (`v0.9.17`) przełącza nowe joby na normalizację w pamięci bez trwałego
+  `normalized.png`; historyczny v1 pozostaje odtwarzalny fail-closed.
+- TASK 3 utrwala `ready → in_use → ingested` dla browser stagingu. `ingested`
+  wymaga zweryfikowanych kopii wszystkich źródeł w managed originals i zapisuje
+  24-godzinny termin retencji. Fizyczne usuwanie nadal jest wyłączone do czasu
+  wdrożenia GC oraz zatwierdzenia pierwszego preview.
+- TASK 4 udostępnia niezmienny dry-run oraz trwały job `storage_gc` z
+  rewalidacją ścieżek, zależności, rozmiaru, mtime i fingerprintu. Destrukcja
+  korzysta z same-volume trash i markerów recovery; żaden run nie został
+  automatycznie uruchomiony na obecnych danych.
+  `storage_gc_runs` wiąże przyszły job z niezmiennym manifestem kandydatów,
+  `storage_usage_snapshots` przechowuje bounded pomiary, a
+  `browser_selection_retention_states` przygotowuje trwały lifecycle stagingu.
+- TASK 5 chroni upload i wykonanie pipeline'u progami per unikalny wolumin.
+  Automatyczny GC jest idempotentny, ma pierwszeństwo w general lane, a job
+  obrazowy przy presji zapisuje etap `waiting_for_storage` i oddaje lease bez
+  utraty checkpointu. Wznowienie wymaga osiągnięcia celu 80 GiB.
+- TASK 6 dodaje główny workspace Admina `Pamięć i czyszczenie`. Pełny skan
+  katalogów działa jako idempotentny job `storage_inventory` w general lane i
+  zapisuje trwały snapshot; zwykły GET nie skanuje drzewa plików. Panel pokazuje
+  woluminy, PostgreSQL, przestrzenie nazw, presję miejsca oraz checksum-bound
+  dry-run i postęp GC. Po poprawnym odbiorze TASK 8 automatyczne usuwanie jest
+  domyślnie aktywne; `observe_only` pozostaje jawnym trybem diagnostycznym.
+- TASK 7 (`v0.9.22`) dodaje bounded kompakcję odtwarzalnych payloadów
+  `board_cell_geometry`, `board_crops`, `sequence_ocr` i `symbol_inference`.
+  Niezmienny manifest terminalny zachowuje wersje adapterów, checksumy etapów
+  oraz identyfikatory finalnych wyników. `discovery`, `normalization` i
+  `board_detection` pozostają, ponieważ nadal uczestniczą w retry i korekcie
+  geometrii. Kompakcja jest osobnym, wznawialnym jobem. Pierwszy run zakończył
+  się dla 25 899 wykonań bez konfliktów.
+- Pierwszy dry-run kompakcji v2 zakończył się bez modyfikacji danych: 25 899
+  wykonań, 89 639 późnych payloadów i 3 095 375 375 bajtów logicznego JSON.
+  Serwerowy SHA-256 ograniczył czas raportu do około 71 sekund. To nie jest
+  prognoza fizycznego zmniejszenia VHDX; `VACUUM (ANALYZE)` udostępni strony
+  PostgreSQL do ponownego użycia, ale nie kurczy pliku dysku.
+- Bounded inventory po cleanupie zakończył się pomiarem 7/7 przestrzeni.
+  `working` spadło z 85 995 384 923 B do 23 803 702 034 B. Chronione cropy
+  (65 904 043 884 B), staging (11 141 120 426 B), originals
+  (10 211 507 189 B), modele (115 224 119 B) i training (22 404 184 B)
+  pozostały bez zmian. Wolne miejsce wzrosło do około 97,54 GiB. Snapshot
+  inwentarza jest publikowany dopiero po zapisaniu terminalnego wiersza bazy,
+  a skan po restarcie wznawia się od następnej przestrzeni nazw.
+- Zatwierdzony run GC `9e67b906-b04f-48c7-9719-1d608ade7511` usunął
+  39 514 historycznych bitmap normalizacji i odzyskał 62 191 682 889 B.
+  Jeden plik zmieniony po preview pozostał jako konflikt, bez błędów usuwania.
+  13 073 chronione obserwacje oraz 16 historycznych stagingów pozostały na
+  dysku. Automatyczne GC jest aktywne po poprawnym odbiorze; oryginały,
+  referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.
+- `v0.9.17` przełącza nowe importy na normalizację RGB w pamięci. Stage result
+  nie wskazuje `normalized.png`; przechowuje źródło, orientację, wymiary i
+  checksumę pikseli. Historyczne joby bez snapshotu adaptera nadal używają v1
+  i potrafią fail-closed odbudować brakującą bitmapę z managed original.
+
+### Odbiór wersji 0.9 — TASK-0304
+
+- Commity `v0.9.1–v0.9.13` rozdzielają zatwierdzoną etykietę symbolu,
+  jakość cropa, proweniencję pikseli oraz zatwierdzenie geometrii. Lokalny
+  Reviewer zawsze otwiera nowy workflow walidacji siatki; ograniczony zdalny
+  Reviewer zachowuje istniejący kontrakt bez rozszerzenia uprawnień.
+- Robocza baza jest na migracji `0075`. Bounded, wznawialny backfill zakończył
+  się stanem `ready` dla `397 976` plansz i `3 572 295` komórek: zero braków
+  topologii, zatwierdzenia geometrii, proweniencji zatwierdzonych cropów oraz
+  zero niespójności jakości.
+- Cutover usunął starą projekcję `image_board_search_documents`, tekstowe
+  tokeny/GIN-y i legacy `has_grid_issue`. Raport przed/po wskazuje spadek
+  monitorowanych relacji z `6 968 860 672` do `6 210 854 912` bajtów, bez
+  `VACUUM FULL` i bez usuwania obrazów, obserwacji lub audytu.
+- Kontrola rzeczywistych danych potwierdza zero podwójnych właścicieli w fast
+  documents, zero plansz bez snapshotu topologii, zero zakończonych plansz bez
+  zatwierdzonej geometrii i zero zatwierdzonych komórek bez proweniencji.
+- Odroczony upload zastępczego zdjęcia jednej planszy ma osobny
+  `TASK-0305`. Nie należy implementować go jako rozszerzenia 0.9.
+- `v0.9.14` uniezależnia wizualną podstawę lokalnego Reviewera od arkusza
+  globalnego Admina. Tokeny ciemnego motywu, tło, focusy i bazowe style
+  kontrolek należą teraz także do Reviewera, dzięki czemu „Zatwierdzanie
+  cięcia siatki” zachowuje wygląd aplikacji po niezależnym buildzie Reviewera.
+- `v0.9.15` synchronizuje lokalną allowlistę mutacji Reviewera z endpointami
+  walidacji siatki v0.9. Origin `127.0.0.1:3001` może wykonać wyłącznie
+  zatwierdzenie geometrii, podgląd oraz zapis rewizji; nadal wymaga loopbacku
+  i stałego nagłówka intencji. Naprawa nie rozszerza zdalnego Reviewera ani
+  pozostałych mutacji Admin API.
 
 ### Niezależne ulepszanie symboli i siatki — TASK-0303
 
@@ -3427,3 +3515,157 @@ symbol inference. Admin automatycznie tworzy lub odzyskuje preflight po
 pokazaniu raportu, pokazuje nierozpoznane strony jako odroczone i ukrywa ich
 ręczną korektę pod sekcją „zostaw na koniec”. Wygasający 15-minutowy token
 legacy nie usuwa już sfinalizowanego browser stagingu.
+
+## Wersja 0.9 — fundament domenowy geometrii i jakości symboli
+
+TASK-0304 rozpoczął tor 0.9. Commit `v0.9.1` dodaje wyłącznie czystą domenę:
+topologię planszy wyprowadzaną z wersji reguł, wyliczany stan walidacji
+geometrii oraz niezależne osie etykiety, jakości i proweniencji cropa.
+
+Recrop zatwierdzonego pola zachowuje decyzję logiczną, ale nowy crop ma stan
+`changed_since_approval` i nie kwalifikuje się do treningu. `grid_issue` wraca
+po recropie jako pending bez problemu jakości, natomiast `unreadable` może być
+rozwiązane realnym symbolem albo domenowym `?` i nadal pozostaje nietreningowe.
+Agregacja planszy wymaga zatwierdzonej geometrii oraz kompletnej liczby komórek
+wynikającej z topologii.
+
+Commit `v0.9.2` przygotowuje addytywną migrację
+`0073_topology_geometry_crop_provenance`, zgodne modele ORM oraz bounded,
+idempotentny backfill. Schemat zachowuje `has_grid_issue` i zapisuje równolegle
+nowe `quality_issue`; zatwierdzone komórki otrzymują dokładną tożsamość cropa,
+a plansze `accepted/corrected` zatwierdzenie bieżącej geometrii. Pending z
+pipeline'u pozostaje do walidacji. Skrypt operatorski utrwala checkpoint po
+każdej transakcji obejmującej maksymalnie 200 plansz i raportuje niespójności
+bez heurystycznej naprawy.
+
+Cykl upgrade/downgrade 0073 przeszedł na izolowanej bazie testowej. Robocza
+baza użytkownika nadal pozostaje na `0072`; indeksy i backfill 0073 nie zostały
+uruchomione podczas aktywnego przetwarzania. Wymagają osobnego checkpointu SQL
+i kontrolowanego okna. API, worker, Admin i Reviewer nie zostały jeszcze
+przełączone na nowy workflow.
+
+Commit `v0.9.3` usuwa stałą 15 ze wspólnej ścieżki geometrii i croppera.
+Snapshot nowego importu, fingerprint croppera i manifest odroczenia przypinają
+topologię oraz wersję reguł, a `recognized_boards` zapisuje użyte wymiary.
+Ręczna geometria działa dla dowolnego `rows × columns` w row-major i wykonuje
+pojedynczy finalny resampling każdej komórki. Automatyczny v20 pozostaje
+wersjonowanym adapterem 3 × 5 i dla innych wymiarów zwraca
+`IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`. Historyczne artefakty bez topologii
+zachowują dotychczasowy fingerprint i interpretację 3 × 5.
+
+Commit `v0.9.4` spina zatwierdzenie geometrii, stan komórek i materializowaną
+decyzję planszy w jednej transakcji. Agregacja wymaga zatwierdzonej bieżącej
+rewizji geometrii oraz kompletnego zestawu `rows × columns`; do aktualizacji
+canonical, stagingu, kolejki, statusu joba i szybkiej projekcji wyszukiwania
+wykorzystuje istniejący mechanizm pełnej decyzji.
+
+Recrop zwykłego zatwierdzonego pola zachowuje etykietę i tożsamość poprzednio
+zatwierdzonych pikseli, dlatego nowy crop jest `changed_since_approval` i nie
+trafia do treningu. Pole oznaczone `grid_issue` po recropie wraca jako
+`pending` bez problemu jakości. Ręczny zapis geometrii zatwierdza utworzoną
+rewizję, zapisuje append-only event i może ponownie domknąć planszę tylko przy
+komplecie logicznych etykiet. Rewizja katalogu wzrasta najwyżej raz w tej samej
+transakcji. Publiczne endpointy kolejki geometrii pozostają zakresem TASK 5.
+
+Commit `v0.9.5` dodaje lokalne Admin API game-wide kolejki walidacji geometrii.
+Widoki `needs_validation`, `needs_correction` i `all` używają bounded keysetu
+`(sequence_number, review_item_id)`, opcjonalnego scope importu i wyłącznie
+bieżącego właściciela z `image_board_search_fast_documents`. Opaque cursor jest
+związany z grą, filtrem, importem i kierunkiem.
+
+Źródło jest serwowane wyłącznie po ponownej kontroli ścieżki oraz SHA-256.
+Zatwierdzenie, preview i zapis wiążą rewizję decyzji i geometrii, checksumę i
+wymiary źródła oraz snapshot topologii. Aktor zapisu pochodzi z lokalnego
+kontekstu API. Nowa odpowiedź rewizji nie dziedziczy historycznego limitu 15:
+zwraca dynamiczne `rows × columns` i oblicza indeks row-major z bieżącej liczby
+kolumn. OpenAPI i generowany klient TypeScript są zgodne. UI pozostaje TASK 6.
+
+Commit `v0.9.6` przełącza lokalnego Reviewera na `Zatwierdzanie cięcia siatki`.
+Widok pobiera po jednej pozycji bounded keysetem, ma filtry `Do walidacji`, `Do
+poprawy`, `Wszystkie`, checksum-bound oryginał z canvasowym overlayem oraz
+zatwierdzanie `Enter`/`F` z blokadą podwójnego zapisu i automatycznym przejściem.
+
+Edytor przyjmuje cztery punkty LT/PT/PD/LD, pozwala przeciągać narożnik albo
+całą siatkę, cofać i resetować szkic oraz generuje preview zależne od
+`rows × columns`. Zapis używa source-direct endpointu TASK 5 i jednocześnie
+zatwierdza nową rewizję. Nie edytuje symboli i nie tworzy pliku overlay.
+Zdalny Reviewer pozostaje na ograniczonej ścieżce operacyjnej; lokalny
+fallback był czasowy i zostaje usunięty przy końcowym cutoverze TASK 13.
+
+Commit `v0.9.7` rozdziela w `Weryfikacji symboli` dwa problemy jakościowe.
+`Zła siatka` zapisuje `quality_issue = grid_issue` i kieruje planszę do kolejki
+geometrii. `Nieczytelny symbol` zapisuje `quality_issue = unreadable`, pozostawia
+przypisaną etykietę wyłącznie jako audyt i nie pojawia się w kolejce geometrii.
+Obie akcje są checksum-bound, działają bezpośrednio dla jednego cropa oraz przez
+trwałą operację masową dla większego zaznaczenia.
+
+Lista API zwraca jakość, logiczne `isUnknown` oraz stan proweniencji cropa.
+Admin pokazuje odpowiednie badge'e, a po sukcesie usuwa targety z bieżącej
+strony. Źródło kohort symboli wymaga teraz `quality_issue IS NULL`, dzięki czemu
+nieczytelny crop nie trafia do treningu. Migracja 0073 uwzględnia akcję
+`mark_unreadable` w constraintcie append-only eventów; cykl migracji i dwa
+scenariusze transakcyjne przeszły na izolowanej bazie PostgreSQL.
+
+Commit `v0.9.8` dodaje w grze sekcję `Weryfikacja symbolu na planszy`.
+Bounded kolejka `Do ustalenia / Wszystkie nieczytelne` wybiera wyłącznie
+bieżącego właściciela logicznej planszy i renderuje komplet komórek według
+snapshotu topologii. Operator rozwiązuje nieczytelne pole aktywnym symbolem
+albo domenowym `?`; request jest związany z rewizją oraz dokładną tożsamością i
+checksumą cropa.
+
+Rozwiązane pole pozostaje `quality_issue = unreadable`, więc słaby crop nigdy
+nie staje się treningowy. Ostatnie pole domyka planszę atomowo przez istniejący
+canonical flow. Dla `?` szybki właściciel i audyt pozostają aktywne, ale staging
+datasetu jest celowo pomijany do TASK 10, który wprowadzi sentinel 0, migrację
+0074 i snapshot v4. Test izolowanego PostgreSQL potwierdził reopen, recrop,
+rozwiązanie unknown, canonical oraz brak nieprawidłowego stagingu.
+
+Commit `v0.9.9` wersjonuje wyszukiwanie jako
+`partial-board-ranking-v2-unknown-missing-evidence`. Edytor wzoru pozwala
+jawnie wstawić `?`, zachowuje je w undo/reset i wizualizacji, lecz do API wysyła
+wyłącznie znane symbole. API akceptuje także literalne `cell=index:?` od innych
+klientów i usuwa je przed rankingiem; wzór bez znanego symbolu kończy się
+`BOARD_SEARCH_QUERY_EMPTY`.
+
+Zapisane unknown pozostaje w szybkiej projekcji jako brak dowodu. Nie daje
+punktu, exact match ani mismatch, a denominator obejmuje wyłącznie znane pola
+zapytania. Kolejność remisów w domenie i SQL pozostaje zgodna: score, exact,
+ważone alternatywy, mniej sprzeczności, zatwierdzony status, sekwencja i UUID.
+
+Commit `v0.9.10` wprowadza sentinel `mobileCode = 0` wyłącznie dla trwałych
+layoutów. Migracja 0074 dopuszcza zero w stagingu, imporcie i datasetach oraz
+usuwa constraint stałej liczby 15 komórek ze stagingu; walidacja aplikacyjna
+pozostaje zależna od `rows × columns`. Katalog symboli i plansza użytkownika
+nadal odrzucają zero.
+
+Nowe snapshoty produkcyjne mają schema v4 i deklarują
+`unknown_layout_mobile_code = 0`. Aktualny mobile czyta schema v3/v4 i renderuje
+zero jako `?`. `payout-v3-unknown-prefix-stop` kończy prefiks na pierwszym
+unknown, zachowując kwalifikującą wygraną sprzed niego i ignorując sufiks.
+Historyczne joby payout-v2 pozostają obsługiwane do replayu.
+
+Commit `v0.9.11` uszczelnia źródło kohort treningowych symboli po recropie.
+Nowa kohorta `verified-symbol-cell-training-cohort-v3-crop-provenance` wymaga
+zgodności bieżącego `cropSampleId`, checksummy i rewizji geometrii z dokładną
+tożsamością cropa zatwierdzonego przez człowieka. Plik jest ponownie
+weryfikowany przed materializacją manifestu. Historyczne manifesty v1 i v2
+pozostają odtwarzalne, ale nie są tworzone przez bieżący workflow.
+
+Preview jakości raportuje wykluczenia `unknown`, `unreadable`, `grid_issue`,
+`changed_crop` i `missing_asset`. Kohorta geometrii korzysta wyłącznie z
+bieżącego właściciela logicznej planszy oraz zatwierdzonej rewizji geometrii;
+nie zależy od statusu ani treści etykiet symboli. Nie zmieniono architektury
+modelu ML, nie uruchomiono treningu ani operacji na danych użytkownika.
+
+Commit `v0.9.12` kończy runtime'owy cutover wyszukiwania plansz na
+`image_board_search_candidates` i `image_board_search_fast_documents`.
+Synchronizator nie zapisuje już starej szerokiej projekcji ani tekstowych
+tokenów. `quality_issue` jest jedynym trwałym źródłem problemu jakości cropa;
+publiczne `hasGridIssue` pozostaje polem wyliczanym dla zgodności kontraktu.
+
+Migracja 0075 usuwa legacy tabelę, tokeny, GIN-y i bool jakości. Jej downgrade
+odtwarza dane deterministycznie z bieżących kandydatów i fast documents.
+Dodano read-only raport rozmiarów przed/po. Migracja została sprawdzona na
+izolowanym PostgreSQL, ale nie została wykonana na bazie użytkownika; przed tym
+wymagany jest osobny checkpoint. Nie uruchomiono `VACUUM FULL` ani operacji na
+plikach obrazów.

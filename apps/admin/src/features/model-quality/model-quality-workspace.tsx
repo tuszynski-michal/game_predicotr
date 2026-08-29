@@ -386,6 +386,26 @@ export function ModelQualityWorkspace({
                 <dt>Chronione decyzje</dt>
                 <dd>{quality.protectedItemCount}</dd>
               </div>
+              <div>
+                <dt>Wykluczone: nowy crop</dt>
+                <dd>{quality.trainingExclusions.changedCrop}</dd>
+              </div>
+              <div>
+                <dt>Wykluczone: nieczytelne</dt>
+                <dd>{quality.trainingExclusions.unreadable}</dd>
+              </div>
+              <div>
+                <dt>Wykluczone: zła siatka</dt>
+                <dd>{quality.trainingExclusions.gridIssue}</dd>
+              </div>
+              <div>
+                <dt>Wykluczone: ?</dt>
+                <dd>{quality.trainingExclusions.unknown}</dd>
+              </div>
+              <div>
+                <dt>Wykluczone: brak pliku</dt>
+                <dd>{quality.trainingExclusions.missingAsset}</dd>
+              </div>
             </dl>
           </section>
         </div>
@@ -638,6 +658,22 @@ export function ModelQualityWorkspace({
               <div>
                 <dt>Chronione</dt>
                 <dd>{preview.protectedItemCount}</dd>
+              </div>
+              <div>
+                <dt>Nowy crop po recropie</dt>
+                <dd>{preview.trainingExclusions.changedCrop}</dd>
+              </div>
+              <div>
+                <dt>Nieczytelne / zła siatka / ?</dt>
+                <dd>
+                  {preview.trainingExclusions.unreadable} /{' '}
+                  {preview.trainingExclusions.gridIssue} /{' '}
+                  {preview.trainingExclusions.unknown}
+                </dd>
+              </div>
+              <div>
+                <dt>Brak poprawnego assetu</dt>
+                <dd>{preview.trainingExclusions.missingAsset}</dd>
               </div>
             </dl>
             <p>

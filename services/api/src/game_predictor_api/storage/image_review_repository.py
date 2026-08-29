@@ -18,6 +18,7 @@ from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
     PendingGridReinferencePreview,
 )
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_ALTERNATIVES,
@@ -59,6 +60,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
+    ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
@@ -880,6 +882,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             rejection_reason=resolution.rejection_reason,
             resolved_by=resolution.resolved_by,
             active_symbol_codes=active_codes,
+            allow_unknown_cells=resolution.allow_unknown_cells,
         )
         if revalidated.command_sha256 != resolution.command_sha256:
             raise ImageReviewConflictError(
@@ -936,7 +939,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         else:
             symbols = tuple(cell.symbol_code for cell in resolution.cells)
-            mobile_codes = self._mobile_codes(game_id, symbols)
+            known_symbols = tuple(symbol for symbol in symbols if symbol is not None)
+            known_mobile_codes = iter(self._mobile_codes(game_id, known_symbols))
+            mobile_codes = [0 if symbol is None else next(known_mobile_codes) for symbol in symbols]
+            expected_cell_count = (board.grid_rows or 3) * (board.grid_columns or 5)
+            if len(mobile_codes) != expected_cell_count:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_CELL_COUNT_INVALID",
+                    "The resolved layout does not match the board topology.",
+                )
             resolved_sequence = cast(int, resolution.sequence_number)
             canonical = self._claim_canonical_sequence(
                 game_id=game_id,
@@ -1523,13 +1534,6 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT",
                 "The review item changed before corrected geometry was persisted.",
             )
-        if len(artifacts.cells) != 15 or [
-            (cell.row_index, cell.column_index) for cell in artifacts.cells
-        ] != [(row, column) for row in range(3) for column in range(5)]:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_CELLS_INVALID",
-                "Corrected geometry must contain exactly 15 row-major crop artifacts.",
-            )
         item_record = self._session.get(
             ImageReviewItemModel,
             review_item_id,
@@ -1544,6 +1548,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_PROJECTION_MISSING",
                 "The corrected geometry projection is incomplete.",
+            )
+        topology = BoardTopology(
+            rows=board.grid_rows or 3,
+            columns=board.grid_columns or 5,
+        )
+        if len(artifacts.cells) != topology.cell_count or [
+            (cell.row_index, cell.column_index) for cell in artifacts.cells
+        ] != [(row, column) for row in range(topology.rows) for column in range(topology.columns)]:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_CELLS_INVALID",
+                "Corrected geometry must contain every configured row-major crop artifact.",
             )
         revision = board.geometry_revision + 1
         revised_geometry = dict(artifacts.geometry)
@@ -1603,11 +1618,30 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         item_record.resolved_by = None
         item_record.resolved_at = None
         item_record.resolution_revision += 1
+        previous_approved_geometry_revision = board.approved_geometry_revision
         board.geometry_revision = revision
+        board.approved_geometry_revision = revision
+        board.geometry_approved_at = created_at
+        board.geometry_approved_by = command.corrected_by
         board.board_geometry = revised_geometry
         board.board_relative_path = artifacts.board_relative_path
         board.board_checksum_sha256 = artifacts.board_checksum_sha256
         board.status = "pending_review"
+        self._session.add(
+            ImageBoardGeometryReviewEventModel(
+                review_item_id=review_item_id,
+                recognized_board_id=board.id,
+                geometry_revision=revision,
+                grid_rows=topology.rows,
+                grid_columns=topology.columns,
+                board_checksum_sha256=artifacts.board_checksum_sha256,
+                action="geometry_saved",
+                previous_approved_geometry_revision=previous_approved_geometry_revision,
+                approved_geometry_revision=revision,
+                actor=command.corrected_by,
+                created_at=created_at,
+            )
+        )
         self._session.execute(
             delete(ImageLayoutStagingRowModel).where(
                 ImageLayoutStagingRowModel.import_job_id == import_job_id,
@@ -1652,6 +1686,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             review_item_id=review_item_id,
             actor=command.corrected_by,
         )
+        coordinator.synchronize_board_from_cells(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            actor=command.corrected_by,
+        )
         coordinator.synchronize_after_projection_change(game_id=game_id)
         updated = self.get_item(
             review_item_id,
@@ -1665,7 +1704,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         return updated, _geometry_revision_from_record(record), True
 
-    def reopen_for_symbol_cell_grid_issue(
+    def reopen_for_symbol_cell_issue(
         self,
         *,
         review_item_id: UUID,
@@ -1675,10 +1714,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         command_sha256: str,
         reopened_by: str,
         reopened_at: datetime,
+        reason: str,
     ) -> tuple[ImageReviewItem, bool]:
         """Reopen a resolved board while preserving current cell-review evidence.
 
-        A bad-grid mark invalidates the parent decision and its canonical/staging
+        A quality mark invalidates the parent decision and its canonical/staging
         projections, but it does *not* create new geometry or overwrite the
         remaining fourteen checksum-bound cell decisions.  Geometry correction
         has its own stronger path in :meth:`save_geometry_revision`.
@@ -1772,7 +1812,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "action": "reopened",
                 "geometryRevision": board.geometry_revision,
                 "previousStatus": previous_status,
-                "reason": "symbol_cell_grid_issue",
+                "reason": reason,
                 "sequenceNumber": sequence_number,
             },
             resolved_by=reopened_by,
@@ -1785,9 +1825,9 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         # Do not call synchronize_after_board_reopened here.  It is designed
         # for a whole-board invalidation and would discard the other fourteen
         # human crop decisions.  The cell mutator updates only its own cell.
-        SymbolCellReviewWriteThroughCoordinator(
-            self._session
-        ).synchronize_after_projection_change(game_id=game_id)
+        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_projection_change(
+            game_id=game_id
+        )
         updated = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -2128,10 +2168,9 @@ def _current_grid_issue_exists() -> ColumnElement[bool]:
         select(ImageSymbolReviewCellModel.id)
         .where(
             ImageSymbolReviewCellModel.review_item_id == ImageReviewItemModel.id,
-            ImageSymbolReviewCellModel.geometry_revision
-            == RecognizedBoardModel.geometry_revision,
+            ImageSymbolReviewCellModel.geometry_revision == RecognizedBoardModel.geometry_revision,
             ImageSymbolReviewCellModel.review_state == "pending",
-            ImageSymbolReviewCellModel.has_grid_issue.is_(True),
+            ImageSymbolReviewCellModel.quality_issue == "grid_issue",
         )
         .exists(),
     )

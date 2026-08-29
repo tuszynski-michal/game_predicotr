@@ -156,6 +156,13 @@ Przykłady dla symbolu `S2`:
 drugiej ani kolejnej kolumny. Dzięki temu reguła pozostaje jednoznaczna również
 dla plansz szerszych niż 5 kolumn.
 
+`payout-v3-unknown-prefix-stop` zachowuje tę samą kolejność i reguły dla
+znanych symboli, ale zarezerwowany kod layoutu `0` kończy analizowany prefiks.
+Nie jest jokerem ani niezgodnym symbolem: pozycje po nim są ignorowane, a
+prefiks przed nim może wygrać, jeśli sam spełnia minimalną długość. Kod `0` w
+pierwszej kolumnie daje prefiks długości zero. Historyczne obliczenia v2
+pozostają odtwarzalne i nadal odrzucają kod `0`.
+
 ### Joker
 
 - zastępuje dowolny zwykły symbol,

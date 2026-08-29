@@ -77,3 +77,38 @@ test('rejects reassignment without a target before calling the API', async () =>
   assert.equal(result.ok, false);
   assert.equal(called, false);
 });
+
+test('sends an unreadable decision without inventing a target symbol', async () => {
+  const calls = [];
+  const result = await applySingleSymbolReviewDecision(
+    {
+      async applySymbolCellReviewDecision(gameId, cellReviewId, body) {
+        calls.push({ body, cellReviewId, gameId });
+        return {
+          data: {
+            assignedSymbolId: 'symbol-1',
+            boardReopened: true,
+            boardResolutionAction: null,
+            boardStatus: 'pending',
+            catalogRevision: 10,
+            cellReviewId,
+            cellRevision: 8,
+            hasGridIssue: false,
+            qualityIssue: 'unreadable',
+            reviewItemId: 'review-1',
+            reviewState: 'pending',
+            sequenceNumber: 10,
+          },
+        };
+      },
+    },
+    'game-1',
+    'mark_unreadable',
+    target,
+    null,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0].body.action, 'mark_unreadable');
+  assert.equal('targetSymbolId' in calls[0].body, false);
+});

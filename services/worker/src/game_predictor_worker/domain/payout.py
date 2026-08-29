@@ -16,6 +16,7 @@ from game_predictor_worker.domain.contracts import (
 )
 from game_predictor_worker.domain.validation import (
     validate_full_board,
+    validate_layout_board,
     validate_paylines,
     validate_payout_configuration,
 )
@@ -28,6 +29,8 @@ def _compatible_prefix_length(
 ) -> int:
     prefix_length = 0
     for cell_code in line_codes:
+        if cell_code == 0:
+            break
         if cell_code != symbol_code and cell_code not in wildcard_codes:
             break
         prefix_length += 1
@@ -88,16 +91,13 @@ def _evaluate_symbol_on_payline(
     )
 
 
-def evaluate_payout(
+def _evaluate_payout_validated(
     game: GameConfig,
     cells: Sequence[int],
     paylines: Sequence[PaylineDefinition],
     payout_symbols: Sequence[PayoutSymbolDefinition],
     payout_rules: Sequence[PayoutRuleDefinition],
 ) -> PayoutEvaluation:
-    """Evaluate all payline/symbol pairs for one complete row-major layout."""
-
-    validate_full_board(cells, game)
     validate_paylines(paylines, game)
     validate_payout_configuration(payout_rules, payout_symbols, game)
 
@@ -134,3 +134,29 @@ def evaluate_payout(
         total_payout=sum(match.payout_credits for match in matches),
         matches=tuple(matches),
     )
+
+
+def evaluate_payout(
+    game: GameConfig,
+    cells: Sequence[int],
+    paylines: Sequence[PaylineDefinition],
+    payout_symbols: Sequence[PayoutSymbolDefinition],
+    payout_rules: Sequence[PayoutRuleDefinition],
+) -> PayoutEvaluation:
+    """Evaluate payout-v3, stopping each line at the first unknown cell."""
+
+    validate_layout_board(cells, game)
+    return _evaluate_payout_validated(game, cells, paylines, payout_symbols, payout_rules)
+
+
+def evaluate_payout_v2(
+    game: GameConfig,
+    cells: Sequence[int],
+    paylines: Sequence[PaylineDefinition],
+    payout_symbols: Sequence[PayoutSymbolDefinition],
+    payout_rules: Sequence[PayoutRuleDefinition],
+) -> PayoutEvaluation:
+    """Reproduce historical payout-v2, which rejects unknown cells."""
+
+    validate_full_board(cells, game)
+    return _evaluate_payout_validated(game, cells, paylines, payout_symbols, payout_rules)

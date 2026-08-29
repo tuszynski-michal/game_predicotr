@@ -325,6 +325,17 @@ describe('LocalLayoutRepository sequence navigation', () => {
     expect(database.firstQueries[0]?.source).toContain('sequence_number = ?');
   });
 
+  test('reads unknown sentinel from a schema v4 layout', async () => {
+    const database = new FakeDatabase(
+      [],
+      [{ sequence_number: 3, signature: '01000102' }],
+    );
+
+    await expect(
+      new LocalLayoutRepository(database).readLayoutBySequence(game, 3),
+    ).resolves.toMatchObject({ cells: [1, 0, 1, 2] });
+  });
+
   test('fails closed for a missing or out-of-range sequence position', async () => {
     const missingDatabase = new FakeDatabase([], [null]);
 

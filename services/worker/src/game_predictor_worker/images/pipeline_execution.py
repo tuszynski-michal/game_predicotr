@@ -429,8 +429,26 @@ def validate_stage_payload(
             "discovery.sourceRelativePath",
         )
     elif stage == "normalization":
-        _sha256(payload.get("normalizedChecksumSha256"), "normalization checksum")
-        _relative_path(payload.get("normalizedRelativePath"), "normalization path")
+        if "normalizedRelativePath" in payload:
+            _sha256(payload.get("normalizedChecksumSha256"), "normalization checksum")
+            _relative_path(payload.get("normalizedRelativePath"), "normalization path")
+        else:
+            _sha256(
+                payload.get("normalizedPixelChecksumSha256"),
+                "normalization pixel checksum",
+            )
+            _matching_text(
+                payload.get("sourceChecksumSha256"),
+                context.source_checksum_sha256,
+                "normalization.sourceChecksumSha256",
+            )
+            _matching_text(
+                payload.get("sourceRelativePath"),
+                context.source_relative_path,
+                "normalization.sourceRelativePath",
+            )
+            _positive_integer(payload.get("sourceWidth"), "normalization.sourceWidth")
+            _positive_integer(payload.get("sourceHeight"), "normalization.sourceHeight")
         _positive_integer(payload.get("width"), "normalization.width")
         _positive_integer(payload.get("height"), "normalization.height")
     elif stage == "board_detection":
@@ -720,9 +738,7 @@ def _board_cell_geometry(
                 if (
                     _nonnegative_integer(cell.get("rowIndex"), "cellGeometry.rowIndex")
                     != index // BOARD_COLUMNS
-                    or _nonnegative_integer(
-                        cell.get("columnIndex"), "cellGeometry.columnIndex"
-                    )
+                    or _nonnegative_integer(cell.get("columnIndex"), "cellGeometry.columnIndex")
                     != index % BOARD_COLUMNS
                 ):
                     _invalid("Verified board-cell geometry must be complete and row-major.")
@@ -764,9 +780,7 @@ def _v20_crop_positions(
     deferred = _sequence_mappings(payload.get("deferredBoards", []), "deferredBoards")
     deferred_positions: list[int] = []
     for item in deferred:
-        position = _nonnegative_integer(
-            item.get("positionIndex"), "deferredBoards.positionIndex"
-        )
+        position = _nonnegative_integer(item.get("positionIndex"), "deferredBoards.positionIndex")
         _positive_integer(item.get("sequenceNumber"), "deferredBoards.sequenceNumber")
         if not isinstance(item.get("reasonCode"), str) or not item["reasonCode"]:
             _invalid("A deferred crop requires a reasonCode.")

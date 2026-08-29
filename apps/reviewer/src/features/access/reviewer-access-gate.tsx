@@ -5,14 +5,17 @@ import { useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { GridReviewWorkspace } from '@/features/grid-reviews/grid-review-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
 
 export function ReviewerAccessGate({
   apiBaseUrl,
+  gridValidationEnabled = false,
   localScope = null,
   sessionId,
 }: {
   readonly apiBaseUrl: string;
+  readonly gridValidationEnabled?: boolean;
   readonly localScope?: {
     readonly gameId: string;
     readonly importJobId: string;
@@ -31,11 +34,19 @@ export function ReviewerAccessGate({
   if (localScope !== null) {
     return (
       <main className="reviewerShell">
-        <OperationalReviewWorkspace
-          apiBaseUrl={apiBaseUrl}
-          gameId={localScope.gameId}
-          importJobId={localScope.importJobId}
-        />
+        {gridValidationEnabled ? (
+          <GridReviewWorkspace
+            apiBaseUrl={apiBaseUrl}
+            gameId={localScope.gameId}
+            importJobId={localScope.importJobId}
+          />
+        ) : (
+          <OperationalReviewWorkspace
+            apiBaseUrl={apiBaseUrl}
+            gameId={localScope.gameId}
+            importJobId={localScope.importJobId}
+          />
+        )}
       </main>
     );
   }

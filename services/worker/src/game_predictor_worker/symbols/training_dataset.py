@@ -235,11 +235,27 @@ def _read_cohort(path: Path, expected_checksum: str) -> Mapping[str, object]:
     if identity not in {
         (1, "verified-training-cohort-v1"),
         (2, "verified-symbol-cell-training-cohort-v2"),
+        (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"),
     }:
         raise TrainingDatasetBuildError(
             "TRAINING_DATASET_COHORT_UNSUPPORTED",
             "The verified-training cohort schema is not supported.",
         )
+    if identity == (3, "verified-symbol-cell-training-cohort-v3-crop-provenance"):
+        if cohort.get("trainingEligibilityVersion") != "symbol-cell-training-eligible-v1":
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_COHORT_UNSUPPORTED",
+                "The symbol-cell training eligibility policy is not supported.",
+            )
+        exclusions = _mapping(cohort.get("exclusions"), "exclusions")
+        if any(
+            not isinstance(value, int) or isinstance(value, bool) or value < 0
+            for value in exclusions.values()
+        ):
+            raise TrainingDatasetBuildError(
+                "TRAINING_DATASET_COHORT_INVALID",
+                "The symbol-cell cohort exclusion counts are invalid.",
+            )
     return cohort
 
 
@@ -263,20 +279,18 @@ def _catalog(symbols: Sequence[TrainingSymbol]) -> dict[str, str]:
 
 
 def _validate_declared_counts(cohort: Mapping[str, object]) -> None:
-    if cohort.get("datasetKind") == "verified-symbol-cell-training-cohort-v2":
+    if _is_symbol_cell_cohort(cohort):
         cells = _sequence(cohort.get("cells"), "cells")
         counts = _mapping(cohort.get("counts"), "counts")
         source_ids = {
-            _text(_mapping(cell, "cell").get("sourceImageId"), "sourceImageId")
-            for cell in cells
+            _text(_mapping(cell, "cell").get("sourceImageId"), "sourceImageId") for cell in cells
         }
         expected = {
             "cellSamples": len(cells),
             "sourceImages": len(source_ids),
         }
         if any(
-            _integer(counts.get(key), f"counts.{key}") != value
-            for key, value in expected.items()
+            _integer(counts.get(key), f"counts.{key}") != value for key, value in expected.items()
         ):
             raise TrainingDatasetBuildError(
                 "TRAINING_DATASET_COHORT_COUNTS_MISMATCH",
@@ -419,7 +433,7 @@ def _parse_samples(
     catalog: Mapping[str, str],
     data_root: Path,
 ) -> tuple[_Sample, ...]:
-    if cohort.get("datasetKind") == "verified-symbol-cell-training-cohort-v2":
+    if _is_symbol_cell_cohort(cohort):
         return _parse_cell_samples(cohort, catalog=catalog, data_root=data_root)
     samples: list[_Sample] = []
     sample_ids: set[str] = set()
@@ -536,6 +550,28 @@ def _parse_cell_samples(
     crop_labels: dict[str, str] = {}
     for index, raw_cell in enumerate(_sequence(cohort.get("cells"), "cells")):
         cell = _mapping(raw_cell, f"cells[{index}]")
+        if cohort.get("schemaVersion") == 3:
+            approved = _mapping(cell.get("approvedCrop"), "cell.approvedCrop")
+            approved_sample_id = _sha256(
+                approved.get("cropSampleId"), "cell.approvedCrop.cropSampleId"
+            )
+            approved_checksum = _sha256(
+                approved.get("cropChecksumSha256"),
+                "cell.approvedCrop.cropChecksumSha256",
+            )
+            approved_geometry_revision = _integer(
+                approved.get("geometryRevision"),
+                "cell.approvedCrop.geometryRevision",
+            )
+            if (
+                approved_sample_id != cell.get("cropSampleId")
+                or approved_checksum != cell.get("cropChecksumSha256")
+                or approved_geometry_revision != cell.get("geometryRevision")
+            ):
+                raise TrainingDatasetBuildError(
+                    "TRAINING_DATASET_CROP_PROVENANCE_INVALID",
+                    "A verified symbol cell does not match its approved crop identity.",
+                )
         symbol_code = _text(cell.get("symbolCode"), "cell.symbolCode")
         symbol_id = catalog.get(symbol_code)
         if symbol_id is None:
@@ -549,9 +585,7 @@ def _parse_cell_samples(
                 "TRAINING_DATASET_CELL_POSITION_INVALID",
                 "A verified symbol cell must use a row-major index from 0 to 14.",
             )
-        crop_checksum = _sha256(
-            cell.get("cropChecksumSha256"), "cell.cropChecksumSha256"
-        )
+        crop_checksum = _sha256(cell.get("cropChecksumSha256"), "cell.cropChecksumSha256")
         previous_label = crop_labels.setdefault(crop_checksum, symbol_code)
         if previous_label != symbol_code:
             raise TrainingDatasetBuildError(
@@ -569,19 +603,13 @@ def _parse_cell_samples(
             )
         sample_ids.add(sample_id)
         source = _mapping(cell.get("source"), "cell.source")
-        source_checksum = _sha256(
-            source.get("checksumSha256"), "cell.source.checksumSha256"
-        )
-        source_path = _safe_relative_path(
-            source.get("relativePath"), "cell.source.relativePath"
-        )
+        source_checksum = _sha256(source.get("checksumSha256"), "cell.source.checksumSha256")
+        source_path = _safe_relative_path(source.get("relativePath"), "cell.source.relativePath")
         samples.append(
             _Sample(
                 sample_id=sample_id,
                 crop_checksum=crop_checksum,
-                crop_source_path=_managed_crop(
-                    data_root, crop_relative_path, crop_checksum
-                ),
+                crop_source_path=_managed_crop(data_root, crop_relative_path, crop_checksum),
                 asset_relative_path=PurePosixPath(
                     "assets", crop_checksum[:2], f"{crop_checksum}.png"
                 ).as_posix(),
@@ -593,9 +621,7 @@ def _parse_cell_samples(
                 source_relative_path=source_path,
                 import_job_id=_text(cell.get("importJobId"), "cell.importJobId"),
                 review_item_id=_text(cell.get("reviewItemId"), "cell.reviewItemId"),
-                sequence_number=_integer(
-                    cell.get("sequenceNumber"), "cell.sequenceNumber"
-                ),
+                sequence_number=_integer(cell.get("sequenceNumber"), "cell.sequenceNumber"),
                 cell_index=cell_index,
             )
         )
@@ -616,6 +642,13 @@ def _parse_cell_samples(
             ),
         )
     )
+
+
+def _is_symbol_cell_cohort(cohort: Mapping[str, object]) -> bool:
+    return cohort.get("datasetKind") in {
+        "verified-symbol-cell-training-cohort-v2",
+        "verified-symbol-cell-training-cohort-v3-crop-provenance",
+    }
 
 
 def _manifest(
@@ -694,9 +727,7 @@ def _manifest(
             exclusions[str(reason) if reason is not None else "unknown"] += 1
 
     game_id = _text(cohort.get("gameId"), "gameId")
-    asset_paths = {
-        sample.sample_id: _asset_relative_path(sample, config) for sample in samples
-    }
+    asset_paths = {sample.sample_id: _asset_relative_path(sample, config) for sample in samples}
     sample_rows = []
     for sample in samples:
         row = sample.to_dict(split_by_source[sample.source_family])
@@ -728,7 +759,7 @@ def _manifest(
         "splits": split_reports,
         "status": "ready",
         "symbols": symbol_stats,
-}
+    }
 
 
 def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
@@ -736,7 +767,9 @@ def _asset_relative_path(sample: _Sample, config: TrainingDatasetConfig) -> str:
     if config.split_policy_version == "source-family-balanced-split-v2":
         fingerprint = hashlib.sha256(_canonical_bytes(config.to_dict())).hexdigest()[:16]
         return PurePosixPath(
-            "assets", f"{config.split_policy_version}-{fingerprint}", sample.crop_checksum[:2],
+            "assets",
+            f"{config.split_policy_version}-{fingerprint}",
+            sample.crop_checksum[:2],
             f"{sample.crop_checksum}.png",
         ).as_posix()
     return sample.asset_relative_path

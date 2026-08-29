@@ -5875,6 +5875,199 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   każdym odrzucono odpowiednio z powodu sztucznego blokowania feedbacku oraz
   kwadratowego kosztu.
 
+## D-244 — Etykieta, jakość cropa i przydatność treningowa są niezależne
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** logiczna etykieta komórki, problem jakościowy bieżącego cropa
+  oraz zgodność cropa z ostatnim zatwierdzeniem są niezależnymi osiami. Recrop
+  zachowuje zatwierdzoną etykietę, lecz nowy crop nie jest treningowy do czasu
+  osobnej weryfikacji. `grid_issue` ponownie otwiera pole po recropie, a
+  `unreadable` może zostać rozwiązane realnym symbolem albo domenowym `?` bez
+  uczynienia słabego cropa próbką treningową.
+- **Context:** dotychczas zatwierdzenie etykiety było utożsamiane z
+  zatwierdzeniem pikseli. Po korekcie geometrii nowy, nieobejrzany crop mógł
+  odziedziczyć status nadający go do treningu.
+- **Safety:** przydatność treningowa wymaga aktywnego realnego symbolu,
+  aktualnego właściciela planszy, braku problemu jakości, identycznej tożsamości
+  i SHA-256 bieżącego oraz zatwierdzonego cropa i zweryfikowanego pliku.
+  Topologia pochodzi z przypiętej wersji reguł; po pierwszym imporcie jej
+  wymiary są niezmienne. `?` nie jest rekordem katalogu symboli.
+- **Consequences:** geometria, review symboli i trening mogą być rozwijane
+  niezależnie bez utraty decyzji człowieka. Aktualne rekordy bez proweniencji
+  pozostają nietreningowe do czasu kontrolowanego backfillu 0073.
+- **Alternatives:** reset wszystkich etykiet po recropie oraz automatyczne
+  uznanie nowych cropów za zatwierdzone odrzucono odpowiednio z powodu utraty
+  pracy człowieka i ryzyka zanieczyszczenia kohorty.
+
+## D-245 — Topologia jest częścią artefaktu geometrii i fingerprintu
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** każdy nowy import przypina `rows`, `columns` i wersję reguł w
+  snapshotcie przetwarzania, fingerprintcie croppera oraz manifeście
+  odroczenia. Wspólny source-direct cropper i ręczna geometria są generyczne,
+  natomiast automatyczny adapter v20 jawnie obsługuje wyłącznie 3 × 5.
+- **Context:** stałe 15 komórek były rozproszone między manifestem, cropperem i
+  preview. Sama zmiana reguł mogła przez to nie wejść do tożsamości joba.
+- **Safety:** stare artefakty bez pól topologii zachowują dokładną serializację,
+  fingerprint i interpretację 3 × 5. Inna topologia nie uruchamia automatycznego
+  v20 i kończy się `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`; ręczna geometria
+  nadal może wygenerować dokładnie `rows × columns` cropów jednym
+  source-to-output resamplingiem na komórkę.
+- **Consequences:** nowe wyniki zapisują snapshot wymiarów na rozpoznanej
+  planszy, a replay nie może przypadkiem użyć croppera o innej topologii.
+- **Alternatives:** globalną zamianę stałych historycznych adapterów odrzucono,
+  ponieważ złamałaby odtwarzalność istniejących jobów i manifestów.
+
+## D-246 — Game-wide walidacja geometrii pozostaje lokalnym workflowem
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** nowa kolejka `Zatwierdzanie cięcia siatki` działa domyślnie
+  wyłącznie w lokalnym Reviewerze. Zdalna sesja zachowuje istniejący,
+  scope-bound workflow i nie otrzymuje dostępu do game-wide endpointów Admin
+  API. Po odbiorze 0.9 lokalny fallback zostaje usunięty.
+- **Context:** API TASK 5 świadomie korzysta z lokalnego aktora Admina i może
+  listować kolejkę całej gry. Rozszerzenie allowlisty publicznego proxy
+  zwiększyłoby uprawnienia tokenu udostępnianego osobie trzeciej.
+- **Safety:** proxy zdalnego Reviewera pozostaje bez zmian. Nowy ekran jest
+  wybierany dopiero po jednoczesnym potwierdzeniu trybu lokalnego, loopbacku i
+  poprawnego scope gry/importu.
+- **Consequences:** lokalny operator zawsze otrzymuje docelowy workflow, a
+  udostępniane linki zachowują dotychczasowe możliwości do czasu osobnego
+  projektu bezpiecznego kontraktu zdalnej walidacji geometrii. Rollback 0.9
+  wyłącza nowe mutacje bez niszczenia danych zamiast przywracać stary lokalny
+  ekran.
+- **Alternatives:** mapowanie game-wide endpointów przez publiczny proxy
+  odrzucono z powodu zbyt szerokiego scope i ryzyka ujawnienia innych importów.
+
+## D-247 — Unknown jest sentinelowym kodem layoutu, nie symbolem katalogu
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** snapshot schema v4 i trwałe layouty używają `mobileCode = 0`
+  wyłącznie jako logicznego unknown. Kodek layoutu dopuszcza zero, natomiast
+  katalog symboli, plansza użytkownika i prefix wejściowy nadal wymagają
+  realnych kodów `1..32767`. `payout-v3-unknown-prefix-stop` kończy linię na
+  pierwszym zero i ignoruje dalszy sufiks.
+- **Context:** nieczytelna komórka może być poprawną, zatwierdzoną decyzją
+  logiczną, ale nie wolno tworzyć dla niej fałszywego symbolu ani traktować jej
+  jak jokera.
+- **Safety:** schema v4 deklaruje sentinel w metadata; aktualny mobile wspiera
+  v3 i v4, a stare klienty v3 nie otrzymują release'u v4. Historyczny payout
+  v2 oraz jego artefakty pozostają odtwarzalne.
+- **Consequences:** unknown może przejść przez staging, dataset, snapshot i UI,
+  nie stając się klasą modelu ani symbolem możliwym do ręcznego wpisania.
+
+## D-248 — Crop treningowy wymaga zatwierdzonej tożsamości pikseli
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** bieżąca kohorta symboli v3 dopuszcza próbkę tylko wtedy, gdy
+  aktualny sample ID, SHA-256 i rewizja geometrii są identyczne z proweniencją
+  cropa zatwierdzonego przez człowieka oraz plik przechodzi ponowną kontrolę
+  ścieżki i checksummy. Kohorta geometrii jest wybierana według zatwierdzonej
+  rewizji geometrii, niezależnie od logicznej etykiety symbolu.
+- **Context:** recrop zachowuje zatwierdzoną etykietę, lecz tworzy nowe piksele.
+  Sam status `approved` nie dowodzi więc, że aktualny crop został obejrzany i
+  może bezpiecznie wejść do treningu klasyfikatora.
+- **Safety:** unknown, unreadable, grid issue, changed crop i missing asset są
+  jawnie raportowanymi wykluczeniami. Manifesty v1/v2 pozostają tylko do
+  reprodukcji istniejących iteracji.
+- **Consequences:** nowy crop wymaga ponownego zatwierdzenia przed treningiem;
+  korekta etykiety nie blokuje uczenia geometrii z zatwierdzonego quada.
+
+## D-249 — Fast documents jest jedyną bieżącą projekcją wyszukiwania
+
+- **Status:** accepted
+- **Date:** 2026-08-28
+- **Decision:** runtime utrzymuje `image_board_search_candidates` oraz jedną
+  wąską projekcję `image_board_search_fast_documents`. Stara tabela
+  `image_board_search_documents`, tekstowe tokeny dopasowań i legacy
+  `has_grid_issue` są usuwane przez migrację 0075. `quality_issue` jest jedynym
+  trwałym źródłem jakości komórki.
+- **Context:** właściciele starej i szybkiej projekcji są zgodni, a produkcyjne
+  odczyty korzystają z fast documents. Dalszy dual-write zwiększa koszt zapisu
+  i zajęte miejsce bez dostarczania odrębnej funkcji.
+- **Safety:** downgrade deterministycznie odbudowuje starą strukturę z
+  kandydatów i fast documents. Migracja nie usuwa obrazów, obserwacji ani
+  audytu i nie wykonuje `VACUUM FULL`. Przed uruchomieniem na danych użytkownika
+  wymagany jest raport rozmiaru i osobny checkpoint.
+- **Consequences:** publiczne `hasGridIssue` pozostaje czasowo wyliczane dla
+  zgodności API, ale ORM i zapisy nie zależą od usuniętej kolumny.
+
+## D-250 — Retencja storage jest manifestowana i fail-closed
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** odtwarzalne artefakty image pipeline'u mają domyślną retencję
+  24 h. Kwalifikacja jest deterministyczna i zapisywana w niezmiennym
+  manifeście. Aktywna zależność, niepełny handoff stagingu, chroniona
+  przestrzeń nazw, symlink albo niebezpieczna ścieżka zawsze blokują usunięcie.
+- **Context:** trwałe pełnowymiarowe bitmapy normalizacji, browserowe stagingi i
+  payloady etapów powodują liniowy wzrost dysku przy kolejnych rerunach.
+- **Safety:** pierwszy cleanup jest tylko preview i wymaga jawnego
+  potwierdzenia. GC nie usuwa originals, referencjonowanych cropów, modeli,
+  kohort, release'ów, audytu ani ręcznej selekcji. Nie uruchamia `VACUUM FULL`
+  ani kompaktowania VHDX.
+- **Consequences:** przyszłe usuwanie musi ponownie sprawdzić manifest, mtime,
+  rozmiar, zależności i granice zarządzanego rootu przed każdą partią.
+
+## D-251 — Pełny inwentarz storage jest trwałym jobem, nie requestem UI
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** pełne liczenie plików i bajtów wykonuje idempotentny job
+  `storage_inventory` w general lane. GET panelu korzysta z ostatniego
+  `storage_usage_snapshots` i bieżących stałoczasowych metadanych woluminów.
+- **Context:** zarządzany storage zawiera miliony plików. Synchroniczny skan po
+  otwarciu widoku blokowałby request, zwiększał obciążenie dysku i mógłby
+  powodować nakładające się pomiary.
+- **Safety:** job niczego nie usuwa, nie podąża za symlinkami i zapisuje tylko
+  agregaty. Równoległe starty są serializowane, a GC nadal wymaga osobnego
+  niezmiennego preview i jawnego potwierdzenia.
+- **Consequences:** wartości rozmiarów mogą być starsze do czasu jawnego
+  odświeżenia, dlatego panel zawsze pokazuje czas pomiaru.
+
+## D-252 — Późne payloady pipeline'u są odtwarzalne z manifestu terminalnego
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** po 24 godzinach terminalne execution może usunąć payloady
+  `board_cell_geometry`, `board_crops`, `sequence_ocr` i `symbol_inference`,
+  jeżeli nie ma aktywnej, błędnej ani nierozwiązanej zależności. Przed
+  usunięciem utrwalany jest checksumowany manifest adapterów, etapów i finalnych
+  wyników. `board_detection` pozostaje operacyjne dla korekty geometrii.
+- **Context:** JSONB późnych etapów zajmuje większość tabeli
+  `image_pipeline_stage_results`, mimo że finalne plansze, komórki, cropy i
+  decyzje są już osobnymi źródłami prawdy.
+- **Safety:** pierwszy run wymaga niezmiennego preview i jawnego potwierdzenia.
+  Każda partia rewaliduje execution i checksumy. Kompakcja nie usuwa obrazów,
+  audytu ani projekcji domenowych i nie wykonuje `VACUUM FULL`.
+- **Consequences:** kolejny rerun rekonstruuje brakujące późne etapy z managed
+  original; wcześniejsze manifesty pozostają audytowalne jako osobne wersje.
+
+## D-253 — Automatyczny GC jest aktywny po kontrolowanym odbiorze
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** po udanym, jawnie zatwierdzonym pierwszym cleanupie
+  `storage_gc_observe_only` ma domyślną wartość `false`. Tryb obserwacyjny
+  pozostaje dostępny przez zmienną środowiskową do diagnostyki i kolejnych
+  kontrolowanych rolloutów.
+- **Context:** pierwszy run usunął 39 514 bitmap i odzyskał 62 191 682 889 B,
+  pozostawiając jeden zmieniony kandydat jako konflikt. Inwentarz potwierdził
+  brak zmian w originals, cropach, modelach, training i stagingu. Kompakcja
+  PostgreSQL zakończyła 25 899 wykonań bez konfliktów.
+- **Safety:** progi 60/30/80 GiB, rewalidacja manifestu, zależności, mtime,
+  rozmiaru i ścieżki pozostają obowiązkowe. Automatyczny GC nie rozszerza
+  zakresu na chronione przestrzenie i nadal nie uruchamia `VACUUM FULL` ani
+  kompaktowania VHDX.
+- **Consequences:** po restarcie API system może automatycznie odzyskać tylko
+  dane spełniające zatwierdzoną politykę. Brak bezpiecznych kandydatów blokuje
+  nowe zapisy zamiast usuwać dane chronione.
+
 ## Szablon nowej decyzji
 
 ```text

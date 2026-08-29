@@ -4,6 +4,8 @@ from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.jobs import (
+    PAYOUT_ALGORITHM_VERSION,
+    BoardTopologyJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
@@ -46,9 +48,26 @@ class MemoryJobRepository(JobRepository):
         self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
         self.payout_rules: dict[UUID, PayoutRulesReference] = {}
         self.image_selection_deletions: dict[UUID, ImageSelectionJobDeletionReference] = {}
+        self.topology_rules_version_id = uuid4()
+        self.board_topology: tuple[int, int] | None = (3, 5)
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
+
+    def get_or_pin_board_topology(
+        self,
+        game_id: UUID,
+    ) -> BoardTopologyJobReference | None:
+        if game_id != self.game_id:
+            return None
+        if self.board_topology is None:
+            return None
+        rows, columns = self.board_topology
+        return BoardTopologyJobReference(
+            rules_version_id=self.topology_rules_version_id,
+            rows=rows,
+            columns=columns,
+        )
 
     def get_layout_import_rules_reference(
         self,
@@ -285,6 +304,28 @@ def test_job_type_requires_its_assigned_execution_lane() -> None:
         execution_slot=JobExecutionSlot.IMAGE_SELECTION,
         started_at=now,
     )
+
+    storage_gc = create_job(
+        JobType.STORAGE_GC,
+        game_id=None,
+        input_payload={
+            "schema_version": 1,
+            "storage_gc_run_id": str(uuid4()),
+            "policy_version": "storage-retention-v1",
+            "manifest_checksum_sha256": "a" * 64,
+            "mode": "manual",
+        },
+    )
+    storage_started = start_job(
+        storage_gc,
+        worker_version="worker-v10-general",
+        worker_id="general-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_slot=JobExecutionSlot.GENERAL,
+        started_at=now,
+    )
+    assert storage_started.execution_slot == JobExecutionSlot.GENERAL
     assert claimed.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
 
 
@@ -596,7 +637,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
             game_id=game_id,
             dataset_version_id=dataset_id,
             rules_version_id=rules_id,
-            algorithm_version="payout-v2",
+            algorithm_version=PAYOUT_ALGORITHM_VERSION,
         )
     assert incomplete.value.code == "PAYOUT_DATASET_INCOMPLETE"
 
@@ -612,7 +653,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
         game_id=game_id,
         dataset_version_id=dataset_id,
         rules_version_id=rules_id,
-        algorithm_version="payout-v2",
+        algorithm_version=PAYOUT_ALGORITHM_VERSION,
     )
 
     assert created.job_type is JobType.PAYOUT
@@ -620,7 +661,7 @@ def test_payout_job_requires_complete_published_matching_sources() -> None:
         "schema_version": 1,
         "dataset_version_id": str(dataset_id),
         "rules_version_id": str(rules_id),
-        "algorithm_version": "payout-v2",
+        "algorithm_version": PAYOUT_ALGORITHM_VERSION,
     }
 
 

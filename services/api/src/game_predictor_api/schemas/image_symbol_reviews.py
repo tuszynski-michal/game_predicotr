@@ -25,6 +25,10 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 from game_predictor_api.application.image_symbol_reviews import (
     MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    UnreadableBoardReviewDetail,
+    UnreadableBoardReviewPage,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewCounts,
@@ -56,6 +60,9 @@ class SymbolCellReviewListItemResponse(ApiModel):
     prediction_symbol_code: str | None
     review_state: str
     has_grid_issue: bool
+    quality_issue: str | None
+    is_unknown: bool
+    crop_approval_state: str
     revision: int = Field(ge=0)
     geometry_revision: int = Field(ge=0)
     crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -208,10 +215,79 @@ class SymbolCellReviewMutationResponse(ApiModel):
     review_state: str
     assigned_symbol_id: UUID | None
     has_grid_issue: bool
+    quality_issue: str | None
     board_status: str
     board_resolution_action: str | None
     board_reopened: bool
     catalog_revision: int = Field(ge=0)
+
+
+class UnreadableBoardReviewListItemResponse(ApiModel):
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    grid_rows: int = Field(ge=1)
+    grid_columns: int = Field(ge=1)
+    unreadable_count: int = Field(ge=1)
+    pending_unreadable_count: int = Field(ge=0)
+
+
+class UnreadableBoardReviewPageResponse(ApiModel):
+    items: tuple[UnreadableBoardReviewListItemResponse, ...]
+    next_cursor: str | None
+
+
+class UnreadableBoardReviewCellResponse(ApiModel):
+    cell_review_id: UUID
+    cell_index: int = Field(ge=0)
+    row_index: int = Field(ge=0)
+    column_index: int = Field(ge=0)
+    assigned_symbol_id: UUID | None
+    assigned_symbol_code: str | None
+    assigned_symbol_name: str | None
+    prediction_symbol_code: str | None
+    review_state: str
+    quality_issue: str | None
+    revision: int = Field(ge=0)
+    geometry_revision: int = Field(ge=0)
+    crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class UnreadableBoardReviewDetailResponse(ApiModel):
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    grid_rows: int = Field(ge=1)
+    grid_columns: int = Field(ge=1)
+    cells: tuple[UnreadableBoardReviewCellResponse, ...]
+
+
+class UnreadableSymbolAssignmentRequest(ApiModel):
+    kind: Literal["symbol"]
+    symbol_id: UUID
+
+
+class UnreadableUnknownAssignmentRequest(ApiModel):
+    kind: Literal["unknown"]
+
+
+UnreadableCellAssignmentRequest = Annotated[
+    UnreadableSymbolAssignmentRequest | UnreadableUnknownAssignmentRequest,
+    Field(discriminator="kind"),
+]
+
+
+class ResolveUnreadableCellRequest(ApiModel):
+    assignment: UnreadableCellAssignmentRequest
+    expected_revision: int = Field(ge=0)
+    expected_geometry_revision: int = Field(ge=0)
+    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 def to_symbol_cell_review_page_response(
@@ -237,10 +313,66 @@ def to_symbol_cell_review_mutation_response(
         review_state=result.review_state.value,
         assigned_symbol_id=result.assigned_symbol_id,
         has_grid_issue=result.has_grid_issue,
+        quality_issue=(None if result.quality_issue is None else result.quality_issue.value),
         board_status=result.board_status,
         board_resolution_action=result.board_resolution_action,
         board_reopened=result.board_reopened,
         catalog_revision=result.catalog_revision,
+    )
+
+
+def to_unreadable_board_review_page_response(
+    page: UnreadableBoardReviewPage,
+) -> UnreadableBoardReviewPageResponse:
+    return UnreadableBoardReviewPageResponse(
+        items=tuple(
+            UnreadableBoardReviewListItemResponse(
+                review_item_id=item.review_item_id,
+                recognized_board_id=item.recognized_board_id,
+                import_job_id=item.import_job_id,
+                sequence_number=item.sequence_number,
+                board_status=item.board_status,
+                grid_rows=item.grid_rows,
+                grid_columns=item.grid_columns,
+                unreadable_count=item.unreadable_count,
+                pending_unreadable_count=item.pending_unreadable_count,
+            )
+            for item in page.items
+        ),
+        next_cursor=page.next_cursor,
+    )
+
+
+def to_unreadable_board_review_detail_response(
+    detail: UnreadableBoardReviewDetail,
+) -> UnreadableBoardReviewDetailResponse:
+    return UnreadableBoardReviewDetailResponse(
+        review_item_id=detail.review_item_id,
+        recognized_board_id=detail.recognized_board_id,
+        import_job_id=detail.import_job_id,
+        sequence_number=detail.sequence_number,
+        board_status=detail.board_status,
+        grid_rows=detail.grid_rows,
+        grid_columns=detail.grid_columns,
+        cells=tuple(
+            UnreadableBoardReviewCellResponse(
+                cell_review_id=cell.cell_review_id,
+                cell_index=cell.cell_index,
+                row_index=cell.row_index,
+                column_index=cell.column_index,
+                assigned_symbol_id=cell.assigned_symbol_id,
+                assigned_symbol_code=cell.assigned_symbol_code,
+                assigned_symbol_name=cell.assigned_symbol_name,
+                prediction_symbol_code=cell.prediction_symbol_code,
+                review_state=cell.review_state,
+                quality_issue=cell.quality_issue,
+                revision=cell.revision,
+                geometry_revision=cell.geometry_revision,
+                crop_sample_id=cell.crop_sample_id,
+                crop_checksum_sha256=cell.crop_checksum_sha256,
+            )
+            for cell in detail.cells
+        ),
     )
 
 
@@ -379,6 +511,9 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         prediction_symbol_code=item.prediction_symbol_code,
         review_state=item.review_state.value,
         has_grid_issue=item.has_grid_issue,
+        quality_issue=(None if item.quality_issue is None else item.quality_issue.value),
+        is_unknown=item.is_unknown,
+        crop_approval_state=item.crop_approval_state.value,
         revision=item.revision,
         geometry_revision=item.geometry_revision,
         crop_sample_id=item.crop_sample_id,
@@ -404,6 +539,11 @@ __all__ = [
     "SymbolCellReviewPageResponse",
     "SymbolCellReviewProjectionStartResponse",
     "SymbolCellReviewProjectionStatusResponse",
+    "ResolveUnreadableCellRequest",
+    "UnreadableBoardReviewDetailResponse",
+    "UnreadableBoardReviewPageResponse",
+    "UnreadableSymbolAssignmentRequest",
+    "UnreadableUnknownAssignmentRequest",
     "to_symbol_cell_review_bulk_operation_response",
     "to_symbol_cell_review_bulk_preview_response",
     "to_symbol_cell_review_bulk_request",
@@ -411,4 +551,6 @@ __all__ = [
     "to_symbol_cell_review_page_response",
     "to_symbol_cell_review_projection_start_response",
     "to_symbol_cell_review_projection_status_response",
+    "to_unreadable_board_review_detail_response",
+    "to_unreadable_board_review_page_response",
 ]

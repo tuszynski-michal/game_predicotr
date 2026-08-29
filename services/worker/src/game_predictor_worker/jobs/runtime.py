@@ -32,6 +32,7 @@ class JobExecutionResult(StrEnum):
     CANCELLED = "cancelled"
     WAITING_FOR_REVIEW = "waiting_for_review"
     LEASE_LOST = "lease_lost"
+    WAITING_FOR_STORAGE = "waiting_for_storage"
 
 
 class JobHandlerError(RuntimeError):
@@ -110,15 +111,25 @@ class WorkerJobStore(Protocol):
         paused_at: datetime,
     ) -> Job: ...
 
+    def defer_for_storage(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        checkpoint_payload: dict[str, object],
+        deferred_at: datetime,
+    ) -> Job: ...
+
 
 class JobHandler(Protocol):
     def __call__(self, context: JobExecutionContext, job: Job) -> None: ...
 
 
 class _ExecutionStopped(RuntimeError):
-    def __init__(self, status: JobStatus) -> None:
+    def __init__(self, status: JobStatus, *, waiting_for_storage: bool = False) -> None:
         super().__init__(status.value)
         self.status = status
+        self.waiting_for_storage = waiting_for_storage
 
 
 class _LeaseKeepalive:
@@ -254,6 +265,15 @@ class JobExecutionContext:
         )
         raise _ExecutionStopped(self._job.status)
 
+    def wait_for_storage(self, *, checkpoint_payload: dict[str, object]) -> None:
+        self._job = self._store.defer_for_storage(
+            self._job.id,
+            lease_token=self._lease_token,
+            checkpoint_payload=checkpoint_payload,
+            deferred_at=self._clock(),
+        )
+        raise _ExecutionStopped(self._job.status, waiting_for_storage=True)
+
 
 class LocalJobWorker:
     def __init__(
@@ -331,6 +351,8 @@ class LocalJobWorker:
             )
             return _result_for_status(completed.status)
         except _ExecutionStopped as stopped:
+            if stopped.waiting_for_storage:
+                return JobExecutionResult.WAITING_FOR_STORAGE
             return _result_for_status(stopped.status)
         except JobConflictError as error:
             if error.code == "JOB_LEASE_LOST":

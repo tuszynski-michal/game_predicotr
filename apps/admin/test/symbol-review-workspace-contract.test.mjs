@@ -25,6 +25,7 @@ test('provides game, symbol, state and unknown filters', () => {
   assert.match(source, /state: 'pending'/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
+  assert.match(source, /mark_unreadable/);
 });
 
 test('uses lazy, checksum-bound assets with a local fallback per failed image', () => {
@@ -51,7 +52,8 @@ test('keeps one bounded five-hundred-item page with background bulk controls', (
     source,
     /disabled=\{interactionBusy \|\| pendingCellIds\.has\(item\.id\)\}/,
   );
-  assert.match(source, /Oznacz złą siatkę/);
+  assert.match(source, />\s*Zła siatka\s*</);
+  assert.match(source, /Nieczytelny symbol/);
   assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
@@ -71,6 +73,9 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /pendingCellIds/);
   assert.match(source, /hiddenCellIds/);
   assert.match(styles, /\.cardPending/);
+  assert.match(styles, /\.cardBadge/);
+  assert.match(source, /item\.qualityIssue === 'unreadable'/);
+  assert.match(source, /item\.cropApprovalState === 'changed_since_approval'/);
   assert.match(styles, /symbolReviewSpin/);
   assert.match(source, /applySingleSymbolReviewDecision/);
   assert.match(source, /Symbol został zmieniony/);

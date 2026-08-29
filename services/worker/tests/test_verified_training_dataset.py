@@ -193,6 +193,53 @@ def test_cell_cohort_trains_without_a_complete_board(work_root: Path) -> None:
     assert {sample["symbolCode"] for sample in result.manifest["samples"]} == {"A", "B"}
 
 
+def test_v3_cell_cohort_requires_matching_approved_crop_provenance(
+    work_root: Path,
+) -> None:
+    cohort_path, _cohort_checksum = _cell_cohort(work_root)
+    payload = json.loads(cohort_path.read_text(encoding="utf-8"))
+    payload["schemaVersion"] = 3
+    payload["datasetKind"] = "verified-symbol-cell-training-cohort-v3-crop-provenance"
+    payload["trainingEligibilityVersion"] = "symbol-cell-training-eligible-v1"
+    payload["exclusions"] = {
+        "changedCrop": 0,
+        "gridIssue": 0,
+        "missingAsset": 0,
+        "unknown": 0,
+        "unreadable": 0,
+    }
+    for cell in payload["cells"]:
+        cell["approvedCrop"] = {
+            "cropChecksumSha256": cell["cropChecksumSha256"],
+            "cropSampleId": cell["cropSampleId"],
+            "geometryRevision": cell["geometryRevision"],
+        }
+    content = _canonical(payload)
+    cohort_path.write_bytes(content)
+
+    result = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=hashlib.sha256(content).hexdigest(),
+        artifact_root=work_root,
+        game_code="fixture-game-v3",
+        symbols=_symbols(),
+    )
+    assert result.sample_count == 4
+
+    payload["cells"][0]["approvedCrop"]["geometryRevision"] = 0
+    changed = _canonical(payload)
+    cohort_path.write_bytes(changed)
+    with pytest.raises(TrainingDatasetBuildError) as error:
+        build_cumulative_training_dataset(
+            cohort_path=cohort_path,
+            expected_cohort_checksum_sha256=hashlib.sha256(changed).hexdigest(),
+            artifact_root=work_root,
+            game_code="fixture-game-v3-changed",
+            symbols=_symbols(),
+        )
+    assert error.value.code == "TRAINING_DATASET_CROP_PROVENANCE_INVALID"
+
+
 def test_build_is_deterministic_content_addressed_and_source_disjoint(
     work_root: Path,
 ) -> None:

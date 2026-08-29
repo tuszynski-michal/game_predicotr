@@ -107,20 +107,23 @@ zależy później od obecności folderu użytkownika.
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,
-- kontrakt `image-normalization-v1` stosuje wartości Orientation 1–8 przez
-  `ImageOps.exif_transpose`; brak tagu zapisuje jawne `null`,
-- wynik jest czystym RGB PNG bez EXIF i bez kolejnej stratnej kompresji,
+- kontrakt `image-normalization-v2-in-memory-source-v1` stosuje wartości
+  Orientation 1–8 przez `ImageOps.exif_transpose`,
+- wynik jest czystą macierzą RGB utrzymywaną wyłącznie w ograniczonym cache
+  bieżącego wykonania; stage result zapisuje wymiary, orientację i checksumę
+  pikseli, ale nie pełnowymiarowy PNG,
 - przygotowanie kopii roboczych w przestrzeniach kolorów potrzebnych algorytmom,
 - opcjonalna korekta jasności i kontrastu wyłącznie w kopii,
 - zachowanie oryginału bez modyfikacji,
 - ponowna weryfikacja discovery manifestu i SHA-256 przed dekodowaniem,
-- content-addressed, niezmienne artefakty poza katalogiem źródłowym,
-- diagnostyka zawierająca źródłowy/wynikowy SHA-256, wymiary, tryb, orientację,
-  transformację, ścieżkę względną i wersje pipeline/Pillow,
+- managed original pozostaje niezmiennym źródłem ponownego dekodowania,
+- diagnostyka zawiera źródłowy SHA-256, checksumę pikseli, wymiary, tryb,
+  orientację, transformację i wersję adaptera,
 - limit 50 000 000 pikseli na źródło ze stabilnym błędem.
 
-Retry zwraca istniejący artefakt tylko po porównaniu pełnych bajtów. Odmienna
-zawartość pod tą samą ścieżką jest kolizją i nie zostaje nadpisana.
+Historyczny kontrakt v1 pozostaje odtwarzalny. Jeśli jego PNG został bezpiecznie
+usunięty, retry odbudowuje dokładne bajty z managed original i wymaga zgodności
+z checksumą stage result; drift kończy się fail-closed.
 
 ### 3. Detekcja strony i layoutów
 
@@ -264,7 +267,12 @@ odtwarzalny, lecz nie obsługuje aktywnego edytora v19.
 
 Zapis zachowuje istniejący source-native obraz referencyjny bez tworzenia
 pośredniej planszy `500 × 300`, tworzy nowe `cropSampleId` dla 15 nowych
-checksum i ponownie otwiera tylko bieżącą planszę do weryfikacji symboli.
+checksum i zatwierdza utworzoną rewizję geometrii. Zatwierdzone etykiety
+pozostają logicznie zatwierdzone, lecz ich poprzednia tożsamość cropa nie jest
+automatycznie przepisywana na nowe piksele. Nowy crop nie kwalifikuje się do
+treningu do czasu jawnej ponownej weryfikacji. Pole oznaczone wcześniej jako
+`grid_issue` wraca po recropie jako `pending`; komplet pozostałych etykiet może
+ponownie domknąć planszę przez atomowy koordynator decyzji.
 Nie aktywuje estymatora v19 dla pipeline'u ani pending-only recropu innych
 plansz.
 
@@ -300,6 +308,14 @@ jawnie, a brak pola w API również wybiera v19.
 Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
 niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
 snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
+Nowe snapshoty przypinają także `gridRows`, `gridColumns` i
+`topologyRulesVersionId`. Automatyczny adapter
+`board-cell-processing-v20-verified-v19-v1` deklaruje wyłącznie obsługę 3 × 5
+i odrzuca inną topologię stabilnym `IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED`.
+Wspólny source-direct cropper oraz ręczna geometria dzielą quad generycznie na
+`rows × columns` w kolejności row-major; nie tworzą pośredniej bitmapy planszy.
+Historyczne snapshoty bez topologii pozostają interpretowane jako 3 × 5 i
+zachowują dotychczasowe fingerprinty.
 
 Przed etapem `board_crops` executor zapisuje osobny, niezmienny wynik
 `board_cell_geometry`. Dla każdej z dziewięciu plansz dozwolony jest wyłącznie
@@ -765,11 +781,40 @@ data/
 Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje dużych zdjęć w głównych tabelach domenowych ani w mobilnym SQLite.
 
 Od M7.3 katalog `data/` jest jedynym zarządzanym rootem image storage.
-Inwentarz może odczytywać wyłącznie sześć powyższych przestrzeni, nie podąża
+Inwentarz może odczytywać wyłącznie zarządzane przestrzenie `staging`,
+`originals`, `working`, `crops`, `training`, `models` i `exports`, nie podąża
 za dowiązaniami symbolicznymi i raportuje liczbę pominiętych dowiązań.
 Automatyczne usuwanie jest wyłączone dla każdej przestrzeni. `originals` i
 `models` mają politykę `preserve`; pozostałe dane są wersjonowane, ale również
 nie mogą zostać usunięte przez TASK-0073.
+
+TASK-0306 zastępuje ogólną blokadę usuwania precyzyjną polityką retencji dla
+danych odtwarzalnych. Kwalifikacja wymaga niezmiennego manifestu, upływu 24 h
+od ostatniej zależności i braku joba `created`/`processing`. `originals`,
+referencjonowane cropy, modele, kohorty, snapshoty, release'y, audyt, eksporty
+i ręczna selekcja nadal nie podlegają automatycznemu usuwaniu. Browserowy
+staging może zostać zakwalifikowany dopiero po kompletnym, checksumowanym
+handoffie wszystkich JPEG-ów do managed originals i zakończeniu zależnych
+preflightów/importów.
+
+Pełny pomiar przestrzeni nazw jest wykonywany przez bounded job
+`storage_inventory` w general lane i zapisywany jako snapshot. Wejście do
+panelu nie uruchamia synchronicznego skanu drzewa plików. Panel pokazuje
+ostatni pomiar i jawnie rozróżnia tryb obserwacji od aktywnego automatycznego
+usuwania.
+Do zakończenia pierwszego odbioru ustawienie
+`GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY` domyślnie ma wartość `false`; capacity
+guard nadal blokuje ryzykowne zapisy, ale nie uruchamia destrukcyjnego GC.
+
+Terminalne wykonania pipeline'u mogą po 24 godzinach utracić ciężkie,
+odtwarzalne payloady etapów `board_cell_geometry`, `board_crops`,
+`sequence_ocr` i `symbol_inference`. Przed usunięciem powstaje checksumowany
+manifest zawierający źródło, fingerprint pipeline'u, wersje adapterów,
+checksumy etapów i finalne identyfikatory wyników. Bieżące projekcje domenowe,
+decyzje, eventy, canonical owner, cropy oraz managed original pozostają.
+`board_detection` nie podlega tej kompakcji, dopóki jest źródłem operacyjnej
+korekty i kalibracji geometrii. Rerun odtwarza brakujące późne etapy z managed
+original i zachowanych etapów wejściowych.
 
 Wyjątkiem jest jawny reset danych layoutów gry z TASK-0133. Po pokazaniu
 pełnego preview i mocnym potwierdzeniu może usunąć zarządzane oryginały oraz
@@ -846,6 +891,14 @@ i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
 `00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
 `relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
 
+Finalizacja zapisuje trwały stan `ready`, a start preflightu lub importu stan
+`in_use`. Worker może zapisać `ingested` dopiero po skopiowaniu i ponownej
+weryfikacji rozmiaru oraz SHA-256 każdego JPEG-a z manifestu — również źródeł,
+które później zostaną pominięte jako kanoniczne lub odroczone przez geometrię.
+Po tym handoffie staging może stać się kandydatem GC po 24 godzinach od
+ostatniej aktywnej zależności. Historia importu i rerun korzystają wtedy z
+niezmiennego manifestu managed originals, a nie z browserowej kopii.
+
 Browserowy import plansz ma osobny limit
 `GAME_PREDICTOR_BROWSER_LAYOUT_IMPORT_MAX_BYTES`, domyślnie 20 GiB. Nie dzieli
 limitu 1 GiB przeznaczonego dla ręcznych plików CSV/JSONL ani limitu selekcji
@@ -860,7 +913,8 @@ backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 
-Staging z `purpose=layout_import` może zostać usunięty wyłącznie jawną akcją
-Admina. Staging przypisany do innej gry jest ukryty przed bieżącą grą i blokuje
-próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
+Pierwsze czyszczenie istniejących stagingów wymaga jawnego preview i akceptacji
+Admina. Po włączeniu zatwierdzonej polityki automatycznej usuwalne są wyłącznie
+stagingi z kompletnym handoffem; staging przypisany do innej gry jest ukryty
+przed bieżącą grą i blokuje próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
 logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.

@@ -367,6 +367,8 @@ class SqlAlchemyImagePipelineStore:
                         pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
                         status="pending_review",
                         created_at=executed_at,
+                        grid_rows=_optional_positive_integer(cropped.get("gridRows")),
+                        grid_columns=_optional_positive_integer(cropped.get("gridColumns")),
                     )
                     session.add(board)
                     session.flush()
@@ -1055,11 +1057,15 @@ def _require_same_board(
         cropped=cropped,
         sequence=sequence,
     )
+    expected_grid_rows = _optional_positive_integer(cropped.get("gridRows"))
+    expected_grid_columns = _optional_positive_integer(cropped.get("gridColumns"))
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
         or board.sequence_confidence != float(cast(float, sequence["confidence"]))
         or canonical_json_bytes(board.board_geometry) != canonical_json_bytes(expected_geometry)
+        or board.grid_rows != expected_grid_rows
+        or board.grid_columns != expected_grid_columns
         or board.board_relative_path != cropped["boardRelativePath"]
         or board.board_checksum_sha256 != cropped["boardChecksumSha256"]
         or canonical_json_bytes(board.cells_prediction) != canonical_json_bytes(prediction)
@@ -1250,6 +1256,17 @@ def _mobile_codes(
             "Every reviewed symbol must be active in the image import game.",
         )
     return [by_code[code] for code in symbol_codes]
+
+
+def _optional_positive_integer(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ImagePipelineStoreError(
+            "IMAGE_PIPELINE_TOPOLOGY_INVALID",
+            "The pinned board topology dimensions are invalid.",
+        )
+    return value
 
 
 __all__ = [

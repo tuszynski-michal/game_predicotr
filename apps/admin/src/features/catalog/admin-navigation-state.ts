@@ -5,6 +5,7 @@ export const ADMIN_WORKSPACES = [
   'image-selection',
   'manual-image-selection',
   'symbol-verification',
+  'storage',
 ] as const;
 export type AdminWorkspace = (typeof ADMIN_WORKSPACES)[number];
 
@@ -14,6 +15,7 @@ export const GAME_SECTIONS = [
   'board-search',
   'rules',
   'reviews',
+  'unreadable-symbols',
   'model-quality',
 ] as const;
 export type GameSection = (typeof GAME_SECTIONS)[number];

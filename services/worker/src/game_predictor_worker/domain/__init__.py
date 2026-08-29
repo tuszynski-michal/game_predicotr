@@ -15,11 +15,13 @@ from game_predictor_worker.domain.contracts import (
     SymbolDefinition,
 )
 from game_predictor_worker.domain.errors import DomainErrorCode, DomainValidationError
-from game_predictor_worker.domain.payout import evaluate_payout
+from game_predictor_worker.domain.payout import evaluate_payout, evaluate_payout_v2
 from game_predictor_worker.domain.signature import (
     MAX_SIGNATURE_CELL_WIDTH,
     MAX_SYMBOL_MOBILE_CODE,
+    decode_layout_signature,
     decode_signature,
+    encode_layout_signature,
     encode_signature,
     encode_signature_prefix,
 )
@@ -28,6 +30,7 @@ from game_predictor_worker.domain.validation import (
     validate_board_prefix,
     validate_full_board,
     validate_game_config,
+    validate_layout_board,
     validate_paylines,
     validate_payout_configuration,
     validate_payout_rules,
@@ -53,12 +56,16 @@ __all__ = [
     "SequencePayout",
     "SymbolDefinition",
     "decode_signature",
+    "decode_layout_signature",
     "encode_signature",
+    "encode_layout_signature",
     "encode_signature_prefix",
     "evaluate_payout",
+    "evaluate_payout_v2",
     "validate_board_dimensions",
     "validate_board_prefix",
     "validate_full_board",
+    "validate_layout_board",
     "validate_game_config",
     "validate_paylines",
     "validate_payout_configuration",

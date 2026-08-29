@@ -665,12 +665,13 @@ pod wieloma nazwami tworzą jedną tożsamość treści z listą ścieżek. Znan
 manifest pozwala wybrać wyłącznie nowe checksumy bez zmiany pełnego manifestu
 źródła. Manifest nie zawiera ścieżki absolutnej ani binarnej treści zdjęcia.
 
-Normalizacja używa kontraktu `image-normalization-v1` i Pillow
-`ImageOps.exif_transpose`. Po ponownej kontroli manifestu i SHA-256 zapisuje
-czyste RGB PNG jako
-`image-normalization-v1/<prefix>/<source-sha256>/normalized.png` oraz
-`diagnostic.json`. Artefakty są względne wobec osobnego working root,
-content-addressed i niezmienne; retry porównuje bajty, a kolizji nie nadpisuje.
+Nowe joby używają `image-normalization-v2-in-memory-source-v1` i Pillow
+`ImageOps.exif_transpose`. Znormalizowana macierz RGB jest przechowywana tylko
+w cache jednego bieżącego file execution, a trwały stage result zawiera
+tożsamość managed original, wymiary, orientację i checksumę pikseli. Downstream
+korzysta ze wspólnego loadera i nie wymaga pełnowymiarowego `normalized.png`.
+Historyczny v1 pozostaje przypięty do starych jobów; brakujący PNG może zostać
+odbudowany wyłącznie przy identycznej checksumie oczekiwanych bajtów.
 
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
@@ -1289,6 +1290,30 @@ każdym spinie.
 - FastAPI, Next.js i worker uruchamiane lokalnie,
 - Admin web i Reviewer web są osobnymi procesami Next.js na różnych portach,
 - lokalny system plików dla zdjęć i artefaktów,
+- trwały model retencji rozdziela read-only inwentarz, niezmienny preview i
+  przyszły job `storage_gc`; kandydaci przechowują w bazie wyłącznie metadane i
+  ścieżki względne, a nie binaria,
+- `browser_selection_retention_states` przechowuje lifecycle browser stagingu;
+  API zapisuje `ready`/`in_use`, a worker zapisuje `ingested` dopiero po
+  weryfikacji wszystkich managed originals. Kopiowanie poprzedza filtrowanie
+  kanoniczne i geometrii, dzięki czemu cleanup stagingu nie odbiera źródła do
+  późniejszego rerunu,
+- `storage_gc` wykonuje wyłącznie niezmienny manifest utworzony przez lokalne
+  API. Partie są ograniczone do 250 ścieżek lub 512 MiB; każda ścieżka jest
+  ponownie walidowana, atomowo przenoszona do trash na tym samym woluminie i
+  usuwana. Trwały marker po przeniesieniu pozwala rozpoznać usunięcie po crashu
+  przed checkpointem. Korzenie przestrzeni nazw, symlinki i ścieżki poza
+  allowlistą nigdy nie są usuwane,
+- `storage_inventory` wykonuje pełny skan przestrzeni nazw poza cyklem requestu,
+  deduplikuje wspólne woluminy `artifact_root`/`import_root` i zapisuje
+  `storage_usage_snapshots`; GET panelu czyta ostatni snapshot oraz bieżące
+  metadane wolnego miejsca bez materializowania listy plików,
+- `storage_pipeline_compaction` usuwa po 24 godzinach wyłącznie odtwarzalne,
+  późne payloady etapów z terminalnych wykonań. Preview jest keysetowym JSONL,
+  a worker przed każdą partią ponownie sprawdza execution, zależności,
+  nierozwiązaną geometrię i checksumy. Kompaktowy manifest audytowy pozostaje
+  w PostgreSQL; po wykonaniu używany jest tylko `VACUUM (ANALYZE)`, bez
+  blokującego przepisywania tabeli,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

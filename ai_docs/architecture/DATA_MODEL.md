@@ -732,6 +732,28 @@ aktywnym lease jest idempotentny tylko dla identycznej wersji i kanonicznego
 payloadu. Manual review pozostaje projekcją konkretnego importu, a nie częścią
 globalnego cache.
 
+Po retencji payloady `board_cell_geometry`, `board_crops`, `sequence_ocr` i
+`symbol_inference` mogą zostać usunięte wyłącznie po zapisaniu wersjonowanego
+`image_pipeline_terminal_manifests`. Jeden execution może mieć więcej niż
+jeden manifest historyczny po kolejnych kontrolowanych rerunach. Manifest
+zawiera checksumy i rozmiary etapów oraz finalne identyfikatory, ale nie
+binaria. `discovery`, `normalization` i `board_detection` pozostają w tabeli,
+ponieważ nadal są wejściem retry i operacyjnej korekty geometrii.
+
+### image_pipeline_terminal_manifests
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| file_execution_key | varchar(64) | FK execution |
+| manifest_checksum_sha256 | varchar(64) | niezmienna wersja manifestu |
+| manifest_payload | JSONB | źródło, fingerprint, adaptery, checksumy i finalne ID |
+| stage_result_count / stage_result_bytes | integer / bigint | logiczny stan przed kompakcją |
+| compacted_at / last_verified_at | timestamptz | wykonanie i ostatnia rewalidacja |
+
+Unikalność `(file_execution_key, manifest_checksum_sha256)` zachowuje audyt
+ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
+
 ### recognized_boards
 
 | Pole | Typ | Uwagi |
@@ -860,7 +882,7 @@ TASK-0294 dodaje do tego samego read modelu wirtualny widok
 `needs_grid_fix`. Nie jest to flaga planszy ani kolejna projekcja: element
 należy do widoku wyłącznie wtedy, gdy dla jego bieżącej rewizji geometrii
 istnieje co najmniej jedna `image_symbol_review_cells` z
-`review_state = pending` i `has_grid_issue = true`. Repozytorium używa
+`review_state = pending` i `quality_issue = grid_issue`. Repozytorium używa
 skorelowanego `EXISTS`, dlatego wiele oznaczonych komórek nadal zwraca jedną
 planszę. Zapis nowej geometrii tworzy nową rewizję, resetuje wszystkie 15
 komórek i usuwa poprzednie flagi, więc plansza znika z tego widoku bez osobnego
@@ -896,8 +918,10 @@ bieżącą rewizją geometrii i aktualną tożsamością cropa.
 zapisuje grę, import, planszę, dodatni `sequence_number`, pozycję row-major
 `0..14`, `crop_sample_id`, bezpieczną ścieżkę, SHA-256, rewizję geometrii,
 wersję croppera, sugestię modelu oraz opcjonalnie przypisany aktywny symbol.
-`NULL` w przypisaniu oznacza techniczne `?`; `approved` wymaga realnego
-symbolu. Flaga `has_grid_issue` może wystąpić wyłącznie przy stanie `pending`.
+`NULL` w przypisaniu oznacza techniczne `?`; zwykłe `approve` wymaga realnego
+symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domenowe
+`?`. Problem `quality_issue = grid_issue` może wystąpić wyłącznie przy stanie
+`pending`.
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
 
@@ -908,19 +932,83 @@ jego pochodzenie jest zapisane w rekordzie komórki i raporcie przebudowy.
 Pełna decyzja Reviewera, jej ponowne otwarcie, zmiana geometrii, wynik
 reinferencji, powstanie nowego elementu pipeline’u i zmiana właściciela
 sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
-zawsze zastępuje wszystkie
-15 bieżących komórek nowymi cropami `pending` bez flagi siatki; reinferencja
-zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia człowieka.
-Pojedyncza akcja `approve`, `reassign` albo `mark_grid_issue` jest związana z
+zastępuje bieżącą tożsamość cropa każdej komórki. Zwykła zatwierdzona etykieta
+pozostaje `approved` z proweniencją poprzednio zatwierdzonych pikseli, natomiast
+pole oznaczone `grid_issue` wraca jako `pending` bez problemu jakości.
+Reinferencja zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia
+człowieka.
+Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue` albo
+`mark_unreadable` jest związana z
 dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
-15 aktualnych `approved` bez `?` oraz bez flagi siatki domyka planszę przez
-istniejący canonical flow jako `accepted` lub `corrected`. Oznaczenie złej
+komplet `rows × columns` aktualnych `approved` bez problemu siatki domyka
+planszę przez istniejący canonical flow jako `accepted` lub `corrected`, ale
+wyłącznie przy zatwierdzonej bieżącej rewizji geometrii. Oznaczenie złej
 siatki na domkniętej planszy usuwa canonical i staging, otwiera jej kolejkę
 oraz job importu, ale zachowuje pozostałe 14 zatwierdzeń dla niezmienionych
-cropów. Tylko zapis nowej geometrii unieważnia wszystkie 15 pozycji.
+cropów. Nowa geometria unieważnia treningową proweniencję nowych pikseli, ale
+nie kasuje bezpiecznej decyzji logicznej dla nieoznaczonych pól.
 Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.
+
+Docelowy model 0.9 rozszerza tę projekcję bez łączenia jej z niezmiennymi
+`cell_observations`. `review_state` opisuje wyłącznie logiczną etykietę,
+`quality_issue` rozróżnia `grid_issue` i `unreadable`, a pola
+`approved_crop_sample_id`, `approved_crop_checksum_sha256` oraz
+`approved_geometry_revision` wskazują dokładne piksele ostatnio zatwierdzone
+przez człowieka. Stan `current`, `changed_since_approval` albo `unverified` jest
+wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop nie kasuje
+zatwierdzonej etykiety, ale do czasu ponownej weryfikacji nowych pikseli blokuje
+ich udział w treningu.
+
+Źródło bieżącej kohorty symboli stosuje wspólny predykat
+`symbol-cell-training-eligible-v1`. Oprócz aktywnej etykiety, braku problemu
+jakości i aktualnego właściciela wymaga dokładnej zgodności
+`crop_sample_id/crop_checksum_sha256/geometry_revision` z polami
+`approved_*` oraz ponownej kontroli pliku. Manifest
+`verified-symbol-cell-training-cohort-v3-crop-provenance` utrwala obie
+tożsamości i zbiorcze przyczyny wykluczeń; nie kopiuje obrazów do bazy.
+
+Wymiary komórek nie są własnością tej projekcji. Pochodzą z
+`rules_versions.rows/columns`, są przypinane przez grę przed pierwszym importem
+i snapshotowane na rozpoznanej planszy. Wartość `NULL` przypisania może stać
+się ręcznie zatwierdzonym domenowym `?`; nie tworzy rekordu w `symbols` i nigdy
+nie kwalifikuje cropa do treningu. Trwałość tych pól wprowadza migracja
+`0073_topology_geometry_crop_provenance`. Migracja 0075 kończy okres dual-write:
+`quality_issue` jest jedynym trwałym źródłem jakości, a publiczne pole
+`hasGridIssue` pozostaje wyłącznie zgodnym wstecznie polem wyliczanym.
+Bounded backfill przypina wyłącznie wersję reguł
+zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz oraz
+uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
+grę raportem; nie jest naprawiana heurystycznie.
+
+Nowy import z aktywnym pipeline'em geometrii przypina tę samą topologię w
+jobowym snapshotcie, fingerprintcie croppera i content-addressed manifeście
+odroczenia. `recognized_boards.grid_rows/grid_columns` zapisują wymiary użyte
+przy utworzeniu cropów. Historyczne artefakty bez pól topologii pozostają
+odtwarzalne jako 3 × 5; jawnie przypięty artefakt nie może być przetworzony
+cropperem o innych wymiarach.
+
+Migracja dodaje również `image_board_geometry_review_events` jako append-only
+audyt zatwierdzenia geometrii. Nie przechowuje obrazów ani overlayów. Migracja
+0073 jest addytywna i odwracalna przed uruchomieniem nowych write paths.
+Migracja 0075 usuwa legacy `has_grid_issue` dopiero po przełączeniu wszystkich
+odczytów i zapisów na `quality_issue`.
+
+Kolejka nieczytelnych plansz nie ma osobnej tabeli. Jest wyliczana przez
+`EXISTS` po bieżących `image_symbol_review_cells` i łączona z
+`image_board_search_fast_documents`, dlatego zwraca tylko jednego aktualnego
+właściciela numeru. Rozwiązanie realnym symbolem albo `NULL` pozostawia
+`quality_issue = unreadable` jako trwałą informację o jakości i zapisuje
+istniejący append-only event komórki. Bieżąca tożsamość cropa może zostać
+zapisana jako zatwierdzona, ale `trainingEligible` nadal jest fałszywe z powodu
+problemu jakości.
+
+Plansza zawierająca zatwierdzone `NULL` może zostać logicznie domknięta i
+odzyskać `image_sequence_canonical`. Do migracji 0074 nie powstaje dla niej
+wiersz stagingu layoutu, ponieważ obecny codec datasetu nie dopuszcza jeszcze
+sentinela `mobileCode = 0`. Nie jest to utrata decyzji: pełne `resolved_value`,
+canonical i eventy pozostają źródłem późniejszej publikacji przez TASK 10.
 
 Migracja `0070_symbol_cell_review_backfill_job` dodaje trwały typ joba
 `image_symbol_review_backfill`. Sam postęp domenowy nadal jest przechowywany w
@@ -952,7 +1040,8 @@ obrazu ani substytut checksumy cropa.
 Od `v0.8.24` masowa weryfikacja cropów jest trwałą operacją, a nie jednym
 requestem HTTP. `image_symbol_review_bulk_operations` utrwala grę, job typu
 `image_symbol_review_bulk`, akcję `approve` / `reassign` /
-`mark_grid_issue`, opcjonalny docelowy symbol, sposób zaznaczenia, aktora,
+`mark_grid_issue` lub `mark_unreadable`, opcjonalny docelowy symbol, sposób
+zaznaczenia, aktora,
 idempotency key, canonical checksumę komendy, stan oraz liczniki
 `applied` / `conflict` / `failed`. Ten sam `game_id + idempotency_key` zwraca
 wyłącznie tę samą komendę; inna komenda z tym kluczem jest konfliktem.
@@ -1172,7 +1261,7 @@ obrazów ani ścieżek absolutnych.
 | recognized_board_id | UUID | FK board, część PK |
 | review_item_id | UUID | unikalny FK rozwiązanej decyzji |
 | sequence_number | bigint | zaakceptowany dodatni numer |
-| cells | smallint[15] | aktywne `mobile_code`, row-major |
+| cells | smallint[] | `rows × columns`, aktywne `mobile_code` albo `0` jako unknown, row-major |
 | created_at | timestamptz | |
 
 Predykcja automatyczna nigdy nie tworzy wiersza. Materializacja następuje
@@ -1542,6 +1631,13 @@ wyłącznie przez dodanie opcjonalnych etykiet `name_pl` i `name_en` do tabeli
 `symbols`. Generator, manifest i mobile muszą zgadzać się co do schema v3;
 starsze APK nadal używają własnego niezmiennego snapshotu schema v2.
 
+Wersja 0.9 wprowadza `snapshot_schema_version = 4` i
+`PRAGMA user_version = 4`. Kod `0` w sygnaturze layoutu oznacza wyłącznie
+logical unknown i jest jawnie zapisany w metadata jako
+`unknown_layout_mobile_code = 0`. Tabela `symbols` nadal dopuszcza wyłącznie
+`mobile_code` z zakresu `1..32767`. Aktualna aplikacja obsługuje snapshoty v3
+i v4; aplikacja znająca tylko v3 nie może zostać zbudowana z wydaniem v4.
+
 ### metadata
 
 ```text
@@ -1556,6 +1652,7 @@ Obowiązkowe klucze:
 - `algorithm_version`,
 - `created_at`,
 - `content_checksum`.
+- dla schema v4: `unknown_layout_mobile_code = 0`.
 
 Snapshot M1 zapisuje dodatkowo `fixture_version`, `fixture_fingerprint`,
 `dataset_version`, `rules_version`, `game_count` i `layout_count`. Zewnętrzny
@@ -1654,6 +1751,19 @@ pliku. Layouty są odczytywane keysetowo i zapisywane partiami po 1000, z jawną
 kontrolą ciągłości. Kompletny plik tymczasowy jest publikowany atomowo, a
 istniejący cel nie może zostać nadpisany.
 
+## Inwentarz i garbage collector storage
+
+`storage_usage_snapshots` przechowuje wyłącznie agregaty pomiaru: przestrzeń
+nazw, wolumin, liczbę plików, bajty, wolne/całkowite miejsce, źródło pomiaru i
+czas. Pełny pomiar zapisuje wspólny `measured_at`, dzięki czemu GET może
+odtworzyć jeden spójny snapshot bez skanowania systemu plików.
+
+`storage_gc_runs` i jego kandydaci przechowują trwały przebieg, statusy oraz
+metadane niezmiennego manifestu, nigdy binaria. `browser_selection_retention_states`
+przechowuje potwierdzony lifecycle handoffu browserowego stagingu. Job
+`storage_inventory` jest read-only; job `storage_gc` może wykonać wyłącznie
+wcześniej utworzony checksum-bound preview.
+
 ## Produkcyjny manifest i katalog artefaktu
 
 Manifest M3 ma `manifestVersion = 1` i zawiera:
@@ -1707,10 +1817,11 @@ Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć p
 ## Projekcja wyszukiwania plansz częściowym układem
 
 Wyszukiwanie Admina nie skanuje surowych obserwacji komórek ani obrazów. Trwała
-projekcja kandydatów zachowuje dowód symboli dla wszystkich pozycji review, a
-`image_board_search_documents` wybiera deterministycznie jednego właściciela
-dla `game_id + sequence_number`. Obie projekcje są aktualizowane w tej samej
-transakcji co import, nowa predykcja, korekta geometrii lub decyzja review.
+projekcja `image_board_search_candidates` zachowuje dowód symboli dla wszystkich
+pozycji review, a `image_board_search_fast_documents` wybiera deterministycznie
+jednego właściciela dla `game_id + sequence_number`. Obie projekcje są
+aktualizowane w tej samej transakcji co import, nowa predykcja, korekta
+geometrii lub decyzja review.
 
 `image_board_search_fast_documents` jest wąskim, fizycznym read modelem
 wyłącznie aktualnie wybranego dokumentu. Zachowuje identyfikatory planszy,
@@ -1720,11 +1831,19 @@ ani innych danych binarnych. Dzięki temu ranking częściowego wzoru wykonuje
 deterministyczny odczyt tylko niezbędnych kolumn także wtedy, gdy dodatni wzór
 jest zbyt częsty, aby indeks tokenów skutecznie zawężał zbiór.
 
+Logiczne `?` jest zapisane jako brak kodu mobilnego w odpowiedniej pozycji i
+nie trafia do `known_evidence_positions`. Ranking v2 nie uznaje takiej pozycji
+ani za dopasowanie, ani za sprzeczność. W zapytaniu `?` również nie jest
+symbolem katalogowym i zostaje usunięte przed wyliczeniem denominatora.
+
 Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
 `review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.
-Migracja najpierw kopiuje istniejące dokumenty, a synchronizator zapisuje oba
-read modele atomowo. Obrazy nadal są assetami filesystemu powiązanymi przez
-`review_item_id` i checksumę; żadna z tych tabel nie przechowuje JPEG-a.
+Od migracji 0075 synchronizator buduje fast documents bezpośrednio z kandydatów
+i canonical ownership. Stara tabela `image_board_search_documents`, tekstowe
+tokeny dopasowań oraz ich GIN-y są usunięte. Downgrade odtwarza je
+deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
+filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
+nie przechowuje JPEG-a.
 
 ## Mock data M1
 

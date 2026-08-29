@@ -22,6 +22,9 @@ class JobType(StrEnum):
     IMAGE_GRID_REINFERENCE = "image_grid_reinference"
     IMAGE_SYMBOL_REVIEW_BULK = "image_symbol_review_bulk"
     IMAGE_SYMBOL_REVIEW_BACKFILL = "image_symbol_review_backfill"
+    STORAGE_GC = "storage_gc"
+    STORAGE_INVENTORY = "storage_inventory"
+    STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
 
 
 class JobStatus(StrEnum):
@@ -395,6 +398,38 @@ def wait_for_review(
             job,
             status=JobStatus.WAITING_FOR_REVIEW,
             updated_at=now,
+        )
+    )
+
+
+def defer_job_for_storage(
+    job: Job,
+    *,
+    lease_token: UUID,
+    checkpoint_payload: dict[str, object],
+    deferred_at: datetime | None = None,
+) -> Job:
+    """Release a processing lease while preserving a resumable storage checkpoint."""
+
+    now = deferred_at or datetime.now(UTC)
+    if job.status is not JobStatus.PROCESSING:
+        _raise_invalid_transition(job, JobStatus.CREATED)
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
+    if checkpoint_payload.get("schema_version") != 1:
+        raise JobError(
+            "UNSUPPORTED_JOB_CHECKPOINT_VERSION",
+            "checkpointPayload must use schemaVersion 1.",
+        )
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CREATED,
+            stage="waiting_for_storage",
+            checkpoint_payload=dict(checkpoint_payload),
+            updated_at=now,
+            finished_at=None,
+            error_code=None,
+            error_message=None,
         )
     )
 

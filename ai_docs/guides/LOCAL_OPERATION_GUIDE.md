@@ -403,7 +403,83 @@ Następnie:
 2. wybierz aktywną grę i jej import zdjęć,
 3. kliknij `Otwórz lokalnie`,
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
-   import bez tunelu oraz kodu.
+   import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
+
+Lokalny widok geometrii jest obowiązującym workflowem 0.9 i nie ma zmiennej
+przywracającej poprzedni ekran. Zdalny link nadal otwiera osobny, ograniczony
+workflow przypisany do konkretnej gry i importu; nie otrzymuje dostępu do
+game-wide kolejki walidacji.
+
+Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
+API, workerze, Adminie i Reviewerze:
+
+```powershell
+.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label before --output .runtime\v09-storage-cleanup-before.json
+.venv\Scripts\python.exe -m alembic upgrade head
+.venv\Scripts\python.exe scripts\backfill_v09_schema.py --game-id <GAME_UUID> --batch-size 200
+.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label after --output .runtime\v09-storage-cleanup-after.json
+```
+
+Backfill zapisuje checkpoint w `.runtime` i można go bezpiecznie wznowić.
+Nie uruchamiaj `VACUUM FULL` jako części aktualizacji.
+
+## Kontrola zajętości i pierwsze czyszczenie storage
+
+Po migracji do `0081` nowe importy nie utrwalają pełnowymiarowych
+`normalized.png`. Panel Admina `Pamięć i czyszczenie` pokazuje ostatni trwały
+inwentarz; zwykłe otwarcie strony nie skanuje milionów plików. Przycisk
+`Odśwież inwentarz` uruchamia bounded job w general lane. Skan zapisuje wynik
+po każdej przestrzeni nazw i po restarcie wznawia się od następnej.
+
+Pierwszy kontrolowany cleanup z 29 sierpnia 2026 wykonano i odebrano. Tryb
+obserwacyjny pozostaje dostępny do diagnostyki lub kolejnego ręcznego rollout'u:
+
+```powershell
+$env:GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY = 'true'
+npm run api:dev
+```
+
+W panelu wybierz `Przygotuj raport czyszczenia`. Raport jest dry-runem: zawiera
+dokładne ścieżki, rozmiary, mtime, klasy, powody ochrony, checksumę manifestu i
+token, ale niczego nie usuwa. Dopiero jawne `Usuń bezpieczne dane` uruchamia
+wznawialny job GC. Kandydat zmieniony po raporcie otrzymuje konflikt i nie jest
+usuwany. `data/originals`, referencjonowane cropy, modele, kohorty, snapshoty,
+release'y, eksporty audytowe i dane ręcznej selekcji nie są kandydatami.
+
+Browserowy staging może zostać usunięty dopiero po checksumowanym handoffie
+wszystkich JPEG-ów do managed originals i po 24 godzinach od ostatniej
+zależności. Historyczny staging bez trwałego stanu lifecycle jest widoczny w
+raporcie jako chroniony; nie naprawiaj tego przez ręczne kasowanie katalogu.
+
+Odtwarzalne payloady PostgreSQL mają oddzielny, również checksum-bound dry-run:
+
+```powershell
+.venv\Scripts\python.exe scripts\compact_image_pipeline_state.py preview --retention-hours 24
+```
+
+Polecenie zwraca ścieżkę manifestu, checksumę i token. Wykonanie jest dozwolone
+wyłącznie po sprawdzeniu raportu oraz świadomym podaniu wszystkich wartości:
+
+```powershell
+.venv\Scripts\python.exe scripts\compact_image_pipeline_state.py start `
+  --manifest-relative-path <MANIFEST> `
+  --manifest-checksum-sha256 <SHA256> `
+  --preview-token <TOKEN> `
+  --confirm DELETE_REPRODUCIBLE_PIPELINE_PAYLOADS
+```
+
+Kompakcja usuwa tylko odtwarzalne późne payloady i uruchamia
+`VACUUM (ANALYZE)`. Zwolnione strony stają się dostępne do ponownego użycia
+przez PostgreSQL, ale rozmiar pliku VHDX nie musi się zmniejszyć. `VACUUM FULL`,
+zatrzymanie Dockera i kompaktowanie `docker_data.vhdx` nie są częścią GC i
+wymagają osobnej, jawnej operacji operatorskiej.
+
+Po odbiorze pierwszego cleanupu automatyczne GC jest domyślnie aktywne.
+`GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY=true` służy do jego jawnego,
+tymczasowego wyłączenia. Poniżej 60 GiB system tworzy jeden idempotentny GC;
+poniżej rezerwy 30 GiB blokuje nowe operacje zapisujące obrazy. Brak
+bezpiecznych kandydatów pozostawia blokadę i wymaga decyzji użytkownika —
+system nie rozszerza wtedy automatycznie zakresu usuwania.
 
 Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
 lokalny wykorzysta gotowy proces na porcie 3001. Przycisk

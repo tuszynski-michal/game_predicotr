@@ -6,17 +6,21 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
+from uuid import UUID
 
 import cv2
 import numpy as np
 from game_predictor_api.application.board_cell_geometry_pending import (
     ManagedBoardCellProcessingManifestStore,
 )
+from game_predictor_api.application.browser_staging_retention import ManagedOriginalsHandoff
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
 )
@@ -25,6 +29,9 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
     bootstrap_symbol_model_snapshot,
+)
+from game_predictor_api.storage.browser_staging_retention_repository import (
+    SqlAlchemyBrowserStagingRetentionRepository,
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -35,12 +42,14 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 from .board_cell_geometry_activation import (
     BOARD_CELL_PROCESSING_VERSION,
     BoardCellRecropSnapshotError,
+    require_v20_supported_topology,
     validate_board_cell_processing_snapshot,
 )
 from .board_cell_geometry_contract import (
     BoardCellGeometryEntry,
     BoardCellGeometryEvidence,
     BoardCellQuad,
+    BoardCellTopology,
     EvidenceKind,
 )
 from .board_cell_geometry_contract import (
@@ -62,6 +71,7 @@ from .page_geometry_registration import (
     VerifiedPageRegistrar,
     is_complete_ordered_grid,
 )
+from .pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
 from .pipeline_execution import (
     FunctionImageStageAdapter,
     ImagePipelineExecutionError,
@@ -80,11 +90,17 @@ from .source_direct_crops import (
     SOURCE_DIRECT_CROPPER_VERSION,
     SourceDirectBoardCellCropper,
 )
-from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginal, ManagedOriginalStore
+from .source_ingestion import (
+    ImageSourceIngestionHandler,
+    ManagedOriginal,
+    ManagedOriginalStore,
+    ManagedSourceManifest,
+)
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
-NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
+NORMALIZATION_ADAPTER_VERSION = CURRENT_NORMALIZATION_ADAPTER_VERSION
+LEGACY_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
 DETECTION_ADAPTER_VERSION = "page-board-detector-v4-verified-registration-v1"
 CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
@@ -112,11 +128,21 @@ class ProductionImageImportWorkflow:
         artifact_root: Path,
         *,
         repository_root: Path,
+        hard_reserve_bytes: int = 30 * 1024**3,
+        resume_target_bytes: int = 80 * 1024**3,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
+        self._hard_reserve_bytes = hard_reserve_bytes
+        self._resume_target_bytes = resume_target_bytes
         self._original_store = ManagedOriginalStore(self._artifact_root)
-        self._source_handler = ImageSourceIngestionHandler(self._original_store)
+        self._source_handler = ImageSourceIngestionHandler(
+            self._original_store,
+            before_original=self._has_pipeline_capacity,
+        )
+        self._browser_staging_retention = SqlAlchemyBrowserStagingRetentionRepository(
+            session_factory
+        )
         self._batch_store = SqlAlchemyImageBatchStore(session_factory)
         self._projection_store = SqlAlchemyImagePipelineStore(session_factory)
         self._board_cell_geometry_deferred_writer = BoardCellGeometryDeferredWriter(
@@ -129,6 +155,18 @@ class ProductionImageImportWorkflow:
             job,
             source_directory=_source_directory(job),
         )
+        all_source_count = len(manifest.originals)
+        source_context = _ProgressWindowContext(
+            context,
+            current_offset=0,
+            total=max(1, all_source_count),
+            stage_prefix="image_source",
+        )
+        manifest = self._source_handler.ingest(
+            cast(JobExecutionContext, source_context),
+            job,
+        )
+        self._record_browser_staging_handoff(job, manifest, completed_at=context.now())
         geometry_manifest = _page_geometry_manifest(job, self._artifact_root)
         unresolved_originals = _filter_canonical_originals(manifest.originals, job)
         canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
@@ -148,24 +186,13 @@ class ProductionImageImportWorkflow:
                     "schema_version": 1,
                 },
                 stage="image_deferred_geometry_skip",
-                current=0,
-                total=0,
-                success_count=0,
+                current=all_source_count,
+                total=all_source_count,
+                success_count=all_source_count,
                 failure_count=0,
                 review_count=0,
             )
             return
-        source_context = _ProgressWindowContext(
-            context,
-            current_offset=0,
-            total=source_count * 2,
-            stage_prefix="image_source",
-        )
-        manifest = self._source_handler.ingest(
-            cast(JobExecutionContext, source_context),
-            job,
-            originals=pipeline_originals,
-        )
         registrations = tuple(
             ImageFileRegistration(
                 source_checksum_sha256=original.checksum_sha256,
@@ -199,6 +226,7 @@ class ProductionImageImportWorkflow:
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
             board_cell_processing=board_cell_processing,
+            normalization_adapter_version=_normalization_adapter_version(job),
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
                 if board_cell_processing is not None
@@ -212,15 +240,49 @@ class ProductionImageImportWorkflow:
                 adapters,
                 attested_sequence_ranges=attested_sequence_ranges,
             ),
+            before_candidate=lambda: self._has_pipeline_capacity(context.job),
         )
         pipeline_context = _ProgressWindowContext(
             context,
-            current_offset=source_count,
-            total=source_count * 2,
+            current_offset=all_source_count,
+            total=all_source_count + source_count,
             stage_prefix="image_pipeline",
-            success_offset=source_count,
+            success_offset=all_source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+    def _has_pipeline_capacity(self, job: Job) -> bool:
+        required = (
+            self._resume_target_bytes
+            if job.stage == "waiting_for_storage"
+            else self._hard_reserve_bytes
+        )
+        return shutil.disk_usage(self._artifact_root).free >= required
+
+    def _record_browser_staging_handoff(
+        self,
+        job: Job,
+        manifest: ManagedSourceManifest,
+        *,
+        completed_at: datetime,
+    ) -> None:
+        raw_upload_id = job.input_payload.get("source_selection_id")
+        if job.game_id is None or not isinstance(raw_upload_id, str):
+            return
+        try:
+            upload_id = UUID(raw_upload_id)
+        except ValueError:
+            return
+        self._browser_staging_retention.record_ingested(
+            ManagedOriginalsHandoff(
+                upload_id=upload_id,
+                game_id=job.game_id,
+                import_job_id=job.id,
+                manifest_relative_path=manifest.relative_path,
+                manifest_checksum_sha256=manifest.checksum_sha256,
+                completed_at=completed_at,
+            )
+        )
 
 
 def _filter_canonical_originals(
@@ -310,6 +372,14 @@ class _ProgressWindowContext:
     def wait_for_review(self) -> None:
         self._context.wait_for_review()
 
+    def wait_for_storage(self, *, checkpoint_payload: dict[str, object]) -> None:
+        self._context.wait_for_storage(
+            checkpoint_payload={
+                **checkpoint_payload,
+                "workflow_phase": self._stage_prefix,
+            }
+        )
+
     def checkpoint(
         self,
         *,
@@ -354,9 +424,20 @@ class ProductionImageStageAdapterSuite:
         attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
         board_cell_processing: Mapping[str, object] | None = None,
         board_cell_geometry_deferred_writer: BoardCellGeometryDeferrer | None = None,
+        normalization_adapter_version: str = NORMALIZATION_ADAPTER_VERSION,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
+        self._normalized_images = _ExecutionScopedNormalizedImageLoader(self._artifacts)
+        if normalization_adapter_version not in {
+            LEGACY_NORMALIZATION_ADAPTER_VERSION,
+            NORMALIZATION_ADAPTER_VERSION,
+        }:
+            raise ImagePipelineExecutionError(
+                "IMAGE_NORMALIZATION_ADAPTER_UNSUPPORTED",
+                "The pinned normalization adapter is not supported.",
+            )
+        self._normalization_adapter_version = normalization_adapter_version
         self._repository_root = repository_root
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._grid_profile = dict(grid_profile or {})
@@ -365,6 +446,11 @@ class ProductionImageStageAdapterSuite:
         self._image_selection_run_id = image_selection_run_id
         self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._board_cell_processing = dict(board_cell_processing or {})
+        self._board_topology = (
+            require_v20_supported_topology(self._board_cell_processing)
+            if self._board_cell_processing
+            else BoardCellTopology(rows=3, columns=5)
+        )
         self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -383,6 +469,11 @@ class ProductionImageStageAdapterSuite:
         )
         self._v19_cropper = BoardCellGeometrySourceDirectCropper(
             cell_output_size=self._symbol_model_snapshot.input_size,
+            topology=(
+                self._board_topology
+                if self._board_cell_processing.get("topologyRulesVersionId") is not None
+                else None
+            ),
         )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
@@ -392,7 +483,7 @@ class ProductionImageStageAdapterSuite:
             FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
             FunctionImageStageAdapter(
                 "normalization",
-                NORMALIZATION_ADAPTER_VERSION,
+                self._normalization_adapter_version,
                 self.normalization,
             ),
             FunctionImageStageAdapter(
@@ -416,11 +507,7 @@ class ProductionImageStageAdapterSuite:
                     "board_crops",
                     V19_CROPPER_VERSION if self._board_cell_processing else CROP_ADAPTER_VERSION,
                     self.board_crops,
-                    (
-                        self.persist_board_crop_deferrals
-                        if self._board_cell_processing
-                        else None
-                    ),
+                    (self.persist_board_crop_deferrals if self._board_cell_processing else None),
                 ),
                 FunctionImageStageAdapter(
                     "sequence_ocr",
@@ -457,36 +544,52 @@ class ProductionImageStageAdapterSuite:
         try:
             with Image.open(source) as image:
                 image.load()
+                source_width, source_height = image.size
+                source_mode = image.mode
+                orientation_value = image.getexif().get(274)
                 oriented = ImageOps.exif_transpose(image).convert("RGB")
-                output = io.BytesIO()
-                oriented.save(output, format="PNG", optimize=False, compress_level=6)
-                content = output.getvalue()
                 width, height = oriented.size
+                rgb = np.ascontiguousarray(np.asarray(oriented, dtype=np.uint8))
         except (OSError, UnidentifiedImageError) as error:
             raise ImagePipelineExecutionError(
                 "IMAGE_NORMALIZATION_DECODE_FAILED",
                 "The managed source JPEG cannot be normalized.",
             ) from error
-        relative = (
-            PurePosixPath(
-                "working",
-                NORMALIZATION_ADAPTER_VERSION,
-                context.file_execution_key[:2],
-                context.file_execution_key,
-            )
-            / "normalized.png"
-        ).as_posix()
-        checksum = self._artifacts.write_immutable(relative, content)
+        self._normalized_images.remember(context, rgb)
+        if self._normalization_adapter_version == LEGACY_NORMALIZATION_ADAPTER_VERSION:
+            relative = (
+                PurePosixPath(
+                    "working",
+                    LEGACY_NORMALIZATION_ADAPTER_VERSION,
+                    context.file_execution_key[:2],
+                    context.file_execution_key,
+                )
+                / "normalized.png"
+            ).as_posix()
+            return {
+                "height": height,
+                "normalizedChecksumSha256": self._artifacts.write_immutable(
+                    relative,
+                    _encode_rgb_png(rgb),
+                ),
+                "normalizedRelativePath": relative,
+                "width": width,
+            }
         return {
             "height": height,
-            "normalizedChecksumSha256": checksum,
-            "normalizedRelativePath": relative,
+            "normalizedPixelChecksumSha256": _rgb_pixel_checksum(rgb),
+            "orientationAction": _orientation_action(orientation_value),
+            "sourceChecksumSha256": context.source_checksum_sha256,
+            "sourceHeight": source_height,
+            "sourceMode": source_mode,
+            "sourceRelativePath": context.source_relative_path,
+            "sourceWidth": source_width,
             "width": width,
         }
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         pinned = _registered_page_geometry(
             self._page_geometry_manifest,
             context.source_checksum_sha256,
@@ -600,7 +703,7 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_CELL_ATTESTED_RANGE_INVALID",
                 "The attested sequence range differs from the verified page geometry.",
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         projected: list[dict[str, object]] = []
         for board in detections:
             position = _integer(board, "positionIndex")
@@ -619,7 +722,7 @@ class ProductionImageStageAdapterSuite:
                 estimate.status == "estimated"
                 and estimate.lattice_bounds_quad is not None
                 and estimate.evidence is not None
-                and len(estimate.cells) == 15
+                and len(estimate.cells) == self._board_topology.cell_count
             ):
                 entry = BoardCellGeometryEntry(
                     source_order_index=0,
@@ -635,6 +738,7 @@ class ProductionImageStageAdapterSuite:
                     lattice_bounds_quad=estimate.lattice_bounds_quad,
                     cells=estimate.cells,
                     evidence=estimate.evidence,
+                    topology=self._board_topology,
                 )
                 projected.append(
                     {
@@ -645,8 +749,7 @@ class ProductionImageStageAdapterSuite:
                 )
                 continue
             estimator_reason = (
-                estimate.fallback_reason
-                or "BOARD_CELL_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
+                estimate.fallback_reason or "BOARD_CELL_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
             )
             reason = _pending_reason(estimator_reason)
             projected.append(
@@ -665,6 +768,9 @@ class ProductionImageStageAdapterSuite:
                 "configurationFingerprintSha256"
             ],
             "processingVersion": BOARD_CELL_PROCESSING_VERSION,
+            "gridRows": self._board_topology.rows,
+            "gridColumns": self._board_topology.columns,
+            "topologyRulesVersionId": self._board_topology.rules_version_id,
         }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -682,7 +788,7 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_CROP_GEOMETRY_UNVERIFIED",
                 "Cell crops require a complete verified 3x3 page geometry.",
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         geometry = PageGeometry(
             status="detected",
             image_width=int(rgb.shape[1]),
@@ -718,9 +824,7 @@ class ProductionImageStageAdapterSuite:
             cells: list[dict[str, object]] = []
             for cell in board.cells:
                 relative = (
-                    root
-                    / "cells"
-                    / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
+                    root / "cells" / f"r{cell.row_index:02d}-c{cell.column_index:02d}.png"
                 ).as_posix()
                 cells.append(
                     {
@@ -752,7 +856,7 @@ class ProductionImageStageAdapterSuite:
             for board in _boards(_previous(context, "board_detection"))
         }
         geometry_boards = _boards(_previous(context, "board_cell_geometry"))
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         projected: list[dict[str, object]] = []
         deferred: list[dict[str, object]] = []
         for geometry_board in geometry_boards:
@@ -764,7 +868,7 @@ class ProductionImageStageAdapterSuite:
                 _mapping(geometry_board.get("cellGeometry"), "cellGeometry")
             )
             cropped = self._v19_cropper.crop(rgb, entry)
-            if cropped.status != "cropped" or len(cropped.cells) != 15:
+            if cropped.status != "cropped" or len(cropped.cells) != self._board_topology.cell_count:
                 estimator_reason = (
                     cropped.review_reasons[0]
                     if cropped.review_reasons
@@ -818,6 +922,9 @@ class ProductionImageStageAdapterSuite:
                     "displayAssetKind": "source_context",
                     "positionIndex": position,
                     "sourceContextBounds": context_bounds,
+                    "gridRows": self._board_topology.rows,
+                    "gridColumns": self._board_topology.columns,
+                    "topologyRulesVersionId": self._board_topology.rules_version_id,
                 }
             )
         return {"boards": projected, "deferredBoards": deferred}
@@ -881,9 +988,7 @@ class ProductionImageStageAdapterSuite:
                 for board in _boards(_previous(context, "board_crops"))
             }
             detections = tuple(
-                board
-                for board in detections
-                if _integer(board, "positionIndex") in crop_positions
+                board for board in detections if _integer(board, "positionIndex") in crop_positions
             )
         if context.attested_sequence_range is not None:
             return _attested_sequence_payload(
@@ -891,7 +996,7 @@ class ProductionImageStageAdapterSuite:
                 context.attested_sequence_range,
                 allow_sparse=self._board_cell_processing is not None,
             )
-        rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
+        rgb = self._normalized_images.load(context, normalized)
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
         crop_quads: list[list[dict[str, float]] | None] = []
@@ -1077,6 +1182,115 @@ class ProductionImageStageAdapterSuite:
         return self._symbol_model
 
 
+def _rgb_pixel_checksum(rgb: NDArray[np.uint8]) -> str:
+    contiguous = np.ascontiguousarray(rgb, dtype=np.uint8)
+    digest = hashlib.sha256()
+    digest.update(b"rgb-uint8-v1\0")
+    digest.update(int(contiguous.shape[1]).to_bytes(8, "big"))
+    digest.update(int(contiguous.shape[0]).to_bytes(8, "big"))
+    digest.update(contiguous.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def _orientation_action(value: object) -> str:
+    actions = {
+        1: "identity",
+        2: "flip_left_right",
+        3: "rotate_180",
+        4: "flip_top_bottom",
+        5: "transpose",
+        6: "rotate_90_clockwise",
+        7: "transverse",
+        8: "rotate_90_counterclockwise",
+    }
+    return actions.get(value, "none")
+
+
+def _encode_rgb_png(rgb: NDArray[np.uint8]) -> bytes:
+    output = io.BytesIO()
+    Image.fromarray(rgb, mode="RGB").save(
+        output,
+        format="PNG",
+        optimize=False,
+        compress_level=6,
+    )
+    return output.getvalue()
+
+
+class _ExecutionScopedNormalizedImageLoader:
+    """Keep at most one normalized source in memory for sequential stage execution."""
+
+    def __init__(self, artifacts: _ManagedImageArtifacts) -> None:
+        self._artifacts = artifacts
+        self._cache_key: str | None = None
+        self._cache_rgb: NDArray[np.uint8] | None = None
+
+    def remember(self, context: ImageStageContext, rgb: NDArray[np.uint8]) -> None:
+        self._cache_key = context.file_execution_key
+        self._cache_rgb = rgb
+
+    def load(
+        self,
+        context: ImageStageContext,
+        normalization: Mapping[str, object],
+    ) -> NDArray[np.uint8]:
+        if self._cache_key == context.file_execution_key and self._cache_rgb is not None:
+            return self._cache_rgb
+        relative = normalization.get("normalizedRelativePath")
+        if isinstance(relative, str) and relative:
+            rgb = self._load_or_rebuild_legacy(context, normalization, relative)
+        else:
+            source_relative = _text(normalization, "sourceRelativePath")
+            if source_relative != context.source_relative_path:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_SOURCE_DRIFT",
+                    "The normalization result references a different managed original.",
+                )
+            rgb = self._artifacts.load_rgb(source_relative)
+            expected = _text(normalization, "normalizedPixelChecksumSha256")
+            if _rgb_pixel_checksum(rgb) != expected:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_PIXEL_CHECKSUM_MISMATCH",
+                    "Normalized source pixels differ from the persisted stage result.",
+                )
+        self.remember(context, rgb)
+        return rgb
+
+    def _load_or_rebuild_legacy(
+        self,
+        context: ImageStageContext,
+        normalization: Mapping[str, object],
+        relative: str,
+    ) -> NDArray[np.uint8]:
+        path = self._artifacts.path(relative)
+        expected = normalization.get("normalizedChecksumSha256")
+        if path.exists():
+            try:
+                content = path.read_bytes()
+            except OSError as error:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_ARTIFACT_UNREADABLE",
+                    "The historical normalization bitmap cannot be read.",
+                ) from error
+            if isinstance(expected, str) and hashlib.sha256(content).hexdigest() != expected:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_NORMALIZATION_ARTIFACT_CHECKSUM_MISMATCH",
+                    "The historical normalization bitmap differs from its stage result.",
+                )
+            return self._artifacts.load_rgb(relative)
+
+        rgb = self._artifacts.load_rgb(context.source_relative_path)
+        content = _encode_rgb_png(rgb)
+        checksum = hashlib.sha256(content).hexdigest()
+        if not isinstance(expected, str) or checksum != expected:
+            raise ImagePipelineExecutionError(
+                "IMAGE_NORMALIZATION_REBUILD_CHECKSUM_MISMATCH",
+                "The historical normalization bitmap cannot be reproduced exactly.",
+            )
+        self._artifacts.write_immutable(relative, content)
+        return rgb
+
+
 class _ManagedImageArtifacts:
     def __init__(self, artifact_root: Path) -> None:
         self._root = artifact_root.resolve() / "data"
@@ -1186,6 +1400,21 @@ def _source_directory(job: Job) -> Path:
     return Path(value)
 
 
+def _normalization_adapter_version(job: Job) -> str:
+    value = job.input_payload.get("normalization_adapter_version")
+    if value is None:
+        return LEGACY_NORMALIZATION_ADAPTER_VERSION
+    if value not in {
+        LEGACY_NORMALIZATION_ADAPTER_VERSION,
+        NORMALIZATION_ADAPTER_VERSION,
+    }:
+        raise JobHandlerError(
+            "IMAGE_NORMALIZATION_ADAPTER_UNSUPPORTED",
+            "The image import pins an unsupported normalization adapter.",
+        )
+    return str(value)
+
+
 def _pipeline_fingerprint(job: Job) -> str:
     value = job.input_payload.get("pipeline_fingerprint")
     if not isinstance(value, str) or len(value) != 64:
@@ -1230,14 +1459,25 @@ def _board_cell_processing_snapshot(job: Job) -> dict[str, object] | None:
     if value is None:
         return None
     try:
-        return validate_board_cell_processing_snapshot(
+        snapshot = validate_board_cell_processing_snapshot(
             value,
             cell_output_size=_symbol_model_snapshot(job).input_size,
         )
+        require_v20_supported_topology(snapshot)
+        return snapshot
     except BoardCellRecropSnapshotError as error:
+        code = (
+            "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
+            if str(error).startswith("IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED")
+            else "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID"
+        )
         raise JobHandlerError(
-            "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
-            "The pinned v20 board-cell processing snapshot is invalid.",
+            code,
+            (
+                "The active v20 geometry adapter supports only 3x5 boards."
+                if code == "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED"
+                else "The pinned v20 board-cell processing snapshot is invalid."
+            ),
         ) from error
 
 
@@ -1664,6 +1904,11 @@ def _boards(value: Mapping[str, object]) -> tuple[Mapping[str, object], ...]:
 
 
 def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometryEntry:
+    topology = BoardCellTopology(
+        rows=_integer(value, "gridRows") if "gridRows" in value else 3,
+        columns=_integer(value, "gridColumns") if "gridColumns" in value else 5,
+        rules_version_id=cast(str | None, value.get("topologyRulesVersionId")),
+    )
     cells = tuple(
         BoardCellQuad(
             row_index=_integer(cell, "rowIndex"),
@@ -1707,9 +1952,7 @@ def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometry
         inlier_count=_integer(evidence_value, "inlierCount"),
         inlier_slots=slots,
         inlier_p95_residual_px=None if residual is None else float(residual),
-        decision_checksum_sha256=cast(
-            str | None, evidence_value.get("decisionChecksumSha256")
-        ),
+        decision_checksum_sha256=cast(str | None, evidence_value.get("decisionChecksumSha256")),
     )
     tags = _sequence(value.get("conditionTags"), "cellGeometry.conditionTags")
     return BoardCellGeometryEntry(
@@ -1723,11 +1966,10 @@ def _board_cell_geometry_entry(value: Mapping[str, object]) -> BoardCellGeometry
         condition_tags=tuple(cast(str, item) for item in tags),
         sequence_number=_integer(value, "sequenceNumber"),
         position_index=_integer(value, "positionIndex"),
-        lattice_bounds_quad=_contract_quad(
-            value.get("latticeBoundsQuad")
-        ),
+        lattice_bounds_quad=_contract_quad(value.get("latticeBoundsQuad")),
         cells=cells,
         evidence=evidence,
+        topology=topology,
     )
 
 

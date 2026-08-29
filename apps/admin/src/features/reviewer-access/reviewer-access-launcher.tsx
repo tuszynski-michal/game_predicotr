@@ -387,10 +387,10 @@ export function ReviewerAccessLauncher({
       <header className="pageHeader">
         <div>
           <p className="eyebrow">Osobna aplikacja</p>
-          <h1>Zatwierdzanie plansz</h1>
+          <h1>Zatwierdzanie cięcia siatki</h1>
           <p className="lead">
-            Wybierz gotowy import. Możesz pracować lokalnie albo udostępnić
-            jednocześnie maksymalnie trzy różne importy online.
+            Lokalnie zatwierdzisz geometrię na nowej kolejce. Link online
+            pozostaje ograniczonym dostępem do dotychczasowego Reviewera.
           </p>
         </div>
       </header>

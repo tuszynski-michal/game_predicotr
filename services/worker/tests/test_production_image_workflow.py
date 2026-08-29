@@ -19,6 +19,7 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
 )
 from game_predictor_worker.images.board_cell_geometry_contract import (
     BoardCellGeometryEvidence,
+    BoardCellTopology,
     derive_board_cell_quads,
 )
 from game_predictor_worker.images.board_cell_geometry_estimator import (
@@ -38,6 +39,7 @@ from game_predictor_worker.images.pipeline_execution import (
     validate_stage_payload,
 )
 from game_predictor_worker.images.production_workflow import (
+    NORMALIZATION_ADAPTER_VERSION,
     ProductionImageStageAdapterSuite,
     _attested_sequence_payload,
     _calibrated_quad,
@@ -49,7 +51,25 @@ from game_predictor_worker.images.production_workflow import (
 from game_predictor_worker.images.source_ingestion import ManagedOriginal
 from game_predictor_worker.images.symbol_onnx import OnnxInference
 from game_predictor_worker.jobs.runtime import JobHandlerError
-from PIL import Image
+from PIL import Image, ImageOps
+
+
+def _managed_jpeg(
+    artifact_root: Path,
+    *,
+    relative_path: str = "originals/test/source.jpg",
+    orientation: int = 6,
+) -> tuple[str, np.ndarray]:
+    source = artifact_root / "data" / relative_path
+    source.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.fromarray(_grid_image(), mode="RGB")
+    exif = Image.Exif()
+    exif[274] = orientation
+    image.save(source, format="JPEG", quality=100, subsampling=0, exif=exif)
+    with Image.open(source) as stored:
+        stored.load()
+        expected = np.asarray(ImageOps.exif_transpose(stored).convert("RGB"), dtype=np.uint8)
+    return relative_path, expected
 
 
 def test_grid_profile_uses_run_scope_and_falls_back_without_mutating_detector_quad() -> None:
@@ -215,6 +235,110 @@ def _grid_quads() -> list[list[dict[str, int]]]:
         for row in range(3)
         for column in range(3)
     ]
+
+
+@pytest.mark.parametrize("orientation", range(1, 9))
+def test_storage_bounded_normalization_preserves_exif_pixels_without_png(
+    tmp_path: Path,
+    orientation: int,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, expected = _managed_jpeg(
+        artifact_root,
+        orientation=orientation,
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+    )
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path=relative_path,
+        pipeline_fingerprint="d" * 64,
+        previous_results={},
+    )
+
+    payload = suite.normalization(context)
+    loaded = suite._normalized_images.load(context, payload)
+
+    assert NORMALIZATION_ADAPTER_VERSION == "image-normalization-v2-in-memory-source-v1"
+    assert "normalizedRelativePath" not in payload
+    assert "normalizedChecksumSha256" not in payload
+    assert payload["sourceRelativePath"] == relative_path
+    assert np.array_equal(loaded, expected)
+    assert not list((artifact_root / "data" / "working").rglob("normalized.png"))
+
+
+def test_storage_bounded_normalization_reloads_from_original_after_restart(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, expected = _managed_jpeg(artifact_root)
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path=relative_path,
+        pipeline_fingerprint="d" * 64,
+        previous_results={},
+    )
+    first = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+    )
+    payload = first.normalization(context)
+    restarted = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+    )
+
+    assert np.array_equal(restarted._normalized_images.load(context, payload), expected)
+
+
+def test_missing_legacy_normalization_bitmap_is_rebuilt_fail_closed(tmp_path: Path) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, expected = _managed_jpeg(artifact_root)
+    output = hashlib.sha256()
+    legacy_bytes_path = tmp_path / "legacy.png"
+    Image.fromarray(expected, mode="RGB").save(
+        legacy_bytes_path,
+        format="PNG",
+        optimize=False,
+        compress_level=6,
+    )
+    legacy_bytes = legacy_bytes_path.read_bytes()
+    output.update(legacy_bytes)
+    normalized_relative = "working/image-normalization-v1/ff/key/normalized.png"
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path=relative_path,
+        pipeline_fingerprint="d" * 64,
+        previous_results={},
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+    )
+
+    rebuilt = suite._normalized_images.load(
+        context,
+        {
+            "normalizedRelativePath": normalized_relative,
+            "normalizedChecksumSha256": output.hexdigest(),
+        },
+    )
+
+    rebuilt_path = artifact_root / "data" / Path(*normalized_relative.split("/"))
+    assert np.array_equal(rebuilt, expected)
+    assert rebuilt_path.read_bytes() == legacy_bytes
 
 
 def test_page_registration_anchor_loads_from_managed_data_root(tmp_path: Path) -> None:
@@ -416,13 +540,17 @@ def test_production_stages_create_review_ready_board_and_cell_artifacts(
     assert context_rgb.shape[:2] != (300, 500)
     bounds = first["sourceContextBounds"]
     assert isinstance(bounds, dict)
-    normalized_path = artifact_root / "data" / results["normalization"]["normalizedRelativePath"]
-    normalized_rgb = np.asarray(Image.open(normalized_path).convert("RGB"), dtype=np.uint8)
+    with Image.open(source_path) as source_image:
+        normalized_rgb = np.asarray(
+            ImageOps.exif_transpose(source_image).convert("RGB"),
+            dtype=np.uint8,
+        )
     expected_context = normalized_rgb[
         bounds["y"] : bounds["y"] + bounds["height"],
         bounds["x"] : bounds["x"] + bounds["width"],
     ]
     assert np.array_equal(context_rgb, expected_context)
+    assert not list((artifact_root / "data" / "working").rglob("normalized.png"))
     first_cell = first["cells"][0]
     assert isinstance(first_cell, dict)
     cell_rgb = np.asarray(
@@ -527,7 +655,14 @@ def test_explicit_v20_pipeline_crops_only_verified_boards_and_defers_the_rest(
         repository_root=Path.cwd(),
         symbol_model=snapshot,
         attested_sequence_ranges={"c" * 64: (1, 9)},
-        board_cell_processing=board_cell_processing_snapshot(cell_output_size=32),
+        board_cell_processing=board_cell_processing_snapshot(
+            cell_output_size=32,
+            topology=BoardCellTopology(
+                rows=3,
+                columns=5,
+                rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+            ),
+        ),
         board_cell_geometry_deferred_writer=writer,
     )
     calls = 0
@@ -649,6 +784,10 @@ def test_explicit_v20_pipeline_crops_only_verified_boards_and_defers_the_rest(
     )
 
     assert [board["status"] for board in geometry["boards"]].count("verified") == 1
+    assert geometry["gridRows"] == 3
+    assert geometry["gridColumns"] == 5
+    assert crops["boards"][0]["gridRows"] == 3
+    assert crops["boards"][0]["gridColumns"] == 5
     assert len(crops["boards"]) == 1
     assert len(crops["boards"][0]["cells"]) == 15
     assert len(symbols["boards"]) == 1

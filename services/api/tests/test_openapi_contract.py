@@ -104,6 +104,54 @@ def test_board_search_openapi_exposes_the_read_only_partial_pattern_contract() -
     assert set(operation["responses"]).issuperset({"404", "409", "422"})
 
 
+def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        (
+            "/api/v1/admin/games/{game_id}/grid-reviews",
+            "get",
+        ): "listImageGridReviews",
+        (
+            "/api/v1/admin/image-reviews/{review_item_id}/source-asset",
+            "get",
+        ): "getImageGridReviewSourceAsset",
+        (
+            "/api/v1/admin/image-reviews/{review_item_id}/geometry-approval",
+            "post",
+        ): "approveImageGridReviewGeometry",
+        (
+            "/api/v1/admin/image-reviews/{review_item_id}/geometry-preview",
+            "post",
+        ): "previewImageGridReviewGeometry",
+        (
+            "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions",
+            "post",
+        ): "createImageGridReviewGeometryRevision",
+    }
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["image-grid-reviews"]
+        assert set(operation["responses"]).issuperset({"404", "409", "422"})
+
+    command = schema["components"]["schemas"]["ImageGridReviewGeometryCommand"]
+    assert "correctedBy" not in command["properties"]
+    assert set(command["required"]).issuperset(
+        {
+            "expectedSourceChecksumSha256",
+            "expectedSourceWidth",
+            "expectedSourceHeight",
+            "expectedGridRows",
+            "expectedGridColumns",
+        }
+    )
+    cells = schema["components"]["schemas"]["ImageGridReviewGeometryRevisionResponse"][
+        "properties"
+    ]["cells"]
+    assert cells["minItems"] == 1
+    assert "maxItems" not in cells
+
+
 def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     expected_operations = {

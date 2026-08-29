@@ -21,6 +21,9 @@ import type {
   ApplySymbolCellReviewDecisionData,
   ApplySymbolCellReviewDecisionErrors,
   ApplySymbolCellReviewDecisionResponses,
+  ApproveImageGridReviewGeometryData,
+  ApproveImageGridReviewGeometryErrors,
+  ApproveImageGridReviewGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -75,6 +78,9 @@ import type {
   CreateImageFolderImportData,
   CreateImageFolderImportErrors,
   CreateImageFolderImportResponses,
+  CreateImageGridReviewGeometryRevisionData,
+  CreateImageGridReviewGeometryRevisionErrors,
+  CreateImageGridReviewGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -117,6 +123,9 @@ import type {
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
+  CreateStorageGcPreviewData,
+  CreateStorageGcPreviewErrors,
+  CreateStorageGcPreviewResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
@@ -185,6 +194,9 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGridReviewSourceAssetData,
+  GetImageGridReviewSourceAssetErrors,
+  GetImageGridReviewSourceAssetResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
@@ -292,6 +304,9 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetStorageGcRunData,
+  GetStorageGcRunErrors,
+  GetStorageGcRunResponses,
   GetSymbolCellReviewAssetData,
   GetSymbolCellReviewAssetErrors,
   GetSymbolCellReviewAssetResponses,
@@ -310,6 +325,9 @@ import type {
   GetSymbolModelIterationErrors,
   GetSymbolModelIterationResponses,
   GetSymbolResponses,
+  GetUnreadableBoardReviewData,
+  GetUnreadableBoardReviewErrors,
+  GetUnreadableBoardReviewResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
@@ -351,6 +369,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageGridReviewsData,
+  ListImageGridReviewsErrors,
+  ListImageGridReviewsResponses,
   ListImageSelectionGroupCandidatesData,
   ListImageSelectionGroupCandidatesErrors,
   ListImageSelectionGroupCandidatesResponses,
@@ -430,6 +451,9 @@ import type {
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
+  ListUnreadableBoardReviewsData,
+  ListUnreadableBoardReviewsErrors,
+  ListUnreadableBoardReviewsResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
@@ -447,6 +471,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageGridReviewGeometryData,
+  PreviewImageGridReviewGeometryErrors,
+  PreviewImageGridReviewGeometryResponses,
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
@@ -498,6 +525,9 @@ import type {
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshImageStorageInventoryData,
+  RefreshImageStorageInventoryErrors,
+  RefreshImageStorageInventoryResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -531,6 +561,9 @@ import type {
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
+  ResolveUnreadableBoardReviewCellData,
+  ResolveUnreadableBoardReviewCellErrors,
+  ResolveUnreadableBoardReviewCellResponses,
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
@@ -585,6 +618,9 @@ import type {
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartStorageGcRunData,
+  StartStorageGcRunErrors,
+  StartStorageGcRunResponses,
   StartSymbolCellReviewBulkOperationData,
   StartSymbolCellReviewBulkOperationErrors,
   StartSymbolCellReviewBulkOperationResponses,
@@ -1029,6 +1065,22 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List current game-wide board geometries with bounded keyset pagination
+ */
+export const listImageGridReviews = <ThrowOnError extends boolean = false>(
+  options: Options<ListImageGridReviewsData, ThrowOnError>,
+): RequestResult<
+  ListImageGridReviewsResponses,
+  ListImageGridReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageGridReviewsResponses,
+    ListImageGridReviewsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
 
 /**
  * List durable board-cell geometry fallback items
@@ -1837,6 +1889,72 @@ export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
   >({
     url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset',
     ...options,
+  });
+
+/**
+ * List current logical boards containing unreadable symbol crops
+ */
+export const listUnreadableBoardReviews = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListUnreadableBoardReviewsData, ThrowOnError>,
+): RequestResult<
+  ListUnreadableBoardReviewsResponses,
+  ListUnreadableBoardReviewsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListUnreadableBoardReviewsResponses,
+    ListUnreadableBoardReviewsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews',
+    ...options,
+  });
+
+/**
+ * Read one current board with all topology-aware symbol cells
+ */
+export const getUnreadableBoardReview = <ThrowOnError extends boolean = false>(
+  options: Options<GetUnreadableBoardReviewData, ThrowOnError>,
+): RequestResult<
+  GetUnreadableBoardReviewResponses,
+  GetUnreadableBoardReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetUnreadableBoardReviewResponses,
+    GetUnreadableBoardReviewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}',
+    ...options,
+  });
+
+/**
+ * Resolve one unreadable crop as an active symbol or logical unknown
+ */
+export const resolveUnreadableBoardReviewCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResolveUnreadableBoardReviewCellData, ThrowOnError>,
+): RequestResult<
+  ResolveUnreadableBoardReviewCellResponses,
+  ResolveUnreadableBoardReviewCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveUnreadableBoardReviewCellResponses,
+    ResolveUnreadableBoardReviewCellErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -2887,6 +3005,105 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
+ * Approve one exact current board geometry revision
+ */
+export const approveImageGridReviewGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveImageGridReviewGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveImageGridReviewGeometryResponses,
+  ApproveImageGridReviewGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveImageGridReviewGeometryResponses,
+    ApproveImageGridReviewGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview corrected topology-aware board-cell crops without persistence
+ */
+export const previewImageGridReviewGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageGridReviewGeometryData, ThrowOnError>,
+): RequestResult<
+  PreviewImageGridReviewGeometryResponses,
+  PreviewImageGridReviewGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageGridReviewGeometryResponses,
+    PreviewImageGridReviewGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Persist and approve one topology-aware geometry revision
+ */
+export const createImageGridReviewGeometryRevision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateImageGridReviewGeometryRevisionData, ThrowOnError>,
+): RequestResult<
+  CreateImageGridReviewGeometryRevisionResponses,
+  CreateImageGridReviewGeometryRevisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageGridReviewGeometryRevisionResponses,
+    CreateImageGridReviewGeometryRevisionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one current checksum-bound source image for grid validation
+ */
+export const getImageGridReviewSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGridReviewSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGridReviewSourceAssetResponses,
+  GetImageGridReviewSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGridReviewSourceAssetResponses,
+    GetImageGridReviewSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-reviews/{review_item_id}/source-asset',
+    ...options,
+  });
+
+/**
  * List durable image-selection runs for one game
  */
 export const listImageSelections = <ThrowOnError extends boolean = false>(
@@ -3368,6 +3585,88 @@ export const getImageStorageInventory = <ThrowOnError extends boolean = false>(
     GetImageStorageInventoryErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/image-storage', ...options });
+
+/**
+ * Create an immutable dry-run manifest for safe storage cleanup
+ */
+export const createStorageGcPreview = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateStorageGcPreviewData, ThrowOnError>,
+): RequestResult<
+  CreateStorageGcPreviewResponses,
+  CreateStorageGcPreviewErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    CreateStorageGcPreviewResponses,
+    CreateStorageGcPreviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/gc-previews',
+    ...options,
+  });
+
+/**
+ * Start a confirmed durable storage cleanup run
+ */
+export const startStorageGcRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartStorageGcRunData, ThrowOnError>,
+): RequestResult<
+  StartStorageGcRunResponses,
+  StartStorageGcRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartStorageGcRunResponses,
+    StartStorageGcRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/gc-runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read durable storage cleanup progress
+ */
+export const getStorageGcRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetStorageGcRunData, ThrowOnError>,
+): RequestResult<
+  GetStorageGcRunResponses,
+  GetStorageGcRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetStorageGcRunResponses,
+    GetStorageGcRunErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-storage/gc-runs/{run_id}', ...options });
+
+/**
+ * Refresh the bounded managed image storage inventory
+ */
+export const refreshImageStorageInventory = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<RefreshImageStorageInventoryData, ThrowOnError>,
+): RequestResult<
+  RefreshImageStorageInventoryResponses,
+  RefreshImageStorageInventoryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    RefreshImageStorageInventoryResponses,
+    RefreshImageStorageInventoryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/inventory-refresh',
+    ...options,
+  });
 
 /**
  * List a bounded set of newest jobs

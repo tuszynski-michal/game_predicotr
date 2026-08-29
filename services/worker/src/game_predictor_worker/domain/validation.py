@@ -122,6 +122,21 @@ def validate_full_board(cells: Sequence[int], game: GameConfig) -> None:
         _validate_populated_cell(cell, allowed_codes)
 
 
+def validate_layout_board(cells: Sequence[int], game: GameConfig) -> None:
+    """Validate persisted layout cells, where zero represents unknown evidence."""
+
+    validate_game_config(game)
+    expected_length = game.rows * game.columns
+    if len(cells) != expected_length:
+        raise DomainValidationError(
+            DomainErrorCode.INVALID_BOARD_LENGTH,
+            f"Board contains {len(cells)} cells; expected {expected_length}.",
+        )
+    allowed_codes = frozenset({0, *(symbol.mobile_code for symbol in game.symbols)})
+    for cell in cells:
+        _validate_populated_cell(cell, allowed_codes)
+
+
 def validate_board_prefix(cells: Sequence[int | None], game: GameConfig) -> None:
     validate_game_config(game)
     expected_length = game.rows * game.columns

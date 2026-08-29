@@ -82,6 +82,15 @@ PENDING_SEQUENCE_OWNERSHIP_REVISION = "0069_pending_sequence_ownership"
 SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION = "0070_symbol_cell_review_backfill_job"
 SYMBOL_CELL_TRAINING_COHORTS_REVISION = "0071_symbol_cell_training_cohorts"
 VERIFIED_TRAINING_COHORT_CELLS_REVISION = "0072_verified_training_cohort_cells"
+TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION = "0073_topology_geometry_crop_provenance"
+UNKNOWN_LAYOUT_CELLS_REVISION = "0074_unknown_layout_cells"
+OBSOLETE_BOARD_SEARCH_STORAGE_REVISION = "0075_remove_obsolete_board_search_storage"
+STORAGE_RETENTION_REVISION = "0076_storage_retention_and_gc"
+STORAGE_CAPACITY_GUARD_REVISION = "0077_storage_capacity_guard"
+STORAGE_INVENTORY_REVISION = "0078_storage_inventory_job"
+PIPELINE_STATE_COMPACTION_REVISION = "0079_pipeline_state_compaction"
+PIPELINE_STATE_DIGEST_REVISION = "0080_pipeline_state_digest"
+PIPELINE_TERMINAL_MANIFEST_V2_REVISION = "0081_pipeline_terminal_manifest_v2"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -91,6 +100,77 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     config = Config(str(ALEMBIC_INI), output_buffer=output_buffer)
     config.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
     return config
+
+
+def test_storage_retention_migration_adds_gc_inventory_and_staging_state() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{OBSOLETE_BOARD_SEARCH_STORAGE_REVISION}:{STORAGE_RETENTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{STORAGE_RETENTION_REVISION}:{OBSOLETE_BOARD_SEARCH_STORAGE_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "alter type job_type add value if not exists 'storage_gc'" in upgrade_sql
+    assert "create table storage_gc_runs" in upgrade_sql
+    assert "create table storage_usage_snapshots" in upgrade_sql
+    assert "create table browser_selection_retention_states" in upgrade_sql
+    assert "ix_browser_selection_retention_state_eligible" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table browser_selection_retention_states" in downgrade_sql
+    assert "drop table storage_usage_snapshots" in downgrade_sql
+    assert "drop table storage_gc_runs" in downgrade_sql
+
+
+def test_pipeline_state_compaction_migration_adds_terminal_manifests() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{STORAGE_INVENTORY_REVISION}:{PIPELINE_STATE_COMPACTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{PIPELINE_STATE_COMPACTION_REVISION}:{STORAGE_INVENTORY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "storage_pipeline_compaction" in upgrade_sql
+    assert "create table image_pipeline_terminal_manifests" in upgrade_sql
+    assert "uq_image_pipeline_terminal_manifest_version" in upgrade_sql
+    assert "drop table image_pipeline_terminal_manifests" in downgrade_output.getvalue().lower()
+
+
+def test_pipeline_state_digest_migrations_enable_sha256_and_manifest_v2() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{PIPELINE_STATE_COMPACTION_REVISION}:{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}:{PIPELINE_STATE_COMPACTION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create extension if not exists pgcrypto" in upgrade_sql
+    assert "schema_version in (1, 2)" in upgrade_sql
+    assert "schema_version = 1" in downgrade_output.getvalue().lower()
 
 
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
@@ -187,12 +267,43 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_cell_review_backfill_job = script.get_revision(SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION)
     symbol_cell_training_cohorts = script.get_revision(SYMBOL_CELL_TRAINING_COHORTS_REVISION)
     verified_training_cohort_cells = script.get_revision(VERIFIED_TRAINING_COHORT_CELLS_REVISION)
-    assert script.get_heads() == [VERIFIED_TRAINING_COHORT_CELLS_REVISION]
+    topology_geometry_crop_provenance = script.get_revision(
+        TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION
+    )
+    unknown_layout_cells = script.get_revision(UNKNOWN_LAYOUT_CELLS_REVISION)
+    obsolete_board_search_storage = script.get_revision(OBSOLETE_BOARD_SEARCH_STORAGE_REVISION)
+    storage_retention = script.get_revision(STORAGE_RETENTION_REVISION)
+    storage_capacity_guard = script.get_revision(STORAGE_CAPACITY_GUARD_REVISION)
+    storage_inventory = script.get_revision(STORAGE_INVENTORY_REVISION)
+    pipeline_state_compaction = script.get_revision(PIPELINE_STATE_COMPACTION_REVISION)
+    pipeline_state_digest = script.get_revision(PIPELINE_STATE_DIGEST_REVISION)
+    pipeline_terminal_manifest_v2 = script.get_revision(PIPELINE_TERMINAL_MANIFEST_V2_REVISION)
+    assert script.get_heads() == [PIPELINE_TERMINAL_MANIFEST_V2_REVISION]
+    assert storage_retention is not None
+    assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
+    assert storage_capacity_guard is not None
+    assert storage_capacity_guard.down_revision == STORAGE_RETENTION_REVISION
+    assert storage_inventory is not None
+    assert storage_inventory.down_revision == STORAGE_CAPACITY_GUARD_REVISION
+    assert pipeline_state_compaction is not None
+    assert pipeline_state_compaction.down_revision == STORAGE_INVENTORY_REVISION
+    assert pipeline_state_digest is not None
+    assert pipeline_state_digest.down_revision == PIPELINE_STATE_COMPACTION_REVISION
+    assert pipeline_terminal_manifest_v2 is not None
+    assert pipeline_terminal_manifest_v2.down_revision == PIPELINE_STATE_DIGEST_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION
     assert verified_training_cohort_cells is not None
     assert verified_training_cohort_cells.down_revision == SYMBOL_CELL_TRAINING_COHORTS_REVISION
+    assert topology_geometry_crop_provenance is not None
+    assert (
+        topology_geometry_crop_provenance.down_revision == VERIFIED_TRAINING_COHORT_CELLS_REVISION
+    )
+    assert unknown_layout_cells is not None
+    assert unknown_layout_cells.down_revision == TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION
+    assert obsolete_board_search_storage is not None
+    assert obsolete_board_search_storage.down_revision == UNKNOWN_LAYOUT_CELLS_REVISION
     assert baseline.down_revision is None
     assert catalog is not None
     assert catalog.down_revision == BASELINE_REVISION
@@ -607,6 +718,31 @@ def test_image_symbol_review_cells_migration_is_reversible() -> None:
     assert "ix_image_symbol_review_cells_grid_issue" in upgrade_sql
     assert "drop table image_symbol_review_cells" in downgrade_sql
     assert "drop table image_symbol_review_events" in downgrade_sql
+
+
+def test_topology_geometry_crop_provenance_migration_is_additive_and_reversible() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{VERIFIED_TRAINING_COHORT_CELLS_REVISION}:{TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION}:{VERIFIED_TRAINING_COHORT_CELLS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "add column board_topology_rules_version_id uuid" in upgrade_sql
+    assert "add column approved_geometry_revision integer" in upgrade_sql
+    assert "add column quality_issue varchar(20)" in upgrade_sql
+    assert "create table image_board_geometry_review_events" in upgrade_sql
+    assert "ix_image_symbol_review_cells_unreadable_quality_issue" in upgrade_sql
+    assert "drop table image_board_geometry_review_events" in downgrade_sql
+    assert "drop column board_topology_rules_version_id" in downgrade_sql
 
 
 def test_symbol_cell_review_catalog_revision_migration_is_reversible() -> None:

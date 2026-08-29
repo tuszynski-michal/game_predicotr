@@ -24,6 +24,10 @@ from game_predictor_api.application.image_symbol_reviews import (
     DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     SymbolCellReviewQueryService,
 )
+from game_predictor_api.application.unreadable_board_reviews import (
+    UnreadableBoardReviewService,
+    UnreadableBoardReviewView,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
@@ -31,6 +35,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
+    ResolveUnreadableCellRequest,
     SymbolCellReviewBulkOperationRequest,
     SymbolCellReviewBulkOperationResponse,
     SymbolCellReviewBulkOperationStartRequest,
@@ -41,6 +46,9 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     SymbolCellReviewPageResponse,
     SymbolCellReviewProjectionStartResponse,
     SymbolCellReviewProjectionStatusResponse,
+    UnreadableBoardReviewDetailResponse,
+    UnreadableBoardReviewPageResponse,
+    UnreadableSymbolAssignmentRequest,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
@@ -48,12 +56,15 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     to_symbol_cell_review_page_response,
     to_symbol_cell_review_projection_start_response,
     to_symbol_cell_review_projection_status_response,
+    to_unreadable_board_review_detail_response,
+    to_unreadable_board_review_page_response,
 )
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
 SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
 SymbolCellReviewMutationServiceDependency = Callable[..., object]
 SymbolCellReviewBackfillServiceDependency = Callable[..., object]
+UnreadableBoardReviewServiceDependency = Callable[..., object]
 _LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Game or current crop not found"},
@@ -67,6 +78,7 @@ def create_image_symbol_reviews_router(
     mutation_service_dependency: SymbolCellReviewMutationServiceDependency,
     bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
     backfill_service_dependency: SymbolCellReviewBackfillServiceDependency,
+    unreadable_board_service_dependency: UnreadableBoardReviewServiceDependency,
     artifact_root: Path,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
@@ -74,6 +86,74 @@ def create_image_symbol_reviews_router(
     mutation_service_parameter = Depends(mutation_service_dependency)
     bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
     backfill_service_parameter = Depends(backfill_service_dependency)
+    unreadable_board_service_parameter = Depends(unreadable_board_service_dependency)
+
+    @router.get(
+        "/{game_id}/unreadable-board-reviews",
+        response_model=UnreadableBoardReviewPageResponse,
+        operation_id="listUnreadableBoardReviews",
+        summary="List current logical boards containing unreadable symbol crops",
+        responses=ERROR_RESPONSES,
+    )
+    def list_unreadable_board_reviews(
+        game_id: UUID,
+        service: Annotated[UnreadableBoardReviewService, unreadable_board_service_parameter],
+        view: UnreadableBoardReviewView = UnreadableBoardReviewView.PENDING,
+        after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    ) -> UnreadableBoardReviewPageResponse:
+        return to_unreadable_board_review_page_response(
+            service.list(game_id=game_id, view=view, after_cursor=after_cursor, limit=limit)
+        )
+
+    @router.get(
+        "/{game_id}/unreadable-board-reviews/{review_item_id}",
+        response_model=UnreadableBoardReviewDetailResponse,
+        operation_id="getUnreadableBoardReview",
+        summary="Read one current board with all topology-aware symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def get_unreadable_board_review(
+        game_id: UUID,
+        review_item_id: UUID,
+        service: Annotated[UnreadableBoardReviewService, unreadable_board_service_parameter],
+    ) -> UnreadableBoardReviewDetailResponse:
+        return to_unreadable_board_review_detail_response(
+            service.detail(game_id=game_id, review_item_id=review_item_id)
+        )
+
+    @router.post(
+        "/{game_id}/unreadable-board-reviews/{review_item_id}/cells/{cell_index}/resolve",
+        response_model=SymbolCellReviewMutationResponse,
+        operation_id="resolveUnreadableBoardReviewCell",
+        summary="Resolve one unreadable crop as an active symbol or logical unknown",
+        responses=ERROR_RESPONSES,
+    )
+    def resolve_unreadable_board_review_cell(
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_index: int,
+        request: ResolveUnreadableCellRequest,
+        service: Annotated[UnreadableBoardReviewService, unreadable_board_service_parameter],
+    ) -> SymbolCellReviewMutationResponse:
+        target_symbol_id = (
+            request.assignment.symbol_id
+            if isinstance(request.assignment, UnreadableSymbolAssignmentRequest)
+            else None
+        )
+        return to_symbol_cell_review_mutation_response(
+            service.resolve(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cell_index=cell_index,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                target_symbol_id=target_symbol_id,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
 
     @router.get(
         "/{game_id}/symbol-cell-review-projection",
@@ -153,6 +233,16 @@ def create_image_symbol_reviews_router(
             )
         elif request.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
             result = service.mark_grid_issue(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                expected_revision=request.expected_revision,
+                expected_geometry_revision=request.expected_geometry_revision,
+                expected_crop_sample_id=request.expected_crop_sample_id,
+                expected_crop_checksum_sha256=request.expected_crop_checksum_sha256,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        elif request.action is SymbolCellReviewAction.MARK_UNREADABLE:
+            result = service.mark_unreadable(
                 game_id=game_id,
                 cell_review_id=cell_review_id,
                 expected_revision=request.expected_revision,

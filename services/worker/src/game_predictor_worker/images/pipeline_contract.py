@@ -28,6 +28,7 @@ PIPELINE_STAGES = (
     "manual_review",
     "validation",
 )
+CURRENT_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v2-in-memory-source-v1"
 MANUAL_REVIEW_PREDECESSOR = "symbol_inference"
 MODEL_MATURITIES = frozenset(
     {
@@ -574,7 +575,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                 "maturity": "deterministic",
             },
             "normalization": {
-                "adapterVersion": "image-normalization-v1",
+                "adapterVersion": CURRENT_NORMALIZATION_ADAPTER_VERSION,
                 "artifacts": [],
                 "maturity": "deterministic",
             },

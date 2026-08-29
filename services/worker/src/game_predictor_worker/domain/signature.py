@@ -8,6 +8,7 @@ from game_predictor_worker.domain.errors import DomainErrorCode, DomainValidatio
 
 MAX_SIGNATURE_CELL_WIDTH = 5
 MAX_SYMBOL_MOBILE_CODE = 32_767
+UNKNOWN_LAYOUT_MOBILE_CODE = 0
 
 
 def _validate_cell_width(cell_width: int) -> None:
@@ -40,6 +41,18 @@ def encode_signature(cells: Sequence[int], cell_width: int) -> str:
 
     _validate_cell_width(cell_width)
     return "".join(_encode_cell(cell, cell_width) for cell in cells)
+
+
+def encode_layout_signature(cells: Sequence[int], cell_width: int) -> str:
+    """Encode persisted layout cells, allowing ``0`` only as unknown evidence."""
+
+    _validate_cell_width(cell_width)
+    return "".join(
+        str(cell).zfill(cell_width)
+        if cell == UNKNOWN_LAYOUT_MOBILE_CODE and not isinstance(cell, bool)
+        else _encode_cell(cell, cell_width)
+        for cell in cells
+    )
 
 
 def encode_signature_prefix(cells: Sequence[int | None], cell_width: int) -> str:
@@ -101,4 +114,42 @@ def decode_signature(
             "Signature contains an invalid symbol code.",
         )
 
+    return cells
+
+
+def decode_layout_signature(
+    signature: str,
+    cell_width: int,
+    expected_cell_count: int | None = None,
+) -> tuple[int, ...]:
+    """Decode a persisted layout signature where ``0`` means unknown."""
+
+    _validate_cell_width(cell_width)
+    if len(signature) % cell_width != 0 or not signature.isascii() or not signature.isdigit():
+        if signature == "":
+            cells: tuple[int, ...] = ()
+        else:
+            raise DomainValidationError(
+                DomainErrorCode.INVALID_SIGNATURE,
+                "Signature must contain complete fixed-width decimal cells.",
+            )
+    else:
+        cells = tuple(
+            int(signature[offset : offset + cell_width])
+            for offset in range(0, len(signature), cell_width)
+        )
+    if expected_cell_count is not None and (
+        isinstance(expected_cell_count, bool)
+        or expected_cell_count < 0
+        or len(cells) != expected_cell_count
+    ):
+        raise DomainValidationError(
+            DomainErrorCode.INVALID_SIGNATURE,
+            f"Signature contains {len(cells)} cells; expected {expected_cell_count}.",
+        )
+    if any(symbol_code < UNKNOWN_LAYOUT_MOBILE_CODE for symbol_code in cells):
+        raise DomainValidationError(
+            DomainErrorCode.INVALID_SIGNATURE,
+            "Signature contains an invalid layout cell code.",
+        )
     return cells

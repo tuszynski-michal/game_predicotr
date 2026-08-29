@@ -341,6 +341,31 @@ def test_manifest_is_content_addressed_and_pins_all_processing_inputs(tmp_path: 
     assert payload["estimatorFingerprintSha256"] == "b" * 64
     assert payload["cropperFingerprintSha256"] == "c" * 64
     assert payload["pipelineFingerprintSha256"] == "d" * 64
+    assert "gridRows" not in payload
+
+
+def test_manifest_additively_pins_topology_without_changing_legacy_payload() -> None:
+    rules_version_id = uuid4()
+    manifest = replace(
+        _manifest(),
+        grid_rows=3,
+        grid_columns=5,
+        topology_rules_version_id=rules_version_id,
+    )
+
+    payload = manifest.payload()
+
+    assert payload["gridRows"] == 3
+    assert payload["gridColumns"] == 5
+    assert payload["topologyRulesVersionId"] == str(rules_version_id)
+    assert (
+        manifest.checksum_sha256
+        != _manifest(
+            game_id=manifest.game_id,
+            import_job_id=manifest.import_job_id,
+            source_image_id=manifest.source_image_id,
+        ).checksum_sha256
+    )
 
 
 @pytest.mark.parametrize(

@@ -92,6 +92,7 @@ def test_v2_quality_delta_uses_persisted_cell_sample_checksums() -> None:
     assert summary.new_verified_layout_count == 0
     assert summary.symbol_coverage[0].sample_count == 1
 
+
 class MemorySourceRepository(VerifiedTrainingCohortSourceRepository):
     def __init__(self, game_id: UUID, items: Sequence[ImageReviewItem]) -> None:
         self.game_id = game_id
@@ -553,6 +554,14 @@ def test_verified_training_cohort_api_exposes_preview_and_freeze(tmp_path: Path)
     assert quality.json()["activeModel"] is None
     assert preview.status_code == 200
     assert preview.json()["resolvedLayoutCount"] == 2
+    assert preview.json()["trainingExclusions"] == {
+        "changedCrop": 0,
+        "gridIssue": 0,
+        "missingAsset": 0,
+        "unknown": 0,
+        "unreadable": 0,
+    }
+    assert quality.json()["manifestSchemaVersion"] == 1
     assert freeze.status_code == 200
     assert freeze.json()["created"] is True
     assert freeze.json()["cohort"]["iterationNumber"] == 1

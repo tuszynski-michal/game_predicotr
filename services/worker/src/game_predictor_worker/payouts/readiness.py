@@ -10,7 +10,8 @@ from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 
 PAYOUT_DIAGNOSTIC_LIMIT = 100
-SUPPORTED_PAYOUT_ALGORITHM = "payout-v2"
+SUPPORTED_PAYOUT_ALGORITHM = "payout-v3-unknown-prefix-stop"
+SUPPORTED_PAYOUT_ALGORITHMS = frozenset({"payout-v2", SUPPORTED_PAYOUT_ALGORITHM})
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,10 +130,10 @@ def assess_payout_completeness(
     def add_issue(code: str, message: str, **details: object) -> None:
         issues.append(PayoutReadinessIssue(code, message, details))
 
-    if facts.algorithm_version != SUPPORTED_PAYOUT_ALGORITHM:
+    if facts.algorithm_version not in SUPPORTED_PAYOUT_ALGORITHMS:
         add_issue(
             "UNSUPPORTED_PAYOUT_ALGORITHM",
-            f"Only {SUPPORTED_PAYOUT_ALGORITHM} is supported.",
+            "The requested payout algorithm is not supported.",
             algorithmVersion=facts.algorithm_version,
         )
     if facts.dataset_status is not DatasetVersionStatus.PUBLISHED:

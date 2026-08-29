@@ -48,6 +48,52 @@ class BoardCellGeometryContractError(ValueError):
         self.code = code
 
 
+@dataclass(frozen=True, slots=True)
+class BoardCellTopology:
+    """Pinned row-major dimensions carried by worker geometry artifacts."""
+
+    rows: int
+    columns: int
+    rules_version_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.rows, bool)
+            or isinstance(self.columns, bool)
+            or not isinstance(self.rows, int)
+            or not isinstance(self.columns, int)
+            or self.rows < 1
+            or self.columns < 1
+            or self.rows > 32767
+            or self.columns > 32767
+        ):
+            raise BoardCellGeometryContractError(
+                "BOARD_CELL_GEOMETRY_TOPOLOGY_INVALID",
+                "Board-cell geometry topology dimensions are invalid.",
+            )
+        if self.rules_version_id is not None:
+            try:
+                from uuid import UUID
+
+                UUID(self.rules_version_id)
+            except (TypeError, ValueError) as error:
+                raise BoardCellGeometryContractError(
+                    "BOARD_CELL_GEOMETRY_TOPOLOGY_INVALID",
+                    "Board-cell geometry topology rules version is invalid.",
+                ) from error
+
+    @property
+    def cell_count(self) -> int:
+        return self.rows * self.columns
+
+    @property
+    def is_legacy_3x5(self) -> bool:
+        return self.rows == BOARD_ROWS and self.columns == BOARD_COLUMNS
+
+
+LEGACY_BOARD_CELL_TOPOLOGY = BoardCellTopology(rows=BOARD_ROWS, columns=BOARD_COLUMNS)
+
+
 def canonical_json_bytes(value: object) -> bytes:
     """Return the only byte representation used for geometry content addresses."""
 
@@ -115,9 +161,10 @@ class BoardCellGeometryEntry:
     lattice_bounds_quad: Quad
     cells: tuple[BoardCellQuad, ...]
     evidence: BoardCellGeometryEvidence
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "cells": [cell.to_dict() for cell in self.cells],
             "conditionTags": list(self.condition_tags),
             "evidence": self.evidence.to_dict(),
@@ -132,6 +179,11 @@ class BoardCellGeometryEntry:
             "sourceImageWidth": self.source_image_width,
             "sourceOrderIndex": self.source_order_index,
         }
+        if self.topology.rules_version_id is not None or not self.topology.is_legacy_3x5:
+            payload["gridRows"] = self.topology.rows
+            payload["gridColumns"] = self.topology.columns
+            payload["topologyRulesVersionId"] = self.topology.rules_version_id
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -575,6 +627,8 @@ def _source_images(manifest: Mapping[str, object]) -> dict[str, Mapping[str, obj
 
 def _parse_entry(value: object, label: str) -> BoardCellGeometryEntry:
     entry = _mapping(value, label)
+    topology_keys = {"gridRows", "gridColumns", "topologyRulesVersionId"}
+    has_topology = any(key in entry for key in topology_keys)
     _exact_keys(
         entry,
         {
@@ -591,8 +645,20 @@ def _parse_entry(value: object, label: str) -> BoardCellGeometryEntry:
             "sourceImageRelativePath",
             "sourceImageWidth",
             "sourceOrderIndex",
-        },
+        }
+        | (topology_keys if has_topology else set()),
         label,
+    )
+    topology = (
+        BoardCellTopology(
+            rows=_integer(entry.get("gridRows"), f"{label}.gridRows", minimum=1),
+            columns=_integer(entry.get("gridColumns"), f"{label}.gridColumns", minimum=1),
+            rules_version_id=_optional_text(
+                entry.get("topologyRulesVersionId"), f"{label}.topologyRulesVersionId"
+            ),
+        )
+        if has_topology
+        else LEGACY_BOARD_CELL_TOPOLOGY
     )
     width = _integer(entry.get("sourceImageWidth"), f"{label}.sourceImageWidth", minimum=1)
     height = _integer(entry.get("sourceImageHeight"), f"{label}.sourceImageHeight", minimum=1)
@@ -608,6 +674,7 @@ def _parse_entry(value: object, label: str) -> BoardCellGeometryEntry:
         lattice_bounds=bounds,
         image_width=width,
         image_height=height,
+        topology=topology,
     )
     tags = tuple(
         _text(tag, f"{label}.conditionTags")
@@ -640,6 +707,7 @@ def _parse_entry(value: object, label: str) -> BoardCellGeometryEntry:
         lattice_bounds_quad=bounds,
         cells=cells,
         evidence=_parse_evidence(entry.get("evidence"), f"{label}.evidence"),
+        topology=topology,
     )
 
 
@@ -741,24 +809,31 @@ def _parse_cells(
     lattice_bounds: Quad,
     image_width: int,
     image_height: int,
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
 ) -> tuple[BoardCellQuad, ...]:
     values = _sequence(value, label)
-    if len(values) != BOARD_CELL_COUNT:
+    if len(values) != topology.cell_count:
         raise _error(
             "BOARD_CELL_GEOMETRY_CELL_COUNT_INVALID",
-            f"{label} must contain exactly {BOARD_CELL_COUNT} cells.",
+            f"{label} must contain exactly {topology.cell_count} cells.",
         )
-    expected = _derive_cell_quads(lattice_bounds)
+    expected = _derive_cell_quads(lattice_bounds, topology=topology)
     cells: list[BoardCellQuad] = []
     for index, raw in enumerate(values):
         item = _mapping(raw, f"{label}[{index}]")
         _exact_keys(item, {"columnIndex", "quad", "rowIndex"}, f"{label}[{index}]")
-        row = _integer(item.get("rowIndex"), f"{label}[{index}].rowIndex", maximum=2)
-        column = _integer(item.get("columnIndex"), f"{label}[{index}].columnIndex", maximum=4)
-        if (row, column) != divmod(index, BOARD_COLUMNS):
+        row = _integer(
+            item.get("rowIndex"), f"{label}[{index}].rowIndex", maximum=topology.rows - 1
+        )
+        column = _integer(
+            item.get("columnIndex"),
+            f"{label}[{index}].columnIndex",
+            maximum=topology.columns - 1,
+        )
+        if (row, column) != divmod(index, topology.columns):
             raise _error(
                 "BOARD_CELL_GEOMETRY_CELL_ORDER_INVALID",
-                f"{label} must use complete 3x5 row-major order.",
+                f"{label} must use complete {topology.rows}x{topology.columns} row-major order.",
             )
         quad = _parse_quad(
             item.get("quad"),
@@ -775,16 +850,25 @@ def _parse_cells(
     return tuple(cells)
 
 
-def _derive_cell_quads(lattice_bounds: Quad) -> tuple[BoardCellQuad, ...]:
+def _derive_cell_quads(
+    lattice_bounds: Quad,
+    *,
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
+) -> tuple[BoardCellQuad, ...]:
     canonical = np.asarray(
-        [[0.0, 0.0], [float(BOARD_COLUMNS), 0.0], [float(BOARD_COLUMNS), 3.0], [0.0, 3.0]],
+        [
+            [0.0, 0.0],
+            [float(topology.columns), 0.0],
+            [float(topology.columns), float(topology.rows)],
+            [0.0, float(topology.rows)],
+        ],
         dtype=np.float32,
     )
     source = np.asarray(lattice_bounds, dtype=np.float32)
     matrix = cv2.getPerspectiveTransform(canonical, source)
     cells: list[BoardCellQuad] = []
-    for row in range(BOARD_ROWS):
-        for column in range(BOARD_COLUMNS):
+    for row in range(topology.rows):
+        for column in range(topology.columns):
             logical = np.asarray(
                 [
                     [float(column), float(row)],
@@ -813,8 +897,9 @@ def derive_board_cell_quads(
     *,
     source_image_width: int,
     source_image_height: int,
+    topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
 ) -> tuple[BoardCellQuad, ...]:
-    """Validate source-space lattice bounds and derive the canonical 3 x 5 cells."""
+    """Validate lattice bounds and derive all row-major cells for a topology."""
 
     width = _integer(source_image_width, "sourceImageWidth", minimum=1)
     height = _integer(source_image_height, "sourceImageHeight", minimum=1)
@@ -824,7 +909,7 @@ def derive_board_cell_quads(
         image_width=width,
         image_height=height,
     )
-    return _derive_cell_quads(validated)
+    return _derive_cell_quads(validated, topology=topology)
 
 
 def _parse_quad(
@@ -1097,11 +1182,13 @@ __all__ = [
     "BOARD_CELL_GEOMETRY_VERSION",
     "BOARD_COLUMNS",
     "BOARD_ROWS",
+    "LEGACY_BOARD_CELL_TOPOLOGY",
     "BoardCellGeometryContractError",
     "BoardCellGeometryEntry",
     "BoardCellGeometryEvidence",
     "BoardCellGeometryManifestV1",
     "BoardCellQuad",
+    "BoardCellTopology",
     "canonical_json_bytes",
     "derive_board_cell_quads",
     "load_board_cell_geometry_manifest",

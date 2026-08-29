@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -254,9 +254,11 @@ class ImageBatchHandler:
         self,
         store: ImageBatchStore,
         stage_executor: ImageStageExecutor,
+        before_candidate: Callable[[], bool] | None = None,
     ) -> None:
         self._store = store
         self._stage_executor = stage_executor
+        self._before_candidate = before_candidate
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         pipeline_fingerprint = _pipeline_fingerprint(job)
@@ -314,6 +316,16 @@ class ImageBatchHandler:
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
         ):
+            if self._before_candidate is not None and not self._before_candidate():
+                stats = progress.snapshot()
+                context.wait_for_storage(
+                    checkpoint_payload={
+                        "checkpoint_kind": "image-storage-wait-v1",
+                        "pipeline_fingerprint": pipeline_fingerprint,
+                        "progress_current": stats.current,
+                        "schema_version": 1,
+                    }
+                )
             self._run_candidate(
                 context,
                 job,
@@ -505,7 +517,6 @@ __all__ = [
     "ImageBatchStore",
     "ImageFileExecution",
     "ImageFileRegistration",
-    "ImageResultRehydrator",
     "ImageStageExecutionResult",
     "ImageStageExecutor",
     "advance_file_checkpoint",

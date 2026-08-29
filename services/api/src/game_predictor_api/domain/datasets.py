@@ -17,6 +17,7 @@ MOCK_DUPLICATE_COUNT = 6
 MOCK_GENERATOR_VERSION = "mock-v1"
 MAX_GENERATOR_SEED = 2_147_483_647
 MAX_SIGNATURE_CELL_WIDTH = 5
+UNKNOWN_LAYOUT_MOBILE_CODE = 0
 MAX_MOCK_CELL_COUNT = 100
 VALIDATION_DIAGNOSTIC_LIMIT = 100
 _DUPLICATE_SOURCE_SEQUENCES = (101, 102, 103, 104, 105, 106)
@@ -228,10 +229,10 @@ def encode_layout_signature(cells: Sequence[int], cell_width: int) -> str:
         )
     encoded: list[str] = []
     for mobile_code in cells:
-        if not 1 <= mobile_code <= 32767:
+        if not UNKNOWN_LAYOUT_MOBILE_CODE <= mobile_code <= 32767:
             raise DatasetError(
                 "INVALID_SYMBOL_CODE",
-                "Every cell must contain a valid positive symbol mobile code.",
+                "Every cell must contain a symbol mobile code or zero for unknown.",
             )
         value = str(mobile_code)
         if len(value) > cell_width:
@@ -326,7 +327,7 @@ def validate_dataset(
     invalid_cell_records = [
         item for item in layouts if len(item.cells) != dataset.rows * dataset.columns
     ]
-    allowed_codes = set(source.allowed_symbol_mobile_codes)
+    allowed_codes = {UNKNOWN_LAYOUT_MOBILE_CODE, *source.allowed_symbol_mobile_codes}
     foreign_records = [
         item for item in layouts if any(cell not in allowed_codes for cell in item.cells)
     ]

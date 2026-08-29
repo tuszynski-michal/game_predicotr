@@ -29,6 +29,8 @@ import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-acce
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
 import { SymbolReviewWorkspace } from '@/features/symbol-reviews/symbol-review-workspace';
+import { StorageWorkspace } from '@/features/storage/storage-workspace';
+import { UnreadableBoardReviewWorkspace } from '@/features/unreadable-board-reviews/unreadable-board-review-workspace';
 
 interface CatalogWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -76,6 +78,12 @@ const WORKSPACE_OPTIONS: readonly {
     description: 'Masowy przegląd cropów symboli i problemów siatki.',
     index: '06',
   },
+  {
+    id: 'storage',
+    label: 'Pamięć i czyszczenie',
+    description: 'Zajętość dysku, retencja i bezpieczny garbage collector.',
+    index: '07',
+  },
 ];
 
 const GAME_SECTION_OPTIONS: readonly {
@@ -105,8 +113,14 @@ const GAME_SECTION_OPTIONS: readonly {
   },
   {
     id: 'reviews',
-    title: 'Zatwierdzanie plansz',
-    description: 'Dostęp do osobnej aplikacji Reviewer.',
+    title: 'Zatwierdzanie cięcia siatki',
+    description: 'Walidacja i korekta geometrii plansz w aplikacji Reviewer.',
+  },
+  {
+    id: 'unreadable-symbols',
+    title: 'Weryfikacja symbolu na planszy',
+    description:
+      'Ustal symbole, których nie dało się odczytać z pojedynczego cropa.',
   },
   {
     id: 'model-quality',
@@ -369,6 +383,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             onOpenImports={() => openSection('imports')}
                           />
                         ) : null}
+                        {expanded && section.id === 'unreadable-symbols' ? (
+                          <UnreadableBoardReviewWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
+                          />
+                        ) : null}
                         {expanded && section.id === 'model-quality' ? (
                           <ModelQualityWorkspace
                             apiBaseUrl={apiBaseUrl}
@@ -443,6 +464,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'symbol-verification' ? (
           <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'storage' ? (
+          <StorageWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
       </div>
     </div>

@@ -161,6 +161,21 @@ describe('board components', () => {
     act(() => renderer.unmount());
   });
 
+  test('renders snapshot unknown sentinel as a question mark', () => {
+    const renderer = render(
+      <BoardGrid cells={[0]} columns={1} rows={1} symbols={symbols} />,
+    );
+
+    const cell = boardCells(renderer.root)[0];
+    expect(cell?.props.accessibilityLabel).toContain('Nieznany symbol');
+    expect(
+      renderer.root
+        .findAllByType(Text)
+        .some((node) => node.props.children === '?'),
+    ).toBe(true);
+    act(() => renderer.unmount());
+  });
+
   test('exposes selected game and disabled Undo state without using color alone', () => {
     const renderer = render(
       <GameHeader

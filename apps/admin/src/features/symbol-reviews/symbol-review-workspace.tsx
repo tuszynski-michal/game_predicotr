@@ -459,7 +459,7 @@ export function SymbolReviewWorkspace({
   }
 
   async function previewOperation(
-    action: 'approve' | 'mark_grid_issue' | 'reassign',
+    action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
@@ -488,7 +488,9 @@ export function SymbolReviewWorkspace({
             ? 'Symbol został zmieniony.'
             : action === 'approve'
               ? 'Symbol został zatwierdzony.'
-              : 'Symbol został oznaczony jako problem siatki.',
+              : action === 'mark_grid_issue'
+                ? 'Symbol został oznaczony jako problem siatki.'
+                : 'Symbol został oznaczony jako nieczytelny.',
       });
       return;
     }
@@ -708,6 +710,7 @@ export function SymbolReviewWorkspace({
           onApprove={() => void previewOperation('approve')}
           onClear={() => setSelection(createEmptySymbolReviewSelection())}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
+          onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
           onSelectVisible={selectVisiblePage}
           onTargetSymbolChange={setReassignTargetSymbolId}
@@ -946,6 +949,15 @@ function SymbolReviewCard({
             role="status"
           />
         ) : null}
+        {item.qualityIssue === 'grid_issue' ? (
+          <span className={styles.cardBadge}>Zła siatka</span>
+        ) : item.qualityIssue === 'unreadable' ? (
+          <span className={styles.cardBadge}>Nieczytelny</span>
+        ) : item.cropApprovalState === 'changed_since_approval' ? (
+          <span className={styles.cardBadge}>Nowy crop</span>
+        ) : item.isUnknown ? (
+          <span className={styles.cardBadge}>?</span>
+        ) : null}
       </button>
     </article>
   );
@@ -959,6 +971,7 @@ function SymbolReviewSelectionToolbar({
   onApprove,
   onClear,
   onMarkGridIssue,
+  onMarkUnreadable,
   onReassign,
   onSelectVisible,
   onTargetSymbolChange,
@@ -973,6 +986,7 @@ function SymbolReviewSelectionToolbar({
   readonly onApprove: () => void;
   readonly onClear: () => void;
   readonly onMarkGridIssue: () => void;
+  readonly onMarkUnreadable: () => void;
   readonly onReassign: () => void;
   readonly onSelectVisible: () => void;
   readonly onTargetSymbolChange: (symbolId: string | null) => void;
@@ -1045,7 +1059,15 @@ function SymbolReviewSelectionToolbar({
           onClick={onMarkGridIssue}
           type="button"
         >
-          Oznacz złą siatkę
+          Zła siatka
+        </button>
+        <button
+          className="secondaryButton"
+          disabled={actionsDisabled}
+          onClick={onMarkUnreadable}
+          type="button"
+        >
+          Nieczytelny symbol
         </button>
       </div>
     </aside>
@@ -1349,11 +1371,12 @@ function formatBytes(value: number | null | undefined): string {
 }
 
 function operationLabel(
-  action: 'approve' | 'mark_grid_issue' | 'reassign',
+  action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
 ): string {
   if (action === 'approve') return 'Zatwierdzenie';
   if (action === 'reassign') return 'Zmiana symbolu';
-  return 'Oznaczenie złej siatki';
+  if (action === 'mark_grid_issue') return 'Oznaczenie złej siatki';
+  return 'Oznaczenie nieczytelnego symbolu';
 }
 
 function operationStatusLabel(

@@ -67,6 +67,27 @@ class BoardCellProcessingJobSnapshotPayload(ApiModel):
     shadow_benchmark_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_fingerprint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_version: str = Field(min_length=1, max_length=255)
+    grid_rows: int | None = Field(default=None, ge=1, le=32767)
+    grid_columns: int | None = Field(default=None, ge=1, le=32767)
+    topology_rules_version_id: UUID | None = None
+    topology_fingerprint_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    @model_validator(mode="after")
+    def validate_topology_snapshot(self) -> Self:
+        values = (
+            self.grid_rows,
+            self.grid_columns,
+            self.topology_rules_version_id,
+            self.topology_fingerprint_sha256,
+        )
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError("pinned board topology fields must be complete")
+        return self
 
 
 class ImageImportJobPayload(ApiModel):
@@ -77,6 +98,7 @@ class ImageImportJobPayload(ApiModel):
     source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID | None = None
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     source_manifest_sha256: str | None = Field(
@@ -111,6 +133,7 @@ class BrowserImageImportJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     start_mode: Literal["reuse_exact", "rerun_current_models"]
@@ -130,6 +153,7 @@ class CuratedImageImportJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID
     curated_image_import_source_id: UUID
     curated_image_import_batch_id: UUID
@@ -150,6 +174,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     source_display_name: str = Field(min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    normalization_adapter_version: str | None = Field(default=None, max_length=150)
     image_selection_run_id: UUID | None = None
     managed_source_job_id: UUID
     symbol_model: SymbolModelJobSnapshotPayload
@@ -277,6 +302,29 @@ class PendingGridReinferenceJobPayload(ApiModel):
         return self
 
 
+class StorageGcJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    storage_gc_run_id: UUID
+    policy_version: str = Field(min_length=1, max_length=64)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["manual", "automatic"]
+
+
+class StorageInventoryJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    inventory_kind: Literal["managed_image_storage"]
+    requested_at: datetime
+
+
+class StoragePipelineCompactionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    compaction_kind: Literal["reproducible_image_pipeline_state"]
+    manifest_relative_path: str = Field(min_length=1, max_length=2048)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["observe_only", "execute"]
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -335,6 +383,9 @@ JobPayloadResponse = (
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | StorageGcJobPayload
+    | StorageInventoryJobPayload
+    | StoragePipelineCompactionJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -655,6 +706,12 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BACKFILL:
         return SymbolCellReviewBackfillJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_GC:
+        return StorageGcJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_INVENTORY:
+        return StorageInventoryJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_PIPELINE_COMPACTION:
+        return StoragePipelineCompactionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

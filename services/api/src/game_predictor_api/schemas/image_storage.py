@@ -10,6 +10,7 @@ from game_predictor_api.application.image_storage import (
     ImageDiagnosticExportCreation,
     ImageStorageInventory,
 )
+from game_predictor_api.application.storage_gc import StorageGcPreview, StorageGcRun
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -29,6 +30,10 @@ class ImageStorageInventoryResponse(ApiModel):
     total_file_count: int
     total_size_bytes: int
     namespaces: list[ImageStorageNamespaceResponse]
+    measured_at: datetime
+    volumes: list[ImageStorageVolumeResponse]
+    database_size_bytes: int | None
+    wal_size_bytes: int | None
 
     @classmethod
     def from_domain(
@@ -52,7 +57,86 @@ class ImageStorageInventoryResponse(ApiModel):
                 )
                 for item in value.namespaces
             ],
+            measured_at=value.measured_at,
+            volumes=[
+                ImageStorageVolumeResponse(
+                    key=item.key,
+                    roots=list(item.roots),
+                    total_bytes=item.total_bytes,
+                    free_bytes=item.free_bytes,
+                )
+                for item in value.volumes
+            ],
+            database_size_bytes=value.database_size_bytes,
+            wal_size_bytes=value.wal_size_bytes,
         )
+
+
+class ImageStorageVolumeResponse(ApiModel):
+    key: str
+    roots: list[str]
+    total_bytes: int
+    free_bytes: int
+
+
+class StorageGcPreviewResponse(ApiModel):
+    id: UUID
+    status: str
+    mode: str
+    policy_version: str
+    retention_hours: int
+    manifest_relative_path: str
+    manifest_checksum_sha256: str
+    preview_token: str
+    candidate_count: int
+    candidate_bytes: int
+    protected_count: int
+    protected_bytes: int
+    predicted_free_bytes: int
+    category_counts: dict[str, dict[str, int]]
+    protection_reason_counts: dict[str, dict[str, int]]
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, value: StorageGcPreview) -> StorageGcPreviewResponse:
+        return (
+            cls(**value.__dict__)
+            if hasattr(value, "__dict__")
+            else cls(**{field: getattr(value, field) for field in cls.model_fields})
+        )
+
+
+class StorageGcRunCreate(ApiModel):
+    preview_id: UUID
+    manifest_checksum_sha256: str
+    preview_token: str
+    confirmed: bool
+
+
+class StorageGcRunResponse(ApiModel):
+    id: UUID
+    job_id: UUID | None
+    status: str
+    mode: str
+    candidate_count: int
+    candidate_bytes: int
+    protected_count: int
+    protected_bytes: int
+    deleted_count: int
+    deleted_bytes: int
+    conflict_count: int
+    failed_count: int
+    checkpoint_index: int
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, value: StorageGcRun) -> StorageGcRunResponse:
+        return cls(**{field: getattr(value, field) for field in cls.model_fields})
 
 
 class ImageDiagnosticExportResponse(ApiModel):
@@ -101,4 +185,7 @@ __all__ = [
     "ImageDiagnosticExportCreationResponse",
     "ImageDiagnosticExportResponse",
     "ImageStorageInventoryResponse",
+    "StorageGcPreviewResponse",
+    "StorageGcRunCreate",
+    "StorageGcRunResponse",
 ]

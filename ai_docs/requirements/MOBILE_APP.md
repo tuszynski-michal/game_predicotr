@@ -14,6 +14,10 @@ last_updated: 2026-08-01
 - Aplikacja nie łączy się z Internetem, siecią lokalną, panelem ani backendem.
 - Finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`.
 - Konfiguracja, sygnatury layoutów i obliczone payouty są dołączone do wersji APK w snapshotcie SQLite.
+- Snapshot schema v4 może zawierać w layoucie kod `0`; aplikacja renderuje go
+  jako `?`, ale nie pozwala użytkownikowi wprowadzić kodu `0` jako symbolu.
+- Aktualny klient przyjmuje schema v3 i v4. Release v4 nie może być przekazany
+  klientowi, który deklaruje wyłącznie zgodność z v3.
 - Zmiana danych lub reguł wymaga utworzenia nowego wydania i ręcznego zainstalowania APK.
 - Dystrybucja jest prywatna, na maksymalnie 3–5 urządzeniach; publikacja w sklepie nie jest wymagana.
 - Wersja `0.1` wymaga odbioru na Google Pixel 10 Pro XL. Samsung Galaxy S21

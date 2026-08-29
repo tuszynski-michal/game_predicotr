@@ -1,0 +1,105 @@
+.workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.header,
+.boardHeader,
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.header p {
+  margin: 0.35rem 0 0;
+}
+
+.header label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 190px;
+}
+
+.queue {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.queue button {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.2rem;
+  min-width: 145px;
+  text-align: left;
+}
+
+.queue button[aria-current='true'] {
+  border-color: var(--accent, #ff6a3d);
+}
+
+.board {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.cell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.cell img {
+  aspect-ratio: 1;
+  background: #111;
+  border-radius: 8px;
+  height: auto;
+  object-fit: contain;
+  width: 100%;
+}
+
+.cell select {
+  min-width: 0;
+  width: 100%;
+}
+
+.position,
+.cell small {
+  color: var(--text-muted, #a9acb5);
+  font-size: 0.78rem;
+}
+
+.actions {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.error {
+  background: rgba(190, 45, 55, 0.15);
+  border: 1px solid rgba(255, 94, 105, 0.45);
+  border-radius: 10px;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.empty {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.5rem 0;
+}
+
+@media (max-width: 900px) {
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

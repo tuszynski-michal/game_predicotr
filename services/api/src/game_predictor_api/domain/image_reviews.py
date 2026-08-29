@@ -210,7 +210,7 @@ class ImageSequenceSourceSelection:
 class ImageReviewResolutionCell:
     cell_index: int
     crop_sample_id: str
-    symbol_code: str
+    symbol_code: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +223,7 @@ class ValidatedImageReviewResolution:
     resolved_by: str
     resolved_value: Mapping[str, object]
     command_sha256: str
+    allow_unknown_cells: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -502,6 +503,7 @@ def validate_image_review_resolution(
     rejection_reason: str | None,
     resolved_by: str,
     active_symbol_codes: Sequence[str],
+    allow_unknown_cells: bool = False,
 ) -> ValidatedImageReviewResolution:
     actor = resolved_by.strip()
     if not actor or len(actor) > 200:
@@ -534,29 +536,31 @@ def validate_image_review_resolution(
             rejection_reason=reason,
             resolved_by=actor,
             resolved_value=resolved_value,
+            allow_unknown_cells=False,
         )
     if (
         not isinstance(sequence_number, int)
         or isinstance(sequence_number, bool)
         or sequence_number < 1
-        or len(cells) != IMAGE_REVIEW_CELL_COUNT
+        or len(cells) != len(item.cells)
         or rejection_reason is not None
     ):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_BOARD_INVALID",
-            "Accepted or corrected review requires a positive number and 15 cells.",
+            "Accepted or corrected review requires a positive number and every board cell.",
         )
     ordered = tuple(sorted(cells, key=lambda cell: cell.cell_index))
-    if [cell.cell_index for cell in ordered] != list(range(IMAGE_REVIEW_CELL_COUNT)):
+    if [cell.cell_index for cell in ordered] != list(range(len(item.cells))):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CELLS_INVALID",
-            "Operational review cells must contain row-major indexes 0..14 exactly once.",
+            "Operational review cells must contain every row-major index exactly once.",
         )
     active = set(active_symbol_codes)
     expected_by_index = {cell.cell_index: cell for cell in item.cells}
     if (
         len(active) != len(active_symbol_codes)
-        or any(cell.symbol_code not in active for cell in ordered)
+        or any(cell.symbol_code not in active for cell in ordered if cell.symbol_code is not None)
+        or (not allow_unknown_cells and any(cell.symbol_code is None for cell in ordered))
         or any(
             cell.crop_sample_id != expected_by_index[cell.cell_index].crop_sample_id
             for cell in ordered
@@ -602,6 +606,7 @@ def validate_image_review_resolution(
         rejection_reason=None,
         resolved_by=actor,
         resolved_value=resolved_value,
+        allow_unknown_cells=allow_unknown_cells,
     )
 
 
@@ -614,6 +619,7 @@ def _validated_resolution(
     rejection_reason: str | None,
     resolved_by: str,
     resolved_value: Mapping[str, object],
+    allow_unknown_cells: bool,
 ) -> ValidatedImageReviewResolution:
     command_sha256 = hashlib.sha256(
         canonical_image_review_bytes(
@@ -633,6 +639,7 @@ def _validated_resolution(
         resolved_by=resolved_by,
         resolved_value=resolved_value,
         command_sha256=command_sha256,
+        allow_unknown_cells=allow_unknown_cells,
     )
 
 

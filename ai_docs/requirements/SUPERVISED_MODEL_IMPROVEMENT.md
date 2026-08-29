@@ -22,9 +22,14 @@ Automatyczna operacja nie może zmienić ani ponownie przeliczyć planszy, dla
 której użytkownik zapisał rozstrzygnięcie `accepted`, `corrected` lub
 `rejected`.
 
-- każda komórka `approved` jest kanoniczną prawdą i może wejść do zbioru
-  treningowego niezależnie od stanu pozostałych komórek planszy, jeżeli wskazuje
-  aktywny symbol, bieżący crop i nie ma flagi błędu siatki,
+- każda komórka `approved` jest kanoniczną prawdą logiczną niezależnie od stanu
+  pozostałych komórek planszy, ale do zbioru treningowego może wejść wyłącznie,
+  gdy wskazuje aktywny realny symbol, nie ma problemu jakości, należy do
+  aktualnego właściciela planszy, a bieżący crop i jego SHA-256 są zgodne z
+  dokładną tożsamością cropa ostatnio zatwierdzonego przez człowieka,
+- recrop zachowuje logiczną etykietę, lecz wyłącza nowe piksele z treningu do
+  czasu osobnego zatwierdzenia bieżącego cropa; `unreadable` i domenowe `?` nie
+  są przykładami treningowymi,
 - `rejected` pozostaje niezmienną decyzją człowieka, ale nie jest przykładem
   treningowym,
 - wyłącznie element `pending` może otrzymać nową rewizję predykcji,
@@ -51,12 +56,18 @@ Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
 4. tworzy niezmienny manifest wejścia,
 5. trenuje od początku na całej skumulowanej kohorcie danej gry.
 
-Kohorta v2 wybiera deterministycznie różnorodne przykłady osobno dla każdego
+Kohorta v3 wybiera deterministycznie różnorodne przykłady osobno dla każdego
 aktywnego symbolu. Korekty człowieka mają pierwszeństwo, identyczne i bliskie
 wizualnie cropy są redukowane bez macierzy porównań każdy-z-każdym. Cel wynosi
 1000 próbek na symbol, a twarde maksimum 2000; większa liczba zatwierdzeń nie
 powiększa bez końca kosztu jednej iteracji. Jedynym progiem startu pozostaje co
 najmniej jeden kwalifikujący crop.
+
+Manifest v3 zapisuje bieżącą oraz zatwierdzoną tożsamość cropa. Obie muszą mieć
+ten sam sample ID, SHA-256 i rewizję geometrii. Preview raportuje osobno cropy
+wykluczone jako unknown, unreadable, grid issue, zmienione po zatwierdzeniu albo
+pozbawione poprawnego assetu. Historyczne manifesty v1/v2 pozostają obsługiwane
+wyłącznie w celu reprodukcji istniejących iteracji.
 
 ## Podział danych i brak przecieku
 

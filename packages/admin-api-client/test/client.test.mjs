@@ -1972,6 +1972,97 @@ test('generated client previews and persists one scope-bound geometry revision',
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
 });
 
+test('grid review client binds keyset, source identity and topology-aware writes', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const importJobId = '22222222-2222-4222-8222-222222222222';
+  const reviewItemId = '33333333-3333-4333-8333-333333333333';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (
+        path.endsWith('/source-asset') ||
+        path.endsWith('/geometry-preview')
+      ) {
+        return new Response(new Blob(['image']), { status: 200 });
+      }
+      return Response.json({ created: true, items: [] }, { status: 200 });
+    },
+  });
+  const geometry = {
+    corners: [
+      { x: 10, y: 10 },
+      { x: 410, y: 10 },
+      { x: 410, y: 210 },
+      { x: 10, y: 210 },
+    ],
+    expectedGeometryRevision: 1,
+    expectedGridColumns: 4,
+    expectedGridRows: 2,
+    expectedResolutionRevision: 3,
+    expectedSourceChecksumSha256: checksum,
+    expectedSourceHeight: 1080,
+    expectedSourceWidth: 1920,
+  };
+
+  await client.listImageGridReviews({
+    afterCursor: 'cursor',
+    gameId,
+    importJobId,
+    limit: 25,
+    view: 'needs_validation',
+  });
+  await client.getImageGridReviewSourceAsset(reviewItemId, gameId, checksum);
+  await client.approveImageGridReviewGeometry(reviewItemId, gameId, {
+    expectedGeometryRevision: geometry.expectedGeometryRevision,
+    expectedGridColumns: geometry.expectedGridColumns,
+    expectedGridRows: geometry.expectedGridRows,
+    expectedResolutionRevision: geometry.expectedResolutionRevision,
+    expectedSourceChecksumSha256: geometry.expectedSourceChecksumSha256,
+    expectedSourceHeight: geometry.expectedSourceHeight,
+    expectedSourceWidth: geometry.expectedSourceWidth,
+  });
+  await client.previewImageGridReviewGeometry(
+    reviewItemId,
+    { gameId, importJobId },
+    geometry,
+  );
+  await client.createImageGridReviewGeometryRevision(
+    reviewItemId,
+    { gameId, importJobId },
+    {
+      ...geometry,
+      idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    },
+  );
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/grid-reviews`],
+      ['GET', `/api/v1/admin/image-reviews/${reviewItemId}/source-asset`],
+      ['POST', `/api/v1/admin/image-reviews/${reviewItemId}/geometry-approval`],
+      ['POST', `/api/v1/admin/image-reviews/${reviewItemId}/geometry-preview`],
+      [
+        'POST',
+        `/api/v1/admin/image-reviews/${reviewItemId}/geometry-revisions`,
+      ],
+    ],
+  );
+  const listQuery = new URL(requests[0].url).searchParams;
+  assert.equal(listQuery.get('afterCursor'), 'cursor');
+  assert.equal(listQuery.get('importJobId'), importJobId);
+  assert.equal(listQuery.get('view'), 'needs_validation');
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('expectedSourceChecksumSha256'),
+    checksum,
+  );
+  assert.equal('correctedBy' in (await requests[4].clone().json()), false);
+});
+
 test('generated client exposes the checksum-bound deferred geometry workflow', async () => {
   const requests = [];
   const pendingId = '11111111-1111-4111-8111-111111111111';
@@ -2444,6 +2535,7 @@ test('board search forwards a partial pattern and scope through the generated cl
     cells: [
       { cellIndex: 1, symbolCode: 'bell' },
       { cellIndex: 14, symbolCode: 'seven' },
+      { cellIndex: 8, symbolCode: null },
     ],
     limit: 20,
     scope: 'approved_only',
@@ -2456,6 +2548,7 @@ test('board search forwards a partial pattern and scope through the generated cl
   assert.deepEqual(new URL(requests[0].url).searchParams.getAll('cell'), [
     '1:bell',
     '14:seven',
+    '8:?',
   ]);
   assert.equal(
     new URL(requests[0].url).searchParams.get('scope'),

@@ -15,6 +15,7 @@ from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_worker.payouts.readiness import PayoutCompletenessFacts
 from game_predictor_worker.snapshots import (
+    PRODUCTION_SNAPSHOT_SCHEMA_VERSION,
     ProductionSnapshotArtifactPublisher,
     ProductionSnapshotError,
     ProductionSnapshotGenerator,
@@ -56,7 +57,7 @@ SOURCE = SnapshotGameSource(
 LAYOUTS = (
     SnapshotLayout(1, "0102", 0),
     SnapshotLayout(2, "0102", 20),
-    SnapshotLayout(3, "0201", 5),
+    SnapshotLayout(3, "0001", 5),
 )
 
 
@@ -199,7 +200,7 @@ def test_publisher_creates_strict_manifest_and_idempotently_reuses_artifact(
         "snapshot.db",
     }
     assert manifest.manifest_version == 1
-    assert manifest.snapshot_schema_version == 3
+    assert manifest.snapshot_schema_version == PRODUCTION_SNAPSHOT_SCHEMA_VERSION
     assert manifest.game_count == 1
     assert manifest.symbol_count == 2
     assert manifest.layout_count == 3

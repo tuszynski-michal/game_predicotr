@@ -34,6 +34,7 @@ from game_predictor_api.application.cleanup import (
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -123,12 +124,15 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.storage_capacity import StorageCapacityGuard
+from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
 from game_predictor_api.application.symbol_references import (
     ApprovedSymbolReferenceService,
     ManagedSymbolReferenceArtifactStore,
 )
+from game_predictor_api.application.unreadable_board_reviews import UnreadableBoardReviewService
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
@@ -151,6 +155,7 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
@@ -196,6 +201,7 @@ from game_predictor_api.domain.rules import (
     RulesError,
     RulesNotFoundError,
 )
+from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
 from game_predictor_api.security.local_admin import (
     ADMIN_CONFIRMATION_HEADER,
     ADMIN_INTENT_HEADER,
@@ -209,6 +215,9 @@ from game_predictor_api.storage.board_cell_geometry_pending_repository import (
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.browser_staging_retention_repository import (
+    SqlAlchemyBrowserStagingRetentionRepository,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -226,6 +235,9 @@ from game_predictor_api.storage.grid_calibration_repository import (
 )
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
+)
+from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
 )
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
@@ -251,6 +263,7 @@ from game_predictor_api.storage.image_symbol_review_bulk_operation_repository im
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
     SqlAlchemySymbolCellReviewQueryRepository,
+    SqlAlchemyUnreadableBoardReviewRepository,
 )
 from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
@@ -281,6 +294,7 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
 )
@@ -323,6 +337,7 @@ def create_app(
     iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
+    image_grid_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
@@ -335,6 +350,7 @@ def create_app(
     symbol_cell_review_mutation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
+    unreadable_board_review_service_dependency: Callable[..., object] | None = None,
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
@@ -366,6 +382,7 @@ def create_app(
             iterative_image_import_service_dependency,
             image_storage_service_dependency,
             image_review_service_dependency,
+            image_grid_review_service_dependency,
             image_review_cohort_service_dependency,
             layout_import_report_service_dependency,
             mobile_release_service_dependency,
@@ -378,6 +395,7 @@ def create_app(
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
+            unreadable_board_review_service_dependency,
             worker_lane_status_service_dependency,
             verified_training_cohort_service_dependency,
             symbol_model_iteration_service_dependency,
@@ -521,6 +539,24 @@ def create_app(
         or default_symbol_cell_review_backfill_service_dependency
     )
 
+    def default_unreadable_board_review_service_dependency() -> Iterator[
+        UnreadableBoardReviewService
+    ]:
+        with session_factory() as session:
+            try:
+                yield UnreadableBoardReviewService(
+                    SqlAlchemyUnreadableBoardReviewRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_unreadable_board_review_dependency = (
+        unreadable_board_review_service_dependency
+        or default_unreadable_board_review_service_dependency
+    )
+
     def default_rules_service_dependency() -> Iterator[RulesService]:
         with session_factory() as session:
             try:
@@ -606,11 +642,38 @@ def create_app(
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
     )
+    storage_capacity_policy = StorageCapacityPolicy(
+        warning_bytes=resolved_settings.storage_warning_gib * GIB,
+        automatic_gc_bytes=resolved_settings.storage_automatic_gc_gib * GIB,
+        target_bytes=resolved_settings.storage_target_gib * GIB,
+        hard_reserve_bytes=resolved_settings.storage_hard_reserve_gib * GIB,
+    )
+    automatic_storage_gc_service = StorageGcService(
+        SqlAlchemyStorageGcRepository(session_factory),
+        StorageGcArtifactStore(
+            resolved_settings.artifact_root,
+            resolved_settings.import_root,
+        ),
+    )
+    storage_capacity_guard = StorageCapacityGuard(
+        {
+            "artifact": resolved_settings.artifact_root,
+            "import": resolved_settings.import_root,
+        },
+        policy=storage_capacity_policy,
+        ensure_automatic_gc=(
+            None
+            if resolved_settings.storage_gc_observe_only
+            else automatic_storage_gc_service.ensure_automatic_run
+        ),
+    )
     default_browser_image_selection_service = BrowserImageSelectionService(
         default_image_folder_selection_service,
         resolved_settings.import_root,
         max_bytes=resolved_settings.browser_layout_import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
+        retention=SqlAlchemyBrowserStagingRetentionRepository(session_factory),
+        capacity_guard=storage_capacity_guard,
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
@@ -824,7 +887,17 @@ def create_app(
             try:
                 yield ImageStorageService(
                     SqlAlchemyImageJobOperationsRepository(session),
-                    ImageArtifactStore(resolved_settings.artifact_root),
+                    ImageArtifactStore(
+                        resolved_settings.artifact_root,
+                        resolved_settings.import_root,
+                    ),
+                    StorageGcService(
+                        SqlAlchemyStorageGcRepository(session_factory),
+                        StorageGcArtifactStore(
+                            resolved_settings.artifact_root,
+                            resolved_settings.import_root,
+                        ),
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -850,6 +923,19 @@ def create_app(
 
     resolved_image_review_dependency = (
         image_review_service_dependency or default_image_review_service_dependency
+    )
+
+    def default_image_grid_review_service_dependency() -> Iterator[ImageGridReviewService]:
+        with session_factory() as session:
+            try:
+                yield ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_grid_review_dependency = (
+        image_grid_review_service_dependency or default_image_grid_review_service_dependency
     )
 
     def default_image_review_cohort_service_dependency() -> Iterator[VerifiedCohortService]:
@@ -1124,6 +1210,7 @@ def create_app(
             resolved_image_sequence_canonical_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
+            resolved_image_grid_review_dependency,
             resolved_image_review_cohort_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
@@ -1136,6 +1223,7 @@ def create_app(
             resolved_symbol_cell_review_mutation_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_symbol_cell_review_backfill_dependency,
+            resolved_unreadable_board_review_dependency,
             resolved_worker_lane_status_dependency,
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,
@@ -1243,6 +1331,31 @@ def create_app(
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(ImageGridReviewError)
+    async def handle_image_grid_review_error(
+        _request: Request,
+        error: ImageGridReviewError,
+    ) -> JSONResponse:
+        status_code = 422
+        if error.code in {"GAME_NOT_FOUND", "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND"}:
+            status_code = 404
+        elif error.code in {
+            "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE",
+            "IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID",
+            "IMAGE_GRID_REVIEW_CURSOR_DIRECTION_CONFLICT",
+            "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
+            "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
+            "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
+            "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+        }:
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(CleanupError)

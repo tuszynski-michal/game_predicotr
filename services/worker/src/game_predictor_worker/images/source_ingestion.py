@@ -7,7 +7,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -350,8 +350,14 @@ class ManagedOriginalStore:
 
 
 class ImageSourceIngestionHandler:
-    def __init__(self, store: ManagedOriginalStore) -> None:
+    def __init__(
+        self,
+        store: ManagedOriginalStore,
+        *,
+        before_original: Callable[[Job], bool] | None = None,
+    ) -> None:
         self._store = store
+        self._before_original = before_original
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         self.ingest(context, job)
@@ -398,6 +404,14 @@ class ImageSourceIngestionHandler:
         total = len(selected)
         copied = 0
         for index, original in enumerate(selected, start=1):
+            if self._before_original is not None and not self._before_original(context.job):
+                context.wait_for_storage(
+                    checkpoint_payload={
+                        "checkpoint_kind": "image-storage-wait-v1",
+                        "managed_original_count": copied,
+                        "schema_version": 1,
+                    }
+                )
             self._store.ensure_original(manifest, original)
             copied = index
             if index % COPY_CHECKPOINT_BATCH_SIZE == 0 or index == total:

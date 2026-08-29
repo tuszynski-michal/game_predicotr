@@ -20,6 +20,7 @@ from game_predictor_api.domain.datasets import (
     DatasetVersionStatus,
     LayoutDraft,
     LayoutValidationRecord,
+    encode_layout_signature,
     generate_mock_layouts,
     validate_dataset,
 )
@@ -395,6 +396,37 @@ def test_validator_reports_every_blocker_and_keeps_duplicate_as_warning() -> Non
         checks[DatasetValidationCheckCode.DUPLICATE_SIGNATURE].status
         is DatasetValidationCheckStatus.WARNING
     )
+
+
+def test_dataset_allows_unknown_cell_but_still_rejects_foreign_symbol() -> None:
+    dataset = DatasetVersion(
+        id=uuid4(),
+        game_id=uuid4(),
+        version=1,
+        rows=1,
+        columns=2,
+        signature_cell_width=1,
+        expected_layout_count=1,
+        layout_count=1,
+        status=DatasetVersionStatus.STAGING,
+        generation_seed=1,
+        generator_version=MOCK_GENERATOR_VERSION,
+        source_job_id=None,
+        created_at=datetime.now(UTC),
+        published_at=None,
+    )
+    cells = (1, 0)
+    report = validate_dataset(
+        DatasetValidationSource(
+            dataset_version=dataset,
+            allowed_symbol_mobile_codes=(1, 2),
+            layouts=(LayoutValidationRecord(1, encode_layout_signature(cells, 1), cells),),
+        )
+    )
+
+    checks = {check.code: check for check in report.checks}
+    assert report.ready_for_publication
+    assert checks[DatasetValidationCheckCode.FOREIGN_SYMBOL].issue_count == 0
 
 
 def test_validation_samples_are_bounded_but_counts_are_exact() -> None:

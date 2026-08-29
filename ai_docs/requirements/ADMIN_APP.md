@@ -304,6 +304,53 @@ innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
 
+### Wyszukiwanie plansz z niepełnym wzorem
+
+Edytor wzoru pozwala wskazać aktywny symbol, pozostawić pole puste albo jawnie
+oznaczyć je jako `?`. Puste pole i `?` są dla rankingu równoważnym brakiem
+dowodu: pozostają widoczne w lokalnym wzorze i historii `Cofnij`, ale nie są
+wysyłane jako znana pozycja i nie wchodzą do denominatora. Wzór zawierający
+wyłącznie puste pola lub `?` nie może uruchomić wyszukiwania.
+
+Zapisane `?` w znalezionej planszy nie daje punktu, nie zwiększa liczby
+dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?`
+jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:
+score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
+`sequence_number` i UUID.
+
+### Walidacja cięcia siatki 0.9
+
+Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
+`Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do
+importu. Każdy logiczny numer planszy występuje najwyżej raz: źródłem pozycji
+jest bieżący właściciel szybkiej projekcji wyszukiwania, a nie suma stagingów.
+
+Lista jest pobierana bounded keysetem. Szybkie zatwierdzenie zawsze dotyczy
+dokładnej rewizji decyzji i geometrii, checksummy oraz wymiarów źródła i
+przypiętej topologii. Zmiana któregokolwiek elementu po załadowaniu ekranu
+powoduje czytelny konflikt i wymaga odświeżenia pozycji. Źródło obrazu jest
+checksum-bound i nie ujawnia ścieżki systemowej.
+
+Preview oraz zapis korekty otrzymują cztery narożniki w przestrzeni obrazu
+źródłowego i topologię gry. Liczba zwracanych cropów wynika z `rows × columns`,
+nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
+kontekstu Admin API.
+
+Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
+oryginalnym obrazem i canvasowym overlayem. Filtry mają kolejność `Do
+walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
+zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Korekta
+pozwala wskazać kolejno LT, PT, PD i LD, przeciągać narożniki lub całą siatkę,
+cofać punkt, resetować szkic oraz obejrzeć dynamiczne `rows × columns` cropy
+przed atomowym zapisem i zatwierdzeniem rewizji. Ekran nie pozwala edytować
+symboli i nie zapisuje JPEG-a z overlayem.
+
+Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
+zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide
+endpointów administracyjnych. Lokalny Reviewer nie ma już przełącznika powrotu
+do poprzedniego widoku; rollback polega na wyłączeniu nowych mutacji i
+zachowaniu danych 0.9, nie na uruchomieniu starego lokalnego UI.
+
 ### Katalog symboli i grafiki referencyjne
 
 Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
@@ -377,7 +424,11 @@ stronę i uruchomić kolejną niezależną operację. Zablokowane pozostają wy�
 targety już wysłane oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
-symbol` i `Oznacz złą siatkę`. Każda akcja najpierw pokazuje niezmienny preview
+symbol`, `Zła siatka` i `Nieczytelny symbol`. `Zła siatka` kieruje pole do
+kolejki korekty geometrii, natomiast `Nieczytelny symbol` pozostawia je poza
+kolejką geometrii i poza kohortą treningową. Karta pokazuje zwięzły badge
+`Zła siatka`, `Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy
+bieżących pikseli. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
@@ -392,6 +443,29 @@ zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;
 po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów
 z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
 toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
+
+### Weryfikacja symbolu na planszy
+
+Sekcja w obrębie wybranej gry rozwiązuje cropy oznaczone jako nieczytelne w
+kontekście całej logicznej planszy. Domyślny widok `Do ustalenia` zawiera tylko
+bieżących właścicieli mających co najmniej jedno `unreadable + pending`;
+`Wszystkie nieczytelne` zachowuje audyt również po rozwiązaniu pól. Kolejka jest
+bounded i keysetowa, a wiele problematycznych komórek nadal tworzy jedną pozycję
+planszy.
+
+Plansza renderuje dokładnie `rows × columns` z przypiętej topologii i pokazuje
+crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. Dla nierozwiązanego
+nieczytelnego pola operator wybiera aktywny symbol albo logiczne `?`. Zapis jest
+związany z rewizją komórki i geometrii, crop sample ID oraz SHA-256. Podczas
+zapisu pozostałe akcje są zablokowane, a konflikt wymaga ponownego pobrania
+bieżącej planszy.
+
+Rozwiązanie zachowuje `quality_issue = unreadable`, dlatego crop pozostaje poza
+treningiem niezależnie od wybranej etykiety. Ostatnia decyzja może domknąć
+planszę jako `corrected`; `?` pozostaje wartością domenową i nie tworzy symbolu
+katalogowego. Do wdrożenia snapshotu v4 w TASK 10 plansza zawierająca `?` nie
+jest publikowana do stagingu datasetu, ale zachowuje kanonicznego właściciela i
+pełny audyt decyzji.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

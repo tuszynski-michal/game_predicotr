@@ -29,12 +29,16 @@ export function BoardGrid({ cells, columns, rows, symbols }: Props) {
             const cellIndex = rowIndex * columns + columnIndex;
             const mobileCode = cells[cellIndex] ?? null;
             const symbol =
-              mobileCode === null ? undefined : symbolByCode.get(mobileCode);
+              mobileCode === null || mobileCode === 0
+                ? undefined
+                : symbolByCode.get(mobileCode);
             const imageSource = resolveSymbolAsset(symbol?.imageAssetKey);
             const label =
               mobileCode === null
                 ? `Puste pole, wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}`
-                : `${symbol?.name ?? `Symbol ${mobileCode}`}, wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}`;
+                : mobileCode === 0
+                  ? `Nieznany symbol, wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}`
+                  : `${symbol?.name ?? `Symbol ${mobileCode}`}, wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}`;
 
             return (
               <View
@@ -42,7 +46,9 @@ export function BoardGrid({ cells, columns, rows, symbols }: Props) {
                 key={cellIndex}
                 style={[
                   styles.cell,
-                  mobileCode === null ? styles.emptyCell : styles.filledCell,
+                  mobileCode === null || mobileCode === 0
+                    ? styles.emptyCell
+                    : styles.filledCell,
                 ]}
                 testID={`board-cell-${cellIndex}`}
               >
@@ -56,14 +62,16 @@ export function BoardGrid({ cells, columns, rows, symbols }: Props) {
                 <Text
                   style={[
                     styles.cellText,
-                    mobileCode === null
+                    mobileCode === null || mobileCode === 0
                       ? styles.emptyCellText
                       : styles.filledCellText,
                   ]}
                 >
                   {mobileCode === null
                     ? '—'
-                    : (symbol?.code ?? `S${mobileCode}`)}
+                    : mobileCode === 0
+                      ? '?'
+                      : (symbol?.code ?? `S${mobileCode}`)}
                 </Text>
                 {symbol?.isWildcard === true ? (
                   <Text style={styles.jokerLabel}>JOKER</Text>

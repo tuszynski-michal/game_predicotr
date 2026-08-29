@@ -742,8 +742,9 @@ homografię, metryki ORB albo frame/gradient/LSD oraz początkowe quady slotów.
 Te quady nie są finalnymi `board_geometries`; trwały zapis kompletnej geometrii
 może nastąpić dopiero po niezależnym lokalnym dopasowaniu w kolejnym etapie.
 
-Wynik lokalnego etapu TASK-0311 jest na razie kontraktem pamięciowym, bez nowej
-tabeli i bez zapisu bitmap. Dla każdego aktywnego slotu zawiera niezależny
+Wynik lokalnego etapu TASK-0311 pozostaje kontraktem bez osobnej tabeli i bez
+zapisu bitmap. TASK-0312 zapisuje jego kompletny rezultat źródłowy w
+`image_source_geometry_revisions`. Dla każdego aktywnego slotu zawiera niezależny
 `finalQuad`, homografię idealnej siatki do źródła, obserwowane i ewentualnie
 jedną wyprowadzoną linię, pokrycie przecięć, p95 reprojekcji, osiem składowych
 confidence, disposition oraz stabilne reason codes. Checksum wyniku źródła
@@ -758,12 +759,26 @@ geometrii (`legacy`, `structured_shadow`, `structured_review`,
 checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
 brakujący rekord jest tworzony wyłącznie jako legacy.
 
-Renderer TASK-0309 nie dodaje tabel ani binariów. W przyszłym trybie
-`virtual_source` istniejące pola TASK-0308 zapisują logiczny klucz, kanoniczny
+Przy tworzeniu joba stan jest zamrażany jako checksum-bound
+`image_geometry_rollout` w input payloadzie. Snapshot zawiera rewizję oraz
+wersje silnika geometrii, virtual renderera i preprocessingu. Legacy nie zmienia
+historycznego pipeline fingerprintu; aktywny tryb 0.10 dodaje checksumę
+snapshotu do fingerprintu, więc późniejsza zmiana stanu gry nie wpływa na
+istniejący job.
+
+Renderer TASK-0309 nie dodaje tabel ani binariów. Od TASK-0312 tryb
+`virtual_source` wykorzystuje istniejące pola TASK-0308 do zapisu logicznego klucza, kanonicznego
 render spec, wersję extractora i checksumę wynikowych pikseli; RGB pozostaje
 wyłącznie wartością chwilową. Checksum render specu identyfikuje sposób
 odtworzenia, a checksum pikseli weryfikuje jego dokładny rezultat. Historyczne
 rekordy `legacy_file` i ich ścieżki nie są przepisywane.
+
+Prediction revision dla primary virtual i shadow virtual przechowuje przy
+każdej komórce crop checksum, logical key, render spec, jego checksumę,
+rendered-pixel checksum i wersję extractora. Pozwala to audytować oraz
+odtworzyć predykcję po retencji ciężkich stage payloadów. Rewizja powstaje
+wyłącznie dla nadal oczekującego review itemu; retry identycznego joba korzysta
+z istniejącej rewizji.
 
 ### image_pipeline_stage_results
 
@@ -813,7 +828,7 @@ ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
 | sequence_number | bigint nullable | wyłącznie cyfrowa sugestia |
 | sequence_confidence | float | 0..1 |
 | board_geometry | JSONB | quad i provenance geometrii |
-| asset_mode | varchar | `legacy_file` albo przyszły `virtual_source` |
+| asset_mode | varchar | `legacy_file` albo aktywny per rollout `virtual_source` |
 | source_geometry_revision_id | UUID nullable | FK append-only geometrii źródła |
 | geometry_engine_name/version | varchar nullable | wymagane dla wirtualnego wyniku |
 | geometry_checksum_sha256 | varchar(64) nullable | wiąże dokładną geometrię |

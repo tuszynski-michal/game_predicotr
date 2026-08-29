@@ -620,6 +620,7 @@ export type BrowserImageImportJobPayload = {
    */
   canonicalSequenceNumbers?: Array<number>;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -1353,6 +1354,7 @@ export type CuratedImageImportJobPayload = {
    */
   curatedManifestRelativePath: string;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -2266,6 +2268,45 @@ export type ImageFolderSelectionResponse = {
 };
 
 /**
+ * ImageGeometryRolloutJobSnapshotPayload
+ */
+export type ImageGeometryRolloutJobSnapshotPayload = {
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: 'legacy_files' | 'virtual_shadow' | 'virtual_default';
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Geometryengineversion
+   */
+  geometryEngineVersion: string;
+  /**
+   * Geometrymode
+   */
+  geometryMode:
+    'legacy' | 'structured_shadow' | 'structured_review' | 'structured_default';
+  /**
+   * Preprocessingversion
+   */
+  preprocessingVersion: string;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'virtual-geometry-rollout-snapshot-v1';
+  /**
+   * Virtualrendererversion
+   */
+  virtualRendererVersion: string;
+};
+
+/**
  * ImageGridReviewApprovalCommand
  */
 export type ImageGridReviewApprovalCommand = {
@@ -2648,6 +2689,7 @@ export type ImageImportJobPayload = {
    * Canonicalsequencenumbers
    */
   canonicalSequenceNumbers?: Array<number>;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */
@@ -4529,6 +4571,7 @@ export type LegacyImageImportJobPayload = {
 export type ManagedImageReprocessJobPayload = {
   boardCellProcessing?: BoardCellProcessingJobSnapshotPayload | null;
   gridProfile: GridProfileJobSnapshotPayload;
+  imageGeometryRollout?: ImageGeometryRolloutJobSnapshotPayload | null;
   /**
    * Imageselectionrunid
    */

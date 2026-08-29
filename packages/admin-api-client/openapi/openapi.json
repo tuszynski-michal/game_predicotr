@@ -1105,6 +1105,16 @@
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
           },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "imageSelectionRunId": {
             "anyOf": [
               {
@@ -2445,6 +2455,16 @@
           },
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "imageSelectionRunId": {
             "format": "uuid",
@@ -3957,6 +3977,75 @@
         "title": "ImageFolderSelectionResponse",
         "type": "object"
       },
+      "ImageGeometryRolloutJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cellAssetMode": {
+            "enum": [
+              "legacy_files",
+              "virtual_shadow",
+              "virtual_default"
+            ],
+            "title": "Cellassetmode",
+            "type": "string"
+          },
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "geometryEngineVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Geometryengineversion",
+            "type": "string"
+          },
+          "geometryMode": {
+            "enum": [
+              "legacy",
+              "structured_shadow",
+              "structured_review",
+              "structured_default"
+            ],
+            "title": "Geometrymode",
+            "type": "string"
+          },
+          "preprocessingVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Preprocessingversion",
+            "type": "string"
+          },
+          "rolloutRevision": {
+            "minimum": 0.0,
+            "title": "Rolloutrevision",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": "virtual-geometry-rollout-snapshot-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "virtualRendererVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Virtualrendererversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "geometryMode",
+          "cellAssetMode",
+          "geometryEngineVersion",
+          "virtualRendererVersion",
+          "preprocessingVersion",
+          "rolloutRevision",
+          "checksumSha256"
+        ],
+        "title": "ImageGeometryRolloutJobSnapshotPayload",
+        "type": "object"
+      },
       "ImageGridReviewApprovalCommand": {
         "additionalProperties": false,
         "properties": {
@@ -4599,6 +4688,16 @@
             },
             "title": "Canonicalsequencenumbers",
             "type": "array"
+          },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "imageSelectionRunId": {
             "anyOf": [
@@ -8037,6 +8136,16 @@
           },
           "gridProfile": {
             "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageGeometryRollout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGeometryRolloutJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "imageSelectionRunId": {
             "anyOf": [

@@ -33,6 +33,12 @@ from game_predictor_worker.images.geometry import (
 from game_predictor_worker.images.page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
 )
+from game_predictor_worker.images.pipeline_contract import (
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+)
 from game_predictor_worker.images.pipeline_execution import (
     ImagePipelineExecutionError,
     ImageStageContext,
@@ -49,7 +55,11 @@ from game_predictor_worker.images.production_workflow import (
     _symbol_model_snapshot,
 )
 from game_predictor_worker.images.source_ingestion import ManagedOriginal
+from game_predictor_worker.images.structured_geometry import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+)
 from game_predictor_worker.images.symbol_onnx import OnnxInference
+from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image, ImageOps
 
@@ -589,6 +599,168 @@ class _FifteenCellSymbolAdapter:
             probabilities=np.tile(np.asarray([[0.88, 0.12]], dtype=np.float32), (15, 1)),
             class_indexes=np.zeros((15,), dtype=np.int64),
         )
+
+
+class _OnePageSymbolAdapter:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def infer(self, tensors: np.ndarray) -> OnnxInference:
+        self.call_count += 1
+        assert tensors.shape == (135, 3, 32, 32)
+        return OnnxInference(
+            logits=np.tile(np.asarray([[3.0, 1.0]], dtype=np.float32), (135, 1)),
+            probabilities=np.tile(np.asarray([[0.88, 0.12]], dtype=np.float32), (135, 1)),
+            class_indexes=np.zeros((135,), dtype=np.int64),
+        )
+
+
+class _StructuredGeometryResult:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._payload = payload
+
+    def to_payload(self) -> dict[str, object]:
+        return dict(self._payload)
+
+
+class _StructuredGeometryEngine:
+    version = STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def detect(self, frame: object, request: object) -> _StructuredGeometryResult:
+        self.call_count += 1
+        source = frame.source  # type: ignore[attr-defined]
+        active_slots = request.attested_range.active_slots  # type: ignore[attr-defined]
+        boards = []
+        for slot, quad in zip(active_slots, _grid_quads(), strict=True):
+            boards.append(
+                {
+                    "confidenceComponents": {},
+                    "disposition": "automatic",
+                    "evidence": {},
+                    "finalQuad": quad,
+                    "geometryConfidence": 0.99,
+                    "idealToSourceHomography": None,
+                    "initialQuad": quad,
+                    "lines": [],
+                    "positionIndex": slot.position_index,
+                    "reasonCodes": [],
+                    "sequenceNumber": slot.sequence_number,
+                }
+            )
+        return _StructuredGeometryResult(
+            {
+                "activeBoardSlots": list(range(9)),
+                "boards": boards,
+                "canonicalHeight": source.height,
+                "canonicalWidth": source.width,
+                "configChecksumSha256": "8" * 64,
+                "coordinateSpace": source.coordinate_space,
+                "engineId": "structured-opencv-test-v1",
+                "engineVersion": self.version,
+                "geometryRevision": 0,
+                "globalInitialization": {},
+                "normalizedPixelChecksumSha256": source.normalized_pixel_checksum_sha256,
+                "reasonCodes": [],
+                "resultChecksumSha256": "9" * 64,
+                "schemaVersion": 1,
+                "sourceChecksumSha256": source.source_checksum_sha256,
+                "status": "ready",
+                "topology": {
+                    "columns": request.topology.columns,  # type: ignore[attr-defined]
+                    "rows": request.topology.rows,  # type: ignore[attr-defined]
+                    "rulesVersionId": str(request.topology_rules_version_id),  # type: ignore[attr-defined]
+                },
+            }
+        )
+
+
+def _structured_default_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_DEFAULT,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        rollout_revision=1,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
+
+
+def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    rules_version_id = "4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04"
+    snapshot = _candidate_snapshot()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=snapshot.input_size,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id=rules_version_id,
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_default_rollout(),
+    )
+    geometry_engine = _StructuredGeometryEngine()
+    suite._structured_geometry_engine = geometry_engine  # type: ignore[assignment]
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    results: dict[str, dict[str, object]] = {}
+    for stage, execute in (
+        ("normalization", suite.normalization),
+        ("board_detection", suite.board_detection),
+        ("board_cell_geometry", suite.board_cell_geometry),
+        ("board_crops", suite.board_crops),
+        ("sequence_ocr", suite.sequence_ocr),
+    ):
+        context = ImageStageContext(**base, previous_results=results)
+        results[stage] = dict(execute(context))
+        validate_stage_payload(stage, results[stage], context)
+
+    crop_boards = results["board_crops"]["boards"]
+    assert isinstance(crop_boards, list)
+    assert len(crop_boards) == 9
+    assert sum(len(board["cells"]) for board in crop_boards) == 135
+    assert all("boardRelativePath" not in board for board in crop_boards)
+    assert all("cropRelativePath" not in cell for board in crop_boards for cell in board["cells"])
+    assert geometry_engine.call_count == 1
+    assert not list((artifact_root / "data").rglob("*.png"))
+
+    restarted = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=snapshot,
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        geometry_rollout=_structured_default_rollout(),
+    )
+    symbol_adapter = _OnePageSymbolAdapter()
+    restarted._symbol_model = symbol_adapter  # type: ignore[assignment]
+    symbol_context = ImageStageContext(**base, previous_results=results)
+    symbols = dict(restarted.symbol_inference(symbol_context))
+    validate_stage_payload("symbol_inference", symbols, symbol_context)
+
+    assert symbol_adapter.call_count == 1
+    assert len(symbols["boards"]) == 9
+    assert not list((artifact_root / "data").rglob("*.png"))
 
 
 def _v19_success_estimate() -> BoardCellGeometryEstimate:

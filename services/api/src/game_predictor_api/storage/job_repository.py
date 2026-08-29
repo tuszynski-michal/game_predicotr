@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import (
     BoardTopologyJobReference,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     LayoutImportRulesReference,
@@ -27,6 +28,7 @@ from game_predictor_api.storage.models import (
     CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
+    ImageGeometryRolloutStateModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
     ImageSelectionManualDecisionModel,
@@ -71,6 +73,19 @@ class SqlAlchemyJobRepository(JobRepository):
             rules_version_id=rules.id,
             rows=rules.rows,
             columns=rules.columns,
+        )
+
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None:
+        record = self._session.get(ImageGeometryRolloutStateModel, game_id)
+        if record is None:
+            return None
+        return ImageGeometryRolloutJobReference(
+            geometry_mode=record.geometry_mode,
+            cell_asset_mode=record.cell_asset_mode,
+            revision=record.revision,
         )
 
     def get_layout_import_rules_reference(

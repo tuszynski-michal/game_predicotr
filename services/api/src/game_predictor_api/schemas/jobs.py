@@ -90,6 +90,26 @@ class BoardCellProcessingJobSnapshotPayload(ApiModel):
         return self
 
 
+class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
+    schema_version: Literal["virtual-geometry-rollout-snapshot-v1"]
+    geometry_mode: Literal[
+        "legacy",
+        "structured_shadow",
+        "structured_review",
+        "structured_default",
+    ]
+    cell_asset_mode: Literal[
+        "legacy_files",
+        "virtual_shadow",
+        "virtual_default",
+    ]
+    geometry_engine_version: str = Field(min_length=1, max_length=255)
+    virtual_renderer_version: str = Field(min_length=1, max_length=255)
+    preprocessing_version: str = Field(min_length=1, max_length=255)
+    rollout_revision: int = Field(ge=0)
+    checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class ImageImportJobPayload(ApiModel):
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -107,6 +127,7 @@ class ImageImportJobPayload(ApiModel):
     )
     symbol_model: SymbolModelJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class GridProfileJobSnapshotPayload(ApiModel):
@@ -143,6 +164,7 @@ class BrowserImageImportJobPayload(ApiModel):
     grid_profile: GridProfileJobSnapshotPayload
     page_geometry_manifest: PageGeometryManifestJobPayload | None = None
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class CuratedImageImportJobPayload(ApiModel):
@@ -164,6 +186,7 @@ class CuratedImageImportJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class ManagedImageReprocessJobPayload(ApiModel):
@@ -180,6 +203,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
     grid_profile: GridProfileJobSnapshotPayload
     board_cell_processing: BoardCellProcessingJobSnapshotPayload | None = None
+    image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):

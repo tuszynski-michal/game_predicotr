@@ -10,9 +10,14 @@ import pytest
 from game_predictor_worker.images.pipeline_contract import (
     FILE_CHECKPOINT_VERSION,
     PIPELINE_STAGES,
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
     ImagePipelineContractError,
     build_pipeline_envelope,
     current_pipeline_manifest,
+    effective_pipeline_fingerprint,
     file_execution_key,
     pipeline_fingerprint,
     validate_checkpoint_transition,
@@ -21,11 +26,34 @@ from game_predictor_worker.images.pipeline_contract import (
     validate_pipeline_manifest,
     verify_manifest_artifacts,
 )
+from game_predictor_worker.images.structured_geometry import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+)
+from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_MANIFEST = REPOSITORY_ROOT / "ai_docs/quality/m7-image-pipeline-manifest-v1.json"
 MANIFEST_SCHEMA = REPOSITORY_ROOT / "ai_docs/quality/image-pipeline-manifest-v1.schema.json"
 SOURCE_SHA256 = "a" * 64
+
+
+def _rollout(mode: GeometryRolloutMode) -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=mode,
+        cell_asset_mode=(
+            CellAssetRolloutMode.LEGACY_FILES
+            if mode is GeometryRolloutMode.LEGACY
+            else (
+                CellAssetRolloutMode.VIRTUAL_DEFAULT
+                if mode is GeometryRolloutMode.STRUCTURED_DEFAULT
+                else CellAssetRolloutMode.VIRTUAL_SHADOW
+            )
+        ),
+        rollout_revision=0 if mode is GeometryRolloutMode.LEGACY else 3,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
 
 
 def _manifest() -> dict[str, object]:
@@ -151,6 +179,28 @@ def test_same_source_and_pipeline_have_one_execution_key() -> None:
 
     assert first == second
     assert len(first) == 64
+
+
+def test_legacy_rollout_preserves_historical_pipeline_fingerprint() -> None:
+    historical = pipeline_fingerprint(_manifest())
+
+    assert effective_pipeline_fingerprint(historical, _rollout(GeometryRolloutMode.LEGACY)) == (
+        historical
+    )
+
+
+def test_structured_rollout_is_checksum_bound_and_rejects_checkpoint_drift() -> None:
+    historical = pipeline_fingerprint(_manifest())
+    snapshot = _rollout(GeometryRolloutMode.STRUCTURED_DEFAULT)
+    payload = snapshot.to_payload()
+
+    assert GeometryPipelineRolloutSnapshot.from_payload(payload) == snapshot
+    assert effective_pipeline_fingerprint(historical, snapshot) != historical
+
+    payload["rolloutRevision"] = 4
+    with pytest.raises(ImagePipelineContractError) as error:
+        GeometryPipelineRolloutSnapshot.from_payload(payload)
+    assert error.value.code == "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_DRIFT"
 
 
 @pytest.mark.parametrize(

@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
     PAYOUT_ALGORITHM_VERSION,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobService,
     LayoutImportRulesReference,
@@ -337,6 +338,51 @@ def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
     )
     response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
     assert response["inputPayload"]["boardCellProcessing"] == processing
+
+
+def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, repository = _client(tmp_path)
+    source = tmp_path / "curated"
+    source.mkdir()
+    historical = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="legacy",
+        pipeline_fingerprint="a" * 64,
+    )
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_shadow",
+        cell_asset_mode="virtual_shadow",
+        revision=7,
+    )
+
+    shadow = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="shadow",
+        pipeline_fingerprint="a" * 64,
+    )
+
+    legacy_rollout = historical.input_payload["image_geometry_rollout"]
+    shadow_rollout = shadow.input_payload["image_geometry_rollout"]
+    assert isinstance(legacy_rollout, dict)
+    assert isinstance(shadow_rollout, dict)
+    assert legacy_rollout["geometryMode"] == "legacy"
+    assert historical.input_payload["source_pipeline_fingerprint"] == "a" * 64
+    assert shadow_rollout["geometryMode"] == "structured_shadow"
+    assert shadow_rollout["cellAssetMode"] == "virtual_shadow"
+    assert shadow_rollout["rolloutRevision"] == 7
+    assert "board_cell_processing" in shadow.input_payload
+    assert (
+        shadow.input_payload["pipeline_fingerprint"]
+        != historical.input_payload["pipeline_fingerprint"]
+    )
+    response = JobResponse.from_domain(shadow).model_dump(mode="json", by_alias=True)
+    assert response["inputPayload"]["imageGeometryRollout"] == shadow_rollout
 
 
 def test_verified_v20_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:

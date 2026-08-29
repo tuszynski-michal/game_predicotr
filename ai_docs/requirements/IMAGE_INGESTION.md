@@ -140,7 +140,13 @@ z checksumą stage result; drift kończy się fail-closed.
   tej samej geometrii, paddingu, interpolacji i rozmiarze wyjścia;
 - warianty native-bbox i rectified-board są wyłącznie diagnostyczne i nie mogą
   zostać wybrane przez produkcyjny pipeline bez nowej wersji oraz bramki;
-- do czasu osobnego rolloutu rekordy i konsumery pozostają `legacy_file`.
+- job przypina niezmienny snapshot rolloutu gry. `legacy` zachowuje
+  `legacy_file`, `structured_shadow` dual-write'uje wynik virtual bez zmiany
+  decyzji legacy, `structured_review` zatrzymuje źródło przed inferencją, a
+  `structured_default` zapisuje lekkie rekordy `virtual_source` bez PNG;
+- wariant virtual renderuje najwyżej 135 komórek jednego źródła w pamięci i
+  wykonuje jedno zbiorcze wywołanie ONNX. Restart musi odtworzyć identyczny
+  render spec i checksumę pikseli z managed original.
 
 ### 2.2. Globalna inicjalizacja geometrii 0.10
 
@@ -184,7 +190,28 @@ oraz source support. Nie przyjmuje etykiet ani confidence klasyfikatora symboli.
 Próg co najmniej `0,85` wraz ze wszystkimi hard gates daje `automatic`, zakres
 `0,65–0,85` albo miękka niezgodność daje `needs_manual_review`, a niższy wynik
 lub dowolny hard failure daje `needs_manual_correction` ze stabilnymi reason
-codes. TASK-0311 nadal nie podłącza wyniku do produkcyjnego pipeline'u.
+codes. TASK-0312 podłącza wynik do pipeline'u wyłącznie przez przypięty tryb
+gry; legacy pozostaje dokładnie odtwarzalne, shadow nie zmienia wyniku
+domenowego, review nie uruchamia inferencji, a default nie renderuje slotu bez
+finalnej geometrii.
+
+### 2.4. Produkcyjny rollout geometrii i assetów 0.10
+
+- `image_geometry_rollout_states` jest odczytywany przy tworzeniu joba, a jego
+  snapshot wraz z checksumą trafia do input payloadu. Zmiana trybu gry nie
+  może zmienić istniejącego joba.
+- Fingerprint `legacy` pozostaje byte-for-byte historyczny. Dla trybu 0.10
+  fingerprint wiąże legacy fingerprint z checksumą snapshotu rolloutu.
+- `structured_shadow` wykonuje legacy jako primary, a Structured OpenCV,
+  virtual renderer i predykcje zapisuje jako shadow provenance.
+- `structured_review` zapisuje źródłową geometrię i deferrals, lecz nie tworzy
+  automatycznych plansz ani nie wywołuje modelu symboli.
+- `structured_default` projektuje tylko sloty z disposition `automatic`,
+  zapisuje source geometry revision, virtual observations oraz prediction
+  revision i nie tworzy board/cell PNG.
+- Zapis rozpoznania ponownie sprawdza bieżącego kanonicznego właściciela
+  `game + sequence_number`; wynik człowieka wygrywa, a nowe źródło jest jedynie
+  alternatywą. Replay identycznych checkpointów jest idempotentny.
 
 ### 3. Detekcja strony i layoutów
 

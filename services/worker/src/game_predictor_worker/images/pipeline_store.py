@@ -9,9 +9,15 @@ from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.image_geometry_v2_repository import (
+    ImageGeometryPersistenceError,
+    SourceGeometryRevisionInput,
+    SqlAlchemyImageSourceGeometryRepository,
 )
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
@@ -32,6 +38,8 @@ from game_predictor_api.storage.models import (
     ImageReviewResolutionEventModel,
     ImageSequenceAlternativeModel,
     ImageSequenceCanonicalModel,
+    ImageSourceGeometryRevisionModel,
+    ImageSymbolPredictionRevisionModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -183,6 +191,127 @@ class SqlAlchemyImagePipelineStore:
                     "The source image projection differs from its discovery result.",
                 )
 
+    def project_source_metadata(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        normalization: StoredImageStageResult,
+    ) -> None:
+        payload = normalization.payload
+        if "normalizedPixelChecksumSha256" not in payload:
+            return
+        job_id, lease_token, executed_at = _execution_context(candidate)
+        with self._session_factory() as session, session.begin():
+            _require_candidate_lease(
+                session,
+                candidate,
+                job_id=job_id,
+                lease_token=lease_token,
+                checked_at=executed_at,
+            )
+            source = _locked_source(session, job_id, candidate.execution.file_execution_key)
+            expected = {
+                "raw_width": cast(int, payload["sourceWidth"]),
+                "raw_height": cast(int, payload["sourceHeight"]),
+                "oriented_width": cast(int, payload["width"]),
+                "oriented_height": cast(int, payload["height"]),
+                "exif_orientation": cast(int | None, payload.get("exifOrientation")),
+                "coordinate_space": SOURCE_COORDINATE_SPACE,
+                "normalization_adapter_version": normalization.adapter_version,
+                "normalized_pixel_checksum_sha256": cast(
+                    str, payload["normalizedPixelChecksumSha256"]
+                ),
+            }
+            current = {key: getattr(source, key) for key in expected}
+            if all(value is None for value in current.values()):
+                for key, value in expected.items():
+                    setattr(source, key, value)
+            elif current != expected:
+                raise ImagePipelineStoreError(
+                    "IMAGE_SOURCE_COORDINATE_METADATA_CONFLICT",
+                    "The immutable source coordinate metadata already differs.",
+                )
+
+    def project_source_geometry(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage_results: Mapping[str, StoredImageStageResult],
+    ) -> None:
+        geometry_stage = stage_results.get("board_cell_geometry")
+        normalization = stage_results.get("normalization")
+        if geometry_stage is None or normalization is None:
+            return
+        structured_value = geometry_stage.payload.get("structuredGeometry")
+        if not isinstance(structured_value, Mapping):
+            return
+        structured = cast(Mapping[str, object], structured_value)
+        job_id, lease_token, executed_at = _execution_context(candidate)
+        with self._session_factory() as session, session.begin():
+            _require_candidate_lease(
+                session,
+                candidate,
+                job_id=job_id,
+                lease_token=lease_token,
+                checked_at=executed_at,
+            )
+            source = _locked_source(session, job_id, candidate.execution.file_execution_key)
+            job = session.get(JobModel, job_id)
+            topology = cast(Mapping[str, object], structured["topology"])
+            boards = tuple(
+                dict(cast(Mapping[str, object], value))
+                for value in cast(Sequence[object], structured["boards"])
+            )
+            if job is None or job.game_id is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_PIPELINE_GAME_MISSING",
+                    "Structured geometry requires a game-scoped import.",
+                )
+            sequence_numbers = tuple(cast(int, board["sequenceNumber"]) for board in boards)
+            try:
+                SqlAlchemyImageSourceGeometryRepository(session).append(
+                    SourceGeometryRevisionInput(
+                        game_id=job.game_id,
+                        source_image_id=source.id,
+                        topology_rules_version_id=UUID(cast(str, topology["rulesVersionId"])),
+                        sequence_range_start=min(sequence_numbers),
+                        sequence_range_end=max(sequence_numbers),
+                        active_board_slots=tuple(
+                            cast(int, value)
+                            for value in cast(Sequence[object], structured["activeBoardSlots"])
+                        ),
+                        source_checksum_sha256=cast(str, structured["sourceChecksumSha256"]),
+                        normalized_pixel_checksum_sha256=cast(
+                            str, structured["normalizedPixelChecksumSha256"]
+                        ),
+                        oriented_width=cast(int, structured["canonicalWidth"]),
+                        oriented_height=cast(int, structured["canonicalHeight"]),
+                        normalization_adapter_version=normalization.adapter_version,
+                        global_initialization=dict(
+                            cast(Mapping[str, object], structured["globalInitialization"])
+                        ),
+                        board_geometries=boards,
+                        engine_kind="structured_opencv_v1",
+                        engine_version=cast(str, structured["engineVersion"]),
+                        geometry_source="auto",
+                        status=(
+                            "accepted"
+                            if structured["status"] == "ready"
+                            and structured.get("rolloutMode") == "structured_default"
+                            else "needs_review"
+                        ),
+                        geometry_checksum_sha256=cast(str, structured["resultChecksumSha256"]),
+                        processing_time_ms=None,
+                        warnings=tuple(
+                            {"reasonCode": value}
+                            for value in cast(Sequence[object], structured["reasonCodes"])
+                        ),
+                        created_by="system:image-pipeline-v0.10",
+                    )
+                )
+            except ImageGeometryPersistenceError as error:
+                raise ImagePipelineStoreError(error.code, str(error)) from error
+
     def project_recognition(
         self,
         candidate: ImageBatchCandidate,
@@ -215,6 +344,18 @@ class SqlAlchemyImagePipelineStore:
                 "Board positions differ between persisted image stages.",
             )
         model_version = cast(str, stage_results["symbol_inference"].payload["modelVersion"])
+        crop_payload = stage_results["board_crops"].payload
+        symbol_payload = stage_results["symbol_inference"].payload
+        virtual_shadow_crops = (
+            _boards_by_position(cast(Mapping[str, object], crop_payload["virtualShadow"]))
+            if isinstance(crop_payload.get("virtualShadow"), Mapping)
+            else {}
+        )
+        virtual_shadow_symbols = (
+            _boards_by_position(cast(Mapping[str, object], symbol_payload["virtualShadow"]))
+            if isinstance(symbol_payload.get("virtualShadow"), Mapping)
+            else {}
+        )
         with self._session_factory() as session, session.begin():
             _require_candidate_lease(
                 session,
@@ -229,6 +370,23 @@ class SqlAlchemyImagePipelineStore:
                 raise ImagePipelineStoreError(
                     "IMAGE_PIPELINE_GAME_MISSING",
                     "The image import job has no game projection.",
+                )
+            geometry_checksum = _virtual_geometry_checksum(crop_payload)
+            source_geometry = (
+                session.scalar(
+                    select(ImageSourceGeometryRevisionModel).where(
+                        ImageSourceGeometryRevisionModel.source_image_id == source.id,
+                        ImageSourceGeometryRevisionModel.geometry_checksum_sha256
+                        == geometry_checksum,
+                    )
+                )
+                if geometry_checksum is not None
+                else None
+            )
+            if geometry_checksum is not None and source_geometry is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_SOURCE_GEOMETRY_PROJECTION_MISSING",
+                    "Virtual recognition requires its persisted source geometry revision.",
                 )
             projected_positions = 0
             changed_review_item_ids: set[UUID] = set()
@@ -350,6 +508,7 @@ class SqlAlchemyImagePipelineStore:
                     sequence=sequence,
                 )
                 if board is None:
+                    virtual = cropped.get("assetMode") == "virtual_source"
                     board = RecognizedBoardModel(
                         source_image_id=source.id,
                         position_index=position,
@@ -357,10 +516,24 @@ class SqlAlchemyImagePipelineStore:
                         sequence_number=cast(int | None, sequence["normalizedNumber"]),
                         sequence_confidence=float(cast(float, sequence["confidence"])),
                         board_geometry=board_geometry,
-                        board_relative_path=cast(str, cropped["boardRelativePath"]),
-                        board_checksum_sha256=cast(
-                            str,
-                            cropped["boardChecksumSha256"],
+                        asset_mode="virtual_source" if virtual else "legacy_file",
+                        source_geometry_revision_id=(
+                            source_geometry.id if virtual and source_geometry is not None else None
+                        ),
+                        geometry_engine_name=(
+                            cast(str, cropped["geometryEngineName"]) if virtual else None
+                        ),
+                        geometry_engine_version=(
+                            cast(str, cropped["geometryEngineVersion"]) if virtual else None
+                        ),
+                        geometry_checksum_sha256=(
+                            cast(str, cropped["geometryChecksumSha256"]) if virtual else None
+                        ),
+                        board_relative_path=(
+                            None if virtual else cast(str, cropped["boardRelativePath"])
+                        ),
+                        board_checksum_sha256=(
+                            None if virtual else cast(str, cropped["boardChecksumSha256"])
                         ),
                         cells_prediction=prediction,
                         board_confidence=float(cast(float, detected["confidence"])),
@@ -396,6 +569,9 @@ class SqlAlchemyImagePipelineStore:
                         board,
                         crop,
                         cell_prediction,
+                        source_geometry_revision_id=(
+                            source_geometry.id if source_geometry is not None else None
+                        ),
                         cropper_version=cropper_version,
                         created_at=executed_at,
                     )
@@ -412,6 +588,33 @@ class SqlAlchemyImagePipelineStore:
                 )
                 changed_review_item_ids.update(ownership_changes)
                 if review_item.status == "pending":
+                    _append_prediction_revision(
+                        session,
+                        game_id=job.game_id,
+                        job_id=job_id,
+                        review_item=review_item,
+                        board=board,
+                        crop_board=cropped,
+                        symbol_board=symbol,
+                        symbol_payload=symbol_payload,
+                        created_at=executed_at,
+                    )
+                    shadow_crop = virtual_shadow_crops.get(position)
+                    shadow_symbol = virtual_shadow_symbols.get(position)
+                    if shadow_crop is not None and shadow_symbol is not None:
+                        _append_prediction_revision(
+                            session,
+                            game_id=job.game_id,
+                            job_id=job_id,
+                            review_item=review_item,
+                            board=board,
+                            crop_board=shadow_crop,
+                            symbol_board=shadow_symbol,
+                            symbol_payload=cast(
+                                Mapping[str, object], symbol_payload["virtualShadow"]
+                            ),
+                            created_at=executed_at,
+                        )
                     projected_positions += 1
             deferred_positions = _pending_board_geometry_count(
                 session,
@@ -1059,6 +1262,9 @@ def _require_same_board(
     )
     expected_grid_rows = _optional_positive_integer(cropped.get("gridRows"))
     expected_grid_columns = _optional_positive_integer(cropped.get("gridColumns"))
+    expected_asset_mode = (
+        "virtual_source" if cropped.get("assetMode") == "virtual_source" else "legacy_file"
+    )
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
@@ -1066,8 +1272,12 @@ def _require_same_board(
         or canonical_json_bytes(board.board_geometry) != canonical_json_bytes(expected_geometry)
         or board.grid_rows != expected_grid_rows
         or board.grid_columns != expected_grid_columns
-        or board.board_relative_path != cropped["boardRelativePath"]
-        or board.board_checksum_sha256 != cropped["boardChecksumSha256"]
+        or board.asset_mode != expected_asset_mode
+        or board.board_relative_path != cropped.get("boardRelativePath")
+        or board.board_checksum_sha256 != cropped.get("boardChecksumSha256")
+        or board.geometry_engine_name != cropped.get("geometryEngineName")
+        or board.geometry_engine_version != cropped.get("geometryEngineVersion")
+        or board.geometry_checksum_sha256 != cropped.get("geometryChecksumSha256")
         or canonical_json_bytes(board.cells_prediction) != canonical_json_bytes(prediction)
         or board.board_confidence != float(cast(float, detected["confidence"]))
         or board.pipeline_fingerprint != candidate.execution.pipeline_fingerprint
@@ -1110,6 +1320,7 @@ def _upsert_cell(
     crop: Mapping[str, object],
     prediction: Mapping[str, object],
     *,
+    source_geometry_revision_id: UUID | None,
     cropper_version: str,
     created_at: datetime,
 ) -> None:
@@ -1125,12 +1336,26 @@ def _upsert_cell(
         .with_for_update()
     )
     if record is None:
+        virtual = crop.get("assetMode") == "virtual_source"
         session.add(
             CellObservationModel(
                 recognized_board_id=board.id,
                 row_index=row,
                 column_index=column,
-                crop_relative_path=cast(str, crop["cropRelativePath"]),
+                asset_mode="virtual_source" if virtual else "legacy_file",
+                source_geometry_revision_id=(source_geometry_revision_id if virtual else None),
+                logical_cell_key=(cast(str, crop["logicalCellKeySha256"]) if virtual else None),
+                render_spec=(
+                    dict(cast(Mapping[str, object], crop["renderSpec"])) if virtual else None
+                ),
+                render_spec_checksum_sha256=(
+                    cast(str, crop["renderSpecChecksumSha256"]) if virtual else None
+                ),
+                rendered_pixel_checksum_sha256=(
+                    cast(str, crop["renderedPixelChecksumSha256"]) if virtual else None
+                ),
+                extractor_version=(cast(str, crop["extractorVersion"]) if virtual else None),
+                crop_relative_path=(None if virtual else cast(str, crop["cropRelativePath"])),
                 crop_checksum_sha256=cast(str, crop["cropChecksumSha256"]),
                 cropper_version=cropper_version,
                 prediction=dict(prediction),
@@ -1139,8 +1364,17 @@ def _upsert_cell(
         )
         return
     if (
-        record.crop_relative_path != crop["cropRelativePath"]
+        record.asset_mode
+        != ("virtual_source" if crop.get("assetMode") == "virtual_source" else "legacy_file")
+        or record.crop_relative_path != crop.get("cropRelativePath")
         or record.crop_checksum_sha256 != crop["cropChecksumSha256"]
+        or record.source_geometry_revision_id
+        != (source_geometry_revision_id if crop.get("assetMode") == "virtual_source" else None)
+        or record.logical_cell_key != crop.get("logicalCellKeySha256")
+        or canonical_json_bytes(record.render_spec) != canonical_json_bytes(crop.get("renderSpec"))
+        or record.render_spec_checksum_sha256 != crop.get("renderSpecChecksumSha256")
+        or record.rendered_pixel_checksum_sha256 != crop.get("renderedPixelChecksumSha256")
+        or record.extractor_version != crop.get("extractorVersion")
         or record.cropper_version != cropper_version
         or canonical_json_bytes(record.prediction) != canonical_json_bytes(prediction)
     ):
@@ -1162,9 +1396,9 @@ def _upsert_review_item(
     *,
     created_at: datetime,
 ) -> tuple[ImageReviewItemModel, tuple[UUID, ...]]:
-    snapshot = {
-        "boardChecksumSha256": cropped["boardChecksumSha256"],
-        "boardRelativePath": cropped["boardRelativePath"],
+    snapshot: dict[str, object] = {
+        "boardChecksumSha256": cropped.get("boardChecksumSha256"),
+        "boardRelativePath": cropped.get("boardRelativePath"),
         "cells": prediction["cells"],
         "geometry": dict(board.board_geometry),
         "pipelineFingerprint": board.pipeline_fingerprint,
@@ -1173,6 +1407,15 @@ def _upsert_review_item(
         "sourceChecksumSha256": source.checksum_sha256,
         "sourceRelativePath": source.relative_path,
     }
+    if cropped.get("assetMode") == "virtual_source":
+        snapshot.update(
+            {
+                "assetMode": "virtual_source",
+                "geometryChecksumSha256": cropped.get("geometryChecksumSha256"),
+                "geometryEngineName": cropped.get("geometryEngineName"),
+                "geometryEngineVersion": cropped.get("geometryEngineVersion"),
+            }
+        )
     item = session.scalar(
         select(ImageReviewItemModel)
         .where(ImageReviewItemModel.recognized_board_id == board.id)
@@ -1198,6 +1441,94 @@ def _upsert_review_item(
             "The immutable image review snapshot already has different content.",
         )
     return item, (item.id,)
+
+
+def _virtual_geometry_checksum(payload: Mapping[str, object]) -> str | None:
+    if payload.get("assetMode") == "virtual_source":
+        value = payload.get("geometryChecksumSha256")
+        return value if isinstance(value, str) else None
+    shadow = payload.get("virtualShadow")
+    if isinstance(shadow, Mapping):
+        value = shadow.get("geometryChecksumSha256")
+        return value if isinstance(value, str) else None
+    return None
+
+
+def _append_prediction_revision(
+    session: Session,
+    *,
+    game_id: UUID,
+    job_id: UUID,
+    review_item: ImageReviewItemModel,
+    board: RecognizedBoardModel,
+    crop_board: Mapping[str, object],
+    symbol_board: Mapping[str, object],
+    symbol_payload: Mapping[str, object],
+    created_at: datetime,
+) -> None:
+    if crop_board.get("assetMode") != "virtual_source":
+        return
+    crop_manifest_checksum = sha256(
+        canonical_json_bytes(
+            {
+                "assetMode": "virtual_source",
+                "cells": crop_board["cells"],
+                "geometryChecksumSha256": crop_board["geometryChecksumSha256"],
+                "positionIndex": crop_board["positionIndex"],
+            }
+        )
+    ).hexdigest()
+    model_checksum = cast(str, symbol_payload["modelChecksumSha256"])
+    existing = session.scalar(
+        select(ImageSymbolPredictionRevisionModel.id).where(
+            ImageSymbolPredictionRevisionModel.review_item_id == review_item.id,
+            ImageSymbolPredictionRevisionModel.model_checksum_sha256 == model_checksum,
+            ImageSymbolPredictionRevisionModel.crop_manifest_checksum_sha256
+            == crop_manifest_checksum,
+        )
+    )
+    if existing is not None:
+        return
+    raw_iteration = symbol_payload.get("modelIterationId")
+    crop_cells = cast(Sequence[object], crop_board["cells"])
+    symbol_cells = cast(Sequence[object], symbol_board["cells"])
+    session.add(
+        ImageSymbolPredictionRevisionModel(
+            game_id=game_id,
+            review_item_id=review_item.id,
+            recognized_board_id=board.id,
+            source_job_id=job_id,
+            model_iteration_id=(UUID(raw_iteration) if isinstance(raw_iteration, str) else None),
+            model_version=cast(str, symbol_payload["modelVersion"]),
+            model_checksum_sha256=model_checksum,
+            crop_manifest_checksum_sha256=crop_manifest_checksum,
+            predictions=[
+                {
+                    **dict(cast(Mapping[str, object], symbol_value)),
+                    "virtualCell": {
+                        "cropChecksumSha256": cast(Mapping[str, object], crop_value)[
+                            "cropChecksumSha256"
+                        ],
+                        "extractorVersion": cast(Mapping[str, object], crop_value)[
+                            "extractorVersion"
+                        ],
+                        "logicalCellKeySha256": cast(Mapping[str, object], crop_value)[
+                            "logicalCellKeySha256"
+                        ],
+                        "renderSpec": cast(Mapping[str, object], crop_value)["renderSpec"],
+                        "renderSpecChecksumSha256": cast(Mapping[str, object], crop_value)[
+                            "renderSpecChecksumSha256"
+                        ],
+                        "renderedPixelChecksumSha256": cast(Mapping[str, object], crop_value)[
+                            "renderedPixelChecksumSha256"
+                        ],
+                    },
+                }
+                for crop_value, symbol_value in zip(crop_cells, symbol_cells, strict=True)
+            ],
+            created_at=created_at,
+        )
+    )
 
 
 def _require_active_symbol_codes(

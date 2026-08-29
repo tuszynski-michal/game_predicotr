@@ -834,6 +834,7 @@ export type {
   ImageFolderImportCreate,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
+  ImageGeometryRolloutJobSnapshotPayload,
   ImageGridReviewApprovalCommand,
   ImageGridReviewApprovalResponse,
   ImageGridReviewCountsResponse,

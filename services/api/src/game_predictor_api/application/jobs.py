@@ -17,7 +17,16 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
-from game_predictor_worker.images.pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
+from game_predictor_worker.images.pipeline_contract import (
+    CURRENT_NORMALIZATION_ADAPTER_VERSION,
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    VIRTUAL_CELL_RENDERER_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+    effective_pipeline_fingerprint,
+)
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -53,6 +62,13 @@ class BoardTopologyJobReference:
     rules_version_id: UUID
     rows: int
     columns: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageGeometryRolloutJobReference:
+    geometry_mode: str
+    cell_asset_mode: str
+    revision: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +238,11 @@ class JobRepository(Protocol):
         game_id: UUID,
     ) -> BoardTopologyJobReference | None: ...
 
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None: ...
+
     def get_layout_import_rules_reference(
         self,
         rules_version_id: UUID,
@@ -308,6 +329,57 @@ class JobService:
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
+
+    def _pin_image_geometry_rollout(
+        self,
+        *,
+        game_id: UUID,
+        input_payload: dict[str, object],
+        effective_fingerprint: str,
+        symbol_model: SymbolModelJobSnapshot,
+    ) -> str:
+        getter = getattr(self._repository, "get_image_geometry_rollout", None)
+        reference = getter(game_id) if callable(getter) else None
+        snapshot = GeometryPipelineRolloutSnapshot(
+            geometry_mode=GeometryRolloutMode(
+                "legacy" if reference is None else reference.geometry_mode
+            ),
+            cell_asset_mode=CellAssetRolloutMode(
+                "legacy_files" if reference is None else reference.cell_asset_mode
+            ),
+            rollout_revision=0 if reference is None else reference.revision,
+            geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+            preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        )
+        if not snapshot.is_legacy and "board_cell_processing" not in input_payload:
+            topology_reference = self._repository.get_or_pin_board_topology(game_id)
+            if topology_reference is None:
+                raise JobError(
+                    "GAME_BOARD_TOPOLOGY_REQUIRED",
+                    "A rules version must define board dimensions before boards can be imported.",
+                )
+            if (topology_reference.rows, topology_reference.columns) != (3, 5):
+                raise JobError(
+                    "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED",
+                    "The structured geometry adapter currently supports only 3x5 boards.",
+                )
+            processing = board_cell_processing_snapshot(
+                cell_output_size=symbol_model.input_size,
+                topology=BoardCellTopology(
+                    rows=topology_reference.rows,
+                    columns=topology_reference.columns,
+                    rules_version_id=str(topology_reference.rules_version_id),
+                ),
+            )
+            input_payload["board_cell_processing"] = processing
+            effective_fingerprint = hashlib.sha256(
+                (f"{effective_fingerprint}:{processing['configurationFingerprintSha256']}").encode(
+                    "ascii"
+                )
+            ).hexdigest()
+        input_payload["image_geometry_rollout"] = snapshot.to_payload()
+        return effective_pipeline_fingerprint(effective_fingerprint, snapshot)
 
     def create_job(
         self,
@@ -484,6 +556,13 @@ class JobService:
             ).hexdigest()
             input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
             input_payload["board_cell_processing"] = processing_snapshot
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=game_id,
+            input_payload=input_payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+        )
+        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
         if canonical_sequence_numbers is not None:
@@ -615,28 +694,36 @@ class JobService:
                 f"{entry_start}:{entry_count}"
             ).encode("ascii")
         ).hexdigest()
+        input_payload: dict[str, object] = {
+            "schema_version": 3,
+            "import_kind": "image_directory",
+            "source_selection_id": str(source_id),
+            "source_directory": str(resolved),
+            "source_display_name": source_display_name,
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
+            "image_selection_run_id": str(image_selection_run_id),
+            "curated_image_import_source_id": str(source_id),
+            "curated_image_import_batch_id": str(batch_id),
+            "curated_manifest_relative_path": manifest_relative_path,
+            "curated_manifest_checksum_sha256": manifest_checksum_sha256,
+            "curated_manifest_entry_start": entry_start,
+            "curated_manifest_entry_count": entry_count,
+            "symbol_model": symbol_model.to_payload(),
+            "grid_profile": pinned_grid_profile,
+        }
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=game_id,
+            input_payload=input_payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+        )
+        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
-            input_payload={
-                "schema_version": 3,
-                "import_kind": "image_directory",
-                "source_selection_id": str(source_id),
-                "source_directory": str(resolved),
-                "source_display_name": source_display_name,
-                "pipeline_fingerprint": effective_pipeline_fingerprint,
-                "source_pipeline_fingerprint": pipeline_fingerprint,
-                "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
-                "image_selection_run_id": str(image_selection_run_id),
-                "curated_image_import_source_id": str(source_id),
-                "curated_image_import_batch_id": str(batch_id),
-                "curated_manifest_relative_path": manifest_relative_path,
-                "curated_manifest_checksum_sha256": manifest_checksum_sha256,
-                "curated_manifest_entry_start": entry_start,
-                "curated_manifest_entry_count": entry_count,
-                "symbol_model": symbol_model.to_payload(),
-                "grid_profile": pinned_grid_profile,
-            },
+            input_payload=input_payload,
             game_already_validated=True,
         )
 
@@ -741,6 +828,13 @@ class JobService:
         ).hexdigest()
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         payload["board_cell_processing"] = processing_snapshot
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=source.game_id,
+            input_payload=payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+        )
+        payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         source_selection_id = source.input_payload.get("source_selection_id")
         if source_selection_id is not None:
             payload["source_selection_id"] = source_selection_id

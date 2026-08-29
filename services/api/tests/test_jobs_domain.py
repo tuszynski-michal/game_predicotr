@@ -6,6 +6,7 @@ import pytest
 from game_predictor_api.application.jobs import (
     PAYOUT_ALGORITHM_VERSION,
     BoardTopologyJobReference,
+    ImageGeometryRolloutJobReference,
     ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
@@ -50,6 +51,7 @@ class MemoryJobRepository(JobRepository):
         self.image_selection_deletions: dict[UUID, ImageSelectionJobDeletionReference] = {}
         self.topology_rules_version_id = uuid4()
         self.board_topology: tuple[int, int] | None = (3, 5)
+        self.image_geometry_rollout: ImageGeometryRolloutJobReference | None = None
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -68,6 +70,14 @@ class MemoryJobRepository(JobRepository):
             rows=rows,
             columns=columns,
         )
+
+    def get_image_geometry_rollout(
+        self,
+        game_id: UUID,
+    ) -> ImageGeometryRolloutJobReference | None:
+        if game_id != self.game_id:
+            return None
+        return self.image_geometry_rollout
 
     def get_layout_import_rules_reference(
         self,

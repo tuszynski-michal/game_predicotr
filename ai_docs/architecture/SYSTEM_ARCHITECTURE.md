@@ -688,6 +688,14 @@ B source-direct perspektywy, a C pośrednio wyprostowanej planszy. Wyłącznie B
 jest kontraktem przyszłego rolloutu i ma test dokładnej zgodności z niezmienionym
 cropperem v19. Komponent nie jest jeszcze wywoływany przez produkcyjny pipeline.
 
+TASK-0312 podłącza wariant B do produkcyjnego wykonania przez niezmienny,
+per-job snapshot rolloutu gry. `structured_default` renderuje do 135 komórek
+jednego źródła w pamięci, składa je do jednego batcha NCHW i wykonuje jedno
+wywołanie ONNX. Nie materializuje board ani cell PNG. `structured_shadow`
+zachowuje legacy jako primary, ale dual-write'uje source geometry i prediction
+revision virtual; `structured_review` zapisuje geometrię i zatrzymuje się przed
+inferencją.
+
 Następna warstwa 0.10 wydziela globalną inicjalizację geometrii od jej finalnej
 walidacji. `StructuredOpenCvGeometryEngine.initialize()` przyjmuje ten sam
 `CanonicalSourceFrame`, przypiętą topologię oraz poświadczony prefiks slotów.
@@ -702,7 +710,7 @@ pozycji i nie uprawnia do cropowania. Niewystarczający dowód jest kontrolowany
 `needs_manual_review`. Końcowe lokalne dopasowanie linii pozostaje osobnym
 etapem TASK-0311, a produkcyjny v20 nie został przełączony w TASK-0310.
 
-TASK-0311 dodaje drugi, nadal nieprodukcyjny etap
+TASK-0311 dodaje drugi etap
 `structured-opencv-independent-board-refinement-v1`. Każdy aktywny slot jest
 analizowany niezależnie przez tymczasową rektyfikację ROI, LSD, uporządkowane
 rodziny sześciu pionów i czterech poziomów oraz RANSAC homografii idealnej
@@ -715,7 +723,16 @@ wierszy i kolumn oraz przecięcia finalnych quadów. Confidence i reason codes s
 oddzielne per plansza, a status źródła jest najgorszym statusem jego aktywnych
 slotów. Brak pełnego lokalnego dowodu kończy się kontrolowaną korektą ręczną i
 nie może zostać uratowany przez wynik rozpoznawania symboli. Integracja z bazą,
-API, cropperem i rolloutem pozostaje zakresem późniejszych tasków.
+cropperem i rolloutem została wykonana w TASK-0312. Bounded generowanie
+podglądów przez API oraz konsumenci UI pozostają zakresem TASK-0313 i TASK-0314.
+
+Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
+kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
+fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z
+checksumą snapshotu. Rehydratacja odtwarza source coordinate metadata,
+append-only source geometry oraz rozpoznanie z tych samych stage results.
+Przed projekcją każdej sekwencji store sprawdza canonical owner, dzięki czemu
+automatyczny retry ani późniejszy staging nie nadpisuje decyzji człowieka.
 
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje

@@ -20,8 +20,8 @@ from game_predictor_api.domain.image_geometry_v2 import (
 from numpy.typing import NDArray
 
 from .normalization import CanonicalSourceFrame, rgb_pixel_checksum_sha256
+from .pipeline_contract import VIRTUAL_CELL_RENDERER_VERSION
 
-VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v1"
 VIRTUAL_CELL_RENDER_SPEC_VERSION = "virtual-cell-render-spec-v1"
 VIRTUAL_CELL_INTERPOLATION_VERSION = "opencv-inter-linear-v1"
 VIRTUAL_CELL_BORDER_POLICY_VERSION = "full-source-support-no-synthesis-v1"

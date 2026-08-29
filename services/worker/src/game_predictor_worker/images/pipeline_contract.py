@@ -7,6 +7,8 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -29,6 +31,10 @@ PIPELINE_STAGES = (
     "validation",
 )
 CURRENT_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v2-in-memory-source-v1"
+VIRTUAL_GEOMETRY_ROLLOUT_VERSION = "virtual-geometry-rollout-snapshot-v1"
+STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-board-refinement-v1"
+VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v1"
+SYMBOL_RGB_PREPROCESSING_VERSION = "rgb-resize64-normalize-half-v1"
 MANUAL_REVIEW_PREDECESSOR = "symbol_inference"
 MODEL_MATURITIES = frozenset(
     {
@@ -47,6 +53,149 @@ class ImagePipelineContractError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class GeometryRolloutMode(StrEnum):
+    LEGACY = "legacy"
+    STRUCTURED_SHADOW = "structured_shadow"
+    STRUCTURED_REVIEW = "structured_review"
+    STRUCTURED_DEFAULT = "structured_default"
+
+
+class CellAssetRolloutMode(StrEnum):
+    LEGACY_FILES = "legacy_files"
+    VIRTUAL_SHADOW = "virtual_shadow"
+    VIRTUAL_DEFAULT = "virtual_default"
+
+
+@dataclass(frozen=True, slots=True)
+class GeometryPipelineRolloutSnapshot:
+    """Immutable per-job rollout choice for the v0.10 image pipeline."""
+
+    geometry_mode: GeometryRolloutMode
+    cell_asset_mode: CellAssetRolloutMode
+    rollout_revision: int
+    geometry_engine_version: str
+    virtual_renderer_version: str
+    preprocessing_version: str
+
+    def __post_init__(self) -> None:
+        if self.rollout_revision < 0 or any(
+            not value.strip()
+            for value in (
+                self.geometry_engine_version,
+                self.virtual_renderer_version,
+                self.preprocessing_version,
+            )
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "The geometry rollout snapshot requires versioned, non-negative provenance.",
+            )
+        allowed = {
+            (GeometryRolloutMode.LEGACY, CellAssetRolloutMode.LEGACY_FILES),
+            (GeometryRolloutMode.STRUCTURED_SHADOW, CellAssetRolloutMode.VIRTUAL_SHADOW),
+            (GeometryRolloutMode.STRUCTURED_REVIEW, CellAssetRolloutMode.VIRTUAL_SHADOW),
+            (GeometryRolloutMode.STRUCTURED_DEFAULT, CellAssetRolloutMode.VIRTUAL_DEFAULT),
+        }
+        if (self.geometry_mode, self.cell_asset_mode) not in allowed:
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "Legacy geometry and legacy files must be selected together.",
+            )
+
+    @property
+    def is_legacy(self) -> bool:
+        return (
+            self.geometry_mode is GeometryRolloutMode.LEGACY
+            and self.cell_asset_mode is CellAssetRolloutMode.LEGACY_FILES
+        )
+
+    @property
+    def checksum_sha256(self) -> str:
+        return hashlib.sha256(
+            canonical_json_bytes(self.to_payload(include_checksum=False))
+        ).hexdigest()
+
+    def to_payload(self, *, include_checksum: bool = True) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "cellAssetMode": self.cell_asset_mode.value,
+            "geometryEngineVersion": self.geometry_engine_version,
+            "geometryMode": self.geometry_mode.value,
+            "preprocessingVersion": self.preprocessing_version,
+            "rolloutRevision": self.rollout_revision,
+            "schemaVersion": VIRTUAL_GEOMETRY_ROLLOUT_VERSION,
+            "virtualRendererVersion": self.virtual_renderer_version,
+        }
+        if include_checksum:
+            payload["checksumSha256"] = self.checksum_sha256
+        return payload
+
+    @classmethod
+    def from_payload(cls, value: object) -> GeometryPipelineRolloutSnapshot:
+        payload = _object(value, "imageGeometryRollout")
+        rollout_revision = payload.get("rolloutRevision")
+        if not isinstance(rollout_revision, int) or isinstance(rollout_revision, bool):
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "The pinned geometry rollout revision must be an integer.",
+            )
+        try:
+            snapshot = cls(
+                geometry_mode=GeometryRolloutMode(
+                    _text(payload.get("geometryMode"), "imageGeometryRollout.geometryMode")
+                ),
+                cell_asset_mode=CellAssetRolloutMode(
+                    _text(payload.get("cellAssetMode"), "imageGeometryRollout.cellAssetMode")
+                ),
+                rollout_revision=rollout_revision,
+                geometry_engine_version=_text(
+                    payload.get("geometryEngineVersion"),
+                    "imageGeometryRollout.geometryEngineVersion",
+                ),
+                virtual_renderer_version=_text(
+                    payload.get("virtualRendererVersion"),
+                    "imageGeometryRollout.virtualRendererVersion",
+                ),
+                preprocessing_version=_text(
+                    payload.get("preprocessingVersion"),
+                    "imageGeometryRollout.preprocessingVersion",
+                ),
+            )
+        except (TypeError, ValueError) as error:
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "The pinned geometry rollout mode is invalid.",
+            ) from error
+        if payload.get("schemaVersion") != VIRTUAL_GEOMETRY_ROLLOUT_VERSION:
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "The pinned geometry rollout schema is unsupported.",
+            )
+        if payload.get("checksumSha256") != snapshot.checksum_sha256:
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_DRIFT",
+                "The pinned geometry rollout snapshot checksum changed.",
+            )
+        return snapshot
+
+
+def effective_pipeline_fingerprint(
+    legacy_fingerprint: str,
+    rollout: GeometryPipelineRolloutSnapshot,
+) -> str:
+    """Preserve the historical identity unless a v0.10 mode is active."""
+
+    if not SHA256_PATTERN.fullmatch(legacy_fingerprint):
+        raise ImagePipelineContractError(
+            "IMAGE_PIPELINE_CHECKSUM_INVALID",
+            "The source pipeline fingerprint must be a lowercase SHA-256.",
+        )
+    if rollout.is_legacy:
+        return legacy_fingerprint
+    return hashlib.sha256(
+        f"{legacy_fingerprint}:{rollout.checksum_sha256}".encode("ascii")
+    ).hexdigest()
 
 
 def canonical_json_bytes(value: object) -> bytes:

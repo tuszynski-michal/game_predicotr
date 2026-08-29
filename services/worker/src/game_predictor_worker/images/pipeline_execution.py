@@ -213,6 +213,20 @@ class ImagePipelineProjectionStore(Protocol):
         discovery: Mapping[str, object],
     ) -> None: ...
 
+    def project_source_metadata(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        normalization: StoredImageStageResult,
+    ) -> None: ...
+
+    def project_source_geometry(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage_results: Mapping[str, StoredImageStageResult],
+    ) -> None: ...
+
     def project_recognition(
         self,
         candidate: ImageBatchCandidate,
@@ -252,6 +266,9 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
         discovery = results.get("discovery")
         if discovery is not None:
             self._store.project_source(candidate, discovery=discovery.payload)
+        normalization = results.get("normalization")
+        if normalization is not None:
+            self._store.project_source_metadata(candidate, normalization=normalization)
         for stage in (BOARD_CELL_GEOMETRY_STAGE, "board_crops"):
             stored = results.get(stage)
             adapter = self._adapters.get(stage)
@@ -273,6 +290,8 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
                     ),
                     stored.payload,
                 )
+            if stage == BOARD_CELL_GEOMETRY_STAGE and stored is not None:
+                self._store.project_source_geometry(candidate, stage_results=results)
         required = {
             "board_detection",
             "board_crops",
@@ -391,6 +410,10 @@ class ImagePipelineStageExecutor(ImageStageExecutor):
             )
         if stage == "discovery":
             self._store.project_source(candidate, discovery=stored.payload)
+        if stage == "normalization":
+            self._store.project_source_metadata(candidate, normalization=stored)
+        if stage == BOARD_CELL_GEOMETRY_STAGE:
+            self._store.project_source_geometry(candidate, stage_results=existing)
         if stage == "symbol_inference":
             self._store.project_recognition(candidate, stage_results=existing)
         return ImageStageExecutionResult.COMPLETED
@@ -615,8 +638,14 @@ def _boards(
         positions.append(position)
         if require_cells:
             _board_cells(board)
-            _relative_path(board.get("boardRelativePath"), "boardRelativePath")
-            _sha256(board.get("boardChecksumSha256"), "board checksum")
+            if board.get("assetMode") == "virtual_source":
+                _sha256(board.get("geometryChecksumSha256"), "geometry checksum")
+                for field in ("geometryEngineName", "geometryEngineVersion"):
+                    if not isinstance(board.get(field), str) or not str(board[field]).strip():
+                        _invalid(f"Virtual board {field} must be non-empty.")
+            else:
+                _relative_path(board.get("boardRelativePath"), "boardRelativePath")
+                _sha256(board.get("boardChecksumSha256"), "board checksum")
         elif require_sequence:
             raw_text = board.get("rawText")
             if not isinstance(raw_text, str):
@@ -655,8 +684,18 @@ def _board_cells(board: Mapping[str, object]) -> None:
         column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
         if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
             _invalid("Board cells must be complete and row-major.")
-        _relative_path(cell.get("cropRelativePath"), "cropRelativePath")
         _sha256(cell.get("cropChecksumSha256"), "crop checksum")
+        if cell.get("assetMode") == "virtual_source":
+            _sha256(cell.get("logicalCellKeySha256"), "logical cell key")
+            _sha256(cell.get("renderSpecChecksumSha256"), "render spec checksum")
+            _sha256(cell.get("renderedPixelChecksumSha256"), "rendered pixel checksum")
+            if not isinstance(cell.get("renderSpec"), Mapping):
+                _invalid("Virtual cell renderSpec must be an object.")
+            extractor = cell.get("extractorVersion")
+            if not isinstance(extractor, str) or not extractor.strip():
+                _invalid("Virtual cell extractorVersion must be non-empty.")
+        else:
+            _relative_path(cell.get("cropRelativePath"), "cropRelativePath")
     cropper = board.get("cropperVersion")
     if not isinstance(cropper, str) or not cropper.strip():
         _invalid("Board cropperVersion must be non-empty.")
@@ -722,12 +761,34 @@ def _board_cell_geometry(
         require_symbols=False,
     )
     _same_positions(context, "board_detection", boards)
+    structured = payload.get("structuredGeometry")
+    if structured is not None:
+        structured_payload = _mapping(structured, "structuredGeometry")
+        _sha256(
+            structured_payload.get("resultChecksumSha256"),
+            "structuredGeometry.resultChecksumSha256",
+        )
+    structured_primary = (
+        structured is not None
+        and isinstance(structured_payload.get("engineVersion"), str)
+        and processing_version == structured_payload.get("engineVersion")
+    )
     for board in boards:
         status = board.get("status")
         sequence_number = board.get("sequenceNumber")
         _positive_integer(sequence_number, "board_cell_geometry.sequenceNumber")
         if status == "verified":
             geometry = _mapping(board.get("cellGeometry"), "cellGeometry")
+            if structured_primary:
+                quad = geometry.get("gridQuad")
+                if (
+                    not isinstance(quad, Sequence)
+                    or isinstance(quad, str | bytes)
+                    or len(quad) != 4
+                    or any(not isinstance(point, Mapping) for point in quad)
+                ):
+                    _invalid("Verified structured geometry requires a four-point grid quad.")
+                continue
             cells = geometry.get("cells")
             if not isinstance(cells, Sequence) or isinstance(cells, str | bytes):
                 _invalid("Verified board-cell geometry must contain cells.")

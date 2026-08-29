@@ -15,7 +15,6 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
 
-import cv2
 import numpy as np
 from game_predictor_api.application.board_cell_geometry_pending import (
     ManagedBoardCellProcessingManifestStore,
@@ -23,6 +22,17 @@ from game_predictor_api.application.board_cell_geometry_pending import (
 from game_predictor_api.application.browser_staging_retention import ManagedOriginalsHandoff
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
+)
+from game_predictor_api.domain.board_topology import BoardTopology as DomainBoardTopology
+from game_predictor_api.domain.image_geometry_v2 import (
+    AttestedSequenceRange,
+    DirectCellRenderConfiguration,
+    GeometryEngineKind,
+    SourcePoint,
+    SourceQuad,
+    VirtualBoardGeometry,
+    VirtualCell,
+    derive_virtual_cells,
 )
 from game_predictor_api.domain.jobs import Job
 from game_predictor_api.domain.symbol_model_snapshots import (
@@ -64,6 +74,7 @@ from .board_cell_geometry_crops import (
 from .board_cell_geometry_deferred_writer import BoardCellGeometryDeferredWriter
 from .board_cell_geometry_estimator import estimate_board_cell_geometry
 from .geometry import ClassicalPageBoardDetector, Point, Quad
+from .normalization import CanonicalSourceFrame, CanonicalSourceLoader, CanonicalSourceLoadError
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
 from .page_geometry_registration import (
@@ -71,7 +82,14 @@ from .page_geometry_registration import (
     VerifiedPageRegistrar,
     is_complete_ordered_grid,
 )
-from .pipeline_contract import CURRENT_NORMALIZATION_ADAPTER_VERSION
+from .pipeline_contract import (
+    CURRENT_NORMALIZATION_ADAPTER_VERSION,
+    SYMBOL_RGB_PREPROCESSING_VERSION,
+    CellAssetRolloutMode,
+    GeometryPipelineRolloutSnapshot,
+    GeometryRolloutMode,
+    ImagePipelineContractError,
+)
 from .pipeline_execution import (
     FunctionImageStageAdapter,
     ImagePipelineExecutionError,
@@ -96,8 +114,25 @@ from .source_ingestion import (
     ManagedOriginalStore,
     ManagedSourceManifest,
 )
+from .structured_geometry import (
+    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+    BoardGeometryDisposition,
+    StructuredGeometryInitializationRequest,
+    StructuredOpenCvGeometryEngine,
+)
 from .symbol_model_release import build_symbol_predictions
-from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
+from .symbol_onnx import (
+    LocalSymbolOnnxAdapter,
+    SymbolOnnxError,
+    preprocess_rgb_batch,
+)
+from .virtual_cell_extraction import (
+    VIRTUAL_CELL_INTERPOLATION_VERSION,
+    VIRTUAL_CELL_RENDERER_VERSION,
+    VirtualCellExtractionError,
+    VirtualCellRender,
+    VirtualCellRenderer,
+)
 
 NORMALIZATION_ADAPTER_VERSION = CURRENT_NORMALIZATION_ADAPTER_VERSION
 LEGACY_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
@@ -226,6 +261,7 @@ class ProductionImageImportWorkflow:
             image_selection_run_id=_image_selection_run_id(job),
             attested_sequence_ranges=attested_sequence_ranges,
             board_cell_processing=board_cell_processing,
+            geometry_rollout=_geometry_rollout_snapshot(job),
             normalization_adapter_version=_normalization_adapter_version(job),
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
@@ -425,10 +461,12 @@ class ProductionImageStageAdapterSuite:
         board_cell_processing: Mapping[str, object] | None = None,
         board_cell_geometry_deferred_writer: BoardCellGeometryDeferrer | None = None,
         normalization_adapter_version: str = NORMALIZATION_ADAPTER_VERSION,
+        geometry_rollout: GeometryPipelineRolloutSnapshot | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
         self._normalized_images = _ExecutionScopedNormalizedImageLoader(self._artifacts)
+        self._canonical_sources = CanonicalSourceLoader()
         if normalization_adapter_version not in {
             LEGACY_NORMALIZATION_ADAPTER_VERSION,
             NORMALIZATION_ADAPTER_VERSION,
@@ -452,6 +490,7 @@ class ProductionImageStageAdapterSuite:
             else BoardCellTopology(rows=3, columns=5)
         )
         self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
+        self._geometry_rollout = geometry_rollout or _legacy_geometry_rollout_snapshot()
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -477,6 +516,10 @@ class ProductionImageStageAdapterSuite:
         )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
+        self._structured_geometry_engine: StructuredOpenCvGeometryEngine | None = None
+        self._virtual_renderer = VirtualCellRenderer()
+        self._virtual_render_cache_key: str | None = None
+        self._virtual_render_cache: tuple[VirtualCellRender, ...] = ()
 
     def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
         stages: list[FunctionImageStageAdapter] = [
@@ -488,7 +531,11 @@ class ProductionImageStageAdapterSuite:
             ),
             FunctionImageStageAdapter(
                 "board_detection",
-                DETECTION_ADAPTER_VERSION,
+                (
+                    DETECTION_ADAPTER_VERSION
+                    if self._geometry_rollout.is_legacy
+                    else self._geometry_rollout.geometry_engine_version
+                ),
                 self.board_detection,
             ),
         ]
@@ -496,7 +543,11 @@ class ProductionImageStageAdapterSuite:
             stages.append(
                 FunctionImageStageAdapter(
                     "board_cell_geometry",
-                    BOARD_CELL_PROCESSING_VERSION,
+                    (
+                        BOARD_CELL_PROCESSING_VERSION
+                        if self._geometry_rollout.is_legacy
+                        else self._geometry_rollout.geometry_engine_version
+                    ),
                     self.board_cell_geometry,
                     self.persist_board_cell_geometry_deferrals,
                 )
@@ -505,7 +556,15 @@ class ProductionImageStageAdapterSuite:
             [
                 FunctionImageStageAdapter(
                     "board_crops",
-                    V19_CROPPER_VERSION if self._board_cell_processing else CROP_ADAPTER_VERSION,
+                    (
+                        self._geometry_rollout.virtual_renderer_version
+                        if not self._geometry_rollout.is_legacy
+                        else (
+                            V19_CROPPER_VERSION
+                            if self._board_cell_processing
+                            else CROP_ADAPTER_VERSION
+                        )
+                    ),
                     self.board_crops,
                     (self.persist_board_crop_deferrals if self._board_cell_processing else None),
                 ),
@@ -540,6 +599,21 @@ class ProductionImageStageAdapterSuite:
         }
 
     def normalization(self, context: ImageStageContext) -> Mapping[str, object]:
+        if not self._geometry_rollout.is_legacy:
+            frame = self._canonical_source(context)
+            self._normalized_images.remember(context, frame.rgb)
+            return {
+                "exifOrientation": frame.source.exif_orientation,
+                "height": frame.source.height,
+                "normalizedPixelChecksumSha256": (frame.source.normalized_pixel_checksum_sha256),
+                "orientationAction": frame.orientation_action,
+                "sourceChecksumSha256": frame.source.source_checksum_sha256,
+                "sourceHeight": frame.raw_height,
+                "sourceMode": frame.source_mode,
+                "sourceRelativePath": context.source_relative_path,
+                "sourceWidth": frame.raw_width,
+                "width": frame.source.width,
+            }
         source = self._artifacts.path(context.source_relative_path)
         try:
             with Image.open(source) as image:
@@ -588,6 +662,28 @@ class ProductionImageStageAdapterSuite:
         }
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
+        if not self._geometry_rollout.is_legacy:
+            structured = self._detect_structured_geometry(context)
+            if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
+                return {
+                    "boards": [
+                        {
+                            "confidence": board["geometryConfidence"],
+                            "geometry": {
+                                "quad": board["finalQuad"],
+                                "structuredDisposition": board["disposition"],
+                            },
+                            "positionIndex": board["positionIndex"],
+                        }
+                        for board in cast(list[dict[str, object]], structured["boards"])
+                    ],
+                    "structuredGeometry": structured,
+                }
+            legacy = self._legacy_board_detection(context)
+            return {**legacy, "structuredGeometry": structured}
+        return self._legacy_board_detection(context)
+
+    def _legacy_board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         rgb = self._normalized_images.load(context, normalized)
         pinned = _registered_page_geometry(
@@ -684,6 +780,23 @@ class ProductionImageStageAdapterSuite:
     def board_cell_geometry(self, context: ImageStageContext) -> Mapping[str, object]:
         """Estimate all nine lattices and persist only fail-closed deferrals."""
 
+        if not self._geometry_rollout.is_legacy:
+            if self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_SHADOW:
+                legacy = self._legacy_board_cell_geometry(context)
+                return {
+                    **legacy,
+                    "structuredGeometry": _mapping(
+                        _previous(context, "board_detection").get("structuredGeometry"),
+                        "structuredGeometry",
+                    ),
+                }
+            return self._structured_board_cell_geometry(context)
+        return self._legacy_board_cell_geometry(context)
+
+    def _legacy_board_cell_geometry(
+        self,
+        context: ImageStageContext,
+    ) -> Mapping[str, object]:
         if not self._board_cell_processing:
             raise ImagePipelineExecutionError(
                 "IMAGE_BOARD_CELL_PROCESSING_NOT_PINNED",
@@ -773,7 +886,69 @@ class ProductionImageStageAdapterSuite:
             "topologyRulesVersionId": self._board_topology.rules_version_id,
         }
 
+    def _structured_board_cell_geometry(
+        self,
+        context: ImageStageContext,
+    ) -> Mapping[str, object]:
+        structured = _mapping(
+            _previous(context, "board_detection").get("structuredGeometry"),
+            "structuredGeometry",
+        )
+        projected: list[dict[str, object]] = []
+        review_only = self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_REVIEW
+        for raw_board in _sequence(structured.get("boards"), "structuredGeometry.boards"):
+            board = _mapping(raw_board, "structuredGeometry.board")
+            automatic = board.get("disposition") == BoardGeometryDisposition.AUTOMATIC.value
+            final_quad = board.get("finalQuad")
+            common = {
+                "confidence": board.get("geometryConfidence"),
+                "geometry": {
+                    "quad": final_quad,
+                    "structuredDisposition": board.get("disposition"),
+                },
+                "positionIndex": board.get("positionIndex"),
+                "sequenceNumber": board.get("sequenceNumber"),
+            }
+            if automatic and final_quad is not None and not review_only:
+                projected.append(
+                    {
+                        **common,
+                        "cellGeometry": {
+                            "gridQuad": final_quad,
+                            "geometryFingerprintSha256": _text(structured, "resultChecksumSha256"),
+                        },
+                        "status": "verified",
+                    }
+                )
+            else:
+                reason_codes = board.get("reasonCodes")
+                projected.append(
+                    {
+                        **common,
+                        "cellGeometry": None,
+                        "estimatorFailureReason": (
+                            "STRUCTURED_GEOMETRY_REVIEW_REQUIRED"
+                            if review_only
+                            else "STRUCTURED_GEOMETRY_AUTOMATIC_EVIDENCE_INSUFFICIENT"
+                        ),
+                        "reasonCode": BoardCellGeometryPendingReason.INCOMPLETE_LATTICE.value,
+                        "reasonCodes": list(reason_codes) if isinstance(reason_codes, list) else [],
+                        "status": "deferred",
+                    }
+                )
+        return {
+            "boards": projected,
+            "configurationFingerprintSha256": _text(structured, "configChecksumSha256"),
+            "gridColumns": self._board_topology.columns,
+            "gridRows": self._board_topology.rows,
+            "processingVersion": self._geometry_rollout.geometry_engine_version,
+            "structuredGeometry": structured,
+            "topologyRulesVersionId": self._board_topology.rules_version_id,
+        }
+
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
+        if not self._geometry_rollout.is_legacy:
+            return self._board_crops_structured(context)
         if self._board_cell_processing:
             return self._board_crops_v19(context)
         normalized = _previous(context, "normalization")
@@ -929,6 +1104,176 @@ class ProductionImageStageAdapterSuite:
             )
         return {"boards": projected, "deferredBoards": deferred}
 
+    def _board_crops_structured(self, context: ImageStageContext) -> Mapping[str, object]:
+        if self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_REVIEW:
+            geometry_boards = _boards(_previous(context, "board_cell_geometry"))
+            return {
+                "assetMode": "virtual_source",
+                "boards": [],
+                "deferredBoards": [
+                    {
+                        "positionIndex": board["positionIndex"],
+                        "reasonCode": board["reasonCode"],
+                        "sequenceNumber": board["sequenceNumber"],
+                    }
+                    for board in geometry_boards
+                ],
+            }
+        virtual_payload = self._virtual_board_payload(context)
+        if self._geometry_rollout.cell_asset_mode is CellAssetRolloutMode.VIRTUAL_DEFAULT:
+            return virtual_payload
+        legacy = self._board_crops_v19(context)
+        return {**legacy, "virtualShadow": virtual_payload}
+
+    def _virtual_board_payload(self, context: ImageStageContext) -> dict[str, object]:
+        geometry_stage = _previous(context, "board_cell_geometry")
+        structured = _mapping(
+            geometry_stage.get("structuredGeometry"),
+            "structuredGeometry",
+        )
+        renders = self._virtual_renders(context)
+        by_position: dict[int, list[VirtualCellRender]] = {}
+        for render in renders:
+            board_slot = render.render_spec.get("boardSlot")
+            if not isinstance(board_slot, int):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_VIRTUAL_CELL_PROVENANCE_INVALID",
+                    "A virtual render has no board-slot provenance.",
+                )
+            by_position.setdefault(board_slot, []).append(render)
+        boards: list[dict[str, object]] = []
+        for position in sorted(by_position):
+            board_renders = sorted(by_position[position], key=lambda value: value.cell_index)
+            boards.append(
+                {
+                    "assetMode": "virtual_source",
+                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cells": [
+                        {
+                            "assetMode": "virtual_source",
+                            "columnIndex": render.column_index,
+                            "cropChecksumSha256": render.rendered_pixel_checksum_sha256,
+                            "extractorVersion": render.extractor_version,
+                            "logicalCellKeySha256": render.logical_cell_key_sha256,
+                            "renderSpec": render.render_spec,
+                            "renderSpecChecksumSha256": render.render_spec_checksum_sha256,
+                            "renderedPixelChecksumSha256": (render.rendered_pixel_checksum_sha256),
+                            "rowIndex": render.row_index,
+                        }
+                        for render in board_renders
+                    ],
+                    "cropperVersion": self._geometry_rollout.virtual_renderer_version,
+                    "geometryChecksumSha256": _text(structured, "resultChecksumSha256"),
+                    "geometryEngineName": _text(structured, "engineId"),
+                    "geometryEngineVersion": _text(structured, "engineVersion"),
+                    "gridColumns": self._board_topology.columns,
+                    "gridRows": self._board_topology.rows,
+                    "positionIndex": position,
+                    "topologyRulesVersionId": self._board_topology.rules_version_id,
+                }
+            )
+        return {
+            "assetMode": "virtual_source",
+            "boards": boards,
+            "deferredBoards": [
+                {
+                    "positionIndex": board["positionIndex"],
+                    "reasonCode": board["reasonCode"],
+                    "sequenceNumber": board["sequenceNumber"],
+                }
+                for board in _boards(geometry_stage)
+                if board.get("status") == "deferred"
+            ],
+            "geometryChecksumSha256": _text(structured, "resultChecksumSha256"),
+            "rendererVersion": self._geometry_rollout.virtual_renderer_version,
+        }
+
+    def _virtual_renders(self, context: ImageStageContext) -> tuple[VirtualCellRender, ...]:
+        if self._virtual_render_cache_key == context.file_execution_key:
+            return self._virtual_render_cache
+        normalized = _previous(context, "normalization")
+        frame = self._canonical_source(context)
+        if (
+            normalized.get("normalizedPixelChecksumSha256")
+            != frame.source.normalized_pixel_checksum_sha256
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_NORMALIZATION_PIXEL_CHECKSUM_MISMATCH",
+                "The virtual source differs from its persisted normalization checkpoint.",
+            )
+        geometry_stage = _previous(context, "board_cell_geometry")
+        structured = _mapping(
+            geometry_stage.get("structuredGeometry"),
+            "structuredGeometry",
+        )
+        attested = context.attested_sequence_range
+        topology_rules_version = self._board_topology.rules_version_id
+        if attested is None or topology_rules_version is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_VIRTUAL_GEOMETRY_PROVENANCE_INVALID",
+                "Virtual cells require an attested range and pinned topology rules.",
+            )
+        range_value = AttestedSequenceRange(start=attested[0], end=attested[1])
+        topology = DomainBoardTopology(
+            rows=self._board_topology.rows,
+            columns=self._board_topology.columns,
+        )
+        configuration = DirectCellRenderConfiguration(
+            extractor_version=self._geometry_rollout.virtual_renderer_version,
+            preprocessing_version=self._geometry_rollout.preprocessing_version,
+            interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
+            output_width=self._symbol_model_snapshot.input_size,
+            output_height=self._symbol_model_snapshot.input_size,
+            padding_fraction=0.08,
+        )
+        cells: list[VirtualCell] = []
+        geometry_revision_value = structured.get("geometryRevision", 0)
+        if not isinstance(geometry_revision_value, int) or isinstance(
+            geometry_revision_value, bool
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_VIRTUAL_GEOMETRY_PROVENANCE_INVALID",
+                "The structured geometry revision must be a non-negative integer.",
+            )
+        geometry_revision = geometry_revision_value
+        boards = {
+            _integer(_mapping(value, "structured board"), "positionIndex"): _mapping(
+                value, "structured board"
+            )
+            for value in _sequence(structured.get("boards"), "structuredGeometry.boards")
+        }
+        for geometry_board in _boards(geometry_stage):
+            if geometry_board.get("status") != "verified":
+                continue
+            position = _integer(geometry_board, "positionIndex")
+            board = boards[position]
+            if board.get("disposition") != BoardGeometryDisposition.AUTOMATIC.value:
+                continue
+            final_quad = _source_quad(board.get("finalQuad"))
+            virtual_geometry = VirtualBoardGeometry(
+                source=frame.source,
+                slot=range_value.active_slots[position],
+                topology=topology,
+                topology_rules_version_id=UUID(topology_rules_version),
+                geometry_revision=geometry_revision,
+                geometry_version=self._geometry_rollout.geometry_engine_version,
+                engine_kind=GeometryEngineKind.STRUCTURED_OPENCV_V1,
+                symbol_grid_quad=final_quad,
+            )
+            cells.extend(
+                derive_virtual_cells(
+                    geometry=virtual_geometry,
+                    configuration=configuration,
+                )
+            )
+        try:
+            rendered = self._virtual_renderer.render(frame, tuple(cells))
+        except VirtualCellExtractionError as error:
+            raise ImagePipelineExecutionError(error.code, str(error)) from error
+        self._virtual_render_cache_key = context.file_execution_key
+        self._virtual_render_cache = rendered
+        return rendered
+
     def persist_board_cell_geometry_deferrals(
         self,
         context: ImageStageContext,
@@ -978,6 +1323,60 @@ class ProductionImageStageAdapterSuite:
             reason_code=reason,
             processing_snapshot=self._board_cell_processing,
         )
+
+    def _canonical_source(self, context: ImageStageContext) -> CanonicalSourceFrame:
+        try:
+            return self._canonical_sources.load(
+                self._artifacts.path(context.source_relative_path),
+                expected_source_checksum_sha256=context.source_checksum_sha256,
+            )
+        except CanonicalSourceLoadError as error:
+            raise ImagePipelineExecutionError(error.code, str(error)) from error
+
+    def _detect_structured_geometry(self, context: ImageStageContext) -> dict[str, object]:
+        if context.attested_sequence_range is None or self._board_topology.rules_version_id is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_ATTESTATION_REQUIRED",
+                "Structured geometry requires an attested range and pinned topology.",
+            )
+        frame = self._canonical_source(context)
+        topology = DomainBoardTopology(
+            rows=self._board_topology.rows,
+            columns=self._board_topology.columns,
+        )
+        attested = AttestedSequenceRange(
+            start=context.attested_sequence_range[0],
+            end=context.attested_sequence_range[1],
+        )
+        engine = self._structured_engine()
+        result = engine.detect(
+            frame,
+            StructuredGeometryInitializationRequest.for_frame(
+                frame,
+                topology=topology,
+                topology_rules_version_id=UUID(self._board_topology.rules_version_id),
+                attested_range=attested,
+                geometry_profile=(self._page_registration_profile or None),
+            ),
+        )
+        payload = result.to_payload()
+        payload["rolloutMode"] = self._geometry_rollout.geometry_mode.value
+        return payload
+
+    def _structured_engine(self) -> StructuredOpenCvGeometryEngine:
+        if self._structured_geometry_engine is None:
+            self._structured_geometry_engine = StructuredOpenCvGeometryEngine(
+                load_anchor_rgb=self._load_anchor_rgb,
+            )
+        if (
+            self._structured_geometry_engine.version
+            != self._geometry_rollout.geometry_engine_version
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_VERSION_DRIFT",
+                "The pinned structured geometry engine differs from the worker implementation.",
+            )
+        return self._structured_geometry_engine
 
     def sequence_ocr(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
@@ -1071,36 +1470,87 @@ class ProductionImageStageAdapterSuite:
         return {"boards": boards}
 
     def symbol_inference(self, context: ImageStageContext) -> Mapping[str, object]:
-        cropped_boards = _boards(_previous(context, "board_crops"))
+        cropped_payload = _previous(context, "board_crops")
+        cropped_boards = _boards(cropped_payload)
+        boards = self._infer_symbol_boards(context, cropped_boards)
+        projected: dict[str, object] = {
+            "boards": boards,
+            "modelIterationId": (
+                None
+                if self._symbol_model_snapshot.iteration_id is None
+                else str(self._symbol_model_snapshot.iteration_id)
+            ),
+            "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
+            "modelChecksumSha256": self._symbol_model_snapshot.onnx_checksum_sha256,
+            "modelVersion": self._symbol_model_snapshot.model_version,
+            "preprocessingVersion": self._geometry_rollout.preprocessing_version,
+            "temperatureApplied": max(0.50, self._symbol_model_snapshot.temperature),
+        }
+        virtual_shadow = cropped_payload.get("virtualShadow")
+        if isinstance(virtual_shadow, Mapping):
+            projected["virtualShadow"] = {
+                "boards": self._infer_symbol_boards(
+                    context,
+                    _boards(cast(Mapping[str, object], virtual_shadow)),
+                    force_virtual=True,
+                ),
+                "geometryChecksumSha256": virtual_shadow.get("geometryChecksumSha256"),
+                "modelVersion": self._symbol_model_snapshot.model_version,
+                "modelChecksumSha256": self._symbol_model_snapshot.onnx_checksum_sha256,
+            }
+        return projected
+
+    def _infer_symbol_boards(
+        self,
+        context: ImageStageContext,
+        cropped_boards: Sequence[Mapping[str, object]],
+        *,
+        force_virtual: bool = False,
+    ) -> list[dict[str, object]]:
         cell_metadata: list[tuple[int, Mapping[str, object]]] = []
-        tensors: list[NDArray[np.float32]] = []
+        images: list[NDArray[np.uint8]] = []
+        virtual_by_key = (
+            {render.logical_cell_key_sha256: render for render in self._virtual_renders(context)}
+            if force_virtual
+            or any(board.get("assetMode") == "virtual_source" for board in cropped_boards)
+            else {}
+        )
         for board in cropped_boards:
             position = _integer(board, "positionIndex")
             cells = _sequence(board.get("cells"), "cells")
             for value in cells:
                 cell = _mapping(value, "cell")
-                rgb = self._artifacts.load_rgb(_text(cell, "cropRelativePath"))
-                input_size = self._symbol_model_snapshot.input_size
-                model_rgb = (
-                    rgb
-                    if rgb.shape[:2] == (input_size, input_size)
-                    else cv2.resize(
-                        rgb,
-                        (input_size, input_size),
-                        interpolation=cv2.INTER_AREA,
-                    )
-                )
-                normalized = model_rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
-                tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
+                if force_virtual or cell.get("assetMode") == "virtual_source":
+                    key = _text(cell, "logicalCellKeySha256")
+                    render = virtual_by_key.get(key)
+                    if (
+                        render is None
+                        or render.render_spec_checksum_sha256
+                        != cell.get("renderSpecChecksumSha256")
+                        or render.rendered_pixel_checksum_sha256
+                        != cell.get("renderedPixelChecksumSha256")
+                    ):
+                        raise ImagePipelineExecutionError(
+                            "IMAGE_VIRTUAL_CELL_CHECKPOINT_DRIFT",
+                            "A restarted virtual render differs from the stored checkpoint.",
+                        )
+                    images.append(render.rgb)
+                else:
+                    images.append(self._artifacts.load_rgb(_text(cell, "cropRelativePath")))
                 cell_metadata.append((position, cell))
-        if not tensors and not self._board_cell_processing:
+        if not images and not self._board_cell_processing:
             raise ImagePipelineExecutionError(
                 "IMAGE_SYMBOL_INPUT_EMPTY",
                 "The image pipeline produced no cell crops for symbol inference.",
             )
-        if tensors:
+        if images:
             try:
-                inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+                inference = self._symbol_adapter().infer(
+                    preprocess_rgb_batch(
+                        images,
+                        input_size=self._symbol_model_snapshot.input_size,
+                    )
+                )
             except SymbolOnnxError as error:
                 raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
             predictions = build_symbol_predictions(
@@ -1124,23 +1574,13 @@ class ProductionImageStageAdapterSuite:
                     "rowIndex": _integer(cell, "rowIndex"),
                 }
             )
-        return {
-            "boards": [
-                {
-                    "cells": by_position[position],
-                    "positionIndex": position,
-                }
-                for position in sorted(by_position)
-            ],
-            "modelIterationId": (
-                None
-                if self._symbol_model_snapshot.iteration_id is None
-                else str(self._symbol_model_snapshot.iteration_id)
-            ),
-            "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
-            "modelVersion": self._symbol_model_snapshot.model_version,
-            "temperatureApplied": max(0.50, self._symbol_model_snapshot.temperature),
-        }
+        return [
+            {
+                "cells": by_position[position],
+                "positionIndex": position,
+            }
+            for position in sorted(by_position)
+        ]
 
     def _ocr_recognizer(self) -> PaddleSequenceNumberRecognizer:
         if self._ocr is None:
@@ -1203,7 +1643,11 @@ def _orientation_action(value: object) -> str:
         7: "transverse",
         8: "rotate_90_counterclockwise",
     }
-    return actions.get(value, "none")
+    return (
+        actions.get(value, "none")
+        if isinstance(value, int) and not isinstance(value, bool)
+        else "none"
+    )
 
 
 def _encode_rgb_png(rgb: NDArray[np.uint8]) -> bytes:
@@ -1423,6 +1867,27 @@ def _pipeline_fingerprint(job: Job) -> str:
             "The image import pipeline fingerprint is missing.",
         )
     return value
+
+
+def _legacy_geometry_rollout_snapshot() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.LEGACY,
+        cell_asset_mode=CellAssetRolloutMode.LEGACY_FILES,
+        rollout_revision=0,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
+
+
+def _geometry_rollout_snapshot(job: Job) -> GeometryPipelineRolloutSnapshot:
+    value = job.input_payload.get("image_geometry_rollout")
+    if value is None:
+        return _legacy_geometry_rollout_snapshot()
+    try:
+        return GeometryPipelineRolloutSnapshot.from_payload(value)
+    except ImagePipelineContractError as error:
+        raise JobHandlerError(error.code, str(error)) from error
 
 
 def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
@@ -2086,6 +2551,33 @@ def _quad(geometry: Mapping[str, object]) -> Quad:
         point = _mapping(value, "geometry point")
         parsed.append(Point(_integer(point, "x"), _integer(point, "y")))
     return cast(Quad, tuple(parsed))
+
+
+def _source_quad(value: object) -> SourceQuad:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
+        raise ImagePipelineExecutionError(
+            "IMAGE_STRUCTURED_GEOMETRY_QUAD_INVALID",
+            "Structured geometry requires four source points.",
+        )
+    points: list[SourcePoint] = []
+    for raw in value:
+        point = _mapping(raw, "structured geometry point")
+        x = point.get("x")
+        y = point.get("y")
+        if (
+            isinstance(x, bool)
+            or isinstance(y, bool)
+            or not isinstance(x, int | float)
+            or not isinstance(y, int | float)
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_QUAD_INVALID",
+                "Structured geometry points must be finite numbers.",
+            )
+        points.append(SourcePoint(float(x), float(y)))
+    return SourceQuad(
+        cast(tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint], tuple(points))
+    )
 
 
 __all__ = ["ProductionImageImportWorkflow", "ProductionImageStageAdapterSuite"]

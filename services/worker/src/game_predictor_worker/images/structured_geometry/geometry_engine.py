@@ -26,6 +26,7 @@ from ..page_geometry_registration import (
     DEFAULT_PAGE_REGISTRATION_THRESHOLDS,
     PageRegistrationThresholds,
 )
+from ..pipeline_contract import STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
 from .confidence import (
     DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS,
     BoardGeometryDisposition,
@@ -57,9 +58,6 @@ from .line_refinement import (
 )
 
 STRUCTURED_SOURCE_GEOMETRY_VERSION: Final = "structured-source-geometry-result-v1"
-STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION: Final = (
-    "structured-opencv-independent-board-refinement-v1"
-)
 
 type MetricValue = bool | float | int | str
 type Matrix3x3 = tuple[

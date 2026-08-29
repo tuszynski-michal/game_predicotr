@@ -103,6 +103,31 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - TASK-0311 nie zmienia pipeline'u v20, bazy, API, UI, croppera ani rolloutu.
   Produkcyjna integracja pozostaje odroczona.
 
+### Integracja wirtualnej geometrii z pipeline'em — TASK-0312
+
+- `v0.10.5` przypina do każdego nowego joba niezmienny snapshot rolloutu gry:
+  tryb geometrii, tryb assetów komórek, rewizję oraz wersje silnika,
+  renderera i preprocessingu. Brak stanu gry pozostaje dokładnie historycznym
+  `legacy` / `legacy_files`; fingerprint starego joba nie zmienia się.
+- `structured_shadow` zachowuje legacy jako wynik domenowy i dual-write'uje
+  źródłową geometrię oraz odrębną prediction revision z pełną proweniencją
+  virtual. `structured_review` zapisuje geometrię do ręcznej walidacji bez
+  inferencji, a `structured_default` używa wyłącznie zweryfikowanych slotów
+  Structured OpenCV i wirtualnych komórek.
+- Wariant virtual dekoduje managed original raz w ramach wykonania, renderuje
+  maksymalnie 9 × 15 komórek w pamięci, tworzy jeden tensor NCHW i wykonuje
+  jedno wywołanie ONNX dla całego źródła. Nie zapisuje board ani cell PNG;
+  rekordy `recognized_boards` i `cell_observations` korzystają z
+  `virtual_source`, source geometry revision, render specu i checksummy
+  dokładnych pikseli.
+- Restart odtwarza piksele z managed original i porównuje render spec oraz
+  pixel checksum ze stage checkpointem. Rozbieżność kończy się fail-closed;
+  identyczny replay nie tworzy drugiej geometrii ani prediction revision.
+- Rozstrzygnięte przez człowieka numery pozostają chronione przez canonical
+  ownership przed projekcją automatu. Obecny legacy Reviewer nadal nie serwuje
+  wirtualnych assetów; bounded rendering podglądu i rozszerzenie endpointu są
+  zakresem TASK-0313.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

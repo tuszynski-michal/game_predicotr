@@ -124,9 +124,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   pixel checksum ze stage checkpointem. Rozbieżność kończy się fail-closed;
   identyczny replay nie tworzy drugiej geometrii ani prediction revision.
 - Rozstrzygnięte przez człowieka numery pozostają chronione przez canonical
-  ownership przed projekcją automatu. Obecny legacy Reviewer nadal nie serwuje
-  wirtualnych assetów; bounded rendering podglądu i rozszerzenie endpointu są
-  zakresem TASK-0313.
+  ownership przed projekcją automatu. Legacy Reviewer nadal nie serwuje
+  wirtualnych assetów; lokalny Admin korzysta z bounded rendering podglądów
+  wdrożonego przez TASK-0313.
+
+### Bounded podglądy komórek wirtualnych — TASK-0313
+
+- `v0.10.6` udostępnia lokalnemu Admin API batch maksymalnie 100 aktualnych
+  komórek `virtual_source`. Żądanie zawiera oczekiwaną rewizję i checksumę
+  render specu; wynik jest checksumowanym atlasem WebP z deterministycznym
+  deskryptorem tile'ów oraz czasem wygaśnięcia.
+- `VirtualCellPreviewService` dekoduje managed original najwyżej raz na źródło
+  w batchu, waliduje current geometry/source geometry/spec/pixel provenance i
+  renderuje direct-perspective preview bez trwałych cropów. Legacy PNG/JPEG
+  pozostaje obsługiwany niezmienionym endpointem assetu.
+- Atlas pozostaje wyłącznie odtwarzalnym cache'em
+  `data/working/virtual-preview-cache-v1`: 15 minut TTL, 2 GiB LRU,
+  process-local single-flight i brak rekordów domenowych lub binariów w bazie.
 
 ### Ograniczenie zużycia dysku — TASK-0306
 

@@ -182,16 +182,51 @@ class SymbolCellReviewAsset:
     """Current, checksum-bound crop metadata after owner verification."""
 
     cell_review_id: UUID
-    crop_relative_path: str
+    crop_relative_path: str | None
     crop_checksum_sha256: str
     geometry_revision: int
     current_geometry_revision: int
+    revision: int = 0
+    asset_mode: str = "legacy_file"
+    source_checksum_sha256: str | None = None
+    normalized_pixel_checksum_sha256: str | None = None
+    source_geometry_revision_id: UUID | None = None
+    current_source_geometry_revision_id: UUID | None = None
+    geometry_checksum_sha256: str | None = None
+    logical_cell_key: str | None = None
+    render_spec: Mapping[str, object] | None = None
+    render_spec_checksum_sha256: str | None = None
+    rendered_pixel_checksum_sha256: str | None = None
+    extractor_version: str | None = None
 
     def __post_init__(self) -> None:
         if not _is_sha256(self.crop_checksum_sha256):
             raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
-        if self.geometry_revision < 0 or self.current_geometry_revision < 0:
+        if min(self.geometry_revision, self.current_geometry_revision, self.revision) < 0:
             raise ValueError("geometry revisions cannot be negative")
+        if self.asset_mode == "legacy_file":
+            if not self.crop_relative_path:
+                raise ValueError("legacy symbol-cell assets require a crop path")
+            return
+        if self.asset_mode != "virtual_source":
+            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        required_checksums = (
+            self.source_checksum_sha256,
+            self.normalized_pixel_checksum_sha256,
+            self.geometry_checksum_sha256,
+            self.logical_cell_key,
+            self.render_spec_checksum_sha256,
+            self.rendered_pixel_checksum_sha256,
+        )
+        if (
+            self.crop_relative_path is not None
+            or self.source_geometry_revision_id is None
+            or self.current_source_geometry_revision_id is None
+            or self.render_spec is None
+            or not self.extractor_version
+            or not all(value is not None and _is_sha256(value) for value in required_checksums)
+        ):
+            raise ValueError("virtual symbol-cell assets require complete render provenance")
 
 
 @dataclass(frozen=True, slots=True)

@@ -79,6 +79,7 @@ from game_predictor_api.storage.models import (
     ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
     ImageReviewQueueItemModel,
+    ImageSourceGeometryRevisionModel,
     ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
@@ -284,10 +285,29 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         game_id: UUID,
         cell_review_id: UUID,
     ) -> SymbolCellReviewAsset | None:
+        assets = self.get_assets(game_id=game_id, cell_review_ids=(cell_review_id,))
+        return assets[0] if assets else None
+
+    def get_assets(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_ids: tuple[UUID, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
+        if not cell_review_ids:
+            return ()
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
-        row = self._session.execute(
-            select(cell, RecognizedBoardModel.geometry_revision)
+        source_geometry = ImageSourceGeometryRevisionModel
+        rows = self._session.execute(
+            select(
+                cell,
+                RecognizedBoardModel.geometry_revision,
+                RecognizedBoardModel.source_geometry_revision_id,
+                SourceImageModel.checksum_sha256,
+                source_geometry.normalized_pixel_checksum_sha256,
+                source_geometry.geometry_checksum_sha256,
+            )
             .join(
                 document,
                 and_(
@@ -299,17 +319,49 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 ),
             )
             .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
-            .where(cell.game_id == game_id, cell.id == cell_review_id)
-        ).one_or_none()
-        if row is None:
-            return None
-        review_cell, current_geometry_revision = row
-        return SymbolCellReviewAsset(
-            cell_review_id=review_cell.id,
-            crop_relative_path=review_cell.crop_relative_path,
-            crop_checksum_sha256=review_cell.crop_checksum_sha256,
-            geometry_revision=review_cell.geometry_revision,
-            current_geometry_revision=int(current_geometry_revision),
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .outerjoin(
+                source_geometry,
+                source_geometry.id == cell.source_geometry_revision_id,
+            )
+            .where(cell.game_id == game_id, cell.id.in_(cell_review_ids))
+        ).all()
+        return tuple(
+            SymbolCellReviewAsset(
+                cell_review_id=review_cell.id,
+                crop_relative_path=review_cell.crop_relative_path,
+                crop_checksum_sha256=review_cell.crop_checksum_sha256,
+                geometry_revision=review_cell.geometry_revision,
+                current_geometry_revision=int(current_geometry_revision),
+                revision=review_cell.revision,
+                asset_mode=review_cell.asset_mode,
+                source_checksum_sha256=(
+                    None if review_cell.asset_mode != "virtual_source" else source_checksum
+                ),
+                normalized_pixel_checksum_sha256=(
+                    None
+                    if review_cell.asset_mode != "virtual_source"
+                    else normalized_pixel_checksum
+                ),
+                source_geometry_revision_id=review_cell.source_geometry_revision_id,
+                current_source_geometry_revision_id=current_source_geometry_revision_id,
+                geometry_checksum_sha256=(
+                    None if review_cell.asset_mode != "virtual_source" else geometry_checksum
+                ),
+                logical_cell_key=review_cell.logical_cell_key,
+                render_spec=review_cell.render_spec,
+                render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
+                rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
+                extractor_version=review_cell.extractor_version,
+            )
+            for (
+                review_cell,
+                current_geometry_revision,
+                current_source_geometry_revision_id,
+                source_checksum,
+                normalized_pixel_checksum,
+                geometry_checksum,
+            ) in rows
         )
 
     def _list_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:

@@ -726,6 +726,15 @@ nie może zostać uratowany przez wynik rozpoznawania symboli. Integracja z baz�
 cropperem i rolloutem została wykonana w TASK-0312. Bounded generowanie
 podglądów przez API oraz konsumenci UI pozostają zakresem TASK-0313 i TASK-0314.
 
+TASK-0313 dodaje `VirtualCellPreviewService` wyłącznie jako warstwę odczytu.
+Serwis grupuje do 100 aktualnych komórek po managed original, dekoduje każde
+źródło najwyżej raz na render batcha, kontroluje source geometry, render spec i
+pixel SHA-256, a następnie tworzy atlas WebP z deskryptorami tile'ów. Cache
+`data/working/virtual-preview-cache-v1` jest regenerowalny, ma TTL 15 minut,
+limit 2 GiB LRU oraz process-local single-flight; nigdy nie jest referencją
+domenową, nie zapisuje full-board thumbnaili i może zostać usunięty przez GC.
+Legacy file assety pozostają odczytywane dotychczasową ścieżką.
+
 Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
 kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
 fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z

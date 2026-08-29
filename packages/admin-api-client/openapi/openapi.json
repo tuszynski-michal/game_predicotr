@@ -16798,6 +16798,144 @@
         "title": "VerifiedTrainingCohortResponse",
         "type": "object"
       },
+      "VirtualCellPreviewBatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/VirtualCellPreviewTargetRequest"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          },
+          "extractionMode": {
+            "const": "direct_perspective_cell_v1",
+            "default": "direct_perspective_cell_v1",
+            "title": "Extractionmode",
+            "type": "string"
+          },
+          "previewSize": {
+            "default": 100,
+            "maximum": 256.0,
+            "minimum": 32.0,
+            "title": "Previewsize",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "VirtualCellPreviewBatchRequest",
+        "type": "object"
+      },
+      "VirtualCellPreviewBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "atlasChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Atlaschecksumsha256",
+            "type": "string"
+          },
+          "atlasUrl": {
+            "title": "Atlasurl",
+            "type": "string"
+          },
+          "batchKey": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Batchkey",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/VirtualCellPreviewTileResponse"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batchKey",
+          "atlasUrl",
+          "atlasChecksumSha256",
+          "tiles",
+          "expiresAt"
+        ],
+        "title": "VirtualCellPreviewBatchResponse",
+        "type": "object"
+      },
+      "VirtualCellPreviewTargetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "expectedRenderSpecChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedrenderspecchecksumsha256",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "expectedRevision",
+          "expectedRenderSpecChecksumSha256"
+        ],
+        "title": "VirtualCellPreviewTargetRequest",
+        "type": "object"
+      },
+      "VirtualCellPreviewTileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "height": {
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "width": {
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          },
+          "x": {
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "VirtualCellPreviewTileResponse",
+        "type": "object"
+      },
       "WorkerLaneName": {
         "enum": [
           "general",
@@ -20371,6 +20509,22 @@
           },
           {
             "in": "query",
+            "name": "expectedRenderSpecChecksumSha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expectedrenderspecchecksumsha256"
+            }
+          },
+          {
+            "in": "query",
             "name": "thumbnailSize",
             "required": false,
             "schema": {
@@ -22347,6 +22501,164 @@
         "summary": "Preview the cumulative human-verified training cohort",
         "tags": [
           "verified-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/virtual-cell-preview-batches": {
+      "post": {
+        "operationId": "createVirtualCellPreviewBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualCellPreviewBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VirtualCellPreviewBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Render a bounded cached WebP atlas for current virtual symbol cells",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas": {
+      "get": {
+        "operationId": "getVirtualCellPreviewAtlas",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_key",
+            "required": true,
+            "schema": {
+              "title": "Batch Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Read one non-expired checksum-verified virtual preview atlas",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

@@ -881,6 +881,12 @@ próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
 ścieżka jest `NULL`, a source geometry, logical key, render spec i pixel SHA-256
 są obowiązkowe. `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
 
+TASK-0313 nie dodaje tabeli ani binariów do PostgreSQL. Atlas wirtualnych
+podglądów jest wyłącznie pochodnym cache'em plikowym; jego key obejmuje grę,
+bieżącą rewizję komórki i geometrii, źródło, render spec oraz checksumę pikseli.
+Po wygaśnięciu lub usunięciu cache każdy atlas jest odtwarzany z managed
+original i istniejącej proweniencji `virtual_source`.
+
 W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenowego
 `sequence_number`, pozycji planszy i współrzędnych komórki, ale nie z bajtów
 cropu. `cropSampleId` dodaje wersję croppera, profil kalibracji i checksumę

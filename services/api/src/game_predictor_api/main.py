@@ -137,6 +137,7 @@ from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortArtifactStore,
     VerifiedTrainingCohortService,
 )
+from game_predictor_api.application.virtual_cell_previews import VirtualCellPreviewService
 from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.board_search import BoardSearchError
@@ -347,6 +348,7 @@ def create_app(
     reviewer_work_lifecycle_service_dependency: Callable[..., object] | None = None,
     symbol_reference_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_query_service_dependency: Callable[..., object] | None = None,
+    virtual_cell_preview_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_mutation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_bulk_operation_service_dependency: Callable[..., object] | None = None,
     symbol_cell_review_backfill_service_dependency: Callable[..., object] | None = None,
@@ -392,6 +394,7 @@ def create_app(
             reviewer_work_lifecycle_service_dependency,
             symbol_reference_service_dependency,
             symbol_cell_review_query_service_dependency,
+            virtual_cell_preview_service_dependency,
             symbol_cell_review_mutation_service_dependency,
             symbol_cell_review_bulk_operation_service_dependency,
             symbol_cell_review_backfill_service_dependency,
@@ -483,6 +486,15 @@ def create_app(
     resolved_symbol_cell_review_query_dependency = (
         symbol_cell_review_query_service_dependency
         or default_symbol_cell_review_query_service_dependency
+    )
+
+    virtual_cell_preview_service = VirtualCellPreviewService(resolved_settings.artifact_root)
+
+    def default_virtual_cell_preview_service_dependency() -> Iterator[VirtualCellPreviewService]:
+        yield virtual_cell_preview_service
+
+    resolved_virtual_cell_preview_dependency = (
+        virtual_cell_preview_service_dependency or default_virtual_cell_preview_service_dependency
     )
 
     def default_symbol_cell_review_bulk_operation_service_dependency() -> Iterator[
@@ -1220,6 +1232,7 @@ def create_app(
             resolved_reviewer_work_lifecycle_dependency,
             resolved_symbol_reference_dependency,
             resolved_symbol_cell_review_query_dependency,
+            resolved_virtual_cell_preview_dependency,
             resolved_symbol_cell_review_mutation_dependency,
             resolved_symbol_cell_review_bulk_operation_dependency,
             resolved_symbol_cell_review_backfill_dependency,

@@ -9668,6 +9668,94 @@ export type VerifiedTrainingCohortResponse = {
 };
 
 /**
+ * VirtualCellPreviewBatchRequest
+ */
+export type VirtualCellPreviewBatchRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<VirtualCellPreviewTargetRequest>;
+  /**
+   * Extractionmode
+   */
+  extractionMode?: 'direct_perspective_cell_v1';
+  /**
+   * Previewsize
+   */
+  previewSize?: number;
+};
+
+/**
+ * VirtualCellPreviewBatchResponse
+ */
+export type VirtualCellPreviewBatchResponse = {
+  /**
+   * Atlaschecksumsha256
+   */
+  atlasChecksumSha256: string;
+  /**
+   * Atlasurl
+   */
+  atlasUrl: string;
+  /**
+   * Batchkey
+   */
+  batchKey: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Tiles
+   */
+  tiles: Array<VirtualCellPreviewTileResponse>;
+};
+
+/**
+ * VirtualCellPreviewTargetRequest
+ */
+export type VirtualCellPreviewTargetRequest = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Expectedrenderspecchecksumsha256
+   */
+  expectedRenderSpecChecksumSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * VirtualCellPreviewTileResponse
+ */
+export type VirtualCellPreviewTileResponse = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Width
+   */
+  width: number;
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
  * WorkerLaneName
  */
 export type WorkerLaneName = 'general' | 'image_selection';
@@ -11555,6 +11643,10 @@ export type GetSymbolCellReviewAssetData = {
      */
     expectedCropChecksumSha256: string;
     /**
+     * Expectedrenderspecchecksumsha256
+     */
+    expectedRenderSpecChecksumSha256?: string | null;
+    /**
      * Thumbnailsize
      */
     thumbnailSize?: number;
@@ -12611,6 +12703,91 @@ export type PreviewVerifiedTrainingCohortResponses = {
 
 export type PreviewVerifiedTrainingCohortResponse =
   PreviewVerifiedTrainingCohortResponses[keyof PreviewVerifiedTrainingCohortResponses];
+
+export type CreateVirtualCellPreviewBatchData = {
+  body: VirtualCellPreviewBatchRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches';
+};
+
+export type CreateVirtualCellPreviewBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type CreateVirtualCellPreviewBatchError =
+  CreateVirtualCellPreviewBatchErrors[keyof CreateVirtualCellPreviewBatchErrors];
+
+export type CreateVirtualCellPreviewBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: VirtualCellPreviewBatchResponse;
+};
+
+export type CreateVirtualCellPreviewBatchResponse =
+  CreateVirtualCellPreviewBatchResponses[keyof CreateVirtualCellPreviewBatchResponses];
+
+export type GetVirtualCellPreviewAtlasData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Key
+     */
+    batch_key: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas';
+};
+
+export type GetVirtualCellPreviewAtlasErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetVirtualCellPreviewAtlasError =
+  GetVirtualCellPreviewAtlasErrors[keyof GetVirtualCellPreviewAtlasErrors];
+
+export type GetVirtualCellPreviewAtlasResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type CreateImageFolderImportData = {
   body: ImageFolderImportCreate;

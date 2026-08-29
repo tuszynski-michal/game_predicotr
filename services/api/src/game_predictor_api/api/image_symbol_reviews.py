@@ -28,6 +28,10 @@ from game_predictor_api.application.unreadable_board_reviews import (
     UnreadableBoardReviewService,
     UnreadableBoardReviewView,
 )
+from game_predictor_api.application.virtual_cell_previews import (
+    VirtualCellPreviewService,
+    VirtualCellPreviewTarget,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
@@ -49,6 +53,9 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     UnreadableBoardReviewDetailResponse,
     UnreadableBoardReviewPageResponse,
     UnreadableSymbolAssignmentRequest,
+    VirtualCellPreviewBatchRequest,
+    VirtualCellPreviewBatchResponse,
+    VirtualCellPreviewTileResponse,
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
@@ -61,6 +68,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
 )
 
 SymbolCellReviewQueryServiceDependency = Callable[..., object]
+VirtualCellPreviewServiceDependency = Callable[..., object]
 SymbolCellReviewBulkOperationServiceDependency = Callable[..., object]
 SymbolCellReviewMutationServiceDependency = Callable[..., object]
 SymbolCellReviewBackfillServiceDependency = Callable[..., object]
@@ -75,6 +83,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 
 def create_image_symbol_reviews_router(
     service_dependency: SymbolCellReviewQueryServiceDependency,
+    virtual_preview_service_dependency: VirtualCellPreviewServiceDependency,
     mutation_service_dependency: SymbolCellReviewMutationServiceDependency,
     bulk_operation_service_dependency: SymbolCellReviewBulkOperationServiceDependency,
     backfill_service_dependency: SymbolCellReviewBackfillServiceDependency,
@@ -83,6 +92,7 @@ def create_image_symbol_reviews_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["symbol-cell-reviews"])
     service_parameter = Depends(service_dependency)
+    virtual_preview_service_parameter = Depends(virtual_preview_service_dependency)
     mutation_service_parameter = Depends(mutation_service_dependency)
     bulk_operation_service_parameter = Depends(bulk_operation_service_dependency)
     backfill_service_parameter = Depends(backfill_service_dependency)
@@ -348,7 +358,11 @@ def create_image_symbol_reviews_router(
         game_id: UUID,
         cell_review_id: UUID,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
         expected_crop_checksum_sha256: Annotated[str, Query(alias="expectedCropChecksumSha256")],
+        expected_render_spec_checksum_sha256: Annotated[
+            str | None, Query(alias="expectedRenderSpecChecksumSha256")
+        ] = None,
         thumbnail_size: Annotated[int, Query(alias="thumbnailSize", ge=32, le=256)] = 100,
     ) -> Response:
         asset = service.asset(
@@ -356,12 +370,92 @@ def create_image_symbol_reviews_router(
             cell_review_id=cell_review_id,
             expected_crop_checksum_sha256=expected_crop_checksum_sha256,
         )
+        if asset.asset_mode == "virtual_source":
+            if expected_render_spec_checksum_sha256 is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_REQUIRED",
+                    "Virtual symbol-cell previews require expectedRenderSpecChecksumSha256.",
+                )
+            target = VirtualCellPreviewTarget(
+                cell_review_id=cell_review_id,
+                expected_revision=asset.revision,
+                expected_render_spec_checksum_sha256=expected_render_spec_checksum_sha256,
+            )
+            virtual_assets = service.virtual_preview_assets(game_id=game_id, targets=(target,))
+            batch = preview_service.render_batch(
+                game_id=game_id,
+                assets=virtual_assets,
+                preview_size=thumbnail_size,
+            )
+            content = preview_service.read_atlas(game_id=game_id, batch_key=batch.batch_key).content
+            return virtual_symbol_cell_review_thumbnail_response(content)
         _path, content = read_symbol_cell_review_asset(
             artifact_root,
-            asset.crop_relative_path,
+            _required_relative_path(asset.crop_relative_path),
             asset.crop_checksum_sha256,
         )
         return symbol_cell_review_thumbnail_response(content, thumbnail_size)
+
+    @router.post(
+        "/{game_id}/virtual-cell-preview-batches",
+        response_model=VirtualCellPreviewBatchResponse,
+        operation_id="createVirtualCellPreviewBatch",
+        summary="Render a bounded cached WebP atlas for current virtual symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def create_virtual_cell_preview_batch(
+        game_id: UUID,
+        request: VirtualCellPreviewBatchRequest,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> VirtualCellPreviewBatchResponse:
+        targets = tuple(
+            VirtualCellPreviewTarget(
+                cell_review_id=cell.cell_review_id,
+                expected_revision=cell.expected_revision,
+                expected_render_spec_checksum_sha256=cell.expected_render_spec_checksum_sha256,
+            )
+            for cell in request.cells
+        )
+        assets = service.virtual_preview_assets(game_id=game_id, targets=targets)
+        batch = preview_service.render_batch(
+            game_id=game_id,
+            assets=assets,
+            preview_size=request.preview_size,
+        )
+        return VirtualCellPreviewBatchResponse(
+            batch_key=batch.batch_key,
+            atlas_url=(
+                f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/"
+                f"{batch.batch_key}/atlas"
+            ),
+            atlas_checksum_sha256=batch.atlas_checksum_sha256,
+            tiles=tuple(
+                VirtualCellPreviewTileResponse(
+                    cell_review_id=tile.cell_review_id,
+                    x=tile.x,
+                    y=tile.y,
+                    width=tile.width,
+                    height=tile.height,
+                )
+                for tile in batch.tiles
+            ),
+            expires_at=batch.expires_at,
+        )
+
+    @router.get(
+        "/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas",
+        operation_id="getVirtualCellPreviewAtlas",
+        summary="Read one non-expired checksum-verified virtual preview atlas",
+        responses=ERROR_RESPONSES,
+    )
+    def get_virtual_cell_preview_atlas(
+        game_id: UUID,
+        batch_key: str,
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> Response:
+        cached = preview_service.read_atlas(game_id=game_id, batch_key=batch_key)
+        return virtual_symbol_cell_review_thumbnail_response(cached.content)
 
     return router
 
@@ -443,6 +537,28 @@ def symbol_cell_review_thumbnail_response(content: bytes, size: int) -> Response
             "Content-Length": str(len(content)),
         },
     )
+
+
+def virtual_symbol_cell_review_thumbnail_response(content: bytes) -> Response:
+    """Return a short-lived derived atlas; its cache key binds current provenance."""
+
+    return Response(
+        content=content,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, max-age=900, must-revalidate",
+            "Content-Length": str(len(content)),
+        },
+    )
+
+
+def _required_relative_path(value: str | None) -> str:
+    if value is None:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+            "A legacy symbol-cell crop has no relative path.",
+        )
+    return value
 
 
 def _parse_symbol_filter(value: str) -> UUID | None:

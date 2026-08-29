@@ -132,6 +132,9 @@ import type {
   CreateSymbolTrainingData,
   CreateSymbolTrainingErrors,
   CreateSymbolTrainingResponses,
+  CreateVirtualCellPreviewBatchData,
+  CreateVirtualCellPreviewBatchErrors,
+  CreateVirtualCellPreviewBatchResponses,
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
@@ -328,6 +331,9 @@ import type {
   GetUnreadableBoardReviewData,
   GetUnreadableBoardReviewErrors,
   GetUnreadableBoardReviewResponses,
+  GetVirtualCellPreviewAtlasData,
+  GetVirtualCellPreviewAtlasErrors,
+  GetVirtualCellPreviewAtlasResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
   HandoffImageSelectionResponses,
@@ -2001,6 +2007,53 @@ export const previewVerifiedTrainingCohort = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/verified-training-cohorts/preview',
+    ...options,
+  });
+
+/**
+ * Render a bounded cached WebP atlas for current virtual symbol cells
+ */
+export const createVirtualCellPreviewBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateVirtualCellPreviewBatchData, ThrowOnError>,
+): RequestResult<
+  CreateVirtualCellPreviewBatchResponses,
+  CreateVirtualCellPreviewBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateVirtualCellPreviewBatchResponses,
+    CreateVirtualCellPreviewBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one non-expired checksum-verified virtual preview atlas
+ */
+export const getVirtualCellPreviewAtlas = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetVirtualCellPreviewAtlasData, ThrowOnError>,
+): RequestResult<
+  GetVirtualCellPreviewAtlasResponses,
+  GetVirtualCellPreviewAtlasErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetVirtualCellPreviewAtlasResponses,
+    GetVirtualCellPreviewAtlasErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas',
     ...options,
   });
 

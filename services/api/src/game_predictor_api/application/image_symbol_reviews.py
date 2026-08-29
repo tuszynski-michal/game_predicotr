@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
+from game_predictor_api.application.virtual_cell_previews import VirtualCellPreviewTarget
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
@@ -51,6 +52,13 @@ class SymbolCellReviewQueryRepository(Protocol):
         game_id: UUID,
         cell_review_id: UUID,
     ) -> SymbolCellReviewAsset | None: ...
+
+    def get_assets(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_ids: tuple[UUID, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]: ...
 
 
 class SymbolCellReviewQueryService:
@@ -148,18 +156,105 @@ class SymbolCellReviewQueryService:
                 "SYMBOL_CELL_REVIEW_CHECKSUM_INVALID",
                 "expectedCropChecksumSha256 must be a lowercase SHA-256 checksum.",
             )
+        assets = self._assets(
+            game_id=game_id,
+            cell_review_ids=(cell_review_id,),
+        )
+        return self._validate_expected_checksum(
+            asset=assets[0],
+            expected_crop_checksum_sha256=expected_crop_checksum_sha256,
+        )
+
+    def virtual_preview_assets(
+        self,
+        *,
+        game_id: UUID,
+        targets: tuple[VirtualCellPreviewTarget, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
+        """Validate every current virtual cell before one bounded atlas render."""
+
+        if not targets:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_BATCH_LIMIT",
+                "A virtual preview batch must contain at least one symbol cell.",
+            )
+        ids = tuple(target.cell_review_id for target in targets)
+        if len(set(ids)) != len(ids):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_DUPLICATE_CELL",
+                "A virtual preview batch cannot contain the same cell more than once.",
+            )
+        by_id = {
+            asset.cell_review_id: asset
+            for asset in self._assets(game_id=game_id, cell_review_ids=ids)
+        }
+        ordered: list[SymbolCellReviewAsset] = []
+        for target in targets:
+            asset = by_id.get(target.cell_review_id)
+            if asset is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
+                    "The symbol-cell review crop does not exist in this current game scope.",
+                )
+            if asset.asset_mode != "virtual_source":
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
+                    "The selected symbol cell still uses a legacy crop artifact.",
+                )
+            if asset.revision != target.expected_revision:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The symbol-cell review changed after it was loaded. Reload the page.",
+                )
+            if asset.render_spec_checksum_sha256 != target.expected_render_spec_checksum_sha256:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The virtual symbol-cell render changed after it was loaded. Reload the page.",
+                )
+            ordered.append(asset)
+        return tuple(ordered)
+
+    def _assets(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_ids: tuple[UUID, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
         self._repository.require_ready_game(game_id)
-        asset = self._repository.get_asset(game_id=game_id, cell_review_id=cell_review_id)
-        if asset is None:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
-                "The symbol-cell review crop does not exist in this current game scope.",
-            )
-        if asset.geometry_revision != asset.current_geometry_revision:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_CROP_DRIFT",
-                "The symbol-cell crop no longer belongs to the current geometry revision.",
-            )
+        assets = self._repository.get_assets(
+            game_id=game_id,
+            cell_review_ids=cell_review_ids,
+        )
+        by_id = {asset.cell_review_id: asset for asset in assets}
+        ordered: list[SymbolCellReviewAsset] = []
+        for cell_review_id in cell_review_ids:
+            asset = by_id.get(cell_review_id)
+            if asset is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
+                    "The symbol-cell review crop does not exist in this current game scope.",
+                )
+            if asset.geometry_revision != asset.current_geometry_revision:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The symbol-cell crop no longer belongs to the current geometry revision.",
+                )
+            if asset.asset_mode == "virtual_source" and (
+                asset.source_geometry_revision_id != asset.current_source_geometry_revision_id
+            ):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The virtual cell no longer belongs to the current source geometry revision.",
+                )
+            ordered.append(asset)
+        return tuple(ordered)
+
+    def _validate_expected_checksum(
+        self,
+        *,
+        asset: SymbolCellReviewAsset,
+        expected_crop_checksum_sha256: str,
+    ) -> SymbolCellReviewAsset:
         if asset.crop_checksum_sha256 != expected_crop_checksum_sha256:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CROP_DRIFT",

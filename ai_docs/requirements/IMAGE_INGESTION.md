@@ -627,6 +627,13 @@ lub kolumn, przekroczenie residualu, nieprawdopodobna siatka albo brak
 cięcie. Przed pełnym korpusem obowiązuje mała bramka regresji na wskazanych
 błędach i czystych kontrolach.
 
+Podgląd komórek `virtual_source` dla lokalnego Admina nie materializuje cropów
+ani obrazu całej planszy. Endpoint może wyrenderować najwyżej 100 aktualnych
+komórek do jednego checksumowanego atlasu WebP, po czym zapisuje go wyłącznie w
+krótkotrwałym cache'u pochodnym. Każdy request wiąże rewizję komórki, rewizję
+geometrii, checksumę render specu i rendered-pixel SHA-256; zmiana dowolnego z
+tych elementów odmawia odczytu, zamiast serwować poprzedni podgląd.
+
 W aktualnym kandydacie globalne komponenty symboli muszą zostać przypisane do
 5 × 3 przed refinementem lokalnym. Płaszczyzna 500 × 300 służy do detekcji i
 estymacji, ale nie ogranicza dostępnych pikseli zdjęcia źródłowego. Finalny

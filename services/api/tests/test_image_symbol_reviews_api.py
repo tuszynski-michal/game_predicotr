@@ -38,6 +38,7 @@ from game_predictor_api.application.unreadable_board_reviews import (
     UnreadableBoardReviewView,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
     SymbolCellQualityIssue,
@@ -51,6 +52,11 @@ from game_predictor_api.domain.image_symbol_reviews import (
 )
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    rgb_pixel_checksum_sha256,
+)
+from game_predictor_worker.images.virtual_cell_extraction import source_direct_warp_rgb
 from PIL import Image
 
 
@@ -144,6 +150,20 @@ class MemorySymbolCellReviewRepository:
         if game_id != self.game_id or self.asset_value is None:
             return None
         return self.asset_value if self.asset_value.cell_review_id == cell_review_id else None
+
+    def get_assets(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_ids: tuple[UUID, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
+        if game_id != self.game_id or self.asset_value is None:
+            return ()
+        return tuple(
+            self.asset_value
+            for cell_review_id in cell_review_ids
+            if cell_review_id == self.asset_value.cell_review_id
+        )
 
 
 class MemorySymbolCellReviewBulkRepository:
@@ -483,6 +503,77 @@ def _client(
     return TestClient(app)
 
 
+def _virtual_source_asset(
+    artifact_root: Path,
+    *,
+    cell_review_id: UUID,
+) -> SymbolCellReviewAsset:
+    source = Image.new("RGB", (160, 120), color=(50, 90, 140))
+    buffer = BytesIO()
+    source.save(buffer, format="JPEG", quality=95)
+    source_bytes = buffer.getvalue()
+    source_checksum = hashlib.sha256(source_bytes).hexdigest()
+    source_path = (
+        artifact_root / "data" / "originals" / source_checksum[:2] / f"{source_checksum}.jpg"
+    )
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(source_bytes)
+    loader = CanonicalSourceLoader()
+    frame = loader.load(source_path, expected_source_checksum_sha256=source_checksum)
+    quad = [
+        {"x": 20.0, "y": 20.0},
+        {"x": 139.0, "y": 20.0},
+        {"x": 139.0, "y": 99.0},
+        {"x": 20.0, "y": 99.0},
+    ]
+    rgb = source_direct_warp_rgb(
+        frame.rgb,
+        source_quad=tuple((point["x"], point["y"]) for point in quad),
+        output_width=64,
+        output_height=64,
+    )
+    pixel_checksum = rgb_pixel_checksum_sha256(rgb)
+    render_spec = {
+        "boardSlot": 0,
+        "cellIndex": 0,
+        "columnIndex": 0,
+        "configuration": {
+            "extractorVersion": "direct-perspective-cell-v1",
+            "outputHeight": 64,
+            "outputWidth": 64,
+        },
+        "coordinateSpace": "exif-normalized-rgb-pixels-v1",
+        "geometryFingerprintSha256": "a" * 64,
+        "geometryRevision": 0,
+        "logicalCellKeySha256": "b" * 64,
+        "paddedSourceQuad": quad,
+        "renderedPixelChecksumSha256": pixel_checksum,
+        "rowIndex": 0,
+        "schemaVersion": "virtual-cell-render-spec-v1",
+        "sourceChecksumSha256": source_checksum,
+    }
+    source_geometry_revision_id = uuid4()
+    return SymbolCellReviewAsset(
+        cell_review_id=cell_review_id,
+        crop_relative_path=None,
+        crop_checksum_sha256=pixel_checksum,
+        geometry_revision=0,
+        current_geometry_revision=0,
+        revision=2,
+        asset_mode="virtual_source",
+        source_checksum_sha256=source_checksum,
+        normalized_pixel_checksum_sha256=frame.source.normalized_pixel_checksum_sha256,
+        source_geometry_revision_id=source_geometry_revision_id,
+        current_source_geometry_revision_id=source_geometry_revision_id,
+        geometry_checksum_sha256="c" * 64,
+        logical_cell_key="b" * 64,
+        render_spec=render_spec,
+        render_spec_checksum_sha256=hashlib.sha256(canonical_json_bytes(render_spec)).hexdigest(),
+        rendered_pixel_checksum_sha256=pixel_checksum,
+        extractor_version="direct-perspective-cell-v1",
+    )
+
+
 def test_unreadable_board_endpoints_preserve_topology_and_assignment_kind(
     tmp_path: Path,
 ) -> None:
@@ -799,6 +890,73 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
     assert changed_file.status_code == 409
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
+
+
+def test_virtual_preview_batch_endpoint_uses_current_render_provenance(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=1,
+        cell_index=0,
+        review_item_id=UUID(int=1),
+    )
+    asset = _virtual_source_asset(tmp_path, cell_review_id=item.cell_review_id)
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+        asset=asset,
+    )
+    body = {
+        "previewSize": 80,
+        "cells": [
+            {
+                "cellReviewId": str(item.cell_review_id),
+                "expectedRevision": asset.revision,
+                "expectedRenderSpecChecksumSha256": asset.render_spec_checksum_sha256,
+            }
+        ],
+    }
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        created = client.post(
+            f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches",
+            json=body,
+        )
+        atlas = client.get(created.json()["atlasUrl"])
+        legacy_route = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
+            params={
+                "expectedCropChecksumSha256": asset.crop_checksum_sha256,
+                "expectedRenderSpecChecksumSha256": asset.render_spec_checksum_sha256,
+            },
+        )
+        stale = client.post(
+            f"/api/v1/admin/games/{game_id}/virtual-cell-preview-batches",
+            json={
+                **body,
+                "cells": [{**body["cells"][0], "expectedRevision": asset.revision + 1}],
+            },
+        )
+
+    assert created.status_code == 200
+    assert created.json()["tiles"] == [
+        {
+            "cellReviewId": str(item.cell_review_id),
+            "x": 0,
+            "y": 0,
+            "width": 80,
+            "height": 80,
+        }
+    ]
+    assert atlas.status_code == 200
+    assert atlas.headers["content-type"] == "image/webp"
+    assert atlas.headers["cache-control"] == "private, max-age=900, must-revalidate"
+    assert legacy_route.status_code == 200
+    assert legacy_route.headers["content-type"] == "image/webp"
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
 
 
 def test_single_cell_decision_applies_directly_without_bulk_job(tmp_path: Path) -> None:

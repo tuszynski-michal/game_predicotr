@@ -121,7 +121,11 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
   ?expectedCropChecksumSha256={sha256}
+  &expectedRenderSpecChecksumSha256={sha256-required-for-virtual-source}
   &thumbnailSize=100
+
+POST /api/v1/admin/games/{gameId}/virtual-cell-preview-batches
+GET  /api/v1/admin/games/{gameId}/virtual-cell-preview-batches/{batchKey}/atlas
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
 
@@ -154,6 +158,16 @@ lane w bounded partiach 200 plansz i wykorzystuje trwały kursor projekcji.
 Status zawiera również rozmiar tabeli i indeksów przed uruchomieniem oraz ich
 bieżący rozmiar; wolne miejsce może być `null`, jeśli proces API nie ma dostępu
 do katalogu danych PostgreSQL.
+
+`POST .../virtual-cell-preview-batches` przyjmuje maksymalnie 100 bieżących
+komórek `virtual_source`, każdą z oczekiwaną rewizją i checksumą render specu.
+Zwraca checksumowany atlas WebP, deterministyczne współrzędne tile'ów i czas
+wygaśnięcia. Atlas jest cache'em pochodnym pod `data/working/`, nie nowym
+artefaktem domenowym: TTL wynosi 15 minut, limit wynosi 2 GiB LRU, a render
+jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
+ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
+się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
+czyta swój istniejący PNG/JPEG.
 
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez

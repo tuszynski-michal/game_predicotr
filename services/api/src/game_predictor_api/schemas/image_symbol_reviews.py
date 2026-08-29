@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -73,6 +74,34 @@ class SymbolCellReviewPageResponse(ApiModel):
     catalog_revision: int = Field(ge=0)
     next_cursor: str | None
     previous_cursor: str | None
+
+
+class VirtualCellPreviewTargetRequest(ApiModel):
+    cell_review_id: UUID
+    expected_revision: int = Field(ge=0)
+    expected_render_spec_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class VirtualCellPreviewBatchRequest(ApiModel):
+    preview_size: int = Field(default=100, ge=32, le=256)
+    extraction_mode: Literal["direct_perspective_cell_v1"] = "direct_perspective_cell_v1"
+    cells: tuple[VirtualCellPreviewTargetRequest, ...] = Field(min_length=1, max_length=100)
+
+
+class VirtualCellPreviewTileResponse(ApiModel):
+    cell_review_id: UUID
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+
+
+class VirtualCellPreviewBatchResponse(ApiModel):
+    batch_key: str = Field(pattern=r"^[a-f0-9]{64}$")
+    atlas_url: str
+    atlas_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    tiles: tuple[VirtualCellPreviewTileResponse, ...]
+    expires_at: datetime
 
 
 class SymbolCellReviewProjectionStatusResponse(ApiModel):

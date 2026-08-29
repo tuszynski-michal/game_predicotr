@@ -1949,6 +1949,12 @@ cutoverze opartym na zaakceptowanym raporcie minimum 100 źródeł / 500 plansz 
 Endpointy status/start pozostają bez zmian, dlatego OpenAPI i wygenerowany
 klient nie otrzymują w TASK-0318 nowej mutacji.
 
+TASK-0319 nie dodaje endpointów. Fallback keypoint jest lokalnym eksperymentem
+workera wykonywanym wyłącznie w cieniu; Admin, Reviewer, import i kontrakt
+wyboru rolloutu nie mogą go uruchomić ani aktywować. Manifest wydania zapisuje
+`shadowOnly=true` i `activationAllowed=false`, dlatego sam artefakt ONNX nie
+stanowi uprawnienia do zmiany wyniku primary.
+
 Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
 artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
 oczekiwaną rewizję decyzji, rewizję geometrii, checksumę i wymiary źródła oraz

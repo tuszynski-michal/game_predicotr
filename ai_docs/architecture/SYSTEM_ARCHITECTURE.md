@@ -773,6 +773,27 @@ Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
 `legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
 canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
 
+TASK-0319 dodaje izolowany pakiet `images/keypoint_geometry`, lecz nie nowy
+produkcyjny pipeline. Dataset zamraża wyłącznie ręcznie zatwierdzone source
+quady i rozdziela całe source families między train, validation i test.
+Checksum-bound loader czyta managed JPEG, weryfikuje bajty, stosuje EXIF raz i
+nie zapisuje pośrednich bitmap. Mały model PyTorch zwraca tensor heatmap
+`N×9×4×H×W` i obecność `N×9`; eksportowany ONNX ma dokładnie ten sam kontrakt.
+
+`LocalKeypointGeometryOnnxAdapter` używa wyłącznie CPUExecutionProvider oraz
+odrzuca drift artefaktu, kształtu lub wartości wejścia. Decoder bierze active
+slot prefix z poświadczonego `seq_*`, ignoruje fałszywe obecności poza maską i
+fail-closed odrzuca brakujący aktywny slot, słaby narożnik lub niewypukły quad.
+`KeypointGeometryEngine` przekazuje kompletne initial quads do wspólnego
+`refine_initialized_source_geometry`, dzięki czemu finalne `SourceGeometryResult`,
+lokalne linie, confidence i hard gates są identyczne z Structured OpenCV.
+
+Jedyną integracją jest `KeypointGeometryShadowRunner`: przyjmuje primary wynik,
+zwraca osobny candidate i ma stałe `canReplacePrimary=false`. Nie istnieje
+write path do `image_geometry_rollout_states`, production workflow ani API.
+Niezmienny manifest release'u wiąże dataset, split, trening, ONNX parity i
+bounded CPU timing, a zarazem deklaruje `activationAllowed=false`.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

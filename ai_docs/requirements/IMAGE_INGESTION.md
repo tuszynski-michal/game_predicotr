@@ -227,6 +227,29 @@ Odbiór TASK-0318 nie znalazł kompletnego raportu 0.10, dlatego nie promuje
 legacy pozostają wymaganym rollbackiem. Szczegóły dowodów i procedura są w
 `ai_docs/quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md`.
 
+### 2.5. Eksperymentalny fallback keypoint
+
+TASK-0319 udostępnia wyłącznie shadow-only `KeypointGeometryEngine`. Bezpośrednia
+decyzja właściciela pozwoliła zbudować eksperyment mimo braku wyniku `<95%`, ale
+nie zastępuje bramki cutoveru TASK-0318 i nie pozwala aktywować modelu. Model
+zwraca cztery heatmapy narożników dla każdego z dziewięciu slotów oraz osobną
+obecność slotów. Poświadczony zakres `seq_*` pozostaje źródłem aktywnej maski;
+predykcja nie może dodać nieaktywnego slotu.
+
+Trening przyjmuje wyłącznie niezmienny manifest ręcznie zatwierdzonych quadów.
+Split jest deterministyczny i rozłączny po `sourceFamilyId`, a managed JPEG jest
+ponownie sprawdzany przez ścieżkę, SHA-256, format oraz wymiary po EXIF. Eksport
+ONNX jest związany checksumą i może działać tylko przez lokalny CPU adapter.
+Predykowane quady są wyłącznie inicjalizacją: finalny wynik musi przejść przez
+ten sam niezależny refiner linii, source support, row-major, overlap oraz
+pozostałe hard gates co Structured OpenCV. Niepełna obecność, słaby narożnik
+albo niepoprawny quad kończą się fail-closed.
+
+Manifest release'u ma zawsze `shadowOnly=true` i `activationAllowed=false`.
+TASK-0319 nie dodaje trybu w bazie, nie podpina modelu do produkcyjnego
+pipeline'u, nie uruchamia treningu na danych użytkownika i nie wprowadza
+segmentacji, Ultralytics ani GPU.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

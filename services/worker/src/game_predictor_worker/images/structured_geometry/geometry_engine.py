@@ -248,122 +248,168 @@ class StructuredOpenCvGeometryEngine:
         request: StructuredGeometryInitializationRequest,
     ) -> SourceGeometryResult:
         initialization = self.initialize(source, request)
-        if initialization.status is not GlobalInitializationStatus.INITIALIZED:
-            boards = tuple(
-                _uninitialized_board_result(slot) for slot in request.attested_range.active_slots
-            )
-            return self._source_result(
-                request,
-                initialization=initialization,
-                boards=boards,
-                reason_codes=initialization.reason_codes,
-            )
-
-        global_score = _global_registration_score(initialization)
-        refinements = tuple(
-            self._refiner.refine(
-                source.rgb,
-                initial_quad=initialized.initial_quad,
-                topology=request.topology,
-                global_registration_score=global_score,
-            )
-            for initialized in initialization.slots
-        )
-        order_violations, overlap_violations = _cross_slot_violations(
-            refinements,
-            maximum_overlap_fraction=self._validation_thresholds.maximum_overlap_fraction,
-        )
-        boards = tuple(
-            self._board_result(
-                slot,
-                refinement,
-                order_valid=index not in order_violations,
-                overlap_valid=index not in overlap_violations,
-            )
-            for index, (slot, refinement) in enumerate(
-                zip(request.attested_range.active_slots, refinements, strict=True)
-            )
-        )
-        reason_codes = tuple(
-            sorted({reason.value for board in boards for reason in board.reason_codes})
-        )
-        return self._source_result(
-            request,
+        return refine_initialized_source_geometry(
+            source=source,
+            request=request,
             initialization=initialization,
-            boards=boards,
-            reason_codes=reason_codes,
-        )
-
-    def _board_result(
-        self,
-        slot: ActiveBoardSlot,
-        refinement: BoardLineRefinementResult,
-        *,
-        order_valid: bool,
-        overlap_valid: bool,
-    ) -> BoardGeometryResult:
-        evidence = replace(
-            refinement.evidence,
-            slot_order_valid=order_valid,
-            overlap_valid=overlap_valid,
-        )
-        components = replace(
-            refinement.confidence_components,
-            slot_order_score=1.0 if order_valid and overlap_valid else 0.0,
-        )
-        if refinement.intrinsic_reason_codes:
-            decision = GeometryConfidenceDecision(
-                disposition=BoardGeometryDisposition.NEEDS_MANUAL_CORRECTION,
-                confidence=components.total,
-                reason_codes=refinement.intrinsic_reason_codes,
-            )
-        else:
-            decision = evaluate_geometry_confidence(
-                evidence=evidence,
-                components=components,
-                thresholds=self._validation_thresholds,
-            )
-        return BoardGeometryResult(
-            slot=slot,
-            disposition=decision.disposition,
-            initial_quad=refinement.initial_quad,
-            final_quad=refinement.final_quad,
-            ideal_to_source_homography=refinement.ideal_to_source_homography,
-            confidence=decision.confidence,
-            confidence_components=components,
-            evidence=evidence,
-            lines=refinement.lines,
-            reason_codes=decision.reason_codes,
-        )
-
-    def _source_result(
-        self,
-        request: StructuredGeometryInitializationRequest,
-        *,
-        initialization: GlobalInitializationResult,
-        boards: tuple[BoardGeometryResult, ...],
-        reason_codes: tuple[str, ...],
-    ) -> SourceGeometryResult:
-        return SourceGeometryResult(
-            status=_source_status(boards),
             engine_id=self.engine_id,
             engine_version=self.version,
             config_checksum_sha256=self.config_checksum_sha256,
-            source_checksum_sha256=request.source_checksum_sha256,
-            normalized_pixel_checksum_sha256=request.normalized_pixel_checksum_sha256,
-            canonical_width=request.canonical_width,
-            canonical_height=request.canonical_height,
-            topology_rows=request.topology.rows,
-            topology_columns=request.topology.columns,
-            topology_rules_version_id=request.topology_rules_version_id,
-            active_board_slots=request.active_board_slots,
-            global_initialization=initialization,
-            boards=boards,
-            reason_codes=reason_codes,
+            line_refiner=self._refiner,
+            validation_thresholds=self._validation_thresholds,
         )
 
 
-def _uninitialized_board_result(slot: ActiveBoardSlot) -> BoardGeometryResult:
+def refine_initialized_source_geometry(
+    *,
+    source: CanonicalSourceFrame,
+    request: StructuredGeometryInitializationRequest,
+    initialization: GlobalInitializationResult,
+    engine_id: str,
+    engine_version: str,
+    config_checksum_sha256: str,
+    line_refiner: BoardLineRefiner,
+    validation_thresholds: StructuredGeometryValidationThresholds = (
+        DEFAULT_STRUCTURED_GEOMETRY_VALIDATION_THRESHOLDS
+    ),
+    initialization_failure_reason: BoardGeometryReasonCode = (
+        BoardGeometryReasonCode.GLOBAL_INITIALIZATION_UNAVAILABLE
+    ),
+) -> SourceGeometryResult:
+    """Apply the shared per-board refiner and hard gates to any initializer."""
+
+    if initialization.status is not GlobalInitializationStatus.INITIALIZED:
+        boards = tuple(
+            _uninitialized_board_result(slot, reason=initialization_failure_reason)
+            for slot in request.attested_range.active_slots
+        )
+        return _source_result(
+            request,
+            initialization=initialization,
+            boards=boards,
+            reason_codes=initialization.reason_codes,
+            engine_id=engine_id,
+            engine_version=engine_version,
+            config_checksum_sha256=config_checksum_sha256,
+        )
+
+    global_score = _global_registration_score(initialization)
+    refinements = tuple(
+        line_refiner.refine(
+            source.rgb,
+            initial_quad=initialized.initial_quad,
+            topology=request.topology,
+            global_registration_score=global_score,
+        )
+        for initialized in initialization.slots
+    )
+    order_violations, overlap_violations = _cross_slot_violations(
+        refinements,
+        maximum_overlap_fraction=validation_thresholds.maximum_overlap_fraction,
+    )
+    boards = tuple(
+        _validated_board_result(
+            slot,
+            refinement,
+            order_valid=index not in order_violations,
+            overlap_valid=index not in overlap_violations,
+            validation_thresholds=validation_thresholds,
+        )
+        for index, (slot, refinement) in enumerate(
+            zip(request.attested_range.active_slots, refinements, strict=True)
+        )
+    )
+    reason_codes = tuple(
+        sorted({reason.value for board in boards for reason in board.reason_codes})
+    )
+    return _source_result(
+        request,
+        initialization=initialization,
+        boards=boards,
+        reason_codes=reason_codes,
+        engine_id=engine_id,
+        engine_version=engine_version,
+        config_checksum_sha256=config_checksum_sha256,
+    )
+
+
+def _validated_board_result(
+    slot: ActiveBoardSlot,
+    refinement: BoardLineRefinementResult,
+    *,
+    order_valid: bool,
+    overlap_valid: bool,
+    validation_thresholds: StructuredGeometryValidationThresholds,
+) -> BoardGeometryResult:
+    evidence = replace(
+        refinement.evidence,
+        slot_order_valid=order_valid,
+        overlap_valid=overlap_valid,
+    )
+    components = replace(
+        refinement.confidence_components,
+        slot_order_score=1.0 if order_valid and overlap_valid else 0.0,
+    )
+    if refinement.intrinsic_reason_codes:
+        decision = GeometryConfidenceDecision(
+            disposition=BoardGeometryDisposition.NEEDS_MANUAL_CORRECTION,
+            confidence=components.total,
+            reason_codes=refinement.intrinsic_reason_codes,
+        )
+    else:
+        decision = evaluate_geometry_confidence(
+            evidence=evidence,
+            components=components,
+            thresholds=validation_thresholds,
+        )
+    return BoardGeometryResult(
+        slot=slot,
+        disposition=decision.disposition,
+        initial_quad=refinement.initial_quad,
+        final_quad=refinement.final_quad,
+        ideal_to_source_homography=refinement.ideal_to_source_homography,
+        confidence=decision.confidence,
+        confidence_components=components,
+        evidence=evidence,
+        lines=refinement.lines,
+        reason_codes=decision.reason_codes,
+    )
+
+
+def _source_result(
+    request: StructuredGeometryInitializationRequest,
+    *,
+    initialization: GlobalInitializationResult,
+    boards: tuple[BoardGeometryResult, ...],
+    reason_codes: tuple[str, ...],
+    engine_id: str,
+    engine_version: str,
+    config_checksum_sha256: str,
+) -> SourceGeometryResult:
+    return SourceGeometryResult(
+        status=_source_status(boards),
+        engine_id=engine_id,
+        engine_version=engine_version,
+        config_checksum_sha256=config_checksum_sha256,
+        source_checksum_sha256=request.source_checksum_sha256,
+        normalized_pixel_checksum_sha256=request.normalized_pixel_checksum_sha256,
+        canonical_width=request.canonical_width,
+        canonical_height=request.canonical_height,
+        topology_rows=request.topology.rows,
+        topology_columns=request.topology.columns,
+        topology_rules_version_id=request.topology_rules_version_id,
+        active_board_slots=request.active_board_slots,
+        global_initialization=initialization,
+        boards=boards,
+        reason_codes=reason_codes,
+    )
+
+
+def _uninitialized_board_result(
+    slot: ActiveBoardSlot,
+    *,
+    reason: BoardGeometryReasonCode = BoardGeometryReasonCode.GLOBAL_INITIALIZATION_UNAVAILABLE,
+) -> BoardGeometryResult:
     components = GeometryConfidenceComponents(
         global_registration_score=0.0,
         line_coverage_score=0.0,
@@ -384,7 +430,7 @@ def _uninitialized_board_result(slot: ActiveBoardSlot) -> BoardGeometryResult:
         confidence_components=components,
         evidence=BoardGeometryEvidence.empty(),
         lines=(),
-        reason_codes=(BoardGeometryReasonCode.GLOBAL_INITIALIZATION_UNAVAILABLE,),
+        reason_codes=(reason,),
     )
 
 
@@ -406,6 +452,10 @@ def _global_registration_score(initialization: GlobalInitializationResult) -> fl
         ratio_score = min(1.0, ratio / 0.45)
         reprojection_score = max(0.0, 1.0 - p95 / 5.0)
         return _unit(0.6 * ratio_score + 0.4 * reprojection_score)
+    if initialization.method is GlobalInitializationMethod.KEYPOINT_HEATMAPS:
+        corner = _metric_float(metrics.get("meanCornerConfidence"))
+        presence = _metric_float(metrics.get("minimumActivePresenceConfidence"))
+        return _unit(0.75 * corner + 0.25 * presence)
     evidence = _metric_float(metrics.get("meanFrameEvidence"))
     residual = _metric_float(metrics.get("p95TemplateResidual"))
     residual_score = max(0.0, 1.0 - residual / 8.0)
@@ -481,4 +531,5 @@ __all__ = [
     "SourceGeometryResult",
     "SourceGeometryStatus",
     "StructuredOpenCvGeometryEngine",
+    "refine_initialized_source_geometry",
 ]

@@ -6264,6 +6264,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   jak `<95%` oraz usunięcie legacy po przejściu testów jednostkowych odrzucono,
   ponieważ nie mierzą rzeczywistej poprawności plansz i osłabiają rollback.
 
+## D-262 — Wczesny fallback keypoint pozostaje eksperymentem shadow-only
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** bezpośrednie polecenie właściciela pozwala zaimplementować
+  bounded eksperyment `KeypointGeometryEngine` mimo braku raportu `<95%`, ale
+  nie pozwala aktywować go w produkcji. Model przewiduje `9 × 4` heatmaps i
+  obecność slotów, używa wyłącznie ręcznie zatwierdzonych quadów, splitu według
+  source family i ONNX Runtime CPU. Wynik zawsze przechodzi przez wspólny
+  refiner oraz istniejące hard gates.
+- **Context:** D-261 poprawnie zatrzymała automatyczny trigger TASK-0319 przy
+  `insufficient_evidence`. Jawne polecenie implementacji rozszerza zakres
+  bezpiecznego eksperymentu, nie stanowi jednak dowodu jakości ani decyzji o
+  zmianie rolloutu.
+- **Safety:** artefakt jest checksum-bound, manifest wydania ma
+  `shadowOnly=true` i `activationAllowed=false`, nieaktywne sloty nie są
+  syntetyzowane, a brak aktywnego slota kończy się fail-closed. Nie ma migracji,
+  endpointu, operacyjnego treningu ani połączenia z primary workflow.
+- **Consequences:** eksperyment można mierzyć na późniejszym, zaakceptowanym
+  holdoucie bez naruszania istniejących wyników. Aktywacja wymaga osobnego
+  zadania, rzeczywistego raportu, migracji stanu rolloutu i jawnej akceptacji.
+- **Alternatives:** uznanie polecenia za zgodę na produkcyjną aktywację,
+  automatyczny trening na danych użytkownika oraz osobny zestaw słabszych bramek
+  dla modelu odrzucono jako naruszające D-261 i granice bezpieczeństwa.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -212,6 +212,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   checksumy. Etykiety człowieka pozostają, ale nowa tożsamość pikseli nie jest
   treningowa do czasu ponownego zatwierdzenia cropa.
 
+### Eksperymentalny fallback geometrii keypoint — TASK-0319
+
+- Bezpośrednie polecenie właściciela uruchomiło bounded eksperyment mimo braku
+  raportu `<95%`; D-261 nadal blokuje automatyczną aktywację i zmianę rolloutu.
+- Zamrożony dataset dopuszcza wyłącznie ręcznie zatwierdzone quady i dzieli dane
+  deterministycznie według source family bez przecieku między train,
+  validation i test.
+- Mały model CPU przewiduje `9 × 4` heatmaps oraz obecność slotów. Eksport ONNX
+  jest checksum-bound, sprawdza parity z PyTorch i ma jawny, bounded pomiar
+  czasu po warm-upie.
+- Dekoder respektuje active-slot maskę z poświadczonego zakresu `seq_*`, a
+  niepełna obecność i nieprawidłowy quad kończą się fail-closed. Finalne quady
+  przechodzą przez ten sam lokalny refiner i hard gates co Structured OpenCV.
+- Nie dodano migracji, API ani połączenia z produkcyjnym workflow. Shadow runner
+  nie może zastąpić primary result, trenować na danych użytkownika ani zmienić
+  stanu gry.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

@@ -18,6 +18,7 @@ from .geometry_engine import (
     SourceGeometryResult,
     SourceGeometryStatus,
     StructuredOpenCvGeometryEngine,
+    refine_initialized_source_geometry,
 )
 from .global_initialization import (
     STRUCTURED_GEOMETRY_ENGINE_ID,
@@ -77,5 +78,6 @@ __all__ = [
     "StructuredGeometryInitializationThresholds",
     "StructuredGeometryValidationThresholds",
     "StructuredOpenCvGeometryEngine",
+    "refine_initialized_source_geometry",
     "evaluate_geometry_confidence",
 ]

@@ -75,6 +75,7 @@ class GlobalInitializationStatus(StrEnum):
 class GlobalInitializationMethod(StrEnum):
     VERIFIED_PROFILE_ORB_RANSAC = "verified_profile_orb_ransac"
     GENERIC_FRAME_LINES = "generic_frame_lines"
+    KEYPOINT_HEATMAPS = "keypoint_heatmaps"
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,9 +240,16 @@ class GlobalInitializationResult:
                 "Global initialization metrics must be finite.",
             )
         if self.status is GlobalInitializationStatus.INITIALIZED:
+            homography_invalid = self.homography is not None and any(
+                not math.isfinite(value) for row in self.homography for value in row
+            )
+            homography_missing = (
+                self.method is not GlobalInitializationMethod.KEYPOINT_HEATMAPS
+                and self.homography is None
+            )
             if (
-                self.homography is None
-                or any(not math.isfinite(value) for row in self.homography for value in row)
+                homography_missing
+                or homography_invalid
                 or len(self.slots) != len(self.active_board_slots)
                 or self.reason_codes
                 or tuple(slot.slot.position_index for slot in self.slots) != self.active_board_slots

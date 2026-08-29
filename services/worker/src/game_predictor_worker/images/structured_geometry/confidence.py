@@ -23,6 +23,7 @@ class BoardGeometryDisposition(StrEnum):
 
 class BoardGeometryReasonCode(StrEnum):
     GLOBAL_INITIALIZATION_UNAVAILABLE = "global_initialization_unavailable"
+    KEYPOINT_PREDICTION_INCOMPLETE = "keypoint_prediction_incomplete"
     LOCAL_ROI_UNUSABLE = "local_roi_unusable"
     TOPOLOGY_UNSUPPORTED = "topology_unsupported"
     LOCAL_HOMOGRAPHY_UNAVAILABLE = "local_homography_unavailable"

@@ -766,6 +766,13 @@ Promocja albo rollback wymagają osobnej, audytowalnej transakcji zwiększające
 `revision`; nie wolno edytować snapshotów już utworzonych jobów. Brak
 kompletnego raportu pozostawia istniejący rekord bez zmian.
 
+TASK-0319 również nie dodaje tabel ani pól. Zamrożony manifest ręcznie
+zatwierdzonych quadów, artefakt ONNX i manifest wydania fallbacku keypoint są
+niezmiennymi plikami poza głównymi tabelami domenowymi. Nie wolno zapisywać w
+bazie obrazów źródłowych, tensorów ani heatmap. Eksperyment ma wyłącznie tryb
+`shadow_only` i nie rozszerza stanów rolloutu; jego ewentualna aktywacja wymaga
+osobnego zadania, migracji i jawnej decyzji właściciela.
+
 Przy tworzeniu joba stan jest zamrażany jako checksum-bound
 `image_geometry_rollout` w input payloadzie. Snapshot zawiera rewizję oraz
 wersje silnika geometrii, virtual renderera i preprocessingu. Legacy nie zmienia

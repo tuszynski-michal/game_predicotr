@@ -1913,12 +1913,20 @@ POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
 ```
 
-Lista ma widoki `needs_validation | needs_correction | all`, opcjonalny filtr
-`importJobId`, limit domyślny 25 i maksymalny 100. Keyset opiera się na
-`(sequence_number, review_item_id)`. Opaque cursor jest związany z grą,
-widokiem, importem i kierunkiem; nie może zostać odtworzony w innym scope.
-Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego scope
-gry/importu.
+Lista ma widoki `needs_validation | needs_correction | all`, opcjonalne filtry
+`importJobId` i `sourceImageId`, limit domyślny 25 i maksymalny 100. Keyset
+opiera się na `(sequence_number, review_item_id)`. Opaque cursor jest związany
+z grą, widokiem, importem, źródłem i kierunkiem; nie może zostać odtworzony w
+innym scope. Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego
+scope gry/importu/źródła.
+
+Element kolejki zawiera ponadto immutable identity zdjęcia źródłowego,
+`positionIndex` aktywnego slotu, `assetMode`, nazwę i wersję silnika geometrii,
+`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer może dzięki
+temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
+źródła, narysować overlay wyłącznie w pamięci i zachować kolejność row-major.
+Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
+geometrii.
 
 Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
 artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże

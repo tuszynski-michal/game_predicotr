@@ -4494,6 +4494,16 @@
             ],
             "title": "Approvedgeometryrevision"
           },
+          "assetMode": {
+            "title": "Assetmode",
+            "type": "string"
+          },
+          "boardConfidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Boardconfidence",
+            "type": "number"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -4503,6 +4513,28 @@
             "additionalProperties": true,
             "title": "Geometry",
             "type": "object"
+          },
+          "geometryEngineName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryenginename"
+          },
+          "geometryEngineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryengineversion"
           },
           "geometryRevision": {
             "minimum": 0.0,
@@ -4523,6 +4555,19 @@
             "format": "uuid",
             "title": "Importjobid",
             "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
           },
           "recognizedBoardId": {
             "format": "uuid",
@@ -4554,6 +4599,11 @@
             "title": "Sourceheight",
             "type": "integer"
           },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
           "sourceWidth": {
             "exclusiveMinimum": 0.0,
             "title": "Sourcewidth",
@@ -4568,6 +4618,8 @@
           "gameId",
           "importJobId",
           "recognizedBoardId",
+          "sourceImageId",
+          "positionIndex",
           "sequenceNumber",
           "sourceChecksumSha256",
           "sourceWidth",
@@ -4577,6 +4629,11 @@
           "gridRows",
           "gridColumns",
           "geometry",
+          "assetMode",
+          "geometryEngineName",
+          "geometryEngineVersion",
+          "boardConfidence",
+          "reasonCodes",
           "state"
         ],
         "title": "ImageGridReviewItemResponse",
@@ -18639,6 +18696,23 @@
                 }
               ],
               "title": "Importjobid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceImageId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sourceimageid"
             }
           },
           {

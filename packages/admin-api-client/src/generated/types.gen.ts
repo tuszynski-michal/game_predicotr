@@ -2584,6 +2584,14 @@ export type ImageGridReviewItemResponse = {
    */
   approvedGeometryRevision?: number | null;
   /**
+   * Assetmode
+   */
+  assetMode: string;
+  /**
+   * Boardconfidence
+   */
+  boardConfidence: number;
+  /**
    * Gameid
    */
   gameId: string;
@@ -2593,6 +2601,14 @@ export type ImageGridReviewItemResponse = {
   geometry: {
     [key: string]: unknown;
   };
+  /**
+   * Geometryenginename
+   */
+  geometryEngineName: string | null;
+  /**
+   * Geometryengineversion
+   */
+  geometryEngineVersion: string | null;
   /**
    * Geometryrevision
    */
@@ -2609,6 +2625,14 @@ export type ImageGridReviewItemResponse = {
    * Importjobid
    */
   importJobId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
   /**
    * Recognizedboardid
    */
@@ -2633,6 +2657,10 @@ export type ImageGridReviewItemResponse = {
    * Sourceheight
    */
   sourceHeight: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
   /**
    * Sourcewidth
    */
@@ -10666,6 +10694,10 @@ export type ListImageGridReviewsData = {
      * Importjobid
      */
     importJobId?: string | null;
+    /**
+     * Sourceimageid
+     */
+    sourceImageId?: string | null;
     /**
      * Aftercursor
      */

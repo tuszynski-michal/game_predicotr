@@ -54,7 +54,7 @@ test('local grid workspace keeps remote reviewer on the restricted legacy path',
   assert.doesNotMatch(proxy, /\/image-reviews\//);
 });
 
-test('grid workspace has bounded keyset navigation, filters, keyboard approval and submit lock', () => {
+test('grid workspace groups active slots by source and guards whole-image actions', () => {
   assert.match(state, /Do walidacji/);
   assert.match(state, /Do poprawy/);
   assert.match(state, /Wszystkie/);
@@ -63,20 +63,37 @@ test('grid workspace has bounded keyset navigation, filters, keyboard approval a
   assert.match(workspace, /event\.key === 'Enter'/);
   assert.match(workspace, /event\.key\.toLowerCase\(\) === 'f'/);
   assert.match(workspace, /submitLock\.current/);
-  assert.match(workspace, /moveAfterSuccess/);
+  assert.match(workspace, /moveSource\('next'\)/);
+  assert.match(workspace, /approveSource/);
+  assert.match(workspace, /rejectSource/);
+  assert.match(workspace, /sourceImageId/);
+  assert.match(workspace, /gridReviewSourceStats/);
   assert.doesNotMatch(workspace, /listSymbols/);
 });
 
-test('editor supports four-point topology-aware correction without overlay files', () => {
+test('editor overlays every active slot and supports bounded A/B correction without overlay files', () => {
   assert.match(editor, /GRID_CORNER_LABELS\[draft\.length\]/);
   assert.match(editor, /onPointerDown=\{pointerDown\}/);
   assert.match(editor, /moveGridGeometryCorner/);
   assert.match(editor, /moveGridGeometry/);
   assert.match(editor, /Cofnij punkt/);
-  assert.match(editor, /Resetuj/);
+  assert.match(editor, /Resetuj do automatu/);
+  assert.match(editor, /items\.map/);
+  assert.match(editor, /positionIndex \+ 1/);
+  assert.match(editor, /showOverlay/);
+  assert.match(editor, /zoomPercent/);
+  assert.match(editor, /A · Automat/);
+  assert.match(editor, /B · Edycja/);
   assert.match(editor, /item\.gridColumns/);
   assert.match(editor, /item\.gridRows/);
   assert.match(editor, /previewGridReviewGeometry/);
   assert.match(editor, /saveGridReviewGeometry/);
   assert.doesNotMatch(editor, /upload|overlay.*(?:jpeg|jpg)/i);
+});
+
+test('source-scoped client request is explicit and cannot spill into remote reviewer access', () => {
+  assert.match(state, /GRID_REVIEW_SOURCE_PAGE_LIMIT = 9/);
+  assert.match(workspace, /loadGridReviewSource/);
+  assert.match(workspace, /GRID_REVIEW_SOURCE_PAGE_LIMIT/);
+  assert.doesNotMatch(proxy, /sourceImageId/);
 });

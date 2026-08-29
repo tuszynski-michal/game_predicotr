@@ -1977,6 +1977,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
   const gameId = '11111111-1111-4111-8111-111111111111';
   const importJobId = '22222222-2222-4222-8222-222222222222';
   const reviewItemId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '55555555-5555-4555-8555-555555555555';
   const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -2013,6 +2014,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
     gameId,
     importJobId,
     limit: 25,
+    sourceImageId,
     view: 'needs_validation',
   });
   await client.getImageGridReviewSourceAsset(reviewItemId, gameId, checksum);
@@ -2055,6 +2057,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
   const listQuery = new URL(requests[0].url).searchParams;
   assert.equal(listQuery.get('afterCursor'), 'cursor');
   assert.equal(listQuery.get('importJobId'), importJobId);
+  assert.equal(listQuery.get('sourceImageId'), sourceImageId);
   assert.equal(listQuery.get('view'), 'needs_validation');
   assert.equal(
     new URL(requests[1].url).searchParams.get('expectedSourceChecksumSha256'),

@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
   ImageGridReviewView,
 } from '@game-predictor/admin-api-client';
@@ -11,12 +12,17 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   approveGridReview,
   loadGridReviewPage,
+  loadGridReviewSource,
+  rejectGridReview,
   type GridReviewsClient,
 } from './grid-review-actions';
 import { GridReviewEditor } from './grid-review-editor';
 import {
+  GRID_REVIEW_SOURCE_PAGE_LIMIT,
   GRID_REVIEW_VIEWS,
+  gridReviewSourceStats,
   isGridReviewTypingTarget,
+  orderGridReviewSourceItems,
   type GridReviewNavigation,
 } from './grid-review-state';
 
@@ -36,15 +42,61 @@ export function GridReviewWorkspace({
     [apiBaseUrl, client],
   );
   const [view, setView] = useState<ImageGridReviewView>('needs_validation');
-  const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
+  const [anchorPage, setAnchorPage] =
+    useState<ImageGridReviewPageResponse | null>(null);
+  const [sourceItems, setSourceItems] = useState<
+    readonly ImageGridReviewItemResponse[]
+  >([]);
+  const [selectedReviewItemId, setSelectedReviewItemId] = useState<string>('');
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [rejectConfirmation, setRejectConfirmation] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const requestId = useRef(0);
   const submitLock = useRef(false);
   const navigationRef = useRef<GridReviewNavigation>({});
-  const item = page?.items[0] ?? null;
+  const anchorItem = anchorPage?.items[0] ?? null;
+  const sourceStats = useMemo(
+    () => gridReviewSourceStats(sourceItems),
+    [sourceItems],
+  );
+
+  const hydrateSource = useCallback(
+    async (
+      anchor: ImageGridReviewPageResponse,
+      request: number,
+    ): Promise<boolean> => {
+      const sourceItem = anchor.items[0];
+      if (sourceItem === undefined) {
+        setAnchorPage(anchor);
+        setSourceItems([]);
+        setSelectedReviewItemId('');
+        return true;
+      }
+      const sourceResult = await loadGridReviewSource(api, {
+        gameId,
+        importJobId,
+        sourceImageId: sourceItem.sourceImageId,
+      });
+      if (request !== requestId.current) return false;
+      if (!sourceResult.ok) {
+        setError(sourceResult.error);
+        return false;
+      }
+      const items = orderGridReviewSourceItems(sourceResult.page.items);
+      setAnchorPage(anchor);
+      setSourceItems(items);
+      setSelectedReviewItemId((current) =>
+        items.some((candidate) => candidate.reviewItemId === current)
+          ? current
+          : (items[0]?.reviewItemId ?? ''),
+      );
+      return true;
+    },
+    [api, gameId, importJobId],
+  );
 
   const loadPage = useCallback(
     async (navigation: GridReviewNavigation = {}) => {
@@ -52,6 +104,7 @@ export function GridReviewWorkspace({
       navigationRef.current = navigation;
       setLoading(true);
       setError('');
+      setRejectConfirmation(false);
       const result = await loadGridReviewPage(api, {
         gameId,
         importJobId,
@@ -59,8 +112,8 @@ export function GridReviewWorkspace({
         view,
       });
       if (currentRequest !== requestId.current) return;
-      setLoading(false);
       if (!result.ok) {
+        setLoading(false);
         setError(
           result.isConflict
             ? `${result.error} Kolejka zmieniła się — wczytaj aktualną pozycję.`
@@ -68,74 +121,174 @@ export function GridReviewWorkspace({
         );
         return;
       }
-      setPage(result.page);
+      await hydrateSource(result.page, currentRequest);
+      if (currentRequest === requestId.current) setLoading(false);
     },
-    [api, gameId, importJobId, view],
+    [api, gameId, hydrateSource, importJobId, view],
   );
 
   useEffect(() => {
     queueMicrotask(() => void loadPage());
   }, [loadPage]);
 
-  const moveAfterSuccess = useCallback(async () => {
-    const nextCursor = page?.nextCursor;
-    if (nextCursor !== null && nextCursor !== undefined) {
-      await loadPage({ afterCursor: nextCursor });
+  const moveSource = useCallback(
+    async (direction: 'next' | 'previous') => {
+      if (anchorItem === null || submitting) return false;
+      const currentSourceId = anchorItem.sourceImageId;
+      let cursor =
+        direction === 'next'
+          ? anchorPage?.nextCursor
+          : anchorPage?.previousCursor;
+      for (
+        let scanned = 0;
+        scanned < GRID_REVIEW_SOURCE_PAGE_LIMIT;
+        scanned += 1
+      ) {
+        if (cursor === null || cursor === undefined) break;
+        const currentRequest = ++requestId.current;
+        setLoading(true);
+        const result = await loadGridReviewPage(api, {
+          gameId,
+          importJobId,
+          navigation:
+            direction === 'next'
+              ? { afterCursor: cursor }
+              : { beforeCursor: cursor },
+          view,
+        });
+        if (currentRequest !== requestId.current) return false;
+        if (!result.ok) {
+          setLoading(false);
+          setError(result.error);
+          return false;
+        }
+        const candidate = result.page.items[0];
+        if (candidate === undefined) break;
+        if (candidate.sourceImageId !== currentSourceId) {
+          navigationRef.current =
+            direction === 'next'
+              ? { afterCursor: cursor }
+              : { beforeCursor: cursor };
+          await hydrateSource(result.page, currentRequest);
+          if (currentRequest === requestId.current) setLoading(false);
+          return true;
+        }
+        cursor =
+          direction === 'next'
+            ? result.page.nextCursor
+            : result.page.previousCursor;
+      }
+      setLoading(false);
+      return false;
+    },
+    [
+      anchorItem,
+      anchorPage,
+      api,
+      gameId,
+      hydrateSource,
+      importJobId,
+      submitting,
+      view,
+    ],
+  );
+
+  const refreshAfterMutation = useCallback(async () => {
+    setRejectConfirmation(false);
+    if (!(await moveSource('next'))) await loadPage();
+  }, [loadPage, moveSource]);
+
+  const approveSource = useCallback(async () => {
+    if (sourceItems.length === 0 || submitLock.current) return;
+    if (
+      sourceItems.some((candidate) => candidate.state === 'needs_correction')
+    ) {
+      setError('Najpierw popraw plansze oznaczone jako „Do poprawy”.');
       return;
     }
-    await loadPage();
-  }, [loadPage, page?.nextCursor]);
-
-  const approve = useCallback(async () => {
-    if (item === null || submitLock.current) return;
     submitLock.current = true;
     setSubmitting(true);
     setError('');
     setNotice('');
-    const result = await approveGridReview(api, item);
-    if (!result.ok) {
-      setSubmitting(false);
-      submitLock.current = false;
-      setError(
-        result.isConflict
-          ? `${result.error} Wczytuję aktualną rewizję.`
-          : result.error,
-      );
-      if (result.isConflict) await loadPage(navigationRef.current);
-      return;
+    let changed = 0;
+    for (const candidate of sourceItems) {
+      if (candidate.state === 'approved') continue;
+      const result = await approveGridReview(api, candidate);
+      if (!result.ok) {
+        setSubmitting(false);
+        submitLock.current = false;
+        setError(
+          result.isConflict
+            ? `${result.error} Wczytuję aktualne dane zdjęcia.`
+            : result.error,
+        );
+        if (result.isConflict) await loadPage(navigationRef.current);
+        return;
+      }
+      changed += 1;
     }
-    setNotice(`Zatwierdzono geometrię planszy ${item.sequenceNumber}.`);
-    await moveAfterSuccess();
+    setNotice(
+      changed === 0
+        ? 'Całe zdjęcie było już zatwierdzone.'
+        : `Zatwierdzono geometrię ${changed} plansz z jednego zdjęcia.`,
+    );
+    await refreshAfterMutation();
     setSubmitting(false);
     submitLock.current = false;
-  }, [api, item, loadPage, moveAfterSuccess]);
+  }, [api, loadPage, refreshAfterMutation, sourceItems]);
+
+  const rejectSource = useCallback(async () => {
+    if (sourceItems.length === 0 || submitLock.current) return;
+    if (!rejectConfirmation) {
+      setRejectConfirmation(true);
+      setNotice(
+        `Potwierdź odrzucenie całego zdjęcia i ${sourceItems.length} aktywnych plansz.`,
+      );
+      return;
+    }
+    submitLock.current = true;
+    setSubmitting(true);
+    setError('');
+    let rejected = 0;
+    for (const candidate of sourceItems) {
+      const result = await rejectGridReview(api, candidate);
+      if (!result.ok) {
+        setSubmitting(false);
+        submitLock.current = false;
+        setError(result.error);
+        if (result.isConflict) await loadPage(navigationRef.current);
+        return;
+      }
+      rejected += 1;
+    }
+    setNotice(`Odrzucono ${rejected} plansz z tego zdjęcia.`);
+    await refreshAfterMutation();
+    setSubmitting(false);
+    submitLock.current = false;
+  }, [api, loadPage, refreshAfterMutation, rejectConfirmation, sourceItems]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (
-        event.repeat ||
-        isGridReviewTypingTarget(event.target) ||
-        document.querySelector('.gridReviewEditor .isEditing') !== null
-      ) {
+      if (event.repeat || isGridReviewTypingTarget(event.target) || editing) {
         return;
       }
       if (event.key === 'Enter' || event.key.toLowerCase() === 'f') {
         event.preventDefault();
-        void approve();
+        void approveSource();
         return;
       }
-      if (event.key === 'ArrowRight' && page?.nextCursor !== null) {
+      if (event.key === 'ArrowRight') {
         event.preventDefault();
-        void loadPage({ afterCursor: page?.nextCursor ?? undefined });
+        void moveSource('next');
       }
-      if (event.key === 'ArrowLeft' && page?.previousCursor !== null) {
+      if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        void loadPage({ beforeCursor: page?.previousCursor ?? undefined });
+        void moveSource('previous');
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [approve, loadPage, page?.nextCursor, page?.previousCursor]);
+  }, [approveSource, editing, moveSource]);
 
   return (
     <div className="gridReviewWorkspace">
@@ -144,23 +297,27 @@ export function GridReviewWorkspace({
           <p className="eyebrow">Geometria plansz</p>
           <h1>Zatwierdzanie cięcia siatki</h1>
           <p className="lead">
-            Zatwierdź położenie siatki albo popraw cztery narożniki. Symbole są
-            weryfikowane w osobnym widoku.
+            Weryfikujesz komplet aktywnych plansz jednego zdjęcia źródłowego.
+            Symbole są w osobnym widoku.
           </p>
         </div>
-        {page ? (
+        {anchorPage ? (
           <dl className="gridReviewCounts">
             <div>
               <dt>Do walidacji</dt>
-              <dd>{page.counts.needsValidation.toLocaleString('pl-PL')}</dd>
+              <dd>
+                {anchorPage.counts.needsValidation.toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
               <dt>Do poprawy</dt>
-              <dd>{page.counts.needsCorrection.toLocaleString('pl-PL')}</dd>
+              <dd>
+                {anchorPage.counts.needsCorrection.toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
               <dt>Zatwierdzone</dt>
-              <dd>{page.counts.approved.toLocaleString('pl-PL')}</dd>
+              <dd>{anchorPage.counts.approved.toLocaleString('pl-PL')}</dd>
             </div>
           </dl>
         ) : null}
@@ -203,58 +360,94 @@ export function GridReviewWorkspace({
       ) : null}
       {loading ? (
         <section className="gridReviewState">
-          <h2>Wczytywanie siatki</h2>
-          <p>Pobieram jeden oryginalny obraz i jego bieżącą geometrię.</p>
+          <h2>Wczytywanie geometrii zdjęcia</h2>
+          <p>Pobieram jeden obraz źródłowy i wszystkie jego aktywne sloty.</p>
         </section>
-      ) : item === null ? (
+      ) : anchorItem === null ? (
         <section className="gridReviewState">
           <h2>Brak plansz w tym filtrze</h2>
           <p>Wybierz inny filtr albo wróć po zakończeniu kolejnego importu.</p>
         </section>
       ) : (
         <>
+          <section
+            className="gridReviewSourceStats"
+            aria-label="Statystyki zdjęcia źródłowego"
+          >
+            <div>
+              <span>Aktywne plansze</span>
+              <strong>{sourceStats.totalBoards}</strong>
+            </div>
+            <div>
+              <span>Zatwierdzone</span>
+              <strong>{sourceStats.approvedBoards}</strong>
+            </div>
+            <div>
+              <span>Do walidacji</span>
+              <strong>{sourceStats.needsValidationBoards}</strong>
+            </div>
+            <div>
+              <span>Do poprawy</span>
+              <strong>{sourceStats.needsCorrectionBoards}</strong>
+            </div>
+            <div>
+              <span>Ręczne rewizje</span>
+              <strong>{sourceStats.manualBoards}</strong>
+            </div>
+          </section>
           <GridReviewEditor
             api={api}
-            item={item}
-            key={`${item.reviewItemId}:${item.geometryRevision}`}
+            items={sourceItems}
+            key={`${anchorItem.sourceImageId}:${selectedReviewItemId}`}
+            onEditingChange={setEditing}
             onSaved={() => {
-              setNotice(
-                `Zapisano i zatwierdzono nową geometrię planszy ${item.sequenceNumber}.`,
-              );
-              void moveAfterSuccess();
+              setNotice('Zapisano geometrię i przechodzę do kolejnego zdjęcia.');
+              void refreshAfterMutation();
             }}
+            onSelect={setSelectedReviewItemId}
+            selectedReviewItemId={selectedReviewItemId}
           />
           <footer className="gridReviewActions">
             <button
               className="secondaryButton"
-              disabled={submitting || page?.previousCursor === null}
-              onClick={() =>
-                void loadPage({
-                  beforeCursor: page?.previousCursor ?? undefined,
-                })
-              }
+              disabled={submitting || anchorPage?.previousCursor === null}
+              onClick={() => void moveSource('previous')}
               type="button"
             >
-              ← Poprzednia
+              ← Poprzednie zdjęcie
             </button>
-            <button
-              aria-label="Zatwierdź geometrię i przejdź do następnej planszy"
-              className="primaryButton gridReviewApprove"
-              disabled={submitting || item.state === 'needs_correction'}
-              onClick={() => void approve()}
-              type="button"
-            >
-              {submitting ? 'Zatwierdzanie…' : 'Zatwierdź (Enter / F)'}
-            </button>
+            <div className="gridReviewWholeImageActions">
+              <button
+                className="dangerButton"
+                disabled={submitting}
+                onClick={() => void rejectSource()}
+                type="button"
+              >
+                {rejectConfirmation
+                  ? 'Potwierdź odrzucenie zdjęcia'
+                  : 'Odrzuć całe zdjęcie'}
+              </button>
+              <button
+                aria-label="Zatwierdź całe zdjęcie i przejdź do następnego"
+                className="primaryButton gridReviewApprove"
+                disabled={
+                  submitting || sourceStats.needsCorrectionBoards > 0 || editing
+                }
+                onClick={() => void approveSource()}
+                type="button"
+              >
+                {submitting
+                  ? 'Zapisywanie…'
+                  : 'Zatwierdź całe zdjęcie (Enter / F)'}
+              </button>
+            </div>
             <button
               className="secondaryButton"
-              disabled={submitting || page?.nextCursor === null}
-              onClick={() =>
-                void loadPage({ afterCursor: page?.nextCursor ?? undefined })
-              }
+              disabled={submitting || anchorPage?.nextCursor === null}
+              onClick={() => void moveSource('next')}
               type="button"
             >
-              Następna →
+              Następne zdjęcie →
             </button>
           </footer>
         </>

@@ -82,6 +82,7 @@ class ImageGridReviewService:
         game_id: UUID,
         view: ImageGridReviewView,
         import_job_id: UUID | None,
+        source_image_id: UUID | None,
         after_cursor: str | None,
         before_cursor: str | None,
         limit: int = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
@@ -100,6 +101,7 @@ class ImageGridReviewService:
             game_id=game_id,
             view=view,
             import_job_id=import_job_id,
+            source_image_id=source_image_id,
         )
         after_key = (
             decode_image_grid_review_cursor(

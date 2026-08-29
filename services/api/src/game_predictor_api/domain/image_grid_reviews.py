@@ -58,6 +58,7 @@ class ImageGridReviewListFilter:
     game_id: UUID
     view: ImageGridReviewView
     import_job_id: UUID | None
+    source_image_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +67,8 @@ class ImageGridReviewListItem:
     game_id: UUID
     import_job_id: UUID
     recognized_board_id: UUID
+    source_image_id: UUID
+    position_index: int
     sequence_number: int
     source_checksum_sha256: str
     source_width: int
@@ -75,6 +78,11 @@ class ImageGridReviewListItem:
     resolution_revision: int
     topology: BoardTopology
     geometry: Mapping[str, object]
+    asset_mode: str
+    geometry_engine_name: str | None
+    geometry_engine_version: str | None
+    board_confidence: float
+    reason_codes: tuple[str, ...]
     state: ImageGridReviewState
 
     @property
@@ -188,6 +196,11 @@ def encode_image_grid_review_cursor(
         "importJobId": (
             None if review_filter.import_job_id is None else str(review_filter.import_job_id)
         ),
+        "sourceImageId": (
+            None
+            if review_filter.source_image_id is None
+            else str(review_filter.source_image_id)
+        ),
         "key": list(key),
         "version": 1,
         "view": review_filter.view.value,
@@ -211,6 +224,9 @@ def decode_image_grid_review_cursor(
         parsed_import_job_id = (
             None if payload["importJobId"] is None else UUID(payload["importJobId"])
         )
+        parsed_source_image_id = (
+            None if payload.get("sourceImageId") is None else UUID(payload["sourceImageId"])
+        )
         parsed_direction = ImageGridReviewCursorDirection(payload["direction"])
         parsed_view = ImageGridReviewView(payload["view"])
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -222,6 +238,7 @@ def decode_image_grid_review_cursor(
         payload.get("version") != 1
         or parsed_game_id != review_filter.game_id
         or parsed_import_job_id != review_filter.import_job_id
+        or parsed_source_image_id != review_filter.source_image_id
         or parsed_direction is not direction
         or parsed_view is not review_filter.view
     ):

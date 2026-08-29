@@ -142,6 +142,26 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `data/working/virtual-preview-cache-v1`: 15 minut TTL, 2 GiB LRU,
   process-local single-flight i brak rekordów domenowych lub binariów w bazie.
 
+### Weryfikacja geometrii całego źródła — TASK-0314
+
+- `v0.10.7` rozszerza wyłącznie lokalny Reviewer o source-scoped workspace
+  geometrii. Anchor kolejki nadal ma bounded keyset po jednej pozycji, a po
+  odczycie jego `sourceImageId` klient pobiera maksymalnie dziewięć aktywnych,
+  row-major slotów tego samego zdjęcia. Cursor jest związany także z opcjonalnym
+  filtrem źródła; zdalny proxy Reviewera nadal nie udostępnia tej powierzchni.
+- Canvas pokazuje pełny EXIF-oriented asset, quady wszystkich aktywnych plansz,
+  linie topologii, numery slotów, confidence i reason codes. Operator wybiera
+  jeden quad, korzysta z drag narożników lub całej siatki, undo/resetu do
+  automatu oraz nietrwałego porównania A/B source-direct cropów. Overlay ani
+  preview nie są zapisywane jako JPEG.
+- Akceptacja i odrzucenie wykonują checksum-bound, revision-bound mutacje dla
+  kompletu aktywnych plansz źródła z blokadą podwójnego submitu. Workspace
+  pokazuje oddzielne liczniki globalnej kolejki i bieżącego źródła. Legacy
+  zapis ręcznej korekty zachowuje istniejący workflow oraz przechodzi do
+  następnego źródła; ręczny zapis `virtual_source` jest celowo fail-closed,
+  aby nie zastąpić proweniencji wirtualnej fizycznymi cropami przed backfillem
+  i walidacją TASK-0317.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

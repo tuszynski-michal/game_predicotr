@@ -593,6 +593,7 @@ export interface ListImageGridReviewsOptions {
   readonly gameId: string;
   readonly view?: ImageGridReviewView;
   readonly importJobId?: string;
+  readonly sourceImageId?: string;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
@@ -1616,6 +1617,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.importJobId === undefined
             ? {}
             : { importJobId: options.importJobId }),
+          ...(options.sourceImageId === undefined
+            ? {}
+            : { sourceImageId: options.sourceImageId }),
           ...(options.afterCursor === undefined
             ? {}
             : { afterCursor: options.afterCursor }),

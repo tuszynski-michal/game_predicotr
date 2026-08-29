@@ -4,12 +4,14 @@ import type {
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
   ImageGridReviewView,
+  OperationalImageReviewResolutionCommand,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import {
   GRID_REVIEW_PAGE_LIMIT,
+  GRID_REVIEW_SOURCE_PAGE_LIMIT,
   gridReviewApprovalCommand,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
@@ -25,6 +27,7 @@ export type GridReviewsClient = Pick<
   | 'imageGridReviewSourceAssetUrl'
   | 'listImageGridReviews'
   | 'previewImageGridReviewGeometry'
+  | 'resolveOperationalImageReviewItem'
 >;
 
 export type GridReviewActionFailure = {
@@ -45,11 +48,50 @@ export async function loadGridReviewPage(
   | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
   | GridReviewActionFailure
 > {
+  return loadGridReviewList(api, {
+    ...input,
+    limit: GRID_REVIEW_PAGE_LIMIT,
+  });
+}
+
+export async function loadGridReviewSource(
+  api: GridReviewsClient,
+  input: {
+    readonly gameId: string;
+    readonly importJobId: string;
+    readonly sourceImageId: string;
+  },
+): Promise<
+  | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
+  | GridReviewActionFailure
+> {
+  return loadGridReviewList(api, {
+    ...input,
+    limit: GRID_REVIEW_SOURCE_PAGE_LIMIT,
+    view: 'all',
+  });
+}
+
+async function loadGridReviewList(
+  api: GridReviewsClient,
+  input: {
+    readonly gameId: string;
+    readonly importJobId: string;
+    readonly limit: number;
+    readonly navigation?: GridReviewNavigation;
+    readonly sourceImageId?: string;
+    readonly view: ImageGridReviewView;
+  },
+): Promise<
+  | { readonly ok: true; readonly page: ImageGridReviewPageResponse }
+  | GridReviewActionFailure
+> {
   try {
     const result = await api.listImageGridReviews({
       gameId: input.gameId,
       importJobId: input.importJobId,
-      limit: GRID_REVIEW_PAGE_LIMIT,
+      limit: input.limit,
+      sourceImageId: input.sourceImageId,
       view: input.view,
       ...input.navigation,
     });
@@ -79,6 +121,36 @@ export async function approveGridReview(
       return failure(result.error, 'Nie udało się zatwierdzić cięcia siatki.');
     }
     return { item: result.data.item, ok: true as const };
+  } catch {
+    return disconnected();
+  }
+}
+
+export async function rejectGridReview(
+  api: GridReviewsClient,
+  item: ImageGridReviewItemResponse,
+) {
+  const command: OperationalImageReviewResolutionCommand = {
+    action: 'rejected',
+    expectedRevision: item.resolutionRevision,
+    geometryRevision: item.geometryRevision,
+    idempotencyKey: globalThis.crypto.randomUUID(),
+    rejectionReason: 'geometry_source_rejected',
+    resolvedBy: 'local-admin',
+  };
+  try {
+    const result = await api.resolveOperationalImageReviewItem(
+      item.reviewItemId,
+      { gameId: item.gameId, importJobId: item.importJobId },
+      command,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return failure(
+        result.error,
+        'Nie udało się odrzucić planszy z tego źródła.',
+      );
+    }
+    return { ok: true as const };
   } catch {
     return disconnected();
   }
@@ -140,7 +212,8 @@ function failure(error: unknown, fallback: string): GridReviewActionFailure {
     isConflict:
       hasCode(error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
       hasCode(error, 'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT') ||
-      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_INVALID'),
+      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_INVALID') ||
+      hasCode(error, 'IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID'),
     ok: false,
   };
 }

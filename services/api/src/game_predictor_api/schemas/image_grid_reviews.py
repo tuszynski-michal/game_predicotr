@@ -33,6 +33,8 @@ class ImageGridReviewItemResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID
     recognized_board_id: UUID
+    source_image_id: UUID
+    position_index: int = Field(ge=0, le=8)
     sequence_number: int = Field(ge=1)
     source_checksum_sha256: Sha256
     source_width: int = Field(gt=0)
@@ -43,6 +45,11 @@ class ImageGridReviewItemResponse(ApiModel):
     grid_rows: int = Field(gt=0)
     grid_columns: int = Field(gt=0)
     geometry: dict[str, object]
+    asset_mode: str
+    geometry_engine_name: str | None
+    geometry_engine_version: str | None
+    board_confidence: float = Field(ge=0, le=1)
+    reason_codes: tuple[str, ...]
     state: ImageGridReviewState
 
 
@@ -142,6 +149,8 @@ def to_image_grid_review_item_response(
         game_id=item.game_id,
         import_job_id=item.import_job_id,
         recognized_board_id=item.recognized_board_id,
+        source_image_id=item.source_image_id,
+        position_index=item.position_index,
         sequence_number=item.sequence_number,
         source_checksum_sha256=item.source_checksum_sha256,
         source_width=item.source_width,
@@ -152,6 +161,11 @@ def to_image_grid_review_item_response(
         grid_rows=item.topology.rows,
         grid_columns=item.topology.columns,
         geometry=dict(item.geometry),
+        asset_mode=item.asset_mode,
+        geometry_engine_name=item.geometry_engine_name,
+        geometry_engine_version=item.geometry_engine_version,
+        board_confidence=item.board_confidence,
+        reason_codes=item.reason_codes,
         state=item.state,
     )
 

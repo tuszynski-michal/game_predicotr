@@ -67,6 +67,7 @@ def create_image_grid_reviews_router(
         service: Annotated[ImageGridReviewService, service_parameter],
         view: ImageGridReviewView = ImageGridReviewView.NEEDS_VALIDATION,
         import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        source_image_id: Annotated[UUID | None, Query(alias="sourceImageId")] = None,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         limit: Annotated[
@@ -82,6 +83,7 @@ def create_image_grid_reviews_router(
                 game_id=game_id,
                 view=view,
                 import_job_id=import_job_id,
+                source_image_id=source_image_id,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 limit=limit,

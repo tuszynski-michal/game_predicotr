@@ -9,6 +9,8 @@ import {
   gridReviewApprovalCommand,
   gridReviewGeometryCommand,
   gridReviewGeometryPreviewCommand,
+  gridReviewSourceStats,
+  orderGridReviewSourceItems,
   moveGridGeometry,
   moveGridGeometryCorner,
   undoGridGeometryPoint,
@@ -16,18 +18,25 @@ import {
 
 const item = {
   approvedGeometryRevision: null,
+  assetMode: 'virtual_source',
+  boardConfidence: 0.9,
   gameId: '11111111-1111-4111-8111-111111111111',
   geometry: {},
+  geometryEngineName: 'board-cell-processing-v20',
+  geometryEngineVersion: 'v20',
   geometryRevision: 4,
   gridColumns: 4,
   gridRows: 2,
   importJobId: '22222222-2222-4222-8222-222222222222',
+  positionIndex: 0,
+  reasonCodes: ['verified_registration'],
   recognizedBoardId: '33333333-3333-4333-8333-333333333333',
   resolutionRevision: 7,
   reviewItemId: '44444444-4444-4444-8444-444444444444',
   sequenceNumber: 91,
   sourceChecksumSha256: 'a'.repeat(64),
   sourceHeight: 800,
+  sourceImageId: '55555555-5555-4555-8555-555555555555',
   sourceWidth: 1200,
   state: 'needs_validation',
 };
@@ -114,5 +123,39 @@ test('approval, preview and save bind exact topology and source identity', () =>
     corners,
     ...approval,
     idempotencyKey: 'idem',
+  });
+});
+
+test('source statistics and slot ordering stay deterministic for one image', () => {
+  const correction = {
+    ...item,
+    geometryRevision: 0,
+    positionIndex: 2,
+    reviewItemId: '66666666-6666-4666-8666-666666666666',
+    sequenceNumber: 93,
+    state: 'needs_correction',
+  };
+  const approved = {
+    ...item,
+    approvedGeometryRevision: 4,
+    geometryRevision: 4,
+    positionIndex: 1,
+    reviewItemId: '77777777-7777-4777-8777-777777777777',
+    sequenceNumber: 92,
+    state: 'approved',
+  };
+  const ordered = orderGridReviewSourceItems([correction, approved, item]);
+
+  assert.deepEqual(
+    ordered.map((candidate) => candidate.positionIndex),
+    [0, 1, 2],
+  );
+  assert.deepEqual(gridReviewSourceStats(ordered), {
+    approvedBoards: 1,
+    imageState: 'needs_correction',
+    manualBoards: 2,
+    needsCorrectionBoards: 1,
+    needsValidationBoards: 1,
+    totalBoards: 3,
   });
 });

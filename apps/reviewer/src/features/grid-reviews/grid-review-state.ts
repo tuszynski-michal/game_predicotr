@@ -3,6 +3,7 @@ import type {
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewItemResponse,
+  ImageGridReviewState,
   ImageGridReviewView,
   OperationalImageReviewGeometryPoint,
 } from '@game-predictor/admin-api-client';
@@ -13,6 +14,7 @@ import {
 } from '../operational-reviews/operational-review-state.ts';
 
 export const GRID_REVIEW_PAGE_LIMIT = 1;
+export const GRID_REVIEW_SOURCE_PAGE_LIMIT = 9;
 
 export const GRID_REVIEW_VIEWS: readonly {
   readonly label: string;
@@ -36,6 +38,53 @@ export type GridGeometryDragTarget =
   | { readonly kind: 'corner'; readonly index: number }
   | { readonly kind: 'grid' }
   | null;
+
+export interface GridReviewSourceStats {
+  readonly approvedBoards: number;
+  readonly imageState: ImageGridReviewState;
+  readonly manualBoards: number;
+  readonly needsCorrectionBoards: number;
+  readonly needsValidationBoards: number;
+  readonly totalBoards: number;
+}
+
+export function gridReviewSourceStats(
+  items: readonly ImageGridReviewItemResponse[],
+): GridReviewSourceStats {
+  const approvedBoards = items.filter(
+    (item) => item.state === 'approved',
+  ).length;
+  const needsCorrectionBoards = items.filter(
+    (item) => item.state === 'needs_correction',
+  ).length;
+  const needsValidationBoards = items.filter(
+    (item) => item.state === 'needs_validation',
+  ).length;
+  return {
+    approvedBoards,
+    imageState:
+      needsCorrectionBoards > 0
+        ? 'needs_correction'
+        : needsValidationBoards > 0
+          ? 'needs_validation'
+          : 'approved',
+    manualBoards: items.filter((item) => item.geometryRevision > 0).length,
+    needsCorrectionBoards,
+    needsValidationBoards,
+    totalBoards: items.length,
+  };
+}
+
+export function orderGridReviewSourceItems(
+  items: readonly ImageGridReviewItemResponse[],
+): readonly ImageGridReviewItemResponse[] {
+  return [...items].sort(
+    (left, right) =>
+      left.positionIndex - right.positionIndex ||
+      left.sequenceNumber - right.sequenceNumber ||
+      left.reviewItemId.localeCompare(right.reviewItemId),
+  );
+}
 
 export function gridReviewCorners(
   item: ImageGridReviewItemResponse,

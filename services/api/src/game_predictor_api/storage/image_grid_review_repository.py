@@ -109,6 +109,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             game_id=review_filter.game_id,
             view=ImageGridReviewView.ALL,
             import_job_id=review_filter.import_job_id,
+            source_image_id=review_filter.source_image_id,
         )
         state_expression = _state_expression()
         rows = self._session.execute(
@@ -260,6 +261,10 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         )
         if review_filter.import_job_id is not None:
             statement = statement.where(document.import_job_id == review_filter.import_job_id)
+        if review_filter.source_image_id is not None:
+            statement = statement.where(
+                RecognizedBoardModel.source_image_id == review_filter.source_image_id
+            )
         if review_filter.view is not ImageGridReviewView.ALL:
             statement = statement.where(state_expression == review_filter.view.value)
         return statement
@@ -347,6 +352,8 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         game_id=item.game_id,
         import_job_id=item.import_job_id,
         recognized_board_id=board.id,
+        source_image_id=board.source_image_id,
+        position_index=board.position_index,
         sequence_number=int(sequence_number),
         source_checksum_sha256=source.checksum_sha256,
         source_width=source.width,
@@ -356,8 +363,20 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         resolution_revision=item.resolution_revision,
         topology=_topology(board),
         geometry=dict(board.board_geometry),
+        asset_mode=board.asset_mode,
+        geometry_engine_name=board.geometry_engine_name,
+        geometry_engine_version=board.geometry_engine_version,
+        board_confidence=board.board_confidence,
+        reason_codes=_reason_codes(board.board_geometry),
         state=ImageGridReviewState(str(state)),
     )
+
+
+def _reason_codes(geometry: dict[str, object]) -> tuple[str, ...]:
+    raw = geometry.get("reasonCodes")
+    if not isinstance(raw, list):
+        return ()
+    return tuple(value for value in raw if isinstance(value, str) and value)
 
 
 __all__ = ["SqlAlchemyImageGridReviewRepository"]

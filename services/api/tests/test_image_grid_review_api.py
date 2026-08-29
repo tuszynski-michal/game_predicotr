@@ -63,6 +63,10 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
                 review_filter.import_job_id is None
                 or item.import_job_id == review_filter.import_job_id
             )
+            and (
+                review_filter.source_image_id is None
+                or item.source_image_id == review_filter.source_image_id
+            )
             and (review_filter.view.value == "all" or item.state.value == review_filter.view.value)
         ]
         if after_key is not None:
@@ -88,6 +92,8 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             for item in self.items
             if review_filter.import_job_id is None
             or item.import_job_id == review_filter.import_job_id
+            if review_filter.source_image_id is None
+            or item.source_image_id == review_filter.source_image_id
         )
         return ImageGridReviewCounts(
             needs_validation=sum(
@@ -167,12 +173,17 @@ def _item(
     import_job_id: UUID,
     sequence_number: int,
     state: ImageGridReviewState,
+    *,
+    source_image_id: UUID | None = None,
+    position_index: int = 0,
 ) -> ImageGridReviewListItem:
     return ImageGridReviewListItem(
         review_item_id=uuid4(),
         game_id=game_id,
         import_job_id=import_job_id,
         recognized_board_id=uuid4(),
+        source_image_id=source_image_id or uuid4(),
+        position_index=position_index,
         sequence_number=sequence_number,
         source_checksum_sha256=SHA,
         source_width=1920,
@@ -182,6 +193,11 @@ def _item(
         resolution_revision=0,
         topology=BoardTopology(rows=3, columns=5),
         geometry={"source": "test"},
+        asset_mode="virtual_source",
+        geometry_engine_name="board-cell-processing-v20",
+        geometry_engine_version="v20",
+        board_confidence=0.91,
+        reason_codes=("verified_registration",),
         state=state,
     )
 
@@ -297,6 +313,70 @@ def test_grid_review_cursor_cannot_be_replayed_in_another_filter(tmp_path: Path)
     conflict = client.get(
         f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
         params={"view": "all", "afterCursor": cursor},
+    )
+
+    assert conflict.status_code == 409
+    assert conflict.json()["code"] == "IMAGE_GRID_REVIEW_CURSOR_SCOPE_INVALID"
+
+
+def test_grid_review_api_lists_only_one_source_and_binds_cursor_scope(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
+    source_image_id = uuid4()
+    other_source_image_id = uuid4()
+    game_id = items[0].game_id
+    import_job_id = items[0].import_job_id
+    source_items = (
+        _item(
+            game_id,
+            import_job_id,
+            10,
+            ImageGridReviewState.NEEDS_VALIDATION,
+            source_image_id=source_image_id,
+            position_index=0,
+        ),
+        _item(
+            game_id,
+            import_job_id,
+            11,
+            ImageGridReviewState.NEEDS_VALIDATION,
+            source_image_id=source_image_id,
+            position_index=1,
+        ),
+        _item(
+            game_id,
+            import_job_id,
+            12,
+            ImageGridReviewState.NEEDS_VALIDATION,
+            source_image_id=other_source_image_id,
+            position_index=0,
+        ),
+    )
+    _repository.items = source_items
+
+    response = client.get(
+        f"/api/v1/admin/games/{game_id}/grid-reviews",
+        params={
+            "view": "all",
+            "sourceImageId": str(source_image_id),
+            "limit": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert [item["sequenceNumber"] for item in response.json()["items"]] == [10]
+    assert response.json()["counts"]["total"] == 2
+    assert response.json()["items"][0]["sourceImageId"] == str(source_image_id)
+    assert response.json()["items"][0]["positionIndex"] == 0
+    assert response.json()["items"][0]["assetMode"] == "virtual_source"
+    assert response.json()["items"][0]["boardConfidence"] == 0.91
+
+    conflict = client.get(
+        f"/api/v1/admin/games/{game_id}/grid-reviews",
+        params={
+            "view": "all",
+            "sourceImageId": str(other_source_image_id),
+            "afterCursor": response.json()["nextCursor"],
+        },
     )
 
     assert conflict.status_code == 409

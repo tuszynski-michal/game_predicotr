@@ -1533,6 +1533,7 @@ export type {
   StorageGcRunCreate,
   StorageGcRunResponse,
   StorageInventoryJobPayload,
+  StoragePipelineCompactionJobPayload,
   SymbolCellReviewAction,
   SymbolCellReviewBackfillJobPayload,
   SymbolCellReviewBulkExplicitSelectionRequest,

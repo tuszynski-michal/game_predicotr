@@ -24,6 +24,7 @@ class JobType(StrEnum):
     IMAGE_SYMBOL_REVIEW_BACKFILL = "image_symbol_review_backfill"
     STORAGE_GC = "storage_gc"
     STORAGE_INVENTORY = "storage_inventory"
+    STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
 
 
 class JobStatus(StrEnum):

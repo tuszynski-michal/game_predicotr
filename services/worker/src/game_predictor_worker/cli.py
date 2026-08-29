@@ -96,6 +96,7 @@ from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
 from game_predictor_worker.payouts.handler import PayoutBatchHandler
 from game_predictor_worker.payouts.readiness import PayoutReadinessService
 from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
+from game_predictor_worker.pipeline_state_compaction import PipelineStateCompactionHandler
 from game_predictor_worker.releases import (
     PowerShellAndroidReleaseBuilder,
     ReleaseWorkflowHandler,
@@ -416,6 +417,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory,
                 artifact_root,
                 settings.import_root,
+            ),
+            JobType.STORAGE_PIPELINE_COMPACTION: PipelineStateCompactionHandler(
+                session_factory,
+                artifact_root,
+                engine,
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

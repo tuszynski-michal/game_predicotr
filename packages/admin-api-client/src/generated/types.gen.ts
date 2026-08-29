@@ -4093,6 +4093,7 @@ export type JobResponse = {
     | SymbolCellReviewBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
+    | StoragePipelineCompactionJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -4143,7 +4144,8 @@ export type JobType =
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
   | 'storage_gc'
-  | 'storage_inventory';
+  | 'storage_inventory'
+  | 'storage_pipeline_compaction';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -8073,6 +8075,36 @@ export type StorageInventoryJobPayload = {
    * Requestedat
    */
   requestedAt: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * StoragePipelineCompactionJobPayload
+ */
+export type StoragePipelineCompactionJobPayload = {
+  /**
+   * Compactionkind
+   */
+  compactionKind: 'reproducible_image_pipeline_state';
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Manifestrelativepath
+   */
+  manifestRelativePath: string;
+  /**
+   * Mode
+   */
+  mode: 'observe_only' | 'execute';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
   /**
    * Schemaversion
    */

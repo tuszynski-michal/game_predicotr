@@ -27,6 +27,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   image_symbol_review_backfill: 'Przygotowanie weryfikacji symboli',
   storage_gc: 'Bezpieczne czyszczenie pamięci',
   storage_inventory: 'Pomiar zajętości pamięci',
+  storage_pipeline_compaction: 'Kompakcja danych pipeline’u',
 };
 
 export const JOB_STATUS_OPTIONS = Object.keys(

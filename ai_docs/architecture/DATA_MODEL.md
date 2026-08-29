@@ -732,6 +732,28 @@ aktywnym lease jest idempotentny tylko dla identycznej wersji i kanonicznego
 payloadu. Manual review pozostaje projekcją konkretnego importu, a nie częścią
 globalnego cache.
 
+Po retencji payloady `board_cell_geometry`, `board_crops`, `sequence_ocr` i
+`symbol_inference` mogą zostać usunięte wyłącznie po zapisaniu wersjonowanego
+`image_pipeline_terminal_manifests`. Jeden execution może mieć więcej niż
+jeden manifest historyczny po kolejnych kontrolowanych rerunach. Manifest
+zawiera checksumy i rozmiary etapów oraz finalne identyfikatory, ale nie
+binaria. `discovery`, `normalization` i `board_detection` pozostają w tabeli,
+ponieważ nadal są wejściem retry i operacyjnej korekty geometrii.
+
+### image_pipeline_terminal_manifests
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| file_execution_key | varchar(64) | FK execution |
+| manifest_checksum_sha256 | varchar(64) | niezmienna wersja manifestu |
+| manifest_payload | JSONB | źródło, fingerprint, adaptery, checksumy i finalne ID |
+| stage_result_count / stage_result_bytes | integer / bigint | logiczny stan przed kompakcją |
+| compacted_at / last_verified_at | timestamptz | wykonanie i ostatnia rewalidacja |
+
+Unikalność `(file_execution_key, manifest_checksum_sha256)` zachowuje audyt
+ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
+
 ### recognized_boards
 
 | Pole | Typ | Uwagi |

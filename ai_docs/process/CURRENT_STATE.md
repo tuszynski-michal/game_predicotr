@@ -45,6 +45,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   dry-run i postęp GC. Automatyczne usuwanie nadal pozostaje w trybie
   `observe_only` (domyślnie wymuszone konfiguracją) do kontrolowanego odbioru
   TASK 8.
+- TASK 7 (`v0.9.22`) dodaje bounded kompakcję odtwarzalnych payloadów
+  `board_cell_geometry`, `board_crops`, `sequence_ocr` i `symbol_inference`.
+  Niezmienny manifest terminalny zachowuje wersje adapterów, checksumy etapów
+  oraz identyfikatory finalnych wyników. `discovery`, `normalization` i
+  `board_detection` pozostają, ponieważ nadal uczestniczą w retry i korekcie
+  geometrii. Kompakcja jest osobnym, wznawialnym jobem i nie została jeszcze
+  uruchomiona na obecnych danych.
 - Pierwszy cleanup obecnych danych pozostaje `observe_only` do czasu pokazania
   użytkownikowi preview i uzyskania jawnego potwierdzenia. Oryginały,
   referencjonowane cropy, modele, dane treningowe i aktywne joby są chronione.

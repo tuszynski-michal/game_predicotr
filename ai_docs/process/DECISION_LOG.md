@@ -6030,6 +6030,24 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** wartości rozmiarów mogą być starsze do czasu jawnego
   odświeżenia, dlatego panel zawsze pokazuje czas pomiaru.
 
+## D-252 — Późne payloady pipeline'u są odtwarzalne z manifestu terminalnego
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** po 24 godzinach terminalne execution może usunąć payloady
+  `board_cell_geometry`, `board_crops`, `sequence_ocr` i `symbol_inference`,
+  jeżeli nie ma aktywnej, błędnej ani nierozwiązanej zależności. Przed
+  usunięciem utrwalany jest checksumowany manifest adapterów, etapów i finalnych
+  wyników. `board_detection` pozostaje operacyjne dla korekty geometrii.
+- **Context:** JSONB późnych etapów zajmuje większość tabeli
+  `image_pipeline_stage_results`, mimo że finalne plansze, komórki, cropy i
+  decyzje są już osobnymi źródłami prawdy.
+- **Safety:** pierwszy run wymaga niezmiennego preview i jawnego potwierdzenia.
+  Każda partia rewaliduje execution i checksumy. Kompakcja nie usuwa obrazów,
+  audytu ani projekcji domenowych i nie wykonuje `VACUUM FULL`.
+- **Consequences:** kolejny rerun rekonstruuje brakujące późne etapy z managed
+  original; wcześniejsze manifesty pozostają audytowalne jako osobne wersje.
+
 ## Szablon nowej decyzji
 
 ```text

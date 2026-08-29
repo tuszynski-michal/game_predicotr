@@ -316,6 +316,15 @@ class StorageInventoryJobPayload(ApiModel):
     requested_at: datetime
 
 
+class StoragePipelineCompactionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    compaction_kind: Literal["reproducible_image_pipeline_state"]
+    manifest_relative_path: str = Field(min_length=1, max_length=2048)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["observe_only", "execute"]
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -376,6 +385,7 @@ JobPayloadResponse = (
     | SymbolCellReviewBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
+    | StoragePipelineCompactionJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -700,6 +710,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return StorageGcJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_INVENTORY:
         return StorageInventoryJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.STORAGE_PIPELINE_COMPACTION:
+        return StoragePipelineCompactionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

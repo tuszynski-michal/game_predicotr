@@ -86,6 +86,9 @@ TOPOLOGY_GEOMETRY_CROP_PROVENANCE_REVISION = "0073_topology_geometry_crop_proven
 UNKNOWN_LAYOUT_CELLS_REVISION = "0074_unknown_layout_cells"
 OBSOLETE_BOARD_SEARCH_STORAGE_REVISION = "0075_remove_obsolete_board_search_storage"
 STORAGE_RETENTION_REVISION = "0076_storage_retention_and_gc"
+STORAGE_CAPACITY_GUARD_REVISION = "0077_storage_capacity_guard"
+STORAGE_INVENTORY_REVISION = "0078_storage_inventory_job"
+PIPELINE_STATE_COMPACTION_REVISION = "0079_pipeline_state_compaction"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -123,6 +126,28 @@ def test_storage_retention_migration_adds_gc_inventory_and_staging_state() -> No
     assert "drop table browser_selection_retention_states" in downgrade_sql
     assert "drop table storage_usage_snapshots" in downgrade_sql
     assert "drop table storage_gc_runs" in downgrade_sql
+
+
+def test_pipeline_state_compaction_migration_adds_terminal_manifests() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{STORAGE_INVENTORY_REVISION}:{PIPELINE_STATE_COMPACTION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{PIPELINE_STATE_COMPACTION_REVISION}:{STORAGE_INVENTORY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "storage_pipeline_compaction" in upgrade_sql
+    assert "create table image_pipeline_terminal_manifests" in upgrade_sql
+    assert "uq_image_pipeline_terminal_manifest_version" in upgrade_sql
+    assert "drop table image_pipeline_terminal_manifests" in downgrade_output.getvalue().lower()
 
 
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
@@ -225,9 +250,18 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     unknown_layout_cells = script.get_revision(UNKNOWN_LAYOUT_CELLS_REVISION)
     obsolete_board_search_storage = script.get_revision(OBSOLETE_BOARD_SEARCH_STORAGE_REVISION)
     storage_retention = script.get_revision(STORAGE_RETENTION_REVISION)
-    assert script.get_heads() == [STORAGE_RETENTION_REVISION]
+    storage_capacity_guard = script.get_revision(STORAGE_CAPACITY_GUARD_REVISION)
+    storage_inventory = script.get_revision(STORAGE_INVENTORY_REVISION)
+    pipeline_state_compaction = script.get_revision(PIPELINE_STATE_COMPACTION_REVISION)
+    assert script.get_heads() == [PIPELINE_STATE_COMPACTION_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
+    assert storage_capacity_guard is not None
+    assert storage_capacity_guard.down_revision == STORAGE_RETENTION_REVISION
+    assert storage_inventory is not None
+    assert storage_inventory.down_revision == STORAGE_CAPACITY_GUARD_REVISION
+    assert pipeline_state_compaction is not None
+    assert pipeline_state_compaction.down_revision == STORAGE_INVENTORY_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

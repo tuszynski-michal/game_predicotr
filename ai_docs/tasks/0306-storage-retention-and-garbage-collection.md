@@ -96,3 +96,15 @@ ostatniego snapshotu i nie skanuje synchronicznie milionów plików. Panel
 pokazuje rozmiary przestrzeni, woluminy i presję, uruchamia dry-run oraz wymaga
 jawnego potwierdzenia przed startem GC. Polityka nadal raportuje
 `automaticDeletion = false`, ponieważ pierwszy cleanup nie został zatwierdzony.
+
+TASK 7 dodaje migrację `0079`, wersjonowany manifest terminalny i osobny job
+`storage_pipeline_compaction`. Dry-run jest keysetowy i zapisuje niezmienny
+JSONL bez binariów. Wykonanie rewaliduje status, aktywne zależności, nierozwiązaną
+geometrię oraz checksumy każdego etapu przed bounded usunięciem. Kompaktowane
+są wyłącznie ciężkie payloady `board_cell_geometry`, `board_crops`,
+`sequence_ocr` i `symbol_inference`; `board_detection` pozostaje dostępne dla
+operacyjnych kolejek geometrii i kalibracji. Po partiach wykonywany jest tylko
+`VACUUM (ANALYZE)`, nigdy `VACUUM FULL`. Operator uruchamia dry-run przez
+`scripts/compact_image_pipeline_state.py preview`; start wymaga jawnej frazy i
+checksummy dokładnie tego raportu. Na danych użytkownika wykonano wyłącznie
+migrację schematu, bez kompakcji i bez usuwania payloadów.

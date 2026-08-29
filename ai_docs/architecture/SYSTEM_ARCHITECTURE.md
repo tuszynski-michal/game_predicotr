@@ -1308,6 +1308,12 @@ każdym spinie.
   deduplikuje wspólne woluminy `artifact_root`/`import_root` i zapisuje
   `storage_usage_snapshots`; GET panelu czyta ostatni snapshot oraz bieżące
   metadane wolnego miejsca bez materializowania listy plików,
+- `storage_pipeline_compaction` usuwa po 24 godzinach wyłącznie odtwarzalne,
+  późne payloady etapów z terminalnych wykonań. Preview jest keysetowym JSONL,
+  a worker przed każdą partią ponownie sprawdza execution, zależności,
+  nierozwiązaną geometrię i checksumy. Kompaktowy manifest audytowy pozostaje
+  w PostgreSQL; po wykonaniu używany jest tylko `VACUUM (ANALYZE)`, bez
+  blokującego przepisywania tabeli,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 

@@ -806,6 +806,16 @@ Do zakończenia pierwszego odbioru ustawienie
 `GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY` domyślnie ma wartość `true`; capacity
 guard nadal blokuje ryzykowne zapisy, ale nie uruchamia destrukcyjnego GC.
 
+Terminalne wykonania pipeline'u mogą po 24 godzinach utracić ciężkie,
+odtwarzalne payloady etapów `board_cell_geometry`, `board_crops`,
+`sequence_ocr` i `symbol_inference`. Przed usunięciem powstaje checksumowany
+manifest zawierający źródło, fingerprint pipeline'u, wersje adapterów,
+checksumy etapów i finalne identyfikatory wyników. Bieżące projekcje domenowe,
+decyzje, eventy, canonical owner, cropy oraz managed original pozostają.
+`board_detection` nie podlega tej kompakcji, dopóki jest źródłem operacyjnej
+korekty i kalibracji geometrii. Rerun odtwarza brakujące późne etapy z managed
+original i zachowanych etapów wejściowych.
+
 Wyjątkiem jest jawny reset danych layoutów gry z TASK-0133. Po pokazaniu
 pełnego preview i mocnym potwierdzeniu może usunąć zarządzane oryginały oraz
 pochodne artefakty należące do resetowanej gry. Fizyczny plik content-addressed

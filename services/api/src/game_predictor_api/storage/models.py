@@ -1356,6 +1356,49 @@ class ImagePipelineStageResultModel(Base):
     )
 
 
+class ImagePipelineTerminalManifestModel(Base):
+    """Compact audit envelope retained after reproducible stage payload removal."""
+
+    __tablename__ = "image_pipeline_terminal_manifests"
+    __table_args__ = (
+        CheckConstraint("schema_version = 1", name="ck_image_pipeline_terminal_manifest_schema"),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_pipeline_terminal_manifest_checksum",
+        ),
+        CheckConstraint(
+            "stage_result_count > 0 AND stage_result_bytes >= 0",
+            name="ck_image_pipeline_terminal_manifest_counters",
+        ),
+        UniqueConstraint(
+            "file_execution_key",
+            "manifest_checksum_sha256",
+            name="uq_image_pipeline_terminal_manifest_version",
+        ),
+        Index(
+            "ix_image_pipeline_terminal_manifests_compacted",
+            "compacted_at",
+            "file_execution_key",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    file_execution_key: Mapped[str] = mapped_column(
+        ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    stage_result_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_result_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    compacted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SourceImageModel(Base):
     __tablename__ = "source_images"
     __table_args__ = (

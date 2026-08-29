@@ -7271,6 +7271,9 @@
                 "$ref": "#/components/schemas/StorageInventoryJobPayload"
               },
               {
+                "$ref": "#/components/schemas/StoragePipelineCompactionJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -7376,7 +7379,8 @@
           "image_symbol_review_bulk",
           "image_symbol_review_backfill",
           "storage_gc",
-          "storage_inventory"
+          "storage_inventory",
+          "storage_pipeline_compaction"
         ],
         "title": "JobType",
         "type": "string"
@@ -13962,6 +13966,55 @@
           "requestedAt"
         ],
         "title": "StorageInventoryJobPayload",
+        "type": "object"
+      },
+      "StoragePipelineCompactionJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "compactionKind": {
+            "const": "reproducible_image_pipeline_state",
+            "title": "Compactionkind",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Manifestrelativepath",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "observe_only",
+              "execute"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "compactionKind",
+          "manifestRelativePath",
+          "manifestChecksumSha256",
+          "previewToken",
+          "mode"
+        ],
+        "title": "StoragePipelineCompactionJobPayload",
         "type": "object"
       },
       "SymbolCellReviewAction": {

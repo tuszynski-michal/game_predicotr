@@ -146,11 +146,12 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             review_item_id=item.id,
             source_relative_path=source.relative_path,
             source_checksum_sha256=source.checksum_sha256,
-            source_width=source.width,
-            source_height=source.height,
+            source_width=source.oriented_width or source.width,
+            source_height=source.oriented_height or source.height,
             geometry_revision=board.geometry_revision,
             resolution_revision=item.resolution_revision,
             topology=_topology(board),
+            asset_mode=board.asset_mode,
         )
 
     def approve_grid_geometry(
@@ -197,8 +198,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
         if (
             source.checksum_sha256 != expected_source_checksum_sha256
-            or source.width != expected_source_width
-            or source.height != expected_source_height
+            or (source.oriented_width or source.width) != expected_source_width
+            or (source.oriented_height or source.height) != expected_source_height
         ):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
@@ -356,8 +357,8 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         position_index=board.position_index,
         sequence_number=int(sequence_number),
         source_checksum_sha256=source.checksum_sha256,
-        source_width=source.width,
-        source_height=source.height,
+        source_width=source.oriented_width or source.width,
+        source_height=source.oriented_height or source.height,
         geometry_revision=board.geometry_revision,
         approved_geometry_revision=board.approved_geometry_revision,
         resolution_revision=item.resolution_revision,

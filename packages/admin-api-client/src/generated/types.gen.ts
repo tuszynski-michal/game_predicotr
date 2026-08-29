@@ -2268,6 +2268,36 @@ export type ImageFolderSelectionResponse = {
 };
 
 /**
+ * ImageGeometryRolloutBackfillJobPayload
+ */
+export type ImageGeometryRolloutBackfillJobPayload = {
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Generation
+   */
+  generation: number;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 1;
+  /**
+   * Workflow
+   */
+  workflow: 'image_geometry_rollout_backfill';
+};
+
+/**
  * ImageGeometryRolloutJobSnapshotPayload
  */
 export type ImageGeometryRolloutJobSnapshotPayload = {
@@ -2304,6 +2334,72 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
    * Virtualrendererversion
    */
   virtualRendererVersion: string;
+};
+
+/**
+ * ImageGeometryRolloutStartResponse
+ */
+export type ImageGeometryRolloutStartResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  job: JobResponse | null;
+  rollout: ImageGeometryRolloutStatusResponse;
+};
+
+/**
+ * ImageGeometryRolloutStatusResponse
+ */
+export type ImageGeometryRolloutStatusResponse = {
+  /**
+   * Activejobid
+   */
+  activeJobId: string | null;
+  /**
+   * Backfillstatus
+   */
+  backfillStatus: string;
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Failurecode
+   */
+  failureCode: string | null;
+  /**
+   * Failuremessage
+   */
+  failureMessage: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  /**
+   * Lastsourceimageid
+   */
+  lastSourceImageId: string | null;
+  /**
+   * Processedsourcecount
+   */
+  processedSourceCount: number;
+  /**
+   * Rolloutrevision
+   */
+  rolloutRevision: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Virtualsourcecount
+   */
+  virtualSourceCount: number;
 };
 
 /**
@@ -2509,9 +2605,13 @@ export type ImageGridReviewGeometryResponse = {
  */
 export type ImageGridReviewGeometryRevisionResponse = {
   /**
+   * Assetmode
+   */
+  assetMode?: string;
+  /**
    * Boardchecksumsha256
    */
-  boardChecksumSha256: string;
+  boardChecksumSha256?: string | null;
   /**
    * Cells
    */
@@ -2546,6 +2646,10 @@ export type ImageGridReviewGeometryRevisionResponse = {
    */
   decisionChecksumSha256: string | null;
   /**
+   * Geometrychecksumsha256
+   */
+  geometryChecksumSha256?: string | null;
+  /**
    * Gridcolumns
    */
   gridColumns: number;
@@ -2573,6 +2677,14 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId?: string | null;
+  /**
+   * Virtualrenderspecchecksumsha256
+   */
+  virtualRenderSpecChecksumSha256?: string | null;
 };
 
 /**
@@ -4161,6 +4273,7 @@ export type JobResponse = {
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
@@ -4213,6 +4326,7 @@ export type JobType =
   | 'image_grid_reinference'
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
+  | 'image_geometry_rollout_backfill'
   | 'storage_gc'
   | 'storage_inventory'
   | 'storage_pipeline_compaction';
@@ -10761,6 +10875,90 @@ export type ListImageGridReviewsResponses = {
 
 export type ListImageGridReviewsResponse =
   ListImageGridReviewsResponses[keyof ListImageGridReviewsResponses];
+
+export type GetImageGeometryRolloutStatusData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-geometry-rollout';
+};
+
+export type GetImageGeometryRolloutStatusErrors = {
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryRolloutStatusError =
+  GetImageGeometryRolloutStatusErrors[keyof GetImageGeometryRolloutStatusErrors];
+
+export type GetImageGeometryRolloutStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryRolloutStatusResponse;
+};
+
+export type GetImageGeometryRolloutStatusResponse =
+  GetImageGeometryRolloutStatusResponses[keyof GetImageGeometryRolloutStatusResponses];
+
+export type StartImageGeometryRolloutBackfillData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-geometry-rollout';
+};
+
+export type StartImageGeometryRolloutBackfillErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type StartImageGeometryRolloutBackfillError =
+  StartImageGeometryRolloutBackfillErrors[keyof StartImageGeometryRolloutBackfillErrors];
+
+export type StartImageGeometryRolloutBackfillResponses = {
+  /**
+   * Successful Response
+   */
+  202: ImageGeometryRolloutStartResponse;
+};
+
+export type StartImageGeometryRolloutBackfillResponse =
+  StartImageGeometryRolloutBackfillResponses[keyof StartImageGeometryRolloutBackfillResponses];
 
 export type ListPendingBoardCellGeometryData = {
   body?: never;

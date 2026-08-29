@@ -295,6 +295,15 @@ class SymbolCellReviewBackfillJobPayload(ApiModel):
     database_free_bytes_before: int | None = Field(default=None, ge=0)
 
 
+class ImageGeometryRolloutBackfillJobPayload(ApiModel):
+    schema_version: Literal[1]
+    workflow: Literal["image_geometry_rollout_backfill"]
+    generation: int = Field(ge=1)
+    rollout_revision: int = Field(ge=0)
+    geometry_mode: str = Field(min_length=1, max_length=30)
+    cell_asset_mode: str = Field(min_length=1, max_length=30)
+
+
 class BoardCellRecropJobSnapshotPayload(ApiModel):
     activation_version: str = Field(min_length=1, max_length=150)
     audit_report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -407,6 +416,7 @@ JobPayloadResponse = (
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
+    | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
@@ -730,6 +740,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BACKFILL:
         return SymbolCellReviewBackfillJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL:
+        return ImageGeometryRolloutBackfillJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_GC:
         return StorageGcJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_INVENTORY:

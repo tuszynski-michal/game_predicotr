@@ -10,6 +10,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from game_predictor_api.api.image_grid_reviews import create_image_grid_reviews_router
+from game_predictor_api.application.image_geometry_rollout import (
+    ImageGeometryRolloutService,
+    ImageGeometryRolloutStart,
+    ImageGeometryRolloutStatus,
+)
 from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewListSlice,
     ImageGridReviewRepository,
@@ -30,6 +35,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryPoint,
     ImageReviewGeometryRevision,
 )
+from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
     to_image_grid_review_geometry_response,
 )
@@ -168,6 +174,51 @@ class UnusedOperationalService:
     pass
 
 
+class MemoryImageGeometryRolloutRepository:
+    def __init__(self, game_id: UUID) -> None:
+        self.game_id = game_id
+        self.job: Job | None = None
+
+    def status(self, game_id: UUID) -> ImageGeometryRolloutStatus:
+        assert game_id == self.game_id
+        return ImageGeometryRolloutStatus(
+            game_id=game_id,
+            geometry_mode="structured_review",
+            cell_asset_mode="virtual_source",
+            rollout_revision=1,
+            backfill_status="processing" if self.job is not None else "not_started",
+            source_count=100,
+            processed_source_count=0,
+            virtual_source_count=0,
+            active_job_id=None if self.job is None else self.job.id,
+            last_source_image_id=None,
+            failure_code=None,
+            failure_message=None,
+        )
+
+    def start(self, game_id: UUID) -> ImageGeometryRolloutStart:
+        assert game_id == self.game_id
+        created = self.job is None
+        if self.job is None:
+            self.job = create_job(
+                JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL,
+                game_id=game_id,
+                input_payload={
+                    "schema_version": 1,
+                    "workflow": "image_geometry_rollout_backfill",
+                    "generation": 1,
+                    "rollout_revision": 1,
+                    "geometry_mode": "structured_review",
+                    "cell_asset_mode": "virtual_source",
+                },
+            )
+        return ImageGeometryRolloutStart(
+            rollout=self.status(game_id),
+            job=self.job,
+            created=created,
+        )
+
+
 def _item(
     game_id: UUID,
     import_job_id: UUID,
@@ -220,10 +271,13 @@ def _client(
     source.parent.mkdir(parents=True)
     source.write_bytes(SOURCE_BYTES)
     repository = MemoryGridReviewRepository(items, "sources/source.jpg")
+    rollout_repository = MemoryImageGeometryRolloutRepository(game_id)
     app = FastAPI()
     app.include_router(
         create_image_grid_reviews_router(
             lambda: ImageGridReviewService(repository),
+            lambda: UnusedOperationalService(),
+            lambda: ImageGeometryRolloutService(rollout_repository),
             lambda: UnusedOperationalService(),
             tmp_path,
         ),
@@ -235,6 +289,25 @@ def _client(
         return JSONResponse(status_code=409, content={"code": error.code, "message": error.message})
 
     return TestClient(app), repository, items
+
+
+def test_geometry_rollout_start_is_idempotent_and_reports_progress(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
+    endpoint = f"/api/v1/admin/games/{items[0].game_id}/image-geometry-rollout"
+
+    initial = client.get(endpoint)
+    first = client.post(endpoint)
+    second = client.post(endpoint)
+
+    assert initial.status_code == 200
+    assert initial.json()["backfillStatus"] == "not_started"
+    assert initial.json()["sourceCount"] == 100
+    assert first.status_code == 202
+    assert first.json()["created"] is True
+    assert first.json()["job"]["jobType"] == "image_geometry_rollout_backfill"
+    assert second.status_code == 202
+    assert second.json()["created"] is False
+    assert second.json()["job"]["id"] == first.json()["job"]["id"]
 
 
 def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path: Path) -> None:

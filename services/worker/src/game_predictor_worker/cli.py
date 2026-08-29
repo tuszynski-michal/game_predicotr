@@ -37,6 +37,9 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
+from game_predictor_worker.images.geometry_rollout_backfill import (
+    ImageGeometryRolloutBackfillHandler,
+)
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
@@ -408,6 +411,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL: ImageGeometryRolloutBackfillHandler(
+                session_factory
+            ),
             JobType.STORAGE_GC: StorageGcHandler(
                 session_factory,
                 artifact_root,

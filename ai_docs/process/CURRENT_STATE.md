@@ -180,6 +180,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - D-241 została zastąpiona przez D-259. Zdalny Reviewer pozostaje poza nową
   powierzchnią lokalnego Admin API.
 
+### Bezpieczny rollout wirtualnej geometrii — TASK-0317
+
+- `v0.10.9` dodaje trwały job `image_geometry_rollout_backfill` w general lane.
+  Waliduje najwyżej 100 źródeł na transakcję, zapisuje source cursor i stany
+  `not_started/processing/ready/failed`; drugi start aktywnego joba jest
+  idempotentny. Nie konwertuje legacy ani nie zmienia trybu rolloutu gry.
+- Bramka sprawdza kanoniczne metadane RGB, pełną source geometry, obserwacje,
+  bieżące komórki i manualne rewizje `virtual_source`. Po walidacji odtwarza
+  compact candidate/fast document aktualnego właściciela, dzięki czemu lokalna
+  kolejka geometrii nie zależy od historycznego board PNG.
+- Lokalny Reviewer może po stanie `ready` wykonać preview i zapis ręcznej
+  geometrii virtual. Obie ścieżki renderują komórki source-direct w pamięci;
+  zapis utrwala tylko append-only source/board revision, render specy i
+  checksumy. Etykiety człowieka pozostają, ale nowa tożsamość pikseli nie jest
+  treningowa do czasu ponownego zatwierdzenia cropa.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

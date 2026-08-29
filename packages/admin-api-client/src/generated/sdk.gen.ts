@@ -197,6 +197,9 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryRolloutStatusData,
+  GetImageGeometryRolloutStatusErrors,
+  GetImageGeometryRolloutStatusResponses,
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
@@ -609,6 +612,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartImageGeometryRolloutBackfillData,
+  StartImageGeometryRolloutBackfillErrors,
+  StartImageGeometryRolloutBackfillResponses,
   StartLocalReviewerData,
   StartLocalReviewerErrors,
   StartLocalReviewerResponses,
@@ -1087,6 +1093,49 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
     ListImageGridReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
+
+/**
+ * Get bounded virtual-geometry rollout validation status
+ */
+export const getImageGeometryRolloutStatus = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryRolloutStatusData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryRolloutStatusResponses,
+  GetImageGeometryRolloutStatusErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryRolloutStatusResponses,
+    GetImageGeometryRolloutStatusErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-geometry-rollout',
+    ...options,
+  });
+
+/**
+ * Start or resume bounded virtual-geometry rollout validation
+ */
+export const startImageGeometryRolloutBackfill = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartImageGeometryRolloutBackfillData, ThrowOnError>,
+): RequestResult<
+  StartImageGeometryRolloutBackfillResponses,
+  StartImageGeometryRolloutBackfillErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartImageGeometryRolloutBackfillResponses,
+    StartImageGeometryRolloutBackfillErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-geometry-rollout',
+    ...options,
+  });
 
 /**
  * List durable board-cell geometry fallback items

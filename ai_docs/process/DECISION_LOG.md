@@ -6212,6 +6212,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   targetów i lokalne materializowanie całego filtra odrzucono z powodu pamięci,
   transferu oraz ryzyka starej rewizji katalogu.
 
+## D-260 — Rollout wirtualnej geometrii wymaga bounded walidacji przed zapisem
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** każda gra przechodzi trwały, wznawialny job walidacji
+  proweniencji źródeł `virtual_source`. Stan `ready` odblokowuje lokalny ręczny
+  zapis, który tworzy wyłącznie append-only source/board geometry i checksumy
+  renderowanych pikseli. Nie materializuje board ani cell PNG i nie promuje
+  automatycznie trybu rolloutu.
+- **Context:** pipeline potrafi już zapisać wirtualne wyniki i wyrenderować ich
+  bounded podglądy, ale ręczna korekta była fail-closed. Bez osobnej bramki
+  niepełna source geometry lub stara projekcja właściciela mogłaby doprowadzić
+  do zapisu przeciwko niewłaściwej planszy.
+- **Safety:** cursor jest ograniczony do gry, każda partia ma najwyżej 100
+  źródeł, a niekompletna proweniencja kończy się kontrolowanym `failed` z ID
+  źródła. Manualna transakcja ponownie blokuje sekwencję i sprawdza source,
+  topologię, rewizję oraz checksumy. Etykieta człowieka pozostaje, lecz nowy
+  crop nie jest treningowy do czasu ponownego zatwierdzenia pikseli.
+- **Consequences:** identyczny retry nie tworzy duplikatów, obecne rekordy
+  legacy pozostają niezmienione, a Reviewer może używać jednego workflow dla
+  obu asset modes po przejściu bramki gry.
+- **Alternatives:** automatyczna konwersja legacy, materializacja nowych PNG i
+  promocja gry po samym backfillu zostały odrzucone jako zbyt ryzykowne.
+
 ## Szablon nowej decyzji
 
 ```text

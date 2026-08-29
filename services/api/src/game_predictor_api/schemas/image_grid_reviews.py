@@ -8,6 +8,9 @@ from uuid import UUID
 
 from pydantic import Field
 
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridGeometrySaveResult,
+)
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridApprovalResult,
     ImageGridReviewCounts,
@@ -127,7 +130,11 @@ class ImageGridReviewGeometryRevisionResponse(ApiModel):
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
     ]
-    board_checksum_sha256: Sha256
+    asset_mode: str = "legacy_file"
+    board_checksum_sha256: Sha256 | None = None
+    source_geometry_revision_id: UUID | None = None
+    geometry_checksum_sha256: Sha256 | None = None
+    virtual_render_spec_checksum_sha256: Sha256 | None = None
     cropper_version: str
     grid_rows: int = Field(gt=0)
     grid_columns: int = Field(gt=0)
@@ -239,6 +246,10 @@ def to_image_grid_review_geometry_response(
                 ),
             ),
             board_checksum_sha256=revision.board_checksum_sha256,
+            asset_mode="legacy_file",
+            source_geometry_revision_id=None,
+            geometry_checksum_sha256=None,
+            virtual_render_spec_checksum_sha256=None,
             cropper_version=revision.cropper_version,
             grid_rows=grid_rows,
             grid_columns=grid_columns,
@@ -266,6 +277,65 @@ def to_image_grid_review_geometry_response(
     )
 
 
+def to_virtual_grid_review_geometry_response(
+    result: VirtualGridGeometrySaveResult,
+    *,
+    grid_rows: int,
+    grid_columns: int,
+) -> ImageGridReviewGeometryResponse:
+    revision = result.revision
+    return ImageGridReviewGeometryResponse(
+        geometry_revision=ImageGridReviewGeometryRevisionResponse(
+            id=revision.id,
+            review_item_id=revision.review_item_id,
+            recognized_board_id=revision.recognized_board_id,
+            revision=revision.revision,
+            idempotency_key=revision.idempotency_key,
+            command_sha256=revision.command_sha256,
+            decision_checksum_sha256=None,
+            corners=(
+                OperationalImageReviewGeometryPoint(
+                    x=revision.corners[0].x,
+                    y=revision.corners[0].y,
+                ),
+                OperationalImageReviewGeometryPoint(
+                    x=revision.corners[1].x,
+                    y=revision.corners[1].y,
+                ),
+                OperationalImageReviewGeometryPoint(
+                    x=revision.corners[2].x,
+                    y=revision.corners[2].y,
+                ),
+                OperationalImageReviewGeometryPoint(
+                    x=revision.corners[3].x,
+                    y=revision.corners[3].y,
+                ),
+            ),
+            asset_mode="virtual_source",
+            board_checksum_sha256=None,
+            source_geometry_revision_id=revision.source_geometry_revision_id,
+            geometry_checksum_sha256=revision.geometry_checksum_sha256,
+            virtual_render_spec_checksum_sha256=(revision.virtual_render_spec_checksum_sha256),
+            cropper_version=revision.cropper_version,
+            grid_rows=grid_rows,
+            grid_columns=grid_columns,
+            cells=tuple(
+                ImageGridReviewGeometryCellResponse(
+                    cell_index=cell.cell_index,
+                    row_index=cell.row_index,
+                    column_index=cell.column_index,
+                    crop_sample_id=cell.crop_sample_id,
+                    crop_checksum_sha256=cell.crop_checksum_sha256,
+                )
+                for cell in revision.cells
+            ),
+            corrected_by=revision.corrected_by,
+            created_at=revision.created_at,
+        ),
+        created=result.created,
+    )
+
+
 __all__ = [
     "ImageGridReviewApprovalCommand",
     "ImageGridReviewApprovalResponse",
@@ -278,4 +348,5 @@ __all__ = [
     "to_image_grid_review_approval_response",
     "to_image_grid_review_geometry_response",
     "to_image_grid_review_page_response",
+    "to_virtual_grid_review_geometry_response",
 ]

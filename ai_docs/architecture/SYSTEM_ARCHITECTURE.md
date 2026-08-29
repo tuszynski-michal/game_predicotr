@@ -743,6 +743,21 @@ append-only source geometry oraz rozpoznanie z tych samych stage results.
 Przed projekcją każdej sekwencji store sprawdza canonical owner, dzięki czemu
 automatyczny retry ani późniejszy staging nie nadpisuje decyzji człowieka.
 
+TASK-0317 dodaje operacyjną bramkę rolloutu jako trwały job general lane. Job
+przechodzi po źródłach w kolejności `(created_at, id)`, zapisuje cursor po
+partii maksymalnie 100 źródeł i przed stanem `ready` sprawdza całą proweniencję
+każdego istniejącego wyniku virtual. Nie renderuje pikseli i nie promuje
+`geometry_mode` ani `cell_asset_mode`. W trakcie walidacji odbudowuje wyłącznie
+compact search owner projection potrzebną do pokazania bieżącej planszy.
+
+Po stanie `ready` lokalny Reviewer może poprawić quad `virtual_source`.
+Application service dekoduje jeden managed original, renderuje wszystkie
+komórki source-direct w pamięci i przekazuje do transakcji tylko geometry-bound
+specy oraz checksumy. Transakcja tworzy append-only source/board revision,
+zachowuje ludzkie etykiety i zatwierdzoną proweniencję poprzednich pikseli oraz
+aktualizuje bieżące komórki. Brak zgodności source, topologii, rewizji albo
+checksummy kończy się fail-closed; legacy zapis pozostaje bez zmian.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

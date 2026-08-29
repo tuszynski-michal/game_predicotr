@@ -3977,6 +3977,53 @@
         "title": "ImageFolderSelectionResponse",
         "type": "object"
       },
+      "ImageGeometryRolloutBackfillJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cellAssetMode": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Cellassetmode",
+            "type": "string"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "geometryMode": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Geometrymode",
+            "type": "string"
+          },
+          "rolloutRevision": {
+            "minimum": 0.0,
+            "title": "Rolloutrevision",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "workflow": {
+            "const": "image_geometry_rollout_backfill",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "workflow",
+          "generation",
+          "rolloutRevision",
+          "geometryMode",
+          "cellAssetMode"
+        ],
+        "title": "ImageGeometryRolloutBackfillJobPayload",
+        "type": "object"
+      },
       "ImageGeometryRolloutJobSnapshotPayload": {
         "additionalProperties": false,
         "properties": {
@@ -4044,6 +4091,139 @@
           "checksumSha256"
         ],
         "title": "ImageGeometryRolloutJobSnapshotPayload",
+        "type": "object"
+      },
+      "ImageGeometryRolloutStartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rollout": {
+            "$ref": "#/components/schemas/ImageGeometryRolloutStatusResponse"
+          }
+        },
+        "required": [
+          "rollout",
+          "job",
+          "created"
+        ],
+        "title": "ImageGeometryRolloutStartResponse",
+        "type": "object"
+      },
+      "ImageGeometryRolloutStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activejobid"
+          },
+          "backfillStatus": {
+            "title": "Backfillstatus",
+            "type": "string"
+          },
+          "cellAssetMode": {
+            "title": "Cellassetmode",
+            "type": "string"
+          },
+          "failureCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurecode"
+          },
+          "failureMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failuremessage"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometryMode": {
+            "title": "Geometrymode",
+            "type": "string"
+          },
+          "lastSourceImageId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsourceimageid"
+          },
+          "processedSourceCount": {
+            "minimum": 0.0,
+            "title": "Processedsourcecount",
+            "type": "integer"
+          },
+          "rolloutRevision": {
+            "minimum": 0.0,
+            "title": "Rolloutrevision",
+            "type": "integer"
+          },
+          "sourceCount": {
+            "minimum": 0.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          },
+          "virtualSourceCount": {
+            "minimum": 0.0,
+            "title": "Virtualsourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "geometryMode",
+          "cellAssetMode",
+          "rolloutRevision",
+          "backfillStatus",
+          "sourceCount",
+          "processedSourceCount",
+          "virtualSourceCount",
+          "activeJobId",
+          "lastSourceImageId",
+          "failureCode",
+          "failureMessage"
+        ],
+        "title": "ImageGeometryRolloutStatusResponse",
         "type": "object"
       },
       "ImageGridReviewApprovalCommand": {
@@ -4360,10 +4540,22 @@
       "ImageGridReviewGeometryRevisionResponse": {
         "additionalProperties": false,
         "properties": {
-          "boardChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Boardchecksumsha256",
+          "assetMode": {
+            "default": "legacy_file",
+            "title": "Assetmode",
             "type": "string"
+          },
+          "boardChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardchecksumsha256"
           },
           "cells": {
             "items": {
@@ -4423,6 +4615,18 @@
             ],
             "title": "Decisionchecksumsha256"
           },
+          "geometryChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrychecksumsha256"
+          },
           "gridColumns": {
             "exclusiveMinimum": 0.0,
             "title": "Gridcolumns",
@@ -4457,6 +4661,30 @@
             "minimum": 1.0,
             "title": "Revision",
             "type": "integer"
+          },
+          "sourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcegeometryrevisionid"
+          },
+          "virtualRenderSpecChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Virtualrenderspecchecksumsha256"
           }
         },
         "required": [
@@ -4468,7 +4696,6 @@
           "commandSha256",
           "decisionChecksumSha256",
           "corners",
-          "boardChecksumSha256",
           "cropperVersion",
           "gridRows",
           "gridColumns",
@@ -7421,6 +7648,9 @@
                 "$ref": "#/components/schemas/SymbolCellReviewBackfillJobPayload"
               },
               {
+                "$ref": "#/components/schemas/ImageGeometryRolloutBackfillJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/StorageGcJobPayload"
               },
               {
@@ -7534,6 +7764,7 @@
           "image_grid_reinference",
           "image_symbol_review_bulk",
           "image_symbol_review_backfill",
+          "image_geometry_rollout_backfill",
           "storage_gc",
           "storage_inventory",
           "storage_pipeline_compaction"
@@ -18863,6 +19094,145 @@
           }
         },
         "summary": "List current game-wide board geometries with bounded keyset pagination",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-geometry-rollout": {
+      "get": {
+        "operationId": "getImageGeometryRolloutStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryRolloutStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "summary": "Get bounded virtual-geometry rollout validation status",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      },
+      "post": {
+        "operationId": "startImageGeometryRolloutBackfill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryRolloutStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start or resume bounded virtual-geometry rollout validation",
         "tags": [
           "image-grid-reviews"
         ]

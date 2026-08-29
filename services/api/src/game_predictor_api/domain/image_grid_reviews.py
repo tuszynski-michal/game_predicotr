@@ -119,6 +119,7 @@ class ImageGridReviewSourceAsset:
     geometry_revision: int
     resolution_revision: int
     topology: BoardTopology
+    asset_mode: str = "legacy_file"
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,9 +198,7 @@ def encode_image_grid_review_cursor(
             None if review_filter.import_job_id is None else str(review_filter.import_job_id)
         ),
         "sourceImageId": (
-            None
-            if review_filter.source_image_id is None
-            else str(review_filter.source_image_id)
+            None if review_filter.source_image_id is None else str(review_filter.source_image_id)
         ),
         "key": list(key),
         "version": 1,

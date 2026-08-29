@@ -25,6 +25,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   image_grid_reinference: 'Przeliczenie oczekującej siatki',
   image_symbol_review_bulk: 'Masowa weryfikacja symboli',
   image_symbol_review_backfill: 'Przygotowanie weryfikacji symboli',
+  image_geometry_rollout_backfill: 'Walidacja geometrii wirtualnej',
   storage_gc: 'Bezpieczne czyszczenie pamięci',
   storage_inventory: 'Pomiar zajętości pamięci',
   storage_pipeline_compaction: 'Kompakcja danych pipeline’u',

@@ -1911,6 +1911,8 @@ Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
 
 ```text
 GET  /api/v1/admin/games/{gameId}/grid-reviews
+GET  /api/v1/admin/games/{gameId}/image-geometry-rollout
+POST /api/v1/admin/games/{gameId}/image-geometry-rollout
 GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
@@ -1932,6 +1934,13 @@ temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
 Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
 geometrii.
 
+Status rolloutu zwraca `not_started | processing | ready | failed`, liczby
+wszystkich i przetworzonych źródeł, liczbę źródeł `virtual_source`, aktywny job,
+ostatni source cursor oraz kontrolowaną diagnostykę. POST jest idempotentny:
+drugi start zwraca ten sam aktywny job, a stan `ready` bez nowych źródeł nie
+tworzy kolejnego. Job skanuje najwyżej 100 źródeł na transakcję w general lane,
+nie konwertuje rekordów legacy i nie zmienia trybu rolloutu gry.
+
 Asset źródłowy wymaga oczekiwanej SHA-256, pozostaje pod zarządzanym katalogiem
 artefaktów i przed wysłaniem ponownie sprawdza bajty. Zatwierdzenie wiąże
 oczekiwaną rewizję decyzji, rewizję geometrii, checksumę i wymiary źródła oraz
@@ -1945,6 +1954,15 @@ operacyjnego kontraktu 3 × 5. Historyczne endpointy `/image-review-items/...`
 pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
 korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
 scope'u.
+
+Dla `virtual_source` te same endpointy preview i zapisu konsumują managed
+original, bieżącą source geometry oraz przypięty render spec. Preview tworzy
+kontaktowy PNG wyłącznie w pamięci. Zapis tworzy append-only source geometry i
+board geometry revision oraz podmienia bieżącą proweniencję komórek bez
+`board_relative_path`, `crop_relative_path` i trwałych bitmap. Odpowiedź ma
+`assetMode=virtual_source`, identyfikator source geometry, geometry checksum i
+checksum wirtualnego render manifestu; legacy nadal zwraca fizyczne ścieżki i
+`decisionChecksumSha256`.
 
 Jawny pending-only recrop v19 wykorzystuje:
 

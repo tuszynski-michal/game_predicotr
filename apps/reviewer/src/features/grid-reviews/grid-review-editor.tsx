@@ -312,12 +312,6 @@ function GridReviewEditorContent({
 
   async function save() {
     if (completeCorners === null || !previewIsCurrent || saving) return;
-    if (item.assetMode === 'virtual_source') {
-      setError(
-        'Ręczny zapis geometrii wirtualnego źródła jest jeszcze niedostępny. Nie zapiszę legacy cropów w jego miejsce.',
-      );
-      return;
-    }
     setSaving(true);
     setError('');
     const result = await saveGridReviewGeometry(
@@ -579,17 +573,12 @@ function GridReviewEditorContent({
             disabled={
               !previewIsCurrent ||
               saving ||
-              loadingPreview ||
-              item.assetMode === 'virtual_source'
+              loadingPreview
             }
             onClick={() => void save()}
             type="button"
           >
-            {saving
-              ? 'Zapisywanie…'
-              : item.assetMode === 'virtual_source'
-                ? 'Zapis wirtualnej geometrii niedostępny'
-                : 'Zapisz i przejdź do następnego zdjęcia'}
+            {saving ? 'Zapisywanie…' : 'Zapisz i przejdź do następnego zdjęcia'}
           </button>
         </section>
       ) : null}

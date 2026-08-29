@@ -735,7 +735,12 @@ def _payload_from_records(
         primary, alternatives = parsed
         sequence_number = int(board.sequence_number)
 
-    if board.board_checksum_sha256 is None:
+    board_identity_checksum = (
+        board.board_checksum_sha256
+        if board.asset_mode == "legacy_file"
+        else board.geometry_checksum_sha256
+    )
+    if board_identity_checksum is None:
         return None
 
     return BoardSearchProjectionPayload(
@@ -749,7 +754,7 @@ def _payload_from_records(
             primary_symbol_codes=primary,
             alternative_symbol_codes=alternatives,
         ),
-        board_checksum_sha256=board.board_checksum_sha256,
+        board_checksum_sha256=board_identity_checksum,
         board_confidence=board.board_confidence,
         sequence_confidence=board.sequence_confidence,
         source_pixel_count=source.width * source.height,

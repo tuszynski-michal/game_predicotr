@@ -64,6 +64,8 @@ def create_api_router(
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_grid_review_service_dependency: Callable[..., object],
+    image_geometry_rollout_service_dependency: Callable[..., object],
+    virtual_grid_geometry_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
     layout_import_report_service_dependency: Callable[..., object],
     mobile_release_service_dependency: Callable[..., object],
@@ -180,6 +182,8 @@ def create_api_router(
         create_image_grid_reviews_router(
             image_grid_review_service_dependency,
             image_review_service_dependency,
+            image_geometry_rollout_service_dependency,
+            virtual_grid_geometry_service_dependency,
             settings.artifact_root,
         )
     )

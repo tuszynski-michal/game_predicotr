@@ -657,6 +657,7 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.IMAGE_GRID_REINFERENCE,
         JobType.IMAGE_SYMBOL_REVIEW_BULK,
         JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL,
         JobType.STORAGE_GC,
         JobType.STORAGE_INVENTORY,
         JobType.STORAGE_PIPELINE_COMPACTION,

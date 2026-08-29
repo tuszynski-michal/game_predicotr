@@ -887,6 +887,22 @@ bieżącą rewizję komórki i geometrii, źródło, render spec oraz checksumę
 Po wygaśnięciu lub usunięciu cache każdy atlas jest odtwarzany z managed
 original i istniejącej proweniencji `virtual_source`.
 
+TASK-0317 wykorzystuje istniejący `image_geometry_rollout_states` jako trwały
+checkpoint walidacji operacyjnej. `backfill_status` przechodzi przez
+`not_started`, `processing`, `ready` albo `failed`, a
+`last_source_image_id` wskazuje ostatnie źródło zakończonej bounded transakcji.
+Walidacja sprawdza complete source geometry, obserwacje, bieżące review cells i
+rewizje manualne; następnie synchronizuje compact candidate/fast document dla
+aktualnego właściciela. Nie tworzy cropów i nie przepisuje `legacy_file`.
+
+Ręczny zapis geometrii `virtual_source` dodaje nową
+`image_source_geometry_revisions` oraz `image_board_geometry_revisions` z
+render manifestem, ale bez ścieżek board/cell. Bieżące komórki zachowują
+`assigned_symbol_id`, `review_state` i zatwierdzoną tożsamość poprzedniego
+cropa. Otrzymują nowy render spec i pixel checksum, dlatego predykat
+`trainingEligible` pozostaje fałszywy do jawnego zatwierdzenia nowych pikseli.
+Event `geometry_invalidated` zapisuje obie proweniencje append-only.
+
 W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenowego
 `sequence_number`, pozycji planszy i współrzędnych komórki, ale nie z bajtów
 cropu. `cropSampleId` dodaje wersję croppera, profil kalibracji i checksumę

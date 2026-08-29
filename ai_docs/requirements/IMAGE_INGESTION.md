@@ -125,6 +125,23 @@ Historyczny kontrakt v1 pozostaje odtwarzalny. Jeśli jego PNG został bezpieczn
 usunięty, retry odbudowuje dokładne bajty z managed original i wymaga zgodności
 z checksumą stage result; drift kończy się fail-closed.
 
+#### Wirtualne renderowanie komórek 0.10
+
+- `CanonicalSourceLoader` utrzymuje najwyżej jedno bieżące źródło i nie może
+  dekodować tego samego managed original ponownie w obrębie wykonania;
+- źródłowy SHA-256, wymiary po EXIF oraz checksum pikseli muszą zgadzać się z
+  przypiętą proweniencją przed użyciem geometrii;
+- `virtual-cell-renderer-source-direct-v1` najpierw waliduje wszystkie komórki
+  źródła, a następnie wykonuje dokładnie jeden source-direct resampling na
+  komórkę; nie materializuje pośredniej planszy ani trwałego cropa;
+- wynik zawiera RGB, logiczny klucz komórki, content-addressed render spec,
+  wersję extractora i checksumę dokładnych pikseli;
+- wariant bezpośredni musi pozostać pikselowo zgodny z historycznym v19 przy
+  tej samej geometrii, paddingu, interpolacji i rozmiarze wyjścia;
+- warianty native-bbox i rectified-board są wyłącznie diagnostyczne i nie mogą
+  zostać wybrane przez produkcyjny pipeline bez nowej wersji oraz bramki;
+- do czasu osobnego rolloutu rekordy i konsumery pozostają `legacy_file`.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

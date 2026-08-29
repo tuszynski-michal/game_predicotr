@@ -6116,6 +6116,27 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   rolloutu gry na legacy i zachowanie proweniencji, nie destrukcyjne usunięcie
   kolumn lub tabel.
 
+## D-256 — Wirtualna komórka używa jednego source-direct warpa bez trwałego pliku
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `CanonicalSourceLoader` dekoduje zweryfikowany managed original
+  raz na bieżące wykonanie i stosuje EXIF dokładnie raz. Produkcyjny
+  `virtual-cell-renderer-source-direct-v1` wykonuje jeden warp źródło→komórka,
+  zwraca RGB w pamięci, render spec checksum oraz pixel checksum i nie zapisuje
+  PNG. Warianty bounding-box i rectified-board są wyłącznie diagnostyczne.
+- **Context:** trwałe cropy i pośrednie rastry zwiększają zajętość dysku, a
+  geometry-bound kontrakty TASK-0307/0308 pozwalają odtworzyć piksele z managed
+  original. Rollout wymaga jednak dowodu, że nowa ścieżka nie zmienia wejścia
+  obecnego modelu.
+- **Safety:** renderer waliduje kompletną partię, źródło, checksumy, wersję
+  konfiguracji i pokrycie przed pierwszym warpem. Historyczny v19 pozostaje
+  niezmieniony, a test wymaga dokładnej zgodności pikseli dla tej samej
+  geometrii. TASK-0309 nie aktywuje pipeline'u ani nie zapisuje virtual records.
+- **Consequences:** późniejszy task może podłączyć wariant B za rollout state,
+  nie kopiując binariów. Każda zmiana interpolacji, paddingu lub preprocessingu
+  musi otrzymać nową wersję render specu i osobną bramkę.
+
 ## Szablon nowej decyzji
 
 ```text

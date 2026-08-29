@@ -48,6 +48,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   (maksymalnie 500); nie skanuje obrazów ani wielomilionowych tabel cropów.
   Migracja nie została uruchomiona na roboczej bazie użytkownika.
 
+### Source-direct renderer wirtualnych komórek — TASK-0309
+
+- `v0.10.2` dodaje `CanonicalSourceLoader`, który weryfikuje SHA-256 managed
+  original, dekoduje JPEG raz na bieżące wykonanie, stosuje EXIF Orientation
+  1–8 dokładnie raz i zwraca niemodyfikowalne RGB `uint8` wraz z checksumą
+  pikseli. Loader nie zapisuje pełnowymiarowego PNG.
+- `VirtualCellRenderer` konsumuje kontrakty TASK-0307 i wykonuje jeden
+  source-direct `warpPerspective` na każdą komórkę. Zwraca piksele wyłącznie w
+  pamięci, logiczny klucz, niezmienny render spec, jego checksumę oraz checksumę
+  wynikowych pikseli. Przed pierwszym warpem waliduje komplet całej partii i
+  pełne pokrycie źródła.
+- Produkcyjnym kontraktem przyszłego rolloutu jest wariant B — bezpośrednia
+  perspektywa źródło→komórka. Warianty A (native bounding box) i C (pośrednio
+  wyprostowana plansza) istnieją wyłącznie jako diagnostyka A/B/C w pamięci.
+- Historyczny `board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1`
+  nie został zmieniony. Test regresyjny potwierdza dokładną zgodność pikseli B
+  z v19 dla 15 pól. TASK-0309 nie podłącza nowego renderera do pipeline'u, bazy,
+  API ani rolloutu gry.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

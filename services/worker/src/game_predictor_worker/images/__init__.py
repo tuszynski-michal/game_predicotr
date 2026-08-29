@@ -76,6 +76,14 @@ from .manual_board_cell_geometry_preview import (
     ManualBoardCellGeometryPreviewError,
     manual_board_cell_geometry_decision_checksum,
 )
+from .normalization import (
+    CANONICAL_SOURCE_LOADER_VERSION,
+    RGB_PIXEL_CHECKSUM_VERSION,
+    CanonicalSourceFrame,
+    CanonicalSourceLoader,
+    CanonicalSourceLoadError,
+    rgb_pixel_checksum_sha256,
+)
 from .rectification import (
     CALIBRATED_CROPPER_VERSION,
     V2_CROPPER_VERSION,
@@ -93,6 +101,19 @@ from .symbol_dataset import (
 )
 from .symbol_review import BootstrapSymbolReview, SymbolReviewError
 from .symbol_review_http import SymbolReviewHttpError, create_review_server
+from .virtual_cell_extraction import (
+    MAX_VIRTUAL_CELLS_PER_BATCH,
+    VIRTUAL_CELL_INTERPOLATION_VERSION,
+    VIRTUAL_CELL_RENDER_SPEC_VERSION,
+    VIRTUAL_CELL_RENDERER_VERSION,
+    CellExtractionComparison,
+    CellExtractionVariant,
+    VirtualCellExtractionError,
+    VirtualCellRender,
+    VirtualCellRenderer,
+    compare_cell_extraction_variants,
+    source_direct_warp_rgb,
+)
 
 __all__ = [
     "BOARD_CELL_GEOMETRY_MANIFEST_VERSION",
@@ -116,6 +137,10 @@ __all__ = [
     "CALIBRATED_CROPPER_VERSION",
     "CALIBRATED_INVENTORY_VERSION",
     "CALIBRATED_QUALITY_REPORT_VERSION",
+    "CANONICAL_SOURCE_LOADER_VERSION",
+    "CanonicalSourceFrame",
+    "CanonicalSourceLoadError",
+    "CanonicalSourceLoader",
     "SymbolDatasetError",
     "SymbolReviewError",
     "SymbolReviewHttpError",
@@ -153,13 +178,26 @@ __all__ = [
     "ManualBoardCellGeometryPreview",
     "ManualBoardCellGeometryPreviewError",
     "ManualBoardCellGeometryPreviewer",
+    "MAX_VIRTUAL_CELLS_PER_BATCH",
+    "RGB_PIXEL_CHECKSUM_VERSION",
     "manual_board_cell_geometry_decision_checksum",
     "PerspectiveBoardCellCropperV2",
     "PerspectiveBoardCellCropperV2Calibrated",
     "PROFILE_SET_VERSION",
     "V2_CROPPER_VERSION",
     "V2_GRID_CONTRACT",
+    "VIRTUAL_CELL_INTERPOLATION_VERSION",
+    "VIRTUAL_CELL_RENDERER_VERSION",
+    "VIRTUAL_CELL_RENDER_SPEC_VERSION",
+    "CellExtractionComparison",
+    "CellExtractionVariant",
+    "VirtualCellExtractionError",
+    "VirtualCellRender",
+    "VirtualCellRenderer",
+    "compare_cell_extraction_variants",
     "profile_document_bytes",
+    "rgb_pixel_checksum_sha256",
+    "source_direct_warp_rgb",
     "v2_quality_report_bytes",
     "validate_corpus",
     "write_content_addressed_manifest",

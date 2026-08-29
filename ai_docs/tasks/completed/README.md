@@ -54,6 +54,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 
 - [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)
 - [TASK-0308 — Trwała proweniencja wirtualnej geometrii](0308-v0-10-virtual-geometry-provenance.md)
+- [TASK-0309 — Wirtualne komórki bezpośrednio ze źródła](0309-v0-10-virtual-cell-source-extraction.md)
 
 ## Zawartość
 

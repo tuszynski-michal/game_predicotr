@@ -673,6 +673,21 @@ korzysta ze wspólnego loadera i nie wymaga pełnowymiarowego `normalized.png`.
 Historyczny v1 pozostaje przypięty do starych jobów; brakujący PNG może zostać
 odbudowany wyłącznie przy identycznej checksumie oczekiwanych bajtów.
 
+Warstwa 0.10 rozdziela dekodowanie od renderowania. `CanonicalSourceLoader`
+wiąże jeden zweryfikowany managed original z kanoniczną macierzą RGB tylko do
+odczytu i utrzymuje jednoelementowy cache ograniczony do bieżącego wykonania.
+`VirtualCellRenderer` przyjmuje `VirtualCell` z domenowego render specu, oblicza
+padded source quad i wykonuje jeden warp bezpośrednio do wejścia modelu. Nie
+zapisuje bitmapy ani nie buduje pośredniego rastra planszy. Render zwraca dwie
+niezależne tożsamości: checksumę kanonicznego render specu oraz checksumę
+wynikowych pikseli RGB. Cała partia jest walidowana przed pierwszym warpem, więc
+błędna ostatnia komórka nie może pozostawić częściowego wyniku.
+
+Porównanie A/B/C jest narzędziem czysto pamięciowym: A używa bounding boxu,
+B source-direct perspektywy, a C pośrednio wyprostowanej planszy. Wyłącznie B
+jest kontraktem przyszłego rolloutu i ma test dokładnej zgodności z niezmienionym
+cropperem v19. Komponent nie jest jeszcze wywoływany przez produkcyjny pipeline.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

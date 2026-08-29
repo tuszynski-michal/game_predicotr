@@ -744,6 +744,13 @@ geometrii (`legacy`, `structured_shadow`, `structured_review`,
 checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
 brakujący rekord jest tworzony wyłącznie jako legacy.
 
+Renderer TASK-0309 nie dodaje tabel ani binariów. W przyszłym trybie
+`virtual_source` istniejące pola TASK-0308 zapisują logiczny klucz, kanoniczny
+render spec, wersję extractora i checksumę wynikowych pikseli; RGB pozostaje
+wyłącznie wartością chwilową. Checksum render specu identyfikuje sposób
+odtworzenia, a checksum pikseli weryfikuje jego dokładny rezultat. Historyczne
+rekordy `legacy_file` i ich ścieżki nie są przepisywane.
+
 ### image_pipeline_stage_results
 
 | Pole | Typ | Uwagi |

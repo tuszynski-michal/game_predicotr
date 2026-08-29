@@ -737,6 +737,11 @@ znormalizowane SHA-256, wymiary, wersję normalizacji, opcjonalną globalną
 inicjalizację, quady aktywnych plansz, wersję silnika, status, ostrzeżenia i
 checksumę całej geometrii. Nie przechowuje bitmap.
 
+Globalna inicjalizacja Structured OpenCV zapisuje metodę, konfigurację,
+homografię, metryki ORB albo frame/gradient/LSD oraz początkowe quady slotów.
+Te quady nie są finalnymi `board_geometries`; trwały zapis kompletnej geometrii
+może nastąpić dopiero po niezależnym lokalnym dopasowaniu w kolejnym etapie.
+
 `image_geometry_rollout_states` jest jednym rekordem per gra. Oddziela rollout
 geometrii (`legacy`, `structured_shadow`, `structured_review`,
 `structured_default`) od sposobu dostarczania assetów komórek

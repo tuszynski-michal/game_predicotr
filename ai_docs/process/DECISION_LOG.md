@@ -6137,6 +6137,29 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   nie kopiując binariów. Każda zmiana interpolacji, paddingu lub preprocessingu
   musi otrzymać nową wersję render specu i osobną bramkę.
 
+## D-257 — Globalna homografia Structured OpenCV jest wyłącznie inicjalizacją
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** `structured-opencv-global-initialization-v1` wyznacza wyłącznie
+  początkowe ROI attested prefiksu slotów. Z profilem używa ORB/RANSAC na
+  zatwierdzonych anchorach; bez profilu wymaga zgodnego dowodu czerwonych ramek,
+  gradientów i LSD. Globalna homografia nie jest finalnym quadem planszy i nie
+  pozwala rozpocząć cropowania ani inferencji.
+- **Context:** historyczna rejestracja strony potrafiła dobrze przenosić układ
+  między kątami, ale wspólny wynik mieszał inicjalizację z ostatecznym dowodem
+  dziewięciu plansz. Częściowe strony potrzebują jawnego prefiksu bez
+  syntetyzowania pozostałych pozycji.
+- **Safety:** brak kompletnego dowodu zwraca `needs_manual_review` bez quadów.
+  Numer sekwencji nadal wynika wyłącznie z nazwy `seq_*`. TASK-0310 nie zmienia
+  aktywnego pipeline'u v20, bazy, UI ani danych użytkownika.
+- **Consequences:** TASK-0311 może wykonać niezależne lokalne dopasowanie każdej
+  aktywnej planszy w ograniczonym ROI. Profil i ścieżka cold-start mają wspólny,
+  checksum-bound kontrakt, ale żadna z nich nie może ominąć finalnych bramek.
+- **Alternatives:** uznanie przeniesionych quadów za finalne oraz syntetyzowanie
+  brakujących slotów odrzucono z powodu wcześniejszych false-successów i ryzyka
+  przesunięcia symboli.
+
 ## Szablon nowej decyzji
 
 ```text

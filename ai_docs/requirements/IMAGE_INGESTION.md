@@ -142,6 +142,25 @@ z checksumą stage result; drift kończy się fail-closed.
   zostać wybrane przez produkcyjny pipeline bez nowej wersji oraz bramki;
 - do czasu osobnego rolloutu rekordy i konsumery pozostają `legacy_file`.
 
+### 2.2. Globalna inicjalizacja geometrii 0.10
+
+`structured-opencv-global-initialization-v1` przyjmuje wyłącznie kanoniczny
+RGB po jednym EXIF transpose oraz kontrakt zakresu `seq_*`. Aktywne pozycje są
+zawsze prefiksem `0..N-1`; nieaktywne pozycje nie mogą zostać zsyntetyzowane.
+
+Jeżeli gra ma profil zatwierdzonych stron, inicjalizacja wykorzystuje ORB na
+obrazie 50%, RANSAC oraz deterministyczny wybór anchora według liczby inlierów,
+ich udziału, błędu reprojekcji i checksummy źródła. Bez profilu używa trzech
+niezależnych dowodów: czerwonych ramek, gradientów grayscale oraz odcinków LSD,
+a następnie dopasowuje oczekiwany układ aktywnych slotów. Brak kompletnego
+dowodu zwraca `needs_manual_review`, bez częściowego wyniku.
+
+Globalna homografia i `initialQuad` są wyłącznie początkowym ROI dla lokalnego
+dopasowania każdej planszy. Nie są finalną geometrią, nie pozwalają uruchomić
+croppera ani inferencji symboli i nie zastępują bramek TASK-0311. Wynik wiąże
+źródło, topologię, profil, wersję konfiguracji oraz metryki checksumą, ale nie
+tworzy bitmapy. TASK-0310 nie podłącza silnika do pipeline'u produkcyjnego.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

@@ -67,6 +67,25 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   z v19 dla 15 pól. TASK-0309 nie podłącza nowego renderera do pipeline'u, bazy,
   API ani rolloutu gry.
 
+### Globalna inicjalizacja Structured OpenCV — TASK-0310
+
+- `v0.10.3` dodaje wyłącznie globalny etap
+  `structured-opencv-global-initialization-v1`. Wejście jest związane z
+  kanonicznym RGB, topologią i attested prefiksem slotów; wynik nie zawiera
+  finalnej geometrii plansz i nie uruchamia croppera.
+- Profil zatwierdzonych stron używa ORB/RANSAC na obrazie 50% i wybiera anchor
+  deterministycznie po inlierach, ratio, błędzie oraz checksumie. Dotychczasowy
+  `VerifiedPageRegistrar.register()` zachowuje pełną walidację czerwonych ramek
+  i kontrakt produkcyjny.
+- Cold start bez profilu łączy czerwone ramki, gradienty grayscale oraz LSD,
+  dopasowuje wyłącznie oczekiwane aktywne sloty i zwraca początkowe ROI.
+  Niewystarczający dowód kończy się `needs_manual_review` bez syntetycznych
+  pozycji i bez częściowego rezultatu.
+- Golden testy obejmują pełne i częściowe strony, różne perspektywy, obie
+  strategie, deterministyczność oraz fail-closed bez dowodu. Integracja
+  pipeline'u, finalny local line refinement, UI i rollout pozostają poza
+  TASK-0310.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

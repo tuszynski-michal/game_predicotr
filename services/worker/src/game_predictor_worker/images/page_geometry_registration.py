@@ -73,6 +73,42 @@ class RegisteredPageGeometry:
 
 
 @dataclass(frozen=True, slots=True)
+class PageRegistrationInitialization:
+    """Global anchor registration before any local board refinement.
+
+    The projected quads are deliberately named initialization quads. They are
+    useful as bounded ROIs for the structured engine, but are not proof that a
+    board border or its internal symbol grid is valid on the target image.
+    """
+
+    anchor_source_checksum_sha256: str
+    active_board_slots: tuple[int, ...]
+    initialization_quads: tuple[Quad, ...]
+    native_homography: tuple[tuple[float, float, float], ...]
+    inlier_count: int
+    inlier_ratio: float
+    p95_reprojection_error: float
+    feature_count: int
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "activeBoardSlots": list(self.active_board_slots),
+            "anchorSourceChecksumSha256": self.anchor_source_checksum_sha256,
+            "featureCount": self.feature_count,
+            "featuresVersion": PAGE_REGISTRATION_FEATURES_VERSION,
+            "inlierCount": self.inlier_count,
+            "inlierRatio": round(self.inlier_ratio, 6),
+            "initializationQuads": [
+                [point.to_dict() for point in quad] for quad in self.initialization_quads
+            ],
+            "nativeHomography": [list(row) for row in self.native_homography],
+            "p95ReprojectionError": round(self.p95_reprojection_error, 6),
+            "registrationVersion": PAGE_REGISTRATION_VERSION,
+            "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _Anchor:
     source_checksum_sha256: str
     feature_descriptors: NDArray[np.uint8]
@@ -135,6 +171,51 @@ class VerifiedPageRegistrar:
                 return registered
         return None
 
+    def initialize(
+        self,
+        target_rgb: NDArray[np.uint8],
+        *,
+        active_board_slots: Sequence[int],
+    ) -> PageRegistrationInitialization | None:
+        """Project only the attested row-major prefix from the best anchor.
+
+        Unlike :meth:`register`, this method does not snap to red borders and
+        does not claim final page validity. Local, per-board verification is a
+        separate structured-geometry stage.
+        """
+
+        slots = tuple(active_board_slots)
+        if not self.available or not _valid_rgb(target_rgb) or slots != tuple(range(len(slots))):
+            return None
+        target_half = _half_gray(target_rgb)
+        for feature_count in _ORB_FEATURE_COUNTS:
+            for candidate in self._matched_candidates(
+                target_half,
+                feature_count=feature_count,
+            ):
+                quads = tuple(
+                    _transform_quad(candidate.anchor.quads[position], candidate.native_homography)
+                    for position in slots
+                )
+                if not is_ordered_active_grid(
+                    quads,
+                    slots,
+                    target_rgb.shape[1],
+                    target_rgb.shape[0],
+                ):
+                    continue
+                return PageRegistrationInitialization(
+                    anchor_source_checksum_sha256=candidate.anchor.source_checksum_sha256,
+                    active_board_slots=slots,
+                    initialization_quads=quads,
+                    native_homography=_homography_payload(candidate.native_homography),
+                    inlier_count=candidate.inlier_count,
+                    inlier_ratio=candidate.inlier_ratio,
+                    p95_reprojection_error=candidate.p95_reprojection_error,
+                    feature_count=feature_count,
+                )
+        return None
+
     def _register_with_feature_count(
         self,
         target_half: NDArray[np.uint8],
@@ -143,32 +224,7 @@ class VerifiedPageRegistrar:
         red_mask: NDArray[np.uint8],
         feature_count: int,
     ) -> RegisteredPageGeometry | None:
-        anchors = self._anchors_for(feature_count)
-        if not anchors:
-            return None
-        target_points, target_descriptors = _orb_features(target_half, feature_count=feature_count)
-        if target_descriptors is None or len(target_points) < self._thresholds.minimum_inliers:
-            return None
-        candidates: list[_MatchedAnchor] = []
-        for anchor in anchors:
-            matched = _match_anchor(
-                anchor,
-                target_points=target_points,
-                target_descriptors=target_descriptors,
-                thresholds=self._thresholds,
-            )
-            if matched is not None:
-                candidates.append(matched)
-        for candidate in sorted(
-            candidates,
-            key=lambda value: (
-                value.inlier_count,
-                value.inlier_ratio,
-                -value.p95_reprojection_error,
-                value.anchor.source_checksum_sha256,
-            ),
-            reverse=True,
-        ):
+        for candidate in self._matched_candidates(target_half, feature_count=feature_count):
             registered = _finalize_registration(
                 candidate,
                 target_rgb=target_rgb,
@@ -179,6 +235,43 @@ class VerifiedPageRegistrar:
             if registered is not None:
                 return registered
         return None
+
+    def _matched_candidates(
+        self,
+        target_half: NDArray[np.uint8],
+        *,
+        feature_count: int,
+    ) -> tuple[_MatchedAnchor, ...]:
+        anchors = self._anchors_for(feature_count)
+        if not anchors:
+            return ()
+        target_points, target_descriptors = _orb_features(target_half, feature_count=feature_count)
+        if target_descriptors is None or len(target_points) < self._thresholds.minimum_inliers:
+            return ()
+        candidates = tuple(
+            matched
+            for anchor in anchors
+            if (
+                matched := _match_anchor(
+                    anchor,
+                    target_points=target_points,
+                    target_descriptors=target_descriptors,
+                    thresholds=self._thresholds,
+                )
+            )
+            is not None
+        )
+        return tuple(
+            sorted(
+                candidates,
+                key=lambda value: (
+                    -value.inlier_count,
+                    -value.inlier_ratio,
+                    value.p95_reprojection_error,
+                    value.anchor.source_checksum_sha256,
+                ),
+            )
+        )
 
     def _anchors_for(self, feature_count: int) -> tuple[_Anchor, ...]:
         existing = self._anchors_by_feature_count.get(feature_count)
@@ -534,6 +627,56 @@ def is_complete_ordered_grid(quads: Sequence[Quad], width: int, height: int) -> 
     return True
 
 
+def is_ordered_active_grid(
+    quads: Sequence[Quad],
+    active_board_slots: Sequence[int],
+    width: int,
+    height: int,
+) -> bool:
+    """Validate only an attested prefix without inventing inactive boards."""
+
+    slots = tuple(active_board_slots)
+    if not slots or slots != tuple(range(len(slots))) or len(quads) != len(slots):
+        return False
+    centres: dict[int, tuple[float, float]] = {}
+    polygons: list[NDArray[np.float32]] = []
+    for slot, quad in zip(slots, quads, strict=True):
+        points = np.asarray([[point.x, point.y] for point in quad], dtype=np.float32)
+        if not cv2.isContourConvex(points) or abs(cv2.contourArea(points)) < 25.0:
+            return False
+        if (
+            np.any(points[:, 0] < 0)
+            or np.any(points[:, 0] >= width)
+            or np.any(points[:, 1] < 0)
+            or np.any(points[:, 1] >= height)
+        ):
+            return False
+        centres[slot] = (float(points[:, 0].mean()), float(points[:, 1].mean()))
+        polygons.append(points)
+    for slot in slots:
+        row, column = divmod(slot, 3)
+        left = row * 3 + column - 1
+        above = (row - 1) * 3 + column
+        if column > 0 and left in centres and centres[left][0] >= centres[slot][0]:
+            return False
+        if row > 0 and above in centres and centres[above][1] >= centres[slot][1]:
+            return False
+    for first in range(len(polygons)):
+        for second in range(first + 1, len(polygons)):
+            intersection, _ = cv2.intersectConvexConvex(polygons[first], polygons[second])
+            if intersection > 2.0:
+                return False
+    return True
+
+
+def _homography_payload(
+    homography: NDArray[np.float64],
+) -> tuple[tuple[float, float, float], ...]:
+    normalized = homography / homography[2, 2]
+    rows = tuple(tuple(round(float(value), 12) for value in row) for row in normalized)
+    return cast(tuple[tuple[float, float, float], ...], rows)
+
+
 def _payload_quad(value: object) -> Quad | None:
     if not isinstance(value, Sequence) or isinstance(value, str | bytes) or len(value) != 4:
         return None
@@ -568,8 +711,10 @@ __all__ = [
     "PAGE_REGISTRATION_THRESHOLDS_VERSION",
     "PAGE_REGISTRATION_VERSION",
     "PageRegistrationThresholds",
+    "PageRegistrationInitialization",
     "RegisteredPageGeometry",
     "VerifiedPageRegistrar",
     "build_verified_page_registration_profile",
     "is_complete_ordered_grid",
+    "is_ordered_active_grid",
 ]

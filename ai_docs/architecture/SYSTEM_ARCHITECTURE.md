@@ -688,6 +688,20 @@ B source-direct perspektywy, a C pośrednio wyprostowanej planszy. Wyłącznie B
 jest kontraktem przyszłego rolloutu i ma test dokładnej zgodności z niezmienionym
 cropperem v19. Komponent nie jest jeszcze wywoływany przez produkcyjny pipeline.
 
+Następna warstwa 0.10 wydziela globalną inicjalizację geometrii od jej finalnej
+walidacji. `StructuredOpenCvGeometryEngine.initialize()` przyjmuje ten sam
+`CanonicalSourceFrame`, przypiętą topologię oraz poświadczony prefiks slotów.
+Z profilem zatwierdzonych stron używa istniejących anchorów ORB/RANSAC i
+deterministycznego tie-breaku. Bez profilu zbiera dowód czerwonej ramki,
+gradientów i LSD, porządkuje wyłącznie oczekiwane aktywne sloty i dopasowuje
+globalny model strony.
+
+Wynik zawiera checksum-bound konfigurację, globalną homografię oraz początkowe
+ROI aktywnych slotów. Nie zawiera `finalQuad`, nie syntetyzuje nieaktywnych
+pozycji i nie uprawnia do cropowania. Niewystarczający dowód jest kontrolowanym
+`needs_manual_review`. Końcowe lokalne dopasowanie linii pozostaje osobnym
+etapem TASK-0311, a produkcyjny v20 nie został przełączony w TASK-0310.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

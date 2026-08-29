@@ -705,6 +705,12 @@ pozycji przyszłego datasetu.
 | relative_path | varchar(1000) | bezpieczna ścieżka POSIX |
 | checksum_sha256 | varchar(64) | SHA-256 oryginału |
 | width/height | integer | dodatnie wymiary discovery |
+| raw_width/raw_height | integer nullable | surowe wymiary JPEG; część kompletnego opisu współrzędnych 0.10 |
+| oriented_width/oriented_height | integer nullable | wymiary po jednym EXIF transpose |
+| exif_orientation | smallint nullable | wartość 1–8 albo brak znacznika |
+| coordinate_space | varchar nullable | wyłącznie `exif-normalized-rgb-pixels-v1` |
+| normalization_adapter_version | varchar nullable | wersja dokładnego dekodowania/normalizacji |
+| normalized_pixel_checksum_sha256 | varchar(64) nullable | SHA-256 znormalizowanych pikseli RGB |
 | status | varchar | discovered/processing/waiting_for_review/accepted/rejected/completed/failed |
 | error_code | varchar nullable | zakres TASK-0071 |
 | created_at/processed_at | timestamptz | |
@@ -716,6 +722,27 @@ Unikalne są `(import_job_id, checksum_sha256)` oraz
 Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
 pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość
 wykonania oraz checkpoint współdzielony przez bezpieczne retry.
+
+Pola współrzędnych 0.10 są all-or-none: rekord historyczny może nie mieć
+żadnego z nich, natomiast rekord używany przez wirtualną geometrię musi mieć
+kompletny opis i checksumę. Bounded backfill TASK-0308 nie zgaduje EXIF ani nie
+dekoduje historycznych źródeł.
+
+### image_source_geometry_revisions i image_geometry_rollout_states
+
+`image_source_geometry_revisions` jest append-only historią geometrii całej
+strony w kanonicznej przestrzeni źródła. Rekord zapisuje grę, źródło, wersję
+reguł/topologię, attested zakres, dokładny prefiks aktywnych slotów, źródłowe i
+znormalizowane SHA-256, wymiary, wersję normalizacji, opcjonalną globalną
+inicjalizację, quady aktywnych plansz, wersję silnika, status, ostrzeżenia i
+checksumę całej geometrii. Nie przechowuje bitmap.
+
+`image_geometry_rollout_states` jest jednym rekordem per gra. Oddziela rollout
+geometrii (`legacy`, `structured_shadow`, `structured_review`,
+`structured_default`) od sposobu dostarczania assetów komórek
+(`legacy_files`, `virtual_shadow`, `virtual_default`) i przechowuje bounded
+checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
+brakujący rekord jest tworzony wyłącznie jako legacy.
 
 ### image_pipeline_stage_results
 
@@ -765,8 +792,12 @@ ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
 | sequence_number | bigint nullable | wyłącznie cyfrowa sugestia |
 | sequence_confidence | float | 0..1 |
 | board_geometry | JSONB | quad i provenance geometrii |
-| board_relative_path | varchar | bezpieczna ścieżka artefaktu |
-| board_checksum_sha256 | varchar(64) | |
+| asset_mode | varchar | `legacy_file` albo przyszły `virtual_source` |
+| source_geometry_revision_id | UUID nullable | FK append-only geometrii źródła |
+| geometry_engine_name/version | varchar nullable | wymagane dla wirtualnego wyniku |
+| geometry_checksum_sha256 | varchar(64) nullable | wiąże dokładną geometrię |
+| board_relative_path | varchar nullable | wymagane tylko dla `legacy_file` |
+| board_checksum_sha256 | varchar(64) nullable | wymagane tylko dla `legacy_file` |
 | cells_prediction | JSONB | model, 15 predykcji i alternatywy |
 | board_confidence | float | 0..1 |
 | pipeline_fingerprint | varchar(64) | pełne provenance |
@@ -789,7 +820,14 @@ zdjęcia.
 | id | UUID | PK |
 | recognized_board_id | UUID | FK recognized_boards |
 | row_index/column_index | smallint | odpowiednio 0..2 i 0..4 |
-| crop_relative_path | varchar | bezpieczna ścieżka POSIX |
+| asset_mode | varchar | `legacy_file` albo `virtual_source` |
+| source_geometry_revision_id | UUID nullable | FK geometrii źródła |
+| logical_cell_key | varchar(64) nullable | stabilna logiczna tożsamość komórki |
+| render_spec | JSONB nullable | geometry-bound spec bezpośredniego renderu |
+| render_spec_checksum_sha256 | varchar(64) nullable | checksum render spec |
+| rendered_pixel_checksum_sha256 | varchar(64) nullable | checksum wynikowych pikseli |
+| extractor_version | varchar nullable | wersja direct renderera |
+| crop_relative_path | varchar nullable | wymagane dla `legacy_file`, NULL dla virtual |
 | crop_checksum_sha256 | varchar(64) | checksum konkretnego cropu |
 | cropper_version | varchar(150) | |
 | prediction | JSONB | symbol, confidence i maks. 4 alternatywy |
@@ -800,6 +838,12 @@ cropu jest osobnym artefaktem wskazującym `cropper_version`,
 `calibration_profile_version`, względną ścieżkę i checksumę. Zmiana geometrii
 tworzy nową wersję cropu tej samej obserwacji; nie nadpisuje starego pliku ani
 nie przenosi automatycznie decyzji symbolu.
+
+Migracja 0082 dodaje ten sam warunkowy kontrakt proweniencji do bieżącej
+projekcji `image_symbol_review_cells`, append-only eventów, rewizji geometrii i
+próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
+ścieżka jest `NULL`, a source geometry, logical key, render spec i pixel SHA-256
+są obowiązkowe. `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
 
 W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenowego
 `sequence_number`, pozycji planszy i współrzędnych komórki, ale nie z bajtów

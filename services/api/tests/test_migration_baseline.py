@@ -91,6 +91,7 @@ STORAGE_INVENTORY_REVISION = "0078_storage_inventory_job"
 PIPELINE_STATE_COMPACTION_REVISION = "0079_pipeline_state_compaction"
 PIPELINE_STATE_DIGEST_REVISION = "0080_pipeline_state_digest"
 PIPELINE_TERMINAL_MANIFEST_V2_REVISION = "0081_pipeline_terminal_manifest_v2"
+VIRTUAL_GEOMETRY_FOUNDATION_REVISION = "0082_virtual_geometry_foundation"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -171,6 +172,36 @@ def test_pipeline_state_digest_migrations_enable_sha256_and_manifest_v2() -> Non
     assert "create extension if not exists pgcrypto" in upgrade_sql
     assert "schema_version in (1, 2)" in upgrade_sql
     assert "schema_version = 1" in downgrade_output.getvalue().lower()
+
+
+def test_virtual_geometry_foundation_migration_adds_dual_asset_provenance() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}:{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}:{PIPELINE_TERMINAL_MANIFEST_V2_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_source_geometry_revisions" in upgrade_sql
+    assert "create table image_geometry_rollout_states" in upgrade_sql
+    assert "exif-normalized-rgb-pixels-v1" in upgrade_sql
+    assert "asset_mode" in upgrade_sql
+    assert "virtual_source" in upgrade_sql
+    assert "render_spec_checksum_sha256" in upgrade_sql
+    assert "not valid" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "0082 downgrade blocked: virtual geometry provenance exists" in downgrade_sql
+    assert "drop table image_geometry_rollout_states" in downgrade_sql
+    assert "drop table image_source_geometry_revisions" in downgrade_sql
 
 
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
@@ -278,7 +309,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     pipeline_state_compaction = script.get_revision(PIPELINE_STATE_COMPACTION_REVISION)
     pipeline_state_digest = script.get_revision(PIPELINE_STATE_DIGEST_REVISION)
     pipeline_terminal_manifest_v2 = script.get_revision(PIPELINE_TERMINAL_MANIFEST_V2_REVISION)
-    assert script.get_heads() == [PIPELINE_TERMINAL_MANIFEST_V2_REVISION]
+    virtual_geometry_foundation = script.get_revision(VIRTUAL_GEOMETRY_FOUNDATION_REVISION)
+    assert script.get_heads() == [VIRTUAL_GEOMETRY_FOUNDATION_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -291,6 +323,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert pipeline_state_digest.down_revision == PIPELINE_STATE_COMPACTION_REVISION
     assert pipeline_terminal_manifest_v2 is not None
     assert pipeline_terminal_manifest_v2.down_revision == PIPELINE_STATE_DIGEST_REVISION
+    assert virtual_geometry_foundation is not None
+    assert virtual_geometry_foundation.down_revision == PIPELINE_TERMINAL_MANIFEST_V2_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

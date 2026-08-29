@@ -218,15 +218,21 @@ class PendingSymbolReinferenceHandler:
                     )
                 )
         else:
-            crops = [
-                (
-                    observation.crop_relative_path,
-                    observation.crop_checksum_sha256,
-                    observation.row_index,
-                    observation.column_index,
+            crops = []
+            for observation in observations:
+                if observation.crop_relative_path is None:
+                    raise JobHandlerError(
+                        "IMAGE_SYMBOL_REINFERENCE_VIRTUAL_ASSET_UNAVAILABLE",
+                        "Virtual cell assets are not active in the legacy reinference job.",
+                    )
+                crops.append(
+                    (
+                        observation.crop_relative_path,
+                        observation.crop_checksum_sha256,
+                        observation.row_index,
+                        observation.column_index,
+                    )
                 )
-                for observation in observations
-            ]
         crops.sort(key=lambda crop: (crop[2], crop[3]))
         if len(crops) != 15:
             raise JobHandlerError(

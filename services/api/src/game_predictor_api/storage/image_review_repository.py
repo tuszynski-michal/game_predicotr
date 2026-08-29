@@ -1007,6 +1007,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 else:
                     staging.sequence_number = resolved_sequence
                     staging.cells = mobile_codes
+                if board.board_checksum_sha256 is None:
+                    raise ImageReviewConflictError(
+                        "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+                        "Virtual board assets are not active in the legacy review writer.",
+                    )
                 canonical.status = resolution.action.value
                 canonical.resolution_revision = revision
                 canonical.geometry_revision = board.geometry_revision
@@ -2359,6 +2364,7 @@ def _item_from_records(
         if (
             geometry_revision is None
             or geometry_revision.revision != board.geometry_revision
+            or geometry_revision.crop_artifacts is None
             or len(geometry_revision.crop_artifacts) != 15
         ):
             raise ImageReviewConflictError(
@@ -2425,10 +2431,16 @@ def _item_from_records(
                 )
             )
         revised = revised_cells.get(index)
+        base_crop_relative_path = observation.crop_relative_path
+        if revised is None and base_crop_relative_path is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+                "Virtual cell assets are not active in the legacy review mapper.",
+            )
         crop_relative_path = (
             cast(str, revised["cropRelativePath"])
             if revised is not None
-            else observation.crop_relative_path
+            else cast(str, base_crop_relative_path)
         )
         crop_checksum_sha256 = (
             cast(str, revised["cropChecksumSha256"])
@@ -2470,6 +2482,11 @@ def _item_from_records(
         if resolved is not None and isinstance(resolved.get("sequenceNumber"), int)
         else None
     )
+    if board.board_relative_path is None or board.board_checksum_sha256 is None:
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+            "Virtual board assets are not active in the legacy review mapper.",
+        )
     return ImageReviewItem(
         id=item.id,
         game_id=cast(UUID, job.game_id),
@@ -2571,6 +2588,15 @@ def _superseded_resolved_value(
 def _geometry_revision_from_record(
     record: ImageBoardGeometryRevisionModel,
 ) -> ImageReviewGeometryRevision:
+    if (
+        record.crop_artifacts is None
+        or record.board_relative_path is None
+        or record.board_checksum_sha256 is None
+    ):
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+            "Virtual geometry assets are not active in the legacy review mapper.",
+        )
     try:
         corners = cast(
             tuple[

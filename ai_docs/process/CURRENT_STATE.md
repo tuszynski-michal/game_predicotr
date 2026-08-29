@@ -30,6 +30,24 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   renderowania. Następny task wykorzysta te kontrakty do addytywnego schematu
   i bezpiecznej ścieżki kompatybilności.
 
+### Trwałość wirtualnej geometrii — TASK-0308
+
+- `v0.10.1` dodaje migrację `0082_virtual_geometry_foundation`, lecz nie
+  aktywuje nowego pipeline'u. Istniejące plansze, cropy, review i kohorty
+  pozostają w trybie `legacy_file`; stan każdej gry domyślnie wynosi
+  `legacy` / `legacy_files`.
+- `source_images` może zapisać kompletny, all-or-none opis współrzędnych RGB po
+  EXIF. Append-only `image_source_geometry_revisions` wiąże źródło, attested
+  zakres i sloty, topologię, silnik, quady oraz checksumy bez binariów.
+- Dual-schema pozwala przyszłemu rekordowi `virtual_source` nie mieć ścieżki
+  pliku, ale wymaga source geometry, logical cell key, render spec, extractor
+  version i rendered-pixel SHA-256. Dotychczasowe repozytoria legacy odrzucają
+  taki rekord fail-closed do czasu ich jawnego przełączenia w kolejnych
+  taskach.
+- Backfill rolloutów jest idempotentny i ograniczony do 200 gier na partię
+  (maksymalnie 500); nie skanuje obrazów ani wielomilionowych tabel cropów.
+  Migracja nie została uruchomiona na roboczej bazie użytkownika.
+
 ### Ograniczenie zużycia dysku — TASK-0306
 
 - Rozpoczęto pion `v0.9.16–v0.9.23`. Retencja odtwarzalnych danych wynosi

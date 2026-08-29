@@ -735,6 +735,9 @@ def _payload_from_records(
         primary, alternatives = parsed
         sequence_number = int(board.sequence_number)
 
+    if board.board_checksum_sha256 is None:
+        return None
+
     return BoardSearchProjectionPayload(
         game_id=job.game_id,
         import_job_id=source.import_job_id,

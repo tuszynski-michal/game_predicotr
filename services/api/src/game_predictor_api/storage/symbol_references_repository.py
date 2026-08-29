@@ -276,7 +276,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             crop_checksum_sha256 = observation.crop_checksum_sha256
             if board.geometry_revision > 0:
                 revision = revisions.get((board.id, board.geometry_revision))
-                if revision is None:
+                if revision is None or revision.crop_artifacts is None:
                     raise CatalogNotFoundError(
                         "SYMBOL_REFERENCE_GEOMETRY_MISSING",
                         "The approved board geometry revision is unavailable.",
@@ -284,6 +284,11 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 artifact = _crop_artifact(revision.crop_artifacts, index)
                 crop_relative_path = artifact["cropRelativePath"]
                 crop_checksum_sha256 = artifact["cropChecksumSha256"]
+            if crop_relative_path is None:
+                raise CatalogNotFoundError(
+                    "SYMBOL_REFERENCE_VIRTUAL_ASSET_UNAVAILABLE",
+                    "Virtual symbol assets are not active in the approved-reference picker.",
+                )
             candidates.append(
                 ApprovedSymbolReferenceCandidate(
                     observation_id=observation.id,

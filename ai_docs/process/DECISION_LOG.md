@@ -6094,6 +6094,28 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   częściowej stronie oraz prostokątne ograniczenie quada odrzucono, ponieważ
   stoją w sprzeczności z poświadczoną nazwą, kolejnością i perspektywą zdjęć.
 
+## D-255 — Wirtualny asset jest dual-schema i wdrażany per gra
+
+- **Status:** accepted
+- **Date:** 2026-08-29
+- **Decision:** geometria źródła jest append-only, a trwałe rekordy planszy,
+  komórki, review i kohorty deklarują `legacy_file` albo `virtual_source`.
+  Virtual nie przechowuje ścieżki cropa; wymaga source geometry, logical cell
+  key, render spec, wersji extractora i checksumy wynikowych pikseli. Osobny
+  rekord rolloutu per gra pozostaje domyślnie `legacy` / `legacy_files`.
+- **Context:** kolejne silniki mają renderować komórkę bezpośrednio z managed
+  original bez milionów trwałych plików, ale historyczne joby i review muszą
+  pozostać odtwarzalne podczas długiego rolloutu.
+- **Safety:** migracja 0082 jest addytywna. Constraints dużych tabel są
+  dodawane jako `NOT VALID`, więc unikają nieograniczonego skanu historycznych
+  rekordów, a nowe zapisy są sprawdzane od razu. Backfill rolloutów jest
+  idempotentny i bounded. Dotychczasowe read paths odrzucają virtual fail-closed
+  do czasu jawnego przełączenia.
+- **Consequences:** fizyczny downgrade jest bezpieczny przed pojawieniem się
+  source geometry lub aktywnego virtual mode. Później rollback oznacza zmianę
+  rolloutu gry na legacy i zachowanie proweniencji, nie destrukcyjne usunięcie
+  kolumn lub tabel.
+
 ## Szablon nowej decyzji
 
 ```text

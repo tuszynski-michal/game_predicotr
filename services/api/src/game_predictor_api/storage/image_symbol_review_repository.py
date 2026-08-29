@@ -1972,6 +1972,11 @@ def _symbol_cell_review_from_model(
             "SYMBOL_CELL_REVIEW_SYMBOL_INVALID",
             "The crop references an inactive or foreign symbol.",
         )
+    if cell.crop_relative_path is None:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
+            "Virtual symbol assets are not active in the legacy review mapper.",
+        )
     return SymbolCellReview(
         crop=SymbolCellCropIdentity(
             cell_index=int(cell.cell_index),

@@ -406,27 +406,34 @@ class PendingGridReinferenceHandler:
                     ImageReviewItemModel.id,
                 )
             ).tuples()
-            return [
-                _PendingBoardSnapshot(
-                    review_item_id=item.id,
-                    resolution_revision=item.resolution_revision,
-                    recognized_board_id=board.id,
-                    geometry_revision=board.geometry_revision,
-                    source_image_id=source.id,
-                    import_job_id=source.import_job_id,
-                    source_order_index=order_index,
-                    sequence_number=board.sequence_number,
-                    position_index=board.position_index,
-                    board_geometry=dict(board.board_geometry),
-                    board_relative_path=board.board_relative_path,
-                    board_checksum_sha256=board.board_checksum_sha256,
-                    source_relative_path=source.relative_path,
-                    source_checksum_sha256=source.checksum_sha256,
-                    source_width=source.width,
-                    source_height=source.height,
+            snapshots: list[_PendingBoardSnapshot] = []
+            for item, board, source, order_index in rows:
+                if board.board_relative_path is None or board.board_checksum_sha256 is None:
+                    raise JobHandlerError(
+                        "IMAGE_GRID_REINFERENCE_VIRTUAL_ASSET_UNAVAILABLE",
+                        "Virtual board assets are not active in the legacy grid-refresh job.",
+                    )
+                snapshots.append(
+                    _PendingBoardSnapshot(
+                        review_item_id=item.id,
+                        resolution_revision=item.resolution_revision,
+                        recognized_board_id=board.id,
+                        geometry_revision=board.geometry_revision,
+                        source_image_id=source.id,
+                        import_job_id=source.import_job_id,
+                        source_order_index=order_index,
+                        sequence_number=board.sequence_number,
+                        position_index=board.position_index,
+                        board_geometry=dict(board.board_geometry),
+                        board_relative_path=board.board_relative_path,
+                        board_checksum_sha256=board.board_checksum_sha256,
+                        source_relative_path=source.relative_path,
+                        source_checksum_sha256=source.checksum_sha256,
+                        source_width=source.width,
+                        source_height=source.height,
+                    )
                 )
-                for item, board, source, order_index in rows
-            ]
+            return snapshots
 
     def _prepare_v19_refresh(
         self,

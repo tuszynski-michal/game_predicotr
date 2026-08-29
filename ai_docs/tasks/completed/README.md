@@ -53,6 +53,7 @@ audytu; nie są aktywnym zakresem wersji 0.7.
 ## Wersja 0.10
 
 - [TASK-0307 — Kontrakty attested `seq_*` i wirtualnej geometrii](0307-v0-10-attested-virtual-geometry-contracts.md)
+- [TASK-0308 — Trwała proweniencja wirtualnej geometrii](0308-v0-10-virtual-geometry-provenance.md)
 
 ## Zawartość
 

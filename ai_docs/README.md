@@ -51,6 +51,7 @@ implementacyjnym.
 - [Tech stack](architecture/TECH_STACK.md)
 - [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
 - [Data model](architecture/DATA_MODEL.md)
+- [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
 - [API contract](architecture/API_CONTRACT.md)
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)

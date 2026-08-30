@@ -3945,3 +3945,19 @@ Rekomendacja pozostaje warunkowa: rozszerzyć wyłącznie read-only corpus i
 zbadać połączenie ramki zewnętrznej, znanego układu oraz regularności. Wynik nie
 zalicza bramki 95/98 i ma `rolloutAuthorized=false`. Raport znajduje się w
 `ai_docs/quality/STRUCTURED_GEOMETRY_FEASIBILITY_SPIKE_V1.md`.
+
+TASK-0324 zakończył przegląd własności schematu geometrii wirtualnej bez zmian
+bazy i kodu wykonawczego. Jedynym właścicielem finalnego payloadu quadów jest
+`image_source_geometry_revisions.board_geometries`, a bieżąca plansza wybiera
+go przez `recognized_boards.source_geometry_revision_id + position_index`.
+Pole `recognized_boards.board_geometry` pozostaje projekcją zgodnościową,
+board revisions przechowują komendę i audyt, a observations dokładną
+proweniencję renderu.
+
+Active slots oraz snapshot topologii należą do source revision. Rollout
+pozostaje osobnym stanem operacyjnym i jest zamrażany w input joba. Następne
+zadanie może przygotować wyłącznie addytywną migrację po 0082/0083: trwałość
+topology/attestation fingerprint, logical-cell-v2, outcome v2 i związanie
+rollout readiness z dokładnym wejściem walidacji. Nie wykonano backfillu,
+cutoveru, operacji na danych ani zmiany progów geometrii. Pełna mapa znajduje
+się w `ai_docs/architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md`.

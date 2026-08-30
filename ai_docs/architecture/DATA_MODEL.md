@@ -2001,6 +2001,24 @@ deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
 filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
 nie przechowuje JPEG-a.
 
+## Własność geometrii wirtualnej
+
+Migracja 0082 wprowadziła addytywne nośniki geometrii source-level. Ich
+odpowiedzialności nie są równorzędne:
+
+- `image_source_geometry_revisions.board_geometries` jest właścicielem
+  niezmiennych quadów wszystkich aktywnych slotów;
+- `recognized_boards.source_geometry_revision_id + position_index` wybiera
+  bieżącą geometrię pojedynczej planszy;
+- `recognized_boards.board_geometry` jest projekcją kompatybilnościową;
+- `image_board_geometry_revisions` przechowuje komendę i audyt korekty;
+- `cell_observations.render_spec` przechowuje proweniencję renderu cropa.
+
+Pełna mapa ról, invarianty cross-table, reguły manualnego recropu i projekt
+addytywnej korekty znajdują się w
+[Virtual geometry schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md).
+Żadna kopia projekcyjna ani audytowa nie jest drugim właścicielem virtual quada.
+
 ## Mock data M1
 
 - 3 gry,

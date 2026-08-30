@@ -92,9 +92,11 @@ Najczęstsze reason codes:
 - `source_support_incomplete`: 12;
 - profilowy niepoprawny quad / `ImageGeometryContractError`: 27.
 
-## Warunek kolejnego etapu
+## Warunek kolejnego etapu geometrii produkcyjnej
 
-Przed schema ownership review należy rozszerzyć wejście tego samego runnera o:
+Schema ownership review może zostać wykonany niezależnie, ponieważ nie zmienia
+algorytmu ani rolloutu. Przed konfiguracją kolejnego silnika geometrii lub
+zmianą progów produkcyjnych należy rozszerzyć wejście tego samego runnera o:
 
 1. co najmniej drugą grę i inną rodzinę wizualną;
 2. rzeczywiste częściowe strony;

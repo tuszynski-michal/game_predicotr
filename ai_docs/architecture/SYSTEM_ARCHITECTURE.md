@@ -831,6 +831,15 @@ kandydat osiąga wysoki prowizoryczny wynik geometryczny. TASK-0323 nie zmienia
 bramek 95/98 ani hard gates; jego wyniki mogą jedynie uzasadnić następny,
 szerszy read-only corpus.
 
+TASK-0324 zamyka własność schematu geometrii wirtualnej. Kanoniczny payload
+quadów należy do niezmiennego `image_source_geometry_revisions`, natomiast
+`recognized_boards.source_geometry_revision_id + position_index` wybiera
+bieżący slot konkretnej planszy. Board revisions pozostają historią komendy i
+audytu, a observations — proweniencją renderu. Rollout jest osobnym stanem
+operacyjnym, zamrażanym w job input, i nie staje się częścią właścicielską
+geometrii. Szczegółowe invarianty i projekt następnej addytywnej korekty
+opisuje [Virtual geometry schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md).
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

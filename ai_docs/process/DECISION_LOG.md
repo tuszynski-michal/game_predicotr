@@ -6387,6 +6387,37 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   traktowanie oracle jako produkcyjnej inicjalizacji oraz przejście od razu do
   segmentacji/modelu odrzucono jako nieaudytowalne albo przedwczesne.
 
+## D-267 — Source revision posiada virtual quady, a plansza wybiera revision i slot
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** `image_source_geometry_revisions.board_geometries` jest
+  jedynym kanonicznym właścicielem finalnych quadów geometrii wirtualnej.
+  Bieżąca plansza wybiera geometrię przez
+  `recognized_boards.source_geometry_revision_id + position_index`.
+  `recognized_boards.board_geometry` jest projekcją kompatybilnościową,
+  `image_board_geometry_revisions` historią komendy/audytu, a
+  `cell_observations.render_spec` proweniencją dokładnego renderu cropa.
+- **Context:** migracja 0082 wprowadziła payloady source-level, wskaźnik
+  board-level i kilka historycznych kopii geometrii. Bez jawnego podziału ról
+  kopie mogły zostać potraktowane jako równorzędne źródła prawdy. Ręczna
+  korekta jednego slotu tworzy kompletny source snapshot, ale zmienia selektor
+  tylko tej planszy, dlatego kilka plansz jednego źródła może prawidłowo
+  wskazywać różne source revisions.
+- **Safety:** 0082 i 0083 pozostają niezmienione. TASK-0324 nie dodaje migracji,
+  nie wykonuje backfillu i nie zmienia write pathów ani danych użytkownika.
+  Legacy geometry i assety pozostają odtwarzalne. Następna korekta może być
+  wyłącznie addytywna, z dual read/write i raportem niejednoznaczności.
+- **Consequences:** active slots i snapshot topologii należą do source revision;
+  rollout pozostaje osobnym stanem operacyjnym zamrażanym przez job. Virtual
+  read path zawsze zaczyna od source revision i slotu. Projekcje muszą być
+  walidowane checksumowo, lecz nie stają się współwłaścicielem.
+- **Alternatives:** jeden globalny current source revision, uznanie
+  `recognized_boards.board_geometry` za właściciela, normalizacja każdego
+  slotu do osobnej tabeli oraz przeniesienie rolloutu do `games` odrzucono jako
+  odpowiednio: łamanie niezależnych korekt, dublowanie prawdy, nieuzasadnioną
+  komplikację transakcji i mieszanie polityki operacyjnej z domeną gry.
+
 ## Szablon nowej decyzji
 
 ```text

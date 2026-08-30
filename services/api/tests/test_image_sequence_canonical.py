@@ -10,11 +10,20 @@ from game_predictor_api.domain.jobs import JobConflictError
 
 
 class _Repository:
-    def __init__(self, numbers: set[int]) -> None:
+    def __init__(
+        self,
+        numbers: set[int],
+        *,
+        expected_layout_count: int | None = None,
+    ) -> None:
         self.numbers = numbers
+        self._expected_layout_count = expected_layout_count
 
     def canonical_numbers(self, _game_id):  # type: ignore[no-untyped-def]
         return set(self.numbers)
+
+    def expected_layout_count(self, _game_id):  # type: ignore[no-untyped-def]
+        return self._expected_layout_count
 
 
 def _touch(root: Path, name: str) -> None:
@@ -143,3 +152,32 @@ def test_manifest_rejects_mixed_attested_and_unattested_names() -> None:
         )
 
     assert error.value.code == "IMAGE_SEQUENCE_MANIFEST_INVALID"
+
+
+def test_preflight_accepts_a_bounded_final_sequence_page(tmp_path: Path) -> None:
+    _touch(tmp_path, "seq_499996-500000.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=500_000))
+
+    result = service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert result.attested_file_count == 1
+    assert result.new_sequence_count == 5
+    assert result.last_unresolved_sequence == 500_000
+
+
+def test_preflight_rejects_a_sequence_page_beyond_the_game_bound(
+    tmp_path: Path,
+) -> None:
+    _touch(tmp_path, "seq_499999-500007.jpg")
+    service = ImageSequenceCanonicalService(_Repository(set(), expected_layout_count=500_000))
+
+    with pytest.raises(JobConflictError) as error:
+        service.preflight(game_id=uuid4(), source_directory=tmp_path)
+
+    assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS"
+    assert error.value.details == {
+        "expectedLayoutCount": 500_000,
+        "fileName": "seq_499999-500007.jpg",
+        "rangeStart": 499_999,
+        "rangeEnd": 500_007,
+    }

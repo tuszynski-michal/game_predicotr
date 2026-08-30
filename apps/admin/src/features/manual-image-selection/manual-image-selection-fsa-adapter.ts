@@ -8,7 +8,9 @@ import {
   type ManualImageDescriptor,
   type ManualOutputFileResult,
   type ManualSelectionDecision,
+  type ManualSelectionOutputManifest,
   type ManualSelectionOutputManifestV1,
+  type ManualSelectionOutputManifestV2,
   type ManualSelectionOutputPort,
   type ManualSelectionSessionMetadata,
   type ManualSelectionSourcePort,
@@ -235,7 +237,7 @@ export async function writeManualOutputManifest(
 
 export async function readManualOutputManifest(
   outputDirectory: FileSystemDirectoryHandle,
-): Promise<ManualSelectionOutputManifestV1 | null> {
+): Promise<ManualSelectionOutputManifest | null> {
   try {
     const file = await (
       await outputDirectory.getFileHandle(
@@ -299,13 +301,13 @@ async function writeOwnedJsonFile(
 
 function parseManualOutputManifest(
   source: string,
-): ManualSelectionOutputManifestV1 {
+): ManualSelectionOutputManifest {
   const parsed: unknown = JSON.parse(source);
   if (
     typeof parsed !== 'object' ||
     parsed === null ||
     !('schemaVersion' in parsed) ||
-    parsed.schemaVersion !== 1 ||
+    (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) ||
     !('gameId' in parsed) ||
     typeof parsed.gameId !== 'string' ||
     !('sessionKey' in parsed) ||
@@ -323,6 +325,22 @@ function parseManualOutputManifest(
   ) {
     throw new Error('Manifest ręcznej selekcji ma nieprawidłową strukturę.');
   }
+  const sequenceUpperBound =
+    parsed.schemaVersion === 2 && 'sequenceUpperBound' in parsed
+      ? parsed.sequenceUpperBound
+      : null;
+  if (
+    parsed.schemaVersion === 2 &&
+    (('selectionComplete' in parsed &&
+      typeof parsed.selectionComplete !== 'boolean') ||
+      !('selectionComplete' in parsed) ||
+      !('sequenceUpperBound' in parsed) ||
+      (sequenceUpperBound !== null &&
+        (!Number.isSafeInteger(sequenceUpperBound) ||
+          (sequenceUpperBound as number) < (parsed.firstLayout as number))))
+  ) {
+    throw new Error('Manifest ręcznej selekcji v2 ma nieprawidłowe granice.');
+  }
   for (const item of parsed.items) {
     if (
       typeof item !== 'object' ||
@@ -336,10 +354,38 @@ function parseManualOutputManifest(
       !('rangeStart' in item) ||
       !Number.isSafeInteger(item.rangeStart) ||
       !('rangeEnd' in item) ||
-      !Number.isSafeInteger(item.rangeEnd)
+      !Number.isSafeInteger(item.rangeEnd) ||
+      (item.rangeStart as number) < 1 ||
+      (item.rangeEnd as number) < (item.rangeStart as number) ||
+      (item.rangeEnd as number) - (item.rangeStart as number) > 8 ||
+      item.outputName !==
+        `seq_${String(item.rangeStart)}-${String(item.rangeEnd)}.jpg` ||
+      !/^[a-f0-9]{64}$/.test(item.imageChecksum)
     ) {
       throw new Error('Manifest ręcznej selekcji ma nieprawidłowy wpis pliku.');
     }
+    if (
+      parsed.schemaVersion === 1 &&
+      item.rangeEnd !== (item.rangeStart as number) + 8
+    ) {
+      throw new Error('Manifest v1 musi zawierać pełne zakresy 9 plansz.');
+    }
+    if (
+      parsed.schemaVersion === 2 &&
+      (!('activeBoardCount' in item) ||
+        item.activeBoardCount !==
+          (item.rangeEnd as number) - (item.rangeStart as number) + 1 ||
+        item.rangeEnd !==
+          (sequenceUpperBound === null
+            ? (item.rangeStart as number) + 8
+            : Math.min(
+                (item.rangeStart as number) + 8,
+                sequenceUpperBound as number,
+              )))
+    ) {
+      throw new Error('Manifest v2 zawiera zakres niezgodny z granicą.');
+    }
   }
-  return parsed as ManualSelectionOutputManifestV1;
+  return parsed as
+    ManualSelectionOutputManifestV1 | ManualSelectionOutputManifestV2;
 }

@@ -1045,6 +1045,12 @@ backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
 tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
 i nie tworzy duplikatu.
 
+Preflight porównuje także koniec każdego poświadczonego zakresu z
+`games.expected_layout_count`. Końcowy plik może zawierać od jednej do
+dziewięciu plansz, np. `seq_499996-500000.jpg`, ale numer większy od granicy gry
+kończy się stabilnym `IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS` przed utworzeniem
+joba.
+
 Pierwsze czyszczenie istniejących stagingów wymaga jawnego preview i akceptacji
 Admina. Po włączeniu zatwierdzonej polityki automatycznej usuwalne są wyłącznie
 stagingi z kompletnym handoffem; staging przypisany do innej gry jest ukryty

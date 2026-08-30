@@ -6289,6 +6289,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   automatyczny trening na danych użytkownika oraz osobny zestaw słabszych bramek
   dla modelu odrzucono jako naruszające D-261 i granice bezpieczeństwa.
 
+## D-263 — Końcowa strona ręcznej selekcji jest ograniczona granicą gry
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowa lokalna i operator-local sesja ręcznej selekcji może
+  przypiąć `sequenceUpperBound`. Zakres pozostaje ciągły i ma najwyżej dziewięć
+  plansz, lecz końcowa strona kończy się na tej granicy. Bieżący writer zapisuje
+  schema v2 z liczbą aktywnych plansz i stanem terminalnym; fizyczna nazwa
+  `manual-image-selection-output-v1.json` pozostaje dla jednego źródła
+  wznowienia. Reader nadal obsługuje schema v1 jako pełne strony dziewięciu
+  plansz.
+- **Context:** rzeczywisty katalog kończył się na planszy `500000`, podczas gdy
+  historyczna arytmetyka bez granicy zapisała w manifeście `499996–500004` dla
+  fizycznego pliku `seq_499996-500000.jpg`.
+- **Safety:** niezgodny istniejący katalog jest tylko diagnozowany przez
+  read-only dry-run; system nie zmienia automatycznie manifestu ani JPEG-ów.
+  Preflight importu dodatkowo blokuje każdy zakres przekraczający
+  `games.expected_layout_count`.
+- **Consequences:** cofnięcie ostatniej decyzji ponownie otwiera zakończoną
+  sesję. Nie ma migracji bazy ani IndexedDB, a historyczny host-transfer nie
+  zmienia kontraktu.
+- **Alternatives:** sztuczne dopełnianie do dziewięciu, tworzenie drugiego pliku
+  manifestu oraz automatyczna naprawa starego katalogu odrzucono jako źródła
+  nieistniejących numerów, rozjazdu wznowienia lub ryzyka utraty danych.
+
 ## Szablon nowej decyzji
 
 ```text

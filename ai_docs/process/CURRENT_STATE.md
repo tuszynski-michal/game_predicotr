@@ -3888,3 +3888,15 @@ Dodano read-only raport rozmiarów przed/po. Migracja została sprawdzona na
 izolowanym PostgreSQL, ale nie została wykonana na bazie użytkownika; przed tym
 wymagany jest osobny checkpoint. Nie uruchomiono `VACUUM FULL` ani operacji na
 plikach obrazów.
+
+TASK-0320 domyka kontrakt końcowej, częściowej strony ręcznej selekcji. Lokalny
+Admin i operator-local Reviewer przyjmują opcjonalny `sequenceUpperBound`,
+zapisują zakres `start..min(start+8, upperBound)` i zatrzymują dalsze decyzje po
+osiągnięciu granicy. Cofnięcie ostatniej decyzji ponownie otwiera sesję.
+
+Bieżący writer materializuje schema v2 w zachowanym pliku
+`manual-image-selection-output-v1.json`; wersja zawiera granicę, stan terminalny
+i `activeBoardCount`, natomiast reader nadal wznawia schema v1 jako pełne strony
+dziewięciu plansz. Read-only skrypt diagnostyczny raportuje propozycję v2 dla
+niespójnych historycznych nazw bez zmiany plików. Preflight `seq_*` blokuje
+numery przekraczające `games.expected_layout_count`.

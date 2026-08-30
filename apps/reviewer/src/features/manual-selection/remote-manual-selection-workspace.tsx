@@ -7,6 +7,7 @@ import {
   MANUAL_IMAGE_NAVIGATION_STEPS,
   adjacentManualNavigationStep,
   fitManualImageToViewport,
+  rangeForStart,
   resolveManualSelectionShortcut,
   type ManualImageSize,
 } from '@game-predictor/manual-image-selection-core';
@@ -128,26 +129,45 @@ export function RemoteManualSelectionWorkspace({
   }, []);
 
   function openRangeEditor() {
-    setRangeStartDraft(String(workspace.nextRangeStart));
-    setRangeEndDraft(String(workspace.nextRangeStart + 8));
+    const range = rangeForStart(
+      workspace.nextRangeStart,
+      batchRef.current.sequenceUpperBound ?? null,
+    );
+    setRangeStartDraft(String(range.start));
+    setRangeEndDraft(String(range.end));
     setRangeEditorOpen(true);
   }
 
   async function applyRangeEdit() {
     const rangeStart = Number(rangeStartDraft);
     const rangeEnd = Number(rangeEndDraft);
+    let expectedRangeEnd: number | null = null;
+    if (Number.isSafeInteger(rangeStart) && rangeStart >= 1) {
+      try {
+        expectedRangeEnd = rangeForStart(
+          rangeStart,
+          batchRef.current.sequenceUpperBound ?? null,
+        ).end;
+      } catch {
+        expectedRangeEnd = null;
+      }
+    }
     if (
       !Number.isSafeInteger(rangeStart) ||
       !Number.isSafeInteger(rangeEnd) ||
       rangeStart < 1 ||
-      rangeEnd !== rangeStart + 8
+      expectedRangeEnd === null ||
+      rangeEnd !== expectedRangeEnd
     ) {
-      setError('Zakres musi zawierać dokładnie 9 kolejnych plansz.');
+      setError(
+        'Zakres musi zawierać do 9 kolejnych plansz i respektować ostatni numer sesji.',
+      );
       return;
     }
     const next = {
       ...batchRef.current,
       nextRangeStart: rangeStart,
+      selectionComplete: false,
       updatedAt: new Date().toISOString(),
     };
     await store.saveBatch(next);
@@ -510,7 +530,13 @@ export function RemoteManualSelectionWorkspace({
   }
 
   function acceptCurrent() {
-    if (!canEdit || hasConflict || current === null || sourceReader === null)
+    if (
+      !canEdit ||
+      hasConflict ||
+      current === null ||
+      sourceReader === null ||
+      workspace.selectionComplete
+    )
       return;
     if (previewUrl === null || previewOrdinal !== current.ordinal || !decoded) {
       setNotice('Poczekaj, aż bieżące zdjęcie zostanie w pełni załadowane.');
@@ -545,7 +571,8 @@ export function RemoteManualSelectionWorkspace({
     const requestedWorkspace = remoteSelectionWorkspaceState(batchRef.current);
     if (
       requestedWorkspace.currentIndex !== requestedCurrent.ordinal ||
-      requestedWorkspace.nextRangeStart !== requestedRangeStart
+      requestedWorkspace.nextRangeStart !== requestedRangeStart ||
+      requestedWorkspace.selectionComplete
     ) {
       setNotice(
         'To polecenie nie zostało zapisane, ponieważ ekran zdążył się zmienić.',
@@ -572,11 +599,16 @@ export function RemoteManualSelectionWorkspace({
     try {
       if (sourceReader === null) return;
       const file = await sourceReader.fileForEntry(requestedCurrent);
+      const requestedRange = rangeForStart(
+        requestedRangeStart,
+        batchRef.current.sequenceUpperBound ?? null,
+      );
       const output = await writeOperatorLocalSelection(
         outputDirectory,
         file,
         requestedRangeStart,
-        requestedRangeStart + 8,
+        requestedRange.end,
+        batchRef.current.sequenceUpperBound ?? null,
       );
       const decision: RemoteSelectionWorkspaceDecision = {
         action: 'accepted',
@@ -585,7 +617,7 @@ export function RemoteManualSelectionWorkspace({
         imagePath: requestedCurrent.relativePath,
         operationId: crypto.randomUUID(),
         outputName: output.name,
-        rangeEnd: requestedRangeStart + 8,
+        rangeEnd: requestedRange.end,
         rangeStart: requestedRangeStart,
         selectionGeneration: 1,
         sourceIndex: requestedCurrent.ordinal,
@@ -631,7 +663,13 @@ export function RemoteManualSelectionWorkspace({
   }
 
   function skipCurrent() {
-    if (!canEdit || hasConflict || current === null) return;
+    if (
+      !canEdit ||
+      hasConflict ||
+      current === null ||
+      workspace.selectionComplete
+    )
+      return;
     const requestedCurrent = current;
     const requestedRangeStart = workspace.nextRangeStart;
     void interactionQueue
@@ -646,7 +684,8 @@ export function RemoteManualSelectionWorkspace({
     const requestedWorkspace = remoteSelectionWorkspaceState(batchRef.current);
     if (
       requestedWorkspace.currentIndex !== requestedCurrent.ordinal ||
-      requestedWorkspace.nextRangeStart !== requestedRangeStart
+      requestedWorkspace.nextRangeStart !== requestedRangeStart ||
+      requestedWorkspace.selectionComplete
     ) {
       setNotice(
         'To pominięcie nie zostało zapisane, ponieważ ekran zdążył się zmienić.',
@@ -669,6 +708,10 @@ export function RemoteManualSelectionWorkspace({
           );
         }
         const operationId = crypto.randomUUID();
+        const requestedRange = rangeForStart(
+          requestedRangeStart,
+          batchRef.current.sequenceUpperBound ?? null,
+        );
         return store.appendLocalWorkspaceDecision({
           batchId: batchRef.current.batchId,
           decision: {
@@ -678,7 +721,7 @@ export function RemoteManualSelectionWorkspace({
             imagePath: null,
             operationId,
             outputName: null,
-            rangeEnd: requestedRangeStart + 8,
+            rangeEnd: requestedRange.end,
             rangeStart: requestedRangeStart,
             selectionGeneration: 0,
             sourceIndex: requestedCurrent.ordinal,
@@ -690,7 +733,7 @@ export function RemoteManualSelectionWorkspace({
       setBatch(nextBatch);
       batchRef.current = nextBatch;
       setNotice(
-        `Pominięto zakres ${requestedRangeStart}–${requestedRangeStart + 8}.`,
+        `Pominięto zakres ${requestedRangeStart}–${rangeForStart(requestedRangeStart, batchRef.current.sequenceUpperBound ?? null).end}.`,
       );
       await persistOperatorLocalManifest(nextBatch);
       await refreshLocalState();
@@ -781,11 +824,18 @@ export function RemoteManualSelectionWorkspace({
       fileCount: currentBatch.fileCount,
       firstLayout: currentBatch.firstLayout,
       nextRangeStart: state.nextRangeStart,
+      selectionComplete: state.selectionComplete,
+      sequenceUpperBound: currentBatch.sequenceUpperBound ?? null,
       sessionId: session.sessionId,
       sourceDirectoryName: currentBatch.sourceDirectoryName,
       sourceManifestChecksumSha256: currentBatch.sourceManifestChecksumSha256,
     });
   }
+
+  const currentRange = rangeForStart(
+    workspace.nextRangeStart,
+    batch.sequenceUpperBound ?? null,
+  );
 
   return (
     <section
@@ -808,14 +858,22 @@ export function RemoteManualSelectionWorkspace({
             Zakres{' '}
             <button
               className="manualImageSelectionRangeButton"
-              disabled={busy || interactionPaused}
+              disabled={
+                busy || interactionPaused || workspace.selectionComplete
+              }
               onClick={openRangeEditor}
               type="button"
             >
-              {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
+              {currentRange.start}–{currentRange.end}
             </button>{' '}
             · zdjęcie {workspace.currentIndex + 1} / {batch.fileCount}
           </p>
+          {workspace.selectionComplete ? (
+            <p role="status">
+              Osiągnięto granicę numeracji. Możesz cofnąć ostatnią decyzję albo
+              zakończyć pracę.
+            </p>
+          ) : null}
           {rangeEditorOpen ? (
             <form
               className="manualImageSelectionRangeEditor"
@@ -944,7 +1002,7 @@ export function RemoteManualSelectionWorkspace({
             aria-live="polite"
           >
             <strong>
-              Zakres {workspace.nextRangeStart}–{workspace.nextRangeStart + 8}
+              Zakres {currentRange.start}–{currentRange.end}
             </strong>
             <span>
               zdjęcie {workspace.currentIndex + 1} / {batch.fileCount}
@@ -1035,7 +1093,9 @@ export function RemoteManualSelectionWorkspace({
         </button>
         <button
           className="secondaryButton"
-          disabled={!canEdit || busy || hasConflict}
+          disabled={
+            !canEdit || busy || hasConflict || workspace.selectionComplete
+          }
           onClick={() => void skipCurrent()}
           type="button"
         >
@@ -1043,11 +1103,16 @@ export function RemoteManualSelectionWorkspace({
         </button>
         <button
           className="primaryButton"
-          disabled={!canEdit || hasConflict || sourceReader === null}
+          disabled={
+            !canEdit ||
+            hasConflict ||
+            sourceReader === null ||
+            workspace.selectionComplete
+          }
           onClick={() => void acceptCurrent()}
           type="button"
         >
-          {`Zapisz Enter/F jako seq_${workspace.nextRangeStart}-${workspace.nextRangeStart + 8}.jpg`}
+          {`Zapisz Enter/F jako seq_${currentRange.start}-${currentRange.end}.jpg`}
         </button>
       </footer>
       {notice ? <p>{notice}</p> : null}

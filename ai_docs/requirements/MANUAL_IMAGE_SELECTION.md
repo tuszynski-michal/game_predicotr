@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-08-25
+last_updated: 2026-08-30
 ---
 
 # Lokalna ręczna selekcja zdjęć
@@ -9,15 +9,16 @@ last_updated: 2026-08-25
 ## Cel
 
 Zakładka `Ręczna selekcja` jest awaryjnym, deterministycznym narzędziem do
-przypisania pojedynczych JPEG-ów do kolejnych dziewięcioplanowych zakresów.
+przypisania pojedynczych JPEG-ów do kolejnych zakresów obejmujących od jednej
+do dziewięciu plansz.
 Pozwala kontynuować pracę, gdy automatyczny selektor nie daje wystarczającej
 pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 
 ## Przebieg
 
 - Ręczna selekcja jest niezależna od gry. Przed rozpoczęciem operator wybiera
-  pierwszy numer layoutu, kierunek numeracji plansz, folder źródłowy i folder
-  wynikowy.
+  pierwszy numer layoutu, opcjonalny ostatni numer planszy, kierunek numeracji,
+  folder źródłowy i folder wynikowy.
 - Folder źródłowy jest odczytywany rekurencyjnie. Uwzględniane są wyłącznie
   `.jpg` i `.jpeg`, sortowane naturalnie po względnej ścieżce (tak jak numery w
   nazwach plików). Ten naturalny porządek jest trwałym porządkiem źródłowym
@@ -28,11 +29,17 @@ pewności, bez uruchamiania API, workera, OCR ani uploadu do stagingu.
 - Początkowe indeksowanie nie otwiera zawartości każdego JPEG-a. Podczas pracy
   aplikacja wyprzedzająco odczytuje i dekoduje ograniczone okno trzech zdjęć z
   każdej strony bieżącej pozycji, aby nawigacja nie wymagała stagingu.
-- Zakres jest inkluzywny i zawsze ma dziewięć pozycji: `start–start+8`.
+- Zakres jest inkluzywny i domyślnie ma dziewięć pozycji: `start–start+8`.
+  Jeżeli sesja ma jawną górną granicę, końcowa strona ma postać
+  `start–min(start+8, sequenceUpperBound)` i może zawierać 1–8 plansz.
   Domyślnie po decyzji następny zakres zaczyna się od `start+9` dla kolejności
   rosnącej albo od `start-9` dla malejącej; wartość nie spada poniżej `1`.
+  Po osiągnięciu górnej granicy w kierunku rosnącym albo `1` w malejącym
+  selekcja przechodzi w stan zakończony i nie przyjmuje kolejnej decyzji;
+  cofnięcie ostatniej decyzji ponownie ją otwiera.
   Operator może kliknąć bieżący zakres i jawnie podać nowe `Od` oraz `Do`.
-  Formularz przyjmuje wyłącznie dodatni zakres dziewięciu kolejnych plansz.
+  Formularz przyjmuje wyłącznie dodatni zakres do dziewięciu kolejnych plansz,
+  zgodny z granicą sesji.
   Jest to świadoma korekta numeracji: luka między decyzjami może zostać
   zachowana, ale aplikacja nigdy nie uzupełnia jej ani nie zmienia zakresów
   poprzednich decyzji po cichu.
@@ -86,8 +93,10 @@ został świadomie przenumerowany jednym przesunięciem przy zachowaniu tych sam
 źródłowych ścieżek i sum kontrolnych, sesja jest atomowo synchronizowana z
 manifestem: zmienia pierwszy oraz następny zakres i nazwy własnych decyzji, nie
 zmieniając indeksu zdjęcia ani plików. Jawnie poprawione, nieciągłe zakresy są
-odtwarzane dokładnie tak, jak zapisano je w manifestie, pod warunkiem że każda
-decyzja ma dodatni zakres `start–start+8`. Niezgodny manifest, inna sesja,
+odtwarzane dokładnie tak, jak zapisano je w manifestie. Schema v1 zachowuje
+historyczną semantykę pełnych stron `start–start+8`; schema v2 wiąże każdą
+decyzję z `sequenceUpperBound`, `selectionComplete` i `activeBoardCount`.
+Niezgodny manifest, inna sesja,
 źródło, kierunek, checksumy, niepoprawny pojedynczy zakres lub próba nadpisania
 obcego pliku blokują wznowienie zamiast nadpisać wynik błędną numeracją.
 
@@ -117,7 +126,9 @@ decyzją. Niedekodowane lub szybko przewinięte obrazy nie są etykietowane.
 
 W folderze wynikowym utrzymywany jest kompaktowy
 `manual-image-selection-output-v1.json`. Zawiera wyłącznie zaakceptowane pliki,
-ich zakresy i checksumy. Zapis jest bezpieczny dla obcych plików: istniejący
+ich zakresy, liczbę aktywnych plansz i checksumy. Historyczna nazwa pliku
+pozostaje niezmienna, natomiast nowy zapis ma `schemaVersion = 2`; reader nadal
+obsługuje schema v1 bez zmiany jego znaczenia. Zapis jest bezpieczny dla obcych plików: istniejący
 manifest innej sesji albo o nieprawidłowej strukturze blokuje nadpisanie.
 Pełny `manual-image-selection-trace-v1.json` jest tworzony dopiero po jawnej
 akcji `Eksportuj ślad uczenia`; jego źródłem są zdarzenia z IndexedDB.
@@ -142,9 +153,9 @@ decyzji ani wybranych JPEG-ów. Operator wskazuje na swoim urządzeniu folder
 Ekran przygotowania od początku pokazuje `Wybierz katalog ze zdjęciami` i
 `Wybierz katalog do zapisu`. Katalog nadrzędny może zostać wskazany przed
 źródłem; jego uchwyt jest trwały w IndexedDB, a folder wynikowy powstaje po
-poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy i
-kierunku, a kompletny manifest automatycznie wznawia zapisane zdjęcie i następny
-zakres.
+poznaniu nazwy źródła. Pusty wynik prowadzi do konfiguracji pierwszej planszy,
+opcjonalnej ostatniej planszy i kierunku, a kompletny manifest automatycznie
+wznawia zapisane zdjęcie, granicę i następny zakres.
 
 Po rozpoczęciu selekcji główny przycisk `Ekran startowy`, umieszczony po lewej
 stronie obok wtórnego `Restart selekcji`, wraca do tego konfiguratora, aby
@@ -222,12 +233,13 @@ Folder `<źródło> wybrane` jest przyjmowany tylko w jednym z dwóch stanów:
 - jest całkowicie pusty i rozpoczyna nową selekcję,
 - zawiera poprawny `manual-image-selection-output-v1.json` oraz dokładnie
   wskazane przez niego pliki `seq_*`, dzięki czemu Reviewer odtwarza pozycję
-  źródłowego JPEG-a, następny dziewięcioplanowy zakres i wszystkie decyzje.
+  źródłowego JPEG-a, następny zakres, granicę końcową i wszystkie decyzje.
 
 Folder niepusty bez manifestu, z obcym plikiem, brakującym `seq_*`, inną nazwą
 źródła, liczbą plików albo checksumą manifestu źródłowego blokuje rozpoczęcie.
-Nowy manifest zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy zakres i
-kierunek. Podczas wznowienia przez nowy link losowe identyfikatory plików z
+Nowy manifest schema v2 zapisuje tożsamość źródła, liczbę JPEG-ów, pierwszy
+zakres, kierunek, opcjonalną granicę końcową i stan zakończenia. Podczas
+wznowienia przez nowy link losowe identyfikatory plików z
 poprzedniej sesji są bezpiecznie mapowane na bieżący indeks według ordinalu i
 względnej ścieżki; sesja dostępu nie jest właścicielem danych operatora.
 

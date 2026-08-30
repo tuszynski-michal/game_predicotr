@@ -63,6 +63,8 @@ class ImageSequenceCanonicalRepository(Protocol):
 
     def canonical_source_checksums(self, game_id: UUID) -> Mapping[int, str]: ...
 
+    def expected_layout_count(self, game_id: UUID) -> int | None: ...
+
 
 class ImageSequenceCanonicalService:
     def __init__(self, repository: ImageSequenceCanonicalRepository) -> None:
@@ -78,6 +80,12 @@ class ImageSequenceCanonicalService:
         if not callable(method):
             return {}
         return cast(Mapping[int, str], method(game_id))
+
+    def expected_layout_count(self, game_id: UUID) -> int | None:
+        method = getattr(self._repository, "expected_layout_count", None)
+        if not callable(method):
+            return None
+        return cast(int | None, method(game_id))
 
     def preflight(
         self,
@@ -128,9 +136,7 @@ class ImageSequenceCanonicalService:
                     ) from error
                 ranges.append((path, sequence_range.start, sequence_range.end, ""))
         warnings: list[str] = list(manifest.warnings) if manifest is not None else []
-        if manifest is not None and any(
-            item.sequence_range is None for item in manifest.files
-        ):
+        if manifest is not None and any(item.sequence_range is None for item in manifest.files):
             warnings.append("IMAGE_SEQUENCE_FILENAME_NOT_ATTESTED")
         elif manifest is None:
             for path in file_paths:
@@ -162,6 +168,28 @@ class ImageSequenceCanonicalService:
             if previous_end and start > previous_end + 1:
                 warnings.append("IMAGE_SEQUENCE_RANGE_GAP")
             previous_end = end
+        expected_layout_count = self.expected_layout_count(game_id)
+        if expected_layout_count is not None:
+            out_of_bounds = next(
+                (
+                    (path, start, end)
+                    for path, start, end, _checksum in ranges
+                    if end > expected_layout_count
+                ),
+                None,
+            )
+            if out_of_bounds is not None:
+                out_of_bounds_path, start, end = out_of_bounds
+                raise JobConflictError(
+                    "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS",
+                    "A seq_* range exceeds the expected layout count for the game.",
+                    details={
+                        "expectedLayoutCount": expected_layout_count,
+                        "fileName": PurePosixPath(str(out_of_bounds_path).replace("\\", "/")).name,
+                        "rangeStart": start,
+                        "rangeEnd": end,
+                    },
+                )
         canonical = self._repository.canonical_numbers(game_id)
         canonical_sources = self.canonical_source_checksums(game_id)
         unresolved: list[int] = []

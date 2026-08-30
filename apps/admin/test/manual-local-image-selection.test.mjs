@@ -384,10 +384,10 @@ test('derives each inclusive nine-layout range from its first number', () => {
   assert.deepEqual(rangeForStart(352), { start: 352, end: 360 });
 });
 
-test('offers an explicit nine-layout range correction without enabling shortcuts in its editor', () => {
+test('offers an explicit bounded range correction without enabling shortcuts in its editor', () => {
   assert.match(workspaceSource, /manualImageSelectionRangeButton/);
   assert.match(workspaceSource, /openRangeEditor/);
-  assert.match(workspaceSource, /rangeEnd !== rangeStart \+ 8/);
+  assert.match(workspaceSource, /rangeEnd !== expectedRangeEnd/);
   assert.match(workspaceSource, /nextRangeStart: rangeStart/);
   assert.match(workspaceSource, /busyRef\.current \|\| rangeEditorOpen/);
   assert.match(stylesSource, /\.manualImageSelectionRangeEditor\s*\{/);
@@ -589,7 +589,7 @@ test('keeps source listing read-only and naturally ordered through the source po
   assert.equal(openedFiles, 0);
 });
 
-test('output port preserves v1 manifests and never removes a foreign file', async () => {
+test('output port writes v2 manifests and never removes a foreign file', async () => {
   const saved = new Map();
   const directory = {
     getFileHandle: async (name, options) => {
@@ -637,7 +637,9 @@ test('output port preserves v1 manifests and never removes a foreign file', asyn
   const manifest = JSON.parse(
     await saved.get('manual-image-selection-output-v1.json').text(),
   );
-  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.sequenceUpperBound, null);
+  assert.equal(manifest.selectionComplete, false);
   assert.deepEqual(manifest.items, [
     {
       imageChecksum: 'a'.repeat(64),
@@ -645,6 +647,7 @@ test('output port preserves v1 manifests and never removes a foreign file', asyn
       outputName: 'seq_1-9.jpg',
       rangeEnd: 9,
       rangeStart: 1,
+      activeBoardCount: 9,
     },
   ]);
 

@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  isManualSelectionRangeTerminal,
+  manualRangeActiveBoardCount,
+  rangeForStart,
+} from '@game-predictor/manual-image-selection-core';
+
 import type {
   RemoteSelectionLocalBatchRecord,
   RemoteSelectionSourceItemRecord,
@@ -24,11 +30,34 @@ export interface OperatorLocalOutputManifestV1 {
   readonly updatedAt: string;
 }
 
+export interface OperatorLocalOutputManifestV2 {
+  readonly schemaVersion: 2;
+  readonly storageMode: 'operator_local';
+  readonly sessionId: string;
+  readonly batchId: string;
+  readonly sourceDirectoryName: string;
+  readonly sourceManifestChecksumSha256?: string;
+  readonly fileCount?: number;
+  readonly firstLayout: number;
+  readonly direction: 'ascending' | 'descending';
+  readonly sequenceUpperBound: number | null;
+  readonly selectionComplete: boolean;
+  readonly decisions: readonly (RemoteSelectionWorkspaceDecision & {
+    readonly activeBoardCount: number;
+  })[];
+  readonly currentIndex: number;
+  readonly nextRangeStart: number;
+  readonly updatedAt: string;
+}
+
+export type OperatorLocalOutputManifest =
+  OperatorLocalOutputManifestV1 | OperatorLocalOutputManifestV2;
+
 export type OperatorLocalOutputDirectoryState =
   | { readonly kind: 'empty' }
   | {
       readonly kind: 'resumable';
-      readonly manifest: OperatorLocalOutputManifestV1;
+      readonly manifest: OperatorLocalOutputManifest;
     };
 
 export interface OperatorLocalOutputResult {
@@ -81,14 +110,24 @@ export async function writeOperatorLocalSelection(
   source: File,
   rangeStart: number,
   rangeEnd: number = rangeStart + 8,
+  sequenceUpperBound: number | null = null,
 ): Promise<OperatorLocalOutputResult> {
+  let expectedRangeEnd: number | null = null;
+  try {
+    expectedRangeEnd = rangeForStart(rangeStart, sequenceUpperBound).end;
+  } catch {
+    expectedRangeEnd = null;
+  }
   if (
     !Number.isSafeInteger(rangeStart) ||
     rangeStart < 1 ||
     !Number.isSafeInteger(rangeEnd) ||
-    rangeEnd !== rangeStart + 8
+    expectedRangeEnd === null ||
+    rangeEnd !== expectedRangeEnd
   ) {
-    throw new Error('Zakres zapisywanego zdjęcia musi obejmować 9 plansz.');
+    throw new Error(
+      'Zakres zapisywanego zdjęcia musi obejmować od 1 do 9 plansz i respektować granicę sesji.',
+    );
   }
   const checksumSha256 = await sha256File(source);
   const name = `seq_${rangeStart}-${rangeEnd}.jpg`;
@@ -145,9 +184,24 @@ export async function writeOperatorLocalManifest(
     readonly fileCount: number;
     readonly firstLayout: number;
     readonly direction: 'ascending' | 'descending';
+    readonly sequenceUpperBound?: number | null;
+    readonly selectionComplete?: boolean;
     readonly allowSessionAdoption?: boolean;
   },
 ): Promise<void> {
+  const lastDecision = input.decisions.at(-1);
+  const expectedSelectionComplete =
+    lastDecision === undefined
+      ? false
+      : isManualSelectionRangeTerminal(
+          input.direction,
+          lastDecision.rangeStart,
+          lastDecision.rangeEnd,
+          input.sequenceUpperBound ?? null,
+        );
+  if ((input.selectionComplete === true) !== expectedSelectionComplete) {
+    throw new Error('Stan zakończenia nie odpowiada ostatniej decyzji.');
+  }
   try {
     const existing = await (
       await outputDirectory.getFileHandle(OPERATOR_LOCAL_MANIFEST_NAME)
@@ -182,10 +236,19 @@ export async function writeOperatorLocalManifest(
     await writable.write(
       JSON.stringify(
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           storageMode: 'operator_local',
           ...input,
           allowSessionAdoption: undefined,
+          decisions: input.decisions.map((decision) => ({
+            ...decision,
+            activeBoardCount: manualRangeActiveBoardCount(
+              decision.rangeStart,
+              decision.rangeEnd,
+            ),
+          })),
+          selectionComplete: input.selectionComplete === true,
+          sequenceUpperBound: input.sequenceUpperBound ?? null,
           updatedAt: new Date().toISOString(),
         },
         null,
@@ -214,7 +277,7 @@ export async function inspectOperatorLocalOutputDirectory(
       'Folder wynikowy nie jest pusty i nie zawiera danych pozwalających wznowić selekcję.',
     );
   }
-  let manifest: OperatorLocalOutputManifestV1;
+  let manifest: OperatorLocalOutputManifest;
   try {
     manifest = parseOperatorLocalManifest(
       await (manifestHandle as FileSystemFileHandle)
@@ -268,7 +331,7 @@ export async function verifyOperatorLocalOutputDirectory(
 }
 
 export async function resumeOperatorLocalBatch(
-  manifest: OperatorLocalOutputManifestV1,
+  manifest: OperatorLocalOutputManifest,
   batch: RemoteSelectionLocalBatchRecord,
   loadSourceItem: (
     ordinal: number,
@@ -306,6 +369,10 @@ export async function resumeOperatorLocalBatch(
       manifest.nextRangeStart,
     hostRegistered: true,
     nextRangeStart: manifest.nextRangeStart,
+    selectionComplete:
+      manifest.schemaVersion === 2 ? manifest.selectionComplete : false,
+    sequenceUpperBound:
+      manifest.schemaVersion === 2 ? manifest.sequenceUpperBound : null,
     status: 'active',
     updatedAt: new Date().toISOString(),
   };
@@ -313,10 +380,10 @@ export async function resumeOperatorLocalBatch(
 
 function parseOperatorLocalManifest(
   value: string,
-): OperatorLocalOutputManifestV1 {
+): OperatorLocalOutputManifest {
   const parsed = JSON.parse(value) as Record<string, unknown>;
   if (
-    parsed.schemaVersion !== 1 ||
+    (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) ||
     parsed.storageMode !== 'operator_local' ||
     typeof parsed.sessionId !== 'string' ||
     parsed.sessionId === '' ||
@@ -332,6 +399,7 @@ function parseOperatorLocalManifest(
   ) {
     throw new Error('Folder wynikowy zawiera nieprawidłowy manifest.');
   }
+  const schemaVersion = parsed.schemaVersion as 1 | 2;
   if (
     parsed.sourceManifestChecksumSha256 !== undefined &&
     (typeof parsed.sourceManifestChecksumSha256 !== 'string' ||
@@ -361,24 +429,52 @@ function parseOperatorLocalManifest(
     throw new Error('Manifest zawiera nieprawidłową kolejność zdjęć.');
   }
 
-  const decisions = parsed.decisions.map((decision, index) =>
-    parseDecision(decision, index),
-  );
+  const sequenceUpperBound =
+    schemaVersion === 2 ? parsed.sequenceUpperBound : null;
   if (
-    decisions.some((decision) => decision.rangeEnd !== decision.rangeStart + 8)
+    schemaVersion === 2 &&
+    (!Number.isSafeInteger(parsed.firstLayout) ||
+      (parsed.firstLayout as number) < 1 ||
+      (parsed.direction !== 'ascending' && parsed.direction !== 'descending') ||
+      typeof parsed.selectionComplete !== 'boolean' ||
+      !('sequenceUpperBound' in parsed) ||
+      (sequenceUpperBound !== null &&
+        (!Number.isSafeInteger(sequenceUpperBound) ||
+          (sequenceUpperBound as number) < (parsed.firstLayout as number))))
   ) {
-    throw new Error('Manifest zawiera nieprawidłowy zakres.');
+    throw new Error('Manifest v2 zawiera nieprawidłową granicę plansz.');
+  }
+
+  const decisions = parsed.decisions.map((decision, index) =>
+    parseDecision(decision, index, schemaVersion, sequenceUpperBound),
+  );
+  if (schemaVersion === 2) {
+    const lastDecision = decisions.at(-1);
+    const expectedSelectionComplete =
+      lastDecision === undefined
+        ? false
+        : isManualSelectionRangeTerminal(
+            parsed.direction as 'ascending' | 'descending',
+            lastDecision.rangeStart,
+            lastDecision.rangeEnd,
+            sequenceUpperBound as number | null,
+          );
+    if (parsed.selectionComplete !== expectedSelectionComplete) {
+      throw new Error('Manifest v2 ma nieprawidłowy stan zakończenia.');
+    }
   }
   return {
-    ...(parsed as unknown as OperatorLocalOutputManifestV1),
+    ...(parsed as unknown as OperatorLocalOutputManifest),
     decisions,
-  };
+  } as OperatorLocalOutputManifest;
 }
 
 function parseDecision(
   value: unknown,
   index: number,
-): RemoteSelectionWorkspaceDecision {
+  schemaVersion: 1 | 2,
+  sequenceUpperBound: unknown,
+): RemoteSelectionWorkspaceDecision & { readonly activeBoardCount?: number } {
   if (typeof value !== 'object' || value === null) {
     throw new Error(`Manifest zawiera nieprawidłową decyzję ${index + 1}.`);
   }
@@ -392,7 +488,8 @@ function parseDecision(
     !Number.isSafeInteger(decision.rangeStart) ||
     (decision.rangeStart as number) < 1 ||
     !Number.isSafeInteger(decision.rangeEnd) ||
-    decision.rangeEnd !== (decision.rangeStart as number) + 8 ||
+    (decision.rangeEnd as number) < (decision.rangeStart as number) ||
+    (decision.rangeEnd as number) - (decision.rangeStart as number) > 8 ||
     !Number.isSafeInteger(decision.selectionGeneration) ||
     (accepted &&
       (typeof decision.fileId !== 'string' ||
@@ -409,6 +506,23 @@ function parseDecision(
     throw new Error(`Manifest zawiera nieprawidłową decyzję ${index + 1}.`);
   }
   if (
+    (schemaVersion === 1 &&
+      decision.rangeEnd !== (decision.rangeStart as number) + 8) ||
+    (schemaVersion === 2 &&
+      (decision.rangeEnd !==
+        rangeForStart(
+          decision.rangeStart as number,
+          sequenceUpperBound as number | null,
+        ).end ||
+        decision.activeBoardCount !==
+          manualRangeActiveBoardCount(
+            decision.rangeStart as number,
+            decision.rangeEnd as number,
+          )))
+  ) {
+    throw new Error(`Manifest zawiera nieprawidłowy zakres ${index + 1}.`);
+  }
+  if (
     accepted &&
     decision.outputName !==
       `seq_${decision.rangeStart}-${decision.rangeEnd}.jpg`
@@ -417,11 +531,13 @@ function parseDecision(
       `Manifest zawiera nieprawidłową nazwę decyzji ${index + 1}.`,
     );
   }
-  return decision as unknown as RemoteSelectionWorkspaceDecision;
+  return decision as unknown as RemoteSelectionWorkspaceDecision & {
+    readonly activeBoardCount?: number;
+  };
 }
 
 function assertMatchingSource(
-  existing: OperatorLocalOutputManifestV1,
+  existing: OperatorLocalOutputManifest,
   input: {
     readonly sourceDirectoryName: string;
     readonly sourceManifestChecksumSha256: string;

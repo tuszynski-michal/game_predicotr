@@ -1,7 +1,7 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-30
 ---
 
 # Architektura lokalnej ręcznej selekcji
@@ -42,7 +42,9 @@ checksumami może przesunąć numerację wszystkich decyzji o jeden stały offse
 Synchronizacja utrwala nowy rekord IndexedDB przed pokazaniem następnego JPEG-a;
 nie modyfikuje źródłowych obrazów, istniejących wyników ani append-only trace.
 Operator może także jawnie zmienić wyłącznie bieżący `nextRangeStart` przez
-zakres `start–start+8`. Taka korekta nie zmienia `firstLayout`, poprzednich
+zakres do dziewięciu plansz. Bez granicy jest to `start–start+8`; końcowa
+strona sesji z `sequenceUpperBound` kończy się na
+`min(start+8, sequenceUpperBound)`. Taka korekta nie zmienia `firstLayout`, poprzednich
 decyzji ani plików, a po akceptacji następny zakres jest liczony od ręcznie
 podanej wartości zgodnie z kierunkiem sesji. Dlatego stan i manifest sprawdzają
 każdy zakres niezależnie; nie wymagają sztucznej ciągłości między decyzjami.
@@ -75,6 +77,14 @@ kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,
 po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
 poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
 nie nadpisać artefaktu innej sesji.
+
+Nazwa pliku output pozostaje historyczna, lecz bieżący writer materializuje
+schema v2 z `sequenceUpperBound`, `selectionComplete` oraz
+`activeBoardCount` dla każdego zaakceptowanego zakresu. Reader rozpoznaje
+wersję z pola `schemaVersion`: v1 zawsze oznacza pełne strony dziewięciu
+plansz, a v2 może zakończyć sesję krótszą, ciągłą stroną. Ta sama domena i
+walidacja są współdzielone przez lokalny Admin i operator-local Reviewer;
+historyczny host-transfer pozostaje na kontrakcie v1.
 
 W aktywnej sesji globalny handler klawiatury obsługuje `Enter`/`F` jako
 zatwierdzenie, `Ctrl+Z`/`A` jako cofnięcie, lewo/prawo jako nawigację po

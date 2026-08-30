@@ -129,7 +129,7 @@ test('writes original JPEG bytes idempotently into the operator output folder', 
   );
 });
 
-test('writes an explicitly edited nine-layout range and rejects invalid ranges', async () => {
+test('writes an explicitly edited range and rejects invalid ranges', async () => {
   const directory = new MemoryDirectoryHandle();
   const source = new File(['jpeg-original'], 'photo.jpg', {
     type: 'image/jpeg',
@@ -145,36 +145,34 @@ test('writes an explicitly edited nine-layout range and rejects invalid ranges',
   assert.equal(output.name, 'seq_222913-222921.jpg');
   await assert.rejects(
     writeOperatorLocalSelection(directory, source, 222913, 222920),
-    /musi obejmować 9 plansz/,
+    /musi obejmować od 1 do 9 plansz/,
   );
 });
 
-test('rejects a persisted range that is not positive even when it spans nine layouts', async () => {
+test('rejects a persisted range that is not positive', async () => {
   const directory = new MemoryDirectoryHandle();
-  await writeOperatorLocalManifest(
-    directory,
-    manifestInput({
-      decisions: [
-        {
-          action: 'skipped',
-          fileId: null,
-          imageChecksumSha256: null,
-          imagePath: null,
-          operationId: 'invalid-range',
-          outputName: null,
-          rangeEnd: 8,
-          rangeStart: 0,
-          selectionGeneration: 1,
-          sourceIndex: 0,
-        },
-      ],
-      nextRangeStart: 9,
-    }),
-  );
-
   await assert.rejects(
-    inspectOperatorLocalOutputDirectory(directory),
-    /nieprawidłową decyzję/,
+    writeOperatorLocalManifest(
+      directory,
+      manifestInput({
+        decisions: [
+          {
+            action: 'skipped',
+            fileId: null,
+            imageChecksumSha256: null,
+            imagePath: null,
+            operationId: 'invalid-range',
+            outputName: null,
+            rangeEnd: 8,
+            rangeStart: 0,
+            selectionGeneration: 1,
+            sourceIndex: 0,
+          },
+        ],
+        nextRangeStart: 9,
+      }),
+    ),
+    /od 1 do 9 kolejnych plansz/,
   );
 });
 
@@ -300,8 +298,91 @@ test('materializes a local progress manifest without a host transfer', async () 
       .then((file) => file.text()),
   );
   assert.equal(manifest.storageMode, 'operator_local');
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.sequenceUpperBound, null);
+  assert.equal(manifest.selectionComplete, false);
   assert.equal(manifest.nextRangeStart, 10);
   assert.equal(manifest.sourceDirectoryName, '1 - 19');
+});
+
+test('persists and resumes a bounded partial final page in manifest v2', async () => {
+  const directory = new MemoryDirectoryHandle();
+  const source = new File(['final-jpeg'], 'final.jpg', { type: 'image/jpeg' });
+  const output = await writeOperatorLocalSelection(
+    directory,
+    source,
+    499_996,
+    500_000,
+    500_000,
+  );
+  const decision = {
+    action: 'accepted',
+    fileId: 'old-final-file',
+    imageChecksumSha256: output.checksumSha256,
+    imagePath: 'final.jpg',
+    operationId: 'final-decision',
+    outputName: output.name,
+    rangeEnd: 500_000,
+    rangeStart: 499_996,
+    selectionGeneration: 1,
+    sourceIndex: 0,
+  };
+  await writeOperatorLocalManifest(
+    directory,
+    manifestInput({
+      currentIndex: 0,
+      decisions: [decision],
+      firstLayout: 499_996,
+      nextRangeStart: 499_996,
+      selectionComplete: true,
+      sequenceUpperBound: 500_000,
+    }),
+  );
+
+  const state = await inspectOperatorLocalOutputDirectory(directory);
+  assert.equal(state.kind, 'resumable');
+  if (state.kind !== 'resumable') return;
+  assert.equal(state.manifest.schemaVersion, 2);
+  assert.equal(state.manifest.decisions[0].activeBoardCount, 5);
+
+  const resumed = await resumeOperatorLocalBatch(
+    state.manifest,
+    {
+      batchId: 'new-batch',
+      cursorIndex: 0,
+      decisions: [],
+      direction: 'ascending',
+      fileCount: 10,
+      firstLayout: 499_996,
+      navigationStep: 1,
+      nextRangeStart: 499_996,
+      schemaVersion: 1,
+      sessionId: 'new-session',
+      sourceDirectoryName: '1 - 19',
+      sourceKind: 'directory_handle',
+      sourceManifestChecksumSha256: SOURCE_CHECKSUM,
+      totalBytes: 100,
+      updatedAt: '2026-08-30T00:00:00.000Z',
+    },
+    async (ordinal) =>
+      ordinal === 0
+        ? {
+            batchId: 'new-batch',
+            fileId: 'new-final-file',
+            lastModifiedMs: 1,
+            mimeType: 'image/jpeg',
+            name: 'final.jpg',
+            ordinal: 0,
+            relativePath: 'final.jpg',
+            schemaVersion: 1,
+            sessionId: 'new-session',
+            sizeBytes: 10,
+          }
+        : null,
+  );
+  assert.equal(resumed.sequenceUpperBound, 500_000);
+  assert.equal(resumed.selectionComplete, true);
+  assert.equal(resumed.nextRangeStart, 499_996);
 });
 
 test('never overwrites a manifest owned by another operator session', async () => {

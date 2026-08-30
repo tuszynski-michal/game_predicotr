@@ -86,6 +86,7 @@ function LocalManualImageSelectionWorkspace() {
   const traceEventIndexRef = useRef(0);
   const viewTimerRef = useRef<number | null>(null);
   const [firstLayout, setFirstLayout] = useState('1');
+  const [sequenceUpperBound, setSequenceUpperBound] = useState('');
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
@@ -119,6 +120,18 @@ function LocalManualImageSelectionWorkspace() {
     useState<ManualImageSize | null>(null);
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
+  const parsedSetupFirstLayout = Number.parseInt(firstLayout, 10);
+  const setupFirstLayout =
+    Number.isSafeInteger(parsedSetupFirstLayout) && parsedSetupFirstLayout >= 1
+      ? parsedSetupFirstLayout
+      : 1;
+  const setupUpperBound = Number.parseInt(sequenceUpperBound, 10);
+  const setupRange = rangeForStart(
+    setupFirstLayout,
+    Number.isSafeInteger(setupUpperBound) && setupUpperBound >= setupFirstLayout
+      ? setupUpperBound
+      : null,
+  );
   const currentImagePosition =
     state === null
       ? 0
@@ -337,7 +350,10 @@ function LocalManualImageSelectionWorkspace() {
     ) {
       return;
     }
-    const range = rangeForStart(currentRangeStart);
+    const range = rangeForStart(
+      currentRangeStart,
+      stateRef.current?.sequenceUpperBound ?? null,
+    );
     const startedAt = performance.now();
     viewTimerRef.current = window.setTimeout(() => {
       if (stateRef.current?.currentIndex !== currentImageIndex) return;
@@ -452,8 +468,21 @@ function LocalManualImageSelectionWorkspace() {
 
   async function startSession(): Promise<void> {
     const parsed = Number.parseInt(firstLayout, 10);
+    const parsedUpperBound =
+      sequenceUpperBound.trim() === ''
+        ? null
+        : Number.parseInt(sequenceUpperBound, 10);
     if (!Number.isSafeInteger(parsed) || parsed < 1) {
       setError('Pierwszy numer planszy musi być dodatnią liczbą całkowitą.');
+      return;
+    }
+    if (
+      parsedUpperBound !== null &&
+      (!Number.isSafeInteger(parsedUpperBound) || parsedUpperBound < parsed)
+    ) {
+      setError(
+        'Ostatni numer planszy musi być liczbą całkowitą nie mniejszą od pierwszej planszy.',
+      );
       return;
     }
     if (
@@ -464,7 +493,11 @@ function LocalManualImageSelectionWorkspace() {
       setError('Wybierz folder źródłowy i wynikowy.');
       return;
     }
-    const initialState = createManualSelectionState(parsed, direction);
+    const initialState = createManualSelectionState(
+      parsed,
+      direction,
+      parsedUpperBound,
+    );
     const next = {
       ...initialState,
       currentIndex: initialManualSelectionCursor(),
@@ -587,7 +620,9 @@ function LocalManualImageSelectionWorkspace() {
         resumedState.nextRangeStart !== savedRecord.state.nextRangeStart
       ) {
         setResumeNotice(
-          `Numeracja została zsynchronizowana z manifestem. Następny zakres: ${resumedState.nextRangeStart}–${resumedState.nextRangeStart + 8}.`,
+          resumedState.selectionComplete === true
+            ? 'Numeracja została zsynchronizowana z manifestem. Osiągnięto granicę selekcji.'
+            : `Numeracja została zsynchronizowana z manifestem. Następny zakres: ${rangeForStart(resumedState.nextRangeStart, resumedState.sequenceUpperBound ?? null).start}–${rangeForStart(resumedState.nextRangeStart, resumedState.sequenceUpperBound ?? null).end}.`,
         );
       }
       traceEventIndexRef.current =
@@ -632,7 +667,10 @@ function LocalManualImageSelectionWorkspace() {
   function openRangeEditor(): void {
     const currentState = stateRef.current;
     if (currentState === null) return;
-    const currentRange = rangeForStart(currentState.nextRangeStart);
+    const currentRange = rangeForStart(
+      currentState.nextRangeStart,
+      currentState.sequenceUpperBound ?? null,
+    );
     setRangeStartDraft(String(currentRange.start));
     setRangeEndDraft(String(currentRange.end));
     setRangeEditorOpen(true);
@@ -642,20 +680,39 @@ function LocalManualImageSelectionWorkspace() {
     const currentState = stateRef.current;
     const rangeStart = Number(rangeStartDraft);
     const rangeEnd = Number(rangeEndDraft);
+    let expectedRangeEnd: number | null = null;
+    if (
+      currentState !== null &&
+      Number.isSafeInteger(rangeStart) &&
+      rangeStart >= 1
+    ) {
+      try {
+        expectedRangeEnd = rangeForStart(
+          rangeStart,
+          currentState.sequenceUpperBound ?? null,
+        ).end;
+      } catch {
+        expectedRangeEnd = null;
+      }
+    }
     if (
       currentState === null ||
       !Number.isSafeInteger(rangeStart) ||
       !Number.isSafeInteger(rangeEnd) ||
       rangeStart < 1 ||
-      rangeEnd !== rangeStart + 8
+      expectedRangeEnd === null ||
+      rangeEnd !== expectedRangeEnd
     ) {
-      setError('Zakres musi zawierać dokładnie 9 kolejnych plansz.');
+      setError(
+        'Zakres musi zawierać do 9 kolejnych plansz i respektować ostatni numer sesji.',
+      );
       return;
     }
     setError(null);
     await persist({
       ...currentState,
       nextRangeStart: rangeStart,
+      selectionComplete: false,
       updatedAt: new Date().toISOString(),
     });
     setRangeEditorOpen(false);
@@ -666,7 +723,8 @@ function LocalManualImageSelectionWorkspace() {
       record === null ||
       stateRef.current === null ||
       outputDirectory === null ||
-      busyRef.current
+      busyRef.current ||
+      stateRef.current.selectionComplete === true
     )
       return;
     const currentState = stateRef.current;
@@ -675,7 +733,10 @@ function LocalManualImageSelectionWorkspace() {
     busyRef.current = true;
     setBusy(true);
     setError(null);
-    const range = rangeForStart(currentState.nextRangeStart);
+    const range = rangeForStart(
+      currentState.nextRangeStart,
+      currentState.sequenceUpperBound ?? null,
+    );
     try {
       const output = await new FileSystemManualSelectionOutputAdapter(
         outputDirectory,
@@ -718,7 +779,13 @@ function LocalManualImageSelectionWorkspace() {
 
   async function skipCurrent(): Promise<void> {
     const currentState = stateRef.current;
-    if (record === null || currentState === null || busyRef.current) return;
+    if (
+      record === null ||
+      currentState === null ||
+      busyRef.current ||
+      currentState.selectionComplete === true
+    )
+      return;
     busyRef.current = true;
     setBusy(true);
     const current = images[currentState.currentIndex];
@@ -727,7 +794,10 @@ function LocalManualImageSelectionWorkspace() {
       setBusy(false);
       return;
     }
-    const range = rangeForStart(currentState.nextRangeStart);
+    const range = rangeForStart(
+      currentState.nextRangeStart,
+      currentState.sequenceUpperBound ?? null,
+    );
     try {
       const nextState = nextManualSelectionState(
         currentState,
@@ -970,9 +1040,21 @@ function LocalManualImageSelectionWorkspace() {
               value={firstLayout}
             />
             <span>
-              Zakres zostanie wyliczony jako{' '}
-              {rangeForStart(Number.parseInt(firstLayout, 10) || 1).start}–
-              {rangeForStart(Number.parseInt(firstLayout, 10) || 1).end}.
+              Zakres zostanie wyliczony jako {setupRange.start}–{setupRange.end}
+              .
+            </span>
+          </label>
+          <label>
+            Ostatnia plansza (opcjonalnie)
+            <input
+              min={firstLayout || '1'}
+              onChange={(event) => setSequenceUpperBound(event.target.value)}
+              placeholder="np. 500000"
+              type="number"
+              value={sequenceUpperBound}
+            />
+            <span>
+              Ostatnie zdjęcie może wtedy zapisać krótszy, ciągły zakres.
             </span>
           </label>
           <label>
@@ -1084,7 +1166,10 @@ function LocalManualImageSelectionWorkspace() {
   }
 
   const current = images[state.currentIndex];
-  const range = rangeForStart(state.nextRangeStart);
+  const range = rangeForStart(
+    state.nextRangeStart,
+    state.sequenceUpperBound ?? null,
+  );
   const navigationStep = normalizeNavigationStep(state.navigationStep);
   return (
     <section
@@ -1102,7 +1187,7 @@ function LocalManualImageSelectionWorkspace() {
             Zakres{' '}
             <button
               className="manualImageSelectionRangeButton"
-              disabled={busy}
+              disabled={busy || state.selectionComplete === true}
               onClick={openRangeEditor}
               type="button"
             >
@@ -1110,6 +1195,12 @@ function LocalManualImageSelectionWorkspace() {
             </button>{' '}
             · zdjęcie {currentImagePosition} / {images.length}
           </p>
+          {state.selectionComplete === true ? (
+            <p className="manualImageSelectionStatus" role="status">
+              Osiągnięto granicę numeracji. Możesz cofnąć ostatnią decyzję albo
+              zakończyć pracę.
+            </p>
+          ) : null}
           {rangeEditorOpen ? (
             <form
               className="manualImageSelectionRangeEditor"
@@ -1319,7 +1410,7 @@ function LocalManualImageSelectionWorkspace() {
         </button>
         <button
           className="secondaryButton"
-          disabled={busy}
+          disabled={busy || state.selectionComplete === true}
           onClick={() => void skipCurrent()}
           type="button"
         >
@@ -1327,7 +1418,9 @@ function LocalManualImageSelectionWorkspace() {
         </button>
         <button
           className="primaryButton"
-          disabled={busy || current === undefined}
+          disabled={
+            busy || current === undefined || state.selectionComplete === true
+          }
           onClick={() => void acceptCurrent()}
           type="button"
         >

@@ -359,6 +359,7 @@ test('persists an accepted workspace decision and its outbox command atomically 
     decisions: [decision],
     navigationStep: 1,
     nextRangeStart: 10,
+    selectionComplete: false,
   });
   assert.deepEqual(
     restored.pendingOperations.map((record) => record.operationId),
@@ -484,6 +485,7 @@ test('operator-local decisions persist without creating a host outbox', async ()
     decisions: [decision],
     navigationStep: 1,
     nextRangeStart: 10,
+    selectionComplete: false,
   });
   assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
 
@@ -495,6 +497,57 @@ test('operator-local decisions persist without creating a host outbox', async ()
   assert.equal(remoteSelectionWorkspaceState(undone).currentIndex, 0);
   assert.equal(remoteSelectionWorkspaceState(undone).nextRangeStart, 1);
   assert.equal((await store.listOutboxPage('session-1', 'batch-1')).length, 0);
+});
+
+test('operator-local selection stops after its bounded final page', async () => {
+  const { store } = await fixture(3);
+  const source = await store.loadSourceItem('session-1', 'batch-1', 0);
+  const batch = await store.loadBatch('session-1', 'batch-1');
+  await store.saveBatch({
+    ...batch,
+    firstLayout: 499_996,
+    nextRangeStart: 499_996,
+    selectionComplete: false,
+    sequenceUpperBound: 500_000,
+  });
+  const decision = {
+    action: 'accepted',
+    operationId: 'bounded-final',
+    fileId: source.fileId,
+    sourceIndex: 0,
+    imagePath: source.relativePath,
+    imageChecksumSha256: 'e'.repeat(64),
+    outputName: 'seq_499996-500000.jpg',
+    rangeStart: 499_996,
+    rangeEnd: 500_000,
+    selectionGeneration: 1,
+  };
+
+  const selected = await store.appendLocalWorkspaceDecision({
+    sessionId: 'session-1',
+    batchId: 'batch-1',
+    decision,
+    nextCursorIndex: 1,
+  });
+
+  assert.deepEqual(remoteSelectionWorkspaceState(selected), {
+    currentIndex: 1,
+    decisions: [decision],
+    navigationStep: 1,
+    nextRangeStart: 499_996,
+    selectionComplete: true,
+  });
+  await assert.rejects(
+    store.appendLocalWorkspaceDecision({
+      sessionId: 'session-1',
+      batchId: 'batch-1',
+      decision: { ...decision, operationId: 'after-completion' },
+      nextCursorIndex: 2,
+    }),
+    (error) =>
+      error instanceof RemoteSelectionStoreError &&
+      error.code === 'REMOTE_SELECTION_WORKSPACE_STALE',
+  );
 });
 
 test('resumes an edited descending range from its last decision, not decision count', async () => {
@@ -610,6 +663,7 @@ test('restarts an operator-local batch at the first source image and first range
     decisions: [],
     navigationStep: 1,
     nextRangeStart: 1,
+    selectionComplete: false,
   });
   assert.equal(ascending.hostRegistered, true);
   assert.equal(ascending.status, 'active');
@@ -673,6 +727,7 @@ test('missing local directories atomically reset progress and require strict sou
     decisions: [],
     navigationStep: 1,
     nextRangeStart: 1,
+    selectionComplete: false,
   });
   assert.equal(relink.batch.hostRegistered, false);
   assert.equal(relink.batch.status, 'indexing');

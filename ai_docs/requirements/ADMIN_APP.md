@@ -462,17 +462,19 @@ planszy.
 
 Plansza renderuje dokładnie `rows × columns` z przypiętej topologii i pokazuje
 crop, pozycję, bieżącą etykietę oraz jakość każdej komórki. Dla nierozwiązanego
-nieczytelnego pola operator wybiera aktywny symbol albo logiczne `?`. Zapis jest
-związany z rewizją komórki i geometrii, crop sample ID oraz SHA-256. Podczas
-zapisu pozostałe akcje są zablokowane, a konflikt wymaga ponownego pobrania
-bieżącej planszy.
+nieczytelnego pola operator wybiera aktywny symbol albo prezentowaną w UI akcję
+`?`. Zapis jest związany z rewizją komórki i geometrii, crop sample ID oraz
+SHA-256. Podczas zapisu pozostałe akcje są zablokowane, a konflikt wymaga
+ponownego pobrania bieżącej planszy.
 
 Rozwiązanie zachowuje `quality_issue = unreadable`, dlatego crop pozostaje poza
 treningiem niezależnie od wybranej etykiety. Ostatnia decyzja może domknąć
-planszę jako `corrected`; `?` pozostaje wartością domenową i nie tworzy symbolu
-katalogowego. Do wdrożenia snapshotu v4 w TASK 10 plansza zawierająca `?` nie
-jest publikowana do stagingu datasetu, ale zachowuje kanonicznego właściciela i
-pełny audyt decyzji.
+planszę jako `corrected`; `?` jest wyłącznie reprezentacją UI wyniku bez
+przypisanego symbolu i nie tworzy symbolu katalogowego. Bieżące API zachowuje
+zgodność przez payload `{kind: unknown}` oraz legacy `NULL`, natomiast przyszły
+write model używa jawnego outcome v2. Snapshot v4 materializuje taki wynik jako
+sentinel `mobileCode = 0`, podczas gdy UI nadal pokazuje `?`; kanoniczny
+właściciel i pełny audyt decyzji pozostają zachowane.
 
 Symbol można fizycznie usunąć wyłącznie, gdy nie ma zależności w regułach,
 planszach, predykcjach, kohortach, iteracjach ani aktywacjach modeli. Modal

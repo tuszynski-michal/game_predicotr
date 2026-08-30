@@ -1115,6 +1115,22 @@ zgodną z pełnym historycznym układem 3 × 5, snapshotuje topologię plansz or
 uzupełnia bieżącą proweniencję zatwierdzonych cropów. Niespójność zatrzymuje
 grę raportem; nie jest naprawiana heurystycznie.
 
+TASK-0322 koryguje semantykę przyszłego write modelu bez zmiany powyższego
+schematu legacy. Kontrakt `symbol-verification-outcome-v2` rozróżnia:
+`unassigned`, `unknown`, `unreadable`, `grid_issue`, `requires_review` i
+`verified_symbol`. Wyłącznie `verified_symbol` może zawierać realne
+`assigned_symbol_id`; pozostałe wyniki muszą mieć `NULL`. Znak `?` jest tylko
+prezentacją UI stanu bez symbolu i nie jest wartością enum, rekordem katalogu,
+klasą modelu ani etykietą treningową.
+
+Do czasu addytywnej migracji obecne `review_state + quality_issue +
+assigned_symbol_id` pozostają źródłem historycznym. Jeden fail-closed adapter
+wyprowadza z nich outcome v2. Zatwierdzony realny symbol przy słabym cropie
+pozostaje `verified_symbol`, a `quality_issue = unreadable` nadal niezależnie
+blokuje trening. Zatwierdzony `NULL` bez dowodu unreadable oraz pending
+przypisanie człowieka są niejednoznaczne i muszą trafić do raportu przyszłego
+backfillu; nie wolno ich mapować heurystycznie.
+
 TASK-0315 nie dodaje tabel, binariów ani trwałego cache'u listy. Bounded odczyt
 `symbol-cell-reviews` wylicza bieżącą confidence z rewizji predykcji albo
 historycznej obserwacji, a odpowiedź wskazuje `asset_mode` oraz checksumę render

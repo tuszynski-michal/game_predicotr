@@ -3913,3 +3913,16 @@ occurrence z tego samego rekordu źródła. Render spec v2 zapisuje równolegle
 identyfikatory v1/v2, occurrence i fingerprint topologii. Bieżąca kolumna
 `logical_cell_key` nadal przechowuje v1; addytywna migracja, backfill i cutover
 indeksowanych odczytów pozostają osobnym kolejnym zadaniem.
+
+TASK-0322 dodaje wyłącznie czysty kontrakt
+`symbol-verification-outcome-v2`. Wyniki `unassigned`, `unknown`, `unreadable`,
+`grid_issue`, `requires_review` i `verified_symbol` są rozłączne, a tylko
+ostatni może posiadać realne `assigned_symbol_id`. Modelowa predykcja pozostaje
+sugestią; `?` jest reprezentacją UI i nie występuje w enumie ani assignment.
+
+Deterministyczny adapter interpretuje obecne pola legacy bez zmiany bazy.
+Pending wynik modelu staje się `requires_review` albo `unknown`, błąd siatki i
+nieczytelność pozostają osobne, a zatwierdzony realny symbol przechodzi jako
+`verified_symbol`. Podejrzane pending przypisanie człowieka oraz zatwierdzony
+NULL bez unreadable są fail-closed. Addytywna kolumna, raport/backfill, API i UI
+pozostają po późniejszym schema ownership review.

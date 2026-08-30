@@ -6336,6 +6336,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   przepisywanie kluczy v1 odrzucono odpowiednio z powodu kolizji wystąpień,
   braku deterministycznego replayu i złamania kompatybilności historycznej.
 
+## D-265 — Znak zapytania nie jest wynikiem domenowym ani symbolem
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** przyszły write model używa rozłącznego
+  `symbol-verification-outcome-v2`: `unassigned`, `unknown`, `unreadable`,
+  `grid_issue`, `requires_review` albo `verified_symbol`. Wyłącznie
+  `verified_symbol` posiada realne `assigned_symbol_id`. Znak `?` jest
+  wyłącznie prezentacją UI wyniku bez symbolu.
+- **Context:** obecne połączenie `review_state`, `quality_issue` i nullable
+  `assigned_symbol_id` pozwalało opisywać zatwierdzony brak symbolu jako
+  „domenowe ?”, mimo że `?` nie jest rekordem katalogu ani klasą modelu.
+- **Safety:** TASK-0322 nie zmienia bazy ani HTTP. Fail-closed adapter mapuje
+  tylko jednoznaczne stany legacy; zatwierdzony NULL bez unreadable i pending
+  przypisanie człowieka kończą się stabilnym błędem do przyszłego raportu.
+  Predykcja modelu pozostaje osobną sugestią i nie staje się assignmentem.
+- **Consequences:** ręcznie potwierdzone `unreadable` jest terminalne, lecz bez
+  symbolu i bez kwalifikacji treningowej. `unknown` oraz `requires_review`
+  pozostają nierozwiązane. Realny symbol przy słabym cropie może być
+  `verified_symbol`, a niezależne quality issue nadal blokuje trening.
+- **Alternatives:** rekord symbolu `?`, sentinel UUID, traktowanie każdego NULL
+  jako zatwierdzonego unknown oraz natychmiastowe przepisywanie historii
+  odrzucono z powodu mieszania UI z domeną i ryzyka utraty znaczenia danych.
+
 ## Szablon nowej decyzji
 
 ```text

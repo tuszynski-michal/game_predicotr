@@ -314,9 +314,15 @@ row-major i brak overlapu pozostają twardymi bramkami.
 
 Wartości v2 mają status `experimental_measurement_only`, wymagają rozłącznych
 źródeł strojenia i oceny oraz mają `activationAllowed=false`. Opcjonalny profil
-gry jest częścią checksummy konfiguracji. TASK-0328 nie podłącza v2 do
-pipeline'u, nie zmienia historycznego v1 i nie zezwala na rollout; wymaga tego
-osobna integracja po rozszerzeniu korpusu zgodnie z D-266.
+gry jest częścią checksummy konfiguracji. W `structured_shadow` pełny payload
+configu i jego check­suma są przypinane do niezmiennego snapshotu joba. Worker
+zapisuje osobny, checksummowany `structuredGeometryCandidateV2`, związany ze
+źródłem, znormalizowanymi pikselami i wynikiem Structured OpenCV v1. Kandydat
+używa finalnego quada v1 wyłącznie jako ROI pomiarowego i nie może sterować
+cropami, inferencją, review, canonical ownership ani treningiem. Historyczne
+snapshoty v1 i fingerprint `legacy` pozostają bitowo niezmienione. Integracja
+shadow nie zezwala na rollout; rozszerzony korpus D-266 nadal jest wymagany
+przed decyzją aktywacyjną.
 
 ### 3. Detekcja strony i layoutów
 

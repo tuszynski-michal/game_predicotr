@@ -2305,6 +2305,7 @@ export type ImageGeometryRolloutBackfillJobPayload = {
  * ImageGeometryRolloutJobSnapshotPayload
  */
 export type ImageGeometryRolloutJobSnapshotPayload = {
+  candidateGeometry?: StructuredGeometryCandidateJobSnapshotPayload | null;
   /**
    * Cellassetmode
    */
@@ -2333,7 +2334,9 @@ export type ImageGeometryRolloutJobSnapshotPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion: 'virtual-geometry-rollout-snapshot-v1';
+  schemaVersion:
+    | 'virtual-geometry-rollout-snapshot-v1'
+    | 'virtual-geometry-rollout-snapshot-v2';
   /**
    * Virtualrendererversion
    */
@@ -8298,6 +8301,30 @@ export type StoragePipelineCompactionJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+};
+
+/**
+ * StructuredGeometryCandidateJobSnapshotPayload
+ */
+export type StructuredGeometryCandidateJobSnapshotPayload = {
+  /**
+   * Config
+   */
+  config: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configchecksumsha256
+   */
+  configChecksumSha256: string;
+  /**
+   * Configversion
+   */
+  configVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'structured-geometry-candidate-snapshot-v1';
 };
 
 /**

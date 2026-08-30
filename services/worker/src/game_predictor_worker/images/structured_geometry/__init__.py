@@ -60,12 +60,25 @@ from .line_refinement import (
     StructuredBoardLineRefinementError,
     StructuredBoardLineThresholds,
 )
+from .shadow_v2 import (
+    STRUCTURED_GEOMETRY_SHADOW_V2_VERSION,
+    StructuredGeometryShadowBoardV2,
+    StructuredGeometryShadowResultV2,
+    evaluate_structured_geometry_shadow_v2,
+)
+from .signal_probe import (
+    STRUCTURED_GEOMETRY_SIGNAL_PROBE_VERSION,
+    StructuredGeometrySignalProbe,
+    probe_board_signals,
+)
 
 __all__ = [
     "STRUCTURED_GEOMETRY_ENGINE_ID",
     "STRUCTURED_GEOMETRY_CONFIG_V2_VERSION",
     "STRUCTURED_GEOMETRY_CONFIDENCE_VERSION",
     "STRUCTURED_GEOMETRY_GLOBAL_INITIALIZATION_VERSION",
+    "STRUCTURED_GEOMETRY_SHADOW_V2_VERSION",
+    "STRUCTURED_GEOMETRY_SIGNAL_PROBE_VERSION",
     "STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION",
     "STRUCTURED_SOURCE_GEOMETRY_VERSION",
     "STRUCTURED_BOARD_LINE_REFINEMENT_VERSION",
@@ -103,6 +116,9 @@ __all__ = [
     "StructuredGeometryInitializationError",
     "StructuredGeometryInitializationRequest",
     "StructuredGeometryInitializationThresholds",
+    "StructuredGeometryShadowBoardV2",
+    "StructuredGeometryShadowResultV2",
+    "StructuredGeometrySignalProbe",
     "StructuredGeometryValidationThresholds",
     "StructuredOpenCvGeometryEngine",
     "GameGeometryEvidenceProfileV2",
@@ -110,4 +126,6 @@ __all__ = [
     "refine_initialized_source_geometry",
     "evaluate_geometry_confidence",
     "evaluate_geometry_candidate_v2",
+    "evaluate_structured_geometry_shadow_v2",
+    "probe_board_signals",
 ]

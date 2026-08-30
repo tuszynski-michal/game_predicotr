@@ -4043,6 +4043,16 @@
       "ImageGeometryRolloutJobSnapshotPayload": {
         "additionalProperties": false,
         "properties": {
+          "candidateGeometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StructuredGeometryCandidateJobSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cellAssetMode": {
             "enum": [
               "legacy_files",
@@ -4085,7 +4095,10 @@
             "type": "integer"
           },
           "schemaVersion": {
-            "const": "virtual-geometry-rollout-snapshot-v1",
+            "enum": [
+              "virtual-geometry-rollout-snapshot-v1",
+              "virtual-geometry-rollout-snapshot-v2"
+            ],
             "title": "Schemaversion",
             "type": "string"
           },
@@ -14428,6 +14441,40 @@
           "mode"
         ],
         "title": "StoragePipelineCompactionJobPayload",
+        "type": "object"
+      },
+      "StructuredGeometryCandidateJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "configChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configchecksumsha256",
+            "type": "string"
+          },
+          "configVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Configversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "structured-geometry-candidate-snapshot-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "configVersion",
+          "configChecksumSha256",
+          "config"
+        ],
+        "title": "StructuredGeometryCandidateJobSnapshotPayload",
         "type": "object"
       },
       "SymbolCellReviewAction": {

@@ -34,6 +34,10 @@ from ..normalization import CanonicalSourceLoader
 from .geometry_engine import SourceGeometryResult, StructuredOpenCvGeometryEngine
 from .global_initialization import StructuredGeometryInitializationRequest
 from .line_refinement import BoardLineRefiner
+from .signal_probe import (
+    StructuredGeometrySignalProbe as SupplementalSignalProbe,
+)
+from .signal_probe import probe_board_signals
 
 SPIKE_SCHEMA_VERSION: Final = "structured-geometry-feasibility-report-v1"
 SPIKE_INPUT_VERSION: Final = "structured-geometry-feasibility-input-v1"
@@ -130,32 +134,6 @@ class CandidateAccuracy:
             ),
             "maximumCornerErrorPx": _rounded(self.maximum_corner_error_px),
             "provisionallyCorrect": self.provisionally_correct,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class SupplementalSignalProbe:
-    outer_border_score: float
-    hough_vertical_count: int
-    hough_horizontal_count: int
-    hough_coverage_score: float
-    vertical_gradient_profile_score: float
-    horizontal_gradient_profile_score: float
-    grid_periodicity_score: float
-    symbol_center_support_score: float
-    probe_coordinate_source: str = "human_reference_quad"
-
-    def to_payload(self) -> dict[str, object]:
-        return {
-            "gridPeriodicityScore": round(self.grid_periodicity_score, 8),
-            "horizontalGradientProfileScore": round(self.horizontal_gradient_profile_score, 8),
-            "houghCoverageScore": round(self.hough_coverage_score, 8),
-            "houghHorizontalCount": self.hough_horizontal_count,
-            "houghVerticalCount": self.hough_vertical_count,
-            "outerBorderScore": round(self.outer_border_score, 8),
-            "probeCoordinateSource": self.probe_coordinate_source,
-            "symbolCenterSupportScore": round(self.symbol_center_support_score, 8),
-            "verticalGradientProfileScore": round(self.vertical_gradient_profile_score, 8),
         }
 
 
@@ -350,65 +328,12 @@ def probe_reference_board_signals(
     reference_quad: SourceQuad,
 ) -> SupplementalSignalProbe:
     """Measure visibility signals inside a human reference ROI without deciding geometry."""
-
-    patch = _rectify(rgb, reference_quad, width=500, height=300)
-    gray = cast(NDArray[np.uint8], cv2.cvtColor(patch, cv2.COLOR_RGB2GRAY))
-    hsv = cv2.cvtColor(patch, cv2.COLOR_RGB2HSV)
-    low_red = cv2.inRange(hsv, np.array([0, 70, 45]), np.array([12, 255, 255]))
-    high_red = cv2.inRange(hsv, np.array([165, 70, 45]), np.array([179, 255, 255]))
-    red = cv2.bitwise_or(low_red, high_red)
-    border = np.zeros(red.shape, dtype=np.uint8)
-    border[:12, :] = 255
-    border[-12:, :] = 255
-    border[:, :12] = 255
-    border[:, -12:] = 255
-    border_pixels = int(np.count_nonzero(border))
-    outer_border_score = float(
-        np.count_nonzero(cv2.bitwise_and(red, border)) / max(1, border_pixels)
-    )
-
-    enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(6, 6)).apply(gray)
-    edges = cv2.Canny(enhanced, 45, 135)
-    hough = cv2.HoughLinesP(
-        edges,
-        1,
-        np.pi / 180,
-        threshold=34,
-        minLineLength=42,
-        maxLineGap=14,
-    )
-    vertical_coordinates: list[float] = []
-    horizontal_coordinates: list[float] = []
-    if hough is not None:
-        for x1, y1, x2, y2 in hough[:, 0]:
-            dx, dy = float(x2 - x1), float(y2 - y1)
-            angle = abs(math.degrees(math.atan2(dy, dx)))
-            if 70 <= angle <= 110:
-                vertical_coordinates.append((float(x1) + float(x2)) / 2)
-            elif angle <= 20 or angle >= 160:
-                horizontal_coordinates.append((float(y1) + float(y2)) / 2)
-    hough_vertical = _expected_support_count(vertical_coordinates, 500, 5)
-    hough_horizontal = _expected_support_count(horizontal_coordinates, 300, 3)
-    hough_score = (hough_vertical / 6 + hough_horizontal / 4) / 2
-
-    vertical_gradient = np.mean(np.abs(cv2.Sobel(enhanced, cv2.CV_32F, 1, 0, ksize=3)), axis=0)
-    horizontal_gradient = np.mean(np.abs(cv2.Sobel(enhanced, cv2.CV_32F, 0, 1, ksize=3)), axis=1)
-    vertical_profile, vertical_peaks = _profile_score(vertical_gradient, 5)
-    horizontal_profile, horizontal_peaks = _profile_score(horizontal_gradient, 3)
-    periodicity = (
-        _spacing_score(vertical_peaks, expected_count=6)
-        + _spacing_score(horizontal_peaks, expected_count=4)
-    ) / 2
-    center_support = _symbol_center_support(gray)
-    return SupplementalSignalProbe(
-        outer_border_score=_unit(outer_border_score),
-        hough_vertical_count=hough_vertical,
-        hough_horizontal_count=hough_horizontal,
-        hough_coverage_score=_unit(hough_score),
-        vertical_gradient_profile_score=vertical_profile,
-        horizontal_gradient_profile_score=horizontal_profile,
-        grid_periodicity_score=_unit(periodicity),
-        symbol_center_support_score=center_support,
+    return probe_board_signals(
+        rgb,
+        reference_quad,
+        topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+        analysis_scale=1.0,
+        coordinate_source="human_reference_quad",
     )
 
 

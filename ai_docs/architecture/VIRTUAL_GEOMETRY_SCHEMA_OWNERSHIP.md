@@ -121,6 +121,14 @@ job input, source revision i utworzonych plansz.
 operacyjną polityką i checkpointem walidacji, a nie trwałą konfiguracją domenową
 gry ani właścicielem geometrii. Każdy job zamraża jego wersję w input.
 
+Snapshot v2 joba `structured_shadow` może dodatkowo zamrozić config kandydata
+Structured Geometry v2. Jego wynik `structuredGeometryCandidateV2` jest
+wyłącznie checksummowanym pomiarem zapisanym w stage result. Nie jest payloadem
+`image_source_geometry_revisions`, nie może zmienić selektora planszy ani
+zostać użyty jako proweniencja cropa. Jedyną geometrią shadow pozostaje wynik
+Structured OpenCV v1; sidecar v2 deklaruje pochodzenie
+`reuse_v1_final_quad_without_authority`.
+
 Przyszły stan `ready` musi być związany z dokładną rewizją polityki, checksumą
 wejścia walidacji i jobem walidującym. Zmiana polityki unieważnia gotowość
 poprzedniego snapshotu, ale nie zmienia historycznych jobów ani source geometry

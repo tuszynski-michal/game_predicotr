@@ -67,6 +67,19 @@ def test_default_config_is_deterministic_and_cannot_authorize_activation() -> No
     assert error.value.code == "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_NOT_EXPERIMENTAL"
 
 
+def test_pinned_config_round_trips_exactly_and_rejects_policy_drift() -> None:
+    payload = DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+
+    restored = StructuredGeometryConfigV2.from_payload(payload)
+
+    assert restored == DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2
+    assert restored.checksum_sha256 == DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.checksum_sha256
+    payload["activationAllowed"] = True
+    with pytest.raises(GeometryConfigV2Error) as error:
+        StructuredGeometryConfigV2.from_payload(payload)
+    assert error.value.code == "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_NOT_EXPERIMENTAL"
+
+
 def test_analysis_scale_is_adaptive_and_preserves_local_roi_when_possible() -> None:
     policy = AdaptiveAnalysisPolicyV2()
 

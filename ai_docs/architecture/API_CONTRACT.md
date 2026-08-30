@@ -1170,6 +1170,13 @@ Payload `image_selection` jest widoczny w odpowiedziach wspólnego monitora
 jobów, ale nie może być utworzony przez ogólne `POST /jobs`; enqueue należy do
 dedykowanego `POST /image-selections`, a poświadczenie stagingu do TASK-0152.
 
+Odpowiedź joba może zawierać `imageGeometryRollout` w historycznej wersji
+`virtual-geometry-rollout-snapshot-v1` albo w addytywnej wersji v2. V2 jest
+dopuszczona wyłącznie dla `geometryMode = structured_shadow` i zawiera jedno
+`candidateGeometry` z pełnym configiem Structured Geometry v2 oraz jego
+SHA-256. Pole służy replayowi diagnostycznego sidecaru; nie daje klientowi ani
+workerowi uprawnienia do aktywacji kandydata. Snapshot v1 nie zawiera tego pola.
+
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
 `payout-v2` oraz dokładna kombinacja:

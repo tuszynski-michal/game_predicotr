@@ -32,6 +32,8 @@ PIPELINE_STAGES = (
 )
 CURRENT_NORMALIZATION_ADAPTER_VERSION = "image-normalization-v2-in-memory-source-v1"
 VIRTUAL_GEOMETRY_ROLLOUT_VERSION = "virtual-geometry-rollout-snapshot-v1"
+VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2 = "virtual-geometry-rollout-snapshot-v2"
+STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION = "structured-geometry-candidate-snapshot-v1"
 STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION = "structured-opencv-independent-board-refinement-v1"
 VIRTUAL_CELL_RENDERER_VERSION = "virtual-cell-renderer-source-direct-v1"
 SYMBOL_RGB_PREPROCESSING_VERSION = "rgb-resize64-normalize-half-v1"
@@ -69,6 +71,91 @@ class CellAssetRolloutMode(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class StructuredGeometryCandidateSnapshot:
+    """Exact measurement-only config pinned to one shadow job."""
+
+    config_version: str
+    config_checksum_sha256: str
+    canonical_config_json: str
+
+    def __post_init__(self) -> None:
+        try:
+            config = _object(json.loads(self.canonical_config_json), "candidateGeometry.config")
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_INVALID",
+                "The candidate geometry config must be canonical JSON.",
+            ) from error
+        canonical = canonical_json_bytes(config).decode("utf-8")
+        checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if (
+            canonical != self.canonical_config_json
+            or config.get("configVersion") != self.config_version
+            or checksum != self.config_checksum_sha256
+            or config.get("maturity") != "experimental_measurement_only"
+            or config.get("activationAllowed") is not False
+            or config.get("requireDisjointTuningAndEvaluation") is not True
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_INVALID",
+                "The candidate geometry config must remain exact and measurement-only.",
+            )
+
+    @classmethod
+    def from_config_payload(
+        cls,
+        value: object,
+    ) -> StructuredGeometryCandidateSnapshot:
+        config = _object(value, "candidateGeometry.config")
+        canonical = canonical_json_bytes(config)
+        return cls(
+            config_version=_text(config.get("configVersion"), "candidateGeometry.configVersion"),
+            config_checksum_sha256=hashlib.sha256(canonical).hexdigest(),
+            canonical_config_json=canonical.decode("utf-8"),
+        )
+
+    @property
+    def config_payload(self) -> dict[str, object]:
+        return dict(_object(json.loads(self.canonical_config_json), "candidateGeometry.config"))
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "config": self.config_payload,
+            "configChecksumSha256": self.config_checksum_sha256,
+            "configVersion": self.config_version,
+            "schemaVersion": STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION,
+        }
+
+    @classmethod
+    def from_payload(cls, value: object) -> StructuredGeometryCandidateSnapshot:
+        payload = _object(value, "candidateGeometry")
+        if (
+            set(payload)
+            != {
+                "config",
+                "configChecksumSha256",
+                "configVersion",
+                "schemaVersion",
+            }
+            or payload.get("schemaVersion") != STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_INVALID",
+                "The candidate geometry snapshot schema is unsupported.",
+            )
+        snapshot = cls.from_config_payload(payload.get("config"))
+        if (
+            payload.get("configVersion") != snapshot.config_version
+            or payload.get("configChecksumSha256") != snapshot.config_checksum_sha256
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_DRIFT",
+                "The pinned candidate geometry config changed.",
+            )
+        return snapshot
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryPipelineRolloutSnapshot:
     """Immutable per-job rollout choice for the v0.10 image pipeline."""
 
@@ -78,6 +165,7 @@ class GeometryPipelineRolloutSnapshot:
     geometry_engine_version: str
     virtual_renderer_version: str
     preprocessing_version: str
+    candidate_geometry: StructuredGeometryCandidateSnapshot | None = None
 
     def __post_init__(self) -> None:
         if self.rollout_revision < 0 or any(
@@ -103,6 +191,14 @@ class GeometryPipelineRolloutSnapshot:
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
                 "Legacy geometry and legacy files must be selected together.",
             )
+        if (
+            self.candidate_geometry is not None
+            and self.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW
+        ):
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "A measurement-only candidate can be pinned only in structured shadow mode.",
+            )
 
     @property
     def is_legacy(self) -> bool:
@@ -124,9 +220,15 @@ class GeometryPipelineRolloutSnapshot:
             "geometryMode": self.geometry_mode.value,
             "preprocessingVersion": self.preprocessing_version,
             "rolloutRevision": self.rollout_revision,
-            "schemaVersion": VIRTUAL_GEOMETRY_ROLLOUT_VERSION,
+            "schemaVersion": (
+                VIRTUAL_GEOMETRY_ROLLOUT_VERSION
+                if self.candidate_geometry is None
+                else VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2
+            ),
             "virtualRendererVersion": self.virtual_renderer_version,
         }
+        if self.candidate_geometry is not None:
+            payload["candidateGeometry"] = self.candidate_geometry.to_payload()
         if include_checksum:
             payload["checksumSha256"] = self.checksum_sha256
         return payload
@@ -134,6 +236,20 @@ class GeometryPipelineRolloutSnapshot:
     @classmethod
     def from_payload(cls, value: object) -> GeometryPipelineRolloutSnapshot:
         payload = _object(value, "imageGeometryRollout")
+        schema_version = payload.get("schemaVersion")
+        if schema_version not in {
+            VIRTUAL_GEOMETRY_ROLLOUT_VERSION,
+            VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2,
+        }:
+            raise ImagePipelineContractError(
+                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
+                "The pinned geometry rollout schema is unsupported.",
+            )
+        candidate_geometry = (
+            None
+            if schema_version == VIRTUAL_GEOMETRY_ROLLOUT_VERSION
+            else StructuredGeometryCandidateSnapshot.from_payload(payload.get("candidateGeometry"))
+        )
         rollout_revision = payload.get("rolloutRevision")
         if not isinstance(rollout_revision, int) or isinstance(rollout_revision, bool):
             raise ImagePipelineContractError(
@@ -161,17 +277,13 @@ class GeometryPipelineRolloutSnapshot:
                     payload.get("preprocessingVersion"),
                     "imageGeometryRollout.preprocessingVersion",
                 ),
+                candidate_geometry=candidate_geometry,
             )
         except (TypeError, ValueError) as error:
             raise ImagePipelineContractError(
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
                 "The pinned geometry rollout mode is invalid.",
             ) from error
-        if payload.get("schemaVersion") != VIRTUAL_GEOMETRY_ROLLOUT_VERSION:
-            raise ImagePipelineContractError(
-                "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID",
-                "The pinned geometry rollout schema is unsupported.",
-            )
         if payload.get("checksumSha256") != snapshot.checksum_sha256:
             raise ImagePipelineContractError(
                 "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_DRIFT",
@@ -839,6 +951,9 @@ __all__ = [
     "PIPELINE_ENVELOPE_VERSION",
     "PIPELINE_MANIFEST_VERSION",
     "PIPELINE_STAGES",
+    "STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_VERSION",
+    "StructuredGeometryCandidateSnapshot",
+    "VIRTUAL_GEOMETRY_ROLLOUT_VERSION_V2",
     "build_pipeline_envelope",
     "canonical_json_bytes",
     "current_pipeline_manifest",

@@ -118,8 +118,10 @@ from .source_ingestion import (
 from .structured_geometry import (
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     BoardGeometryDisposition,
+    StructuredGeometryConfigV2,
     StructuredGeometryInitializationRequest,
     StructuredOpenCvGeometryEngine,
+    evaluate_structured_geometry_shadow_v2,
 )
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import (
@@ -263,6 +265,7 @@ class ProductionImageImportWorkflow:
             attested_sequence_ranges=attested_sequence_ranges,
             board_cell_processing=board_cell_processing,
             geometry_rollout=_geometry_rollout_snapshot(job),
+            game_id=job.game_id,
             normalization_adapter_version=_normalization_adapter_version(job),
             board_cell_geometry_deferred_writer=(
                 self._board_cell_geometry_deferred_writer
@@ -463,6 +466,7 @@ class ProductionImageStageAdapterSuite:
         board_cell_geometry_deferred_writer: BoardCellGeometryDeferrer | None = None,
         normalization_adapter_version: str = NORMALIZATION_ADAPTER_VERSION,
         geometry_rollout: GeometryPipelineRolloutSnapshot | None = None,
+        game_id: UUID | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -492,6 +496,7 @@ class ProductionImageStageAdapterSuite:
         )
         self._board_cell_geometry_deferred_writer = board_cell_geometry_deferred_writer
         self._geometry_rollout = geometry_rollout or _legacy_geometry_rollout_snapshot()
+        self._game_id = game_id
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
         # ``seq_*`` import.  Loading the fallback registration anchors in that
@@ -664,7 +669,7 @@ class ProductionImageStageAdapterSuite:
 
     def board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
         if not self._geometry_rollout.is_legacy:
-            structured = self._detect_structured_geometry(context)
+            structured, candidate_v2 = self._detect_structured_geometry(context)
             if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
                 return {
                     "boards": [
@@ -681,7 +686,10 @@ class ProductionImageStageAdapterSuite:
                     "structuredGeometry": structured,
                 }
             legacy = self._legacy_board_detection(context)
-            return {**legacy, "structuredGeometry": structured}
+            projected = {**legacy, "structuredGeometry": structured}
+            if candidate_v2 is not None:
+                projected["structuredGeometryCandidateV2"] = candidate_v2
+            return projected
         return self._legacy_board_detection(context)
 
     def _legacy_board_detection(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -784,13 +792,19 @@ class ProductionImageStageAdapterSuite:
         if not self._geometry_rollout.is_legacy:
             if self._geometry_rollout.geometry_mode is GeometryRolloutMode.STRUCTURED_SHADOW:
                 legacy = self._legacy_board_cell_geometry(context)
-                return {
+                projected = {
                     **legacy,
                     "structuredGeometry": _mapping(
                         _previous(context, "board_detection").get("structuredGeometry"),
                         "structuredGeometry",
                     ),
                 }
+                candidate_v2 = _previous(context, "board_detection").get(
+                    "structuredGeometryCandidateV2"
+                )
+                if isinstance(candidate_v2, Mapping):
+                    projected["structuredGeometryCandidateV2"] = dict(candidate_v2)
+                return projected
             return self._structured_board_cell_geometry(context)
         return self._legacy_board_cell_geometry(context)
 
@@ -1340,7 +1354,10 @@ class ProductionImageStageAdapterSuite:
         except CanonicalSourceLoadError as error:
             raise ImagePipelineExecutionError(error.code, str(error)) from error
 
-    def _detect_structured_geometry(self, context: ImageStageContext) -> dict[str, object]:
+    def _detect_structured_geometry(
+        self,
+        context: ImageStageContext,
+    ) -> tuple[dict[str, object], dict[str, object] | None]:
         if context.attested_sequence_range is None or self._board_topology.rules_version_id is None:
             raise ImagePipelineExecutionError(
                 "IMAGE_STRUCTURED_GEOMETRY_ATTESTATION_REQUIRED",
@@ -1368,7 +1385,33 @@ class ProductionImageStageAdapterSuite:
         )
         payload = result.to_payload()
         payload["rolloutMode"] = self._geometry_rollout.geometry_mode.value
-        return payload
+        candidate_snapshot = self._geometry_rollout.candidate_geometry
+        if candidate_snapshot is None:
+            return payload, None
+        if self._geometry_rollout.geometry_mode is not GeometryRolloutMode.STRUCTURED_SHADOW:
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_MODE_INVALID",
+                "Structured Geometry v2 measurements are allowed only in shadow mode.",
+            )
+        try:
+            config = StructuredGeometryConfigV2.from_payload(candidate_snapshot.config_payload)
+        except ValueError as error:
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_CONFIG_DRIFT",
+                "The pinned Structured Geometry v2 config cannot be replayed.",
+            ) from error
+        if config.checksum_sha256 != candidate_snapshot.config_checksum_sha256:
+            raise ImagePipelineExecutionError(
+                "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_CONFIG_DRIFT",
+                "The pinned Structured Geometry v2 config checksum changed.",
+            )
+        candidate = evaluate_structured_geometry_shadow_v2(
+            frame,
+            result,
+            config=config,
+            game_id=self._game_id,
+        )
+        return payload, candidate.to_payload()
 
     def _structured_engine(self) -> StructuredOpenCvGeometryEngine:
         if self._structured_geometry_engine is None:

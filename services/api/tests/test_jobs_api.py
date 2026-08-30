@@ -376,6 +376,11 @@ def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     assert shadow_rollout["geometryMode"] == "structured_shadow"
     assert shadow_rollout["cellAssetMode"] == "virtual_shadow"
     assert shadow_rollout["rolloutRevision"] == 7
+    assert shadow_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
+    candidate_geometry = shadow_rollout["candidateGeometry"]
+    assert isinstance(candidate_geometry, dict)
+    assert candidate_geometry["config"]["activationAllowed"] is False
+    assert candidate_geometry["config"]["maturity"] == "experimental_measurement_only"
     assert "board_cell_processing" in shadow.input_payload
     assert (
         shadow.input_payload["pipeline_fingerprint"]

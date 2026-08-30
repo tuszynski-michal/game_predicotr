@@ -38,6 +38,8 @@ from game_predictor_worker.images.pipeline_contract import (
     CellAssetRolloutMode,
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
+    StructuredGeometryCandidateSnapshot,
+    canonical_json_bytes,
 )
 from game_predictor_worker.images.pipeline_execution import (
     ImagePipelineExecutionError,
@@ -56,6 +58,7 @@ from game_predictor_worker.images.production_workflow import (
 )
 from game_predictor_worker.images.source_ingestion import ManagedOriginal
 from game_predictor_worker.images.structured_geometry import (
+    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
 )
 from game_predictor_worker.images.symbol_onnx import OnnxInference
@@ -686,6 +689,125 @@ def _structured_default_rollout() -> GeometryPipelineRolloutSnapshot:
         virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
         preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
     )
+
+
+def _structured_shadow_candidate_rollout() -> GeometryPipelineRolloutSnapshot:
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=GeometryRolloutMode.STRUCTURED_SHADOW,
+        cell_asset_mode=CellAssetRolloutMode.VIRTUAL_SHADOW,
+        rollout_revision=2,
+        geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+        virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+        preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+        candidate_geometry=StructuredGeometryCandidateSnapshot.from_config_payload(
+            DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+        ),
+    )
+
+
+class _ShadowCandidateResult:
+    def __init__(self, *, source_checksum: str, normalized_checksum: str) -> None:
+        self._source_checksum = source_checksum
+        self._normalized_checksum = normalized_checksum
+
+    def to_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "activationAllowed": False,
+            "adaptiveAnalysisAppliedToSignalProbe": True,
+            "analysisScale": 1.0,
+            "boards": [],
+            "candidateRole": "measurement_only",
+            "candidateVersion": "structured-geometry-v2-shadow-measurement-v1",
+            "configChecksumSha256": DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.checksum_sha256,
+            "configVersion": DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()["configVersion"],
+            "geometryOriginEngineVersion": STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            "geometryOriginPolicy": "reuse_v1_final_quad_without_authority",
+            "normalizedPixelChecksumSha256": self._normalized_checksum,
+            "schemaVersion": 1,
+            "sourceChecksumSha256": self._source_checksum,
+            "upstreamResultChecksumSha256": "9" * 64,
+        }
+        payload["resultChecksumSha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+        return payload
+
+
+def test_structured_shadow_candidate_is_checkpointed_without_changing_legacy_primary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    relative_path, _expected = _managed_jpeg(artifact_root, orientation=1)
+    source_path = artifact_root / "data" / Path(*relative_path.split("/"))
+    source_checksum = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    processing = board_cell_processing_snapshot(
+        cell_output_size=32,
+        topology=BoardCellTopology(
+            rows=3,
+            columns=5,
+            rules_version_id="4e7b42a8-cac8-4e6f-b2c6-a0db53f0dd04",
+        ),
+    )
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        attested_sequence_ranges={source_checksum: (1, 9)},
+        board_cell_processing=processing,
+        page_geometry_manifest={
+            source_checksum: {
+                "status": "registered",
+                "quads": _grid_quads(),
+                "boardRedEdgeCoverages": [0.9] * 9,
+                "featureCount": 1000,
+                "featuresVersion": "orb-test-v1",
+                "registrationVersion": "verified-page-registration-v1",
+                "thresholdsVersion": "verified-page-registration-thresholds-v1",
+            }
+        },
+        geometry_rollout=_structured_shadow_candidate_rollout(),
+        game_id=uuid4(),
+    )
+    suite._structured_geometry_engine = _StructuredGeometryEngine()  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.evaluate_structured_geometry_shadow_v2",
+        lambda frame, *_args, **_kwargs: _ShadowCandidateResult(
+            source_checksum=frame.source.source_checksum_sha256,
+            normalized_checksum=frame.source.normalized_pixel_checksum_sha256,
+        ),
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow.estimate_board_cell_geometry",
+        lambda *_args, **_kwargs: _v19_success_estimate(),
+    )
+    base = {
+        "job_id": uuid4(),
+        "file_execution_key": "f" * 64,
+        "source_checksum_sha256": source_checksum,
+        "source_relative_path": relative_path,
+        "pipeline_fingerprint": "d" * 64,
+        "attested_sequence_range": (1, 9),
+    }
+    normalization = dict(suite.normalization(ImageStageContext(**base, previous_results={})))
+    detection_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization},
+    )
+    detection = dict(suite.board_detection(detection_context))
+    validate_stage_payload("board_detection", detection, detection_context)
+    geometry_context = ImageStageContext(
+        **base,
+        previous_results={"normalization": normalization, "board_detection": detection},
+    )
+    geometry = dict(suite.board_cell_geometry(geometry_context))
+    validate_stage_payload("board_cell_geometry", geometry, geometry_context)
+
+    assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert len(detection["boards"]) == 9
+    assert detection["structuredGeometry"]["engineVersion"] == (
+        STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
+    )
+    assert detection["structuredGeometryCandidateV2"] == (geometry["structuredGeometryCandidateV2"])
+    assert geometry["processingVersion"] != STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
 
 
 def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(

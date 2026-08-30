@@ -25,7 +25,11 @@ from game_predictor_worker.images.pipeline_contract import (
     CellAssetRolloutMode,
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
+    StructuredGeometryCandidateSnapshot,
     effective_pipeline_fingerprint,
+)
+from game_predictor_worker.images.structured_geometry import (
+    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
 )
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
@@ -351,6 +355,14 @@ class JobService:
             geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
             virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
             preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+            candidate_geometry=(
+                StructuredGeometryCandidateSnapshot.from_config_payload(
+                    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+                )
+                if reference is not None
+                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value
+                else None
+            ),
         )
         if not snapshot.is_legacy and "board_cell_processing" not in input_payload:
             topology_reference = self._repository.get_or_pin_board_topology(game_id)

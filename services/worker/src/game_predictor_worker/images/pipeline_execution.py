@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -476,6 +477,9 @@ def validate_stage_payload(
         _positive_integer(payload.get("height"), "normalization.height")
     elif stage == "board_detection":
         _boards(payload, require_cells=False, require_sequence=False, require_symbols=False)
+        candidate = payload.get("structuredGeometryCandidateV2")
+        if candidate is not None:
+            _structured_candidate_v2(candidate, context=context, payload=payload)
     elif stage == BOARD_CELL_GEOMETRY_STAGE:
         _board_cell_geometry(payload, context)
     elif stage == "board_crops":
@@ -748,6 +752,52 @@ def _same_positions(
         _invalid("Board positions cannot change between pipeline stages.")
 
 
+def _structured_candidate_v2(
+    value: object,
+    *,
+    context: ImageStageContext,
+    payload: Mapping[str, object],
+) -> None:
+    candidate = _mapping(value, "structuredGeometryCandidateV2")
+    checksum = candidate.get("resultChecksumSha256")
+    _sha256(checksum, "structuredGeometryCandidateV2.resultChecksumSha256")
+    unsigned = dict(candidate)
+    unsigned.pop("resultChecksumSha256", None)
+    expected = hashlib.sha256(canonical_json_bytes(unsigned)).hexdigest()
+    if checksum != expected:
+        _invalid("The Structured Geometry v2 shadow candidate checksum changed.")
+    if (
+        candidate.get("candidateRole") != "measurement_only"
+        or candidate.get("activationAllowed") is not False
+        or candidate.get("geometryOriginPolicy") != "reuse_v1_final_quad_without_authority"
+    ):
+        _invalid("The Structured Geometry v2 shadow candidate must remain measurement-only.")
+    _sha256(candidate.get("configChecksumSha256"), "candidate config checksum")
+    _matching_text(
+        candidate.get("sourceChecksumSha256"),
+        context.source_checksum_sha256,
+        "candidate source checksum",
+    )
+    _sha256(candidate.get("normalizedPixelChecksumSha256"), "candidate pixel checksum")
+    _sha256(candidate.get("upstreamResultChecksumSha256"), "candidate upstream checksum")
+    structured = _mapping(payload.get("structuredGeometry"), "structuredGeometry")
+    _matching_text(
+        candidate.get("upstreamResultChecksumSha256"),
+        _sha256(structured.get("resultChecksumSha256"), "structured result checksum"),
+        "candidate upstream result checksum",
+    )
+    normalization = context.previous_results.get("normalization")
+    if normalization is not None and "normalizedPixelChecksumSha256" in normalization:
+        _matching_text(
+            candidate.get("normalizedPixelChecksumSha256"),
+            _sha256(
+                normalization.get("normalizedPixelChecksumSha256"),
+                "normalization pixel checksum",
+            ),
+            "candidate normalized pixel checksum",
+        )
+
+
 def _board_cell_geometry(
     payload: Mapping[str, object],
     context: ImageStageContext,
@@ -771,6 +821,14 @@ def _board_cell_geometry(
             structured_payload.get("resultChecksumSha256"),
             "structuredGeometry.resultChecksumSha256",
         )
+    candidate = payload.get("structuredGeometryCandidateV2")
+    if candidate is not None:
+        _structured_candidate_v2(candidate, context=context, payload=payload)
+        previous_candidate = context.previous_results.get("board_detection", {}).get(
+            "structuredGeometryCandidateV2"
+        )
+        if candidate != previous_candidate:
+            _invalid("The Structured Geometry v2 shadow candidate changed between stages.")
     structured_primary = (
         structured is not None
         and isinstance(structured_payload.get("engineVersion"), str)

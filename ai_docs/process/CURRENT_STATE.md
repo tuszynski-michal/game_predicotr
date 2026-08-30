@@ -4017,3 +4017,18 @@ wymaga rozłącznych źródeł strojenia oraz ewaluacji. Nie podłączono jej do
 produkcyjnego engine'u, pipeline'u, jobów ani rolloutu; v1 i jego fingerprinty
 pozostają bez zmian. Rozszerzony read-only corpus wymagany przez D-266 nadal
 nie jest kompletny.
+
+TASK-0329 podłącza config Geometry v2 wyłącznie jako diagnostyczny sidecar
+nowych jobów `structured_shadow`. Addytywny snapshot rolloutu v2 zamraża pełny
+config i checksumę; historyczny snapshot v1 oraz legacy fingerprint pozostają
+niezmienione. Worker mierzy rzeczywiste sygnały na finalnym quadzie Structured
+OpenCV v1 i zapisuje osobny, checksummowany
+`structuredGeometryCandidateV2` w checkpointach detekcji oraz geometrii
+komórek.
+
+Kandydat deklaruje `measurement_only`, `activationAllowed=false` i brak
+własności geometrii. Nie steruje cropami, inferencją, review, canonical ani
+treningiem. Brak finalnego quada albo awaria pomiaru daje jawne
+`not_evaluated`, a nie sztuczną decyzję. Nie zmieniono trybu żadnej gry, nie
+uruchomiono migracji, backfillu ani operacji na danych. Korpus D-266 pozostaje
+niekompletny i rollout produkcyjny nadal nie jest autoryzowany.

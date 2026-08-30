@@ -15,6 +15,7 @@ from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
     ImagePipelineContractError,
+    StructuredGeometryCandidateSnapshot,
     build_pipeline_envelope,
     current_pipeline_manifest,
     effective_pipeline_fingerprint,
@@ -27,6 +28,7 @@ from game_predictor_worker.images.pipeline_contract import (
     verify_manifest_artifacts,
 )
 from game_predictor_worker.images.structured_geometry import (
+    DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
 )
 from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
@@ -53,6 +55,21 @@ def _rollout(mode: GeometryRolloutMode) -> GeometryPipelineRolloutSnapshot:
         geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
         virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
         preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+    )
+
+
+def _candidate_rollout() -> GeometryPipelineRolloutSnapshot:
+    base = _rollout(GeometryRolloutMode.STRUCTURED_SHADOW)
+    return GeometryPipelineRolloutSnapshot(
+        geometry_mode=base.geometry_mode,
+        cell_asset_mode=base.cell_asset_mode,
+        rollout_revision=base.rollout_revision,
+        geometry_engine_version=base.geometry_engine_version,
+        virtual_renderer_version=base.virtual_renderer_version,
+        preprocessing_version=base.preprocessing_version,
+        candidate_geometry=StructuredGeometryCandidateSnapshot.from_config_payload(
+            DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.to_payload()
+        ),
     )
 
 
@@ -201,6 +218,51 @@ def test_structured_rollout_is_checksum_bound_and_rejects_checkpoint_drift() -> 
     with pytest.raises(ImagePipelineContractError) as error:
         GeometryPipelineRolloutSnapshot.from_payload(payload)
     assert error.value.code == "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_DRIFT"
+
+
+def test_shadow_candidate_config_is_pinned_without_changing_v1_snapshots() -> None:
+    historical = pipeline_fingerprint(_manifest())
+    v1_shadow = _rollout(GeometryRolloutMode.STRUCTURED_SHADOW)
+    candidate = _candidate_rollout()
+
+    assert v1_shadow.to_payload()["schemaVersion"] == "virtual-geometry-rollout-snapshot-v1"
+    assert "candidateGeometry" not in v1_shadow.to_payload()
+    assert candidate.to_payload()["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
+    assert GeometryPipelineRolloutSnapshot.from_payload(candidate.to_payload()) == candidate
+    assert candidate.candidate_geometry is not None
+    assert (
+        candidate.candidate_geometry.config_checksum_sha256
+        == DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2.checksum_sha256
+    )
+    assert effective_pipeline_fingerprint(historical, candidate) != effective_pipeline_fingerprint(
+        historical, v1_shadow
+    )
+
+
+def test_shadow_candidate_snapshot_rejects_config_tampering_and_non_shadow_use() -> None:
+    payload = _candidate_rollout().to_payload()
+    candidate = cast(dict[str, object], payload["candidateGeometry"])
+    config = cast(dict[str, object], candidate["config"])
+    config["activationAllowed"] = True
+
+    with pytest.raises(ImagePipelineContractError) as drift:
+        GeometryPipelineRolloutSnapshot.from_payload(payload)
+    assert drift.value.code in {
+        "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_INVALID",
+        "IMAGE_STRUCTURED_GEOMETRY_CANDIDATE_SNAPSHOT_DRIFT",
+    }
+
+    with pytest.raises(ImagePipelineContractError) as invalid_mode:
+        GeometryPipelineRolloutSnapshot(
+            geometry_mode=GeometryRolloutMode.STRUCTURED_DEFAULT,
+            cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT,
+            rollout_revision=1,
+            geometry_engine_version=STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
+            virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
+            preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
+            candidate_geometry=_candidate_rollout().candidate_geometry,
+        )
+    assert invalid_mode.value.code == "IMAGE_GEOMETRY_ROLLOUT_SNAPSHOT_INVALID"
 
 
 @pytest.mark.parametrize(

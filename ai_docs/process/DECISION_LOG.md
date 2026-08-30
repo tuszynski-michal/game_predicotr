@@ -6521,6 +6521,28 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   stały downscale 50% i pikselowy próg reprojekcji odrzucono jako
   niereprezentatywne albo zależne od rozdzielczości.
 
+## D-272 — Pomiar Geometry v2 jest przypiętym sidecarem bez własności geometrii
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowy job `structured_shadow` zamraża pełny config Geometry v2
+  i jego checksumę w addytywnym snapshocie rolloutu v2. Worker zapisuje
+  checksummowany `structuredGeometryCandidateV2`, ale używa finalnego quada v1
+  wyłącznie jako ROI pomiarowego i deklaruje brak autorytetu geometrii.
+- **Context:** config TASK-0328 wymagał rzeczywistego, odtwarzalnego pomiaru w
+  pipeline'ie, lecz korpus D-266 nadal nie pozwala na strojenie ani aktywację.
+  Samo dołączenie konfiguracji bez snapshotu prowadziłoby do driftu retry.
+- **Safety:** `activationAllowed=false`, config i profile gry należą do
+  checksummy joba, a sidecar jest związany z checksumą źródła, pikseli i wyniku
+  v1. Cropper, inferencja, review, canonical ownership i kohorty treningowe nie
+  odczytują decyzji v2. Snapshoty v1 oraz legacy fingerprint są niezmienione.
+- **Consequences:** pomiary można porównywać między jobami i odtwarzać po
+  restarcie, ale nie powstaje nowy source geometry owner ani automatyczny
+  rollout. Zmiana configu tworzy inny fingerprint nowego joba shadow.
+- **Alternatives:** globalny mutable config, zapis v2 jako source revision oraz
+  aktywacja `structured_default` odrzucono z powodu braku replayu albo danych
+  odbiorczych.
+
 ## Szablon nowej decyzji
 
 ```text

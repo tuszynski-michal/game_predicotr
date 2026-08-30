@@ -10,9 +10,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 STRUCTURED_GEOMETRY_CONFIG_V2_VERSION: Final = (
@@ -255,6 +256,92 @@ class StructuredGeometryConfigV2:
             "tolerances": {"reprojectionUnit": "cell_diagonal_fraction"},
         }
 
+    @classmethod
+    def from_payload(cls, value: object) -> StructuredGeometryConfigV2:
+        """Recreate one exact pinned config and reject unsupported fields."""
+
+        payload = _mapping(value, "structuredGeometryConfigV2")
+        if (
+            set(payload)
+            != {
+                "activationAllowed",
+                "adaptiveAnalysis",
+                "configVersion",
+                "evidencePolicy",
+                "gameProfiles",
+                "maturity",
+                "requireDisjointTuningAndEvaluation",
+                "tolerances",
+            }
+            or payload.get("configVersion") != STRUCTURED_GEOMETRY_CONFIG_V2_VERSION
+        ):
+            raise GeometryConfigV2Error(
+                "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+                "The pinned Structured Geometry v2 schema is unsupported.",
+            )
+        analysis = _mapping(payload.get("adaptiveAnalysis"), "adaptiveAnalysis")
+        evidence_policy = _mapping(payload.get("evidencePolicy"), "evidencePolicy")
+        tolerances = _mapping(payload.get("tolerances"), "tolerances")
+        if (
+            set(analysis)
+            != {
+                "maximumAnalysisScale",
+                "minimumAnalysisScale",
+                "minimumLocalRoiShortEdgePx",
+                "targetSourceLongEdgePx",
+            }
+            or set(evidence_policy) != {"lsdIsExclusiveGate", "thresholds", "weights"}
+            or evidence_policy.get("lsdIsExclusiveGate") is not False
+            or dict(tolerances) != {"reprojectionUnit": "cell_diagonal_fraction"}
+        ):
+            raise GeometryConfigV2Error(
+                "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+                "The pinned Structured Geometry v2 policy is invalid.",
+            )
+        thresholds = _thresholds_from_payload(evidence_policy.get("thresholds"))
+        profiles = tuple(
+            _game_profile_from_payload(raw)
+            for raw in _sequence(payload.get("gameProfiles"), "gameProfiles")
+        )
+        try:
+            maturity = GeometryConfigMaturity(str(payload.get("maturity")))
+            return cls(
+                analysis=AdaptiveAnalysisPolicyV2(
+                    target_source_long_edge_px=_integer(
+                        analysis.get("targetSourceLongEdgePx"),
+                        "adaptiveAnalysis.targetSourceLongEdgePx",
+                    ),
+                    minimum_local_roi_short_edge_px=_integer(
+                        analysis.get("minimumLocalRoiShortEdgePx"),
+                        "adaptiveAnalysis.minimumLocalRoiShortEdgePx",
+                    ),
+                    minimum_analysis_scale=_number(
+                        analysis.get("minimumAnalysisScale"),
+                        "adaptiveAnalysis.minimumAnalysisScale",
+                    ),
+                    maximum_analysis_scale=_number(
+                        analysis.get("maximumAnalysisScale"),
+                        "adaptiveAnalysis.maximumAnalysisScale",
+                    ),
+                ),
+                weights=_weights_from_payload(evidence_policy.get("weights")),
+                thresholds=thresholds,
+                game_profiles=profiles,
+                maturity=maturity,
+                activation_allowed=_boolean(payload.get("activationAllowed"), "activationAllowed"),
+                require_disjoint_tuning_and_evaluation=_boolean(
+                    payload.get("requireDisjointTuningAndEvaluation"),
+                    "requireDisjointTuningAndEvaluation",
+                ),
+            )
+        except (TypeError, ValueError) as error:
+            if isinstance(error, GeometryConfigV2Error):
+                raise
+            raise GeometryConfigV2Error(
+                "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+                "The pinned Structured Geometry v2 values are invalid.",
+            ) from error
+
     @property
     def checksum_sha256(self) -> str:
         return hashlib.sha256(_canonical_json_bytes(self.to_payload())).hexdigest()
@@ -304,6 +391,29 @@ class StructuredGeometryEvidenceV2:
     def gradient_profile_score(self) -> float:
         return (self.vertical_gradient_profile_score + self.horizontal_gradient_profile_score) / 2
 
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "gradientProfileScore": round(self.gradient_profile_score, 8),
+            "gridRegularityScore": round(self.grid_regularity_score, 8),
+            "homographyAvailable": self.homography_available,
+            "horizontalGradientProfileScore": round(self.horizontal_gradient_profile_score, 8),
+            "houghGridScore": round(self.hough_grid_score, 8),
+            "initializationAlignmentValid": self.initialization_alignment_valid,
+            "knownLayoutScore": round(self.known_layout_score, 8),
+            "lsdGridScore": round(self.lsd_grid_score, 8),
+            "outerFrameScore": round(self.outer_frame_score, 8),
+            "overlapValid": self.overlap_valid,
+            "paddedCellSourceSupportComplete": self.padded_cell_source_support_complete,
+            "reprojectionCellDiagonalFraction": (
+                None
+                if self.reprojection_cell_diagonal_fraction is None
+                else round(self.reprojection_cell_diagonal_fraction, 8)
+            ),
+            "slotOrderValid": self.slot_order_valid,
+            "symbolCenterSupportScore": round(self.symbol_center_support_score, 8),
+            "verticalGradientProfileScore": round(self.vertical_gradient_profile_score, 8),
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class GeometryCandidateDecisionV2:
@@ -311,6 +421,14 @@ class GeometryCandidateDecisionV2:
     confidence: float
     reason_codes: tuple[GeometryEvidenceReasonV2, ...]
     strong_evidence_families: tuple[str, ...]
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "confidence": round(self.confidence, 8),
+            "disposition": self.disposition.value,
+            "reasonCodes": [reason.value for reason in self.reason_codes],
+            "strongEvidenceFamilies": list(self.strong_evidence_families),
+        }
 
 
 def evaluate_geometry_candidate_v2(
@@ -438,6 +556,139 @@ def _strong_evidence_families(
 
 
 DEFAULT_STRUCTURED_GEOMETRY_CONFIG_V2 = StructuredGeometryConfigV2()
+
+
+def _thresholds_from_payload(value: object) -> GeometryEvidenceThresholdsV2:
+    payload = _mapping(value, "evidencePolicy.thresholds")
+    if set(payload) != {
+        "automaticConfidence",
+        "maximumReprojectionCellDiagonalFraction",
+        "reviewConfidence",
+        "strongGridRegularity",
+        "strongInternalStructure",
+        "strongKnownLayout",
+        "strongOuterFrame",
+    }:
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+            "The candidate evidence thresholds are invalid.",
+        )
+    return GeometryEvidenceThresholdsV2(
+        strong_outer_frame=_number(payload.get("strongOuterFrame"), "strongOuterFrame"),
+        strong_known_layout=_number(payload.get("strongKnownLayout"), "strongKnownLayout"),
+        strong_grid_regularity=_number(payload.get("strongGridRegularity"), "strongGridRegularity"),
+        strong_internal_structure=_number(
+            payload.get("strongInternalStructure"), "strongInternalStructure"
+        ),
+        maximum_reprojection_cell_diagonal_fraction=_number(
+            payload.get("maximumReprojectionCellDiagonalFraction"),
+            "maximumReprojectionCellDiagonalFraction",
+        ),
+        automatic_confidence=_number(payload.get("automaticConfidence"), "automaticConfidence"),
+        review_confidence=_number(payload.get("reviewConfidence"), "reviewConfidence"),
+    )
+
+
+def _weights_from_payload(value: object) -> GeometryEvidenceWeightsV2:
+    payload = _mapping(value, "evidencePolicy.weights")
+    expected = {
+        "gradientProfiles",
+        "gridRegularity",
+        "houghLines",
+        "knownLayout",
+        "lsdLines",
+        "outerFrame",
+        "reprojection",
+        "symbolCenters",
+    }
+    if set(payload) != expected:
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+            "The candidate evidence weights are invalid.",
+        )
+    return GeometryEvidenceWeightsV2(
+        outer_frame=_number(payload.get("outerFrame"), "outerFrame"),
+        known_layout=_number(payload.get("knownLayout"), "knownLayout"),
+        lsd_lines=_number(payload.get("lsdLines"), "lsdLines"),
+        hough_lines=_number(payload.get("houghLines"), "houghLines"),
+        gradient_profiles=_number(payload.get("gradientProfiles"), "gradientProfiles"),
+        grid_regularity=_number(payload.get("gridRegularity"), "gridRegularity"),
+        symbol_centers=_number(payload.get("symbolCenters"), "symbolCenters"),
+        reprojection=_number(payload.get("reprojection"), "reprojection"),
+    )
+
+
+def _game_profile_from_payload(value: object) -> GameGeometryEvidenceProfileV2:
+    payload = _mapping(value, "gameProfiles[]")
+    if set(payload) != {"gameId", "thresholds"}:
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+            "A candidate game profile is invalid.",
+        )
+    try:
+        game_id = UUID(_text(payload.get("gameId"), "gameProfiles[].gameId"))
+    except ValueError as error:
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID",
+            "A candidate game profile ID is invalid.",
+        ) from error
+    return GameGeometryEvidenceProfileV2(
+        game_id=game_id,
+        thresholds=_thresholds_from_payload(payload.get("thresholds")),
+    )
+
+
+def _mapping(value: object, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be an object."
+        )
+    return cast(Mapping[str, object], value)
+
+
+def _sequence(value: object, label: str) -> Sequence[object]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be an array."
+        )
+    return cast(Sequence[object], value)
+
+
+def _text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be text."
+        )
+    return value
+
+
+def _integer(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be an integer."
+        )
+    return value
+
+
+def _number(value: object, label: str) -> float:
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be numeric."
+        )
+    result = float(value)
+    if not math.isfinite(result):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be finite."
+        )
+    return result
+
+
+def _boolean(value: object, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise GeometryConfigV2Error(
+            "IMAGE_STRUCTURED_GEOMETRY_CONFIG_V2_INVALID", f"{label} must be boolean."
+        )
+    return value
 
 
 def _canonical_json_bytes(value: object) -> bytes:

@@ -855,9 +855,20 @@ bramki bezpieczeństwa geometrii są sprawdzane przed confidence.
 
 Payload i profil gry są deterministycznie checksummowane. Config v2 ma zawsze
 `experimental_measurement_only`, `activationAllowed=false` i wymaga
-rozłącznych source families dla strojenia oraz ewaluacji. Produkcyjny engine,
-fingerprinty v1, snapshoty jobów i tryb rolloutu nie importują tego kontraktu;
-podłączenie do shadow pozostaje osobnym zadaniem zależnym od D-266.
+rozłącznych source families dla strojenia oraz ewaluacji. TASK-0329 przypina
+dokładny config jako `candidateGeometry` wyłącznie w nowym snapshocie v2 joba
+`structured_shadow`. Snapshot v1 nie otrzymał dodatkowych pól i zachowuje
+historyczną checksumę.
+
+Worker liczy v2 jako read-only sidecar na finalnym quadzie v1. Rzeczywiste
+sygnały Hough, LSD, gradientów, regularności i centrów symboli oraz
+znormalizowany błąd reprojekcji tworzą checksummowany
+`structuredGeometryCandidateV2` w checkpointach detekcji i geometrii komórek.
+Sidecar wskazuje `reuse_v1_final_quad_without_authority`; nie jest source
+geometry revision, nie jest odczytywany przez renderer ani inferencję i nie ma
+portu do review, canonical lub treningu. Legacy oraz Structured OpenCV v1
+pozostają jedynymi wynikami wykonawczymi. Rozszerzenie korpusu i decyzja
+rolloutowa nadal zależą od D-266.
 
 TASK-0324 zamyka własność schematu geometrii wirtualnej. Kanoniczny payload
 quadów należy do niezmiennego `image_source_geometry_revisions`, natomiast

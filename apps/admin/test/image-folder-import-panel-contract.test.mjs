@@ -57,7 +57,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
-  assert.match(panelSource, /Cold-start nowego silnika/);
+  assert.match(panelSource, /W nowej grze popraw najpierw jedną/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);

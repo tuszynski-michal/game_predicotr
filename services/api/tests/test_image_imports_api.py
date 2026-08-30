@@ -529,7 +529,7 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     )
 
 
-def test_structured_shadow_browser_import_cold_start_skips_legacy_geometry_preflight(
+def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     tmp_path: Path,
 ) -> None:
     game_id = uuid4()
@@ -601,39 +601,90 @@ def test_structured_shadow_browser_import_cold_start_skips_legacy_geometry_prefl
         report = preflight.json()
         assert report["imageEnginePolicy"] == "structured_shadow"
         assert report["imageEnginePolicyRevision"] == 1
-        assert report["geometryPreflightRequired"] is False
+        assert report["geometryPreflightRequired"] is True
 
+        missing_geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": report["preflightChecksumSha256"],
+                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicyRevision": 1,
+                "boardCellProcessingMode": "structured_shadow",
+            },
+        )
+        geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/geometry-preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert geometry.status_code == 201, geometry.text
+        geometry_job_id = UUID(geometry.json()["job"]["id"])
+        geometry_job = job_service.get_job(geometry_job_id)
+        profile = geometry_job.input_payload["page_registration_profile"]
+        assert isinstance(profile, dict)
+        assert profile["policy"] == "verified-page-registration-v1"
+        assert profile["anchors"] == []
+        geometry_checksum = "d" * 64
+        lease_token = uuid4()
+        geometry_job = start_job(
+            geometry_job,
+            worker_version="test-worker",
+            worker_id="test-worker",
+            lease_token=lease_token,
+            lease_expires_at=NOW + timedelta(minutes=5),
+            started_at=NOW,
+        )
+        geometry_job = checkpoint_job(
+            geometry_job,
+            lease_token=lease_token,
+            checkpoint_payload={
+                "schema_version": 1,
+                "complete": True,
+                "geometry_manifest_checksum_sha256": geometry_checksum,
+                "geometry_manifest_relative_path": (
+                    f"data/page-geometry-manifests/{geometry_checksum}.json"
+                ),
+            },
+            stage="page_geometry_manifest_ready",
+            current=1,
+            total=1,
+            success_count=0,
+            failure_count=0,
+            review_count=1,
+            updated_at=NOW + timedelta(seconds=1),
+        )
+        repository.save_job(
+            complete_job(
+                geometry_job,
+                lease_token=lease_token,
+                finished_at=NOW + timedelta(seconds=2),
+            )
+        )
         started = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
             json={
                 "gameId": str(game_id),
                 "manifestChecksumSha256": report["manifestChecksumSha256"],
                 "preflightChecksumSha256": report["preflightChecksumSha256"],
-                "imageEnginePolicy": "structured_shadow",
-                "imageEnginePolicyRevision": 1,
-                "boardCellProcessingMode": "structured_shadow",
-            },
-        )
-        conflicting = client.post(
-            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
-            json={
-                "gameId": str(game_id),
-                "manifestChecksumSha256": report["manifestChecksumSha256"],
-                "preflightChecksumSha256": report["preflightChecksumSha256"],
-                "geometryPreflightJobId": str(uuid4()),
-                "geometryManifestChecksumSha256": "d" * 64,
+                "geometryPreflightJobId": str(geometry_job_id),
+                "geometryManifestChecksumSha256": geometry_checksum,
                 "imageEnginePolicy": "structured_shadow",
                 "imageEnginePolicyRevision": 1,
                 "boardCellProcessingMode": "structured_shadow",
             },
         )
 
+    assert missing_geometry.status_code == 409
+    assert missing_geometry.json()["code"] == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
     assert started.status_code == 201, started.text
     payload = started.json()["job"]["inputPayload"]
     assert payload["imageGeometryRollout"]["geometryMode"] == "structured_shadow"
-    assert payload["pageGeometryManifest"] is None
-    assert conflicting.status_code == 409
-    assert conflicting.json()["code"] == "IMAGE_ENGINE_POLICY_GEOMETRY_PREFLIGHT_CONFLICT"
+    assert payload["pageGeometryManifest"] == {
+        "checksumSha256": geometry_checksum,
+        "preflightJobId": str(geometry_job_id),
+        "relativePath": f"data/page-geometry-manifests/{geometry_checksum}.json",
+    }
 
 
 def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:

@@ -17,6 +17,10 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_recrop_snapshot,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import BoardCellTopology
+from game_predictor_worker.images.page_geometry_registration import (
+    PAGE_REGISTRATION_THRESHOLDS_VERSION,
+    PAGE_REGISTRATION_VERSION,
+)
 from game_predictor_worker.images.pipeline_contract import (
     CURRENT_NORMALIZATION_ADAPTER_VERSION,
     STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
@@ -1144,10 +1148,12 @@ class JobService:
         )
         registration = grid.get("pageRegistrationProfile")
         if not isinstance(registration, dict) or not registration.get("anchors"):
-            raise JobConflictError(
-                "IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY",
-                "Create or activate a grid profile from reviewed pages before geometry preflight.",
-            )
+            registration = {
+                "schemaVersion": 1,
+                "policy": PAGE_REGISTRATION_VERSION,
+                "thresholdsVersion": PAGE_REGISTRATION_THRESHOLDS_VERSION,
+                "anchors": [],
+            }
         overrides = (
             {}
             if self._page_geometry_override_snapshot_resolver is None

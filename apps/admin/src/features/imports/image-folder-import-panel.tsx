@@ -1081,9 +1081,12 @@ export function ImageFolderImportPanel({
                                 {geometryPreflightJob.progress.review})
                               </summary>
                               <p className="curatedImportStatus">
-                                Rozpoznane strony można już importować. Te
-                                pozycje pozostają bezpiecznie odroczone i nie
-                                trafią do cięcia ani rozpoznawania symboli.
+                                W nowej grze popraw najpierw jedną dobrze
+                                widoczną stronę. Zapisana korekta stanie się
+                                kotwicą kolejnego preflightu. Pozostałe
+                                nierozwiązane pozycje są bezpiecznie odroczone
+                                i nie trafią do cięcia ani rozpoznawania
+                                symboli.
                               </p>
                               <PageGeometryCorrectionPanel
                                 api={api}
@@ -1098,10 +1101,9 @@ export function ImageFolderImportPanel({
                         </div>
                       ) : (
                         <p className="curatedImportStatus">
-                          Cold-start nowego silnika: historyczny profil siatki
-                          nie jest wymagany. Wynik strukturalny zostanie
-                          zapisany w cieniu i nie zastąpi automatycznie
-                          stabilnej geometrii.
+                          Ten historyczny raport nie zawiera wymaganego
+                          manifestu geometrii. Odśwież raport przed
+                          rozpoczęciem importu.
                         </p>
                       )}
                     </>

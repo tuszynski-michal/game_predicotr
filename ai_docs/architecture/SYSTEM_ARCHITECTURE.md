@@ -1619,8 +1619,9 @@ Adminie. Polityka i jej rewizja wchodzą do checksummy preflightu i snapshotu
 joba; zmiana nie mutuje istniejących jobów.
 
 Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.
-Stabilny `verified_v19` nadal konsumuje niezmienny manifest historycznej
-rejestracji stron. `structured_shadow` rozpoczyna się bez tego manifestu:
-strukturalny kandydat jest zapisywany wyłącznie jako pomiar shadow, a legacy
-primary pozostaje fail-closed. Serwer odrzuca próbę dołączenia legacy manifestu
-do cold-startu shadow, aby nie mieszać dwóch ścieżek proweniencji.
+Oba presety konsumują niezmienny manifest rejestracji stron, ponieważ v20/v19
+pozostaje właścicielem primary. Każda nowa gra dopuszcza pusty profil wejściowy
+preflightu, ale nie import bez geometrii: pierwszy przebieg tworzy
+kontrolowaną kolejkę korekty, a ręczny override strony jest kopiowany do
+snapshotu kotwic kolejnego przebiegu. Kandydat strukturalny pozostaje wyłącznie
+pomiarem shadow i nie przejmuje cropów ani decyzji primary.

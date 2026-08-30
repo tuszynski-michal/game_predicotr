@@ -784,8 +784,9 @@ folderu i gotowego stagingu, a upload pozostaje zablokowany do czasu odczytania
 polityki gry. Zmiana silnika dla aktywnego stagingu automatycznie odtwarza jego
 raport bez ponownego przesyłania JPEG-ów.
 
-Dla `verified_v19` Admin automatycznie przygotowuje i pokazuje historyczny
-preflight geometrii przed odblokowaniem startu. Dla `structured_shadow` raport
-oznacza ten etap jako niewymagany, nie wywołuje endpointu zależnego od profilu
-z zatwierdzonych plansz i pokazuje jawny komunikat cold-start. Dzięki temu
-pierwszy import nowej gry nie wymaga danych, które dopiero ma wytworzyć.
+Dla obu bezpiecznych presetów Admin przygotowuje preflight geometrii przed
+odblokowaniem startu. W nowej grze brak profilu nie jest błędem
+technicznym: panel pokazuje źródła do korekty i instruuje operatora, aby
+poprawił jedną reprezentatywną stronę. Zapis uruchamia następny preflight z tą
+stroną jako kotwicą; tylko źródła z kompletną geometrią mogą zostać
+zaimportowane.

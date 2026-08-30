@@ -1141,10 +1141,12 @@ logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
   wyniku primary i nie aktywuje Geometry v2 produkcyjnie.
 - Preflight zawiera nazwę i rewizję polityki. Zmiana ustawienia po preflighcie
   wymaga przygotowania nowego raportu.
-- Raport jawnie zwraca `geometryPreflightRequired`. Dla `verified_v19` wartość
-  pozostaje prawdziwa i start wymaga checksum-bound manifestu geometrii.
-  `structured_shadow` ma bezpieczny cold-start bez historycznego profilu z
-  zatwierdzonych plansz; nie uruchamia legacy preflightu i nie może przyjąć
-  jego manifestu.
+- Raport jawnie zwraca `geometryPreflightRequired`. Oba bezpieczne presety
+  wymagają checksum-bound manifestu geometrii, ponieważ w obu primary pozostaje
+  v20/v19. Nowa gra może utworzyć pierwszy preflight bez historycznego profilu,
+  niezależnie od wybranego presetu: źródła trafiają wtedy do korekty, a
+  zapisana ręcznie
+  strona staje się kotwicą następnego, niezmiennego preflightu. Nierozwiązane
+  źródła nie trafiają do croppera ani inferencji.
 - Payload klienta nie może nadpisać polityki gry, a istniejące joby zachowują
   przypięte wcześniej snapshoty.

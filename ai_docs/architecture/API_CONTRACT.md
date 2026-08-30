@@ -2710,6 +2710,15 @@ Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.
 
+Nowa gra może utworzyć preflight bez aktywnego profilu rejestracji niezależnie
+od wybranego bezpiecznego presetu. Taki job kończy się poprawnym manifestem,
+w którym źródła
+mają stan `review_required` i powód
+`PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED`. Po zapisaniu ręcznego override'u
+następny preflight dołącza go jako niezmienną kotwicę i próbuje zarejestrować
+pozostałe strony. Import nadal wymaga ID ukończonego preflightu i checksummy
+manifestu; tryb shadow nie omija geometrii primary.
+
 Payload joba preflightu przechowuje również `sourceDisplayName` stagingu jako
 metadane prezentacyjne. Nie wchodzi ono do klucza idempotencji: zmiana etykiety
 nie może utworzyć drugiej walidacji tych samych obrazów i manifestu.

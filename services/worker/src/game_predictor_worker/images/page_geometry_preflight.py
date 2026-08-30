@@ -88,15 +88,14 @@ class PageGeometryPreflightHandler:
             job,
             source_directory=source_directory,
         )
-        registrar = VerifiedPageRegistrar(
+        registration_profile = _profile_with_manual_override_anchors(
             cast(Mapping[str, object], payload["pageRegistrationProfile"]),
+            cast(Mapping[str, object], payload["pageGeometryOverrides"]),
+        )
+        registrar = VerifiedPageRegistrar(
+            registration_profile,
             load_anchor_rgb=self._load_anchor_rgb,
         )
-        if not registrar.available:
-            raise JobHandlerError(
-                "IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY",
-                "No complete reviewed page is available as a geometry registration anchor.",
-            )
         entries: dict[str, object] = {}
         registered = review_required = skipped = 0
         total = len(managed.originals)
@@ -145,6 +144,7 @@ class PageGeometryPreflightHandler:
                 managed.originals,
                 source_directory=managed.source_directory,
                 payload=payload,
+                base_profile=registration_profile,
             )
             registered = _entry_status_count(entries, "registered")
             review_required = _entry_status_count(entries, "review_required")
@@ -223,6 +223,18 @@ class PageGeometryPreflightHandler:
                 },
                 "registered",
             )
+        if not registrar.available:
+            return (
+                original.checksum_sha256,
+                {
+                    "status": "review_required",
+                    "sourceRelativePath": original.source_relative_path,
+                    "imageHeight": int(rgb.shape[0]),
+                    "imageWidth": int(rgb.shape[1]),
+                    "reasonCode": "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED",
+                },
+                "review_required",
+            )
         result = registrar.register(rgb)
         if result is None:
             return (
@@ -254,11 +266,11 @@ class PageGeometryPreflightHandler:
         *,
         source_directory: Path,
         payload: Mapping[str, object],
+        base_profile: Mapping[str, object],
     ) -> tuple[dict[str, object], list[dict[str, object]]]:
         """Retry unresolved views with a bounded, stricter anchor cohort."""
 
         by_checksum = {original.checksum_sha256: original for original in originals}
-        base_profile = cast(Mapping[str, object], payload["pageRegistrationProfile"])
         raw_anchors = base_profile.get("anchors")
         anchors = (
             [dict(value) for value in raw_anchors if isinstance(value, Mapping)]
@@ -376,7 +388,7 @@ class PageGeometryPreflightHandler:
         if raw.get("imageWidth") != width or raw.get("imageHeight") != height:
             return None
         quads = raw.get("quads")
-        if not isinstance(quads, list) or len(quads) != 9:
+        if not isinstance(quads, Sequence) or isinstance(quads, str | bytes) or len(quads) != 9:
             return None
         return {
             "anchorSourceChecksumSha256": None,
@@ -388,7 +400,7 @@ class PageGeometryPreflightHandler:
             "manualOverrideRevision": raw.get("revision"),
             "meanRedEdgeCoverage": 1.0,
             "p95ReprojectionError": 0.0,
-            "quads": quads,
+            "quads": list(quads),
             "registrationVersion": "manual-page-geometry-override-v1",
             "thresholdsVersion": "manual-page-geometry-override-v1",
         }
@@ -701,6 +713,56 @@ def _entry_status_count(entries: Mapping[str, object], status: str) -> int:
         for entry in entries.values()
         if isinstance(entry, Mapping) and entry.get("status") == status
     )
+
+
+def _profile_with_manual_override_anchors(
+    profile: Mapping[str, object],
+    overrides: Mapping[str, object],
+) -> dict[str, object]:
+    """Use reviewed page overrides as immutable cold-start registration anchors."""
+
+    raw_anchors = profile.get("anchors")
+    anchors = (
+        [dict(value) for value in raw_anchors if isinstance(value, Mapping)]
+        if isinstance(raw_anchors, Sequence) and not isinstance(raw_anchors, str | bytes)
+        else []
+    )
+    known_checksums = {
+        value.get("sourceChecksumSha256")
+        for value in anchors
+        if isinstance(value.get("sourceChecksumSha256"), str)
+    }
+    for checksum, raw in sorted(overrides.items()):
+        if checksum in known_checksums or not isinstance(raw, Mapping):
+            continue
+        width = raw.get("imageWidth")
+        height = raw.get("imageHeight")
+        quads = raw.get("quads")
+        if (
+            not isinstance(checksum, str)
+            or len(checksum) != 64
+            or not isinstance(width, int)
+            or isinstance(width, bool)
+            or width < 1
+            or not isinstance(height, int)
+            or isinstance(height, bool)
+            or height < 1
+            or not isinstance(quads, Sequence)
+            or isinstance(quads, str | bytes)
+            or len(quads) != 9
+        ):
+            continue
+        anchors.append(
+            {
+                "sourceChecksumSha256": checksum,
+                "imageWidth": width,
+                "imageHeight": height,
+                "quads": list(quads),
+                "provenance": "manual-page-geometry-override-v1",
+            }
+        )
+        known_checksums.add(checksum)
+    return {**profile, "anchors": anchors}
 
 
 def _strong_auto_anchor(entry: Mapping[str, object]) -> bool:

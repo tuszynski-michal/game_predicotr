@@ -259,7 +259,7 @@ test('pins the game engine policy for a ready browser staging', async () => {
   assert.equal(command.boardCellProcessingMode, 'verified_v19');
 });
 
-test('omits the legacy geometry manifest for structured shadow cold-start', async () => {
+test('pins the cold-start geometry manifest for structured shadow', async () => {
   let command;
   const result = await startReadyBrowserImageImport(
     {
@@ -278,8 +278,8 @@ test('omits the legacy geometry manifest for structured shadow cold-start', asyn
     'game-1',
     'a'.repeat(64),
     'b'.repeat(64),
-    undefined,
-    undefined,
+    'geometry-job-shadow',
+    'c'.repeat(64),
     'structured_shadow',
     2,
   );
@@ -287,6 +287,6 @@ test('omits the legacy geometry manifest for structured shadow cold-start', asyn
   assert.equal(result.ok, true);
   assert.equal(command.imageEnginePolicy, 'structured_shadow');
   assert.equal(command.imageEnginePolicyRevision, 2);
-  assert.equal('geometryPreflightJobId' in command, false);
-  assert.equal('geometryManifestChecksumSha256' in command, false);
+  assert.equal(command.geometryPreflightJobId, 'geometry-job-shadow');
+  assert.equal(command.geometryManifestChecksumSha256, 'c'.repeat(64));
 });

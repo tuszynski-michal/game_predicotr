@@ -9,7 +9,7 @@ import cv2
 import game_predictor_worker.images.page_geometry_preflight as preflight_module
 import numpy as np
 import pytest
-from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.page_geometry_registration import (
@@ -67,6 +67,152 @@ def _page() -> tuple[np.ndarray, list[list[dict[str, int]]]]:
                 ]
             )
     return image, quads
+
+
+def _cold_start_job(
+    tmp_path: Path,
+    *,
+    image_count: int,
+    overrides: dict[str, object] | None = None,
+) -> tuple[Job, list[str]]:
+    selection_id = uuid4()
+    staged = tmp_path / str(selection_id)
+    staged.mkdir()
+    files: list[dict[str, object]] = []
+    checksums: list[str] = []
+    for index in range(image_count):
+        source = staged / f"{index:08d}.jpg"
+        image, _quads = _page()
+        image = np.roll(image, index * 3, axis=1)
+        Image.fromarray(image, mode="RGB").save(source, format="JPEG")
+        content = source.read_bytes()
+        checksum = hashlib.sha256(content).hexdigest()
+        checksums.append(checksum)
+        files.append(
+            {
+                "orderIndex": index,
+                "relativePath": f"seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+                "storedFileName": source.name,
+                "sizeBytes": len(content),
+                "checksumSha256": checksum,
+            }
+        )
+    browser_manifest = json.dumps(
+        {
+            "schemaVersion": 1,
+            "purpose": "layout_import",
+            "gameId": None,
+            "orderingPolicy": "natural_relative_path_v1",
+            "files": files,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    (staged / "_browser_manifest.json").write_bytes(browser_manifest)
+    return (
+        create_job(
+            JobType.VALIDATE,
+            game_id=uuid4(),
+            input_payload={
+                "schema_version": 2,
+                "validation_kind": "page_geometry_preflight",
+                "preflight_policy_version": "page-geometry-preflight-v2-auto-anchor",
+                "source_selection_id": str(selection_id),
+                "source_directory": str(staged),
+                "source_manifest_sha256": hashlib.sha256(browser_manifest).hexdigest(),
+                "page_registration_profile": {
+                    "schemaVersion": 1,
+                    "policy": PAGE_REGISTRATION_VERSION,
+                    "anchors": [],
+                },
+                "page_geometry_overrides": overrides or {},
+                "canonical_sequence_numbers": [],
+            },
+        ),
+        checksums,
+    )
+
+
+def test_geometry_preflight_without_anchor_creates_review_queue(tmp_path: Path) -> None:
+    job, checksums = _cold_start_job(tmp_path, image_count=2)
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(  # type: ignore[arg-type]
+        context,
+        job,
+    )
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["registeredSourceCount"] == 0
+    assert payload["reviewRequiredSourceCount"] == 2
+    assert {payload["entries"][checksum]["reasonCode"] for checksum in checksums} == {
+        "PAGE_GEOMETRY_BOOTSTRAP_ANCHOR_REQUIRED"
+    }
+
+
+def test_manual_override_bootstraps_registration_for_remaining_pages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(tmp_path, image_count=2)
+    override = {
+        checksums[0]: {
+            "decisionChecksumSha256": "d" * 64,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": quads,
+            "revision": 1,
+        }
+    }
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={**initial_job.input_payload, "page_geometry_overrides": override},
+    )
+
+    class _Registrar:
+        def __init__(self, profile, **_kwargs) -> None:
+            self.available = bool(profile["anchors"])
+            assert profile["anchors"][0]["sourceChecksumSha256"] == checksums[0]
+
+        def register(self, _rgb):
+            return RegisteredPageGeometry(
+                anchor_source_checksum_sha256=checksums[0],
+                quads=tuple(
+                    tuple(Point(point["x"], point["y"]) for point in quad) for quad in quads
+                ),
+                board_red_edge_coverages=(0.9,) * 9,
+                inlier_count=80,
+                inlier_ratio=0.5,
+                p95_reprojection_error=1.0,
+                mean_red_edge_coverage=0.9,
+                feature_count=1000,
+            )
+
+    monkeypatch.setattr(preflight_module, "VerifiedPageRegistrar", _Registrar)
+    context = _Context()
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(  # type: ignore[arg-type]
+        context,
+        job,
+    )
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["registeredSourceCount"] == 2
+    assert payload["reviewRequiredSourceCount"] == 0
+    assert payload["entries"][checksums[0]]["registrationVersion"] == (
+        "manual-page-geometry-override-v1"
+    )
+    assert payload["entries"][checksums[1]]["anchorSourceChecksumSha256"] == checksums[0]
 
 
 def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) -> None:

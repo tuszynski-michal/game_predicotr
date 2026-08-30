@@ -4075,3 +4075,13 @@ stabilnego primary. Job zawierający oba kontrakty pokazuje
 `0.10 — nowy silnik w cieniu · primary v20/v19` i nie może zostać uznany za
 zgodny z polityką `verified_v19`. Istniejące joby nie wymagają ponownego
 przetwarzania; poprawka dotyczy interpretacji ich niezmiennego payloadu.
+
+### TASK-0335 — bootstrap geometrii strony dla nowych gier
+
+Usunięto false-success cold-startu, w którym `structured_shadow` uruchamiał
+primary v20/v19 bez manifestu geometrii i kończył wszystkie źródła na
+`board_detection`. Oba presety wymagają teraz ukończonego preflightu. Nowa gra
+może utworzyć go bez historycznego profilu: pierwszy przebieg tworzy kolejkę
+korekty, a ręczny override jednej strony staje się kotwicą kolejnego
+preflightu. Tylko źródła z kompletną geometrią trafiają do croppera i
+inferencji; Geometry v2 pozostaje pomiarem shadow.

@@ -6597,3 +6597,16 @@ zatwierdzonych plansz, z których można zbudować profil, dlatego browser prefl
 jawnie oznacza geometrię jako niewymaganą i start nie przyjmuje legacy manifestu.
 Nie jest to promocja Geometry v2: kandydat strukturalny pozostaje pomiarem
 shadow, a wynik primary zachowuje dotychczasowe zabezpieczenia fail-closed.
+
+## D-275 — Cold-start geometrii powstaje z ręcznej kotwicy i nie omija primary
+
+- Status: accepted
+- Date: 2026-08-30
+- Supersedes: D-274 w zakresie pomijania manifestu geometrii
+
+Oba bezpieczne presety importu wymagają manifestu geometrii strony, ponieważ
+oba używają v20/v19 jako primary. Każda nowa gra może rozpocząć
+preflight z pustym profilem: wszystkie niepoświadczone źródła otrzymują
+kontrolowany stan `review_required`, a pierwsza ręczna korekta staje się
+niezmienną kotwicą następnego preflightu. Nierozwiązane źródła są pomijane
+fail-closed. Geometry v2 nadal działa wyłącznie jako pomiar shadow.

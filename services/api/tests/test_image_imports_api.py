@@ -809,6 +809,9 @@ def test_finalized_browser_staging_persists_ready_and_in_use_lifecycle(
         def record_ingested(self, _handoff: object) -> None:
             raise AssertionError("ingestion belongs to the worker")
 
+        def discard_unused(self, *, upload_id: UUID) -> None:
+            raise AssertionError(f"unexpected discard of {upload_id}")
+
     retention = RetentionSpy()
     selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
     service = BrowserImageSelectionService(
@@ -849,6 +852,105 @@ def test_finalized_browser_staging_persists_ready_and_in_use_lifecycle(
         "job_id": job_id,
         "used_at": NOW,
     }
+
+
+def test_cancelled_browser_staging_discards_unused_history_before_files(
+    tmp_path: Path,
+) -> None:
+    class RetentionSpy:
+        def __init__(self) -> None:
+            self.discarded: UUID | None = None
+
+        def record_ready(self, **_values: object) -> None:
+            return None
+
+        def record_in_use(self, **_values: object) -> None:
+            return None
+
+        def record_ingested(self, _handoff: object) -> None:
+            return None
+
+        def discard_unused(self, *, upload_id: UUID) -> None:
+            self.discarded = upload_id
+
+    retention = RetentionSpy()
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+        retention=retention,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (20, 30, 40)).save(stream, "JPEG")
+    content = stream.getvalue()
+    upload = service.begin(
+        display_name="unused",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="unused/seq_1-9.jpg",
+        content=content,
+    )
+    service.finalize(upload.upload_id)
+
+    service.cancel(upload.upload_id)
+
+    assert retention.discarded == upload.upload_id
+    assert not upload.path.exists()
+
+
+def test_cancelled_browser_staging_restores_files_when_history_is_protected(
+    tmp_path: Path,
+) -> None:
+    class ProtectedRetention:
+        def record_ready(self, **_values: object) -> None:
+            return None
+
+        def record_in_use(self, **_values: object) -> None:
+            return None
+
+        def record_ingested(self, _handoff: object) -> None:
+            return None
+
+        def discard_unused(self, *, upload_id: UUID) -> None:
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS",
+                f"protected {upload_id}",
+            )
+
+    service = BrowserImageSelectionService(
+        ImageFolderSelectionService(lambda: None, clock=lambda: NOW),
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+        retention=ProtectedRetention(),
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (20, 30, 40)).save(stream, "JPEG")
+    content = stream.getvalue()
+    upload = service.begin(
+        display_name="protected",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+    )
+    service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="protected/seq_1-9.jpg",
+        content=content,
+    )
+    service.finalize(upload.upload_id)
+
+    with pytest.raises(JobConflictError) as error:
+        service.cancel(upload.upload_id)
+
+    assert error.value.code == "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS"
+    assert upload.path.is_dir()
+    assert (upload.path / "00000001.jpg").is_file()
 
 
 def test_browser_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:

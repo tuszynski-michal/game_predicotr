@@ -4134,3 +4134,13 @@ może utworzyć go bez historycznego profilu: pierwszy przebieg tworzy kolejkę
 korekty, a ręczny override jednej strony staje się kotwicą kolejnego
 preflightu. Tylko źródła z kompletną geometrią trafiają do croppera i
 inferencji; Geometry v2 pozostaje pomiarem shadow.
+
+### Usuwanie pustych stagingów — v0.10.35
+
+Naprawiono rozjazd, w którym `Usuń nieużywany staging` kasowało wyłącznie pliki
+uploadu, pozostawiając puste joby w `Zatwierdzaniu cięcia siatki`. Usunięcie
+jest teraz atomowo koordynowane z bazą i obejmuje puste preflighty/importy,
+źródła bez plansz oraz niewspółdzielone wykonania pipeline'u. Istnienie
+jakiejkolwiek planszy, review, aktywnego joba albo chronionej referencji blokuje
+operację. Z lokalnej bazy usunięto zweryfikowane pozostałości stagingów gry
+`7777` z `10:09` i `10:16`; nie miały plansz, review ani wpisów canonical.

@@ -1114,8 +1114,13 @@ sprzątane.
 
 ### DELETE `/api/v1/admin/image-imports/browser-selections/{uploadId}`
 
-Anuluje upload i usuwa jego kontrolowany staging. Operacja jest idempotentna z
-perspektywy klienta.
+Anuluje upload i usuwa jego kontrolowany staging. Dla stagingu, który utworzył
+wyłącznie puste próby preflightu/importu, operacja usuwa również powiązane joby,
+mapowania plików, źródła bez plansz oraz niewspółdzielone checkpointy pipeline'u.
+Kasowanie jest blokowane, jeżeli istnieje aktywny job, rozpoznana plansza,
+pozycja review albo inna chroniona referencja. Katalog stagingu jest najpierw
+przenoszony do kwarantanny i wraca na miejsce, jeżeli transakcja bazy zostanie
+odrzucona. Operacja jest idempotentna z perspektywy klienta.
 
 ### POST `/api/v1/admin/image-imports/folder-selection` (legacy)
 

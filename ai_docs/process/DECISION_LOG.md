@@ -6624,3 +6624,15 @@ SHA-256, a JPEG-i nie trafiają do IndexedDB, API ani PostgreSQL. Repair trace
 może rozszerzyć dane rankera wyłącznie dla widocznego i nadal aktywnego fill;
 usunięta pozycja nie jest próbką treningową. Przywrócenie usunięcia zachowuje
 tylko jeden `File` w pamięci bieżącej karty i celowo nie działa po reloadzie.
+
+## D-277 — Usunięcie nieużywanego stagingu usuwa pustą historię prób
+
+- Status: accepted
+- Date: 2026-08-30
+
+Akcja `Usuń nieużywany staging` usuwa nie tylko katalog browser uploadu, lecz
+także powiązane puste joby preflightu/importu i niewspółdzielone checkpointy.
+Operacja jest fail-closed: aktywny job, rozpoznana plansza, pozycja review lub
+inna referencja blokuje kasowanie. Pliki stagingu są kwarantannowane przed
+transakcją i przywracane po jej odrzuceniu. Za usuwanie samej kopii stagingowej
+po poprawnym imporcie nadal odpowiada retencja/GC, bez kasowania audytu plansz.

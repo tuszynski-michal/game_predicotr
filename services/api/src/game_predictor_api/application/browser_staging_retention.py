@@ -40,5 +40,13 @@ class BrowserStagingRetention(Protocol):
 
     def record_ingested(self, handoff: ManagedOriginalsHandoff) -> None: ...
 
+    def discard_unused(self, *, upload_id: UUID) -> None:
+        """Remove database state created only while preparing an unused staging.
+
+        Implementations must fail closed when the staging produced reviewable,
+        canonical, or otherwise externally referenced domain data.
+        """
+        ...
+
 
 __all__ = ["BrowserStagingRetention", "ManagedOriginalsHandoff"]

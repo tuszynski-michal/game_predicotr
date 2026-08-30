@@ -759,8 +759,24 @@ class BrowserImageSelectionService:
             if upload is None:
                 upload = self._load_upload(upload_id)
                 self._uploads.pop(upload_id, None)
-        if upload is not None:
-            shutil.rmtree(upload.path, ignore_errors=True)
+        quarantine: Path | None = None
+        if upload is not None and upload.path.exists():
+            quarantine = upload.path.with_name(f".{upload.upload_id}.deleting")
+            if quarantine.exists():
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_DELETE_INCOMPLETE",
+                    "A previous deletion of this browser staging requires recovery.",
+                )
+            upload.path.replace(quarantine)
+        try:
+            if self._retention is not None:
+                self._retention.discard_unused(upload_id=upload_id)
+        except BaseException:
+            if quarantine is not None and quarantine.exists() and upload is not None:
+                quarantine.replace(upload.path)
+            raise
+        if quarantine is not None:
+            shutil.rmtree(quarantine, ignore_errors=True)
 
     def _get_upload(self, upload_id: UUID) -> BrowserImageUpload:
         upload = self._uploads.get(upload_id)

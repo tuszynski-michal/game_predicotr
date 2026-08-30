@@ -21,15 +21,17 @@ export function boardCellProcessingJobLabel(job: JobResponse): string {
   if (!('importKind' in payload) || payload.importKind !== 'image_directory') {
     return 'brak danych o silniku';
   }
+  const rollout =
+    'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
+  if (rollout?.geometryMode === 'structured_shadow') {
+    return '0.10 — nowy silnik w cieniu · primary v20/v19';
+  }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
   if (snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION) {
     return 'v20 — geometria i cropy v19';
   }
-  const rollout = 'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
-  return rollout?.geometryMode === 'structured_shadow'
-    ? '0.10 — geometria strukturalna w cieniu'
-    : 'v18 — tryb historyczny';
+  return 'v18 — tryb historyczny';
 }
 
 export function jobMatchesBoardCellProcessingMode(
@@ -40,11 +42,15 @@ export function jobMatchesBoardCellProcessingMode(
   if (!('importKind' in payload) || payload.importKind !== 'image_directory') {
     return false;
   }
+  const rollout =
+    'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
+  if (rollout?.geometryMode === 'structured_shadow') {
+    return mode === 'structured_shadow';
+  }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
   if (mode === 'verified_v19') {
     return snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION;
   }
-  const rollout = 'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
-  return rollout?.geometryMode === 'structured_shadow';
+  return false;
 }

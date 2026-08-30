@@ -4067,3 +4067,11 @@ gotowego stagingu. Admin nie pozwala rozpocząć uploadu, dopóki nie odczyta
 ustawienia gry. Zmiana polityki przy aktywnym stagingu automatycznie odtwarza
 raport, dzięki czemu nowa gra może wybrać `structured_shadow` przed próbą
 utworzenia historycznego preflightu `verified_v19`.
+
+### TASK-0334 — etykieta jobów structured shadow
+
+Historia importów rozpoznaje teraz rollout `structured_shadow` przed snapshotem
+stabilnego primary. Job zawierający oba kontrakty pokazuje
+`0.10 — nowy silnik w cieniu · primary v20/v19` i nie może zostać uznany za
+zgodny z polityką `verified_v19`. Istniejące joby nie wymagają ponownego
+przetwarzania; poprawka dotyczy interpretacji ich niezmiennego payloadu.

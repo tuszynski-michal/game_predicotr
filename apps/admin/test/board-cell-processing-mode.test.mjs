@@ -36,6 +36,10 @@ test('labels each persisted import with its pinned board processing engine', () 
   const verified = imageImportJob({
     activationVersion: VERIFIED_V19_ACTIVATION_VERSION,
   });
+  const shadow = imageImportJob(
+    { activationVersion: VERIFIED_V19_ACTIVATION_VERSION },
+    { geometryMode: 'structured_shadow' },
+  );
 
   assert.equal(
     boardCellProcessingJobLabel(historical),
@@ -45,6 +49,10 @@ test('labels each persisted import with its pinned board processing engine', () 
     boardCellProcessingJobLabel(verified),
     'v20 — geometria i cropy v19',
   );
+  assert.equal(
+    boardCellProcessingJobLabel(shadow),
+    '0.10 — nowy silnik w cieniu · primary v20/v19',
+  );
 });
 
 test('rejects a returned job whose immutable snapshot differs from the game policy', () => {
@@ -52,9 +60,10 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
   const verified = imageImportJob({
     activationVersion: VERIFIED_V19_ACTIVATION_VERSION,
   });
-  const shadow = imageImportJob(undefined, {
-    geometryMode: 'structured_shadow',
-  });
+  const shadow = imageImportJob(
+    { activationVersion: VERIFIED_V19_ACTIVATION_VERSION },
+    { geometryMode: 'structured_shadow' },
+  );
 
   assert.equal(
     jobMatchesBoardCellProcessingMode(historical, 'verified_v19'),
@@ -65,8 +74,15 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
     true,
   );
   assert.equal(
+    jobMatchesBoardCellProcessingMode(shadow, 'verified_v19'),
+    false,
+  );
+  assert.equal(
     jobMatchesBoardCellProcessingMode(verified, 'structured_shadow'),
     false,
   );
-  assert.equal(jobMatchesBoardCellProcessingMode(shadow, 'structured_shadow'), true);
+  assert.equal(
+    jobMatchesBoardCellProcessingMode(shadow, 'structured_shadow'),
+    true,
+  );
 });

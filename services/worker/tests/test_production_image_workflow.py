@@ -751,6 +751,11 @@ def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(
         for board in crop_boards
         for cell in board["cells"]
     )
+    assert all(
+        cell["renderSpec"]["renderIdentityV2Sha256"] == cell["renderIdentityV2Sha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
     assert geometry_engine.call_count == 1
     assert not list((artifact_root / "data").rglob("*.png"))
 

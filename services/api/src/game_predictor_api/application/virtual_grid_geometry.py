@@ -104,6 +104,7 @@ class VirtualGridGeometryCell:
     crop_checksum_sha256: str
     logical_cell_key: str
     logical_cell_key_v2: str | None
+    render_identity_v2_sha256: str | None
     render_spec: Mapping[str, object]
     render_spec_checksum_sha256: str
     rendered_pixel_checksum_sha256: str
@@ -379,6 +380,7 @@ class VirtualGridGeometryService:
                     "cropSampleId": cell.crop_sample_id,
                     "logicalCellKeySha256": cell.logical_cell_key,
                     "logicalCellKeyV2Sha256": cell.logical_cell_key_v2,
+                    "renderIdentityV2Sha256": cell.render_identity_v2_sha256,
                     "renderSpec": dict(cell.render_spec),
                     "renderSpecChecksumSha256": cell.render_spec_checksum_sha256,
                     "renderedPixelChecksumSha256": cell.rendered_pixel_checksum_sha256,
@@ -527,6 +529,7 @@ def _cell_from_render(board_id: UUID, render: VirtualCellRender) -> VirtualGridG
         crop_checksum_sha256=render.rendered_pixel_checksum_sha256,
         logical_cell_key=render.logical_cell_key_sha256,
         logical_cell_key_v2=render.logical_cell_key_v2_sha256,
+        render_identity_v2_sha256=render.render_identity_v2_sha256,
         render_spec=render.render_spec,
         render_spec_checksum_sha256=render.render_spec_checksum_sha256,
         rendered_pixel_checksum_sha256=render.rendered_pixel_checksum_sha256,

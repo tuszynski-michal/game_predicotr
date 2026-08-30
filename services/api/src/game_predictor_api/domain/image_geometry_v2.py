@@ -30,6 +30,7 @@ VIRTUAL_CELL_RENDER_ID_V2_VERSION = "virtual-cell-render-id-v2"
 SOURCE_OCCURRENCE_ID_VERSION = "source-occurrence-id-v1"
 BOARD_TOPOLOGY_FINGERPRINT_VERSION = "board-topology-fingerprint-v1"
 BOARD_SLOT_SEMANTICS_VERSION = "attested-sequence-row-major-page-3x3-v1"
+SEQUENCE_ATTESTATION_SCHEMA_VERSION = "source-sequence-attestation-v2"
 _SEQUENCE_RANGE_FILENAME = re.compile(
     r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?:jpg|jpeg)$",
     re.IGNORECASE,
@@ -67,6 +68,48 @@ def is_sequence_range_filename_candidate(value: str) -> bool:
     """Return whether a logical filename claims the ``seq_*`` convention."""
 
     return PurePosixPath(value.replace("\\", "/")).name.casefold().startswith("seq_")
+
+
+def board_topology_fingerprint_sha256(
+    *,
+    topology_rules_version_id: UUID,
+    topology: BoardTopology,
+) -> str:
+    """Fingerprint the pinned rules topology and row-major slot semantics."""
+
+    payload = {
+        "columns": topology.columns,
+        "contractVersion": BOARD_TOPOLOGY_FINGERPRINT_VERSION,
+        "rows": topology.rows,
+        "slotSemanticsVersion": BOARD_SLOT_SEMANTICS_VERSION,
+        "topologyRulesVersionId": str(topology_rules_version_id),
+    }
+    return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+
+
+def sequence_attestation_checksum_sha256(
+    *,
+    sequence_range_start: int,
+    sequence_range_end: int,
+    active_board_slots: tuple[int, ...],
+) -> str:
+    """Bind an explicit active-slot snapshot without changing legacy parsing."""
+
+    attested = AttestedSequenceRange(start=sequence_range_start, end=sequence_range_end)
+    expected_slots = tuple(slot.position_index for slot in attested.active_slots)
+    if active_board_slots != expected_slots:
+        raise ImageGeometryContractError(
+            "IMAGE_SEQUENCE_ATTESTATION_SLOTS_INVALID",
+            "The source sequence attestation does not match its active row-major slots.",
+        )
+    payload = {
+        "activeBoardSlots": list(active_board_slots),
+        "contractVersion": SEQUENCE_ATTESTATION_SCHEMA_VERSION,
+        "sequenceRangeEnd": sequence_range_end,
+        "sequenceRangeStart": sequence_range_start,
+        "slotSemanticsVersion": BOARD_SLOT_SEMANTICS_VERSION,
+    }
+    return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,14 +446,10 @@ class VirtualBoardGeometry:
 
     @property
     def topology_fingerprint_sha256(self) -> str:
-        payload = {
-            "columns": self.topology.columns,
-            "contractVersion": BOARD_TOPOLOGY_FINGERPRINT_VERSION,
-            "rows": self.topology.rows,
-            "slotSemanticsVersion": BOARD_SLOT_SEMANTICS_VERSION,
-            "topologyRulesVersionId": str(self.topology_rules_version_id),
-        }
-        return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+        return board_topology_fingerprint_sha256(
+            topology_rules_version_id=self.topology_rules_version_id,
+            topology=self.topology,
+        )
 
     @property
     def geometry_fingerprint_sha256(self) -> str:
@@ -662,6 +701,7 @@ __all__ = [
     "PAGE_BOARD_COLUMNS",
     "SOURCE_COORDINATE_SPACE",
     "SOURCE_OCCURRENCE_ID_VERSION",
+    "SEQUENCE_ATTESTATION_SCHEMA_VERSION",
     "ActiveBoardSlot",
     "AttestedSequenceRange",
     "DirectCellRenderConfiguration",
@@ -678,7 +718,9 @@ __all__ = [
     "VIRTUAL_CELL_RENDER_ID_V2_VERSION",
     "VIRTUAL_CELL_RENDER_ID_VERSION",
     "canonical_json_bytes",
+    "board_topology_fingerprint_sha256",
     "derive_virtual_cells",
     "is_sequence_range_filename_candidate",
     "parse_attested_sequence_range_filename",
+    "sequence_attestation_checksum_sha256",
 ]

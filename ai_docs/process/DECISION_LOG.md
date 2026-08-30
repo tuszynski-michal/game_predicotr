@@ -6418,6 +6418,34 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   odpowiednio: łamanie niezależnych korekt, dublowanie prawdy, nieuzasadnioną
   komplikację transakcji i mieszanie polityki operacyjnej z domeną gry.
 
+## D-268 — Kontrakty v2 są utrwalane addytywnie bez reinterpretacji legacy
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowe source revisions zapisują fingerprint topologii i
+  wersjonowaną checksumę attestation. Virtual observations, current review,
+  eventy i zamrożone komórki kohort mogą równolegle przechowywać
+  `logical_cell_key_v2` oraz `render_identity_v2_sha256`. Jawny wynik
+  `symbol-verification-outcome-v2` korzysta z osobnego
+  `verified_symbol_id_v2`; legacy `assigned_symbol_id` pozostaje bez zmian,
+  ponieważ dla pending może zawierać sugestię modelu. Gotowość rolloutu jest
+  związana z rewizją polityki, SHA-256 dokładnego inputu i jobem walidującym.
+- **Context:** bez osobnego symbolu v2 constraint outcome błędnie
+  interpretowałby modelową sugestię jako zatwierdzoną etykietę albo wymagałby
+  przepisywania istniejących rekordów. Sama flaga `ready` rolloutu nie
+  dowodziła też, jaki snapshot został zweryfikowany.
+- **Safety:** migracja 0084 jest nullable i addytywna, a constraints są
+  dodawane jako `NOT VALID`; nie skanuje dużych tabel i nie uruchamia
+  backfillu. Nowe write pathy działają fail-closed. Bounded diagnostyka tylko
+  odczytuje próbkę historii, a przypadki niejednoznaczne pozostawia bez zmian.
+- **Consequences:** v1 i v2 są dual-write bez cutoveru odczytów. Fizyczny
+  downgrade po zapisaniu v2 jest blokowany; rollback jest operacyjny i
+  zachowuje kolumny. Osobne zadanie musi wykonać resumowalny backfill oraz
+  dopiero po raporcie zgodności przełączyć odczyty/indeksy.
+- **Alternatives:** nadpisanie `assigned_symbol_id`, heurystyczne mapowanie
+  całej historii w migracji oraz pozostawienie niezwiązanego `ready` odrzucono
+  z powodu utraty znaczenia danych, kosztu migracji i ryzyka stale rollout.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -15,8 +15,10 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourcePoint,
     SourceQuad,
     VirtualBoardGeometry,
+    board_topology_fingerprint_sha256,
     derive_virtual_cells,
     parse_attested_sequence_range_filename,
+    sequence_attestation_checksum_sha256,
 )
 
 
@@ -90,6 +92,31 @@ def test_seq_range_maps_a_partial_final_page_to_the_row_major_prefix() -> None:
         (3, 1, 0, 76),
         (4, 1, 1, 77),
     ]
+
+
+def test_topology_and_attestation_snapshots_have_deterministic_distinct_checksums() -> None:
+    topology = BoardTopology(rows=3, columns=5)
+    topology_checksum = board_topology_fingerprint_sha256(
+        topology_rules_version_id=TOPOLOGY_RULES_VERSION_ID,
+        topology=topology,
+    )
+    attestation_checksum = sequence_attestation_checksum_sha256(
+        sequence_range_start=73,
+        sequence_range_end=77,
+        active_board_slots=(0, 1, 2, 3, 4),
+    )
+
+    assert len(topology_checksum) == 64
+    assert len(attestation_checksum) == 64
+    assert topology_checksum != attestation_checksum
+
+    with pytest.raises(ImageGeometryContractError) as raised:
+        sequence_attestation_checksum_sha256(
+            sequence_range_start=73,
+            sequence_range_end=77,
+            active_board_slots=(0, 1, 2, 4),
+        )
+    assert raised.value.code == "IMAGE_SEQUENCE_ATTESTATION_SLOTS_INVALID"
 
 
 @pytest.mark.parametrize("filename", ("seq_4-3.jpg", "seq_1-10.jpg", "seq_0-8.jpg", "seq_1-9.png"))

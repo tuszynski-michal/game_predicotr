@@ -3961,3 +3961,15 @@ topology/attestation fingerprint, logical-cell-v2, outcome v2 i związanie
 rollout readiness z dokładnym wejściem walidacji. Nie wykonano backfillu,
 cutoveru, operacji na danych ani zmiany progów geometrii. Pełna mapa znajduje
 się w `ai_docs/architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md`.
+
+TASK-0325 dodał migrację 0084 po faktycznym headzie 0083. Schemat nullable
+utrwala fingerprint topologii i attestation, logical-cell/render-identity v2,
+jawny outcome weryfikacji z osobnym `verified_symbol_id_v2` oraz dokładne
+związanie walidacji rolloutu z rewizją, input checksum i jobem. Legacy
+`assigned_symbol_id`, read pathy oraz API pozostają bez zmian.
+
+Nowe automatyczne i ręczne ścieżki virtual wykonują dual-write. Bounded
+diagnostyka tylko odczytuje maksymalnie 500 historycznych kandydatów i nie
+mapuje stanów niejednoznacznych. Migracji 0084 ani backfillu nie uruchomiono na
+bazie użytkownika; osobne zadanie musi wykonać resumowalny backfill oraz
+cutover dopiero po raporcie zgodności.

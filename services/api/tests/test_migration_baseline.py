@@ -92,6 +92,8 @@ PIPELINE_STATE_COMPACTION_REVISION = "0079_pipeline_state_compaction"
 PIPELINE_STATE_DIGEST_REVISION = "0080_pipeline_state_digest"
 PIPELINE_TERMINAL_MANIFEST_V2_REVISION = "0081_pipeline_terminal_manifest_v2"
 VIRTUAL_GEOMETRY_FOUNDATION_REVISION = "0082_virtual_geometry_foundation"
+IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION = "0083_image_geometry_rollout_backfill_job_type"
+ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION = "0084_additive_virtual_geometry_contracts"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -204,6 +206,42 @@ def test_virtual_geometry_foundation_migration_adds_dual_asset_provenance() -> N
     assert "drop table image_source_geometry_revisions" in downgrade_sql
 
 
+def test_image_geometry_rollout_job_type_migration_restores_worker_enum_compatibility() -> None:
+    upgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{VIRTUAL_GEOMETRY_FOUNDATION_REVISION}:{IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION}",
+        sql=True,
+    )
+
+    assert (
+        "alter type job_type add value if not exists 'image_geometry_rollout_backfill'"
+        in upgrade_output.getvalue().lower()
+    )
+
+
+def test_additive_virtual_geometry_contracts_are_nullable_and_not_valid() -> None:
+    upgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION}:"
+        f"{ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "topology_fingerprint_sha256" in upgrade_sql
+    assert "sequence_attestation_checksum_sha256" in upgrade_sql
+    assert "logical_cell_key_v2" in upgrade_sql
+    assert "render_identity_v2_sha256" in upgrade_sql
+    assert "verification_outcome" in upgrade_sql
+    assert "verified_symbol_id_v2" in upgrade_sql
+    assert "validation_input_checksum_sha256" in upgrade_sql
+    assert "not valid" in upgrade_sql
+
+
 def test_parallel_feature_migrations_converge_on_one_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
@@ -310,7 +348,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     pipeline_state_digest = script.get_revision(PIPELINE_STATE_DIGEST_REVISION)
     pipeline_terminal_manifest_v2 = script.get_revision(PIPELINE_TERMINAL_MANIFEST_V2_REVISION)
     virtual_geometry_foundation = script.get_revision(VIRTUAL_GEOMETRY_FOUNDATION_REVISION)
-    assert script.get_heads() == [VIRTUAL_GEOMETRY_FOUNDATION_REVISION]
+    image_geometry_rollout_job_type = script.get_revision(IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION)
+    additive_virtual_geometry_contracts = script.get_revision(
+        ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION
+    )
+    assert script.get_heads() == [ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -325,6 +367,13 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert pipeline_terminal_manifest_v2.down_revision == PIPELINE_STATE_DIGEST_REVISION
     assert virtual_geometry_foundation is not None
     assert virtual_geometry_foundation.down_revision == PIPELINE_TERMINAL_MANIFEST_V2_REVISION
+    assert image_geometry_rollout_job_type is not None
+    assert image_geometry_rollout_job_type.down_revision == VIRTUAL_GEOMETRY_FOUNDATION_REVISION
+    assert additive_virtual_geometry_contracts is not None
+    assert (
+        additive_virtual_geometry_contracts.down_revision
+        == IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION
+    )
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

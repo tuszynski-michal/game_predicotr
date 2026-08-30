@@ -1533,6 +1533,15 @@ class ImageSourceGeometryRevisionModel(Base):
             "AND length(btrim(created_by)) > 0",
             name="ck_image_source_geometry_revisions_state",
         ),
+        CheckConstraint(
+            "(topology_fingerprint_sha256 IS NULL "
+            "AND sequence_attestation_schema_version IS NULL "
+            "AND sequence_attestation_checksum_sha256 IS NULL) OR "
+            "(topology_fingerprint_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND length(btrim(sequence_attestation_schema_version)) > 0 "
+            "AND sequence_attestation_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_image_source_geometry_revisions_v2_contracts",
+        ),
         UniqueConstraint(
             "source_image_id",
             "revision",
@@ -1583,6 +1592,13 @@ class ImageSourceGeometryRevisionModel(Base):
     geometry_source: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     geometry_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    topology_fingerprint_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sequence_attestation_schema_version: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
+    )
+    sequence_attestation_checksum_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
     processing_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     warnings: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -1617,6 +1633,15 @@ class ImageGeometryRolloutStateModel(Base):
             "AND failure_message IS NULL))",
             name="ck_image_geometry_rollout_states_failure",
         ),
+        CheckConstraint(
+            "(validation_rollout_revision IS NULL "
+            "AND validation_input_checksum_sha256 IS NULL "
+            "AND validation_job_id IS NULL) OR "
+            "(validation_rollout_revision >= 0 "
+            "AND validation_input_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND validation_job_id IS NOT NULL)",
+            name="ck_image_geometry_rollout_states_validation_binding",
+        ),
         Index(
             "ix_image_geometry_rollout_states_mode",
             "geometry_mode",
@@ -1650,6 +1675,11 @@ class ImageGeometryRolloutStateModel(Base):
     )
     failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation_rollout_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    validation_input_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    validation_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
     updated_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -1813,6 +1843,12 @@ class CellObservationModel(Base):
             "AND length(btrim(extractor_version)) > 0)",
             name="ck_cell_observations_asset_provenance",
         ),
+        CheckConstraint(
+            "(logical_cell_key_v2 IS NULL AND render_identity_v2_sha256 IS NULL) OR "
+            "(logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
+            "AND render_identity_v2_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_cell_observations_v2_identity",
+        ),
         UniqueConstraint(
             "recognized_board_id",
             "row_index",
@@ -1841,6 +1877,8 @@ class CellObservationModel(Base):
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
     )
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -2162,6 +2200,22 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_grid_quality_state",
         ),
         CheckConstraint(
+            "(logical_cell_key_v2 IS NULL AND render_identity_v2_sha256 IS NULL) OR "
+            "(logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
+            "AND render_identity_v2_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_image_symbol_review_cells_v2_identity",
+        ),
+        CheckConstraint(
+            "(verification_outcome IS NULL AND verified_symbol_id_v2 IS NULL) OR "
+            "(verification_outcome IN ('unassigned','unknown','unreadable','grid_issue',"
+            "'requires_review','verified_symbol') AND "
+            "((verification_outcome = 'verified_symbol' "
+            "AND verified_symbol_id_v2 IS NOT NULL) OR "
+            "(verification_outcome <> 'verified_symbol' "
+            "AND verified_symbol_id_v2 IS NULL)))",
+            name="ck_image_symbol_review_cells_verification_outcome",
+        ),
+        CheckConstraint(
             "(approved_crop_sample_id IS NULL "
             "AND approved_crop_checksum_sha256 IS NULL "
             "AND approved_geometry_revision IS NULL "
@@ -2245,6 +2299,8 @@ class ImageSymbolReviewCellModel(Base):
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
     )
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -2263,6 +2319,10 @@ class ImageSymbolReviewCellModel(Base):
     )
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    verified_symbol_id_v2: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
     approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_geometry_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -2360,6 +2420,36 @@ class ImageSymbolReviewEventModel(Base):
             "AND rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$'))",
             name="ck_image_symbol_review_events_render_provenance",
         ),
+        CheckConstraint(
+            "((previous_logical_cell_key_v2 IS NULL "
+            "AND previous_render_identity_v2_sha256 IS NULL) OR "
+            "(previous_logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
+            "AND previous_render_identity_v2_sha256 ~ '^[0-9a-f]{64}$')) AND "
+            "((logical_cell_key_v2 IS NULL AND render_identity_v2_sha256 IS NULL) OR "
+            "(logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
+            "AND render_identity_v2_sha256 ~ '^[0-9a-f]{64}$'))",
+            name="ck_image_symbol_review_events_v2_identity",
+        ),
+        CheckConstraint(
+            "((previous_verification_outcome IS NULL "
+            "AND previous_verified_symbol_id_v2 IS NULL) OR "
+            "(previous_verification_outcome IN "
+            "('unassigned','unknown','unreadable','grid_issue','requires_review',"
+            "'verified_symbol') AND "
+            "((previous_verification_outcome = 'verified_symbol' "
+            "AND previous_verified_symbol_id_v2 IS NOT NULL) OR "
+            "(previous_verification_outcome <> 'verified_symbol' "
+            "AND previous_verified_symbol_id_v2 IS NULL)))) AND "
+            "((verification_outcome IS NULL AND verified_symbol_id_v2 IS NULL) OR "
+            "(verification_outcome IN "
+            "('unassigned','unknown','unreadable','grid_issue','requires_review',"
+            "'verified_symbol') AND "
+            "((verification_outcome = 'verified_symbol' "
+            "AND verified_symbol_id_v2 IS NOT NULL) OR "
+            "(verification_outcome <> 'verified_symbol' "
+            "AND verified_symbol_id_v2 IS NULL))))",
+            name="ck_image_symbol_review_events_verification_outcome",
+        ),
         Index("ix_image_symbol_review_events_cell_created", "cell_review_id", "created_at"),
         Index("ix_image_symbol_review_events_review_item_created", "review_item_id", "created_at"),
     )
@@ -2372,6 +2462,12 @@ class ImageSymbolReviewEventModel(Base):
         ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
     )
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_render_identity_v2_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     previous_asset_mode: Mapped[str] = mapped_column(
         String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
     )
@@ -2408,6 +2504,14 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    previous_verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    previous_verified_symbol_id_v2: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
+    verified_symbol_id_v2: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
+    )
     previous_approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     previous_approved_crop_checksum_sha256: Mapped[str | None] = mapped_column(
@@ -3347,6 +3451,12 @@ class VerifiedTrainingCohortCellModel(Base):
             "AND length(btrim(extractor_version)) > 0)",
             name="ck_verified_training_cohort_cells_asset_provenance",
         ),
+        CheckConstraint(
+            "(logical_cell_key_v2 IS NULL AND render_identity_v2_sha256 IS NULL) OR "
+            "(logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
+            "AND render_identity_v2_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_verified_training_cohort_cells_v2_identity",
+        ),
         UniqueConstraint(
             "cohort_id", "sample_order", name="uq_verified_training_cohort_cells_order"
         ),
@@ -3389,6 +3499,8 @@ class VerifiedTrainingCohortCellModel(Base):
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
     )
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)

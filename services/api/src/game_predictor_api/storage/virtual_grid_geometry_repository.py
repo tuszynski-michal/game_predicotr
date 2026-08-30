@@ -20,6 +20,10 @@ from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+from game_predictor_api.storage.additive_virtual_geometry_contracts import (
+    optional_verification_outcome_value,
+    verification_outcome_value,
+)
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
     SourceGeometryRevisionInput,
@@ -245,6 +249,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.asset_mode = "virtual_source"
             cell.source_geometry_revision_id = source_geometry_revision_id
             cell.logical_cell_key = rendered.logical_cell_key
+            cell.logical_cell_key_v2 = rendered.logical_cell_key_v2
+            cell.render_identity_v2_sha256 = rendered.render_identity_v2_sha256
             cell.render_spec = dict(rendered.render_spec)
             cell.render_spec_checksum_sha256 = rendered.render_spec_checksum_sha256
             cell.rendered_pixel_checksum_sha256 = rendered.rendered_pixel_checksum_sha256
@@ -256,6 +262,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.cropper_version = prepared.cropper_version
             if cell.quality_issue == "grid_issue":
                 cell.quality_issue = None
+            verification = verification_outcome_value(
+                review_state=cell.review_state,
+                quality_issue=cell.quality_issue,
+                assigned_symbol_id=cell.assigned_symbol_id,
+                prediction_present=cell.prediction_symbol_code not in {None, "?"},
+                assignment_source=cell.assignment_source,
+            )
+            cell.verification_outcome = verification.outcome
+            cell.verified_symbol_id_v2 = verification.verified_symbol_id
             cell.revision += 1
             cell.last_reviewed_by = actor
             cell.last_reviewed_at = changed_at
@@ -264,6 +279,10 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     cell_review_id=cell.id,
                     review_item_id=cell.review_item_id,
                     logical_cell_key=cell.logical_cell_key,
+                    previous_logical_cell_key_v2=previous["logical_cell_key_v2"],
+                    logical_cell_key_v2=cell.logical_cell_key_v2,
+                    previous_render_identity_v2_sha256=previous["render_identity_v2_sha256"],
+                    render_identity_v2_sha256=cell.render_identity_v2_sha256,
                     previous_asset_mode=previous["asset_mode"],
                     asset_mode=cell.asset_mode,
                     previous_source_geometry_revision_id=previous["source_geometry_revision_id"],
@@ -286,6 +305,10 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     review_state=cell.review_state,
                     previous_quality_issue=previous["quality_issue"],
                     quality_issue=cell.quality_issue,
+                    previous_verification_outcome=previous["verification_outcome"],
+                    verification_outcome=cell.verification_outcome,
+                    previous_verified_symbol_id_v2=previous["verified_symbol_id_v2"],
+                    verified_symbol_id_v2=cell.verified_symbol_id_v2,
                     previous_approved_crop_sample_id=previous["approved_crop_sample_id"],
                     approved_crop_sample_id=cell.approved_crop_sample_id,
                     previous_approved_crop_checksum_sha256=previous[
@@ -504,9 +527,32 @@ def _require_same_context(
 
 
 def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:
+    previous_v2 = optional_verification_outcome_value(
+        review_state=cell.review_state,
+        quality_issue=cell.quality_issue,
+        assigned_symbol_id=cell.assigned_symbol_id,
+        prediction_present=cell.prediction_symbol_code not in {None, "?"},
+        assignment_source=cell.assignment_source,
+    )
     return {
         "asset_mode": cell.asset_mode,
         "source_geometry_revision_id": cell.source_geometry_revision_id,
+        "logical_cell_key_v2": cell.logical_cell_key_v2,
+        "render_identity_v2_sha256": cell.render_identity_v2_sha256,
+        "verification_outcome": (
+            cell.verification_outcome
+            if cell.verification_outcome is not None
+            else None
+            if previous_v2 is None
+            else previous_v2.outcome
+        ),
+        "verified_symbol_id_v2": (
+            cell.verified_symbol_id_v2
+            if cell.verification_outcome is not None
+            else None
+            if previous_v2 is None
+            else previous_v2.verified_symbol_id
+        ),
         "render_spec_checksum_sha256": cell.render_spec_checksum_sha256,
         "rendered_pixel_checksum_sha256": cell.rendered_pixel_checksum_sha256,
         "assigned_symbol_id": cell.assigned_symbol_id,
@@ -555,6 +601,7 @@ def _revision_from_model(
                 crop_checksum_sha256=cast(str, raw_value["renderedPixelChecksumSha256"]),
                 logical_cell_key=cast(str, raw_value["logicalCellKeySha256"]),
                 logical_cell_key_v2=cast(str | None, raw_value.get("logicalCellKeyV2Sha256")),
+                render_identity_v2_sha256=cast(str | None, raw_value.get("renderIdentityV2Sha256")),
                 render_spec=render_spec,
                 render_spec_checksum_sha256=cast(str, raw_value["renderSpecChecksumSha256"]),
                 rendered_pixel_checksum_sha256=cast(str, raw_value["renderedPixelChecksumSha256"]),

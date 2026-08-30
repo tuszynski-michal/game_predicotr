@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import NoReturn, cast
@@ -17,6 +18,7 @@ from game_predictor_api.application.image_geometry_rollout import (
 )
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.domain.image_reviews import canonical_image_review_bytes
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -78,12 +80,17 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         state = self._require_state(game_id, lock=True)
         active = self._active_job(game_id)
         if active is not None:
+            self._bind_validation_job(state=state, job=active)
             return ImageGeometryRolloutStart(
                 rollout=self._status(game_id, state=state),
                 job=job_from_record(active),
                 created=False,
             )
-        if state.backfill_status == "ready" and not self._has_source_after_cursor(state):
+        if (
+            state.backfill_status == "ready"
+            and not self._has_source_after_cursor(state)
+            and self._validation_binding_is_current(state)
+        ):
             return ImageGeometryRolloutStart(
                 rollout=self._status(game_id, state=state),
                 job=None,
@@ -104,22 +111,27 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         state.backfill_status = "processing"
         state.failure_code = None
         state.failure_message = None
+        state.validation_rollout_revision = None
+        state.validation_input_checksum_sha256 = None
+        state.validation_job_id = None
         state.updated_by = _ACTOR
+        input_payload: dict[str, object] = {
+            "schema_version": 2,
+            "workflow": _WORKFLOW,
+            "generation": generation,
+            "rollout_revision": state.revision,
+            "geometry_mode": state.geometry_mode,
+            "cell_asset_mode": state.cell_asset_mode,
+        }
         job = create_job(
             JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL,
             game_id=game_id,
-            input_payload={
-                "schema_version": 1,
-                "workflow": _WORKFLOW,
-                "generation": generation,
-                "rollout_revision": state.revision,
-                "geometry_mode": state.geometry_mode,
-                "cell_asset_mode": state.cell_asset_mode,
-            },
+            input_payload=input_payload,
         )
         record = job_record_from_domain(job)
         self._session.add(record)
         self._session.flush()
+        self._bind_validation_job(state=state, job=record)
         return ImageGeometryRolloutStart(
             rollout=self._status(game_id, state=state),
             job=job_from_record(record),
@@ -186,6 +198,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_GEOMETRY_ROLLOUT_NOT_STABLE",
                 "New source images appeared before rollout validation finalized.",
             )
+        self._require_current_validation_binding(state)
         state.backfill_status = "ready"
         state.failure_code = None
         state.failure_message = None
@@ -473,6 +486,64 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             .limit(1)
         )
 
+    def _bind_validation_job(
+        self,
+        *,
+        state: ImageGeometryRolloutStateModel,
+        job: JobModel,
+    ) -> None:
+        checksum = _validation_input_checksum(job.input_payload)
+        if state.validation_job_id is not None and (
+            state.validation_job_id != job.id
+            or state.validation_rollout_revision != state.revision
+            or state.validation_input_checksum_sha256 != checksum
+        ):
+            raise ImageGeometryRolloutBackfillError(
+                "IMAGE_GEOMETRY_ROLLOUT_VALIDATION_BINDING_CONFLICT",
+                "The rollout state is already bound to a different validation snapshot.",
+            )
+        state.validation_rollout_revision = state.revision
+        state.validation_input_checksum_sha256 = checksum
+        state.validation_job_id = job.id
+        state.updated_by = _ACTOR
+
+    def _require_current_validation_binding(
+        self,
+        state: ImageGeometryRolloutStateModel,
+    ) -> None:
+        if state.validation_job_id is None or not _is_sha256(
+            state.validation_input_checksum_sha256
+        ):
+            raise ImageGeometryRolloutBackfillError(
+                "IMAGE_GEOMETRY_ROLLOUT_VALIDATION_BINDING_MISSING",
+                "The rollout cannot become ready without an exact validation snapshot.",
+            )
+        if not self._validation_binding_is_current(state):
+            raise ImageGeometryRolloutBackfillError(
+                "IMAGE_GEOMETRY_ROLLOUT_VALIDATION_BINDING_STALE",
+                "The rollout validation job no longer matches the current policy revision.",
+            )
+
+    def _validation_binding_is_current(
+        self,
+        state: ImageGeometryRolloutStateModel,
+    ) -> bool:
+        if (
+            state.validation_job_id is None
+            or state.validation_rollout_revision != state.revision
+            or not _is_sha256(state.validation_input_checksum_sha256)
+        ):
+            return False
+        job = self._session.get(JobModel, state.validation_job_id)
+        return bool(
+            job is not None
+            and job.game_id == state.game_id
+            and job.job_type == JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL
+            and _validation_input_checksum(job.input_payload)
+            == state.validation_input_checksum_sha256
+            and job.input_payload.get("rollout_revision") == state.revision
+        )
+
     def _require_game(self, game_id: UUID, *, lock: bool) -> None:
         statement = select(GameModel.id).where(GameModel.id == game_id)
         if lock:
@@ -514,6 +585,15 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
 
 def _is_sha256(value: object) -> bool:
     return isinstance(value, str) and _SHA256.fullmatch(value) is not None
+
+
+def _validation_input_checksum(input_payload: object) -> str:
+    if not isinstance(input_payload, dict):
+        raise ImageGeometryRolloutBackfillError(
+            "IMAGE_GEOMETRY_ROLLOUT_VALIDATION_INPUT_INVALID",
+            "The rollout validation job input is not an immutable object.",
+        )
+    return hashlib.sha256(canonical_image_review_bytes(input_payload)).hexdigest()
 
 
 __all__ = [

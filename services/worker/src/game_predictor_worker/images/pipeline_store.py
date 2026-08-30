@@ -11,6 +11,9 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
+from game_predictor_api.storage.additive_virtual_geometry_contracts import (
+    v2_render_identity_from_spec,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -1335,8 +1338,17 @@ def _upsert_cell(
         )
         .with_for_update()
     )
+    virtual = crop.get("assetMode") == "virtual_source"
+    v2_identity = v2_render_identity_from_spec(crop.get("renderSpec")) if virtual else None
+    if v2_identity is not None and (
+        crop.get("logicalCellKeyV2Sha256") != v2_identity.logical_cell_key_v2
+        or crop.get("renderIdentityV2Sha256") != v2_identity.render_identity_v2_sha256
+    ):
+        raise ImagePipelineStoreError(
+            "IMAGE_V2_RENDER_IDENTITY_CONFLICT",
+            "The virtual cell payload differs from its checksummed v2 render specification.",
+        )
     if record is None:
-        virtual = crop.get("assetMode") == "virtual_source"
         session.add(
             CellObservationModel(
                 recognized_board_id=board.id,
@@ -1345,6 +1357,12 @@ def _upsert_cell(
                 asset_mode="virtual_source" if virtual else "legacy_file",
                 source_geometry_revision_id=(source_geometry_revision_id if virtual else None),
                 logical_cell_key=(cast(str, crop["logicalCellKeySha256"]) if virtual else None),
+                logical_cell_key_v2=(
+                    None if v2_identity is None else v2_identity.logical_cell_key_v2
+                ),
+                render_identity_v2_sha256=(
+                    None if v2_identity is None else v2_identity.render_identity_v2_sha256
+                ),
                 render_spec=(
                     dict(cast(Mapping[str, object], crop["renderSpec"])) if virtual else None
                 ),
@@ -1371,6 +1389,10 @@ def _upsert_cell(
         or record.source_geometry_revision_id
         != (source_geometry_revision_id if crop.get("assetMode") == "virtual_source" else None)
         or record.logical_cell_key != crop.get("logicalCellKeySha256")
+        or record.logical_cell_key_v2
+        != (None if v2_identity is None else v2_identity.logical_cell_key_v2)
+        or record.render_identity_v2_sha256
+        != (None if v2_identity is None else v2_identity.render_identity_v2_sha256)
         or canonical_json_bytes(record.render_spec) != canonical_json_bytes(crop.get("renderSpec"))
         or record.render_spec_checksum_sha256 != crop.get("renderSpecChecksumSha256")
         or record.rendered_pixel_checksum_sha256 != crop.get("renderedPixelChecksumSha256")
@@ -1524,6 +1546,20 @@ def _append_prediction_revision(
                             if isinstance(
                                 cast(Mapping[str, object], crop_value).get(
                                     "logicalCellKeyV2Sha256"
+                                ),
+                                str,
+                            )
+                            else {}
+                        ),
+                        **(
+                            {
+                                "renderIdentityV2Sha256": cast(Mapping[str, object], crop_value)[
+                                    "renderIdentityV2Sha256"
+                                ]
+                            }
+                            if isinstance(
+                                cast(Mapping[str, object], crop_value).get(
+                                    "renderIdentityV2Sha256"
                                 ),
                                 str,
                             )

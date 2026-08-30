@@ -15,7 +15,13 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
-from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
+from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.image_geometry_v2 import (
+    SEQUENCE_ATTESTATION_SCHEMA_VERSION,
+    SOURCE_COORDINATE_SPACE,
+    board_topology_fingerprint_sha256,
+    sequence_attestation_checksum_sha256,
+)
 from game_predictor_api.storage.models import (
     GameModel,
     ImageGeometryRolloutStateModel,
@@ -112,17 +118,26 @@ class SqlAlchemyImageSourceGeometryRepository:
                 "The source image does not belong to the requested game.",
             )
         self._validate_source_metadata(source=source, value=value)
-        topology_belongs_to_game = self._session.scalar(
-            select(RulesVersionModel.id).where(
+        topology_rules = self._session.scalar(
+            select(RulesVersionModel).where(
                 RulesVersionModel.id == value.topology_rules_version_id,
                 RulesVersionModel.game_id == value.game_id,
             )
         )
-        if topology_belongs_to_game is None:
+        if topology_rules is None:
             raise ImageGeometryPersistenceError(
                 "IMAGE_GEOMETRY_TOPOLOGY_INVALID",
                 "The pinned topology rules version does not belong to the requested game.",
             )
+        topology_fingerprint = board_topology_fingerprint_sha256(
+            topology_rules_version_id=topology_rules.id,
+            topology=BoardTopology(rows=topology_rules.rows, columns=topology_rules.columns),
+        )
+        attestation_checksum = sequence_attestation_checksum_sha256(
+            sequence_range_start=value.sequence_range_start,
+            sequence_range_end=value.sequence_range_end,
+            active_board_slots=value.active_board_slots,
+        )
 
         existing = self._session.execute(
             select(ImageSourceGeometryRevisionModel).where(
@@ -168,6 +183,9 @@ class SqlAlchemyImageSourceGeometryRepository:
             geometry_source=value.geometry_source,
             status=value.status,
             geometry_checksum_sha256=value.geometry_checksum_sha256,
+            topology_fingerprint_sha256=topology_fingerprint,
+            sequence_attestation_schema_version=SEQUENCE_ATTESTATION_SCHEMA_VERSION,
+            sequence_attestation_checksum_sha256=attestation_checksum,
             processing_time_ms=value.processing_time_ms,
             warnings=list(value.warnings),
             created_by=value.created_by,

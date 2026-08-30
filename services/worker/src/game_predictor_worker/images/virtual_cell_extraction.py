@@ -85,6 +85,16 @@ class VirtualCellRender:
         contiguous.setflags(write=False)
         object.__setattr__(self, "rgb", contiguous)
 
+    @property
+    def render_identity_v2_sha256(self) -> str:
+        value = self.render_spec.get("renderIdentityV2Sha256")
+        if not isinstance(value, str):
+            raise VirtualCellExtractionError(
+                "IMAGE_VIRTUAL_CELL_RENDER_ID_V2_INVALID",
+                "A virtual cell render is missing its v2 render identity.",
+            )
+        return value
+
 
 @dataclass(frozen=True, slots=True, eq=False)
 class CellExtractionComparison:

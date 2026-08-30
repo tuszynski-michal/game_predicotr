@@ -689,6 +689,7 @@ def _board_cells(board: Mapping[str, object]) -> None:
             _sha256(cell.get("logicalCellKeySha256"), "logical cell key")
             if cell.get("logicalCellKeyV2Sha256") is not None:
                 _sha256(cell.get("logicalCellKeyV2Sha256"), "logical cell v2 key")
+                _sha256(cell.get("renderIdentityV2Sha256"), "render identity v2 checksum")
             _sha256(cell.get("renderSpecChecksumSha256"), "render spec checksum")
             _sha256(cell.get("renderedPixelChecksumSha256"), "rendered pixel checksum")
             if not isinstance(cell.get("renderSpec"), Mapping):

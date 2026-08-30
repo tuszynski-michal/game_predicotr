@@ -759,6 +759,14 @@ geometrii (`legacy`, `structured_shadow`, `structured_review`,
 checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
 brakujący rekord jest tworzony wyłącznie jako legacy.
 
+Migracja 0084 dodaje addytywne związanie gotowości walidacji:
+`validation_rollout_revision`, `validation_input_checksum_sha256` i
+`validation_job_id`. Przejście do `ready` wymaga zgodności wszystkich trzech
+wartości z bieżącą rewizją oraz niezmiennym inputem joba. Source geometry
+revision zapisuje równolegle `topology_fingerprint_sha256` i wersjonowaną
+checksumę attestation; pola pozostają nullable dla historii do późniejszego
+bounded backfillu.
+
 TASK-0318 nie dodaje pól ani tabel dla raportu jakości. Raport jest niezmiennym
 dowodem poza głównymi tabelami domenowymi, a czysta polityka wyprowadza z niego
 co najwyżej rekomendowaną parę trybów. Sam raport nie mutuje stanu gry.
@@ -1130,6 +1138,15 @@ pozostaje `verified_symbol`, a `quality_issue = unreadable` nadal niezależnie
 blokuje trening. Zatwierdzony `NULL` bez dowodu unreadable oraz pending
 przypisanie człowieka są niejednoznaczne i muszą trafić do raportu przyszłego
 backfillu; nie wolno ich mapować heurystycznie.
+
+Migracja 0084 utrwala ten wynik jako nullable `verification_outcome` oraz
+`verified_symbol_id_v2`. Osobne pole symbolu v2 jest konieczne, ponieważ
+legacy `assigned_symbol_id` może w pending przechowywać sugestię modelu.
+Constraints wiążą realny symbol wyłącznie z outcome `verified_symbol`, a stare
+kolumny nadal obsługują istniejący HTTP/read path. Observations, current review,
+eventy i zamrożone komórki kohort przechowują też addytywne
+`logical_cell_key_v2` i `render_identity_v2_sha256`; historyczne NULL-e nie są
+automatycznie interpretowane.
 
 TASK-0315 nie dodaje tabel, binariów ani trwałego cache'u listy. Bounded odczyt
 `symbol-cell-reviews` wylicza bieżącą confidence z rewizji predykcji albo

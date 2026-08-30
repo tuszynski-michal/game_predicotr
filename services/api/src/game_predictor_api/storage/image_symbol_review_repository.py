@@ -72,6 +72,11 @@ from game_predictor_api.domain.image_symbol_reviews import (
     resolve_unreadable_symbol_cell_review,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.storage.additive_virtual_geometry_contracts import (
+    PersistedVerificationV2,
+    optional_verification_outcome_value,
+    verification_outcome_value,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -1629,6 +1634,13 @@ class SymbolCellReviewWriteThroughCoordinator:
                 )
                 event_action = None
             if existing_cell is None:
+                verification = _verification_v2(
+                    review_state=target.review_state,
+                    quality_issue=target.quality_issue,
+                    assigned_symbol_id=target.assigned_symbol_id,
+                    prediction_symbol_code=review_cell.predicted_symbol_code,
+                    assignment_source=target.assignment_source,
+                )
                 self._session.add(
                     ImageSymbolReviewCellModel(
                         game_id=game_id,
@@ -1651,6 +1663,8 @@ class SymbolCellReviewWriteThroughCoordinator:
                         assigned_symbol_id=target.assigned_symbol_id,
                         review_state=target.review_state,
                         quality_issue=target.quality_issue,
+                        verification_outcome=verification.outcome,
+                        verified_symbol_id_v2=verification.verified_symbol_id,
                         approved_crop_sample_id=target.approved_crop_sample_id,
                         approved_crop_checksum_sha256=target.approved_crop_checksum_sha256,
                         approved_geometry_revision=target.approved_geometry_revision,
@@ -1895,9 +1909,24 @@ class _CellPreviousState:
     approved_crop_sample_id: str | None
     approved_crop_checksum_sha256: str | None
     approved_geometry_revision: int | None
+    logical_cell_key_v2: str | None
+    render_identity_v2_sha256: str | None
+    asset_mode: str
+    source_geometry_revision_id: UUID | None
+    render_spec_checksum_sha256: str | None
+    rendered_pixel_checksum_sha256: str | None
+    verification_outcome: str | None
+    verified_symbol_id_v2: UUID | None
 
     @classmethod
     def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CellPreviousState:
+        previous_v2 = optional_verification_outcome_value(
+            review_state=cell.review_state,
+            quality_issue=_quality_issue_from_model(cell),
+            assigned_symbol_id=cell.assigned_symbol_id,
+            prediction_present=_known_symbol_code(cell.prediction_symbol_code) is not None,
+            assignment_source=cell.assignment_source,
+        )
         return cls(
             assigned_symbol_id=cell.assigned_symbol_id,
             review_state=cell.review_state,
@@ -1905,6 +1934,26 @@ class _CellPreviousState:
             approved_crop_sample_id=cell.approved_crop_sample_id,
             approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
             approved_geometry_revision=cell.approved_geometry_revision,
+            logical_cell_key_v2=cell.logical_cell_key_v2,
+            render_identity_v2_sha256=cell.render_identity_v2_sha256,
+            asset_mode=cell.asset_mode,
+            source_geometry_revision_id=cell.source_geometry_revision_id,
+            render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+            verification_outcome=(
+                cell.verification_outcome
+                if cell.verification_outcome is not None
+                else None
+                if previous_v2 is None
+                else previous_v2.outcome
+            ),
+            verified_symbol_id_v2=(
+                cell.verified_symbol_id_v2
+                if cell.verification_outcome is not None
+                else None
+                if previous_v2 is None
+                else previous_v2.verified_symbol_id
+            ),
         )
 
 
@@ -2189,6 +2238,15 @@ def _apply_symbol_cell_review_transition(
         None if review.approved_crop is None else review.approved_crop.geometry_revision
     )
     cell.assignment_source = review.assignment_source.value
+    verification = _verification_v2(
+        review_state=cell.review_state,
+        quality_issue=cell.quality_issue,
+        assigned_symbol_id=cell.assigned_symbol_id,
+        prediction_symbol_code=cell.prediction_symbol_code,
+        assignment_source=cell.assignment_source,
+    )
+    cell.verification_outcome = verification.outcome
+    cell.verified_symbol_id_v2 = verification.verified_symbol_id
     cell.revision = review.revision
     cell.last_reviewed_by = actor
 
@@ -2206,6 +2264,20 @@ def _append_symbol_cell_event(
         ImageSymbolReviewEventModel(
             cell_review_id=cell.id,
             review_item_id=cell.review_item_id,
+            logical_cell_key=cell.logical_cell_key,
+            previous_logical_cell_key_v2=previous.logical_cell_key_v2,
+            logical_cell_key_v2=cell.logical_cell_key_v2,
+            previous_render_identity_v2_sha256=previous.render_identity_v2_sha256,
+            render_identity_v2_sha256=cell.render_identity_v2_sha256,
+            previous_asset_mode=previous.asset_mode,
+            asset_mode=cell.asset_mode,
+            previous_source_geometry_revision_id=previous.source_geometry_revision_id,
+            source_geometry_revision_id=cell.source_geometry_revision_id,
+            previous_render_spec_checksum_sha256=previous.render_spec_checksum_sha256,
+            render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+            previous_rendered_pixel_checksum_sha256=previous.rendered_pixel_checksum_sha256,
+            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+            extractor_version=cell.extractor_version,
             crop_sample_id=cell.crop_sample_id,
             crop_checksum_sha256=cell.crop_checksum_sha256,
             geometry_revision=cell.geometry_revision,
@@ -2217,6 +2289,10 @@ def _append_symbol_cell_event(
             review_state=cell.review_state,
             previous_quality_issue=previous.quality_issue,
             quality_issue=cell.quality_issue,
+            previous_verification_outcome=previous.verification_outcome,
+            verification_outcome=cell.verification_outcome,
+            previous_verified_symbol_id_v2=previous.verified_symbol_id_v2,
+            verified_symbol_id_v2=cell.verified_symbol_id_v2,
             previous_approved_crop_sample_id=previous.approved_crop_sample_id,
             approved_crop_sample_id=cell.approved_crop_sample_id,
             previous_approved_crop_checksum_sha256=(previous.approved_crop_checksum_sha256),
@@ -2262,6 +2338,23 @@ def _known_symbol_code(value: str | None) -> str | None:
     return value if value is not None and value != "?" else None
 
 
+def _verification_v2(
+    *,
+    review_state: str,
+    quality_issue: str | None,
+    assigned_symbol_id: UUID | None,
+    prediction_symbol_code: str | None,
+    assignment_source: str,
+) -> PersistedVerificationV2:
+    return verification_outcome_value(
+        review_state=review_state,
+        quality_issue=quality_issue,
+        assigned_symbol_id=assigned_symbol_id,
+        prediction_present=_known_symbol_code(prediction_symbol_code) is not None,
+        assignment_source=assignment_source,
+    )
+
+
 def _quality_issue_from_model(cell: ImageSymbolReviewCellModel) -> str | None:
     return cell.quality_issue
 
@@ -2288,6 +2381,13 @@ def _cell_matches_projection(
     sequence_number: int,
     geometry_revision: int,
 ) -> bool:
+    verification = _verification_v2(
+        review_state=target.review_state,
+        quality_issue=target.quality_issue,
+        assigned_symbol_id=target.assigned_symbol_id,
+        prediction_symbol_code=review_cell.predicted_symbol_code,
+        assignment_source=target.assignment_source,
+    )
     return (
         cell.sequence_number == sequence_number
         and cell.crop_sample_id == review_cell.crop_sample_id
@@ -2300,6 +2400,8 @@ def _cell_matches_projection(
         and cell.assigned_symbol_id == target.assigned_symbol_id
         and cell.review_state == target.review_state
         and cell.quality_issue == target.quality_issue
+        and cell.verification_outcome == verification.outcome
+        and cell.verified_symbol_id_v2 == verification.verified_symbol_id
         and cell.approved_crop_sample_id == target.approved_crop_sample_id
         and cell.approved_crop_checksum_sha256 == target.approved_crop_checksum_sha256
         and cell.approved_geometry_revision == target.approved_geometry_revision
@@ -2329,6 +2431,15 @@ def _apply_cell_projection(
     cell.assigned_symbol_id = target.assigned_symbol_id
     cell.review_state = target.review_state
     cell.quality_issue = target.quality_issue
+    verification = _verification_v2(
+        review_state=target.review_state,
+        quality_issue=target.quality_issue,
+        assigned_symbol_id=target.assigned_symbol_id,
+        prediction_symbol_code=review_cell.predicted_symbol_code,
+        assignment_source=target.assignment_source,
+    )
+    cell.verification_outcome = verification.outcome
+    cell.verified_symbol_id_v2 = verification.verified_symbol_id
     cell.approved_crop_sample_id = target.approved_crop_sample_id
     cell.approved_crop_checksum_sha256 = target.approved_crop_checksum_sha256
     cell.approved_geometry_revision = target.approved_geometry_revision

@@ -76,6 +76,22 @@ def test_virtual_geometry_tables_default_rollout_to_legacy() -> None:
         str(ImageGeometryRolloutStateModel.__table__.c.cell_asset_mode.server_default.arg)
         == "'legacy_files'"
     )
+    assert ImageSourceGeometryRevisionModel.__table__.c.topology_fingerprint_sha256.nullable
+    assert ImageGeometryRolloutStateModel.__table__.c.validation_job_id.nullable
+
+
+def test_additive_v2_models_do_not_reinterpret_legacy_symbol_assignments() -> None:
+    assert ImageSymbolReviewCellModel.__table__.c.verification_outcome.nullable
+    assert ImageSymbolReviewCellModel.__table__.c.verified_symbol_id_v2.nullable
+    constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in ImageSymbolReviewCellModel.__table__.constraints
+        if constraint.name is not None and hasattr(constraint, "sqltext")
+    }
+
+    outcome = constraints["ck_image_symbol_review_cells_verification_outcome"]
+    assert "verified_symbol_id_v2" in outcome
+    assert "assigned_symbol_id IS NULL" not in outcome
 
 
 def test_source_geometry_repository_rejects_non_contiguous_attested_slots() -> None:

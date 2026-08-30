@@ -840,6 +840,14 @@ operacyjnym, zamrażanym w job input, i nie staje się częścią właścicielsk
 geometrii. Szczegółowe invarianty i projekt następnej addytywnej korekty
 opisuje [Virtual geometry schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md).
 
+TASK-0325 realizuje wyłącznie addytywną trwałość tych kontraktów. Automatyczny
+i ręczny virtual write path zapisują obok v1 logical/render identity v2, source
+revision zapisuje fingerprint topologii oraz attestation, a review zapisuje
+jawny outcome z osobnym verified-symbol FK. Rollout `ready` jest związany z
+rewizją polityki, SHA-256 inputu i jobem walidującym. Read pathy pozostają na
+v1; bounded diagnostyka historycznych NULL-i nie mutuje danych i oddziela
+rekordy jednoznaczne od wymagających decyzji.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

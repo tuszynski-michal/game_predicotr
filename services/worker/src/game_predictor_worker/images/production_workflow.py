@@ -1157,6 +1157,7 @@ class ProductionImageStageAdapterSuite:
                             "extractorVersion": render.extractor_version,
                             "logicalCellKeySha256": render.logical_cell_key_sha256,
                             "logicalCellKeyV2Sha256": render.logical_cell_key_v2_sha256,
+                            "renderIdentityV2Sha256": render.render_identity_v2_sha256,
                             "renderSpec": render.render_spec,
                             "renderSpecChecksumSha256": render.render_spec_checksum_sha256,
                             "renderedPixelChecksumSha256": (render.rendered_pixel_checksum_sha256),

@@ -230,3 +230,23 @@ destrukcyjnego checkpointu po pełnym cutoverze.
   aplikacyjną walidacją;
 - wynik feasibility TASK-0323 nie autoryzuje zmiany produkcyjnych progów ani
   rolloutu i pozostaje niezależny od niniejszej decyzji schematu.
+
+## Addytywna trwałość po TASK-0325
+
+Migracja 0084 utrwala kontrakty v2 obok pól historycznych. Nowe source geometry
+revisions zapisują `topology_fingerprint_sha256` oraz wersję i checksumę
+attestation. Virtual observations, current review, eventy i zamrożone komórki
+kohort otrzymały nullable logical/render identity v2. Brak wartości nadal
+oznacza rekord historyczny oczekujący na późniejszy bounded backfill, a nie
+błędną próbę automatycznego naprawienia historii.
+
+Outcome v2 zapisuje realny symbol w `verified_symbol_id_v2`. Nie korzysta do
+tego celu z legacy `assigned_symbol_id`, ponieważ pending rekord może tam
+przechowywać sugestię modelu. Dzięki temu `requires_review` nie staje się
+fałszywie zatwierdzonym symbolem, a kontrakt HTTP v1 pozostaje bez zmiany.
+
+`image_geometry_rollout_states` wiąże walidację z
+`validation_rollout_revision`, SHA-256 pełnego inputu i `validation_job_id`.
+Stan nie może przejść do `ready`, gdy job albo polityka różnią się od
+zamrożonego snapshotu. TASK-0325 nie przełącza read pathów i nie wykonuje
+backfillu; diagnostyka jest limitowana i read-only.

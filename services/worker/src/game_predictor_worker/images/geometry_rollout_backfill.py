@@ -26,6 +26,13 @@ class ImageGeometryRolloutBackfillHandler:
             )
         processed = int(job.progress_current)
         virtual_sources = int(job.success_count)
+        persisted_checkpoint = job.checkpoint_payload or {}
+        source_revision_backfills = _counter(
+            persisted_checkpoint.get("source_revision_backfill_count")
+        )
+        observation_backfills = _counter(persisted_checkpoint.get("observation_backfill_count"))
+        review_cell_backfills = _counter(persisted_checkpoint.get("review_cell_backfill_count"))
+        training_cell_backfills = _counter(persisted_checkpoint.get("training_cell_backfill_count"))
         try:
             with self._session_factory() as session:
                 persisted_status = SqlAlchemyImageGeometryRolloutBackfillRepository(session).status(
@@ -40,11 +47,15 @@ class ImageGeometryRolloutBackfillHandler:
                     ).validate_next_batch(job.game_id, limit=_BATCH_SIZE)
                 processed += step.processed_source_count
                 virtual_sources += step.virtual_source_count
+                source_revision_backfills += step.source_revision_backfill_count
+                observation_backfills += step.observation_backfill_count
+                review_cell_backfills += step.review_cell_backfill_count
+                training_cell_backfills += step.training_cell_backfill_count
                 context.checkpoint(
                     checkpoint_payload={
-                        "schema_version": 1,
+                        "schema_version": 2,
                         "workflow": "image_geometry_rollout_backfill",
-                        "phase": "validation",
+                        "phase": "contract_backfill_and_validation",
                         "last_source_image_id": (
                             None
                             if step.last_source_image_id is None
@@ -52,8 +63,12 @@ class ImageGeometryRolloutBackfillHandler:
                         ),
                         "processed_source_count": processed,
                         "virtual_source_count": virtual_sources,
+                        "source_revision_backfill_count": source_revision_backfills,
+                        "observation_backfill_count": observation_backfills,
+                        "review_cell_backfill_count": review_cell_backfills,
+                        "training_cell_backfill_count": training_cell_backfills,
                     },
-                    stage="image_geometry_rollout_validation",
+                    stage="image_geometry_rollout_v2_backfill",
                     current=processed,
                     total=source_count,
                     success_count=virtual_sources,
@@ -68,7 +83,7 @@ class ImageGeometryRolloutBackfillHandler:
                 )
             context.checkpoint(
                 checkpoint_payload={
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "workflow": "image_geometry_rollout_backfill",
                     "phase": "ready",
                     "last_source_image_id": (
@@ -78,6 +93,10 @@ class ImageGeometryRolloutBackfillHandler:
                     ),
                     "processed_source_count": status.processed_source_count,
                     "virtual_source_count": status.virtual_source_count,
+                    "source_revision_backfill_count": source_revision_backfills,
+                    "observation_backfill_count": observation_backfills,
+                    "review_cell_backfill_count": review_cell_backfills,
+                    "training_cell_backfill_count": training_cell_backfills,
                 },
                 stage="image_geometry_rollout_ready",
                 current=status.processed_source_count,
@@ -93,6 +112,10 @@ class ImageGeometryRolloutBackfillHandler:
                     error=error,
                 )
             raise JobHandlerError(error.code, error.message) from error
+
+
+def _counter(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
 
 
 __all__ = ["ImageGeometryRolloutBackfillHandler"]

@@ -6446,6 +6446,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   całej historii w migracji oraz pozostawienie niezwiązanego `ready` odrzucono
   z powodu utraty znaczenia danych, kosztu migracji i ryzyka stale rollout.
 
+## D-269 — Addytywne kontrakty v2 uzupełnia trwały bounded rollout job
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** istniejący `image_geometry_rollout_backfill` w general lane
+  uzupełnia kontrakty v2 partiami najwyżej 100 source images. Tożsamości są
+  wyprowadzane wyłącznie z checksummed legacy render specu oraz niezmiennego
+  occurrence/topology context. Current owners i zamrożone verified cohorts są
+  w scope; append-only eventy nie są przepisywane. Niejasny outcome lub
+  rozbieżna istniejąca wartość kończy przebieg fail-closed i blokuje `ready`.
+- **Context:** migracja 0084 celowo dodała nullable pola bez skanowania dużych
+  tabel. Cutover odczytów wymagał resumowalnego raportu zgodności, ale osobny
+  typ joba dublowałby już istniejącą trwałość, kursor i walidację rolloutu.
+- **Safety:** backfill nie odczytuje pikseli, nie renderuje assetów, nie zmienia
+  etykiet człowieka ani canonical ownership. Finalizacja ponownie sprawdza nowe
+  źródła i brakujące kontrakty. TASK-0326 nie uruchamia operacji na bazie
+  użytkownika i nie przełącza publicznych read pathów.
+- **Consequences:** schema joba 3 zapisuje wersję kontraktu, a wersje 1 i 2
+  pozostają odtwarzalne. Checkpoint zawiera liczniki czterech kategorii.
+  Zamrożone verified training cells są walidowane w swoim historycznym
+  geometry context, nawet gdy plansza nie jest bieżącym właścicielem sekwencji.
+- **Alternatives:** jednorazowy skrypt bez checkpointu, heurystyczne mapowanie
+  historii oraz nowy typ joba odrzucono odpowiednio z powodu braku recovery,
+  ryzyka fałszywych decyzji i dublowania infrastruktury.
+
 ## Szablon nowej decyzji
 
 ```text

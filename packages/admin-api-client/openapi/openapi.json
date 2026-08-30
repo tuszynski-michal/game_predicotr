@@ -3986,6 +3986,18 @@
             "title": "Cellassetmode",
             "type": "string"
           },
+          "contractBackfillVersion": {
+            "anyOf": [
+              {
+                "const": "additive-virtual-geometry-v2-backfill-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contractbackfillversion"
+          },
           "generation": {
             "minimum": 1.0,
             "title": "Generation",
@@ -4003,7 +4015,11 @@
             "type": "integer"
           },
           "schemaVersion": {
-            "const": 1,
+            "enum": [
+              1,
+              2,
+              3
+            ],
             "title": "Schemaversion",
             "type": "integer"
           },

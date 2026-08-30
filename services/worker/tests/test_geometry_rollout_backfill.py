@@ -94,6 +94,10 @@ def test_handler_processes_small_and_full_bounded_batches(
                 virtual_source_count=source_count,
                 last_source_image_id=uuid4(),
                 has_more=False,
+                source_revision_backfill_count=2,
+                observation_backfill_count=30,
+                review_cell_backfill_count=30,
+                training_cell_backfill_count=4,
             )
 
         def finalize(self, _game_id: UUID) -> ImageGeometryRolloutStatus:
@@ -122,6 +126,8 @@ def test_handler_processes_small_and_full_bounded_batches(
     assert context.checkpoints[-1]["stage"] == "image_geometry_rollout_ready"
     assert context.checkpoints[-1]["current"] == source_count
     assert context.checkpoints[-1]["total"] == source_count
+    assert context.checkpoints[0]["stage"] == "image_geometry_rollout_v2_backfill"
+    assert context.checkpoints[0]["checkpoint_payload"]["observation_backfill_count"] == 30
 
 
 def test_handler_resumes_from_persisted_job_progress(monkeypatch: Any) -> None:

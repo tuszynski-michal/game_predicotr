@@ -3973,3 +3973,18 @@ diagnostyka tylko odczytuje maksymalnie 500 historycznych kandydatów i nie
 mapuje stanów niejednoznacznych. Migracji 0084 ani backfillu nie uruchomiono na
 bazie użytkownika; osobne zadanie musi wykonać resumowalny backfill oraz
 cutover dopiero po raporcie zgodności.
+
+TASK-0326 rozszerzył istniejący trwały `image_geometry_rollout_backfill` o
+metadata-only backfill kontraktów dodanych przez 0084. Job w general lane
+przetwarza maksymalnie 100 source images w transakcji, wznawia pracę z trwałego
+kursora i zapisuje osobne liczniki source revisions, observations, current
+review cells oraz frozen verified training cells.
+
+Historyczny render spec wraz z occurrence i przypiętą topologią daje dokładne
+logical/render identity v2 bez dekodowania obrazu. Bieżący outcome jest
+uzupełniany tylko dla jednoznacznego stanu; sugestia modelu pozostaje
+`requires_review`, a niejasność lub konflikt istniejącej wartości blokuje
+`ready`. Finalizacja ponownie sprawdza nowe źródła oraz brakujące pola.
+Append-only eventy, etykiety człowieka, canonical ownership i publiczne read
+pathy pozostają niezmienione. Backfillu ani cutoveru nie uruchomiono na danych
+użytkownika.

@@ -16,10 +16,22 @@ from game_predictor_api.application.image_geometry_rollout import (
     ImageGeometryRolloutStart,
     ImageGeometryRolloutStatus,
 )
-from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
+from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.image_geometry_v2 import (
+    SEQUENCE_ATTESTATION_SCHEMA_VERSION,
+    SOURCE_COORDINATE_SPACE,
+    ImageGeometryContractError,
+    board_topology_fingerprint_sha256,
+    sequence_attestation_checksum_sha256,
+)
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import canonical_image_review_bytes
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
+from game_predictor_api.storage.additive_virtual_geometry_contracts import (
+    AdditiveVirtualGeometryContractError,
+    derive_v2_render_identity_from_legacy_spec,
+    verification_outcome_value,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -28,20 +40,23 @@ from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
+    ImageBoardSearchFastDocumentModel,
     ImageGeometryRolloutStateModel,
     ImageReviewItemModel,
     ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
+    RulesVersionModel,
     SourceImageModel,
+    VerifiedTrainingCohortCellModel,
 )
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ACTIVE_JOB_STATUSES = (JobStatus.CREATED, JobStatus.PROCESSING)
 _WORKFLOW = "image_geometry_rollout_backfill"
 _ACTOR = "system:image-geometry-rollout-backfill"
-_MAX_BATCH_SIZE = 200
+_MAX_BATCH_SIZE = 100
 
 
 class ImageGeometryRolloutBackfillError(ImageGridReviewError):
@@ -62,6 +77,10 @@ class ImageGeometryRolloutBackfillStep:
     virtual_source_count: int
     last_source_image_id: UUID | None
     has_more: bool
+    source_revision_backfill_count: int = 0
+    observation_backfill_count: int = 0
+    review_cell_backfill_count: int = 0
+    training_cell_backfill_count: int = 0
 
 
 class SqlAlchemyImageGeometryRolloutBackfillRepository:
@@ -90,12 +109,15 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             state.backfill_status == "ready"
             and not self._has_source_after_cursor(state)
             and self._validation_binding_is_current(state)
+            and not self._has_v2_backfill_candidates(game_id)
         ):
             return ImageGeometryRolloutStart(
                 rollout=self._status(game_id, state=state),
                 job=None,
                 created=False,
             )
+        if self._has_v2_backfill_candidates(game_id) and not self._has_source_after_cursor(state):
+            state.last_source_image_id = None
         generation = (
             int(
                 self._session.scalar(
@@ -116,8 +138,9 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         state.validation_job_id = None
         state.updated_by = _ACTOR
         input_payload: dict[str, object] = {
-            "schema_version": 2,
+            "schema_version": 3,
             "workflow": _WORKFLOW,
+            "contract_backfill_version": "additive-virtual-geometry-v2-backfill-v1",
             "generation": generation,
             "rollout_revision": state.revision,
             "geometry_mode": state.geometry_mode,
@@ -173,8 +196,17 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         sources = tuple(self._session.scalars(statement))
         batch = sources[:limit]
         virtual_count = 0
+        source_revision_backfill_count = 0
+        observation_backfill_count = 0
+        review_cell_backfill_count = 0
+        training_cell_backfill_count = 0
         for source in batch:
-            virtual_count += int(self._validate_source(game_id=game_id, source=source))
+            is_virtual, counts = self._validate_source(game_id=game_id, source=source)
+            virtual_count += int(is_virtual)
+            source_revision_backfill_count += counts[0]
+            observation_backfill_count += counts[1]
+            review_cell_backfill_count += counts[2]
+            training_cell_backfill_count += counts[3]
         if batch:
             state.last_source_image_id = batch[-1].id
             state.updated_by = _ACTOR
@@ -184,6 +216,10 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             virtual_source_count=virtual_count,
             last_source_image_id=(state.last_source_image_id if batch else None),
             has_more=len(sources) > limit,
+            source_revision_backfill_count=source_revision_backfill_count,
+            observation_backfill_count=observation_backfill_count,
+            review_cell_backfill_count=review_cell_backfill_count,
+            training_cell_backfill_count=training_cell_backfill_count,
         )
 
     def finalize(self, game_id: UUID) -> ImageGeometryRolloutStatus:
@@ -197,6 +233,11 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             raise ImageGeometryRolloutBackfillError(
                 "IMAGE_GEOMETRY_ROLLOUT_NOT_STABLE",
                 "New source images appeared before rollout validation finalized.",
+            )
+        if self._has_v2_backfill_candidates(game_id):
+            raise ImageGeometryRolloutBackfillError(
+                "IMAGE_GEOMETRY_ROLLOUT_V2_BACKFILL_INCOMPLETE",
+                "Additive virtual-geometry contracts remain incomplete or ambiguous.",
             )
         self._require_current_validation_binding(state)
         state.backfill_status = "ready"
@@ -219,17 +260,40 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         state.failure_message = f"{error.message}{suffix}"[:1000]
         state.updated_by = _ACTOR
 
-    def _validate_source(self, *, game_id: UUID, source: SourceImageModel) -> bool:
+    def _validate_source(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+    ) -> tuple[bool, tuple[int, int, int, int]]:
+        source_revision_backfill_count = self._backfill_source_revisions(
+            game_id=game_id,
+            source=source,
+        )
+        review_cell_backfill_count = self._backfill_review_outcomes_for_source(
+            source=source,
+        )
+        training_cell_backfill_count = self._backfill_training_cells_for_source(source=source)
         boards = tuple(
             self._session.scalars(
                 select(RecognizedBoardModel)
+                .join(
+                    ImageBoardSearchFastDocumentModel,
+                    ImageBoardSearchFastDocumentModel.recognized_board_id
+                    == RecognizedBoardModel.id,
+                )
                 .where(RecognizedBoardModel.source_image_id == source.id)
                 .order_by(RecognizedBoardModel.position_index)
             )
         )
         virtual_boards = tuple(board for board in boards if board.asset_mode == "virtual_source")
         if not virtual_boards:
-            return False
+            return False, (
+                source_revision_backfill_count,
+                0,
+                review_cell_backfill_count,
+                training_cell_backfill_count,
+            )
         if (
             source.coordinate_space != SOURCE_COORDINATE_SPACE
             or source.raw_width is None
@@ -244,6 +308,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_GEOMETRY_ROLLOUT_SOURCE_PROVENANCE_INVALID",
                 "A virtual source has incomplete canonical coordinate metadata.",
             )
+        observation_backfill_count = 0
         for board in virtual_boards:
             geometry = self._session.get(
                 ImageSourceGeometryRevisionModel,
@@ -258,11 +323,25 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 != source.normalized_pixel_checksum_sha256
                 or board.position_index not in geometry.active_board_slots
                 or board.geometry_checksum_sha256 != geometry.geometry_checksum_sha256
+                or not _is_sha256(geometry.topology_fingerprint_sha256)
+                or geometry.sequence_attestation_schema_version
+                != SEQUENCE_ATTESTATION_SCHEMA_VERSION
+                or not _is_sha256(geometry.sequence_attestation_checksum_sha256)
             ):
                 self._invalid_source(
                     source,
                     "IMAGE_GEOMETRY_ROLLOUT_SOURCE_GEOMETRY_INVALID",
                     "A virtual board is not bound to a complete source geometry revision.",
+                )
+            topology = self._topology_for_geometry(source=source, geometry=geometry)
+            if (
+                int(board.grid_rows or 3) != topology.rows
+                or int(board.grid_columns or 5) != topology.columns
+            ):
+                self._invalid_source(
+                    source,
+                    "IMAGE_GEOMETRY_ROLLOUT_TOPOLOGY_MISMATCH",
+                    "A virtual board does not match its source geometry topology.",
                 )
             topology_count = int(board.grid_rows or 3) * int(board.grid_columns or 5)
             observations = tuple(
@@ -277,6 +356,14 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 for row_index in range(int(board.grid_rows or 3))
                 for column_index in range(int(board.grid_columns or 5))
             )
+            for observation in observations:
+                observation_backfill_count += self._backfill_render_identity(
+                    source=source,
+                    geometry=geometry,
+                    topology=topology,
+                    board=board,
+                    cell=observation,
+                )
             if (
                 len(observations) != topology_count
                 or tuple(
@@ -289,6 +376,8 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     or observation.source_geometry_revision_id != geometry.id
                     or observation.crop_relative_path is not None
                     or not _is_sha256(observation.logical_cell_key)
+                    or not _is_sha256(observation.logical_cell_key_v2)
+                    or not _is_sha256(observation.render_identity_v2_sha256)
                     or not isinstance(observation.render_spec, dict)
                     or not _is_sha256(observation.render_spec_checksum_sha256)
                     or not _is_sha256(observation.rendered_pixel_checksum_sha256)
@@ -332,6 +421,14 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     .order_by(ImageSymbolReviewCellModel.cell_index)
                 )
             )
+            for cell in review_cells:
+                review_cell_backfill_count += self._backfill_render_identity(
+                    source=source,
+                    geometry=geometry,
+                    topology=topology,
+                    board=board,
+                    cell=cell,
+                )
             if review_cells and (
                 len(review_cells) != topology_count
                 or tuple(int(cell.cell_index) for cell in review_cells)
@@ -341,6 +438,9 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     or cell.source_geometry_revision_id != geometry.id
                     or cell.crop_relative_path is not None
                     or not _is_sha256(cell.logical_cell_key)
+                    or not _is_sha256(cell.logical_cell_key_v2)
+                    or not _is_sha256(cell.render_identity_v2_sha256)
+                    or cell.verification_outcome is None
                     or not isinstance(cell.render_spec, dict)
                     or not _is_sha256(cell.render_spec_checksum_sha256)
                     or not _is_sha256(cell.rendered_pixel_checksum_sha256)
@@ -367,7 +467,241 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
                 review_item_id
             )
-        return True
+        return True, (
+            source_revision_backfill_count,
+            observation_backfill_count,
+            review_cell_backfill_count,
+            training_cell_backfill_count,
+        )
+
+    def _backfill_source_revisions(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+    ) -> int:
+        revisions = tuple(
+            self._session.scalars(
+                select(ImageSourceGeometryRevisionModel).where(
+                    ImageSourceGeometryRevisionModel.game_id == game_id,
+                    ImageSourceGeometryRevisionModel.source_image_id == source.id,
+                )
+            )
+        )
+        updated = 0
+        for geometry in revisions:
+            topology = self._topology_for_geometry(source=source, geometry=geometry)
+            try:
+                topology_fingerprint = board_topology_fingerprint_sha256(
+                    topology_rules_version_id=geometry.topology_rules_version_id,
+                    topology=topology,
+                )
+                attestation_checksum = sequence_attestation_checksum_sha256(
+                    sequence_range_start=int(geometry.sequence_range_start),
+                    sequence_range_end=int(geometry.sequence_range_end),
+                    active_board_slots=tuple(int(value) for value in geometry.active_board_slots),
+                )
+            except ImageGeometryContractError as error:
+                self._invalid_source(source, error.code, str(error))
+            current = (
+                geometry.topology_fingerprint_sha256,
+                geometry.sequence_attestation_schema_version,
+                geometry.sequence_attestation_checksum_sha256,
+            )
+            expected = (
+                topology_fingerprint,
+                SEQUENCE_ATTESTATION_SCHEMA_VERSION,
+                attestation_checksum,
+            )
+            if current == (None, None, None):
+                (
+                    geometry.topology_fingerprint_sha256,
+                    geometry.sequence_attestation_schema_version,
+                    geometry.sequence_attestation_checksum_sha256,
+                ) = expected
+                updated += 1
+            elif current != expected:
+                self._invalid_source(
+                    source,
+                    "IMAGE_GEOMETRY_ROLLOUT_SOURCE_CONTRACT_V2_MISMATCH",
+                    "A source geometry revision differs from its derived v2 contracts.",
+                )
+        return updated
+
+    def _topology_for_geometry(
+        self,
+        *,
+        source: SourceImageModel,
+        geometry: ImageSourceGeometryRevisionModel,
+    ) -> BoardTopology:
+        rules = self._session.scalar(
+            select(RulesVersionModel).where(
+                RulesVersionModel.id == geometry.topology_rules_version_id,
+                RulesVersionModel.game_id == geometry.game_id,
+            )
+        )
+        if rules is None:
+            self._invalid_source(
+                source,
+                "IMAGE_GEOMETRY_ROLLOUT_TOPOLOGY_MISSING",
+                "A source geometry revision lacks its pinned topology rules.",
+            )
+        return BoardTopology(rows=int(rules.rows), columns=int(rules.columns))
+
+    def _backfill_review_outcomes_for_source(self, *, source: SourceImageModel) -> int:
+        cells = tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
+                )
+                .join(
+                    ImageBoardSearchFastDocumentModel,
+                    ImageBoardSearchFastDocumentModel.review_item_id
+                    == ImageSymbolReviewCellModel.review_item_id,
+                )
+                .where(
+                    RecognizedBoardModel.source_image_id == source.id,
+                    ImageBoardSearchFastDocumentModel.recognized_board_id
+                    == ImageSymbolReviewCellModel.recognized_board_id,
+                )
+            )
+        )
+        updated = 0
+        for cell in cells:
+            try:
+                verification = verification_outcome_value(
+                    review_state=cell.review_state,
+                    quality_issue=cell.quality_issue,
+                    assigned_symbol_id=cell.assigned_symbol_id,
+                    prediction_present=cell.prediction_symbol_code not in {None, "?"},
+                    assignment_source=cell.assignment_source,
+                )
+            except AdditiveVirtualGeometryContractError as error:
+                self._invalid_source(source, error.code, str(error))
+            current = (cell.verification_outcome, cell.verified_symbol_id_v2)
+            expected = (verification.outcome, verification.verified_symbol_id)
+            if current == (None, None):
+                cell.verification_outcome, cell.verified_symbol_id_v2 = expected
+                updated += 1
+            elif current != expected:
+                self._invalid_source(
+                    source,
+                    "SYMBOL_VERIFICATION_OUTCOME_V2_MISMATCH",
+                    "A persisted verification outcome differs from its current review state.",
+                )
+        return updated
+
+    def _backfill_training_cells_for_source(self, *, source: SourceImageModel) -> int:
+        cells = tuple(
+            self._session.scalars(
+                select(VerifiedTrainingCohortCellModel).where(
+                    VerifiedTrainingCohortCellModel.source_image_id == source.id,
+                    VerifiedTrainingCohortCellModel.asset_mode == "virtual_source",
+                )
+            )
+        )
+        updated = 0
+        for cell in cells:
+            board = self._session.get(RecognizedBoardModel, cell.recognized_board_id)
+            geometry = (
+                None
+                if board is None
+                or board.source_image_id != source.id
+                or board.asset_mode != "virtual_source"
+                else self._session.get(
+                    ImageSourceGeometryRevisionModel,
+                    cell.source_geometry_revision_id,
+                )
+            )
+            if (
+                board is None
+                or geometry is None
+                or geometry.source_image_id != source.id
+                or geometry.source_checksum_sha256 != source.checksum_sha256
+                or int(board.position_index) not in geometry.active_board_slots
+            ):
+                self._invalid_source(
+                    source,
+                    "IMAGE_GEOMETRY_ROLLOUT_TRAINING_PROVENANCE_INVALID",
+                    "A verified virtual training cell lacks its immutable geometry context.",
+                )
+            topology = self._topology_for_geometry(source=source, geometry=geometry)
+            row_index, column_index = topology.coordinates(int(cell.cell_index))
+            updated += self._backfill_render_identity(
+                source=source,
+                geometry=geometry,
+                topology=topology,
+                board=board,
+                cell=cell,
+                row_index=row_index,
+                column_index=column_index,
+            )
+            if not _is_sha256(cell.logical_cell_key_v2) or not _is_sha256(
+                cell.render_identity_v2_sha256
+            ):
+                self._invalid_source(
+                    source,
+                    "IMAGE_GEOMETRY_ROLLOUT_TRAINING_PROVENANCE_INVALID",
+                    "A verified virtual training cell lacks v2 render provenance.",
+                )
+        return updated
+
+    def _backfill_render_identity(
+        self,
+        *,
+        source: SourceImageModel,
+        geometry: ImageSourceGeometryRevisionModel,
+        topology: BoardTopology,
+        board: RecognizedBoardModel,
+        cell: CellObservationModel | ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
+        row_index: int | None = None,
+        column_index: int | None = None,
+    ) -> int:
+        if isinstance(cell, VerifiedTrainingCohortCellModel):
+            if row_index is None or column_index is None:
+                self._invalid_source(
+                    source,
+                    "IMAGE_GEOMETRY_ROLLOUT_TRAINING_PROVENANCE_INVALID",
+                    "A verified training cell requires explicit topology coordinates.",
+                )
+            resolved_row = row_index
+            resolved_column = column_index
+        else:
+            resolved_row = int(cell.row_index) if row_index is None else row_index
+            resolved_column = int(cell.column_index) if column_index is None else column_index
+        cell_index = (
+            resolved_row * topology.columns + resolved_column
+            if isinstance(cell, CellObservationModel)
+            else int(cell.cell_index)
+        )
+        try:
+            identity = derive_v2_render_identity_from_legacy_spec(
+                cell.render_spec,
+                import_job_id=source.import_job_id,
+                file_execution_key=source.file_execution_key,
+                topology_rules_version_id=geometry.topology_rules_version_id,
+                topology=topology,
+                board_slot=int(board.position_index),
+                cell_index=cell_index,
+                row_index=resolved_row,
+                column_index=resolved_column,
+            )
+        except AdditiveVirtualGeometryContractError as error:
+            self._invalid_source(source, error.code, str(error))
+        current = (cell.logical_cell_key_v2, cell.render_identity_v2_sha256)
+        expected = (identity.logical_cell_key_v2, identity.render_identity_v2_sha256)
+        if current == (None, None):
+            cell.logical_cell_key_v2, cell.render_identity_v2_sha256 = expected
+            return 1
+        if current != expected:
+            self._invalid_source(
+                source,
+                "IMAGE_V2_RENDER_IDENTITY_PERSISTENCE_MISMATCH",
+                "A persisted v2 render identity differs from immutable render inputs.",
+            )
+        return 0
 
     def _status(
         self,
@@ -450,6 +784,90 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 )
             )
         return self._session.scalar(statement) is not None
+
+    def _has_v2_backfill_candidates(self, game_id: UUID) -> bool:
+        source_revision = self._session.scalar(
+            select(ImageSourceGeometryRevisionModel.id)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game_id,
+                or_(
+                    ImageSourceGeometryRevisionModel.topology_fingerprint_sha256.is_(None),
+                    ImageSourceGeometryRevisionModel.sequence_attestation_schema_version.is_(None),
+                    ImageSourceGeometryRevisionModel.sequence_attestation_checksum_sha256.is_(None),
+                ),
+            )
+            .limit(1)
+        )
+        if source_revision is not None:
+            return True
+        observation = self._session.scalar(
+            select(CellObservationModel.id)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                ImageBoardSearchFastDocumentModel.recognized_board_id == RecognizedBoardModel.id,
+            )
+            .where(
+                JobModel.game_id == game_id,
+                CellObservationModel.asset_mode == "virtual_source",
+                or_(
+                    CellObservationModel.logical_cell_key_v2.is_(None),
+                    CellObservationModel.render_identity_v2_sha256.is_(None),
+                ),
+            )
+            .limit(1)
+        )
+        if observation is not None:
+            return True
+        review_cell = self._session.scalar(
+            select(ImageSymbolReviewCellModel.id)
+            .join(
+                ImageBoardSearchFastDocumentModel,
+                ImageBoardSearchFastDocumentModel.review_item_id
+                == ImageSymbolReviewCellModel.review_item_id,
+            )
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageBoardSearchFastDocumentModel.recognized_board_id
+                == ImageSymbolReviewCellModel.recognized_board_id,
+                or_(
+                    ImageSymbolReviewCellModel.verification_outcome.is_(None),
+                    and_(
+                        ImageSymbolReviewCellModel.asset_mode == "virtual_source",
+                        or_(
+                            ImageSymbolReviewCellModel.logical_cell_key_v2.is_(None),
+                            ImageSymbolReviewCellModel.render_identity_v2_sha256.is_(None),
+                        ),
+                    ),
+                ),
+            )
+            .limit(1)
+        )
+        if review_cell is not None:
+            return True
+        training_cell = self._session.scalar(
+            select(VerifiedTrainingCohortCellModel.id)
+            .join(
+                SourceImageModel,
+                SourceImageModel.id == VerifiedTrainingCohortCellModel.source_image_id,
+            )
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(
+                JobModel.game_id == game_id,
+                VerifiedTrainingCohortCellModel.asset_mode == "virtual_source",
+                or_(
+                    VerifiedTrainingCohortCellModel.logical_cell_key_v2.is_(None),
+                    VerifiedTrainingCohortCellModel.render_identity_v2_sha256.is_(None),
+                ),
+            )
+            .limit(1)
+        )
+        return training_cell is not None
 
     def _cursor(
         self,

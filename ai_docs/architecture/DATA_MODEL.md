@@ -2036,6 +2036,18 @@ addytywnej korekty znajdują się w
 [Virtual geometry schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md).
 Żadna kopia projekcyjna ani audytowa nie jest drugim właścicielem virtual quada.
 
+Migracja 0084 dodała nullable kontrakty v2, a TASK-0326 wykorzystuje istniejący
+`image_geometry_rollout_backfill` do ich ograniczonego uzupełnienia. Jedna
+partia obejmuje maksymalnie 100 source images. Source revisions otrzymują
+fingerprint topologii i attestation; virtual observations, bieżące review cells
+oraz zamrożone verified training cells otrzymują logical/render identity v2.
+Bieżące review cells dostają outcome v2 tylko wtedy, gdy legacy stan jest
+jednoznaczny. Append-only eventy i legacy pola nie są przepisywane.
+
+`ready` rolloutu oznacza jednocześnie brak nowych źródeł za kursorem, zgodność
+zamrożonego inputu joba oraz brak nieuzupełnionych kontraktów v2 w objętym
+scope. Nie oznacza jeszcze cutoveru produkcyjnych odczytów na v2.
+
 ## Mock data M1
 
 - 3 gry,

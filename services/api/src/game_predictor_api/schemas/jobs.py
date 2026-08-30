@@ -296,12 +296,21 @@ class SymbolCellReviewBackfillJobPayload(ApiModel):
 
 
 class ImageGeometryRolloutBackfillJobPayload(ApiModel):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2, 3]
     workflow: Literal["image_geometry_rollout_backfill"]
+    contract_backfill_version: Literal["additive-virtual-geometry-v2-backfill-v1"] | None = None
     generation: int = Field(ge=1)
     rollout_revision: int = Field(ge=0)
     geometry_mode: str = Field(min_length=1, max_length=30)
     cell_asset_mode: str = Field(min_length=1, max_length=30)
+
+    @model_validator(mode="after")
+    def validate_contract_backfill_version(self) -> Self:
+        if self.schema_version == 3 and self.contract_backfill_version is None:
+            raise ValueError("schema v3 requires contractBackfillVersion")
+        if self.schema_version != 3 and self.contract_backfill_version is not None:
+            raise ValueError("contractBackfillVersion is only valid for schema v3")
+        return self
 
 
 class BoardCellRecropJobSnapshotPayload(ApiModel):

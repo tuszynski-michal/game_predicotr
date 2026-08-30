@@ -1530,6 +1530,14 @@ game-scoped review API po odwoływalnej sesji, kodzie, limicie prób i czasie
 wygaśnięcia. Surowe przekierowanie portu routera nie jest wspierane. Domyślny
 tryb loopback oraz całkowicie offline aplikacja mobilna nie zmieniają się.
 
+Bounded backfill kontraktów geometrii wirtualnej działa w istniejącym general
+lane jako wersja 3 joba `image_geometry_rollout_backfill`. Worker zapisuje
+checkpoint po maksymalnie 100 źródłach, dzięki czemu restart wznawia przebieg
+od trwałego kursora. Operacja jest metadata-only: nie odczytuje pikseli, nie
+tworzy assetów i nie zmienia canonical ownership ani etykiet człowieka.
+Finalizacja jest fail-closed dla niejednoznacznego outcome, rozbieżnej
+tożsamości v2 lub zapisów powstałych po minięciu kursora.
+
 ## Integralność i bezpieczeństwo publikacji
 
 - `sequence_number` jest unikalny i ciągły w ramach wersji datasetu,

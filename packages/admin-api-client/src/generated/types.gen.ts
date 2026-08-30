@@ -2276,6 +2276,10 @@ export type ImageGeometryRolloutBackfillJobPayload = {
    */
   cellAssetMode: string;
   /**
+   * Contractbackfillversion
+   */
+  contractBackfillVersion?: 'additive-virtual-geometry-v2-backfill-v1' | null;
+  /**
    * Generation
    */
   generation: number;
@@ -2290,7 +2294,7 @@ export type ImageGeometryRolloutBackfillJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion: 1;
+  schemaVersion: 1 | 2 | 3;
   /**
    * Workflow
    */

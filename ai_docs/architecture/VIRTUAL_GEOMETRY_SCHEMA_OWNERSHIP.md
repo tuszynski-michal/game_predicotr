@@ -250,3 +250,32 @@ fałszywie zatwierdzonym symbolem, a kontrakt HTTP v1 pozostaje bez zmiany.
 Stan nie może przejść do `ready`, gdy job albo polityka różnią się od
 zamrożonego snapshotu. TASK-0325 nie przełącza read pathów i nie wykonuje
 backfillu; diagnostyka jest limitowana i read-only.
+
+## Bounded backfill po TASK-0326
+
+Istniejący general-lane job `image_geometry_rollout_backfill` wykonuje teraz
+addytywny backfill kontraktów v2 razem z walidacją rolloutu. Przetwarza najwyżej
+100 source images w jednej transakcji i zachowuje trwały kursor source-level.
+Checkpoint raportuje osobno source revisions, observations, current review
+cells oraz zamrożone verified training cells.
+
+Backfill nie dekoduje ani nie renderuje obrazów. `logical-cell-v2` i
+`render-identity-v2` są wyprowadzane z checksummed legacy render specu oraz
+niezmiennego occurrence/topology context. Istniejąca wartość musi dokładnie
+odpowiadać wyliczeniu; konflikt kończy scope fail-closed. Source revisions
+otrzymują dokładny fingerprint topologii oraz wersjonowaną checksumę
+attestation.
+
+Outcome v2 jest uzupełniany wyłącznie w bieżącej projekcji aktualnego
+właściciela logicznej planszy. Modelowa sugestia pozostaje
+`requires_review`; nie staje się verified symbolem. Niejednoznaczny legacy
+stan pozostaje nullable, przerywa partię i blokuje `ready`. Zamrożone komórki
+verified cohorts zachowują swój historyczny board/geometry context, nawet gdy
+nie są już bieżącym właścicielem sekwencji. Append-only eventy pozostają
+niezmienione.
+
+Finalizacja sprawdza ponownie nowe źródła oraz wszystkie brakujące pola v2.
+Nowy zapis, który pojawił się po przejściu kursora, uniemożliwia `ready` i jest
+obsługiwany w następnym idempotentnym przebiegu. TASK-0326 nadal nie przełącza
+publicznych read pathów ani indeksów na v2 i nie wykonuje backfillu na danych
+użytkownika.

@@ -13,7 +13,7 @@ export function boardCellProcessingModeLabel(
 ): string {
   return mode === 'verified_v19'
     ? 'v20 — zweryfikowana geometria v19'
-    : 'v18 — tryb historyczny';
+    : '0.10 — geometria strukturalna w cieniu';
 }
 
 export function boardCellProcessingJobLabel(job: JobResponse): string {
@@ -23,8 +23,12 @@ export function boardCellProcessingJobLabel(job: JobResponse): string {
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
-  return snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION
-    ? 'v20 — geometria i cropy v19'
+  if (snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION) {
+    return 'v20 — geometria i cropy v19';
+  }
+  const rollout = 'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
+  return rollout?.geometryMode === 'structured_shadow'
+    ? '0.10 — geometria strukturalna w cieniu'
     : 'v18 — tryb historyczny';
 }
 
@@ -38,7 +42,9 @@ export function jobMatchesBoardCellProcessingMode(
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
-  return mode === 'verified_v19'
-    ? snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION
-    : snapshot == null;
+  if (mode === 'verified_v19') {
+    return snapshot?.activationVersion === VERIFIED_V19_ACTIVATION_VERSION;
+  }
+  const rollout = 'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
+  return rollout?.geometryMode === 'structured_shadow';
 }

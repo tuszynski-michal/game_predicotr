@@ -774,3 +774,9 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 7. Generuje lub importuje 1000 layoutów.
 8. Widzi luki, błędy numeracji i duplikaty sygnatur.
 9. Publikuje niezmienną wersję datasetu i reguł.
+## Bezpieczne ustawienie silnika importu plansz
+
+Panel importu pokazuje ustawienie przypisane do wybranej gry. Operator może
+wybrać stabilny `v20 — geometria i cropy v19` albo pomiarowy silnik 0.10 w
+trybie shadow. Zapis korzysta z rewizjonowanego preview, nie zmienia istniejących
+jobów i czyści nieaktualny raport importu.

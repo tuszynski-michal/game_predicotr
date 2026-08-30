@@ -66,9 +66,11 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
-test('pins v20 geometry and v19 crops for every new staging import', () => {
-  assert.match(modePickerSource, /Nowe importy zawsze przypinają v20/);
+test('offers only stable v20 and safe structured shadow per game', () => {
+  assert.match(modePickerSource, /wyłącznie nowych importów tej gry/);
   assert.match(modePickerSource, /v20 — geometria i cropy v19/);
+  assert.match(modePickerSource, /nowy silnik w cieniu/);
+  assert.match(modePickerSource, /nie aktywuje Geometry v2 produkcyjnie/);
   assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
   assert.doesNotMatch(modePickerSource, /jawny opt-in/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);

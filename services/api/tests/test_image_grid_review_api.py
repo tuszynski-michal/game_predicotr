@@ -30,6 +30,13 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
 )
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicy,
+    ImageImportEnginePolicyPreview,
+    ImageImportEnginePolicySnapshot,
+    engine_policy_preview_token,
+    policy_rollout_modes,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
@@ -178,6 +185,50 @@ class MemoryImageGeometryRolloutRepository:
     def __init__(self, game_id: UUID) -> None:
         self.game_id = game_id
         self.job: Job | None = None
+        self.policy = ImageImportEnginePolicy.VERIFIED_V19
+        self.revision = 0
+
+    def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot:
+        assert game_id == self.game_id
+        geometry, assets = policy_rollout_modes(self.policy)
+        return ImageImportEnginePolicySnapshot(
+            game_id, self.policy, geometry, assets, self.revision
+        )
+
+    def preview_engine_policy(
+        self, game_id: UUID, *, target: ImageImportEnginePolicy
+    ) -> ImageImportEnginePolicyPreview:
+        current = self.engine_policy(game_id)
+        geometry, assets = policy_rollout_modes(target)
+        return ImageImportEnginePolicyPreview(
+            current=current,
+            target=ImageImportEnginePolicySnapshot(
+                game_id, target, geometry, assets, self.revision + int(target is not self.policy)
+            ),
+            preview_token=engine_policy_preview_token(
+                game_id=game_id,
+                current_revision=self.revision,
+                current_geometry_mode=current.geometry_mode,
+                current_cell_asset_mode=current.cell_asset_mode,
+                target_policy=target,
+            ),
+        )
+
+    def apply_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+        expected_revision: int,
+        preview_token: str,
+    ) -> ImageImportEnginePolicySnapshot:
+        preview = self.preview_engine_policy(game_id, target=target)
+        assert expected_revision == self.revision
+        assert preview_token == preview.preview_token
+        if target is not self.policy:
+            self.policy = target
+            self.revision += 1
+        return self.engine_policy(game_id)
 
     def status(self, game_id: UUID) -> ImageGeometryRolloutStatus:
         assert game_id == self.game_id
@@ -308,6 +359,28 @@ def test_geometry_rollout_start_is_idempotent_and_reports_progress(tmp_path: Pat
     assert second.status_code == 202
     assert second.json()["created"] is False
     assert second.json()["job"]["id"] == first.json()["job"]["id"]
+
+
+def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
+    endpoint = f"/api/v1/admin/games/{items[0].game_id}/image-import-engine-policy"
+
+    current = client.get(endpoint)
+    preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_shadow"})
+    applied = client.put(
+        endpoint,
+        json={
+            "targetPolicy": "structured_shadow",
+            "expectedRevision": 0,
+            "previewToken": preview.json()["previewToken"],
+        },
+    )
+
+    assert current.json()["policy"] == "verified_v19"
+    assert preview.json()["changesExistingJobs"] is False
+    assert applied.status_code == 200
+    assert applied.json()["policy"] == "structured_shadow"
+    assert applied.json()["revision"] == 1
 
 
 def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path: Path) -> None:

@@ -11,6 +11,7 @@ import type {
   ImageSelectionHandoffResponse,
   ImageImportJobPayload,
   ImageSequenceSourceSelectionResponse,
+  ImageImportEnginePolicyResponse,
   ManagedImageReprocessJobPayload,
 } from '@game-predictor/admin-api-client';
 import {
@@ -28,7 +29,6 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   boardCellProcessingJobLabel,
   boardCellProcessingModeLabel,
-  DEFAULT_BOARD_CELL_PROCESSING_MODE,
   jobMatchesBoardCellProcessingMode,
 } from './board-cell-processing-mode';
 import { BoardCellProcessingModePicker } from './board-cell-processing-mode-picker';
@@ -73,7 +73,8 @@ type ImportAction =
   | 'inspect-sequence'
   | 'choose-source'
   | 'register-curated'
-  | 'start-curated';
+  | 'start-curated'
+  | 'engine-policy';
 
 function isImageImportJob(job: JobResponse): job is ImageImportJob {
   return (
@@ -136,7 +137,9 @@ export function ImageFolderImportPanel({
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
     useState<JobResponse | null>(null);
-  const boardCellProcessingMode = DEFAULT_BOARD_CELL_PROCESSING_MODE;
+  const [enginePolicy, setEnginePolicy] =
+    useState<ImageImportEnginePolicyResponse | null>(null);
+  const boardCellProcessingMode = enginePolicy?.policy ?? 'verified_v19';
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -161,7 +164,7 @@ export function ImageFolderImportPanel({
     geometryPreflightJob?.progress.pageGeometryPreflight
       ?.geometryManifestChecksumSha256 ?? null;
   const refreshJobs = useCallback(async () => {
-    const [jobsResult, completenessResult, curatedResult, readyResult] =
+    const [jobsResult, completenessResult, curatedResult, readyResult, policyResult] =
       await Promise.all([
         api.listJobs({
           gameId,
@@ -171,6 +174,7 @@ export function ImageFolderImportPanel({
         api.getImageDatasetCompleteness(gameId),
         api.listCuratedImageImportSources(gameId),
         listReadyBrowserImageSelections(api),
+        api.getImageImportEnginePolicy(gameId),
       ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
@@ -200,6 +204,9 @@ export function ImageFolderImportPanel({
         }
         return current;
       });
+    }
+    if (policyResult.error === undefined && policyResult.data !== undefined) {
+      setEnginePolicy(policyResult.data);
     }
   }, [api, gameId]);
 
@@ -418,6 +425,7 @@ export function ImageFolderImportPanel({
         geometryPreflightJob.id,
         geometryManifestChecksum,
         boardCellProcessingMode,
+        preflight.imageEnginePolicyRevision,
         preflight.symbolModelInferenceFingerprint,
         preflight.gridProfileInferenceFingerprint,
       );
@@ -453,6 +461,40 @@ export function ImageFolderImportPanel({
       await refreshJobs();
     } catch {
       setError('Nie udało się utworzyć importu plansz.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function changeEnginePolicy(
+    targetPolicy: 'verified_v19' | 'structured_shadow',
+  ) {
+    if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy) return;
+    setActiveAction('engine-policy');
+    setError('');
+    try {
+      const preview = await api.previewImageImportEnginePolicy(gameId, {
+        targetPolicy,
+      });
+      if (preview.error !== undefined || preview.data === undefined) {
+        setError(apiErrorMessage(preview.error, 'Nie udało się przygotować zmiany silnika.'));
+        return;
+      }
+      const result = await api.updateImageImportEnginePolicy(gameId, {
+        targetPolicy,
+        expectedRevision: preview.data.current.revision,
+        previewToken: preview.data.previewToken,
+      });
+      if (result.error !== undefined || result.data === undefined) {
+        setError(apiErrorMessage(result.error, 'Nie udało się zapisać silnika gry.'));
+        return;
+      }
+      setEnginePolicy(result.data);
+      setPreflight(null);
+      setGeometryPreflightJob(null);
+      setFeedback('Ustawienie zapisano. Przygotuj nowy raport przed kolejnym importem.');
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
       setActiveAction(null);
     }
@@ -973,7 +1015,11 @@ export function ImageFolderImportPanel({
                           </details>
                         ) : null}
                       </div>
-                      <BoardCellProcessingModePicker disabled={busy} />
+                      <BoardCellProcessingModePicker
+                        disabled={busy || enginePolicy === null}
+                        mode={boardCellProcessingMode}
+                        onChange={(mode) => void changeEnginePolicy(mode)}
+                      />
                     </>
                   ) : null}
                 </li>

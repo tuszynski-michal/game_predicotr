@@ -1,19 +1,24 @@
 interface BoardCellProcessingModePickerProps {
   readonly disabled: boolean;
+  readonly mode: 'verified_v19' | 'structured_shadow';
+  readonly onChange: (mode: 'verified_v19' | 'structured_shadow') => void;
 }
 
 export function BoardCellProcessingModePicker({
   disabled,
+  mode,
+  onChange,
 }: BoardCellProcessingModePickerProps) {
   return (
     <fieldset className="boardCellProcessingModePicker" disabled={disabled}>
       <legend>Silnik cięcia siatki symboli</legend>
       <p className="mutedText">
-        Nowe importy zawsze przypinają v20 z geometrią i cropami v19. Ten wybór
-        nie zmienia istniejących jobów.
+        Ustawienie dotyczy wyłącznie nowych importów tej gry. Nie zmienia
+        istniejących jobów ani zatwierdzonych plansz.
       </p>
       <div className="boardCellProcessingModeOptions">
-        <div className="boardCellProcessingModeOption selected">
+        <label className={`boardCellProcessingModeOption ${mode === 'verified_v19' ? 'selected' : ''}`}>
+          <input checked={mode === 'verified_v19'} name="engine-policy" onChange={() => onChange('verified_v19')} type="radio" />
           <span>
             <strong>v20 — geometria i cropy v19</strong>
             <small>
@@ -22,7 +27,17 @@ export function BoardCellProcessingModePicker({
               v18.
             </small>
           </span>
-        </div>
+        </label>
+        <label className={`boardCellProcessingModeOption ${mode === 'structured_shadow' ? 'selected' : ''}`}>
+          <input checked={mode === 'structured_shadow'} name="engine-policy" onChange={() => onChange('structured_shadow')} type="radio" />
+          <span>
+            <strong>0.10 — nowy silnik w cieniu</strong>
+            <small>
+              Nowa geometria jest mierzona i audytowana, ale stabilny wynik
+              pozostaje nadrzędny. Tryb nie aktywuje Geometry v2 produkcyjnie.
+            </small>
+          </span>
+        </label>
       </div>
     </fieldset>
   );

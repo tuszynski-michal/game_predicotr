@@ -34,6 +34,7 @@ from game_predictor_api.application.browser_staging_retention import BrowserStag
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
 from game_predictor_api.domain.image_selections import (
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
@@ -234,6 +235,7 @@ class ImageFolderSelectionService:
                 "IMAGE_FOLDER_SELECTION_CHANGED",
                 "The selected image folder no longer resolves to the approved path.",
             )
+        engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         job = job_service.create_image_import_job(
             game_id=game_id,
             selection_id=selected.selection_id,
@@ -242,7 +244,9 @@ class ImageFolderSelectionService:
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
             image_selection_run_id=selected.image_selection_run_id,
             canonical_sequence_numbers=canonical_sequence_numbers,
-            use_verified_board_cell_geometry=True,
+            use_verified_board_cell_geometry=(
+                engine_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
+            ),
         )
         with self._lock:
             self._selections.pop(selection_token, None)

@@ -29,6 +29,7 @@ from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
+from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
 from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
 from game_predictor_api.domain.jobs import JobConflictError, JobError, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
@@ -259,6 +260,9 @@ def create_image_imports_router(
         symbol_fingerprint, grid_fingerprint = job_service.current_image_import_model_fingerprints(
             game_id=game_id
         )
+        engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
+        payload["imageEnginePolicy"] = engine_policy.policy.value
+        payload["imageEnginePolicyRevision"] = engine_policy.revision
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
                 "ascii"
@@ -446,6 +450,25 @@ def create_image_imports_router(
                 "IMAGE_SEQUENCE_PREFLIGHT_STALE",
                 "The canonical sequence projection changed after preflight.",
             )
+        if (
+            payload.image_engine_policy is not None
+            and payload.image_engine_policy is not preflight.image_engine_policy
+        ) or (
+            payload.image_engine_policy_revision is not None
+            and payload.image_engine_policy_revision != preflight.image_engine_policy_revision
+        ):
+            raise JobConflictError(
+                "IMAGE_ENGINE_POLICY_STALE",
+                "The game image engine policy changed after preflight.",
+            )
+        if (
+            payload.board_cell_processing_mode is not None
+            and payload.board_cell_processing_mode != preflight.image_engine_policy.value
+        ):
+            raise JobConflictError(
+                "IMAGE_ENGINE_POLICY_STALE",
+                "The requested engine does not match the game policy.",
+            )
         existing = job_service.get_image_import_by_source_selection(
             game_id=payload.game_id,
             source_selection_id=upload_id,
@@ -457,7 +480,7 @@ def create_image_imports_router(
         rerun = requested_mode == "rerun_current_models" or existing is None
         if existing is not None and existing.input_payload.get("schema_version") != 5:
             rerun = True
-        requested_v19 = payload.board_cell_processing_mode == "verified_v19"
+        requested_v19 = preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
         if existing is not None and (
             (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
         ):

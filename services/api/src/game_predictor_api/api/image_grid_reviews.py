@@ -30,8 +30,14 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_geometry_rollout import (
     ImageGeometryRolloutStartResponse,
     ImageGeometryRolloutStatusResponse,
+    ImageImportEnginePolicyPreviewRequest,
+    ImageImportEnginePolicyPreviewResponse,
+    ImageImportEnginePolicyResponse,
+    ImageImportEnginePolicyUpdateRequest,
     to_image_geometry_rollout_start_response,
     to_image_geometry_rollout_status_response,
+    to_image_import_engine_policy_preview_response,
+    to_image_import_engine_policy_response,
 )
 from game_predictor_api.schemas.image_grid_reviews import (
     ImageGridReviewApprovalCommand,
@@ -70,6 +76,56 @@ def create_image_grid_reviews_router(
     operational_service_parameter = Depends(operational_service_dependency)
     rollout_service_parameter = Depends(rollout_service_dependency)
     virtual_geometry_service_parameter = Depends(virtual_geometry_service_dependency)
+
+    @router.get(
+        "/games/{game_id}/image-import-engine-policy",
+        response_model=ImageImportEnginePolicyResponse,
+        operation_id="getImageImportEnginePolicy",
+        summary="Get the safe engine policy for new image imports",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_import_engine_policy(
+        game_id: UUID,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyResponse:
+        return to_image_import_engine_policy_response(service.engine_policy(game_id))
+
+    @router.post(
+        "/games/{game_id}/image-import-engine-policy/preview",
+        response_model=ImageImportEnginePolicyPreviewResponse,
+        operation_id="previewImageImportEnginePolicy",
+        summary="Preview a safe per-game image engine policy change",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_image_import_engine_policy(
+        game_id: UUID,
+        payload: ImageImportEnginePolicyPreviewRequest,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyPreviewResponse:
+        return to_image_import_engine_policy_preview_response(
+            service.preview_engine_policy(game_id, target=payload.target_policy)
+        )
+
+    @router.put(
+        "/games/{game_id}/image-import-engine-policy",
+        response_model=ImageImportEnginePolicyResponse,
+        operation_id="updateImageImportEnginePolicy",
+        summary="Apply a previewed safe policy for future image imports",
+        responses=ERROR_RESPONSES,
+    )
+    def update_image_import_engine_policy(
+        game_id: UUID,
+        payload: ImageImportEnginePolicyUpdateRequest,
+        service: Annotated[ImageGeometryRolloutService, rollout_service_parameter],
+    ) -> ImageImportEnginePolicyResponse:
+        return to_image_import_engine_policy_response(
+            service.apply_engine_policy(
+                game_id,
+                target=payload.target_policy,
+                expected_revision=payload.expected_revision,
+                preview_token=payload.preview_token,
+            )
+        )
 
     @router.get(
         "/games/{game_id}/image-geometry-rollout",

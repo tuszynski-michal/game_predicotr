@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 from uuid import UUID
 
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicy,
+    ImageImportEnginePolicyPreview,
+    ImageImportEnginePolicySnapshot,
+)
 from game_predictor_api.domain.jobs import Job
 
 ImageGeometryBackfillStatus = Literal["not_started", "processing", "ready", "failed"]
@@ -39,6 +44,24 @@ class ImageGeometryRolloutRepository(Protocol):
 
     def start(self, game_id: UUID) -> ImageGeometryRolloutStart: ...
 
+    def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot: ...
+
+    def preview_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+    ) -> ImageImportEnginePolicyPreview: ...
+
+    def apply_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+        expected_revision: int,
+        preview_token: str,
+    ) -> ImageImportEnginePolicySnapshot: ...
+
 
 class ImageGeometryRolloutService:
     def __init__(self, repository: ImageGeometryRolloutRepository) -> None:
@@ -49,6 +72,32 @@ class ImageGeometryRolloutService:
 
     def start(self, game_id: UUID) -> ImageGeometryRolloutStart:
         return self._repository.start(game_id)
+
+    def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot:
+        return self._repository.engine_policy(game_id)
+
+    def preview_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+    ) -> ImageImportEnginePolicyPreview:
+        return self._repository.preview_engine_policy(game_id, target=target)
+
+    def apply_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+        expected_revision: int,
+        preview_token: str,
+    ) -> ImageImportEnginePolicySnapshot:
+        return self._repository.apply_engine_policy(
+            game_id,
+            target=target,
+            expected_revision=expected_revision,
+            preview_token=preview_token,
+        )
 
 
 __all__ = [

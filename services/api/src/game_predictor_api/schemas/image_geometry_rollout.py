@@ -10,6 +10,11 @@ from game_predictor_api.application.image_geometry_rollout import (
     ImageGeometryRolloutStart,
     ImageGeometryRolloutStatus,
 )
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicy,
+    ImageImportEnginePolicyPreview,
+    ImageImportEnginePolicySnapshot,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -33,6 +38,54 @@ class ImageGeometryRolloutStartResponse(ApiModel):
     rollout: ImageGeometryRolloutStatusResponse
     job: JobResponse | None
     created: bool
+
+
+class ImageImportEnginePolicyResponse(ApiModel):
+    game_id: UUID
+    policy: ImageImportEnginePolicy
+    geometry_mode: str
+    cell_asset_mode: str
+    revision: int = Field(ge=0)
+
+
+class ImageImportEnginePolicyPreviewRequest(ApiModel):
+    target_policy: ImageImportEnginePolicy
+
+
+class ImageImportEnginePolicyPreviewResponse(ApiModel):
+    current: ImageImportEnginePolicyResponse
+    target: ImageImportEnginePolicyResponse
+    preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+    changes_existing_jobs: bool
+
+
+class ImageImportEnginePolicyUpdateRequest(ApiModel):
+    target_policy: ImageImportEnginePolicy
+    expected_revision: int = Field(ge=0)
+    preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+def to_image_import_engine_policy_response(
+    value: ImageImportEnginePolicySnapshot,
+) -> ImageImportEnginePolicyResponse:
+    return ImageImportEnginePolicyResponse(
+        game_id=value.game_id,
+        policy=value.policy,
+        geometry_mode=value.geometry_mode,
+        cell_asset_mode=value.cell_asset_mode,
+        revision=value.revision,
+    )
+
+
+def to_image_import_engine_policy_preview_response(
+    value: ImageImportEnginePolicyPreview,
+) -> ImageImportEnginePolicyPreviewResponse:
+    return ImageImportEnginePolicyPreviewResponse(
+        current=to_image_import_engine_policy_response(value.current),
+        target=to_image_import_engine_policy_response(value.target),
+        preview_token=value.preview_token,
+        changes_existing_jobs=value.changes_existing_jobs,
+    )
 
 
 def to_image_geometry_rollout_status_response(
@@ -65,8 +118,14 @@ def to_image_geometry_rollout_start_response(
 
 
 __all__ = [
+    "ImageImportEnginePolicyPreviewRequest",
+    "ImageImportEnginePolicyPreviewResponse",
+    "ImageImportEnginePolicyResponse",
+    "ImageImportEnginePolicyUpdateRequest",
     "ImageGeometryRolloutStartResponse",
     "ImageGeometryRolloutStatusResponse",
     "to_image_geometry_rollout_start_response",
     "to_image_geometry_rollout_status_response",
+    "to_image_import_engine_policy_preview_response",
+    "to_image_import_engine_policy_response",
 ]

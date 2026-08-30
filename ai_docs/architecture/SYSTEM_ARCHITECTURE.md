@@ -1609,3 +1609,11 @@ sprawdzane względem manifestu oraz logiczną checksumę odtworzoną z
 uporządkowanych rekordów SQLite. Przed aktywacją mobile porównuje schema
 version, wersje wydania, fixture, datasetu, reguł i algorytmu oraz liczbę gier i
 layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
+### Per-game image import engine policy
+
+`image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
+nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
+projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19 oraz
+`structured_shadow/virtual_shadow`. Tryby default/review nie są wybieralne w
+Adminie. Polityka i jej rewizja wchodzą do checksummy preflightu i snapshotu
+joba; zmiana nie mutuje istniejących jobów.

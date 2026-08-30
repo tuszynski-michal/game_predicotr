@@ -1285,6 +1285,14 @@
             "title": "Gridprofileinferencefingerprint",
             "type": "string"
           },
+          "imageEnginePolicy": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicy"
+          },
+          "imageEnginePolicyRevision": {
+            "minimum": 0.0,
+            "title": "Imageenginepolicyrevision",
+            "type": "integer"
+          },
           "lastUnresolvedSequence": {
             "anyOf": [
               {
@@ -1365,7 +1373,9 @@
           "manifestChecksumSha256",
           "preflightChecksumSha256",
           "symbolModelInferenceFingerprint",
-          "gridProfileInferenceFingerprint"
+          "gridProfileInferenceFingerprint",
+          "imageEnginePolicy",
+          "imageEnginePolicyRevision"
         ],
         "title": "BrowserImageImportPreflightResponse",
         "type": "object"
@@ -1374,13 +1384,19 @@
         "additionalProperties": false,
         "properties": {
           "boardCellProcessingMode": {
-            "default": "verified_v19",
-            "enum": [
-              "historical_v18",
-              "verified_v19"
+            "anyOf": [
+              {
+                "enum": [
+                  "verified_v19",
+                  "structured_shadow"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Boardcellprocessingmode",
-            "type": "string"
+            "title": "Boardcellprocessingmode"
           },
           "gameId": {
             "format": "uuid",
@@ -1408,6 +1424,28 @@
               }
             ],
             "title": "Gridprofileinferencefingerprint"
+          },
+          "imageEnginePolicy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageImportEnginePolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imageEnginePolicyRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageenginepolicyrevision"
           },
           "manifestChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4980,6 +5018,115 @@
         ],
         "title": "ImageGridReviewView",
         "type": "string"
+      },
+      "ImageImportEnginePolicy": {
+        "enum": [
+          "verified_v19",
+          "structured_shadow"
+        ],
+        "title": "ImageImportEnginePolicy",
+        "type": "string"
+      },
+      "ImageImportEnginePolicyPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "targetPolicy": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicy"
+          }
+        },
+        "required": [
+          "targetPolicy"
+        ],
+        "title": "ImageImportEnginePolicyPreviewRequest",
+        "type": "object"
+      },
+      "ImageImportEnginePolicyPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changesExistingJobs": {
+            "title": "Changesexistingjobs",
+            "type": "boolean"
+          },
+          "current": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicyResponse"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicyResponse"
+          }
+        },
+        "required": [
+          "current",
+          "target",
+          "previewToken",
+          "changesExistingJobs"
+        ],
+        "title": "ImageImportEnginePolicyPreviewResponse",
+        "type": "object"
+      },
+      "ImageImportEnginePolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellAssetMode": {
+            "title": "Cellassetmode",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometryMode": {
+            "title": "Geometrymode",
+            "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicy"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "policy",
+          "geometryMode",
+          "cellAssetMode",
+          "revision"
+        ],
+        "title": "ImageImportEnginePolicyResponse",
+        "type": "object"
+      },
+      "ImageImportEnginePolicyUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "targetPolicy": {
+            "$ref": "#/components/schemas/ImageImportEnginePolicy"
+          }
+        },
+        "required": [
+          "targetPolicy",
+          "expectedRevision",
+          "previewToken"
+        ],
+        "title": "ImageImportEnginePolicyUpdateRequest",
+        "type": "object"
       },
       "ImageImportJobPayload": {
         "additionalProperties": false,
@@ -19296,6 +19443,243 @@
           }
         ],
         "summary": "Start or resume bounded virtual-geometry rollout validation",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-import-engine-policy": {
+      "get": {
+        "operationId": "getImageImportEnginePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageImportEnginePolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "summary": "Get the safe engine policy for new image imports",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      },
+      "put": {
+        "operationId": "updateImageImportEnginePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageImportEnginePolicyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageImportEnginePolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Apply a previewed safe policy for future image imports",
+        "tags": [
+          "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-import-engine-policy/preview": {
+      "post": {
+        "operationId": "previewImageImportEnginePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageImportEnginePolicyPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageImportEnginePolicyPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview a safe per-game image engine policy change",
         "tags": [
           "image-grid-reviews"
         ]

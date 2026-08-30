@@ -34,6 +34,10 @@ from game_predictor_worker.images.structured_geometry import (
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.domain.datasets import DatasetVersionStatus
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicySnapshot,
+    policy_from_rollout_modes,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -333,6 +337,28 @@ class JobService:
         self._page_geometry_override_snapshot_resolver = page_geometry_override_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
         self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
+
+    def current_image_import_engine_policy(
+        self, *, game_id: UUID
+    ) -> ImageImportEnginePolicySnapshot:
+        reference = self._repository.get_image_geometry_rollout(game_id)
+        geometry_mode = "legacy" if reference is None else reference.geometry_mode
+        cell_asset_mode = "legacy_files" if reference is None else reference.cell_asset_mode
+        revision = 0 if reference is None else reference.revision
+        try:
+            policy = policy_from_rollout_modes(geometry_mode, cell_asset_mode)
+        except ValueError as error:
+            raise JobError(
+                "IMAGE_ENGINE_POLICY_UNSUPPORTED_STATE",
+                "The game uses an image engine state that is not available for new imports.",
+            ) from error
+        return ImageImportEnginePolicySnapshot(
+            game_id=game_id,
+            policy=policy,
+            geometry_mode=geometry_mode,
+            cell_asset_mode=cell_asset_mode,
+            revision=revision,
+        )
 
     def _pin_image_geometry_rollout(
         self,

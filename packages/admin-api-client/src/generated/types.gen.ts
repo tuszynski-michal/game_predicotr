@@ -711,6 +711,11 @@ export type BrowserImageImportPreflightResponse = {
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint: string;
+  imageEnginePolicy: ImageImportEnginePolicy;
+  /**
+   * Imageenginepolicyrevision
+   */
+  imageEnginePolicyRevision: number;
   /**
    * Lastunresolvedsequence
    */
@@ -764,7 +769,7 @@ export type BrowserImageImportStart = {
   /**
    * Boardcellprocessingmode
    */
-  boardCellProcessingMode?: 'historical_v18' | 'verified_v19';
+  boardCellProcessingMode?: 'verified_v19' | 'structured_shadow' | null;
   /**
    * Gameid
    */
@@ -781,6 +786,11 @@ export type BrowserImageImportStart = {
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint?: string | null;
+  imageEnginePolicy?: ImageImportEnginePolicy | null;
+  /**
+   * Imageenginepolicyrevision
+   */
+  imageEnginePolicyRevision?: number | null;
   /**
    * Manifestchecksumsha256
    */
@@ -2826,6 +2836,72 @@ export type ImageGridReviewState =
  */
 export type ImageGridReviewView =
   'needs_validation' | 'needs_correction' | 'all';
+
+/**
+ * ImageImportEnginePolicy
+ */
+export type ImageImportEnginePolicy = 'verified_v19' | 'structured_shadow';
+
+/**
+ * ImageImportEnginePolicyPreviewRequest
+ */
+export type ImageImportEnginePolicyPreviewRequest = {
+  targetPolicy: ImageImportEnginePolicy;
+};
+
+/**
+ * ImageImportEnginePolicyPreviewResponse
+ */
+export type ImageImportEnginePolicyPreviewResponse = {
+  /**
+   * Changesexistingjobs
+   */
+  changesExistingJobs: boolean;
+  current: ImageImportEnginePolicyResponse;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  target: ImageImportEnginePolicyResponse;
+};
+
+/**
+ * ImageImportEnginePolicyResponse
+ */
+export type ImageImportEnginePolicyResponse = {
+  /**
+   * Cellassetmode
+   */
+  cellAssetMode: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometrymode
+   */
+  geometryMode: string;
+  policy: ImageImportEnginePolicy;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * ImageImportEnginePolicyUpdateRequest
+ */
+export type ImageImportEnginePolicyUpdateRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  targetPolicy: ImageImportEnginePolicy;
+};
 
 /**
  * ImageImportJobPayload
@@ -10990,6 +11066,134 @@ export type StartImageGeometryRolloutBackfillResponses = {
 
 export type StartImageGeometryRolloutBackfillResponse =
   StartImageGeometryRolloutBackfillResponses[keyof StartImageGeometryRolloutBackfillResponses];
+
+export type GetImageImportEnginePolicyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy';
+};
+
+export type GetImageImportEnginePolicyErrors = {
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageImportEnginePolicyError =
+  GetImageImportEnginePolicyErrors[keyof GetImageImportEnginePolicyErrors];
+
+export type GetImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyResponse;
+};
+
+export type GetImageImportEnginePolicyResponse =
+  GetImageImportEnginePolicyResponses[keyof GetImageImportEnginePolicyResponses];
+
+export type UpdateImageImportEnginePolicyData = {
+  body: ImageImportEnginePolicyUpdateRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy';
+};
+
+export type UpdateImageImportEnginePolicyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateImageImportEnginePolicyError =
+  UpdateImageImportEnginePolicyErrors[keyof UpdateImageImportEnginePolicyErrors];
+
+export type UpdateImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyResponse;
+};
+
+export type UpdateImageImportEnginePolicyResponse =
+  UpdateImageImportEnginePolicyResponses[keyof UpdateImageImportEnginePolicyResponses];
+
+export type PreviewImageImportEnginePolicyData = {
+  body: ImageImportEnginePolicyPreviewRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-import-engine-policy/preview';
+};
+
+export type PreviewImageImportEnginePolicyErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageImportEnginePolicyError =
+  PreviewImageImportEnginePolicyErrors[keyof PreviewImageImportEnginePolicyErrors];
+
+export type PreviewImageImportEnginePolicyResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageImportEnginePolicyPreviewResponse;
+};
+
+export type PreviewImageImportEnginePolicyResponse =
+  PreviewImageImportEnginePolicyResponses[keyof PreviewImageImportEnginePolicyResponses];
 
 export type ListPendingBoardCellGeometryData = {
   body?: never;

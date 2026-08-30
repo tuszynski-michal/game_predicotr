@@ -1130,3 +1130,14 @@ Admina. Po włączeniu zatwierdzonej polityki automatycznej usuwalne są wyłąc
 stagingi z kompletnym handoffem; staging przypisany do innej gry jest ukryty
 przed bieżącą grą i blokuje próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
 logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
+### Polityka silnika per gra
+
+- Każda gra ma serwerowe, rewizjonowane ustawienie używane wyłącznie przy
+  tworzeniu nowych importów.
+- Dostępne są dwa bezpieczne presety: `verified_v19` oraz
+  `structured_shadow`. Drugi zapisuje pomiar nowej geometrii, ale nie zmienia
+  wyniku primary i nie aktywuje Geometry v2 produkcyjnie.
+- Preflight zawiera nazwę i rewizję polityki. Zmiana ustawienia po preflighcie
+  wymaga przygotowania nowego raportu.
+- Payload klienta nie może nadpisać polityki gry, a istniejące joby zachowują
+  przypięte wcześniej snapshoty.

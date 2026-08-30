@@ -203,6 +203,9 @@ import type {
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
+  GetImageImportEnginePolicyData,
+  GetImageImportEnginePolicyErrors,
+  GetImageImportEnginePolicyResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
@@ -483,6 +486,9 @@ import type {
   PreviewImageGridReviewGeometryData,
   PreviewImageGridReviewGeometryErrors,
   PreviewImageGridReviewGeometryResponses,
+  PreviewImageImportEnginePolicyData,
+  PreviewImageImportEnginePolicyErrors,
+  PreviewImageImportEnginePolicyResponses,
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
@@ -654,6 +660,9 @@ import type {
   UpdateGameData,
   UpdateGameErrors,
   UpdateGameResponses,
+  UpdateImageImportEnginePolicyData,
+  UpdateImageImportEnginePolicyErrors,
+  UpdateImageImportEnginePolicyResponses,
   UpdatePaylineData,
   UpdatePaylineErrors,
   UpdatePaylineResponses,
@@ -1135,6 +1144,79 @@ export const startImageGeometryRolloutBackfill = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/image-geometry-rollout',
     ...options,
+  });
+
+/**
+ * Get the safe engine policy for new image imports
+ */
+export const getImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  GetImageImportEnginePolicyResponses,
+  GetImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageImportEnginePolicyResponses,
+    GetImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy',
+    ...options,
+  });
+
+/**
+ * Apply a previewed safe policy for future image imports
+ */
+export const updateImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  UpdateImageImportEnginePolicyResponses,
+  UpdateImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateImageImportEnginePolicyResponses,
+    UpdateImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview a safe per-game image engine policy change
+ */
+export const previewImageImportEnginePolicy = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageImportEnginePolicyData, ThrowOnError>,
+): RequestResult<
+  PreviewImageImportEnginePolicyResponses,
+  PreviewImageImportEnginePolicyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewImageImportEnginePolicyResponses,
+    PreviewImageImportEnginePolicyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-import-engine-policy/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

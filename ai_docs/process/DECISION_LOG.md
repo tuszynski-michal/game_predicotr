@@ -6575,3 +6575,13 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - Consequences:
 - Supersedes:
 ```
+## D-273 — Silnik nowych importów jest bezpieczną polityką per gra
+
+- Status: accepted
+- Date: 2026-08-30
+
+Każda gra przechowuje osobne, rewizjonowane ustawienie silnika nowych importów.
+Publiczne w lokalnym Adminie są wyłącznie `verified_v19` oraz
+`structured_shadow`. Shadow nie może przejąć wyniku primary ani aktywować
+Geometry v2, klient nie może wymusić innego trybu w starcie importu, a zmiana
+ustawienia nie wpływa na już utworzone joby.

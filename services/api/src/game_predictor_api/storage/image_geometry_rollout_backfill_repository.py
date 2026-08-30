@@ -25,6 +25,14 @@ from game_predictor_api.domain.image_geometry_v2 import (
     sequence_attestation_checksum_sha256,
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.domain.image_import_engine_policy import (
+    ImageImportEnginePolicy,
+    ImageImportEnginePolicyPreview,
+    ImageImportEnginePolicySnapshot,
+    engine_policy_preview_token,
+    policy_from_rollout_modes,
+    policy_rollout_modes,
+)
 from game_predictor_api.domain.image_reviews import canonical_image_review_bytes
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
@@ -56,6 +64,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ACTIVE_JOB_STATUSES = (JobStatus.CREATED, JobStatus.PROCESSING)
 _WORKFLOW = "image_geometry_rollout_backfill"
 _ACTOR = "system:image-geometry-rollout-backfill"
+_POLICY_ACTOR = "local-admin:image-import-engine-policy"
 _MAX_BATCH_SIZE = 100
 
 
@@ -93,6 +102,100 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         self._require_game(game_id, lock=False)
         state = self._require_state(game_id, lock=False)
         return self._status(game_id, state=state)
+
+    def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot:
+        self._require_game(game_id, lock=False)
+        return self._engine_policy_snapshot(self._require_state(game_id, lock=False))
+
+    def preview_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+    ) -> ImageImportEnginePolicyPreview:
+        self._require_game(game_id, lock=False)
+        state = self._require_state(game_id, lock=False)
+        current = self._engine_policy_snapshot(state)
+        target_geometry, target_assets = policy_rollout_modes(target)
+        return ImageImportEnginePolicyPreview(
+            current=current,
+            target=ImageImportEnginePolicySnapshot(
+                game_id=game_id,
+                policy=target,
+                geometry_mode=target_geometry,
+                cell_asset_mode=target_assets,
+                revision=current.revision + int(target is not current.policy),
+            ),
+            preview_token=engine_policy_preview_token(
+                game_id=game_id,
+                current_revision=current.revision,
+                current_geometry_mode=current.geometry_mode,
+                current_cell_asset_mode=current.cell_asset_mode,
+                target_policy=target,
+            ),
+        )
+
+    def apply_engine_policy(
+        self,
+        game_id: UUID,
+        *,
+        target: ImageImportEnginePolicy,
+        expected_revision: int,
+        preview_token: str,
+    ) -> ImageImportEnginePolicySnapshot:
+        self._require_game(game_id, lock=True)
+        state = self._require_state(game_id, lock=True)
+        current = self._engine_policy_snapshot(state)
+        if current.revision != expected_revision:
+            raise ImageGridReviewError(
+                "IMAGE_ENGINE_POLICY_STALE",
+                "The image engine policy changed after the preview was created.",
+            )
+        expected_token = engine_policy_preview_token(
+            game_id=game_id,
+            current_revision=current.revision,
+            current_geometry_mode=current.geometry_mode,
+            current_cell_asset_mode=current.cell_asset_mode,
+            target_policy=target,
+        )
+        if preview_token != expected_token:
+            raise ImageGridReviewError(
+                "IMAGE_ENGINE_POLICY_PREVIEW_INVALID",
+                "The image engine policy preview token is invalid.",
+            )
+        if current.policy is target:
+            return current
+        if self._active_job(game_id) is not None:
+            raise ImageGridReviewError(
+                "IMAGE_ENGINE_POLICY_ROLLOUT_BUSY",
+                "Finish the active virtual-geometry validation before changing the engine.",
+            )
+        if target is ImageImportEnginePolicy.STRUCTURED_SHADOW:
+            source_count = int(
+                self._session.scalar(
+                    select(func.count(SourceImageModel.id))
+                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                    .where(JobModel.game_id == game_id)
+                )
+                or 0
+            )
+            if source_count > 0 and state.backfill_status != "ready":
+                raise ImageGridReviewError(
+                    "IMAGE_ENGINE_POLICY_VALIDATION_REQUIRED",
+                    "Validate existing image provenance before enabling structured shadow.",
+                )
+        state.geometry_mode, state.cell_asset_mode = policy_rollout_modes(target)
+        state.revision += 1
+        state.backfill_status = "not_started"
+        state.last_source_image_id = None
+        state.failure_code = None
+        state.failure_message = None
+        state.validation_rollout_revision = None
+        state.validation_input_checksum_sha256 = None
+        state.validation_job_id = None
+        state.updated_by = _POLICY_ACTOR
+        self._session.flush()
+        return self._engine_policy_snapshot(state)
 
     def start(self, game_id: UUID) -> ImageGeometryRolloutStart:
         self._require_game(game_id, lock=True)
@@ -763,6 +866,25 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             last_source_image_id=state.last_source_image_id,
             failure_code=state.failure_code,
             failure_message=state.failure_message,
+        )
+
+    @staticmethod
+    def _engine_policy_snapshot(
+        state: ImageGeometryRolloutStateModel,
+    ) -> ImageImportEnginePolicySnapshot:
+        try:
+            policy = policy_from_rollout_modes(state.geometry_mode, state.cell_asset_mode)
+        except ValueError as error:
+            raise ImageGridReviewError(
+                "IMAGE_ENGINE_POLICY_UNSUPPORTED_STATE",
+                "The game uses a rollout mode that is not available in safe engine settings.",
+            ) from error
+        return ImageImportEnginePolicySnapshot(
+            game_id=state.game_id,
+            policy=policy,
+            geometry_mode=state.geometry_mode,
+            cell_asset_mode=state.cell_asset_mode,
+            revision=state.revision,
         )
 
     def _has_source_after_cursor(self, state: ImageGeometryRolloutStateModel) -> bool:

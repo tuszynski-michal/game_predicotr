@@ -14,6 +14,7 @@ from game_predictor_api.application.image_imports import (
 from game_predictor_api.application.iterative_image_imports import (
     CuratedImageImportProgress,
 )
+from game_predictor_api.domain.image_import_engine_policy import ImageImportEnginePolicy
 from game_predictor_api.domain.image_sequence_canonical import ImageSequenceImportPreflight
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
@@ -132,6 +133,8 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     preflight_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     symbol_model_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     grid_profile_inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_engine_policy: ImageImportEnginePolicy
+    image_engine_policy_revision: int = Field(ge=0)
 
 
 class BrowserPageGeometryPreflightResponse(ApiModel):
@@ -195,9 +198,9 @@ class BrowserImageImportStart(ApiModel):
     grid_profile_inference_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     geometry_preflight_job_id: UUID
     geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    board_cell_processing_mode: Literal["historical_v18", "verified_v19"] = (
-        "verified_v19"
-    )
+    board_cell_processing_mode: Literal["verified_v19", "structured_shadow"] | None = None
+    image_engine_policy: ImageImportEnginePolicy | None = None
+    image_engine_policy_revision: int | None = Field(default=None, ge=0)
 
 
 class BrowserImageImportStartResponse(ApiModel):

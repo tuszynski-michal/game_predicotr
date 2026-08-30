@@ -58,6 +58,9 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
+  getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
+  previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
+  updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getBrowserPageGeometrySourceAsset as getGeneratedBrowserPageGeometrySourceAsset,
   getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
@@ -219,6 +222,9 @@ import type {
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewView,
+  ImageImportEnginePolicyPreviewRequest,
+  ImageImportEnginePolicyResponse,
+  ImageImportEnginePolicyUpdateRequest,
   ImageSelectionCreate,
   ImageSelectionDuplicateRangeCommand,
   ImageSelectionGroupDecisionCommand,
@@ -354,6 +360,9 @@ export type {
   ImportJobPayload,
   ImageImportJobPayload,
   ImageFolderImportCreate,
+  ImageImportEnginePolicyPreviewRequest,
+  ImageImportEnginePolicyResponse,
+  ImageImportEnginePolicyUpdateRequest,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
   ImageGridReviewApprovalCommand,
@@ -672,6 +681,29 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    getImageImportEnginePolicy: (gameId: string) =>
+      getGeneratedImageImportEnginePolicy({
+        client,
+        path: { game_id: gameId },
+      }),
+    previewImageImportEnginePolicy: (
+      gameId: string,
+      body: ImageImportEnginePolicyPreviewRequest,
+    ) =>
+      previewGeneratedImageImportEnginePolicy({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    updateImageImportEnginePolicy: (
+      gameId: string,
+      body: ImageImportEnginePolicyUpdateRequest,
+    ) =>
+      updateGeneratedImageImportEnginePolicy({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
     getReviewerIngressStatus: () =>
       getGeneratedReviewerIngressStatus({ client }),
     startLocalReviewer: (body: ReviewerLocalCommand) =>

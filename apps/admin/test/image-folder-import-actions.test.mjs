@@ -221,6 +221,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       {
         gameId: 'game-1',
         boardCellProcessingMode: 'verified_v19',
+        imageEnginePolicy: 'verified_v19',
         geometryManifestChecksumSha256: 'c'.repeat(64),
         geometryPreflightJobId: 'geometry-job-1',
         manifestChecksumSha256: 'a'.repeat(64),
@@ -230,7 +231,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
   ]);
 });
 
-test('pins v20 board-cell processing for a ready browser staging', async () => {
+test('pins the game engine policy for a ready browser staging', async () => {
   let command;
   const result = await startReadyBrowserImageImport(
     {

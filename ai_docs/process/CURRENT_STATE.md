@@ -4043,3 +4043,9 @@ OpenCV oraz usunięto niepotrzebne wyciszenia mypy.
 Pełny `python:typecheck` przechodzi dla 470 plików źródłowych, Ruff jest zielony,
 a 70 skoncentrowanych testów API, workera, storage i geometrii przechodzi.
 Nie zmieniono API, OpenAPI, schematu bazy, UI ani polityki storage.
+### TASK-0331 — bezpieczny silnik importu per gra
+
+Dodano trwałą politykę nowych importów osobno dla każdej gry. Stabilny preset
+v20/v19 pozostaje dostępny dla gry historycznej, a nowa gra może używać
+strukturalnej geometrii wyłącznie w trybie shadow. Polityka jest chroniona
+preview tokenem i rewizją oraz unieważnia preflight po zmianie.

@@ -9,12 +9,13 @@ import {
   VERIFIED_V19_ACTIVATION_VERSION,
 } from '../src/features/imports/board-cell-processing-mode.ts';
 
-function imageImportJob(boardCellProcessing) {
+function imageImportJob(boardCellProcessing, imageGeometryRollout) {
   return {
     id: 'job-1',
     inputPayload: {
       importKind: 'image_directory',
       ...(boardCellProcessing === undefined ? {} : { boardCellProcessing }),
+      ...(imageGeometryRollout === undefined ? {} : { imageGeometryRollout }),
     },
     jobType: 'import',
     status: 'created',
@@ -25,8 +26,8 @@ test('uses verified v19 processing as the default for new imports', () => {
   assert.equal(DEFAULT_BOARD_CELL_PROCESSING_MODE, 'verified_v19');
   assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
   assert.equal(
-    boardCellProcessingModeLabel('historical_v18'),
-    'v18 — tryb historyczny',
+    boardCellProcessingModeLabel('structured_shadow'),
+    '0.10 — geometria strukturalna w cieniu',
   );
 });
 
@@ -46,16 +47,15 @@ test('labels each persisted import with its pinned board processing engine', () 
   );
 });
 
-test('rejects a returned job whose immutable snapshot differs from the selected mode', () => {
+test('rejects a returned job whose immutable snapshot differs from the game policy', () => {
   const historical = imageImportJob(undefined);
   const verified = imageImportJob({
     activationVersion: VERIFIED_V19_ACTIVATION_VERSION,
   });
+  const shadow = imageImportJob(undefined, {
+    geometryMode: 'structured_shadow',
+  });
 
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(historical, 'historical_v18'),
-    true,
-  );
   assert.equal(
     jobMatchesBoardCellProcessingMode(historical, 'verified_v19'),
     false,
@@ -65,7 +65,8 @@ test('rejects a returned job whose immutable snapshot differs from the selected 
     true,
   );
   assert.equal(
-    jobMatchesBoardCellProcessingMode(verified, 'historical_v18'),
+    jobMatchesBoardCellProcessingMode(verified, 'structured_shadow'),
     false,
   );
+  assert.equal(jobMatchesBoardCellProcessingMode(shadow, 'structured_shadow'), true);
 });

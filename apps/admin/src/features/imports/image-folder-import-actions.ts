@@ -33,6 +33,9 @@ export type ImageFolderImportClient = Pick<
   | 'getJob'
   | 'reprocessManagedImageImport'
   | 'selectImageSequenceSource'
+  | 'getImageImportEnginePolicy'
+  | 'previewImageImportEnginePolicy'
+  | 'updateImageImportEnginePolicy'
 >;
 
 type Failure = { readonly error: string; readonly ok: false };
@@ -199,6 +202,7 @@ export async function startReadyBrowserImageImport(
   geometryPreflightJobId: string,
   geometryManifestChecksumSha256: string,
   boardCellProcessingMode: BoardCellProcessingMode,
+  imageEnginePolicyRevision: number,
   symbolModelInferenceFingerprint?: string,
   gridProfileInferenceFingerprint?: string,
 ): Promise<
@@ -219,6 +223,10 @@ export async function startReadyBrowserImageImport(
       geometryPreflightJobId,
       geometryManifestChecksumSha256,
       boardCellProcessingMode,
+      imageEnginePolicy: boardCellProcessingMode,
+      ...(imageEnginePolicyRevision === undefined
+        ? {}
+        : { imageEnginePolicyRevision }),
     });
     if (result.error !== undefined || result.data === undefined) {
       return {

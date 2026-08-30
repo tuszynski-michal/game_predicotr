@@ -619,9 +619,20 @@ geometria nigdy nie trafia do OCR, cropów ani inferencji symboli. Kanoniczne
 numery pozostają pominięte niezależnie od statusu geometrii.
 
 Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
-rewizję. Operator najpierw przesuwa cztery uchwyty strony, zachowując strukturę
-3 × 3, i może wyjątkowo poprawić pojedynczy quad. Ponowny preflight używa
-snapshotu tych override'ów; zatwierdzone numery i ich cropy nie są tym zmieniane.
+rewizję. Operator może wskazać cztery narożniki kolejno LT, PT, PD, LD, a UI
+odrzuca skrzyżowany lub przeciwny porządek. Z narożników powstaje 6 × 6 punktów
+krawędzi: każda z dziewięciu czerwonych ramek ma osobne krawędzie, więc realne
+odstępy pomiędzy planszami nie są tracone jak w dzielonej siatce 4 × 4. Punkty
+można przesuwać niezależnie, aby odwzorować perspektywę i łuk ekranu, a
+pojedynczy quad pozostaje korektą wyjątkową. `Reset` przywraca dokładną
+geometrię wczytaną przy otwarciu źródła.
+
+Zapis kolejnych stron nie uruchamia preflightu po każdej korekcie. Operator
+może zapisać wiele append-only rewizji przez `Zapisz i przejdź dalej`, a potem
+jedną akcją `Wyślij zapisane do weryfikacji` utworzyć nowy, niezmienny snapshot
+i preflight całej partii. Lista korekty obejmuje również istniejące ręczne
+override'y, dzięki czemu błędnej, starszej kotwicy nie trzeba omijać ani usuwać
+z audytu. Zatwierdzone numery i ich cropy nie są tym zmieniane.
 
 ### 5. Odczyt sequence number
 

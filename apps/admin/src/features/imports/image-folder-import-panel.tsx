@@ -1084,15 +1084,16 @@ export function ImageFolderImportPanel({
                                 W nowej grze popraw najpierw jedną dobrze
                                 widoczną stronę. Zapisana korekta stanie się
                                 kotwicą kolejnego preflightu. Pozostałe
-                                nierozwiązane pozycje są bezpiecznie odroczone
-                                i nie trafią do cięcia ani rozpoznawania
-                                symboli.
+                                nierozwiązane pozycje są bezpiecznie odroczone i
+                                nie trafią do cięcia ani rozpoznawania symboli.
                               </p>
                               <PageGeometryCorrectionPanel
                                 api={api}
                                 apiBaseUrl={apiBaseUrl}
                                 gameId={gameId}
-                                onSaved={rerunGeometryPreflightAfterCorrection}
+                                onSubmitSaved={
+                                  rerunGeometryPreflightAfterCorrection
+                                }
                                 preflightJobId={geometryPreflightJob.id}
                                 uploadId={ready.uploadId}
                               />
@@ -1102,8 +1103,8 @@ export function ImageFolderImportPanel({
                       ) : (
                         <p className="curatedImportStatus">
                           Ten historyczny raport nie zawiera wymaganego
-                          manifestu geometrii. Odśwież raport przed
-                          rozpoczęciem importu.
+                          manifestu geometrii. Odśwież raport przed rozpoczęciem
+                          importu.
                         </p>
                       )}
                     </>

@@ -1032,6 +1032,22 @@ export type BrowserPageGeometryPreflightResponse = {
  */
 export type BrowserPageGeometryReviewSourceResponse = {
   /**
+   * Existingfinalquads
+   */
+  existingFinalQuads?: Array<Array<PageGeometryPoint>> | null;
+  /**
+   * Existingoverriderevision
+   */
+  existingOverrideRevision?: number | null;
+  /**
+   * Reviewreason
+   */
+  reviewReason?: 'manual_override' | 'review_required';
+  /**
+   * Savedsincepreflight
+   */
+  savedSincePreflight?: boolean;
+  /**
    * Sequencerangeend
    */
   sequenceRangeEnd?: number | null;

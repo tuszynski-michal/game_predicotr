@@ -6636,3 +6636,17 @@ Operacja jest fail-closed: aktywny job, rozpoznana plansza, pozycja review lub
 inna referencja blokuje kasowanie. Pliki stagingu są kwarantannowane przed
 transakcją i przywracane po jej odrzuceniu. Za usuwanie samej kopii stagingowej
 po poprawnym imporcie nadal odpowiada retencja/GC, bez kasowania audytu plansz.
+
+## D-278 — Geometria dziewięciu ramek zachowuje odstępy i jest wysyłana partiami
+
+- Status: accepted
+- Date: 2026-08-30
+
+Ręczna korekta pełnej strony nie dzieli już zewnętrznego quada na dziewięć
+stykających się pól. Każda plansza ma osobne linie krawędzi w siatce kontrolnej
+6 × 6, ponieważ rzeczywiste czerwone ramki są rozdzielone odstępami i mogą
+układać się po łuku ekranu. Cztery narożniki są wprowadzane kolejno LT, PT, PD,
+LD, a skrzyżowany obrys jest odrzucany przed API. Rewizje poszczególnych stron
+są zapisywane append-only, lecz nowy preflight powstaje dopiero po jawnej akcji
+wysłania całej zapisanej partii. Historyczne override'y pozostają dostępne do
+ponownej korekty zamiast być ukrywane lub nadpisywane.

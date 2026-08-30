@@ -24,6 +24,13 @@ const gate = await readFile(
   new URL('../src/features/access/reviewer-access-gate.tsx', import.meta.url),
   'utf8',
 );
+const localWorkspace = await readFile(
+  new URL(
+    '../src/features/access/local-reviewer-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const page = await readFile(
   new URL('../src/app/page.tsx', import.meta.url),
   'utf8',
@@ -46,8 +53,12 @@ test('grid reviewer owns the dark application foundation and styled controls', (
 });
 
 test('local grid workspace keeps remote reviewer on the restricted legacy path', () => {
-  assert.match(gate, /gridValidationEnabled[\s\S]*GridReviewWorkspace/);
+  assert.match(gate, /gridValidationEnabled[\s\S]*LocalReviewerWorkspace/);
   assert.match(gate, /OperationalReviewWorkspace/);
+  assert.match(localWorkspace, /GridReviewWorkspace/);
+  assert.match(localWorkspace, /OperationalReviewWorkspace/);
+  assert.match(localWorkspace, /listPendingBoardCellGeometry/);
+  assert.match(localWorkspace, /Niepełne siatki do ręcznej korekty/);
   assert.match(page, /gridValidationEnabled=\{localMode\}/);
   assert.doesNotMatch(page, /REVIEWER_GRID_VALIDATION/);
   assert.doesNotMatch(proxy, /\/grid-reviews/);

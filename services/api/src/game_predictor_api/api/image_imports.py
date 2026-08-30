@@ -164,6 +164,48 @@ def _load_page_geometry_manifest(
     return cast(dict[str, object], value)
 
 
+def _uses_touching_page_grid(raw_override: object) -> bool:
+    """Identify legacy 3x3 overrides whose neighbouring boards share edges."""
+
+    if not isinstance(raw_override, dict):
+        return False
+    raw_quads = raw_override.get("quads")
+    if not isinstance(raw_quads, list | tuple) or len(raw_quads) != 9:
+        return False
+    quads = list(raw_quads)
+
+    def point(quad_index: int, point_index: int) -> tuple[int, int] | None:
+        quad = quads[quad_index]
+        if not isinstance(quad, list | tuple) or len(quad) != 4:
+            return None
+        value = quad[point_index]
+        if not isinstance(value, dict):
+            return None
+        x, y = value.get("x"), value.get("y")
+        if not isinstance(x, int) or not isinstance(y, int):
+            return None
+        return x, y
+
+    comparisons: list[tuple[tuple[int, int] | None, tuple[int, int] | None]] = []
+    for row in range(3):
+        for column in range(2):
+            left = row * 3 + column
+            right = left + 1
+            comparisons.extend(
+                ((point(left, 1), point(right, 0)), (point(left, 2), point(right, 3)))
+            )
+    for row in range(2):
+        for column in range(3):
+            upper = row * 3 + column
+            lower = upper + 3
+            comparisons.extend(
+                ((point(upper, 3), point(lower, 0)), (point(upper, 2), point(lower, 1)))
+            )
+    return bool(comparisons) and all(
+        left is not None and left == right for left, right in comparisons
+    )
+
+
 def _attested_range_from_relative_path(value: str) -> tuple[int | None, int | None]:
     stem = Path(value).stem
     if not stem.startswith("seq_") or "-" not in stem:
@@ -615,6 +657,7 @@ def create_image_imports_router(
         preflight_job_id: UUID,
         game_id: Annotated[UUID, Query()],
         job_service: Annotated[JobService, job_parameter],
+        override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserPageGeometryReviewSourcesResponse:
         descriptor = _geometry_manifest_descriptor(
             job_service=job_service,
@@ -630,9 +673,41 @@ def create_image_imports_router(
             )
         manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
         entries = cast(dict[str, object], manifest["entries"])
+        job = job_service.get_job(preflight_job_id)
+        pinned_overrides = job.input_payload.get("page_geometry_overrides")
+        pinned_overrides = pinned_overrides if isinstance(pinned_overrides, dict) else {}
+        current_overrides = (
+            {} if override_service is None else override_service.snapshot(game_id=game_id)
+        )
         sources: list[BrowserPageGeometryReviewSourceResponse] = []
         for checksum, raw in sorted(entries.items()):
-            if not isinstance(raw, dict) or raw.get("status") != "review_required":
+            if not isinstance(raw, dict):
+                continue
+            current_override = current_overrides.get(checksum)
+            has_manual_override = raw.get(
+                "registrationVersion"
+            ) == "manual-page-geometry-override-v1" or isinstance(current_override, dict)
+            pinned_override = pinned_overrides.get(checksum)
+            current_checksum = (
+                current_override.get("decisionChecksumSha256")
+                if isinstance(current_override, dict)
+                else None
+            )
+            pinned_checksum = (
+                pinned_override.get("decisionChecksumSha256")
+                if isinstance(pinned_override, dict)
+                else None
+            )
+            legacy_touching_grid = _uses_touching_page_grid(current_override)
+            saved_since_preflight = (
+                isinstance(current_checksum, str)
+                and current_checksum != pinned_checksum
+                and not legacy_touching_grid
+            )
+            manual_review_required = has_manual_override and (
+                saved_since_preflight or legacy_touching_grid
+            )
+            if raw.get("status") != "review_required" and not manual_review_required:
                 continue
             source_relative_path = raw.get("sourceRelativePath")
             if not isinstance(source_relative_path, str) or not source_relative_path:
@@ -644,14 +719,39 @@ def create_image_imports_router(
                     source_relative_path=source_relative_path,
                     sequence_range_start=start,
                     sequence_range_end=end,
+                    review_reason=(
+                        "manual_override" if manual_review_required else "review_required"
+                    ),
+                    existing_final_quads=(
+                        current_override.get("quads")
+                        if isinstance(current_override, dict)
+                        else None
+                    ),
+                    existing_override_revision=(
+                        current_override.get("revision")
+                        if isinstance(current_override, dict)
+                        and isinstance(current_override.get("revision"), int)
+                        else None
+                    ),
+                    saved_since_preflight=saved_since_preflight,
                 )
             )
-        job = job_service.get_job(preflight_job_id)
+        sources.sort(
+            key=lambda source: (
+                source.sequence_range_start is None,
+                source.sequence_range_start or 0,
+                source.sequence_range_end or 0,
+                source.source_relative_path,
+                source.source_checksum_sha256,
+            )
+        )
         return BrowserPageGeometryReviewSourcesResponse(
             job=JobResponse.from_domain(job),
             geometry_manifest_checksum_sha256=cast(str, descriptor["checksumSha256"]),
             registered_source_count=cast(int, manifest["registeredSourceCount"]),
-            review_required_source_count=cast(int, manifest["reviewRequiredSourceCount"]),
+            review_required_source_count=sum(
+                source.review_reason == "review_required" for source in sources
+            ),
             skipped_human_resolved_source_count=cast(
                 int, manifest["skippedHumanResolvedSourceCount"]
             ),

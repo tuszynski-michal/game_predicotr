@@ -19,20 +19,34 @@ import {
 import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
+import {
+  appendPageGeometryCorner,
+  applyPageGeometryMeshOverrides,
+  completePageGeometryCorners,
+  createPageGeometryMesh,
+  isPageGeometryMeshBoundaryPoint,
+  PAGE_MESH_POINT_COUNT,
+  pageGeometryQuadsFromMesh,
+  type PageGeometryCorners,
+  type PageGeometryPoint,
+  type PageGeometryQuad,
+} from './page-geometry-mesh';
+
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
   'createBrowserPageGeometryOverride' | 'listBrowserPageGeometryReviewSources'
 >;
 
-type Point = { readonly x: number; readonly y: number };
-type Quad = readonly [Point, Point, Point, Point];
-type PageCorners = readonly [Point, Point, Point, Point];
+type Point = PageGeometryPoint;
+type Quad = PageGeometryQuad;
+type PageCorners = PageGeometryCorners;
+type CorrectionMode = 'curve' | 'page' | number;
 
 interface PageGeometryCorrectionPanelProps {
   readonly api: GeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly onSaved: () => Promise<void>;
+  readonly onSubmitSaved: () => Promise<void>;
   readonly preflightJobId: string;
   readonly uploadId: string;
 }
@@ -41,36 +55,6 @@ const HANDLE_RADIUS = 14;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, Math.round(value)));
-}
-
-function lerp(left: Point, right: Point, ratio: number): Point {
-  return {
-    x: left.x + (right.x - left.x) * ratio,
-    y: left.y + (right.y - left.y) * ratio,
-  };
-}
-
-function bilinear(corners: PageCorners, u: number, v: number): Point {
-  const upper = lerp(corners[0], corners[1], u);
-  const lower = lerp(corners[3], corners[2], u);
-  return lerp(upper, lower, v);
-}
-
-function gridFromPage(corners: PageCorners): readonly Quad[] {
-  return Array.from({ length: 9 }, (_, index) => {
-    const row = Math.floor(index / 3);
-    const column = index % 3;
-    const left = column / 3;
-    const right = (column + 1) / 3;
-    const top = row / 3;
-    const bottom = (row + 1) / 3;
-    return [
-      bilinear(corners, left, top),
-      bilinear(corners, right, top),
-      bilinear(corners, right, bottom),
-      bilinear(corners, left, bottom),
-    ] as const;
-  });
 }
 
 function initialCorners(width: number, height: number): PageCorners {
@@ -82,6 +66,26 @@ function initialCorners(width: number, height: number): PageCorners {
     { x: width - horizontal, y: height - vertical },
     { x: horizontal, y: height - vertical },
   ];
+}
+
+function existingSourceQuads(
+  source: BrowserPageGeometryReviewSourceResponse,
+): readonly Quad[] {
+  const raw = source.existingFinalQuads;
+  if (
+    raw === null ||
+    raw === undefined ||
+    raw.length !== 9 ||
+    raw.some((quad) => quad.length !== 4)
+  ) {
+    return [];
+  }
+  return raw.map((quad) => [quad[0]!, quad[1]!, quad[2]!, quad[3]!] as Quad);
+}
+
+function outerCornersFromQuads(quads: readonly Quad[]): PageCorners | null {
+  if (quads.length !== 9) return null;
+  return [quads[0]![0], quads[2]![1], quads[8]![2], quads[6]![3]];
 }
 
 function sourceAssetUrl(
@@ -105,7 +109,7 @@ export function PageGeometryCorrectionPanel({
   api,
   apiBaseUrl,
   gameId,
-  onSaved,
+  onSubmitSaved,
   preflightJobId,
   uploadId,
 }: PageGeometryCorrectionPanelProps) {
@@ -118,21 +122,35 @@ export function PageGeometryCorrectionPanel({
     width: number;
   } | null>(null);
   const [pageCorners, setPageCorners] = useState<PageCorners | null>(null);
+  const [initialPageCorners, setInitialPageCorners] =
+    useState<PageCorners | null>(null);
+  const [initialBoardOverrides, setInitialBoardOverrides] = useState<
+    ReadonlyMap<number, Quad>
+  >(new Map());
+  const [cornerPlacement, setCornerPlacement] = useState<
+    readonly Point[] | null
+  >(null);
+  const [meshOverrides, setMeshOverrides] = useState<
+    ReadonlyMap<number, Point>
+  >(new Map());
   const [boardOverrides, setBoardOverrides] = useState<
     ReadonlyMap<number, Quad>
   >(new Map());
-  const [selectedBoard, setSelectedBoard] = useState<number | null>(null);
+  const [correctionMode, setCorrectionMode] = useState<CorrectionMode>('page');
   const [dragging, setDragging] = useState<
     | {
         readonly kind: 'board';
         readonly pointIndex: number;
         readonly boardIndex: number;
       }
+    | { readonly kind: 'mesh'; readonly pointIndex: number }
     | { readonly kind: 'page'; readonly pointIndex: number }
     | null
   >(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
 
@@ -154,7 +172,12 @@ export function PageGeometryCorrectionPanel({
         );
         return;
       }
-      setSources(result.data.sources);
+      setSavedCount(
+        result.data.sources.filter((item) => item.savedSincePreflight).length,
+      );
+      setSources(
+        result.data.sources.filter((item) => !item.savedSincePreflight),
+      );
       setSourceIndex(0);
     } catch {
       setError('Nie udało się połączyć z lokalnym API korekty geometrii.');
@@ -174,11 +197,17 @@ export function PageGeometryCorrectionPanel({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
-  const quads = useMemo(() => {
+  const mesh = useMemo(() => {
     if (pageCorners === null) return [];
-    const generated = gridFromPage(pageCorners);
+    return applyPageGeometryMeshOverrides(
+      createPageGeometryMesh(pageCorners),
+      meshOverrides,
+    );
+  }, [meshOverrides, pageCorners]);
+  const quads = useMemo(() => {
+    const generated = pageGeometryQuadsFromMesh(mesh);
     return generated.map((quad, index) => boardOverrides.get(index) ?? quad);
-  }, [boardOverrides, pageCorners]);
+  }, [boardOverrides, mesh]);
 
   const imageUrl =
     source === null
@@ -190,12 +219,79 @@ export function PageGeometryCorrectionPanel({
           gameId,
         );
 
-  function resetGeometry(width: number, height: number) {
+  function resetGeometry(
+    width: number,
+    height: number,
+    existingQuads: readonly Quad[],
+  ) {
+    const corners =
+      outerCornersFromQuads(existingQuads) ?? initialCorners(width, height);
+    const overrides = new Map(
+      existingQuads.map((quad, index) => [index, quad] as const),
+    );
     setImageSize({ height, width });
-    setPageCorners(initialCorners(width, height));
-    setBoardOverrides(new Map());
-    setSelectedBoard(null);
+    setInitialPageCorners(corners);
+    setInitialBoardOverrides(overrides);
+    setPageCorners(corners);
+    setCornerPlacement(null);
+    setMeshOverrides(new Map());
+    setBoardOverrides(overrides);
+    setCorrectionMode('page');
     setDragging(null);
+  }
+
+  function resetCurrentGeometry() {
+    if (initialPageCorners === null) return;
+    setPageCorners(initialPageCorners);
+    setCornerPlacement(null);
+    setMeshOverrides(new Map());
+    setBoardOverrides(initialBoardOverrides);
+    setCorrectionMode('page');
+    setDragging(null);
+    setFeedback('Przywrócono geometrię widoczną przy otwarciu zdjęcia.');
+  }
+
+  function beginCornerPlacement() {
+    setCorrectionMode('page');
+    setCornerPlacement([]);
+    setDragging(null);
+    setFeedback(
+      'Wskaż kolejno: lewy górny, prawy górny, prawy dolny i lewy dolny punkt.',
+    );
+  }
+
+  function placeNextCorner(event: PointerEvent<SVGSVGElement>) {
+    if (cornerPlacement === null || imageSize === null) return;
+    const point = relativePoint(event);
+    if (point === null) return;
+    const bounded = {
+      x: clamp(point.x, 0, imageSize.width - 1),
+      y: clamp(point.y, 0, imageSize.height - 1),
+    };
+    const next = appendPageGeometryCorner(cornerPlacement, bounded);
+    const complete = completePageGeometryCorners(next);
+    if (complete === null) {
+      setCornerPlacement(next);
+      if (next.length === 4) {
+        setFeedback(
+          'Punkty nie tworzą poprawnego obrysu LT → PT → PD → LD. Cofnij błędny punkt i wskaż go ponownie.',
+        );
+      }
+      return;
+    }
+    setPageCorners(complete);
+    setCornerPlacement(null);
+    setMeshOverrides(new Map());
+    setBoardOverrides(new Map());
+    setFeedback(
+      'Cztery narożniki ustawione. Możesz je przeciągnąć albo dopasować krzywiznę.',
+    );
+  }
+
+  function undoCornerPlacement() {
+    setCornerPlacement((current) =>
+      current === null ? current : current.slice(0, -1),
+    );
   }
 
   function updatePoint(next: Point) {
@@ -214,6 +310,16 @@ export function PageGeometryCorrectionPanel({
           dragging.pointIndex === 3 ? point : current[3],
         ];
         return nextCorners;
+      });
+      setMeshOverrides(new Map());
+      setBoardOverrides(new Map());
+      return;
+    }
+    if (dragging.kind === 'mesh') {
+      setMeshOverrides((current) => {
+        const nextOverrides = new Map(current);
+        nextOverrides.set(dragging.pointIndex, point);
+        return nextOverrides;
       });
       setBoardOverrides(new Map());
       return;
@@ -249,6 +355,7 @@ export function PageGeometryCorrectionPanel({
     value: NonNullable<typeof dragging>,
   ) {
     event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId);
     setDragging(value);
   }
@@ -284,13 +391,35 @@ export function PageGeometryCorrectionPanel({
         return;
       }
       setFeedback(
-        'Korekta została zapisana. Tworzę nowy preflight tylko dla nierozwiązanych stron.',
+        'Korekta została zapisana lokalnie w partii. Preflight nie został jeszcze uruchomiony.',
       );
-      await onSaved();
+      setSavedCount((current) => current + 1);
+      setSources((current) =>
+        current.filter(
+          (item) => item.sourceChecksumSha256 !== source.sourceChecksumSha256,
+        ),
+      );
+      setSourceIndex((current) =>
+        Math.min(current, Math.max(0, sources.length - 2)),
+      );
     } catch {
       setError('Nie udało się zapisać korekty geometrii strony.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function submitSaved() {
+    if (submitting || saving || savedCount === 0) return;
+    setSubmitting(true);
+    setError('');
+    setFeedback('Tworzę jeden preflight dla całej zapisanej partii…');
+    try {
+      await onSubmitSaved();
+    } catch {
+      setError('Nie udało się wysłać zapisanych geometrii do weryfikacji.');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -307,14 +436,26 @@ export function PageGeometryCorrectionPanel({
             dopóki kompletna siatka 3×3 nie zostanie potwierdzona.
           </p>
         </div>
-        <button
-          className="secondaryButton"
-          disabled={loading || saving}
-          onClick={() => void refresh()}
-          type="button"
-        >
-          Odśwież listę
-        </button>
+        <div className="pageGeometryCorrectionHeaderActions">
+          <button
+            className="secondaryButton"
+            disabled={loading || saving || submitting}
+            onClick={() => void refresh()}
+            type="button"
+          >
+            Odśwież listę
+          </button>
+          <button
+            className="primaryButton"
+            disabled={savedCount === 0 || saving || submitting}
+            onClick={() => void submitSaved()}
+            type="button"
+          >
+            {submitting
+              ? 'Wysyłanie partii…'
+              : `Wyślij zapisane do weryfikacji (${savedCount})`}
+          </button>
+        </div>
       </div>
       {error ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
@@ -344,21 +485,31 @@ export function PageGeometryCorrectionPanel({
               source.sequenceRangeEnd !== null
                 ? ` · plansze ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
                 : ''}
+              {source.reviewReason === 'manual_override'
+                ? ` · zapisana korekta r${source.existingOverrideRevision ?? '?'}`
+                : ' · wymaga korekty'}
             </p>
             <label>
               Zakres korekty
               <select
                 disabled={saving}
-                onChange={(event) =>
-                  setSelectedBoard(
-                    event.target.value === 'page'
-                      ? null
-                      : Number(event.target.value),
-                  )
-                }
-                value={selectedBoard === null ? 'page' : String(selectedBoard)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === 'curve') {
+                    setBoardOverrides(new Map());
+                  }
+                  setCorrectionMode(
+                    value === 'page' || value === 'curve'
+                      ? value
+                      : Number(value),
+                  );
+                }}
+                value={String(correctionMode)}
               >
                 <option value="page">Cała strona — 4 główne uchwyty</option>
+                <option value="curve">
+                  Krzywizna i odstępy — 36 punktów krawędzi
+                </option>
                 {Array.from({ length: 9 }, (_, index) => (
                   <option key={index} value={index}>
                     Plansza {index + 1} — korekta wyjątkowa
@@ -367,9 +518,13 @@ export function PageGeometryCorrectionPanel({
               </select>
             </label>
             <p className="geometryInstructions">
-              {selectedBoard === null
-                ? 'Przeciągnij cztery żółte uchwyty na zewnętrzne narożniki siatki. Zmiana zachowuje układ wszystkich dziewięciu plansz.'
-                : 'W razie wyjątku doprecyzuj tylko tę jedną planszę. Pozostałe zachowają geometrię całej strony.'}
+              {cornerPlacement !== null
+                ? `Kliknij punkt ${cornerPlacement.length + 1} z 4: ${['lewy górny', 'prawy górny', 'prawy dolny', 'lewy dolny'][cornerPlacement.length]}.`
+                : correctionMode === 'page'
+                  ? 'Najpierw ustaw cztery żółte uchwyty na zewnętrznych narożnikach. Ta operacja zeruje korektę krzywizny.'
+                  : correctionMode === 'curve'
+                    ? 'Przesuń punkty krawędzi każdej czerwonej ramki. Osobne linie zachowują odstępy między planszami i pozwalają odwzorować łuk góry, środka i dołu.'
+                    : 'W razie wyjątku doprecyzuj tylko tę jedną planszę. Pozostałe zachowają elastyczną geometrię całej strony.'}
             </p>
             <div className="pageGeometryNavigation">
               <button
@@ -396,11 +551,42 @@ export function PageGeometryCorrectionPanel({
               </button>
               <button
                 className="primaryButton"
-                disabled={saving || imageSize === null}
+                disabled={
+                  saving ||
+                  submitting ||
+                  imageSize === null ||
+                  cornerPlacement !== null
+                }
                 onClick={() => void save()}
                 type="button"
               >
-                {saving ? 'Zapisywanie…' : 'Zapisz geometrię strony'}
+                {saving ? 'Zapisywanie…' : 'Zapisz i przejdź dalej'}
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={saving || submitting || imageSize === null}
+                onClick={beginCornerPlacement}
+                type="button"
+              >
+                Wyznacz 4 narożniki
+              </button>
+              {cornerPlacement !== null && cornerPlacement.length > 0 ? (
+                <button
+                  className="secondaryButton"
+                  disabled={saving || submitting}
+                  onClick={undoCornerPlacement}
+                  type="button"
+                >
+                  Cofnij punkt
+                </button>
+              ) : null}
+              <button
+                className="secondaryButton"
+                disabled={saving || submitting || initialPageCorners === null}
+                onClick={resetCurrentGeometry}
+                type="button"
+              >
+                Reset
               </button>
             </div>
           </div>
@@ -412,6 +598,7 @@ export function PageGeometryCorrectionPanel({
                   resetGeometry(
                     event.currentTarget.naturalWidth,
                     event.currentTarget.naturalHeight,
+                    existingSourceQuads(source),
                   )
                 }
                 src={imageUrl}
@@ -420,6 +607,7 @@ export function PageGeometryCorrectionPanel({
             {imageSize !== null && pageCorners !== null ? (
               <svg
                 aria-label="Nakładka geometrii strony"
+                onPointerDown={placeNextCorner}
                 onPointerMove={(event) => {
                   const point = relativePoint(event);
                   if (point !== null) updatePoint(point);
@@ -430,7 +618,7 @@ export function PageGeometryCorrectionPanel({
                 {quads.map((quad, index) => (
                   <polygon
                     className={
-                      selectedBoard === index
+                      correctionMode === index
                         ? 'pageGeometryBoard pageGeometryBoardSelected'
                         : 'pageGeometryBoard'
                     }
@@ -438,7 +626,34 @@ export function PageGeometryCorrectionPanel({
                     points={quad.map(pointText).join(' ')}
                   />
                 ))}
-                {selectedBoard === null
+                {cornerPlacement !== null ? (
+                  <>
+                    {cornerPlacement.length > 1 ? (
+                      <polyline
+                        className="pageGeometryPlacementLine"
+                        points={cornerPlacement.map(pointText).join(' ')}
+                      />
+                    ) : null}
+                    {cornerPlacement.map((point, index) => (
+                      <g key={index}>
+                        <circle
+                          className="pageGeometryHandle pageGeometryPlacementHandle"
+                          cx={point.x}
+                          cy={point.y}
+                          r={HANDLE_RADIUS}
+                        />
+                        <text
+                          className="pageGeometryPlacementLabel"
+                          x={point.x + HANDLE_RADIUS + 4}
+                          y={point.y - HANDLE_RADIUS - 4}
+                        >
+                          {['LT', 'PT', 'PD', 'LD'][index]}
+                        </text>
+                      </g>
+                    ))}
+                  </>
+                ) : null}
+                {correctionMode === 'page'
                   ? pageCorners.map((point, index) => (
                       <circle
                         className="pageGeometryHandle"
@@ -451,22 +666,42 @@ export function PageGeometryCorrectionPanel({
                         r={HANDLE_RADIUS}
                       />
                     ))
-                  : (quads[selectedBoard] ?? []).map((point, index) => (
-                      <circle
-                        className="pageGeometryHandle pageGeometryBoardHandle"
-                        cx={point.x}
-                        cy={point.y}
-                        key={index}
-                        onPointerDown={(event) =>
-                          beginDrag(event, {
-                            boardIndex: selectedBoard,
-                            kind: 'board',
-                            pointIndex: index,
-                          })
-                        }
-                        r={HANDLE_RADIUS}
-                      />
-                    ))}
+                  : correctionMode === 'curve'
+                    ? mesh.map((point, index) => (
+                        <circle
+                          className={
+                            isPageGeometryMeshBoundaryPoint(index)
+                              ? 'pageGeometryHandle pageGeometryMeshBoundaryHandle'
+                              : 'pageGeometryHandle pageGeometryMeshInnerHandle'
+                          }
+                          cx={point.x}
+                          cy={point.y}
+                          key={index}
+                          onPointerDown={(event) =>
+                            beginDrag(event, {
+                              kind: 'mesh',
+                              pointIndex: index,
+                            })
+                          }
+                          r={HANDLE_RADIUS}
+                        />
+                      ))
+                    : (quads[correctionMode] ?? []).map((point, index) => (
+                        <circle
+                          className="pageGeometryHandle pageGeometryBoardHandle"
+                          cx={point.x}
+                          cy={point.y}
+                          key={index}
+                          onPointerDown={(event) =>
+                            beginDrag(event, {
+                              boardIndex: correctionMode,
+                              kind: 'board',
+                              pointIndex: index,
+                            })
+                          }
+                          r={HANDLE_RADIUS}
+                        />
+                      ))}
               </svg>
             ) : null}
           </div>

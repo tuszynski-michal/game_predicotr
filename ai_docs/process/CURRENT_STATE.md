@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Elastyczna korekta pełnej strony — TASK-0342
+
+- Edytor ręcznej geometrii strony prowadzi przez narożniki LT → PT → PD → LD,
+  blokuje skrzyżowany obrys i generuje dziewięć rozdzielonych ramek z 36
+  niezależnych punktów krawędzi. Pozwala to odwzorować perspektywę, odstępy i
+  łuk ekranu bez wymuszania prostokątnej, stykającej się siatki.
+- `Reset` przywraca geometrię widoczną przy otwarciu zdjęcia. Kolejne poprawki
+  można zapisywać bez uruchamiania preflightu, a następnie wysłać całą partię
+  jedną akcją. Istniejące ręczne override'y pozostają edytowalne i audytowalne.
+- Lokalny Reviewer rozpoznaje importy z odroczoną, niepełną geometrią i pozwala
+  przełączyć się do istniejącego edytora operacyjnego; zdalny scope nie został
+  rozszerzony.
+
 ### Stabilizacja korekty ręcznej selekcji — TASK-0341
 
 - Wspólny viewer zachowuje pozycję obrazu pomiędzy przejściami także wtedy,

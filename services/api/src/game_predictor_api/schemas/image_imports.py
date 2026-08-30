@@ -143,11 +143,20 @@ class BrowserPageGeometryPreflightResponse(ApiModel):
     job: JobResponse
 
 
+class PageGeometryPoint(ApiModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+
+
 class BrowserPageGeometryReviewSourceResponse(ApiModel):
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_relative_path: str = Field(min_length=1, max_length=2048)
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
+    review_reason: Literal["manual_override", "review_required"] = "review_required"
+    existing_final_quads: list[list[PageGeometryPoint]] | None = None
+    existing_override_revision: int | None = Field(default=None, ge=1)
+    saved_since_preflight: bool = False
 
 
 class BrowserPageGeometryReviewSourcesResponse(ApiModel):
@@ -157,11 +166,6 @@ class BrowserPageGeometryReviewSourcesResponse(ApiModel):
     review_required_source_count: int = Field(ge=0)
     skipped_human_resolved_source_count: int = Field(ge=0)
     sources: list[BrowserPageGeometryReviewSourceResponse]
-
-
-class PageGeometryPoint(ApiModel):
-    x: int = Field(ge=0)
-    y: int = Field(ge=0)
 
 
 class BrowserPageGeometryOverrideCreate(ApiModel):

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -10,7 +11,10 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from game_predictor_api.api.image_imports import _geometry_manifest_descriptor
+from game_predictor_api.api.image_imports import (
+    _geometry_manifest_descriptor,
+    _uses_touching_page_grid,
+)
 from game_predictor_api.application import controlled_folder_picker as folder_picker_module
 from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
@@ -756,6 +760,162 @@ def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -
 
     assert descriptor is not None
     assert descriptor["checksumSha256"] == checksum
+
+
+def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_submit(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    upload_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    old_checksum = "1" * 64
+    current_checksum = "2" * 64
+    manual_source_checksum = "a" * 64
+    unresolved_source_checksum = "b" * 64
+    quads = [
+        [
+            {"x": column * 20, "y": row * 20},
+            {"x": column * 20 + 15, "y": row * 20},
+            {"x": column * 20 + 15, "y": row * 20 + 15},
+            {"x": column * 20, "y": row * 20 + 15},
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+    manifest = {
+        "entries": {
+            manual_source_checksum: {
+                "registrationVersion": "manual-page-geometry-override-v1",
+                "sourceRelativePath": "new/seq_1-9.jpg",
+                "status": "registered",
+            },
+            unresolved_source_checksum: {
+                "sourceRelativePath": "new/seq_10-18.jpg",
+                "status": "review_required",
+            },
+        },
+        "registeredSourceCount": 1,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+    }
+    content = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    manifest_checksum = hashlib.sha256(content).hexdigest()
+    relative_path = f"data/page-geometry-manifests/{manifest_checksum}.json"
+    manifest_path = tmp_path / "artifacts" / Path(*relative_path.split("/"))
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(content)
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 2,
+            "validation_kind": "page_geometry_preflight",
+            "source_selection_id": str(upload_id),
+            "source_directory": "C:/staging",
+            "source_display_name": "new",
+            "source_manifest_sha256": "c" * 64,
+            "page_registration_profile": {"policy": "test", "anchors": []},
+            "page_geometry_overrides": {
+                manual_source_checksum: {"decisionChecksumSha256": old_checksum}
+            },
+            "canonical_sequence_numbers": [],
+        },
+        created_at=NOW,
+    )
+    lease_token = uuid4()
+    job = start_job(
+        job,
+        worker_version="test-worker",
+        worker_id="test-worker",
+        lease_token=lease_token,
+        lease_expires_at=NOW + timedelta(minutes=5),
+        started_at=NOW,
+    )
+    job = checkpoint_job(
+        job,
+        lease_token=lease_token,
+        checkpoint_payload={
+            "schema_version": 1,
+            "complete": True,
+            "geometry_manifest_checksum_sha256": manifest_checksum,
+            "geometry_manifest_relative_path": relative_path,
+        },
+        stage="page_geometry_manifest_ready",
+        current=2,
+        total=2,
+        success_count=1,
+        failure_count=0,
+        review_count=1,
+        updated_at=NOW + timedelta(seconds=1),
+    )
+    repository.add_job(
+        complete_job(job, lease_token=lease_token, finished_at=NOW + timedelta(seconds=2))
+    )
+
+    class OverrideSnapshot:
+        def snapshot(self, *, game_id: UUID) -> dict[str, object]:
+            return {
+                manual_source_checksum: {
+                    "decisionChecksumSha256": current_checksum,
+                    "quads": quads,
+                    "revision": 2,
+                }
+            }
+
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
+            ),
+            job_service_dependency=lambda: service,
+            page_geometry_override_service_dependency=lambda: OverrideSnapshot(),
+        )
+    )
+
+    with client:
+        response = client.get(
+            "/api/v1/admin/image-imports/"
+            f"browser-selections/{upload_id}/geometry-preflights/{job.id}/review-sources",
+            params={"game_id": str(game_id)},
+        )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert [source["sequenceRangeStart"] for source in payload["sources"]] == [1, 10]
+    assert payload["reviewRequiredSourceCount"] == 1
+    manual = payload["sources"][0]
+    assert manual["reviewReason"] == "manual_override"
+    assert manual["existingFinalQuads"] == quads
+    assert manual["existingOverrideRevision"] == 2
+    assert manual["savedSincePreflight"] is True
+    assert payload["sources"][1]["reviewReason"] == "review_required"
+
+
+def test_legacy_touching_page_grid_is_reopened_but_separated_frames_are_not() -> None:
+    touching = [
+        [
+            {"x": column * 20, "y": row * 20},
+            {"x": (column + 1) * 20, "y": row * 20},
+            {"x": (column + 1) * 20, "y": (row + 1) * 20},
+            {"x": column * 20, "y": (row + 1) * 20},
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+    separated = [
+        [
+            {"x": column * 20, "y": row * 20},
+            {"x": column * 20 + 15, "y": row * 20},
+            {"x": column * 20 + 15, "y": row * 20 + 15},
+            {"x": column * 20, "y": row * 20 + 15},
+        ]
+        for row in range(3)
+        for column in range(3)
+    ]
+
+    assert _uses_touching_page_grid({"quads": touching}) is True
+    assert _uses_touching_page_grid({"quads": separated}) is False
 
 
 def test_game_less_ready_staging_is_bound_once(tmp_path: Path) -> None:

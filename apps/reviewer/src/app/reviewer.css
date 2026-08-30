@@ -72,6 +72,60 @@ button[aria-busy='true'] {
   cursor: progress;
 }
 
+.localReviewerModeLoading,
+.localReviewerModeSwitch,
+.localReviewerModeError {
+  width: min(1440px, calc(100% - 32px));
+  margin-inline: auto;
+}
+
+.localReviewerModeLoading {
+  display: grid;
+  gap: 6px;
+  margin-top: 32px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(13, 27, 45, 0.9);
+}
+
+.localReviewerModeLoading span,
+.localReviewerModeError {
+  color: var(--muted);
+}
+
+.localReviewerModeSwitch {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-block: 12px;
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.localReviewerModeSwitch button {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(13, 27, 45, 0.92);
+  color: var(--muted);
+}
+
+.localReviewerModeSwitch button.isActive {
+  border-color: rgba(244, 211, 94, 0.72);
+  background: rgba(244, 211, 94, 0.16);
+  color: #fffaf0;
+}
+
+.localReviewerModeError {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 10px;
+}
+
 a {
   color: inherit;
   text-decoration: none;

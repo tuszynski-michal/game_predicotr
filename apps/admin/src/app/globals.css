@@ -6047,6 +6047,13 @@ div.imageJobInlineError {
   font-size: 0.94rem;
 }
 
+.pageGeometryCorrectionHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .pageGeometryCorrectionHeader p,
 .geometryInstructions {
   margin: 0;
@@ -6130,6 +6137,35 @@ div.imageJobInlineError {
 
 .pageGeometryBoardHandle {
   fill: #73edba;
+}
+
+.pageGeometryMeshBoundaryHandle {
+  fill: #7dd3fc;
+}
+
+.pageGeometryMeshInnerHandle {
+  fill: #f0abfc;
+}
+
+.pageGeometryPlacementLine {
+  fill: none;
+  stroke: var(--color-primary, #f5b942);
+  stroke-dasharray: 10 8;
+  stroke-width: 5px;
+}
+
+.pageGeometryPlacementHandle {
+  pointer-events: none;
+}
+
+.pageGeometryPlacementLabel {
+  fill: #fff6d8;
+  font-size: 34px;
+  font-weight: 800;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: #15110a;
+  stroke-width: 6px;
 }
 
 .curatedBatchHistory {

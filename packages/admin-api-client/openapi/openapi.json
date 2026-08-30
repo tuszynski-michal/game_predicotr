@@ -1941,6 +1941,49 @@
       "BrowserPageGeometryReviewSourceResponse": {
         "additionalProperties": false,
         "properties": {
+          "existingFinalQuads": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/PageGeometryPoint"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingfinalquads"
+          },
+          "existingOverrideRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingoverriderevision"
+          },
+          "reviewReason": {
+            "default": "review_required",
+            "enum": [
+              "manual_override",
+              "review_required"
+            ],
+            "title": "Reviewreason",
+            "type": "string"
+          },
+          "savedSincePreflight": {
+            "default": false,
+            "title": "Savedsincepreflight",
+            "type": "boolean"
+          },
           "sequenceRangeEnd": {
             "anyOf": [
               {

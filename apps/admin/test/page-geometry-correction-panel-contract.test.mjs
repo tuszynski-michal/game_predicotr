@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const panel = await readFile(
+  new URL(
+    '../src/features/imports/page-geometry-correction-panel.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
+
+test('page geometry editor exposes ordered corners and exact reset', () => {
+  assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
+  assert.match(panel, />\s*Wyznacz 4 narożniki\s*</);
+  assert.match(panel, />\s*Cofnij punkt\s*</);
+  assert.match(panel, />\s*Reset\s*</);
+  assert.match(panel, /setPageCorners\(initialPageCorners\)/);
+  assert.match(panel, /setBoardOverrides\(initialBoardOverrides\)/);
+});
+
+test('saving a correction is separated from submitting the saved batch', () => {
+  assert.match(panel, /Zapisz i przejdź dalej/);
+  assert.match(panel, /Wyślij zapisane do weryfikacji/);
+  assert.match(panel, /async function save\(\)[\s\S]*setSavedCount/);
+  assert.match(
+    panel,
+    /async function submitSaved\(\)[\s\S]*await onSubmitSaved\(\)/,
+  );
+});

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import cast
@@ -11,7 +13,14 @@ from typing import cast
 import cv2
 import numpy as np
 from game_predictor_api.domain.image_geometry_v2 import (
+    BOARD_SLOT_SEMANTICS_VERSION,
+    BOARD_TOPOLOGY_FINGERPRINT_VERSION,
     SOURCE_COORDINATE_SPACE,
+    SOURCE_OCCURRENCE_ID_VERSION,
+    VIRTUAL_CELL_LOGICAL_ID_V2_VERSION,
+    VIRTUAL_CELL_LOGICAL_ID_VERSION,
+    VIRTUAL_CELL_RENDER_ID_V2_VERSION,
+    VIRTUAL_CELL_RENDER_ID_VERSION,
     SourcePoint,
     SourceQuad,
     VirtualCell,
@@ -19,14 +28,19 @@ from game_predictor_api.domain.image_geometry_v2 import (
 )
 from numpy.typing import NDArray
 
-from .normalization import CanonicalSourceFrame, rgb_pixel_checksum_sha256
+from .normalization import (
+    RGB_PIXEL_CHECKSUM_VERSION,
+    CanonicalSourceFrame,
+    rgb_pixel_checksum_sha256,
+)
 from .pipeline_contract import VIRTUAL_CELL_RENDERER_VERSION
 
-VIRTUAL_CELL_RENDER_SPEC_VERSION = "virtual-cell-render-spec-v2-dual-logical-identity-v1"
+VIRTUAL_CELL_RENDER_SPEC_VERSION = "virtual-cell-render-spec-v3-complete-provenance-v1"
 VIRTUAL_CELL_INTERPOLATION_VERSION = "opencv-inter-linear-v1"
 VIRTUAL_CELL_BORDER_POLICY_VERSION = "full-source-support-no-synthesis-v1"
 MAX_VIRTUAL_CELLS_PER_BATCH = 135
 _CANONICAL_CELL_SIZE = 100.0
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class VirtualCellExtractionError(ValueError):
@@ -82,6 +96,17 @@ class VirtualCellRender:
                 "IMAGE_VIRTUAL_CELL_RENDER_SPEC_CHECKSUM_MISMATCH",
                 "The virtual-cell render specification differs from its recorded checksum.",
             )
+        _validate_render_spec(
+            self.render_spec,
+            cell_index=self.cell_index,
+            row_index=self.row_index,
+            column_index=self.column_index,
+            logical_cell_key_sha256=self.logical_cell_key_sha256,
+            logical_cell_key_v2_sha256=self.logical_cell_key_v2_sha256,
+            extractor_version=self.extractor_version,
+            source_quad=self.source_quad,
+            padded_source_quad=self.padded_source_quad,
+        )
         contiguous.setflags(write=False)
         object.__setattr__(self, "rgb", contiguous)
 
@@ -371,22 +396,168 @@ def _render_spec(cell: VirtualCell, *, padded_source_quad: SourceQuad) -> dict[s
         "columnIndex": cell.column_index,
         "configuration": cell.configuration.to_dict(),
         "coordinateSpace": cell.geometry.source.coordinate_space,
+        "geometryEngineKind": cell.geometry.engine_kind.value,
         "geometryFingerprintSha256": cell.geometry.geometry_fingerprint_sha256,
         "geometryRevision": cell.geometry.geometry_revision,
+        "geometryVersion": cell.geometry.geometry_version,
         "logicalCellKeySha256": cell.logical_id_sha256,
         "logicalCellKeyV1Sha256": cell.logical_id_v1_sha256,
         "logicalCellKeyV2Sha256": cell.logical_id_v2_sha256,
         "paddedSourceQuad": padded_source_quad.to_dict(),
+        "pixelChecksumVersion": RGB_PIXEL_CHECKSUM_VERSION,
         "renderIdentitySha256": cell.render_id_sha256,
         "renderIdentityV1Sha256": cell.render_id_v1_sha256,
         "renderIdentityV2Sha256": cell.render_id_v2_sha256,
         "rowIndex": cell.row_index,
         "schemaVersion": VIRTUAL_CELL_RENDER_SPEC_VERSION,
+        "normalizedPixelChecksumSha256": (cell.geometry.source.normalized_pixel_checksum_sha256),
         "sourceChecksumSha256": cell.geometry.source.source_checksum_sha256,
+        "sourceOccurrence": cell.geometry.source_occurrence.to_dict(),
         "sourceOccurrenceIdSha256": cell.geometry.source_occurrence.identity_sha256,
-        "topologyFingerprintSha256": cell.geometry.topology_fingerprint_sha256,
         "sourceQuad": cell.source_quad.to_dict(),
+        "topology": {
+            "columns": cell.geometry.topology.columns,
+            "contractVersion": BOARD_TOPOLOGY_FINGERPRINT_VERSION,
+            "rows": cell.geometry.topology.rows,
+            "slotSemanticsVersion": BOARD_SLOT_SEMANTICS_VERSION,
+            "topologyRulesVersionId": str(cell.geometry.topology_rules_version_id),
+        },
+        "topologyFingerprintSha256": cell.geometry.topology_fingerprint_sha256,
     }
+
+
+def _validate_render_spec(
+    value: Mapping[str, object],
+    *,
+    cell_index: int,
+    row_index: int,
+    column_index: int,
+    logical_cell_key_sha256: str,
+    logical_cell_key_v2_sha256: str,
+    extractor_version: str,
+    source_quad: SourceQuad,
+    padded_source_quad: SourceQuad,
+) -> None:
+    """Validate new render provenance without consulting storage or pixels."""
+
+    if value.get("schemaVersion") != VIRTUAL_CELL_RENDER_SPEC_VERSION:
+        _render_spec_invalid("A new virtual render uses an unsupported render-spec version.")
+    configuration = _require_mapping(value.get("configuration"), "configuration")
+    occurrence = _require_mapping(value.get("sourceOccurrence"), "sourceOccurrence")
+    topology = _require_mapping(value.get("topology"), "topology")
+    expected_fields: dict[str, object] = {
+        "cellIndex": cell_index,
+        "rowIndex": row_index,
+        "columnIndex": column_index,
+        "logicalCellKeySha256": logical_cell_key_sha256,
+        "logicalCellKeyV1Sha256": logical_cell_key_sha256,
+        "logicalCellKeyV2Sha256": logical_cell_key_v2_sha256,
+        "coordinateSpace": SOURCE_COORDINATE_SPACE,
+        "pixelChecksumVersion": RGB_PIXEL_CHECKSUM_VERSION,
+        "sourceQuad": source_quad.to_dict(),
+        "paddedSourceQuad": padded_source_quad.to_dict(),
+    }
+    if any(value.get(field) != expected for field, expected in expected_fields.items()):
+        _render_spec_invalid("Virtual render metadata differs from its rendered cell.")
+    if configuration.get("extractorVersion") != extractor_version:
+        _render_spec_invalid("Virtual render configuration pins a different extractor.")
+
+    source_checksum = _require_sha256(value.get("sourceChecksumSha256"), "source checksum")
+    _require_sha256(value.get("normalizedPixelChecksumSha256"), "normalized-pixel checksum")
+    geometry_fingerprint = _require_sha256(
+        value.get("geometryFingerprintSha256"), "geometry fingerprint"
+    )
+    occurrence_id = _require_sha256(
+        value.get("sourceOccurrenceIdSha256"), "source occurrence identity"
+    )
+    topology_fingerprint = _require_sha256(
+        value.get("topologyFingerprintSha256"), "topology fingerprint"
+    )
+    if occurrence.get("contractVersion") != SOURCE_OCCURRENCE_ID_VERSION:
+        _render_spec_invalid("Virtual render source occurrence uses an unsupported contract.")
+    if _sha256_json(occurrence) != occurrence_id:
+        _render_spec_invalid("Virtual render source occurrence differs from its identity.")
+    if topology.get("contractVersion") != BOARD_TOPOLOGY_FINGERPRINT_VERSION:
+        _render_spec_invalid("Virtual render topology uses an unsupported contract.")
+    if topology.get("slotSemanticsVersion") != BOARD_SLOT_SEMANTICS_VERSION:
+        _render_spec_invalid("Virtual render topology uses unsupported slot semantics.")
+    if _sha256_json(topology) != topology_fingerprint:
+        _render_spec_invalid("Virtual render topology differs from its fingerprint.")
+
+    board_slot = _require_integer(value.get("boardSlot"), "board slot")
+    expected_logical_v1 = _sha256_json(
+        {
+            "boardSlot": board_slot,
+            "cellIndex": cell_index,
+            "columnIndex": column_index,
+            "contractVersion": VIRTUAL_CELL_LOGICAL_ID_VERSION,
+            "rowIndex": row_index,
+            "sourceChecksumSha256": source_checksum,
+        }
+    )
+    expected_logical_v2 = _sha256_json(
+        {
+            "boardSlot": board_slot,
+            "cellIndex": cell_index,
+            "columnIndex": column_index,
+            "contractVersion": VIRTUAL_CELL_LOGICAL_ID_V2_VERSION,
+            "rowIndex": row_index,
+            "sourceOccurrenceIdSha256": occurrence_id,
+            "topologyFingerprintSha256": topology_fingerprint,
+        }
+    )
+    if expected_logical_v1 != logical_cell_key_sha256:
+        _render_spec_invalid("Virtual render logical-cell-v1 identity is inconsistent.")
+    if expected_logical_v2 != logical_cell_key_v2_sha256:
+        _render_spec_invalid("Virtual render logical-cell-v2 identity is inconsistent.")
+
+    render_v1 = _sha256_json(
+        {
+            "configuration": dict(configuration),
+            "contractVersion": VIRTUAL_CELL_RENDER_ID_VERSION,
+            "geometryFingerprintSha256": geometry_fingerprint,
+            "logicalCellIdSha256": logical_cell_key_sha256,
+            "sourceQuad": source_quad.to_dict(),
+        }
+    )
+    render_v2 = _sha256_json(
+        {
+            "configuration": dict(configuration),
+            "contractVersion": VIRTUAL_CELL_RENDER_ID_V2_VERSION,
+            "geometryFingerprintSha256": geometry_fingerprint,
+            "logicalCellIdV2Sha256": logical_cell_key_v2_sha256,
+            "sourceQuad": source_quad.to_dict(),
+        }
+    )
+    if (
+        value.get("renderIdentitySha256") != render_v1
+        or value.get("renderIdentityV1Sha256") != render_v1
+    ):
+        _render_spec_invalid("Virtual render render-identity-v1 is inconsistent.")
+    if value.get("renderIdentityV2Sha256") != render_v2:
+        _render_spec_invalid("Virtual render render-identity-v2 is inconsistent.")
+
+
+def _require_mapping(value: object, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
+        _render_spec_invalid(f"Virtual render {label} must be an object.")
+    return cast(Mapping[str, object], value)
+
+
+def _require_sha256(value: object, label: str) -> str:
+    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+        _render_spec_invalid(f"Virtual render {label} must be a SHA-256 digest.")
+    return cast(str, value)
+
+
+def _require_integer(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        _render_spec_invalid(f"Virtual render {label} must be a non-negative integer.")
+    return cast(int, value)
+
+
+def _render_spec_invalid(message: str) -> None:
+    raise VirtualCellExtractionError("IMAGE_VIRTUAL_CELL_RENDER_SPEC_INVALID", message)
 
 
 def _native_bounding_box(

@@ -158,6 +158,19 @@ ręczny source-direct preview/save muszą wyprowadzać wystąpienie z dokładnie
 samej pary identyfikatorów. Checksum JPEG-a pozostaje dowodem integralności i
 deduplikacji treści, a nie tożsamością wystąpienia.
 
+Nowe zapisy po TASK-0327 używają render specu v3. Spec musi jawnie zawierać
+pełny payload occurrence, fingerprintowany snapshot topologii, wersję
+geometrii, checksumę znormalizowanego RGB i wersję polityki checksummy pikseli.
+Logical-cell v1/v2 oraz render identity v1/v2 muszą być możliwe do niezależnego
+przeliczenia z tych pól. Rozbieżność jest błędem fail-closed także wtedy, gdy
+sam zmieniony JSON ma ponownie poprawnie obliczoną checksumę.
+
+`renderSpecChecksumSha256` i `renderedPixelChecksumSha256` są rozłączne:
+pierwsza wiąże przepis i proweniencję, druga dokładne wymiary i bajty RGB.
+Checksuma wyniku nie należy do checksummowanego specu. Konsument najpierw
+waliduje spec oraz źródło, następnie regeneruje piksele i osobno porównuje ich
+checksumę. Historyczne specy pozostają odtwarzalne bez przepisywania.
+
 ### 2.2. Globalna inicjalizacja geometrii 0.10
 
 `structured-opencv-global-initialization-v1` przyjmuje wyłącznie kanoniczny

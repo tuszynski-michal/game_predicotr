@@ -691,6 +691,20 @@ slotu planszy oraz współrzędnych komórki. Fingerprint topologii obejmuje wer
 reguł, wymiary i wersję semantyki slotów. Renderer emituje oba klucze logiczne
 oraz obie wersje render identity w jednym checksumowanym render specu.
 
+TASK-0327 wprowadza addytywny
+`virtual-cell-render-spec-v3-complete-provenance-v1`. Nowy spec przechowuje
+jawny payload occurrence, snapshot fingerprintowanej topologii, wersję i rodzaj
+geometrii, checksumę znormalizowanych pikseli oraz wersję algorytmu checksummy
+RGB. Konstrukcja renderu niezależnie przelicza logical-cell v1/v2 i render
+identity v1/v2; nawet poprawnie ponownie checksumowany, ale wewnętrznie
+niespójny spec jest odrzucany przed przekazaniem pikseli dalej.
+
+Checksum render specu pozostaje tożsamością przepisu, a
+`renderedPixelChecksumSha256` osobnym dowodem dokładnego wyniku RGB. Checksumy
+pikseli nie umieszcza się wewnątrz checksummowanego specu, dzięki czemu nie
+powstaje cykliczna tożsamość. Historyczne specy v1/v2 pozostają czytelne;
+zaostrzona walidacja dotyczy nowych renderów v3 i nie zmienia ich pikseli.
+
 Ścieżka automatyczna pobiera occurrence z kontekstu file execution, a ręczna z
 tego samego rekordu `source_images`. Dzięki temu recrop nie zmienia logical v2,
 zmiana geometrii zmienia wyłącznie render identity v2, a ten sam JPEG użyty w

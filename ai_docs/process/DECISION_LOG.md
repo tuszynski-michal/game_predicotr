@@ -6471,6 +6471,30 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   historii oraz nowy typ joba odrzucono odpowiednio z powodu braku recovery,
   ryzyka fałszywych decyzji i dublowania infrastruktury.
 
+## D-270 — Render spec i checksum pikseli są niezależnymi dowodami
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** nowe renderowanie komórki używa addytywnego render specu v3,
+  który jawnie wiąże occurrence, topologię, geometrię, konfigurację oraz obie
+  generacje logical/render identity. Checksum specu identyfikuje przepis, a
+  checksuma RGB identyfikuje osobno wynik; checksuma pikseli nie jest polem
+  checksummowanego specu.
+- **Context:** spec v2 emitował poprawne identity v1/v2, ale część proweniencji
+  była dostępna wyłącznie pośrednio przez fingerprinty. Preview jednocześnie
+  oczekiwał checksummy pikseli wewnątrz specu, mimo że produkcyjny renderer
+  przechowywał ją obok. Tworzyło to rozbieżne kontrakty konsumentów.
+- **Safety:** v3 nie zmienia algorytmu warpu ani wynikowych pikseli. Historyczne
+  specy v1/v2 pozostają czytelne, a nowa walidacja dotyczy nowych renderów.
+  Nie zmieniono geometrii Structured OpenCV, rolloutu, bazy ani canonical.
+- **Consequences:** tamper occurrence/topologii/identity jest wykrywany nawet
+  po ponownym obliczeniu checksummy JSON. Preview waliduje spec przed renderem,
+  a dokładne piksele po renderze. Ten sam JPEG w dwóch importach zachowuje
+  checksumę pikseli, ale ma różne identity v2.
+- **Alternatives:** umieszczenie checksummy pikseli wewnątrz specu oraz
+  poleganie wyłącznie na zewnętrznych FK odrzucono jako odpowiednio cykliczne i
+  niewystarczające dla samosprawdzalnego replayu.
+
 ## Szablon nowej decyzji
 
 ```text

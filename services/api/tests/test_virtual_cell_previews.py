@@ -72,7 +72,6 @@ def _asset(artifact_root: Path, *, revision: int = 3) -> SymbolCellReviewAsset:
         "schemaVersion": "virtual-cell-render-spec-v1",
         "sourceChecksumSha256": source_checksum,
         "sourceQuad": padded_quad,
-        "renderedPixelChecksumSha256": rendered_checksum,
     }
     source_geometry_revision_id = uuid4()
     return SymbolCellReviewAsset(
@@ -111,6 +110,19 @@ def test_virtual_preview_atlas_is_checksum_bound_and_tiled(tmp_path: Path) -> No
     assert cached.batch.tiles[0].cell_review_id == asset.cell_review_id
     with Image.open(BytesIO(cached.content)) as atlas:
         assert atlas.size == (100, 100)
+
+
+def test_virtual_preview_keeps_render_spec_and_pixel_checksums_independent(tmp_path: Path) -> None:
+    asset = _current_asset(tmp_path)
+
+    assert asset.render_spec is not None
+    assert "renderedPixelChecksumSha256" not in asset.render_spec
+    batch = VirtualCellPreviewService(tmp_path).render_batch(
+        game_id=uuid4(), assets=(asset,), preview_size=100
+    )
+
+    assert batch.tiles[0].cell_review_id == asset.cell_review_id
+    assert len(batch.atlas_checksum_sha256) == 64
 
 
 def test_virtual_preview_rejects_stale_geometry_before_cache_write(tmp_path: Path) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
@@ -32,12 +33,14 @@ from game_predictor_worker.images.board_cell_geometry_crops import (
 )
 from game_predictor_worker.images.normalization import (
     CANONICAL_SOURCE_LOADER_VERSION,
+    RGB_PIXEL_CHECKSUM_VERSION,
     CanonicalSourceFrame,
     CanonicalSourceLoader,
     rgb_pixel_checksum_sha256,
 )
 from game_predictor_worker.images.virtual_cell_extraction import (
     VIRTUAL_CELL_INTERPOLATION_VERSION,
+    VIRTUAL_CELL_RENDER_SPEC_VERSION,
     VIRTUAL_CELL_RENDERER_VERSION,
     CellExtractionVariant,
     VirtualCellExtractionError,
@@ -318,7 +321,72 @@ def test_virtual_renderer_has_exact_v19_pixel_parity_and_one_warp_per_cell(
         assert virtual.render_spec["sourceOccurrenceIdSha256"] == (
             cells[virtual.cell_index].geometry.source_occurrence.identity_sha256
         )
+        assert virtual.render_spec["sourceOccurrence"] == (
+            cells[virtual.cell_index].geometry.source_occurrence.to_dict()
+        )
+        assert virtual.render_spec["normalizedPixelChecksumSha256"] == (
+            frame.source.normalized_pixel_checksum_sha256
+        )
+        assert virtual.render_spec["pixelChecksumVersion"] == RGB_PIXEL_CHECKSUM_VERSION
+        assert virtual.render_spec["schemaVersion"] == VIRTUAL_CELL_RENDER_SPEC_VERSION
+        assert virtual.render_spec["topology"] == {
+            "columns": 5,
+            "contractVersion": "board-topology-fingerprint-v1",
+            "rows": 3,
+            "slotSemanticsVersion": "attested-sequence-row-major-page-3x3-v1",
+            "topologyRulesVersionId": str(RULES_VERSION_ID),
+        }
+        assert "renderedPixelChecksumSha256" not in virtual.render_spec
         assert not virtual.rgb.flags.writeable
+
+
+def test_same_pixels_in_another_import_keep_content_checksum_but_change_v2_identity() -> None:
+    frame, _, cells = _frame_and_geometries()
+    first = VirtualCellRenderer().render(frame, (cells[0],))[0]
+    geometry = cells[0].geometry
+    second_cells = derive_virtual_cells(
+        geometry=VirtualBoardGeometry(
+            source=geometry.source,
+            source_occurrence=SourceOccurrence(
+                import_job_id=UUID("20000000-0000-0000-0000-000000000002"),
+                file_execution_key=geometry.source_occurrence.file_execution_key,
+            ),
+            slot=geometry.slot,
+            topology=geometry.topology,
+            topology_rules_version_id=geometry.topology_rules_version_id,
+            geometry_revision=geometry.geometry_revision,
+            geometry_version=geometry.geometry_version,
+            engine_kind=geometry.engine_kind,
+            symbol_grid_quad=geometry.symbol_grid_quad,
+        ),
+        configuration=cells[0].configuration,
+    )
+    second = VirtualCellRenderer().render(frame, (second_cells[0],))[0]
+
+    assert first.logical_cell_key_sha256 == second.logical_cell_key_sha256
+    assert first.logical_cell_key_v2_sha256 != second.logical_cell_key_v2_sha256
+    assert first.render_identity_v2_sha256 != second.render_identity_v2_sha256
+    assert first.render_spec_checksum_sha256 != second.render_spec_checksum_sha256
+    assert first.rendered_pixel_checksum_sha256 == second.rendered_pixel_checksum_sha256
+    assert np.array_equal(first.rgb, second.rgb)
+
+
+def test_render_contract_rejects_tampered_provenance_even_with_updated_spec_checksum() -> None:
+    frame, _, cells = _frame_and_geometries()
+    rendered = VirtualCellRenderer().render(frame, (cells[0],))[0]
+    tampered = dict(rendered.render_spec)
+    occurrence = dict(cast(dict[str, object], tampered["sourceOccurrence"]))
+    occurrence["importJobId"] = "20000000-0000-0000-0000-000000000099"
+    tampered["sourceOccurrence"] = occurrence
+
+    with pytest.raises(VirtualCellExtractionError) as raised:
+        replace(
+            rendered,
+            render_spec=tampered,
+            render_spec_checksum_sha256=hashlib.sha256(canonical_json_bytes(tampered)).hexdigest(),
+        )
+
+    assert raised.value.code == "IMAGE_VIRTUAL_CELL_RENDER_SPEC_INVALID"
 
 
 def test_a_b_c_comparison_is_in_memory_and_pins_direct_variant() -> None:
@@ -373,6 +441,6 @@ def test_virtual_renderer_rejects_drift_before_first_warp(
 
     monkeypatch.setattr(cv2, "warpPerspective", unexpected_warp)
     with pytest.raises(VirtualCellExtractionError) as raised:
-        VirtualCellRenderer().render(frame, foreign)
+        VirtualCellRenderer().render(frame, cells[:-1] + (foreign[-1],))
 
     assert raised.value.code == "IMAGE_VIRTUAL_CELL_SOURCE_MISMATCH"

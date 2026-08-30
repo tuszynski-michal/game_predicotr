@@ -15,12 +15,14 @@ from pathlib import Path
 from uuid import UUID
 
 import numpy as np
-from game_predictor_worker.images.normalization import (  # type: ignore[import-untyped]
+from game_predictor_worker.images.normalization import (
+    RGB_PIXEL_CHECKSUM_VERSION,
     CanonicalSourceLoader,
     CanonicalSourceLoadError,
     rgb_pixel_checksum_sha256,
 )
-from game_predictor_worker.images.virtual_cell_extraction import (  # type: ignore[import-untyped]
+from game_predictor_worker.images.virtual_cell_extraction import (
+    VIRTUAL_CELL_RENDER_SPEC_VERSION,
     VirtualCellExtractionError,
     source_direct_warp_rgb,
 )
@@ -506,7 +508,6 @@ def _require_virtual_asset_contract(
     checks = {
         "sourceChecksumSha256": asset.source_checksum_sha256,
         "logicalCellKeySha256": asset.logical_cell_key,
-        "renderedPixelChecksumSha256": asset.rendered_pixel_checksum_sha256,
     }
     for field, expected in checks.items():
         if render_spec.get(field) != expected:
@@ -514,6 +515,14 @@ def _require_virtual_asset_contract(
                 "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_DRIFT",
                 "The virtual render specification no longer matches current cell provenance.",
             )
+    if render_spec.get("schemaVersion") == VIRTUAL_CELL_RENDER_SPEC_VERSION and (
+        render_spec.get("normalizedPixelChecksumSha256") != asset.normalized_pixel_checksum_sha256
+        or render_spec.get("pixelChecksumVersion") != RGB_PIXEL_CHECKSUM_VERSION
+    ):
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_DRIFT",
+            "The virtual render specification no longer matches normalized-pixel provenance.",
+        )
     if frame.source.source_checksum_sha256 != asset.source_checksum_sha256:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_DRIFT",

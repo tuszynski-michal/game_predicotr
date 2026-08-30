@@ -3988,3 +3988,17 @@ uzupełniany tylko dla jednoznacznego stanu; sugestia modelu pozostaje
 Append-only eventy, etykiety człowieka, canonical ownership i publiczne read
 pathy pozostają niezmienione. Backfillu ani cutoveru nie uruchomiono na danych
 użytkownika.
+
+TASK-0327 wzmacnia kontrakt source-direct renderera bez zmiany pikseli i
+rolloutu. Nowy `virtual-cell-render-spec-v3-complete-provenance-v1` jawnie
+przechowuje occurrence źródła, snapshot topologii, wersję geometrii,
+normalized-pixel checksum oraz wersję checksummy RGB. Konstruktor renderu
+niezależnie przelicza logical-cell v1/v2 i render identity v1/v2, więc
+wewnętrznie niespójna proweniencja kończy się fail-closed.
+
+Checksum specu i checksum pikseli pozostają rozłączne. Skorygowano preview,
+który wcześniej wymagał checksummy wynikowych pikseli wewnątrz specu, mimo że
+produkcyjny writer zapisywał ją osobno. Dokładna parity z cropperem v19, jeden
+warp na komórkę, walidacja całej partii przed pierwszym warpem oraz brak
+trwałych PNG pozostają zachowane. Nie zmieniono Structured OpenCV, bazy,
+canonical ownership ani trybu rolloutu.

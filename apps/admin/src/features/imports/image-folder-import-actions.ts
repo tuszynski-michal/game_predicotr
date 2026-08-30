@@ -199,8 +199,8 @@ export async function startReadyBrowserImageImport(
   gameId: string,
   manifestChecksumSha256: string,
   preflightChecksumSha256: string,
-  geometryPreflightJobId: string,
-  geometryManifestChecksumSha256: string,
+  geometryPreflightJobId: string | undefined,
+  geometryManifestChecksumSha256: string | undefined,
   boardCellProcessingMode: BoardCellProcessingMode,
   imageEnginePolicyRevision: number,
   symbolModelInferenceFingerprint?: string,
@@ -220,8 +220,12 @@ export async function startReadyBrowserImageImport(
       ...(gridProfileInferenceFingerprint === undefined
         ? {}
         : { gridProfileInferenceFingerprint }),
-      geometryPreflightJobId,
-      geometryManifestChecksumSha256,
+      ...(geometryPreflightJobId === undefined
+        ? {}
+        : { geometryPreflightJobId }),
+      ...(geometryManifestChecksumSha256 === undefined
+        ? {}
+        : { geometryManifestChecksumSha256 }),
       boardCellProcessingMode,
       imageEnginePolicy: boardCellProcessingMode,
       ...(imageEnginePolicyRevision === undefined

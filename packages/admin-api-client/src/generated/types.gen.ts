@@ -708,6 +708,10 @@ export type BrowserImageImportPreflightResponse = {
    */
   gameId: string;
   /**
+   * Geometrypreflightrequired
+   */
+  geometryPreflightRequired: boolean;
+  /**
    * Gridprofileinferencefingerprint
    */
   gridProfileInferenceFingerprint: string;
@@ -777,11 +781,11 @@ export type BrowserImageImportStart = {
   /**
    * Geometrymanifestchecksumsha256
    */
-  geometryManifestChecksumSha256: string;
+  geometryManifestChecksumSha256?: string | null;
   /**
    * Geometrypreflightjobid
    */
-  geometryPreflightJobId: string;
+  geometryPreflightJobId?: string | null;
   /**
    * Gridprofileinferencefingerprint
    */

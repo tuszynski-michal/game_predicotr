@@ -6585,3 +6585,15 @@ Publiczne w lokalnym Adminie są wyłącznie `verified_v19` oraz
 `structured_shadow`. Shadow nie może przejąć wyniku primary ani aktywować
 Geometry v2, klient nie może wymusić innego trybu w starcie importu, a zmiana
 ustawienia nie wpływa na już utworzone joby.
+
+## D-274 — Cold-start structured shadow nie wymaga historycznego profilu geometrii
+
+- Status: accepted
+- Date: 2026-08-30
+
+Historyczny preflight rejestracji stron pozostaje obowiązkowy wyłącznie dla
+`verified_v19`. Nowa gra ustawiona na `structured_shadow` nie ma jeszcze
+zatwierdzonych plansz, z których można zbudować profil, dlatego browser preflight
+jawnie oznacza geometrię jako niewymaganą i start nie przyjmuje legacy manifestu.
+Nie jest to promocja Geometry v2: kandydat strukturalny pozostaje pomiarem
+shadow, a wynik primary zachowuje dotychczasowe zabezpieczenia fail-closed.

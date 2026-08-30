@@ -55,6 +55,9 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Gotowy staging do wznowienia/);
   assert.match(panelSource, /Rozpocznij import z raportu/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
+  assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
+  assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
+  assert.match(panelSource, /Cold-start nowego silnika/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);

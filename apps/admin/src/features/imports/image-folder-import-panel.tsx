@@ -164,18 +164,23 @@ export function ImageFolderImportPanel({
     geometryPreflightJob?.progress.pageGeometryPreflight
       ?.geometryManifestChecksumSha256 ?? null;
   const refreshJobs = useCallback(async () => {
-    const [jobsResult, completenessResult, curatedResult, readyResult, policyResult] =
-      await Promise.all([
-        api.listJobs({
-          gameId,
-          jobType: 'import',
-          limit: 20,
-        }),
-        api.getImageDatasetCompleteness(gameId),
-        api.listCuratedImageImportSources(gameId),
-        listReadyBrowserImageSelections(api),
-        api.getImageImportEnginePolicy(gameId),
-      ]);
+    const [
+      jobsResult,
+      completenessResult,
+      curatedResult,
+      readyResult,
+      policyResult,
+    ] = await Promise.all([
+      api.listJobs({
+        gameId,
+        jobType: 'import',
+        limit: 20,
+      }),
+      api.getImageDatasetCompleteness(gameId),
+      api.listCuratedImageImportSources(gameId),
+      listReadyBrowserImageSelections(api),
+      api.getImageImportEnginePolicy(gameId),
+    ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
     }
@@ -337,16 +342,23 @@ export function ImageFolderImportPanel({
         return;
       }
       setPreflight(preflightResult.data);
-      const geometryResult = await startBrowserPageGeometryPreflight(
-        api,
-        result.uploadId,
-        gameId,
-      );
-      if (!geometryResult.ok) {
-        setError(geometryResult.error);
-        return;
+      if (preflightResult.data.geometryPreflightRequired) {
+        const geometryResult = await startBrowserPageGeometryPreflight(
+          api,
+          result.uploadId,
+          gameId,
+        );
+        if (!geometryResult.ok) {
+          setError(geometryResult.error);
+          return;
+        }
+        setGeometryPreflightJob(geometryResult.data.job);
+      } else {
+        setGeometryPreflightJob(null);
+        setFeedback(
+          'Raport jest gotowy. Nowy silnik rozpocznie bez historycznego profilu siatki i zapisze wyniki w trybie shadow.',
+        );
       }
-      setGeometryPreflightJob(geometryResult.data.job);
       const readyResult = await listReadyBrowserImageSelections(api);
       if (readyResult.ok) {
         setReadySelections(
@@ -380,21 +392,28 @@ export function ImageFolderImportPanel({
       }
       setReadyUploadId(uploadId);
       setPreflight(result.data);
-      const geometryResult = await startBrowserPageGeometryPreflight(
-        api,
-        uploadId,
-        gameId,
-      );
-      if (!geometryResult.ok) {
-        setError(geometryResult.error);
-        return;
+      if (result.data.geometryPreflightRequired) {
+        const geometryResult = await startBrowserPageGeometryPreflight(
+          api,
+          uploadId,
+          gameId,
+        );
+        if (!geometryResult.ok) {
+          setError(geometryResult.error);
+          return;
+        }
+        setGeometryPreflightJob(geometryResult.data.job);
+        setFeedback(
+          geometryResult.data.created
+            ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
+            : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.',
+        );
+      } else {
+        setGeometryPreflightJob(null);
+        setFeedback(
+          'Raport jest gotowy. Nowy silnik rozpocznie bez historycznego profilu siatki i zapisze wyniki w trybie shadow.',
+        );
       }
-      setGeometryPreflightJob(geometryResult.data.job);
-      setFeedback(
-        geometryResult.data.created
-          ? 'Raport jest gotowy. Automatyczne przygotowanie geometrii oczekuje na worker.'
-          : 'Raport jest gotowy. Przywrócono istniejący preflight geometrii.',
-      );
     } catch {
       setError('Nie udało się przygotować raportu przed importem plansz.');
     } finally {
@@ -407,8 +426,9 @@ export function ImageFolderImportPanel({
       busy ||
       readyUploadId === null ||
       preflight === null ||
-      geometryPreflightJob?.status !== 'completed' ||
-      geometryManifestChecksum === null
+      (preflight.geometryPreflightRequired &&
+        (geometryPreflightJob?.status !== 'completed' ||
+          geometryManifestChecksum === null))
     ) {
       return;
     }
@@ -422,8 +442,8 @@ export function ImageFolderImportPanel({
         gameId,
         preflight.manifestChecksumSha256,
         preflight.preflightChecksumSha256,
-        geometryPreflightJob.id,
-        geometryManifestChecksum,
+        geometryPreflightJob?.id,
+        geometryManifestChecksum ?? undefined,
         boardCellProcessingMode,
         preflight.imageEnginePolicyRevision,
         preflight.symbolModelInferenceFingerprint,
@@ -469,7 +489,8 @@ export function ImageFolderImportPanel({
   async function changeEnginePolicy(
     targetPolicy: 'verified_v19' | 'structured_shadow',
   ) {
-    if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy) return;
+    if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy)
+      return;
     setActiveAction('engine-policy');
     setError('');
     try {
@@ -477,7 +498,12 @@ export function ImageFolderImportPanel({
         targetPolicy,
       });
       if (preview.error !== undefined || preview.data === undefined) {
-        setError(apiErrorMessage(preview.error, 'Nie udało się przygotować zmiany silnika.'));
+        setError(
+          apiErrorMessage(
+            preview.error,
+            'Nie udało się przygotować zmiany silnika.',
+          ),
+        );
         return;
       }
       const result = await api.updateImageImportEnginePolicy(gameId, {
@@ -486,13 +512,17 @@ export function ImageFolderImportPanel({
         previewToken: preview.data.previewToken,
       });
       if (result.error !== undefined || result.data === undefined) {
-        setError(apiErrorMessage(result.error, 'Nie udało się zapisać silnika gry.'));
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się zapisać silnika gry.'),
+        );
         return;
       }
       setEnginePolicy(result.data);
       setPreflight(null);
       setGeometryPreflightJob(null);
-      setFeedback('Ustawienie zapisano. Przygotuj nowy raport przed kolejnym importem.');
+      setFeedback(
+        'Ustawienie zapisano. Przygotuj nowy raport przed kolejnym importem.',
+      );
     } catch {
       setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
@@ -501,7 +531,14 @@ export function ImageFolderImportPanel({
   }
 
   async function startGeometryPreflight() {
-    if (busy || readyUploadId === null || preflight === null) return;
+    if (
+      busy ||
+      readyUploadId === null ||
+      preflight === null ||
+      !preflight.geometryPreflightRequired
+    ) {
+      return;
+    }
     setActiveAction('geometry-preflight');
     setError('');
     setFeedback('Tworzę job preflightu pełnej geometrii 3×3…');
@@ -969,52 +1006,61 @@ export function ImageFolderImportPanel({
                   ) : null}
                   {active && preflight !== null ? (
                     <>
-                      <div className="importActionButtons">
-                        <button
-                          aria-busy={activeAction === 'geometry-preflight'}
-                          className="secondaryButton"
-                          disabled={busy}
-                          onClick={() => void startGeometryPreflight()}
-                          type="button"
-                        >
-                          {activeAction === 'geometry-preflight'
-                            ? 'Tworzenie preflightu…'
-                            : geometryPreflightJob === null
-                              ? 'Przygotuj geometrię stron'
-                              : 'Odśwież preflight geometrii'}
-                        </button>
-                        {geometryPreflightJob !== null ? (
-                          <span className="curatedImportStatus">
-                            Geometria: {geometryPreflightJob.status} ·{' '}
-                            {geometryPreflightJob.progress.current}/
-                            {geometryPreflightJob.progress.total ?? '—'} ·
-                            poprawne {geometryPreflightJob.progress.succeeded} ·
-                            odroczone {geometryPreflightJob.progress.review}
-                          </span>
-                        ) : null}
-                        {geometryPreflightJob?.status === 'completed' &&
-                        geometryPreflightJob.progress.review > 0 ? (
-                          <details>
-                            <summary>
-                              Ręczna korekta geometrii — zostaw na koniec (
-                              {geometryPreflightJob.progress.review})
-                            </summary>
-                            <p className="curatedImportStatus">
-                              Rozpoznane strony można już importować. Te pozycje
-                              pozostają bezpiecznie odroczone i nie trafią do
-                              cięcia ani rozpoznawania symboli.
-                            </p>
-                            <PageGeometryCorrectionPanel
-                              api={api}
-                              apiBaseUrl={apiBaseUrl}
-                              gameId={gameId}
-                              onSaved={rerunGeometryPreflightAfterCorrection}
-                              preflightJobId={geometryPreflightJob.id}
-                              uploadId={ready.uploadId}
-                            />
-                          </details>
-                        ) : null}
-                      </div>
+                      {preflight.geometryPreflightRequired ? (
+                        <div className="importActionButtons">
+                          <button
+                            aria-busy={activeAction === 'geometry-preflight'}
+                            className="secondaryButton"
+                            disabled={busy}
+                            onClick={() => void startGeometryPreflight()}
+                            type="button"
+                          >
+                            {activeAction === 'geometry-preflight'
+                              ? 'Tworzenie preflightu…'
+                              : geometryPreflightJob === null
+                                ? 'Przygotuj geometrię stron'
+                                : 'Odśwież preflight geometrii'}
+                          </button>
+                          {geometryPreflightJob !== null ? (
+                            <span className="curatedImportStatus">
+                              Geometria: {geometryPreflightJob.status} ·{' '}
+                              {geometryPreflightJob.progress.current}/
+                              {geometryPreflightJob.progress.total ?? '—'} ·
+                              poprawne {geometryPreflightJob.progress.succeeded}{' '}
+                              · odroczone {geometryPreflightJob.progress.review}
+                            </span>
+                          ) : null}
+                          {geometryPreflightJob?.status === 'completed' &&
+                          geometryPreflightJob.progress.review > 0 ? (
+                            <details>
+                              <summary>
+                                Ręczna korekta geometrii — zostaw na koniec (
+                                {geometryPreflightJob.progress.review})
+                              </summary>
+                              <p className="curatedImportStatus">
+                                Rozpoznane strony można już importować. Te
+                                pozycje pozostają bezpiecznie odroczone i nie
+                                trafią do cięcia ani rozpoznawania symboli.
+                              </p>
+                              <PageGeometryCorrectionPanel
+                                api={api}
+                                apiBaseUrl={apiBaseUrl}
+                                gameId={gameId}
+                                onSaved={rerunGeometryPreflightAfterCorrection}
+                                preflightJobId={geometryPreflightJob.id}
+                                uploadId={ready.uploadId}
+                              />
+                            </details>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="curatedImportStatus">
+                          Cold-start nowego silnika: historyczny profil siatki
+                          nie jest wymagany. Wynik strukturalny zostanie
+                          zapisany w cieniu i nie zastąpi automatycznie
+                          stabilnej geometrii.
+                        </p>
+                      )}
                       <BoardCellProcessingModePicker
                         disabled={busy || enginePolicy === null}
                         mode={boardCellProcessingMode}
@@ -1042,6 +1088,7 @@ export function ImageFolderImportPanel({
                 (readyUploadId !== null ||
                   selection?.selectionToken == null)) ||
               (preflight !== null &&
+                preflight.geometryPreflightRequired &&
                 (geometryPreflightJob?.status !== 'completed' ||
                   geometryManifestChecksum === null))
             }

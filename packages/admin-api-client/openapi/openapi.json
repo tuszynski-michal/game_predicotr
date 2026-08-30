@@ -1280,6 +1280,10 @@
             "title": "Gameid",
             "type": "string"
           },
+          "geometryPreflightRequired": {
+            "title": "Geometrypreflightrequired",
+            "type": "boolean"
+          },
           "gridProfileInferenceFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Gridprofileinferencefingerprint",
@@ -1375,7 +1379,8 @@
           "symbolModelInferenceFingerprint",
           "gridProfileInferenceFingerprint",
           "imageEnginePolicy",
-          "imageEnginePolicyRevision"
+          "imageEnginePolicyRevision",
+          "geometryPreflightRequired"
         ],
         "title": "BrowserImageImportPreflightResponse",
         "type": "object"
@@ -1404,14 +1409,28 @@
             "type": "string"
           },
           "geometryManifestChecksumSha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Geometrymanifestchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrymanifestchecksumsha256"
           },
           "geometryPreflightJobId": {
-            "format": "uuid",
-            "title": "Geometrypreflightjobid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrypreflightjobid"
           },
           "gridProfileInferenceFingerprint": {
             "anyOf": [
@@ -1482,9 +1501,7 @@
         "required": [
           "gameId",
           "manifestChecksumSha256",
-          "preflightChecksumSha256",
-          "geometryPreflightJobId",
-          "geometryManifestChecksumSha256"
+          "preflightChecksumSha256"
         ],
         "title": "BrowserImageImportStart",
         "type": "object"

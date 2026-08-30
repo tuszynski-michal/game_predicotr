@@ -780,3 +780,9 @@ Panel importu pokazuje ustawienie przypisane do wybranej gry. Operator może
 wybrać stabilny `v20 — geometria i cropy v19` albo pomiarowy silnik 0.10 w
 trybie shadow. Zapis korzysta z rewizjonowanego preview, nie zmienia istniejących
 jobów i czyści nieaktualny raport importu.
+
+Dla `verified_v19` Admin automatycznie przygotowuje i pokazuje historyczny
+preflight geometrii przed odblokowaniem startu. Dla `structured_shadow` raport
+oznacza ten etap jako niewymagany, nie wywołuje endpointu zależnego od profilu
+z zatwierdzonych plansz i pokazuje jawny komunikat cold-start. Dzięki temu
+pierwszy import nowej gry nie wymaga danych, które dopiero ma wytworzyć.

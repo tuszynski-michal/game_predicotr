@@ -1617,3 +1617,10 @@ projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19 ora
 `structured_shadow/virtual_shadow`. Tryby default/review nie są wybieralne w
 Adminie. Polityka i jej rewizja wchodzą do checksummy preflightu i snapshotu
 joba; zmiana nie mutuje istniejących jobów.
+
+Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.
+Stabilny `verified_v19` nadal konsumuje niezmienny manifest historycznej
+rejestracji stron. `structured_shadow` rozpoczyna się bez tego manifestu:
+strukturalny kandydat jest zapisywany wyłącznie jako pomiar shadow, a legacy
+primary pozostaje fail-closed. Serwer odrzuca próbę dołączenia legacy manifestu
+do cold-startu shadow, aby nie mieszać dwóch ścieżek proweniencji.

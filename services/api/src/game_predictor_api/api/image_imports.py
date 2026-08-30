@@ -263,6 +263,9 @@ def create_image_imports_router(
         engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         payload["imageEnginePolicy"] = engine_policy.policy.value
         payload["imageEnginePolicyRevision"] = engine_policy.revision
+        payload["geometryPreflightRequired"] = (
+            engine_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
+        )
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
                 "ascii"
@@ -485,13 +488,24 @@ def create_image_imports_router(
             (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
         ):
             rerun = True
-        geometry_manifest = _geometry_manifest_descriptor(
-            job_service=job_service,
-            game_id=payload.game_id,
-            upload_id=upload_id,
-            preflight_job_id=payload.geometry_preflight_job_id,
-            expected_checksum=payload.geometry_manifest_checksum_sha256,
-        )
+        if preflight.geometry_preflight_required:
+            geometry_manifest = _geometry_manifest_descriptor(
+                job_service=job_service,
+                game_id=payload.game_id,
+                upload_id=upload_id,
+                preflight_job_id=payload.geometry_preflight_job_id,
+                expected_checksum=payload.geometry_manifest_checksum_sha256,
+            )
+        else:
+            if (
+                payload.geometry_preflight_job_id is not None
+                or payload.geometry_manifest_checksum_sha256 is not None
+            ):
+                raise JobConflictError(
+                    "IMAGE_ENGINE_POLICY_GEOMETRY_PREFLIGHT_CONFLICT",
+                    "Structured shadow cold-start must not reuse a legacy geometry manifest.",
+                )
+            geometry_manifest = None
         if rerun:
             canonical_numbers = (
                 sorted(

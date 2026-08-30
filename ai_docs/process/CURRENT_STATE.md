@@ -4049,3 +4049,13 @@ Dodano trwałą politykę nowych importów osobno dla każdej gry. Stabilny pres
 v20/v19 pozostaje dostępny dla gry historycznej, a nowa gra może używać
 strukturalnej geometrii wyłącznie w trybie shadow. Polityka jest chroniona
 preview tokenem i rewizją oraz unieważnia preflight po zmianie.
+
+### TASK-0332 — cold-start structured shadow
+
+Usunięto cykliczną zależność pierwszego importu nowej gry od profilu geometrii
+budowanego z wcześniej zatwierdzonych plansz. Browser preflight zwraca teraz
+`geometryPreflightRequired`: stabilny `verified_v19` nadal wymaga zakończonego,
+checksum-bound preflightu geometrii, natomiast `structured_shadow` pomija ten
+etap i nie przyjmuje legacy manifestu. Admin pokazuje jawny stan cold-start i
+odblokowuje start raportu bez tworzenia joba kończącego się
+`IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY`.

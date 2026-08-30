@@ -20,7 +20,7 @@ from game_predictor_api.application.image_imports import (
     WindowsFolderPicker,
 )
 from game_predictor_api.application.image_selections import ImageSelectionService
-from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.jobs import ImageGeometryRolloutJobReference, JobService
 from game_predictor_api.application.remote_manual_selection_host import (
     RemoteManualSelectionHostService,
 )
@@ -414,6 +414,18 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         assert report["reusedSequenceCount"] == 9
         assert report["skippedSourceCount"] == 1
         assert report["firstUnresolvedSequence"] == 10
+        assert report["geometryPreflightRequired"] is True
+
+        missing_geometry = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": report["preflightChecksumSha256"],
+            },
+        )
+        assert missing_geometry.status_code == 409
+        assert missing_geometry.json()["code"] == "IMAGE_PAGE_GEOMETRY_PREFLIGHT_REQUIRED"
 
         geometry_checksum = "d" * 64
         geometry_job = create_job(
@@ -515,6 +527,113 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         ]
         == "board-cell-processing-v20-verified-v19-v1"
     )
+
+
+def test_structured_shadow_browser_import_cold_start_skips_legacy_geometry_preflight(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+        geometry_mode="structured_shadow",
+        cell_asset_mode="virtual_shadow",
+        revision=1,
+    )
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=10 * 1024 * 1024,
+        clock=lambda: NOW,
+    )
+    canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
+    job_service = JobService(repository)
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(stream, "JPEG")
+    image_bytes = stream.getvalue()
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: job_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+            image_sequence_canonical_service_dependency=lambda: canonical_service,
+        )
+    )
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "10-18",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(image_bytes),
+                "gameId": str(game_id),
+            },
+        )
+        upload_id = created.json()["uploadId"]
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/0",
+            content=image_bytes,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "10-18/seq_10-18.jpg",
+            },
+        )
+        assert uploaded.status_code == 200
+        assert (
+            client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+            ).status_code
+            == 200
+        )
+
+        preflight = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/preflight",
+            json={"gameId": str(game_id)},
+        )
+        assert preflight.status_code == 200
+        report = preflight.json()
+        assert report["imageEnginePolicy"] == "structured_shadow"
+        assert report["imageEnginePolicyRevision"] == 1
+        assert report["geometryPreflightRequired"] is False
+
+        started = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": report["preflightChecksumSha256"],
+                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicyRevision": 1,
+                "boardCellProcessingMode": "structured_shadow",
+            },
+        )
+        conflicting = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+            json={
+                "gameId": str(game_id),
+                "manifestChecksumSha256": report["manifestChecksumSha256"],
+                "preflightChecksumSha256": report["preflightChecksumSha256"],
+                "geometryPreflightJobId": str(uuid4()),
+                "geometryManifestChecksumSha256": "d" * 64,
+                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicyRevision": 1,
+                "boardCellProcessingMode": "structured_shadow",
+            },
+        )
+
+    assert started.status_code == 201, started.text
+    payload = started.json()["job"]["inputPayload"]
+    assert payload["imageGeometryRollout"]["geometryMode"] == "structured_shadow"
+    assert payload["pageGeometryManifest"] is None
+    assert conflicting.status_code == 409
+    assert conflicting.json()["code"] == "IMAGE_ENGINE_POLICY_GEOMETRY_PREFLIGHT_CONFLICT"
 
 
 def test_geometry_manifest_descriptor_allows_review_listing_without_checksum() -> None:

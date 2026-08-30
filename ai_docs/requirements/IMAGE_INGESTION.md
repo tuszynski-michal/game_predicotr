@@ -301,6 +301,23 @@ znanym układzie i regularności, ale nie zezwala na rollout ani zmianę progów
 produkcyjnych. Pełny raport i ograniczenia korpusu opisuje
 `ai_docs/quality/STRUCTURED_GEOMETRY_FEASIBILITY_SPIKE_V1.md`.
 
+Konfiguracja kandydata
+`structured-opencv-geometry-config-v2-multi-evidence-experimental-v1` jest
+wyłącznie kontraktem kolejnego read-only pomiaru. Dobiera skalę analizy
+adaptacyjnie, zachowując minimalny rozmiar lokalnego ROI, a tolerancję
+reprojekcji wyraża jako ułamek przekątnej komórki. Ramka zewnętrzna, znany
+układ, regularność, LSD, Hough, profile gradientów i centra symboli pozostają
+osobnymi, checksummowanymi sygnałami. Brak LSD nie jest samodzielnym veto przy
+mocnej ramce, znanym układzie i regularności; samo LSD również nie może
+utworzyć automatycznego wyniku. Homografia, source support, alignment,
+row-major i brak overlapu pozostają twardymi bramkami.
+
+Wartości v2 mają status `experimental_measurement_only`, wymagają rozłącznych
+źródeł strojenia i oceny oraz mają `activationAllowed=false`. Opcjonalny profil
+gry jest częścią checksummy konfiguracji. TASK-0328 nie podłącza v2 do
+pipeline'u, nie zmienia historycznego v1 i nie zezwala na rollout; wymaga tego
+osobna integracja po rozszerzeniu korpusu zgodnie z D-266.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

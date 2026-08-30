@@ -845,6 +845,20 @@ kandydat osiąga wysoki prowizoryczny wynik geometryczny. TASK-0323 nie zmienia
 bramek 95/98 ani hard gates; jego wyniki mogą jedynie uzasadnić następny,
 szerszy read-only corpus.
 
+TASK-0328 dodaje izolowany kontrakt konfiguracji v2, ale nie nowy produkcyjny
+silnik. Kontrakt rozdziela adaptacyjną skalę analizy, znormalizowaną tolerancję
+reprojekcji, wagi sygnałów, progi oraz opcjonalne profile gry. Jego czysty
+evaluator stosuje triangulację niezależnych rodzin dowodu: mocna ramka, znany
+układ i regularność mogą skompensować słaby sygnał linii, natomiast LSD bez
+dwóch niezależnych rodzin nie może dać automatycznego kandydata. Niezmienne
+bramki bezpieczeństwa geometrii są sprawdzane przed confidence.
+
+Payload i profil gry są deterministycznie checksummowane. Config v2 ma zawsze
+`experimental_measurement_only`, `activationAllowed=false` i wymaga
+rozłącznych source families dla strojenia oraz ewaluacji. Produkcyjny engine,
+fingerprinty v1, snapshoty jobów i tryb rolloutu nie importują tego kontraktu;
+podłączenie do shadow pozostaje osobnym zadaniem zależnym od D-266.
+
 TASK-0324 zamyka własność schematu geometrii wirtualnej. Kanoniczny payload
 quadów należy do niezmiennego `image_source_geometry_revisions`, natomiast
 `recognized_boards.source_geometry_revision_id + position_index` wybiera

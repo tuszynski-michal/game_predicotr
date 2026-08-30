@@ -6495,6 +6495,32 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   poleganie wyłącznie na zewnętrznych FK odrzucono jako odpowiednio cykliczne i
   niewystarczające dla samosprawdzalnego replayu.
 
+## D-271 — Geometry config v2 pozostaje kandydatem wieloźródłowym bez aktywacji
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** konfiguracja Structured Geometry v2 jest addytywnym,
+  checksummowanym kontraktem `experimental_measurement_only`. Używa
+  adaptacyjnej skali, tolerancji reprojekcji względem przekątnej komórki i
+  triangulacji ramki zewnętrznej, znanego układu, regularności oraz sygnałów
+  linii. LSD jest dowodem pomocniczym: nie jest wyłącznym veto ani samodzielną
+  podstawą automatycznego wyniku.
+- **Context:** TASK-0323 pokazał dobry sygnał projekcji znanego układu i
+  lokalnego doprecyzowania, lecz wszystkie bieżące hard gates odrzucały wynik
+  głównie przez niepełne linie wewnętrzne. Korpus nie obejmuje drugiej gry,
+  stron częściowych, blur ani wymaganych false-success, więc nie pozwala
+  stroić produkcyjnych progów.
+- **Safety:** `activationAllowed=false`, profile gry należą do checksummy, a
+  tuning i evaluation muszą być rozłączne po źródłach. Homografia, source
+  support, alignment, row-major i overlap pozostają twardymi bramkami. TASK-0328
+  nie integruje v2 z pipeline'em, jobami ani stanem rolloutu.
+- **Consequences:** następny pion może porównać v2 w shadow/read-only dopiero po
+  rozszerzeniu korpusu zgodnie z D-266. Produkcyjne progi, zachowanie i
+  fingerprinty v1 pozostają niezmienione oraz odtwarzalne.
+- **Alternatives:** poluzowanie samych progów LSD, aktywacja na jednej grze,
+  stały downscale 50% i pikselowy próg reprojekcji odrzucono jako
+  niereprezentatywne albo zależne od rozdzielczości.
+
 ## Szablon nowej decyzji
 
 ```text

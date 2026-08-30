@@ -4002,3 +4002,18 @@ produkcyjny writer zapisywał ją osobno. Dokładna parity z cropperem v19, jede
 warp na komórkę, walidacja całej partii przed pierwszym warpem oraz brak
 trwałych PNG pozostają zachowane. Nie zmieniono Structured OpenCV, bazy,
 canonical ownership ani trybu rolloutu.
+
+TASK-0328 dodaje wyłącznie eksperymentalny
+`structured-opencv-geometry-config-v2-multi-evidence-experimental-v1`.
+Konfiguracja jest deterministycznie checksummowana, dobiera skalę adaptacyjnie,
+wyraża reprojekcję względem przekątnej komórki i dopuszcza jawne profile gry.
+LSD nie jest wyłączną bramką: mocna ramka, znany układ i regularność mogą
+utworzyć kandydata bez LSD, ale samo LSD bez niezależnych rodzin dowodu kończy
+się fail-closed. Homografia, source support, alignment, kolejność i overlap
+pozostają twardymi invariantami.
+
+V2 ma zawsze `experimental_measurement_only`, `activationAllowed=false` i
+wymaga rozłącznych źródeł strojenia oraz ewaluacji. Nie podłączono jej do
+produkcyjnego engine'u, pipeline'u, jobów ani rolloutu; v1 i jego fingerprinty
+pozostają bez zmian. Rozszerzony read-only corpus wymagany przez D-266 nadal
+nie jest kompletny.

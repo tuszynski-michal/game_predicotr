@@ -28,6 +28,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     DirectCellRenderConfiguration,
     GeometryEngineKind,
+    SourceOccurrence,
     SourcePoint,
     SourceQuad,
     VirtualBoardGeometry,
@@ -1155,6 +1156,7 @@ class ProductionImageStageAdapterSuite:
                             "cropChecksumSha256": render.rendered_pixel_checksum_sha256,
                             "extractorVersion": render.extractor_version,
                             "logicalCellKeySha256": render.logical_cell_key_sha256,
+                            "logicalCellKeyV2Sha256": render.logical_cell_key_v2_sha256,
                             "renderSpec": render.render_spec,
                             "renderSpecChecksumSha256": render.render_spec_checksum_sha256,
                             "renderedPixelChecksumSha256": (render.rendered_pixel_checksum_sha256),
@@ -1252,6 +1254,10 @@ class ProductionImageStageAdapterSuite:
             final_quad = _source_quad(board.get("finalQuad"))
             virtual_geometry = VirtualBoardGeometry(
                 source=frame.source,
+                source_occurrence=SourceOccurrence(
+                    import_job_id=context.job_id,
+                    file_execution_key=context.file_execution_key,
+                ),
                 slot=range_value.active_slots[position],
                 topology=topology,
                 topology_rules_version_id=UUID(topology_rules_version),

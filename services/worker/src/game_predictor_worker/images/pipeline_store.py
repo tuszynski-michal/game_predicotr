@@ -1515,6 +1515,20 @@ def _append_prediction_revision(
                         "logicalCellKeySha256": cast(Mapping[str, object], crop_value)[
                             "logicalCellKeySha256"
                         ],
+                        **(
+                            {
+                                "logicalCellKeyV2Sha256": cast(Mapping[str, object], crop_value)[
+                                    "logicalCellKeyV2Sha256"
+                                ]
+                            }
+                            if isinstance(
+                                cast(Mapping[str, object], crop_value).get(
+                                    "logicalCellKeyV2Sha256"
+                                ),
+                                str,
+                            )
+                            else {}
+                        ),
                         "renderSpec": cast(Mapping[str, object], crop_value)["renderSpec"],
                         "renderSpecChecksumSha256": cast(Mapping[str, object], crop_value)[
                             "renderSpecChecksumSha256"

@@ -22,7 +22,7 @@ from numpy.typing import NDArray
 from .normalization import CanonicalSourceFrame, rgb_pixel_checksum_sha256
 from .pipeline_contract import VIRTUAL_CELL_RENDERER_VERSION
 
-VIRTUAL_CELL_RENDER_SPEC_VERSION = "virtual-cell-render-spec-v1"
+VIRTUAL_CELL_RENDER_SPEC_VERSION = "virtual-cell-render-spec-v2-dual-logical-identity-v1"
 VIRTUAL_CELL_INTERPOLATION_VERSION = "opencv-inter-linear-v1"
 VIRTUAL_CELL_BORDER_POLICY_VERSION = "full-source-support-no-synthesis-v1"
 MAX_VIRTUAL_CELLS_PER_BATCH = 135
@@ -51,6 +51,7 @@ class VirtualCellRender:
     row_index: int
     column_index: int
     logical_cell_key_sha256: str
+    logical_cell_key_v2_sha256: str
     render_spec: dict[str, object]
     render_spec_checksum_sha256: str
     rendered_pixel_checksum_sha256: str
@@ -199,6 +200,7 @@ class VirtualCellRenderer:
             row_index=cell.row_index,
             column_index=cell.column_index,
             logical_cell_key_sha256=cell.logical_id_sha256,
+            logical_cell_key_v2_sha256=cell.logical_id_v2_sha256,
             render_spec=render_spec,
             render_spec_checksum_sha256=_sha256_json(render_spec),
             rendered_pixel_checksum_sha256=rgb_pixel_checksum_sha256(rgb),
@@ -362,11 +364,17 @@ def _render_spec(cell: VirtualCell, *, padded_source_quad: SourceQuad) -> dict[s
         "geometryFingerprintSha256": cell.geometry.geometry_fingerprint_sha256,
         "geometryRevision": cell.geometry.geometry_revision,
         "logicalCellKeySha256": cell.logical_id_sha256,
+        "logicalCellKeyV1Sha256": cell.logical_id_v1_sha256,
+        "logicalCellKeyV2Sha256": cell.logical_id_v2_sha256,
         "paddedSourceQuad": padded_source_quad.to_dict(),
         "renderIdentitySha256": cell.render_id_sha256,
+        "renderIdentityV1Sha256": cell.render_id_v1_sha256,
+        "renderIdentityV2Sha256": cell.render_id_v2_sha256,
         "rowIndex": cell.row_index,
         "schemaVersion": VIRTUAL_CELL_RENDER_SPEC_VERSION,
         "sourceChecksumSha256": cell.geometry.source.source_checksum_sha256,
+        "sourceOccurrenceIdSha256": cell.geometry.source_occurrence.identity_sha256,
+        "topologyFingerprintSha256": cell.geometry.topology_fingerprint_sha256,
         "sourceQuad": cell.source_quad.to_dict(),
     }
 

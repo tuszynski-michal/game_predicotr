@@ -13,7 +13,10 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometryService,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
-from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
+from game_predictor_api.domain.image_geometry_v2 import (
+    DirectCellRenderConfiguration,
+    SourceOccurrence,
+)
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_worker.images.normalization import CanonicalSourceLoader
 from game_predictor_worker.images.virtual_cell_extraction import (
@@ -89,6 +92,7 @@ def _fixture(tmp_path: Path) -> tuple[VirtualGridGeometryService, VirtualGridGeo
         review_item_id=uuid4(),
         recognized_board_id=uuid4(),
         source_image_id=uuid4(),
+        file_execution_key="f" * 64,
         position_index=0,
         sequence_number=1,
         source_relative_path="originals/source.jpg",
@@ -154,6 +158,15 @@ def test_virtual_preview_renders_all_cells_without_persisting_png(tmp_path: Path
     assert preview.contact_sheet_png.startswith(b"\x89PNG")
     assert len(preview.cells) == 15
     assert [cell.cell_index for cell in preview.cells] == list(range(15))
+    occurrence = SourceOccurrence(
+        import_job_id=context.import_job_id,
+        file_execution_key=context.file_execution_key,
+    )
+    assert all(cell.logical_cell_key_v2 is not None for cell in preview.cells)
+    assert all(
+        cell.render_spec["sourceOccurrenceIdSha256"] == occurrence.identity_sha256
+        for cell in preview.cells
+    )
     assert tuple(path for path in tmp_path.rglob("*") if path.is_file()) == files_before
 
 

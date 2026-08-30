@@ -23,6 +23,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     GeometryEngineKind,
     ImageGeometryContractError,
     NormalizedSourceImage,
+    SourceOccurrence,
     SourcePoint,
     SourceQuad,
     VirtualBoardGeometry,
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
     )
 
 VIRTUAL_MANUAL_GEOMETRY_VERSION = "manual-source-geometry-v1"
-VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION = "virtual-board-render-manifest-v1"
+VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION = "virtual-board-render-manifest-v2-dual-identity-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +56,7 @@ class VirtualGridGeometryContext:
     review_item_id: UUID
     recognized_board_id: UUID
     source_image_id: UUID
+    file_execution_key: str
     position_index: int
     sequence_number: int
     source_relative_path: str
@@ -101,6 +103,7 @@ class VirtualGridGeometryCell:
     crop_sample_id: str
     crop_checksum_sha256: str
     logical_cell_key: str
+    logical_cell_key_v2: str | None
     render_spec: Mapping[str, object]
     render_spec_checksum_sha256: str
     rendered_pixel_checksum_sha256: str
@@ -317,6 +320,10 @@ class VirtualGridGeometryService:
             )
             geometry = VirtualBoardGeometry(
                 source=frame.source,
+                source_occurrence=SourceOccurrence(
+                    import_job_id=context.import_job_id,
+                    file_execution_key=context.file_execution_key,
+                ),
                 slot=ActiveBoardSlot(
                     range_start=context.sequence_range_start,
                     range_end=context.sequence_range_end,
@@ -371,6 +378,7 @@ class VirtualGridGeometryService:
                     "cellIndex": cell.cell_index,
                     "cropSampleId": cell.crop_sample_id,
                     "logicalCellKeySha256": cell.logical_cell_key,
+                    "logicalCellKeyV2Sha256": cell.logical_cell_key_v2,
                     "renderSpec": dict(cell.render_spec),
                     "renderSpecChecksumSha256": cell.render_spec_checksum_sha256,
                     "renderedPixelChecksumSha256": cell.rendered_pixel_checksum_sha256,
@@ -518,6 +526,7 @@ def _cell_from_render(board_id: UUID, render: VirtualCellRender) -> VirtualGridG
         crop_sample_id=sample_id,
         crop_checksum_sha256=render.rendered_pixel_checksum_sha256,
         logical_cell_key=render.logical_cell_key_sha256,
+        logical_cell_key_v2=render.logical_cell_key_v2_sha256,
         render_spec=render.render_spec,
         render_spec_checksum_sha256=render.render_spec_checksum_sha256,
         rendered_pixel_checksum_sha256=render.rendered_pixel_checksum_sha256,

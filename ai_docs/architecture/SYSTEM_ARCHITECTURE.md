@@ -683,6 +683,20 @@ niezależne tożsamości: checksumę kanonicznego render specu oraz checksumę
 wynikowych pikseli RGB. Cała partia jest walidowana przed pierwszym warpem, więc
 błędna ostatnia komórka nie może pozostawić częściowego wyniku.
 
+TASK-0321 rozdziela tożsamość treści od tożsamości wystąpienia. Historyczny
+`logical-cell-v1` pozostaje content-based i nie zmienia swoich bajtów.
+`logical-cell-v2` korzysta z `source-occurrence-id-v1` wyliczanego z
+`importJobId + fileExecutionKey`, fingerprintu topologii przypiętej do gry,
+slotu planszy oraz współrzędnych komórki. Fingerprint topologii obejmuje wersję
+reguł, wymiary i wersję semantyki slotów. Renderer emituje oba klucze logiczne
+oraz obie wersje render identity w jednym checksumowanym render specu.
+
+Ścieżka automatyczna pobiera occurrence z kontekstu file execution, a ręczna z
+tego samego rekordu `source_images`. Dzięki temu recrop nie zmienia logical v2,
+zmiana geometrii zmienia wyłącznie render identity v2, a ten sam JPEG użyty w
+innym imporcie tworzy inną komórkę domenową. TASK-0321 nie przełącza jeszcze
+kolumn, indeksów ani canonical ownership na v2.
+
 Porównanie A/B/C jest narzędziem czysto pamięciowym: A używa bounding boxu,
 B source-direct perspektywy, a C pośrednio wyprostowanej planszy. Wyłącznie B
 jest kontraktem przyszłego rolloutu i ma test dokładnej zgodności z niezmienionym

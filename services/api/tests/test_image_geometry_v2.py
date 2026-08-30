@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from uuid import uuid4
+from dataclasses import replace
+from uuid import UUID
 
 import pytest
 from game_predictor_api.domain.board_topology import BoardTopology
@@ -10,6 +11,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     GeometryEngineKind,
     ImageGeometryContractError,
     NormalizedSourceImage,
+    SourceOccurrence,
     SourcePoint,
     SourceQuad,
     VirtualBoardGeometry,
@@ -29,13 +31,26 @@ def _source() -> NormalizedSourceImage:
     )
 
 
-def _geometry(*, revision: int = 0) -> VirtualBoardGeometry:
+IMPORT_JOB_ID = UUID("10000000-0000-0000-0000-000000000001")
+TOPOLOGY_RULES_VERSION_ID = UUID("10000000-0000-0000-0000-000000000002")
+
+
+def _geometry(
+    *,
+    revision: int = 0,
+    import_job_id: UUID = IMPORT_JOB_ID,
+    topology_rules_version_id: UUID = TOPOLOGY_RULES_VERSION_ID,
+) -> VirtualBoardGeometry:
     sequence_range = AttestedSequenceRange(start=73, end=77)
     return VirtualBoardGeometry(
         source=_source(),
+        source_occurrence=SourceOccurrence(
+            import_job_id=import_job_id,
+            file_execution_key="c" * 64,
+        ),
         slot=sequence_range.active_slots[4],
         topology=BoardTopology(rows=3, columns=5),
-        topology_rules_version_id=uuid4(),
+        topology_rules_version_id=topology_rules_version_id,
         geometry_revision=revision,
         geometry_version="virtual-board-geometry-v1",
         engine_kind=GeometryEngineKind.STRUCTURED_OPENCV_V1,
@@ -104,7 +119,51 @@ def test_virtual_cell_logical_identity_survives_a_new_geometry_revision() -> Non
     recropped = derive_virtual_cells(geometry=_geometry(revision=1), configuration=configuration)[7]
 
     assert initial.logical_id_sha256 == recropped.logical_id_sha256
+    assert initial.logical_id_v2_sha256 == recropped.logical_id_v2_sha256
     assert initial.render_id_sha256 != recropped.render_id_sha256
+    assert initial.render_id_v2_sha256 != recropped.render_id_v2_sha256
+
+
+def test_logical_cell_v2_distinguishes_equal_bytes_in_different_imports() -> None:
+    configuration = _configuration()
+    first = derive_virtual_cells(geometry=_geometry(), configuration=configuration)[7]
+    second = derive_virtual_cells(
+        geometry=_geometry(import_job_id=UUID("10000000-0000-0000-0000-000000000099")),
+        configuration=configuration,
+    )[7]
+
+    assert first.logical_id_v1_sha256 == second.logical_id_v1_sha256
+    assert first.logical_id_v2_sha256 != second.logical_id_v2_sha256
+
+
+def test_logical_cell_v2_pins_topology_without_changing_v1() -> None:
+    configuration = _configuration()
+    first = derive_virtual_cells(geometry=_geometry(), configuration=configuration)[7]
+    changed_topology = derive_virtual_cells(
+        geometry=_geometry(topology_rules_version_id=UUID("10000000-0000-0000-0000-000000000099")),
+        configuration=configuration,
+    )[7]
+
+    assert first.logical_id_v1_sha256 == changed_topology.logical_id_v1_sha256
+    assert first.logical_id_v2_sha256 != changed_topology.logical_id_v2_sha256
+
+
+def test_logical_cell_v1_golden_remains_compatible() -> None:
+    cell = derive_virtual_cells(geometry=_geometry(), configuration=_configuration())[7]
+
+    assert (
+        cell.logical_id_v1_sha256
+        == cell.logical_id_sha256
+        == "87ff4d8a2f48bb030091bb9a95893dc37b8faa581a0dad6b080109fef5e1d866"
+    )
+    assert cell.render_id_v1_sha256 == cell.render_id_sha256
+
+
+def test_source_occurrence_rejects_non_sha_execution_key() -> None:
+    with pytest.raises(ImageGeometryContractError) as raised:
+        replace(_geometry().source_occurrence, file_execution_key="not-a-checksum")
+
+    assert raised.value.code == "IMAGE_SOURCE_OCCURRENCE_INVALID"
 
 
 def test_source_quad_fails_closed_for_a_crossed_or_out_of_bounds_geometry() -> None:
@@ -122,9 +181,13 @@ def test_source_quad_fails_closed_for_a_crossed_or_out_of_bounds_geometry() -> N
     with pytest.raises(ImageGeometryContractError) as outside:
         VirtualBoardGeometry(
             source=_source(),
+            source_occurrence=SourceOccurrence(
+                import_job_id=IMPORT_JOB_ID,
+                file_execution_key="c" * 64,
+            ),
             slot=AttestedSequenceRange(start=1, end=1).active_slots[0],
             topology=BoardTopology(rows=3, columns=5),
-            topology_rules_version_id=uuid4(),
+            topology_rules_version_id=TOPOLOGY_RULES_VERSION_ID,
             geometry_revision=0,
             geometry_version="virtual-board-geometry-v1",
             engine_kind=GeometryEngineKind.MANUAL_V1,

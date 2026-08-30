@@ -24,7 +24,12 @@ MAX_PAGE_BOARD_SLOTS = 9
 PAGE_BOARD_COLUMNS = 3
 SOURCE_COORDINATE_SPACE = "exif-normalized-rgb-pixels-v1"
 VIRTUAL_CELL_LOGICAL_ID_VERSION = "virtual-cell-logical-id-v1"
+VIRTUAL_CELL_LOGICAL_ID_V2_VERSION = "virtual-cell-logical-id-v2"
 VIRTUAL_CELL_RENDER_ID_VERSION = "virtual-cell-render-id-v1"
+VIRTUAL_CELL_RENDER_ID_V2_VERSION = "virtual-cell-render-id-v2"
+SOURCE_OCCURRENCE_ID_VERSION = "source-occurrence-id-v1"
+BOARD_TOPOLOGY_FINGERPRINT_VERSION = "board-topology-fingerprint-v1"
+BOARD_SLOT_SEMANTICS_VERSION = "attested-sequence-row-major-page-3x3-v1"
 _SEQUENCE_RANGE_FILENAME = re.compile(
     r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?:jpg|jpeg)$",
     re.IGNORECASE,
@@ -205,13 +210,10 @@ class NormalizedSourceImage:
                 "IMAGE_GEOMETRY_SOURCE_DIMENSIONS_INVALID",
                 "Virtual geometry source dimensions must be positive integers.",
             )
-        if (
-            self.exif_orientation is not None
-            and (
-                isinstance(self.exif_orientation, bool)
-                or not isinstance(self.exif_orientation, int)
-                or self.exif_orientation not in range(1, 9)
-            )
+        if self.exif_orientation is not None and (
+            isinstance(self.exif_orientation, bool)
+            or not isinstance(self.exif_orientation, int)
+            or self.exif_orientation not in range(1, 9)
         ):
             raise ImageGeometryContractError(
                 "IMAGE_GEOMETRY_EXIF_ORIENTATION_INVALID",
@@ -235,6 +237,39 @@ class NormalizedSourceImage:
             "normalizedPixelChecksumSha256": self.normalized_pixel_checksum_sha256,
             "sourceChecksumSha256": self.source_checksum_sha256,
             "width": self.width,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SourceOccurrence:
+    """One immutable appearance of a source file inside an import job.
+
+    Binary equality is deliberately not occurrence equality.  Reusing the
+    same JPEG in another import creates a different occurrence while retries
+    of the same ``job + fileExecutionKey`` retain the same identity.
+    """
+
+    import_job_id: UUID
+    file_execution_key: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.import_job_id, UUID) or not _SHA256.fullmatch(
+            self.file_execution_key
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_SOURCE_OCCURRENCE_INVALID",
+                "A source occurrence requires an import UUID and file-execution SHA-256.",
+            )
+
+    @property
+    def identity_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self.to_dict())).hexdigest()
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "contractVersion": SOURCE_OCCURRENCE_ID_VERSION,
+            "fileExecutionKey": self.file_execution_key,
+            "importJobId": str(self.import_job_id),
         }
 
 
@@ -298,10 +333,7 @@ class SourceQuad:
 
     def require_within(self, source: NormalizedSourceImage) -> None:
         if any(
-            point.x < 0
-            or point.x > source.width
-            or point.y < 0
-            or point.y > source.height
+            point.x < 0 or point.x > source.width or point.y < 0 or point.y > source.height
             for point in self.corners
         ):
             raise ImageGeometryContractError(
@@ -343,6 +375,7 @@ class VirtualBoardGeometry:
     """One current source-space grid quad for an active, attested board slot."""
 
     source: NormalizedSourceImage
+    source_occurrence: SourceOccurrence
     slot: ActiveBoardSlot
     topology: BoardTopology
     topology_rules_version_id: UUID
@@ -367,6 +400,17 @@ class VirtualBoardGeometry:
                 "A virtual board geometry requires a versioned geometry engine contract.",
             )
         self.symbol_grid_quad.require_within(self.source)
+
+    @property
+    def topology_fingerprint_sha256(self) -> str:
+        payload = {
+            "columns": self.topology.columns,
+            "contractVersion": BOARD_TOPOLOGY_FINGERPRINT_VERSION,
+            "rows": self.topology.rows,
+            "slotSemanticsVersion": BOARD_SLOT_SEMANTICS_VERSION,
+            "topologyRulesVersionId": str(self.topology_rules_version_id),
+        }
+        return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
     @property
     def geometry_fingerprint_sha256(self) -> str:
@@ -466,6 +510,8 @@ class VirtualCell:
 
     @property
     def logical_id_sha256(self) -> str:
+        """Historical content-based logical-cell-v1 identity."""
+
         payload = {
             "boardSlot": self.geometry.slot.position_index,
             "cellIndex": self.cell_index,
@@ -477,12 +523,46 @@ class VirtualCell:
         return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
     @property
+    def logical_id_v1_sha256(self) -> str:
+        return self.logical_id_sha256
+
+    @property
+    def logical_id_v2_sha256(self) -> str:
+        payload = {
+            "boardSlot": self.geometry.slot.position_index,
+            "cellIndex": self.cell_index,
+            "columnIndex": self.column_index,
+            "contractVersion": VIRTUAL_CELL_LOGICAL_ID_V2_VERSION,
+            "rowIndex": self.row_index,
+            "sourceOccurrenceIdSha256": self.geometry.source_occurrence.identity_sha256,
+            "topologyFingerprintSha256": self.geometry.topology_fingerprint_sha256,
+        }
+        return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+
+    @property
     def render_id_sha256(self) -> str:
+        """Historical render-id-v1 retained for replay compatibility."""
+
         payload = {
             "configuration": self.configuration.to_dict(),
             "contractVersion": VIRTUAL_CELL_RENDER_ID_VERSION,
             "geometryFingerprintSha256": self.geometry.geometry_fingerprint_sha256,
             "logicalCellIdSha256": self.logical_id_sha256,
+            "sourceQuad": self.source_quad.to_dict(),
+        }
+        return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+
+    @property
+    def render_id_v1_sha256(self) -> str:
+        return self.render_id_sha256
+
+    @property
+    def render_id_v2_sha256(self) -> str:
+        payload = {
+            "configuration": self.configuration.to_dict(),
+            "contractVersion": VIRTUAL_CELL_RENDER_ID_V2_VERSION,
+            "geometryFingerprintSha256": self.geometry.geometry_fingerprint_sha256,
+            "logicalCellIdV2Sha256": self.logical_id_v2_sha256,
             "sourceQuad": self.source_quad.to_dict(),
         }
         return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
@@ -525,9 +605,7 @@ def _slot_payload(slot: ActiveBoardSlot) -> dict[str, int]:
 
 
 def _cross(first: SourcePoint, second: SourcePoint, third: SourcePoint) -> float:
-    return (second.x - first.x) * (third.y - second.y) - (second.y - first.y) * (
-        third.x - first.x
-    )
+    return (second.x - first.x) * (third.y - second.y) - (second.y - first.y) * (third.x - first.x)
 
 
 def _project_unit_square_to_quad(
@@ -572,16 +650,18 @@ def _project_unit_square_to_quad(
 
 def _quads_close(first: SourceQuad, second: SourceQuad) -> bool:
     return all(
-        math.isclose(left.x, right.x, abs_tol=1e-6)
-        and math.isclose(left.y, right.y, abs_tol=1e-6)
+        math.isclose(left.x, right.x, abs_tol=1e-6) and math.isclose(left.y, right.y, abs_tol=1e-6)
         for left, right in zip(first.corners, second.corners, strict=True)
     )
 
 
 __all__ = [
+    "BOARD_SLOT_SEMANTICS_VERSION",
+    "BOARD_TOPOLOGY_FINGERPRINT_VERSION",
     "MAX_PAGE_BOARD_SLOTS",
     "PAGE_BOARD_COLUMNS",
     "SOURCE_COORDINATE_SPACE",
+    "SOURCE_OCCURRENCE_ID_VERSION",
     "ActiveBoardSlot",
     "AttestedSequenceRange",
     "DirectCellRenderConfiguration",
@@ -590,8 +670,13 @@ __all__ = [
     "NormalizedSourceImage",
     "SourcePoint",
     "SourceQuad",
+    "SourceOccurrence",
     "VirtualBoardGeometry",
     "VirtualCell",
+    "VIRTUAL_CELL_LOGICAL_ID_V2_VERSION",
+    "VIRTUAL_CELL_LOGICAL_ID_VERSION",
+    "VIRTUAL_CELL_RENDER_ID_V2_VERSION",
+    "VIRTUAL_CELL_RENDER_ID_VERSION",
     "canonical_json_bytes",
     "derive_virtual_cells",
     "is_sequence_range_filename_candidate",

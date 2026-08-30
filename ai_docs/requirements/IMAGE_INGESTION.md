@@ -148,6 +148,16 @@ z checksumą stage result; drift kończy się fail-closed.
   wykonuje jedno zbiorcze wywołanie ONNX. Restart musi odtworzyć identyczny
   render spec i checksumę pikseli z managed original.
 
+Render spec v2 emituje równolegle historyczne `logical-cell-v1` i
+`render-id-v1` oraz nowe `logical-cell-v2` i `render-id-v2`. Klucze v1 pozostają
+bitowo niezmienione na potrzeby replayu. V2 wiąże komórkę z wystąpieniem
+`importJobId + fileExecutionKey`, fingerprintem przypiętej topologii, slotem
+planszy i pozycją komórki. Identyczne bajty zaimportowane w dwóch jobach nie
+mogą więc otrzymać tej samej domenowej tożsamości v2. Automatyczny pipeline i
+ręczny source-direct preview/save muszą wyprowadzać wystąpienie z dokładnie tej
+samej pary identyfikatorów. Checksum JPEG-a pozostaje dowodem integralności i
+deduplikacji treści, a nie tożsamością wystąpienia.
+
 ### 2.2. Globalna inicjalizacja geometrii 0.10
 
 `structured-opencv-global-initialization-v1` przyjmuje wyłącznie kanoniczny

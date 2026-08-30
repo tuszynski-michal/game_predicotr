@@ -741,6 +741,16 @@ def test_structured_default_renders_one_virtual_batch_and_restarts_without_png(
     assert sum(len(board["cells"]) for board in crop_boards) == 135
     assert all("boardRelativePath" not in board for board in crop_boards)
     assert all("cropRelativePath" not in cell for board in crop_boards for cell in board["cells"])
+    assert all(
+        cell["logicalCellKeyV2Sha256"] != cell["logicalCellKeySha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
+    assert all(
+        cell["renderSpec"]["logicalCellKeyV2Sha256"] == cell["logicalCellKeyV2Sha256"]
+        for board in crop_boards
+        for cell in board["cells"]
+    )
     assert geometry_engine.call_count == 1
     assert not list((artifact_root / "data").rglob("*.png"))
 

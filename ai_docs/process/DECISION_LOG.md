@@ -6314,6 +6314,28 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   manifestu oraz automatyczna naprawa starego katalogu odrzucono jako źródła
   nieistniejących numerów, rozjazdu wznowienia lub ryzyka utraty danych.
 
+## D-264 — Tożsamość logicznej komórki jest związana z wystąpieniem źródła
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** `logical-cell-v2` jest wyliczany z niezmiennego wystąpienia
+  `importJobId + fileExecutionKey`, fingerprintu przypiętej topologii, slotu
+  planszy oraz pozycji komórki. Historyczny `logical-cell-v1` i `render-id-v1`
+  pozostają bitowo niezmienione i są emitowane równolegle w render specie.
+- **Context:** v1 używa checksummy JPEG-a, dlatego identyczne bajty w dwóch
+  niezależnych importach otrzymywały tę samą logiczną tożsamość mimo różnych
+  właścicieli i cykli życia. Checksum treści nie rozróżnia wystąpień domenowych.
+- **Safety:** fingerprint topologii obejmuje wersję reguł, `rows`, `columns` i
+  wersję semantyki slotów. Automatyczny i ręczny source-direct workflow
+  korzystają z tej samej pary occurrence. TASK-0321 nie wykonuje migracji,
+  backfillu ani przełączenia istniejącej kolumny `logical_cell_key`.
+- **Consequences:** recrop zachowuje logical v2, ale zmienia render identity v2;
+  identyczny JPEG w nowym jobie ma nowy logical v2. Addytywna trwałość klucza v2
+  w osobnej kolumnie i cutover odczytów wymagają osobnego zadania.
+- **Alternatives:** użycie samego SHA-256, losowego UUID renderu albo
+  przepisywanie kluczy v1 odrzucono odpowiednio z powodu kolizji wystąpień,
+  braku deterministycznego replayu i złamania kompatybilności historycznej.
+
 ## Szablon nowej decyzji
 
 ```text

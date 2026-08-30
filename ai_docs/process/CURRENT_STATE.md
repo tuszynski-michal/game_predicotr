@@ -3900,3 +3900,16 @@ i `activeBoardCount`, natomiast reader nadal wznawia schema v1 jako pełne stron
 dziewięciu plansz. Read-only skrypt diagnostyczny raportuje propozycję v2 dla
 niespójnych historycznych nazw bez zmiany plików. Preflight `seq_*` blokuje
 numery przekraczające `games.expected_layout_count`.
+
+TASK-0321 wprowadza dualny kontrakt tożsamości komórki bez migracji danych.
+Historyczne `logical-cell-v1` i `render-id-v1` pozostają bitowo niezmienione.
+Nowe `logical-cell-v2` wiąże komórkę z wystąpieniem
+`importJobId + fileExecutionKey`, fingerprintem przypiętej topologii, slotem
+planszy oraz pozycją komórki. `render-id-v2` dodatkowo wiąże bieżącą geometrię,
+padding, interpolację i rozmiar wyjścia.
+
+Automatyczny pipeline oraz ręczny source-direct preview/save wyprowadzają
+occurrence z tego samego rekordu źródła. Render spec v2 zapisuje równolegle
+identyfikatory v1/v2, occurrence i fingerprint topologii. Bieżąca kolumna
+`logical_cell_key` nadal przechowuje v1; addytywna migracja, backfill i cutover
+indeksowanych odczytów pozostają osobnym kolejnym zadaniem.

@@ -14,6 +14,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     DirectCellRenderConfiguration,
     GeometryEngineKind,
     NormalizedSourceImage,
+    SourceOccurrence,
     SourcePoint,
     SourceQuad,
     VirtualBoardGeometry,
@@ -251,6 +252,10 @@ def _frame_and_geometries() -> tuple[
     )
     virtual_geometry = VirtualBoardGeometry(
         source=normalized,
+        source_occurrence=SourceOccurrence(
+            import_job_id=UUID("20000000-0000-0000-0000-000000000001"),
+            file_execution_key="e" * 64,
+        ),
         slot=ActiveBoardSlot(range_start=1, range_end=1, position_index=0, sequence_number=1),
         topology=BoardTopology(rows=3, columns=5),
         topology_rules_version_id=RULES_VERSION_ID,
@@ -307,6 +312,12 @@ def test_virtual_renderer_has_exact_v19_pixel_parity_and_one_warp_per_cell(
             virtual.render_spec_checksum_sha256
             == hashlib.sha256(canonical_json_bytes(virtual.render_spec)).hexdigest()
         )
+        assert virtual.render_spec["logicalCellKeySha256"] == virtual.logical_cell_key_sha256
+        assert virtual.render_spec["logicalCellKeyV1Sha256"] == virtual.logical_cell_key_sha256
+        assert virtual.render_spec["logicalCellKeyV2Sha256"] == (virtual.logical_cell_key_v2_sha256)
+        assert virtual.render_spec["sourceOccurrenceIdSha256"] == (
+            cells[virtual.cell_index].geometry.source_occurrence.identity_sha256
+        )
         assert not virtual.rgb.flags.writeable
 
 
@@ -345,6 +356,7 @@ def test_virtual_renderer_rejects_drift_before_first_warp(
     foreign = derive_virtual_cells(
         geometry=VirtualBoardGeometry(
             source=foreign_source,
+            source_occurrence=cells[0].geometry.source_occurrence,
             slot=cells[0].geometry.slot,
             topology=cells[0].geometry.topology,
             topology_rules_version_id=cells[0].geometry.topology_rules_version_id,

@@ -895,6 +895,23 @@ próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
 ścieżka jest `NULL`, a source geometry, logical key, render spec i pixel SHA-256
 są obowiązkowe. `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
 
+TASK-0321 zachowuje `logical_cell_key` jako historyczny klucz
+`logical-cell-v1`, oparty na checksumie treści źródła. Nie jest on przepisywany
+ani używany jako jedyna domenowa tożsamość nowego wystąpienia. Kontrakt
+`logical-cell-v2` składa się z:
+
+- `source-occurrence-id-v1`, wyliczanego z `import_job_id + file_execution_key`;
+- `board-topology-fingerprint-v1`, obejmującego przypiętą wersję reguł,
+  `rows`, `columns` i wersję semantyki slotów;
+- slotu planszy oraz indeksu, wiersza i kolumny komórki.
+
+Dzięki temu identyczne bajty JPEG-a w dwóch importach pozostają tym samym
+contentem, lecz tworzą dwa różne wystąpienia domenowe. Checksum źródła służy
+nadal deduplikacji, integralności renderu i audytowi, a nie rozstrzyganiu
+właściciela logicznej komórki. W tym zadaniu klucz v2 jest utrwalany wyłącznie
+w checksumowanym render specu i payloadach pipeline'u. Addytywna kolumna,
+backfill oraz przełączenie indeksowanych odczytów wymagają osobnego zadania.
+
 TASK-0313 nie dodaje tabeli ani binariów do PostgreSQL. Atlas wirtualnych
 podglądów jest wyłącznie pochodnym cache'em plikowym; jego key obejmuje grę,
 bieżącą rewizję komórki i geometrii, źródło, render spec oraz checksumę pikseli.

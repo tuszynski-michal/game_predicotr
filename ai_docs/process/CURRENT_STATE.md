@@ -23,6 +23,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   manifestów, skrótów ani operacji plikowych. Jest to fundament niezależnej
   sekcji `Popraw selekcję`; manifest i mutacje korekty powstaną w TASK-0337.
 
+### Domena korekty ręcznej selekcji — TASK-0337
+
+- `v0.10.30` dodaje lokalny repair manifest v1, walidację top-level plików
+  `seq_*`, trwałe granice kolekcji oraz deterministyczne luki do dziewięciu
+  plansz. Błędna nazwa JPEG-a, duplikat, overlap lub drift checksummy blokują
+  mutację fail-closed.
+- Osobna IndexedDB v1 zapisuje wyłącznie uchwyty, tryb, kursory, zoom, scroll i
+  skok. JPEG-i nie są utrwalane w bazie przeglądarki. Operacja oczekująca jest
+  finalizowana po restarcie na podstawie obecności pliku i SHA-256.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

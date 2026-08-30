@@ -56,8 +56,7 @@ export function useManualImageViewer(
     useState<ManualImageSize | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const visibleImageUrl =
-    imageUrlIndex === currentImageIndex ? imageUrl : null;
+  const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl
       ? loadedImageSize.size
@@ -105,7 +104,10 @@ export function useManualImageViewer(
     }
 
     const generation = imageCacheGenerationRef.current;
-    const previewIndexes = manualPreviewWindow(currentImageIndex, images.length);
+    const previewIndexes = manualPreviewWindow(
+      currentImageIndex,
+      images.length,
+    );
     const previewIndexSet = new Set(previewIndexes);
     for (const [index, url] of imageUrlCacheRef.current.entries()) {
       if (!previewIndexSet.has(index)) {

@@ -33,11 +33,10 @@ import {
   resumeManualSelectionCursor,
 } from './manual-image-selection-cursor';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
-import {
-  ManualImageViewer,
-  useManualImageViewer,
-} from './manual-image-viewer';
+import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
 import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
+import { ManualSelectionRepairWorkspace } from './manual-selection-repair-workspace';
+import { readRepairManifest } from './manual-selection-repair-storage.ts';
 
 interface DirectoryPickerWindow extends Window {
   showDirectoryPicker?: (options?: {
@@ -58,6 +57,7 @@ export function ManualImageSelectionWorkspace({
     <div className="manualImageSelectionWorkspaceStack">
       <RemoteManualSelectionHostPanel apiBaseUrl={apiBaseUrl} />
       <LocalManualImageSelectionWorkspace />
+      <ManualSelectionRepairWorkspace />
     </div>
   );
 }
@@ -312,6 +312,21 @@ function LocalManualImageSelectionWorkspace() {
       setError('Wybierz folder źródłowy i wynikowy.');
       return;
     }
+    try {
+      if ((await readRepairManifest(outputDirectory)) !== null) {
+        setError(
+          'Ten katalog był już poprawiany. Kontynuuj w sekcji „Popraw selekcję” poniżej.',
+        );
+        return;
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się zweryfikować manifestu korekty.',
+      );
+      return;
+    }
     const initialState = createManualSelectionState(
       parsed,
       direction,
@@ -389,6 +404,11 @@ function LocalManualImageSelectionWorkspace() {
         outputHandle,
       );
       const manifest = await readManualOutputManifest(outputHandle);
+      if ((await readRepairManifest(outputHandle)) !== null) {
+        throw new Error(
+          'Ten katalog był już poprawiany. Wznów pracę w sekcji „Popraw selekcję” poniżej.',
+        );
+      }
       if (
         manifest !== null &&
         (manifest.sessionKey !== savedRecord.key ||

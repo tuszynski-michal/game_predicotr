@@ -158,12 +158,15 @@ def build_ranking_cohort(
     output_manifest: Mapping[str, object],
     *,
     source_roots: Sequence[Path],
+    repair_trace_manifest: Mapping[str, object] | None = None,
 ) -> tuple[dict[str, object], RankingCohortPreview]:
     """Freeze reliable manual events into a content-addressed feature cohort."""
 
     _require_manifest(trace_manifest, "manual-image-selection-trace-v1")
     _require_manifest(output_manifest, "manual-image-selection-output-v1")
-    events = _sequence(trace_manifest.get("events"))
+    events = list(_sequence(trace_manifest.get("events")))
+    if repair_trace_manifest is not None:
+        events.extend(_normalized_repair_events(repair_trace_manifest, trace_manifest))
     output_items = _sequence(output_manifest.get("items"))
     accepted_by_path: dict[str, tuple[str, int, int, str]] = {}
     positive_paths: set[str] = set()
@@ -307,6 +310,42 @@ def build_ranking_cohort(
         manifest_checksum_sha256=checksum,
     )
     return payload, preview
+
+
+def _normalized_repair_events(
+    repair_trace: Mapping[str, object],
+    trace_manifest: Mapping[str, object],
+) -> list[dict[str, object]]:
+    if repair_trace.get(
+        "schemaVersion"
+    ) != "manual-image-selection-repair-trace-v1" or not isinstance(
+        repair_trace.get("repairKey"), str
+    ):
+        raise ValueError("Invalid manual selection repair trace manifest.")
+    session_key = _text(trace_manifest, "sessionKey")
+    normalized: list[dict[str, object]] = []
+    for raw in _sequence(repair_trace.get("events")):
+        event = _mapping(raw)
+        kind = event.get("kind")
+        if kind not in {"viewed", "fill"}:
+            continue
+        source_path = event.get("sourcePath")
+        if not isinstance(source_path, str) or not source_path:
+            continue
+        normalized.append(
+            {
+                "decoded": event.get("decoded") is True,
+                "eventIndex": _int_value(event.get("eventIndex")),
+                "imagePath": source_path,
+                "kind": "accepted" if kind == "fill" else "viewed",
+                "rangeEnd": _int_value(event.get("rangeEnd")),
+                "rangeStart": _int_value(event.get("rangeStart")),
+                "sessionKey": session_key,
+                "sourceIndex": event.get("sourceIndex"),
+                "visibleMilliseconds": _number(event.get("visibleMilliseconds")),
+            }
+        )
+    return normalized
 
 
 def write_ranking_cohort(

@@ -52,6 +52,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   przywraca go pod pierwotną nazwą po kontroli kolizji i SHA-256; reload albo
   następne usunięcie bezpowrotnie usuwa wcześniejszą możliwość restore.
 
+### Finalizacja korekty ręcznej selekcji — TASK-0340
+
+- `v0.10.33` montuje kartę `Popraw selekcję` bezpośrednio pod lokalnym
+  selektorem i chroni naprawiany katalog przed ponownym przejęciem przez zwykły
+  start albo resume.
+- Output manifest jest jedynym źródłem aktywnych wyborów. Ranker opcjonalnie
+  scala widoczne repair fill z pierwotnym trace, lecz ignoruje delete/restore i
+  nie może uznać za pozytyw pliku usuniętego z outputu.
+- Workflow pozostaje operator-local: bez API, migracji bazy i Blobów w
+  IndexedDB. Wymagania, architektura oraz D-276 opisują recovery, checksumy i
+  jednopoziomowe przywracanie delete.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

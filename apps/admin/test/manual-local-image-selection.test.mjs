@@ -504,7 +504,10 @@ test('offers fullscreen and bounded zoom controls without changing the source fi
   assert.match(viewerSource, /Math\.min\(30/);
   assert.match(viewerSource, /state\.zoom >= 30/);
   assert.match(viewerSource, /manualImageSelectionFullscreenInfo/);
-  assert.match(workspaceSource, /currentLabel=\{`Zakres \$\{range\.start\}–\$\{range\.end\}`\}/);
+  assert.match(
+    workspaceSource,
+    /currentLabel=\{`Zakres \$\{range\.start\}–\$\{range\.end\}`\}/,
+  );
 });
 
 test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
@@ -602,7 +605,7 @@ test('output port writes v2 manifests and never removes a foreign file', async (
     getFileHandle: async (name, options) => {
       if (options?.create !== true && !saved.has(name)) {
         throw new DOMException('missing', 'NotFoundError');
-}
+      }
 
       return {
         createWritable: async () => ({

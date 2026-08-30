@@ -114,3 +114,44 @@ dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
 `requestAnimationFrame` ustawia `scrollTop`. Zdarzenia scrolla nie zmieniają
 stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
 zapisu i dekodowania JPEG-a.
+
+## Architektura lokalnej korekty selekcji
+
+`ManualSelectionRepairWorkspace` jest montowany bezpośrednio po lokalnym
+workspace i korzysta ze współdzielonego `ManualImageViewer`. Viewer odpowiada
+wyłącznie za bounded cache Object URL, zoom, fullscreen, scroll i prezentacyjne
+skróty. Domena zakresów i manifestów znajduje się w niezależnym eksporcie
+`@game-predictor/manual-image-selection-core/repair`, dlatego nie zależy od
+Reacta ani File System Access API.
+
+Adapter Admina `manual-selection-repair-storage.ts` jest jedynym miejscem
+mutacji katalogu. Skanuje top-level JPEG-i, weryfikuje SHA-256, zapisuje
+manifesty i utrzymuje osobną IndexedDB v1 bez Blobów. Wszystkie polecenia
+workspace'u przechodzą przez jedną serializowaną kolejkę. Zmiana katalogu lub
+trybu jest blokowana podczas zapisu.
+
+`manual-image-selection-repair-v1.json` zachowuje niezmienne granice kolekcji,
+aktywny indeks plików, checksumy, usunięte zakresy, append-only historię oraz
+co najwyżej jedną operację oczekującą. Każda mutacja ma trzy fazy:
+
+1. zapis zamiaru z oczekiwaną nazwą i checksumą;
+2. dokładna zmiana jednego pliku przez uchwyt katalogu;
+3. ponowny odczyt, kontrola SHA-256 i finalizacja obu manifestów.
+
+Reconciler po reloadzie rozstrzyga stan na podstawie pliku, rozmiaru i
+checksummy. Obcy lub zmieniony cel pozostaje fail-closed. Katalog bazowy fill
+jest zawsze read-only, a zapisany JPEG zachowuje oryginalne bajty. Delete undo
+przechowuje ostatni `File` wyłącznie w pamięci komponentu, więc nie jest
+możliwy po reloadzie.
+
+Output manifest pozostaje bieżącym źródłem aktywnych wyborów i jest
+synchronizowany po fill, undo, delete oraz restore. Repair trace jest osobnym
+źródłem proweniencji. Ranker może scalić z pierwotnym trace tylko poprawnie
+zdekodowane zdarzenia `viewed` i `fill`; pozytywem jest wyłącznie plik nadal
+obecny w aktywnym output manifeście. Zdarzenia delete, restore i undo nie mogą
+samodzielnie utworzyć próbki treningowej.
+
+Zwykły lokalny selector sprawdza obecność repair manifestu przed startem i
+resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko
+kieruje operatora do nowej sekcji. Zapobiega to dwóm writerom utrzymującym
+różne listy aktywnych `seq_*`.

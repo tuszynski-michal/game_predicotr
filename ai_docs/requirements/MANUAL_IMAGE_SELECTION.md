@@ -442,3 +442,62 @@ Bramkę potwierdza content-addressed raport
 `remote-manual-selection-security-gate-v1`. Raport nie może mieć otwartego
 findingu `critical` lub `high`. Test przez publiczny Quick Tunnel i etapowy
 rollout pozostają osobnym TASK 18.
+
+## Lokalna korekta gotowej selekcji
+
+Pod lokalną `Ręczną selekcją zdjęć` Admin pokazuje niezależną kartę
+`Popraw selekcję`. Operator wskazuje katalog zawierający wybrane JPEG-i
+`seq_<start>-<end>.jpg|jpeg`; narzędzie nie wymaga gry, API ani workera.
+Skanowany jest wyłącznie główny poziom katalogu. Zakres ma od jednej do
+dziewięciu plansz, a zła nazwa JPEG-a, duplikat, overlap, obcy manifest albo
+drift checksummy blokują mutację.
+
+Granice kolekcji pochodzą najpierw z
+`manual-image-selection-repair-v1.json`, następnie z poprawnego output
+manifestu, a dopiero na końcu z nazw JPEG-ów. Dzięki temu usunięcie skrajnego
+pliku pozostawia jawną lukę. Braki są sortowane rosnąco i dzielone od lewej na
+targety nie większe niż dziewięć plansz.
+
+### Uzupełnianie luk
+
+Po wybraniu trybu operator wskazuje osobny bazowy katalog zdjęć. Jest on
+rekurencyjnie listowany i pozostaje tylko do odczytu. Podgląd rozpoczyna się od
+pierwszego naturalnie posortowanego JPEG-a; skok ma wartości
+`1, 2, 5, 10, 20, 50, 100`, natomiast target zmienia się po rzeczywistych
+lukach. `Enter`, `F` lub przycisk zapisują niezmienione bajty jako dokładny
+target `seq_*`, ponownie odczytują plik i weryfikują SHA-256. Akceptacja jest
+dostępna dopiero po poprawnym dekodowaniu i co najmniej 300 ms widoczności.
+
+`A`, `Ctrl+A`, `Ctrl+Z` lub przycisk cofają wyłącznie ostatni fill wykonany
+przez ten workflow. Cofnięcie wymaga zgodnej checksummy i nigdy nie usuwa
+obcego albo zmienionego pliku.
+
+### Usuwanie sekwencji
+
+Tryb `Usuń sekwencje` pokazuje jeden istniejący plik `seq_*` i nawiguje zawsze
+o jeden. `F` usuwa bieżący, checksummowany JPEG. `A` lub `Ctrl+A` może
+przywrócić wyłącznie ostatni plik, którego `File` pozostaje w pamięci otwartej
+karty. Reload, zamknięcie karty albo następne usunięcie usuwa możliwość tego
+jednopoziomowego przywrócenia. Trwały repair manifest zachowuje samą decyzję i
+lukę, ale nie przechowuje Blobu.
+
+### Trwałość i instrukcja operatora
+
+Repair manifest jest journalem intencji `fill`, `undo_fill`, `delete` i
+`restore`. Przed zmianą pliku zapisuje operację oczekującą, a po restarcie
+obecność pliku i SHA-256 pozwalają ją bezpiecznie dokończyć albo wycofać
+logicznie. Osobna IndexedDB przechowuje tylko uchwyty, tryb, kursory i
+preferencje podglądu — nigdy JPEG-i.
+
+Operator wykonuje kolejno:
+
+1. wybiera katalog gotowych `seq_*`;
+2. wybiera `Uzupełnij luki` albo `Usuń sekwencje`;
+3. w trybie uzupełniania wskazuje bazowy katalog zdjęć;
+4. wykonuje checksummowane decyzje i może cofnąć ostatnią operację;
+5. po zakończeniu importuje bieżącą zawartość katalogu `seq_*`.
+
+Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć
+katalogu. Kieruje operatora do `Popraw selekcję`. Aktywny output manifest jest
+jedynym źródłem wybranych pozytywów; usunięte wpisy nie mogą trafić do importu
+ani kohorty treningowej.

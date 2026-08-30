@@ -189,6 +189,24 @@ test('delete workspace uses fixed step one and keeps only one in-memory restore 
   assert.doesNotMatch(source, /localStorage.*deleteUndo/s);
 });
 
+test('admin mounts repair directly below local selection and redirects repaired folders', async () => {
+  const workspace = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-image-selection-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  assert.match(
+    workspace,
+    /<LocalManualImageSelectionWorkspace\s*\/>[\s\S]*<ManualSelectionRepairWorkspace\s*\/>/,
+  );
+  assert.match(workspace, /readRepairManifest\(outputDirectory\)/);
+  assert.match(workspace, /Kontynuuj w sekcji „Popraw selekcję”/);
+});
+
 test('fill workspace exposes bounded steps, gap targets, shortcuts and visibility gate', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(

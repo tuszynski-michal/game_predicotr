@@ -6610,3 +6610,17 @@ preflight z pustym profilem: wszystkie niepoświadczone źródła otrzymują
 kontrolowany stan `review_required`, a pierwsza ręczna korekta staje się
 niezmienną kotwicą następnego preflightu. Nierozwiązane źródła są pomijane
 fail-closed. Geometry v2 nadal działa wyłącznie jako pomiar shadow.
+
+## D-276 — Korekta ręcznej selekcji jest lokalnym workflow checksummowanym
+
+- Status: accepted
+- Date: 2026-08-30
+
+Korekta gotowego katalogu `seq_*` działa wyłącznie w lokalnym Adminie przez
+File System Access API. Repair manifest jest trwałym journalem granic, luk i
+operacji, a output manifest pozostaje jedynym źródłem aktywnych wyborów.
+Katalog bazowy jest tylko do odczytu, każda mutacja celu wymaga zgodności
+SHA-256, a JPEG-i nie trafiają do IndexedDB, API ani PostgreSQL. Repair trace
+może rozszerzyć dane rankera wyłącznie dla widocznego i nadal aktywnego fill;
+usunięta pozycja nie jest próbką treningową. Przywrócenie usunięcia zachowuje
+tylko jeden `File` w pamięci bieżącej karty i celowo nie działa po reloadzie.

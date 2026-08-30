@@ -295,6 +295,13 @@ export function ManualSelectionRepairWorkspace() {
     setNotice(null);
   }
 
+  async function returnToModeSelection(): Promise<void> {
+    if (localState === null || busyRef.current) return;
+    deleteUndoRef.current = null;
+    setDeleteUndoAvailable(false);
+    await updateLocalState({ ...localState, mode: null });
+  }
+
   function moveSource(direction: -1 | 1): void {
     if (localState === null || sourceImages.length === 0) return;
     const next = clamp(
@@ -644,6 +651,14 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionActions">
           <button
             className="secondaryButton"
+            disabled={busy}
+            onClick={() => void returnToModeSelection()}
+            type="button"
+          >
+            Wróć do wyboru trybu
+          </button>
+          <button
+            className="secondaryButton"
             disabled={busy || gapCursor <= 0}
             onClick={() =>
               void updateLocalState({ ...localState, gapCursor: gapCursor - 1 })
@@ -740,6 +755,14 @@ export function ManualSelectionRepairWorkspace() {
           }
         />
         <div className="manualImageSelectionActions">
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void returnToModeSelection()}
+            type="button"
+          >
+            Wróć do wyboru trybu
+          </button>
           <button
             className="secondaryButton"
             disabled={busy || !deleteUndoAvailable}

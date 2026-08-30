@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Stabilizacja korekty ręcznej selekcji — TASK-0341
+
+- Wspólny viewer zachowuje pozycję obrazu pomiędzy przejściami także wtedy,
+  gdy loading chwilowo redukuje zawartość viewportu. Techniczne zdarzenie
+  scrolla dla nieaktualnego Object URL nie może już nadpisać pozycji zerem.
+- Fill, delete, undo i restore aktualizują lokalny snapshot jednego pliku bez
+  ponownego hashowania całego katalogu po każdej operacji. Pełny audyt nadal
+  odbywa się przy otwarciu/reloadzie, a usuwany plik nadal wymaga SHA-256.
+- Drift istniejącego output manifestu pozostaje fail-closed i otrzymuje
+  czytelny komunikat; aktualna check­suma nie jest przyjmowana automatycznie.
+
 ### Korekta ręcznej selekcji — TASK-0336
 
 - `v0.10.29` wydziela wspólny viewer lokalnych zdjęć: bounded cache bieżącego

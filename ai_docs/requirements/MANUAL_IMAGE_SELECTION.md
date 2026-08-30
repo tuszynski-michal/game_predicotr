@@ -481,6 +481,14 @@ karty. Reload, zamknięcie karty albo następne usunięcie usuwa możliwość te
 jednopoziomowego przywrócenia. Trwały repair manifest zachowuje samą decyzję i
 lukę, ale nie przechowuje Blobu.
 
+Zmiana zdjęcia, fill, delete, restore ani undo nie mogą zerować zapamiętanej
+pozycji viewportu. Wspólny viewer ignoruje przejściowe zdarzenie scrolla
+powstałe podczas wymiany Object URL i odtwarza pozycję dopiero po dekodowaniu
+docelowego zdjęcia. Po bezpiecznej mutacji jednego pliku workspace aktualizuje
+indeks katalogu inkrementalnie; nie wolno ponownie hashować całego katalogu po
+każdym usunięciu. Pełna walidacja nazw i checksum pozostaje obowiązkowa przy
+pierwszym otwarciu oraz po reloadzie.
+
 ### Trwałość i instrukcja operatora
 
 Repair manifest jest journalem intencji `fill`, `undo_fill`, `delete` i

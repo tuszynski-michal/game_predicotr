@@ -346,7 +346,7 @@ export function ManualSelectionRepairWorkspace() {
     )
       return;
     await serialize(async () => {
-      const manifest = await writeRepairFile({
+      const result = await writeRepairFile({
         directory: snapshot.directory,
         kind: 'fill',
         manifest: snapshot.repairManifest,
@@ -356,6 +356,7 @@ export function ManualSelectionRepairWorkspace() {
         sourcePath: currentSource.relativePath,
         target: currentGap,
       });
+      const manifest = result.manifest;
       await appendRepairTraceEvent(snapshot.directory, manifest.repairKey, {
         decoded: true,
         eventIndex: traceIndexRef.current++,
@@ -377,8 +378,19 @@ export function ManualSelectionRepairWorkspace() {
           Math.round(performance.now() - viewStartedAtRef.current),
         ),
       });
-      const refreshed = await inspectRepairDirectory(snapshot.directory);
-      setSnapshot(refreshed);
+      setSnapshot(
+        addSnapshotFile(
+          snapshot,
+          {
+            end: currentGap.end,
+            fileName: `seq_${currentGap.start}-${currentGap.end}.jpg`,
+            handle: result.fileHandle,
+            start: currentGap.start,
+          },
+          result.manifest,
+          result.outputManifest,
+        ),
+      );
       await updateLocalState({
         ...localState,
         sourceCursor: clamp(sourceCursor + 1, 0, sourceImages.length - 1),
@@ -429,7 +441,12 @@ export function ManualSelectionRepairWorkspace() {
           visibleMilliseconds: 0,
         },
       );
-      const refreshed = await inspectRepairDirectory(snapshot.directory);
+      const refreshed = removeSnapshotFile(
+        snapshot,
+        fill.fileName,
+        result.manifest,
+        result.outputManifest,
+      );
       setSnapshot(refreshed);
       const nextGaps = findSequenceGaps(
         {
@@ -503,7 +520,12 @@ export function ManualSelectionRepairWorkspace() {
           visibleMilliseconds: 0,
         },
       );
-      const refreshed = await inspectRepairDirectory(snapshot.directory);
+      const refreshed = removeSnapshotFile(
+        snapshot,
+        currentSelected.fileName,
+        result.manifest,
+        result.outputManifest,
+      );
       setSnapshot(refreshed);
       await updateLocalState({
         ...localState,
@@ -526,7 +548,7 @@ export function ManualSelectionRepairWorkspace() {
         kind: 'file',
         name: undo.file.name,
       } as FileSystemFileHandle;
-      const manifest = await writeRepairFile({
+      const result = await writeRepairFile({
         directory: snapshot.directory,
         kind: 'restore',
         manifest: snapshot.repairManifest,
@@ -536,6 +558,7 @@ export function ManualSelectionRepairWorkspace() {
         sourcePath: undo.sourcePath ?? undo.fileName,
         target: undo.range,
       });
+      const manifest = result.manifest;
       await appendRepairTraceEvent(snapshot.directory, manifest.repairKey, {
         decoded: true,
         eventIndex: traceIndexRef.current++,
@@ -554,7 +577,17 @@ export function ManualSelectionRepairWorkspace() {
       });
       deleteUndoRef.current = null;
       setDeleteUndoAvailable(false);
-      const refreshed = await inspectRepairDirectory(snapshot.directory);
+      const refreshed = addSnapshotFile(
+        snapshot,
+        {
+          end: undo.range.end,
+          fileName: undo.fileName,
+          handle: result.fileHandle,
+          start: undo.range.start,
+        },
+        result.manifest,
+        result.outputManifest,
+      );
       setSnapshot(refreshed);
       await updateLocalState({
         ...localState,
@@ -880,6 +913,39 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function addSnapshotFile(
+  snapshot: RepairDirectorySnapshot,
+  file: RepairDirectorySnapshot['files'][number],
+  repairManifest: RepairDirectorySnapshot['repairManifest'],
+  outputManifest: RepairDirectorySnapshot['outputManifest'],
+): RepairDirectorySnapshot {
+  return {
+    ...snapshot,
+    files: [...snapshot.files, file].sort(
+      (left, right) =>
+        left.start - right.start ||
+        left.end - right.end ||
+        left.fileName.localeCompare(right.fileName),
+    ),
+    outputManifest,
+    repairManifest,
+  };
+}
+
+function removeSnapshotFile(
+  snapshot: RepairDirectorySnapshot,
+  fileName: string,
+  repairManifest: RepairDirectorySnapshot['repairManifest'],
+  outputManifest: RepairDirectorySnapshot['outputManifest'],
+): RepairDirectorySnapshot {
+  return {
+    ...snapshot,
+    files: snapshot.files.filter((file) => file.fileName !== fileName),
+    outputManifest,
+    repairManifest,
+  };
+}
+
 function sameRange(left: SequenceRange, right: SequenceRange): boolean {
   return left.start === right.start && left.end === right.end;
 }
@@ -897,6 +963,15 @@ function isPickerCancelled(cause: unknown): boolean {
 }
 
 function errorMessage(cause: unknown): string {
+  if (
+    cause instanceof Error &&
+    cause.message.startsWith('MANUAL_OUTPUT_MANIFEST_CHECKSUM_MISMATCH:')
+  ) {
+    const fileName = cause.message.slice(
+      'MANUAL_OUTPUT_MANIFEST_CHECKSUM_MISMATCH:'.length,
+    );
+    return `Plik ${fileName} ma inną zawartość niż zapisana w manifeście pierwotnej selekcji. Narzędzie nie przejmie zmienionego pliku bez jawnego potwierdzenia nowej checksummy.`;
+  }
   return cause instanceof Error
     ? cause.message
     : 'Nie udało się poprawić selekcji.';

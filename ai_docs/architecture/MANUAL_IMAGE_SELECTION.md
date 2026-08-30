@@ -115,6 +115,12 @@ dekodowaniu obrazu i obliczeniu jego rzeczywistych wymiarów pojedynczy
 stanu React, IndexedDB ani trace manifestu, więc nie dodają pracy do ścieżki
 zapisu i dekodowania JPEG-a.
 
+Podczas przejściowego odmontowania canvasa przeglądarka może zgłosić techniczne
+`scrollTop=0`. Viewer przyjmuje nowe współrzędne wyłącznie wtedy, gdy Object URL
+nadal odpowiada bieżącemu indeksowi; zdarzenie z pustego/loading viewportu nie
+może nadpisać ostatniej pozycji. Ta sama reguła obejmuje zwykłą selekcję, fill i
+delete.
+
 ## Architektura lokalnej korekty selekcji
 
 `ManualSelectionRepairWorkspace` jest montowany bezpośrednio po lokalnym
@@ -129,6 +135,13 @@ mutacji katalogu. Skanuje top-level JPEG-i, weryfikuje SHA-256, zapisuje
 manifesty i utrzymuje osobną IndexedDB v1 bez Blobów. Wszystkie polecenia
 workspace'u przechodzą przez jedną serializowaną kolejkę. Zmiana katalogu lub
 trybu jest blokowana podczas zapisu.
+
+Pełny skan i weryfikacja output manifestu odbywają się przy otwarciu katalogu
+oraz recovery. Po udanej mutacji adapter zwraca finalny repair/output manifest
+i uchwyt zmienionego pliku, a workspace aktualizuje posortowany snapshot przez
+dodanie albo usunięcie jednego wpisu. Dzięki temu delete nie wykonuje dwóch
+pełnych przebiegów SHA-256 po wszystkich JPEG-ach; nadal hashuje dokładnie
+usuwany plik i zachowuje journal fail-closed.
 
 `manual-image-selection-repair-v1.json` zachowuje niezmienne granice kolekcji,
 aktywny indeks plików, checksumy, usunięte zakresy, append-only historię oraz

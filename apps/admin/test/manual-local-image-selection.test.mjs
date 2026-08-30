@@ -514,7 +514,6 @@ test('uses scrollable layout dimensions for zoomed images instead of a visual tr
   assert.match(viewerSource, /fitManualImageToViewport/);
   assert.match(viewerSource, /manualImageSelectionImageViewport/);
   assert.match(viewerSource, /manualImageSelectionImageCanvas/);
-  assert.match(viewerSource, /imageViewportRef\.current\?\.scrollTop/);
   assert.doesNotMatch(viewerSource, /transform:\s*`scale/);
   assert.match(
     stylesSource,
@@ -531,11 +530,21 @@ test('uses scrollable layout dimensions for zoomed images instead of a visual tr
 });
 
 test('keeps the vertical image position while navigating between photos', () => {
+  assert.match(viewerSource, /imageScrollLeftRef/);
   assert.match(viewerSource, /imageScrollTopRef/);
   assert.match(viewerSource, /pendingScrollRestoreRef/);
   assert.match(
     viewerSource,
+    /viewport\.scrollLeft = imageScrollLeftRef\.current/,
+  );
+  assert.match(
+    viewerSource,
     /viewport\.scrollTop = imageScrollTopRef\.current/,
+  );
+  assert.match(viewerSource, /imageUrlIndex === currentImageIndex/);
+  assert.doesNotMatch(
+    viewerSource,
+    /imageViewportRef\.current\?\.scrollTop \?\?/,
   );
   assert.match(viewerSource, /onScroll=/);
   assert.doesNotMatch(viewerSource, /scrollTo\(\{ top: 0 \}\)/);

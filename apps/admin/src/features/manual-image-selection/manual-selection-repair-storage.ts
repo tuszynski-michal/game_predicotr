@@ -85,6 +85,11 @@ export async function inspectRepairDirectory(
     });
   if (repairManifest.selectedDirectoryName !== directory.name)
     throw new Error('REPAIR_DIRECTORY_CHANGED');
+  const reconciled = await reconcileRepairManifest(
+    directory,
+    repairManifest,
+    parsed,
+  );
   return {
     directory,
     files: parsed.map((file) => ({
@@ -92,14 +97,10 @@ export async function inspectRepairDirectory(
       handle: handles.get(file.fileName.toLocaleLowerCase('en-US'))!,
     })),
     outputManifest,
-    repairManifest: await reconcileRepairManifest(
+    repairManifest: await attachVerifiedOutputChecksums(
       directory,
-      await attachVerifiedOutputChecksums(
-        directory,
-        repairManifest,
-        outputManifest,
-        parsed,
-      ),
+      reconciled,
+      outputManifest,
       parsed,
     ),
   };
@@ -185,7 +186,11 @@ export async function writeRepairFile(input: {
   readonly sourceIndex: number | null;
   readonly target: SequenceRange;
   readonly kind: 'fill' | 'restore';
-}): Promise<ManualSelectionRepairManifest> {
+}): Promise<{
+  readonly fileHandle: FileSystemFileHandle;
+  readonly manifest: ManualSelectionRepairManifest;
+  readonly outputManifest: ManualSelectionOutputManifest | null;
+}> {
   const fileName = `seq_${input.target.start}-${input.target.end}.jpg`;
   if (await fileExists(input.directory, fileName))
     throw new Error(`REPAIR_TARGET_ALREADY_EXISTS:${fileName}`);
@@ -223,12 +228,12 @@ export async function writeRepairFile(input: {
     new Date().toISOString(),
   );
   await writeRepairManifest(input.directory, completed);
-  await synchronizeOutputManifest(
+  const outputManifest = await synchronizeOutputManifest(
     input.directory,
     input.outputManifest,
     completed,
   );
-  return completed;
+  return { fileHandle: target, manifest: completed, outputManifest };
 }
 
 export async function deleteRepairFile(input: {
@@ -242,6 +247,7 @@ export async function deleteRepairFile(input: {
 }): Promise<{
   readonly file: File;
   readonly manifest: ManualSelectionRepairManifest;
+  readonly outputManifest: ManualSelectionOutputManifest | null;
 }> {
   const parsed = sortAndValidateSequenceFiles([input.fileName])[0]!;
   const handle = await input.directory.getFileHandle(input.fileName);
@@ -276,12 +282,12 @@ export async function deleteRepairFile(input: {
     new Date().toISOString(),
   );
   await writeRepairManifest(input.directory, completed);
-  await synchronizeOutputManifest(
+  const outputManifest = await synchronizeOutputManifest(
     input.directory,
     input.outputManifest,
     completed,
   );
-  return { file, manifest: completed };
+  return { file, manifest: completed, outputManifest };
 }
 
 export async function reconcileRepairManifest(
@@ -376,8 +382,8 @@ async function synchronizeOutputManifest(
   directory: FileSystemDirectoryHandle,
   original: ManualSelectionOutputManifest | null,
   repair: ManualSelectionRepairManifest,
-): Promise<void> {
-  if (original === null) return;
+): Promise<ManualSelectionOutputManifest | null> {
+  if (original === null) return null;
   const originalItems = new Map(
     original.items.map((item) => [item.outputName, item]),
   );
@@ -422,6 +428,7 @@ async function synchronizeOutputManifest(
     'manual-image-selection-output-v1.json',
     nextManifest,
   );
+  return nextManifest;
 }
 
 function repairOperation(input: {

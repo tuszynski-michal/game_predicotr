@@ -142,7 +142,7 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
     directory,
     fileName: 'seq_10-18.jpg',
     kind: 'undo_fill',
-    manifest: filled,
+    manifest: filled.manifest,
     outputManifest: null,
     sourceIndex: 4,
     sourcePath: 'base/source.jpg',
@@ -168,7 +168,7 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
       .then((file) => file.text()),
     'chosen-original-bytes',
   );
-  assert.deepEqual(restored.deletedRanges, []);
+  assert.deepEqual(restored.manifest.deletedRanges, []);
 });
 
 test('delete workspace uses fixed step one and keeps only one in-memory restore buffer', async () => {
@@ -187,6 +187,8 @@ test('delete workspace uses fixed step one and keeps only one in-memory restore 
   assert.match(source, /deleteUndoRef\.current = \{/);
   assert.match(source, /deleteUndoRef\.current = null/);
   assert.doesNotMatch(source, /localStorage.*deleteUndo/s);
+  assert.doesNotMatch(source, /inspectRepairDirectory\(snapshot\.directory\)/);
+  assert.match(source, /removeSnapshotFile\(/);
 });
 
 test('admin mounts repair directly below local selection and redirects repaired folders', async () => {

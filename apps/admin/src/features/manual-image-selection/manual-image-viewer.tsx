@@ -32,7 +32,7 @@ export interface ManualImageViewerState {
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   toggleFullscreen(): Promise<void>;
   onImageLoad(sourceUrl: string, size: ManualImageSize): void;
-  onViewportScroll(scrollTop: number): void;
+  onViewportScroll(scrollLeft: number, scrollTop: number): void;
 }
 
 export function useManualImageViewer(
@@ -45,6 +45,7 @@ export function useManualImageViewer(
   const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
   const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
+  const imageScrollLeftRef = useRef(0);
   const imageScrollTopRef = useRef(0);
   const pendingScrollRestoreRef = useRef(false);
   const previousImageIndexRef = useRef(currentImageIndex);
@@ -68,6 +69,7 @@ export function useManualImageViewer(
   useEffect(() => {
     const cache = imageUrlCacheRef.current;
     const pendingLoads = imageUrlLoadRef.current;
+    pendingScrollRestoreRef.current = true;
     imageCacheGenerationRef.current += 1;
     for (const url of cache.values()) URL.revokeObjectURL(url);
     cache.clear();
@@ -86,8 +88,6 @@ export function useManualImageViewer(
 
   useEffect(() => {
     if (previousImageIndexRef.current !== currentImageIndex) {
-      imageScrollTopRef.current =
-        imageViewportRef.current?.scrollTop ?? imageScrollTopRef.current;
       pendingScrollRestoreRef.current = true;
       previousImageIndexRef.current = currentImageIndex;
     }
@@ -203,6 +203,7 @@ export function useManualImageViewer(
     const animationFrame = window.requestAnimationFrame(() => {
       const viewport = imageViewportRef.current;
       if (viewport === null) return;
+      viewport.scrollLeft = imageScrollLeftRef.current;
       viewport.scrollTop = imageScrollTopRef.current;
       pendingScrollRestoreRef.current = false;
     });
@@ -235,9 +236,14 @@ export function useManualImageViewer(
     onImageLoad(sourceUrl, size) {
       setLoadedImageSize({ size, sourceUrl });
     },
-    onViewportScroll(scrollTop) {
-      if (!pendingScrollRestoreRef.current)
+    onViewportScroll(scrollLeft, scrollTop) {
+      if (
+        !pendingScrollRestoreRef.current &&
+        imageUrlIndex === currentImageIndex
+      ) {
+        imageScrollLeftRef.current = scrollLeft;
         imageScrollTopRef.current = scrollTop;
+      }
     },
     setZoom,
     toggleFullscreen,
@@ -337,7 +343,10 @@ export function ManualImageViewer({
           <div
             className="manualImageSelectionImageViewport"
             onScroll={(event) =>
-              state.onViewportScroll(event.currentTarget.scrollTop)
+              state.onViewportScroll(
+                event.currentTarget.scrollLeft,
+                event.currentTarget.scrollTop,
+              )
             }
             ref={state.imageViewportRef}
           >

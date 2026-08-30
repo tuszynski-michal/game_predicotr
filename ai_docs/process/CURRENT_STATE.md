@@ -43,6 +43,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   jest dostępna po 300 ms rzeczywistej widoczności; ostatni fill można cofnąć
   bez usuwania obcego albo zmienionego pliku.
 
+### Usuwanie ręcznie wybranych sekwencji — TASK-0339
+
+- `v0.10.32` dodaje tryb przeglądania `seq_*` ze stałym skokiem 1. F i jawny
+  przycisk usuwają dokładny, checksummowany JPEG oraz aktualizują trwałą listę
+  luk i oba manifesty.
+- Wyłącznie ostatni usunięty Blob pozostaje w pamięci otwartej karty. A/Ctrl+A
+  przywraca go pod pierwotną nazwą po kontroli kolizji i SHA-256; reload albo
+  następne usunięcie bezpowrotnie usuwa wcześniejszą możliwość restore.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

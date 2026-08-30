@@ -1167,6 +1167,16 @@ nav {
   font-size: 0.9rem;
 }
 
+.manualSelectionRepairWarning {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  border-radius: 10px;
+  background: rgba(120, 53, 15, 0.18);
+  color: #fde68a;
+  line-height: 1.5;
+}
+
 .manualImageSelectionActive {
   min-height: min(78vh, 900px);
 }

@@ -150,6 +150,43 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
   assert.equal(removed.file.size, 'chosen-original-bytes'.length);
   await assert.rejects(directory.getFileHandle('seq_10-18.jpg'), /missing/);
   assert.deepEqual(removed.manifest.deletedRanges, [{ end: 18, start: 10 }]);
+  const restored = await writeRepairFile({
+    directory,
+    kind: 'restore',
+    manifest: removed.manifest,
+    outputManifest: null,
+    source: new MemoryFileHandle('seq_10-18.jpg', removed.file),
+    sourceIndex: 4,
+    sourcePath: 'base/source.jpg',
+    target: { end: 18, start: 10 },
+  });
+  assert.equal(
+    await (
+      await directory.getFileHandle('seq_10-18.jpg')
+    )
+      .getFile()
+      .then((file) => file.text()),
+    'chosen-original-bytes',
+  );
+  assert.deepEqual(restored.deletedRanges, []);
+});
+
+test('delete workspace uses fixed step one and keeps only one in-memory restore buffer', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  assert.match(source, /navigationStepLabel="skok: 1"/);
+  assert.match(source, /Usuń sekwencję F/);
+  assert.match(source, /Przywróć ostatnie A \/ Ctrl\+A/);
+  assert.match(source, /deleteUndoRef\.current = \{/);
+  assert.match(source, /deleteUndoRef\.current = null/);
+  assert.doesNotMatch(source, /localStorage.*deleteUndo/s);
 });
 
 test('fill workspace exposes bounded steps, gap targets, shortcuts and visibility gate', async () => {

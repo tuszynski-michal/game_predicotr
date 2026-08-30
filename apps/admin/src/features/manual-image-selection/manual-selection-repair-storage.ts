@@ -182,7 +182,7 @@ export async function writeRepairFile(input: {
   readonly outputManifest: ManualSelectionOutputManifest | null;
   readonly source: FileSystemFileHandle;
   readonly sourcePath: string;
-  readonly sourceIndex: number;
+  readonly sourceIndex: number | null;
   readonly target: SequenceRange;
   readonly kind: 'fill' | 'restore';
 }): Promise<ManualSelectionRepairManifest> {

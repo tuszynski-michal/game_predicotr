@@ -15,6 +15,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Korekta ręcznej selekcji — TASK-0336
+
+- `v0.10.29` wydziela wspólny viewer lokalnych zdjęć: bounded cache bieżącego
+  okna, zoom 100–3000%, fullscreen oraz pamięć pionowego scrolla.
+- Dotychczasowy lokalny selector korzysta z nowego komponentu bez zmiany
+  manifestów, skrótów ani operacji plikowych. Jest to fundament niezależnej
+  sekcji `Popraw selekcję`; manifest i mutacje korekty powstaną w TASK-0337.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

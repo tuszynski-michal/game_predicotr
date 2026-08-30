@@ -1,17 +1,12 @@
 'use client';
 
-/* Manual selection renders browser-local object URLs and must preserve their native bytes. */
-/* eslint-disable @next/next/no-img-element */
-
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   adjacentManualNavigationStep,
   createManualSelectionState,
-  fitManualImageToViewport,
   INDEPENDENT_MANUAL_SELECTION_ID,
   MANUAL_IMAGE_NAVIGATION_STEPS,
-  manualPreviewWindow,
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
@@ -20,7 +15,6 @@ import {
   type ManualSelectionDecision,
   type ManualSelectionState,
   type ManualSelectionTraceEvent,
-  type ManualImageSize,
 } from '@game-predictor/manual-image-selection-core';
 import {
   FileSystemManualSelectionOutputAdapter,
@@ -39,17 +33,16 @@ import {
   resumeManualSelectionCursor,
 } from './manual-image-selection-cursor';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
+import {
+  ManualImageViewer,
+  useManualImageViewer,
+} from './manual-image-viewer';
 import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
 
 interface DirectoryPickerWindow extends Window {
   showDirectoryPicker?: (options?: {
     readonly mode?: 'read' | 'readwrite';
   }) => Promise<FileSystemDirectoryHandle>;
-}
-
-interface LoadedImageSize {
-  readonly size: ManualImageSize;
-  readonly sourceUrl: string;
 }
 
 type ResumeRecoveryTarget = 'source' | 'output';
@@ -74,15 +67,8 @@ function LocalManualImageSelectionWorkspace() {
   const store = useMemo(() => new ManualImageSelectionStore(), []);
   const busyRef = useRef(false);
   const folderPickerActiveRef = useRef(false);
-  const viewerRef = useRef<HTMLDivElement | null>(null);
-  const imageViewportRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<ManualSelectionState | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
-  const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
-  const imageCacheGenerationRef = useRef(0);
-  const imageScrollTopRef = useRef(0);
-  const pendingImageScrollRestoreRef = useRef(false);
   const traceEventIndexRef = useRef(0);
   const viewTimerRef = useRef<number | null>(null);
   const [firstLayout, setFirstLayout] = useState('1');
@@ -107,17 +93,9 @@ function LocalManualImageSelectionWorkspace() {
   const [resumeRecovery, setResumeRecovery] =
     useState<ResumeRecoveryTarget | null>(null);
   const [state, setState] = useState<ManualSelectionState | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageUrlIndex, setImageUrlIndex] = useState(-1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoom, setZoom] = useState(1);
   const [rangeEditorOpen, setRangeEditorOpen] = useState(false);
   const [rangeStartDraft, setRangeStartDraft] = useState('');
   const [rangeEndDraft, setRangeEndDraft] = useState('');
-  const [loadedImageSize, setLoadedImageSize] =
-    useState<LoadedImageSize | null>(null);
-  const [imageViewportSize, setImageViewportSize] =
-    useState<ManualImageSize | null>(null);
   const currentImageIndex = state?.currentIndex ?? -1;
   const currentRangeStart = state?.nextRangeStart ?? -1;
   const parsedSetupFirstLayout = Number.parseInt(firstLayout, 10);
@@ -136,13 +114,13 @@ function LocalManualImageSelectionWorkspace() {
     state === null
       ? 0
       : manualSelectionDisplayPosition(state.currentIndex, images.length);
-  const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
-  const zoomedImageSize = fitManualImageToViewport(
-    loadedImageSize?.sourceUrl === visibleImageUrl
-      ? loadedImageSize.size
-      : null,
-    imageViewportSize,
-    zoom,
+  const handleViewerError = useCallback((message: string) => {
+    setError(message);
+  }, []);
+  const imageViewer = useManualImageViewer(
+    images,
+    currentImageIndex,
+    handleViewerError,
   );
 
   useEffect(() => {
@@ -159,163 +137,6 @@ function LocalManualImageSelectionWorkspace() {
       cancelled = true;
     };
   }, [store, workspaceId]);
-
-  useEffect(() => {
-    const cache = imageUrlCacheRef.current;
-    const pendingLoads = imageUrlLoadRef.current;
-    imageCacheGenerationRef.current += 1;
-    for (const url of cache.values()) {
-      URL.revokeObjectURL(url);
-    }
-    cache.clear();
-    pendingLoads.clear();
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setImageUrl(null);
-        setImageUrlIndex(-1);
-      }
-    });
-    return () => {
-      cancelled = true;
-      imageCacheGenerationRef.current += 1;
-      for (const url of cache.values()) {
-        URL.revokeObjectURL(url);
-      }
-      cache.clear();
-      pendingLoads.clear();
-    };
-  }, [images]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (currentImageIndex < 0 || images[currentImageIndex] === undefined) {
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setImageUrl(null);
-          setImageUrlIndex(-1);
-        }
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const generation = imageCacheGenerationRef.current;
-    const previewIndexes = manualPreviewWindow(
-      currentImageIndex,
-      images.length,
-    );
-    const previewIndexSet = new Set(previewIndexes);
-    for (const [index, url] of imageUrlCacheRef.current.entries()) {
-      if (!previewIndexSet.has(index)) {
-        URL.revokeObjectURL(url);
-        imageUrlCacheRef.current.delete(index);
-      }
-    }
-
-    const loadUrl = (index: number): Promise<string> => {
-      const cached = imageUrlCacheRef.current.get(index);
-      if (cached !== undefined) return Promise.resolve(cached);
-      const pending = imageUrlLoadRef.current.get(index);
-      if (pending !== undefined) return pending;
-      const image = images[index];
-      if (image === undefined)
-        return Promise.reject(new Error('IMAGE_OUT_OF_BOUNDS'));
-      const load = image.handle
-        .getFile()
-        .then(async (file) => {
-          const url = URL.createObjectURL(file);
-          const preview = new Image();
-          preview.src = url;
-          await preview.decode().catch(() => undefined);
-          if (generation !== imageCacheGenerationRef.current) {
-            URL.revokeObjectURL(url);
-            throw new Error('STALE_IMAGE_CACHE');
-          }
-          const latestIndex =
-            stateRef.current?.currentIndex ?? currentImageIndex;
-          if (
-            !manualPreviewWindow(latestIndex, images.length).includes(index)
-          ) {
-            URL.revokeObjectURL(url);
-            throw new Error('STALE_IMAGE_WINDOW');
-          }
-          imageUrlCacheRef.current.set(index, url);
-          return url;
-        })
-        .finally(() => imageUrlLoadRef.current.delete(index));
-      imageUrlLoadRef.current.set(index, load);
-      return load;
-    };
-
-    const neighbours = previewIndexes.filter(
-      (index) => index !== currentImageIndex,
-    );
-
-    void loadUrl(currentImageIndex)
-      .then((url) => {
-        if (!cancelled) {
-          setImageUrl(url);
-          setImageUrlIndex(currentImageIndex);
-        }
-      })
-      .catch((cause: unknown) => {
-        if (!cancelled && !isStaleImageLoad(cause)) {
-          setError('Nie udało się odczytać bieżącego zdjęcia.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          void Promise.allSettled(neighbours.map((index) => loadUrl(index)));
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentImageIndex, images]);
-
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === viewerRef.current);
-    };
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () =>
-      document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
-
-  useEffect(() => {
-    const viewport = imageViewportRef.current;
-    if (viewport === null) return;
-    const updateViewportSize = () => {
-      setImageViewportSize({
-        height: viewport.clientHeight,
-        width: viewport.clientWidth,
-      });
-    };
-    updateViewportSize();
-    const observer = new ResizeObserver(updateViewportSize);
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [currentImageIndex]);
-
-  useEffect(() => {
-    if (
-      !pendingImageScrollRestoreRef.current ||
-      visibleImageUrl === null ||
-      zoomedImageSize === null
-    ) {
-      return;
-    }
-    const animationFrame = window.requestAnimationFrame(() => {
-      const viewport = imageViewportRef.current;
-      if (viewport === null) return;
-      viewport.scrollTop = imageScrollTopRef.current;
-      pendingImageScrollRestoreRef.current = false;
-    });
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [currentImageIndex, visibleImageUrl, zoomedImageSize]);
 
   useEffect(() => {
     if (record === null || state === null) return;
@@ -345,8 +166,7 @@ function LocalManualImageSelectionWorkspace() {
       current === undefined ||
       currentImageIndex < 0 ||
       currentRangeStart < 1 ||
-      imageUrlIndex !== currentImageIndex ||
-      imageUrl === null
+      imageViewer.visibleImageUrl === null
     ) {
       return;
     }
@@ -382,8 +202,7 @@ function LocalManualImageSelectionWorkspace() {
   }, [
     currentImageIndex,
     currentRangeStart,
-    imageUrl,
-    imageUrlIndex,
+    imageViewer.visibleImageUrl,
     images,
     record?.key,
     store,
@@ -641,12 +460,6 @@ function LocalManualImageSelectionWorkspace() {
 
   async function persist(next: ManualSelectionState): Promise<void> {
     if (record === null) return;
-    const previous = stateRef.current;
-    if (previous !== null && previous.currentIndex !== next.currentIndex) {
-      imageScrollTopRef.current =
-        imageViewportRef.current?.scrollTop ?? imageScrollTopRef.current;
-      pendingImageScrollRestoreRef.current = true;
-    }
     const nextRecord = {
       ...record,
       cursorImagePath:
@@ -967,27 +780,6 @@ function LocalManualImageSelectionWorkspace() {
     });
   }
 
-  async function toggleFullscreen(): Promise<void> {
-    const viewer = viewerRef.current;
-    if (viewer === null) return;
-    setError(null);
-    try {
-      if (document.fullscreenElement === viewer) {
-        await document.exitFullscreen();
-      } else {
-        if (document.fullscreenElement !== null)
-          await document.exitFullscreen();
-        await viewer.requestFullscreen();
-      }
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Nie udało się otworzyć podglądu pełnoekranowego.',
-      );
-    }
-  }
-
   useEffect(() => {
     if (state === null) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1266,139 +1058,46 @@ function LocalManualImageSelectionWorkspace() {
           </span>
         </div>
       </header>
-      <div className="manualImageSelectionViewerToolbar">
-        <label className="manualImageSelectionStep">
-          Skok strzałki
-          <select
-            disabled={busy}
-            onChange={(event) => changeNavigationStep(event.target.value)}
-            value={navigationStep}
-          >
-            {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
-              <option key={step} value={step}>
-                co {step}{' '}
-                {step === 1
-                  ? 'zdjęcie'
-                  : step >= 2 && step <= 4
-                    ? 'zdjęcia'
-                    : 'zdjęć'}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div
-          className="manualImageSelectionZoom"
-          aria-label="Powiększenie zdjęcia"
-        >
-          <button
-            aria-label="Pomniejsz zdjęcie"
-            className="secondaryButton"
-            disabled={zoom <= 1 || busy}
-            onClick={() => setZoom((value) => Math.max(1, value - 0.25))}
-            type="button"
-          >
-            −
-          </button>
-          <span>{Math.round(zoom * 100)}%</span>
-          <button
-            aria-label="Powiększ zdjęcie"
-            className="secondaryButton"
-            disabled={zoom >= 30 || busy}
-            onClick={() => setZoom((value) => Math.min(30, value + 0.25))}
-            type="button"
-          >
-            +
-          </button>
-        </div>
-        <button
-          className="secondaryButton"
-          disabled={busy}
-          onClick={() => void toggleFullscreen()}
-          type="button"
-        >
-          {isFullscreen ? 'Zamknij pełny ekran' : 'Pełny ekran'}
-        </button>
-      </div>
-      <div className="manualImageSelectionViewer" ref={viewerRef}>
-        <div className="manualImageSelectionFullscreenInfo" aria-live="polite">
-          <strong>
-            Zakres {range.start}–{range.end}
-          </strong>
-          <span>
-            zdjęcie {currentImagePosition} / {images.length}
-          </span>
-          <span>skok strzałki: {navigationStep}</span>
-          <span>{current?.relativePath ?? 'brak zdjęcia'}</span>
-        </div>
-        <button
-          aria-label="Poprzednie zdjęcie"
-          className="manualImageSelectionNav"
-          disabled={
-            moveManualSelectionCursor(state.currentIndex, images.length, -1) ===
-              state.currentIndex || busy
-          }
-          onClick={() => moveImage(-1)}
-          type="button"
-        >
-          ←
-        </button>
-        <div className="manualImageSelectionImageFrame">
-          <div
-            className="manualImageSelectionImageViewport"
-            onScroll={(event) => {
-              if (!pendingImageScrollRestoreRef.current) {
-                imageScrollTopRef.current = event.currentTarget.scrollTop;
-              }
-            }}
-            ref={imageViewportRef}
-          >
-            {visibleImageUrl === null ? (
-              <p>Wczytywanie zdjęcia…</p>
-            ) : (
-              <div
-                className="manualImageSelectionImageCanvas"
-                style={
-                  zoomedImageSize === null
-                    ? undefined
-                    : {
-                        height: `${zoomedImageSize.height}px`,
-                        width: `${zoomedImageSize.width}px`,
-                      }
-                }
-              >
-                <img
-                  alt={current?.relativePath ?? 'Bieżące zdjęcie'}
-                  onLoad={(event) => {
-                    setLoadedImageSize({
-                      size: {
-                        height: event.currentTarget.naturalHeight,
-                        width: event.currentTarget.naturalWidth,
-                      },
-                      sourceUrl: visibleImageUrl,
-                    });
-                  }}
-                  src={visibleImageUrl}
-                />
-              </div>
-            )}
-          </div>
-          <p className="manualImageSelectionFilename">
-            {current?.relativePath ?? 'brak zdjęcia'}
-          </p>
-        </div>
-        <button
-          aria-label="Następne zdjęcie"
-          className="manualImageSelectionNav"
-          disabled={
-            moveManualSelectionCursor(state.currentIndex, images.length, 1) ===
-              state.currentIndex || busy
-          }
-          onClick={() => moveImage(1)}
-          type="button"
-        >
-          →
-        </button>
-      </div>
+      <ManualImageViewer
+        busy={busy}
+        currentLabel={`Zakres ${range.start}–${range.end}`}
+        currentPosition={currentImagePosition}
+        currentRelativePath={current?.relativePath ?? null}
+        imageCount={images.length}
+        navigationStepLabel={`skok strzałki: ${navigationStep}`}
+        nextDisabled={
+          moveManualSelectionCursor(state.currentIndex, images.length, 1) ===
+          state.currentIndex
+        }
+        onNext={() => moveImage(1)}
+        onPrevious={() => moveImage(-1)}
+        previousDisabled={
+          moveManualSelectionCursor(state.currentIndex, images.length, -1) ===
+          state.currentIndex
+        }
+        state={imageViewer}
+        toolbarStart={
+          <label className="manualImageSelectionStep">
+            Skok strzałki
+            <select
+              disabled={busy}
+              onChange={(event) => changeNavigationStep(event.target.value)}
+              value={navigationStep}
+            >
+              {MANUAL_IMAGE_NAVIGATION_STEPS.map((step) => (
+                <option key={step} value={step}>
+                  co {step}{' '}
+                  {step === 1
+                    ? 'zdjęcie'
+                    : step >= 2 && step <= 4
+                      ? 'zdjęcia'
+                      : 'zdjęć'}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
       <div className="manualImageSelectionActions">
         <button
           className="secondaryButton"
@@ -1479,14 +1178,6 @@ async function requestPermission(
   ) {
     throw new Error(`Brak uprawnień do folderu ${directory.name}.`);
   }
-}
-
-function isStaleImageLoad(cause: unknown): boolean {
-  return (
-    cause instanceof Error &&
-    (cause.message === 'STALE_IMAGE_CACHE' ||
-      cause.message === 'STALE_IMAGE_WINDOW')
-  );
 }
 
 function normalizeNavigationStep(value: number | undefined): number {

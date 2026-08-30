@@ -37,6 +37,13 @@ const workspaceSource = await readFile(
   ),
   'utf8',
 );
+const viewerSource = await readFile(
+  new URL(
+    '../src/features/manual-image-selection/manual-image-viewer.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const manualSelectionCoreSource = await readFile(
   new URL(
     '../../../packages/manual-image-selection-core/src/index.ts',
@@ -491,21 +498,21 @@ test('undo restores the previous range and removes the last decision', () => {
 });
 
 test('offers fullscreen and bounded zoom controls without changing the source file', () => {
-  assert.match(workspaceSource, /toggleFullscreen/);
-  assert.match(workspaceSource, /requestFullscreen/);
-  assert.match(workspaceSource, /Powiększ zdjęcie/);
-  assert.match(workspaceSource, /Math\.min\(30/);
-  assert.match(workspaceSource, /zoom >= 30/);
-  assert.match(workspaceSource, /manualImageSelectionFullscreenInfo/);
-  assert.match(workspaceSource, /Zakres \{range\.start\}–\{range\.end\}/);
+  assert.match(viewerSource, /toggleFullscreen/);
+  assert.match(viewerSource, /requestFullscreen/);
+  assert.match(viewerSource, /Powiększ zdjęcie/);
+  assert.match(viewerSource, /Math\.min\(30/);
+  assert.match(viewerSource, /state\.zoom >= 30/);
+  assert.match(viewerSource, /manualImageSelectionFullscreenInfo/);
+  assert.match(workspaceSource, /currentLabel=\{`Zakres \$\{range\.start\}–\$\{range\.end\}`\}/);
 });
 
 test('uses scrollable layout dimensions for zoomed images instead of a visual transform', () => {
-  assert.match(workspaceSource, /fitManualImageToViewport/);
-  assert.match(workspaceSource, /manualImageSelectionImageViewport/);
-  assert.match(workspaceSource, /manualImageSelectionImageCanvas/);
-  assert.match(workspaceSource, /imageViewportRef\.current\?\.scrollTo/);
-  assert.doesNotMatch(workspaceSource, /transform:\s*`scale/);
+  assert.match(viewerSource, /fitManualImageToViewport/);
+  assert.match(viewerSource, /manualImageSelectionImageViewport/);
+  assert.match(viewerSource, /manualImageSelectionImageCanvas/);
+  assert.match(viewerSource, /imageViewportRef\.current\?\.scrollTop/);
+  assert.doesNotMatch(viewerSource, /transform:\s*`scale/);
   assert.match(
     stylesSource,
     /\.manualImageSelectionImageViewport\s*\{[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto;/,
@@ -521,14 +528,14 @@ test('uses scrollable layout dimensions for zoomed images instead of a visual tr
 });
 
 test('keeps the vertical image position while navigating between photos', () => {
-  assert.match(workspaceSource, /imageScrollTopRef/);
-  assert.match(workspaceSource, /pendingImageScrollRestoreRef/);
+  assert.match(viewerSource, /imageScrollTopRef/);
+  assert.match(viewerSource, /pendingScrollRestoreRef/);
   assert.match(
-    workspaceSource,
+    viewerSource,
     /viewport\.scrollTop = imageScrollTopRef\.current/,
   );
-  assert.match(workspaceSource, /onScroll=/);
-  assert.doesNotMatch(workspaceSource, /scrollTo\(\{ top: 0 \}\)/);
+  assert.match(viewerSource, /onScroll=/);
+  assert.doesNotMatch(viewerSource, /scrollTo\(\{ top: 0 \}\)/);
 });
 
 test('renders the navigation step selector with a readable dark popup', () => {
@@ -550,8 +557,8 @@ test('indexes handles without opening every JPEG and preloads a bounded neighbou
     ) + 2,
   );
   assert.doesNotMatch(listing, /getFile\(/);
-  assert.match(workspaceSource, /manualPreviewWindow\(/);
-  assert.match(workspaceSource, /preview\.decode\(\)/);
+  assert.match(viewerSource, /manualPreviewWindow\(/);
+  assert.match(viewerSource, /preview\.decode\(\)/);
   assert.match(workspaceSource, /saveQueueRef/);
 });
 
@@ -595,7 +602,8 @@ test('output port writes v2 manifests and never removes a foreign file', async (
     getFileHandle: async (name, options) => {
       if (options?.create !== true && !saved.has(name)) {
         throw new DOMException('missing', 'NotFoundError');
-      }
+}
+
       return {
         createWritable: async () => ({
           abort: async () => undefined,

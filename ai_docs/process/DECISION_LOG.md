@@ -6360,6 +6360,33 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   jako zatwierdzonego unknown oraz natychmiastowe przepisywanie historii
   odrzucono z powodu mieszania UI z domeną i ryzyka utraty znaczenia danych.
 
+## D-266 — Dalsza geometria wymaga read-only feasibility i wielu źródeł dowodu
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Decision:** przed zmianą produkcyjnych progów Structured OpenCV wymagany jest
+  niedestrukcyjny spike na 30–50 rzeczywistych zdjęciach. LSD pozostaje jednym
+  z dowodów, a nie wyłączną bramką; osobno mierzymy ramkę zewnętrzną, Hough,
+  profile gradientów, regularność układu i pomocnicze centra symboli. Gotowość
+  korpusu, wynik techniczny i zgoda na rollout są trzema osobnymi decyzjami.
+- **Context:** przebieg TASK-0323 na 43 zdjęciach jednej gry pokazał 323/324
+  prowizorycznie poprawnych projekcji znanego układu i 380/382 lokalnych
+  doprecyzowań startujących z ręcznej geometrii. Jednocześnie bieżące hard
+  gates odrzuciły wszystkie plansze, głównie z powodu braku kompletnego dowodu
+  linii wewnętrznych, a generyczna inicjalizacja bez profilu nie dostarczyła
+  finalnych quadów.
+- **Safety:** spike nie importuje storage/API, nie zapisuje bazy ani canonical,
+  nie zmienia fingerprintów produkcyjnych i nie promuje trybu gry. Raport ma
+  `rolloutAuthorized=false`, a niepełny korpus kończy się
+  `insufficient_corpus`, bez dopowiadania wyniku 95/98.
+- **Consequences:** następny korpus musi dodać co najmniej drugą grę, strony
+  częściowe, rozmycie i dwa kolejne historyczne false-success. Dalszy kierunek
+  może łączyć ramkę zewnętrzną, znany układ i regularność, ale nadal wymaga
+  niezależnej walidacji źródłowej i pełnej bramki cutoveru.
+- **Alternatives:** natychmiastowe luzowanie LSD, promowanie wyniku jednej gry,
+  traktowanie oracle jako produkcyjnej inicjalizacji oraz przejście od razu do
+  segmentacji/modelu odrzucono jako nieaudytowalne albo przedwczesne.
+
 ## Szablon nowej decyzji
 
 ```text

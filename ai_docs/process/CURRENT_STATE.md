@@ -3926,3 +3926,22 @@ nieczytelność pozostają osobne, a zatwierdzony realny symbol przechodzi jako
 `verified_symbol`. Podejrzane pending przypisanie człowieka oraz zatwierdzony
 NULL bez unreadable są fail-closed. Addytywna kolumna, raport/backfill, API i UI
 pozostają po późniejszym schema ownership review.
+
+TASK-0323 dodał read-only feasibility spike istniejącego Structured OpenCV.
+Wersjonowany manifest wiąże rzeczywiste JPEG-i i ich SHA-256, a runner zapisuje
+wyłącznie regenerowalne JSON-y diagnostyczne, source overlaye i contact sheets.
+Nie zmieniono bazy, API, OpenAPI, canonical ownership, pipeline'u ani trybu
+rolloutu gry.
+
+Ograniczony przebieg objął 43 zdjęcia i 387 plansz jednej gry. Korpus jest
+formalnie niewystarczający: nie zawiera drugiej gry, częściowych stron,
+rozmycia ani trzech false-success. Wynik techniczny pokazał 323/324 poprawnych
+w granicy eksperymentalnej projekcji znanego układu oraz 380/382 lokalnych
+doprecyzowań z oracle. Generyczna inicjalizacja bez profilu nie zwróciła
+finalnych quadów, a bieżące hard gates odrzuciły wszystkie plansze, głównie z
+powodu braku kompletnego dowodu linii wewnętrznych.
+
+Rekomendacja pozostaje warunkowa: rozszerzyć wyłącznie read-only corpus i
+zbadać połączenie ramki zewnętrznej, znanego układu oraz regularności. Wynik nie
+zalicza bramki 95/98 i ma `rolloutAuthorized=false`. Raport znajduje się w
+`ai_docs/quality/STRUCTURED_GEOMETRY_FEASIBILITY_SPIKE_V1.md`.

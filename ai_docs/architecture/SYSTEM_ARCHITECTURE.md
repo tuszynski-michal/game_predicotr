@@ -808,6 +808,29 @@ write path do `image_geometry_rollout_states`, production workflow ani API.
 Niezmienny manifest release'u wiąże dataset, split, trening, ONNX parity i
 bounded CPU timing, a zarazem deklaruje `activationAllowed=false`.
 
+TASK-0323 dodaje izolowany, read-only runner feasibility istniejącego Structured
+OpenCV. Runner jest poza pipeline'em produkcyjnym i warstwą storage: wczytuje
+wyłącznie wersjonowany manifest rzeczywistych JPEG-ów, sprawdza ich SHA-256 i
+zapisuje regenerowalne diagnostyczne JSON-y, overlaye oraz contact sheets.
+Nie importuje ORM ani routerów, nie ma portu zapisu canonical i nie zmienia
+rolloutu gry.
+
+Warstwa pomiarowa rozdziela problem inicjalizacji od lokalnej obserwowalności.
+`genericGlobalProjection` sprawdza inicjalizację bez ręcznych quadów,
+`knownLayoutProjection` wykorzystuje zweryfikowany układ strony,
+`structuredHybrid` uruchamia bieżący silnik z tym profilem, a
+`oracleInitializedLocalRefinement` startuje z ręcznej geometrii wyłącznie po to,
+aby ocenić sam refiner. Hough, gradienty, regularność i centra symboli są
+liczone w ręcznie zweryfikowanym ROI i są oznaczone jako probe widoczności,
+nie jako samodzielny produkcyjny detektor.
+
+Raport techniczny jest niezależny od gotowości korpusu oraz autoryzacji
+produkcyjnej. Wynik z jednej gry, bez częściowych stron, rozmycia i wymaganej
+liczby false-success pozostaje `insufficient_corpus`, nawet jeżeli wybrany
+kandydat osiąga wysoki prowizoryczny wynik geometryczny. TASK-0323 nie zmienia
+bramek 95/98 ani hard gates; jego wyniki mogą jedynie uzasadnić następny,
+szerszy read-only corpus.
+
 Geometria używa portu `PageBoardDetector` oraz kontraktu
 `page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
 znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie

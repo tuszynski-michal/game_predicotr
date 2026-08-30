@@ -260,6 +260,34 @@ TASK-0319 nie dodaje trybu w bazie, nie podpina modelu do produkcyjnego
 pipeline'u, nie uruchamia treningu na danych użytkownika i nie wprowadza
 segmentacji, Ultralytics ani GPU.
 
+### 2.6. Read-only feasibility przed dalszym cutoverem
+
+Przed kolejnym rozszerzeniem Structured OpenCV obowiązuje ograniczony,
+niedestrukcyjny spike na 30–50 rzeczywistych zdjęciach. Korpus powinien
+obejmować co najmniej dwie gry, pełne i częściowe strony, zróżnicowany kąt,
+jasność, rozmycie, odblaski i zasłonięcia oraz co najmniej trzy historyczne
+false-success. Brak pokrycia nie może być interpretowany jako GO albo NO-GO;
+raport otrzymuje wtedy jawny status `insufficient_corpus`.
+
+Runner weryfikuje manifest i SHA-256 JPEG-ów, nie czyta ani nie zapisuje bazy,
+nie zmienia canonical ownership i zapisuje wyłącznie regenerowalne JSON-y,
+overlaye oraz contact sheets do wskazanego katalogu raportu. Dla każdego slotu
+porównuje oddzielnie inicjalizację globalną, projekcję znanego układu, wynik
+hybrydowy, lokalne doprecyzowanie startujące z ręcznej geometrii oraz dostępny
+wynik historycznego detektora. LSD jest tylko jednym z dowodów; raportuje się
+również Hough, profile gradientów, ramkę zewnętrzną, regularność 5×3 i
+pomocnicze pokrycie centrów symboli.
+
+Pierwszy przebieg TASK-0323 objął 43 zdjęcia i 387 plansz jednej gry. Projekcja
+znanego układu miała 323/324 prowizorycznie poprawnych quadów, a lokalne
+doprecyzowanie z oracle 380/382, jednak wszystkie wyniki zostały odrzucone
+przez bieżące hard gates, przede wszystkim wymagające kompletu linii
+wewnętrznych. Generyczna inicjalizacja bez profilu nie dostarczyła finalnych
+quadów. Wynik uzasadnia dalszy read-only eksperyment oparty na ramce zewnętrznej,
+znanym układzie i regularności, ale nie zezwala na rollout ani zmianę progów
+produkcyjnych. Pełny raport i ograniczenia korpusu opisuje
+`ai_docs/quality/STRUCTURED_GEOMETRY_FEASIBILITY_SPIKE_V1.md`.
+
 ### 3. Detekcja strony i layoutów
 
 - kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,

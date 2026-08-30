@@ -28,3 +28,13 @@ test('saving a correction is separated from submitting the saved batch', () => {
     /async function submitSaved\(\)[\s\S]*await onSubmitSaved\(\)/,
   );
 });
+
+test('geometry editor uses the manual-selection fit model and bounded zoom', () => {
+  assert.match(panel, /fitManualImageToViewport/);
+  assert.match(panel, /MIN_GEOMETRY_ZOOM = 1/);
+  assert.match(panel, /MAX_GEOMETRY_ZOOM = 30/);
+  assert.match(panel, /GEOMETRY_ZOOM_STEP = 0\.25/);
+  assert.match(panel, /Powiększenie zdjęcia geometrii/);
+  assert.match(panel, /Przewijaj powiększony obraz w obu osiach/);
+  assert.match(panel, /className="pageGeometryViewport" ref=\{viewportRef\}/);
+});

@@ -634,6 +634,13 @@ i preflight całej partii. Lista korekty obejmuje również istniejące ręczne
 override'y, dzięki czemu błędnej, starszej kotwicy nie trzeba omijać ani usuwać
 z audytu. Zatwierdzone numery i ich cropy nie są tym zmieniane.
 
+Viewport korekty korzysta z tego samego modelu dopasowania co ręczna selekcja
+zdjęć i udostępnia zoom `100–3000%` ze skokiem 25 punktów procentowych.
+Powiększony obraz można przewijać w obu osiach. Zoom i scroll są wyłącznie
+stanem prezentacji: mapowanie kliknięć i przeciąganych punktów zawsze wraca do
+współrzędnych źródłowego JPEG-a, więc powiększenie nie zmienia zapisywanej
+geometrii. Przycisk z procentem przywraca dopasowanie 100%.
+
 ### 5. Odczyt sequence number
 
 #### Import poświadczonych zakresów `seq_*`

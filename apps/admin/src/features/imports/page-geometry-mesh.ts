@@ -164,3 +164,36 @@ export function isPageGeometryMeshBoundaryPoint(index: number): boolean {
       position.row === PAGE_MESH_ROWS - 1)
   );
 }
+
+export function pageGeometryPointFromRenderedCanvas({
+  clientX,
+  clientY,
+  imageHeight,
+  imageWidth,
+  renderedHeight,
+  renderedLeft,
+  renderedTop,
+  renderedWidth,
+}: Readonly<{
+  clientX: number;
+  clientY: number;
+  imageHeight: number;
+  imageWidth: number;
+  renderedHeight: number;
+  renderedLeft: number;
+  renderedTop: number;
+  renderedWidth: number;
+}>): PageGeometryPoint | null {
+  if (
+    imageHeight < 1 ||
+    imageWidth < 1 ||
+    renderedHeight <= 0 ||
+    renderedWidth <= 0
+  ) {
+    return null;
+  }
+  return {
+    x: ((clientX - renderedLeft) * imageWidth) / renderedWidth,
+    y: ((clientY - renderedTop) * imageHeight) / renderedHeight,
+  };
+}

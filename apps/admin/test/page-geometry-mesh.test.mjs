@@ -7,6 +7,7 @@ import {
   completePageGeometryCorners,
   createPageGeometryMesh,
   PAGE_MESH_POINT_COUNT,
+  pageGeometryPointFromRenderedCanvas,
   pageGeometryQuadsFromMesh,
 } from '../src/features/imports/page-geometry-mesh.ts';
 
@@ -87,4 +88,29 @@ test('lets one frame corner bend a board without closing neighbouring gutters', 
 
 test('returns no quads for an incomplete control mesh', () => {
   assert.deepEqual(pageGeometryQuadsFromMesh([{ x: 0, y: 0 }]), []);
+});
+
+test('maps the same visual point to source coordinates at every zoom', () => {
+  const source = { imageHeight: 1200, imageWidth: 900 };
+  const atOneHundredPercent = pageGeometryPointFromRenderedCanvas({
+    ...source,
+    clientX: 225,
+    clientY: 300,
+    renderedHeight: 600,
+    renderedLeft: 0,
+    renderedTop: 0,
+    renderedWidth: 450,
+  });
+  const atTwoHundredPercent = pageGeometryPointFromRenderedCanvas({
+    ...source,
+    clientX: 460,
+    clientY: 620,
+    renderedHeight: 1200,
+    renderedLeft: 10,
+    renderedTop: 20,
+    renderedWidth: 900,
+  });
+
+  assert.deepEqual(atOneHundredPercent, { x: 450, y: 600 });
+  assert.deepEqual(atTwoHundredPercent, atOneHundredPercent);
 });

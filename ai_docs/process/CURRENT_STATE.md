@@ -15,6 +15,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Zoom korekty geometrii — TASK-0343
+
+- Viewport korekty strony używa wspólnego modelu `fit to viewport` ręcznej
+  selekcji i pozwala powiększyć obraz od 100% do 3000% co 25%.
+- Powiększony obraz jest przewijany w obu osiach, a kliknięcia i przeciąganie
+  nadal zapisują współrzędne źródłowego JPEG-a. Przycisk procentu wraca do
+  dopasowania 100%; zoom nie zmienia resetu ani zapisanej geometrii.
+
 ### Elastyczna korekta pełnej strony — TASK-0342
 
 - Edytor ręcznej geometrii strony prowadzi przez narożniki LT → PT → PD → LD,

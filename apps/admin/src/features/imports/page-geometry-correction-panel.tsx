@@ -8,11 +8,13 @@ import type {
   BrowserPageGeometryOverrideCreate,
   BrowserPageGeometryReviewSourceResponse,
 } from '@game-predictor/admin-api-client';
+import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import {
   type PointerEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -26,6 +28,7 @@ import {
   createPageGeometryMesh,
   isPageGeometryMeshBoundaryPoint,
   PAGE_MESH_POINT_COUNT,
+  pageGeometryPointFromRenderedCanvas,
   pageGeometryQuadsFromMesh,
   type PageGeometryCorners,
   type PageGeometryPoint,
@@ -52,6 +55,9 @@ interface PageGeometryCorrectionPanelProps {
 }
 
 const HANDLE_RADIUS = 14;
+const MIN_GEOMETRY_ZOOM = 1;
+const MAX_GEOMETRY_ZOOM = 30;
+const GEOMETRY_ZOOM_STEP = 0.25;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, Math.round(value)));
@@ -121,6 +127,12 @@ export function PageGeometryCorrectionPanel({
     height: number;
     width: number;
   } | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState<{
+    height: number;
+    width: number;
+  } | null>(null);
+  const [zoom, setZoom] = useState(MIN_GEOMETRY_ZOOM);
   const [pageCorners, setPageCorners] = useState<PageCorners | null>(null);
   const [initialPageCorners, setInitialPageCorners] =
     useState<PageCorners | null>(null);
@@ -197,6 +209,21 @@ export function PageGeometryCorrectionPanel({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (viewport === null) return;
+    const updateSize = () =>
+      setViewportSize({
+        height: viewport.clientHeight,
+        width: viewport.clientWidth,
+      });
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [source?.sourceChecksumSha256]);
+
   const mesh = useMemo(() => {
     if (pageCorners === null) return [];
     return applyPageGeometryMeshOverrides(
@@ -208,6 +235,11 @@ export function PageGeometryCorrectionPanel({
     const generated = pageGeometryQuadsFromMesh(mesh);
     return generated.map((quad, index) => boardOverrides.get(index) ?? quad);
   }, [boardOverrides, mesh]);
+  const zoomedCanvasSize = fitManualImageToViewport(
+    imageSize,
+    viewportSize,
+    zoom,
+  );
 
   const imageUrl =
     source === null
@@ -343,11 +375,16 @@ export function PageGeometryCorrectionPanel({
   function relativePoint(event: PointerEvent<SVGSVGElement>): Point | null {
     if (imageSize === null) return null;
     const rect = event.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    return {
-      x: ((event.clientX - rect.left) * imageSize.width) / rect.width,
-      y: ((event.clientY - rect.top) * imageSize.height) / rect.height,
-    };
+    return pageGeometryPointFromRenderedCanvas({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      imageHeight: imageSize.height,
+      imageWidth: imageSize.width,
+      renderedHeight: rect.height,
+      renderedLeft: rect.left,
+      renderedTop: rect.top,
+      renderedWidth: rect.width,
+    });
   }
 
   function beginDrag(
@@ -589,121 +626,178 @@ export function PageGeometryCorrectionPanel({
                 Reset
               </button>
             </div>
-          </div>
-          <div className="pageGeometryCanvas" key={source.sourceChecksumSha256}>
-            {imageUrl !== null ? (
-              <img
-                alt={`Źródło do korekty: ${source.sourceRelativePath}`}
-                onLoad={(event) =>
-                  resetGeometry(
-                    event.currentTarget.naturalWidth,
-                    event.currentTarget.naturalHeight,
-                    existingSourceQuads(source),
+            <div
+              className="pageGeometryZoom"
+              aria-label="Powiększenie zdjęcia geometrii"
+            >
+              <button
+                aria-label="Pomniejsz zdjęcie geometrii"
+                className="secondaryButton"
+                disabled={saving || submitting || zoom <= MIN_GEOMETRY_ZOOM}
+                onClick={() =>
+                  setZoom((current) =>
+                    Math.max(MIN_GEOMETRY_ZOOM, current - GEOMETRY_ZOOM_STEP),
                   )
                 }
-                src={imageUrl}
-              />
-            ) : null}
-            {imageSize !== null && pageCorners !== null ? (
-              <svg
-                aria-label="Nakładka geometrii strony"
-                onPointerDown={placeNextCorner}
-                onPointerMove={(event) => {
-                  const point = relativePoint(event);
-                  if (point !== null) updatePoint(point);
-                }}
-                onPointerUp={() => setDragging(null)}
-                viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+                type="button"
               >
-                {quads.map((quad, index) => (
-                  <polygon
-                    className={
-                      correctionMode === index
-                        ? 'pageGeometryBoard pageGeometryBoardSelected'
-                        : 'pageGeometryBoard'
+                −
+              </button>
+              <button
+                className="secondaryButton pageGeometryZoomValue"
+                disabled={saving || submitting || zoom === MIN_GEOMETRY_ZOOM}
+                onClick={() => setZoom(MIN_GEOMETRY_ZOOM)}
+                title="Przywróć dopasowanie do okna"
+                type="button"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                aria-label="Powiększ zdjęcie geometrii"
+                className="secondaryButton"
+                disabled={saving || submitting || zoom >= MAX_GEOMETRY_ZOOM}
+                onClick={() =>
+                  setZoom((current) =>
+                    Math.min(MAX_GEOMETRY_ZOOM, current + GEOMETRY_ZOOM_STEP),
+                  )
+                }
+                type="button"
+              >
+                +
+              </button>
+              <span>Przewijaj powiększony obraz w obu osiach.</span>
+            </div>
+          </div>
+          <div className="pageGeometryViewport" ref={viewportRef}>
+            <div
+              className="pageGeometryCanvas"
+              key={source.sourceChecksumSha256}
+              style={
+                zoomedCanvasSize === null
+                  ? undefined
+                  : {
+                      height: `${zoomedCanvasSize.height}px`,
+                      width: `${zoomedCanvasSize.width}px`,
                     }
-                    key={index}
-                    points={quad.map(pointText).join(' ')}
-                  />
-                ))}
-                {cornerPlacement !== null ? (
-                  <>
-                    {cornerPlacement.length > 1 ? (
-                      <polyline
-                        className="pageGeometryPlacementLine"
-                        points={cornerPlacement.map(pointText).join(' ')}
-                      />
-                    ) : null}
-                    {cornerPlacement.map((point, index) => (
-                      <g key={index}>
-                        <circle
-                          className="pageGeometryHandle pageGeometryPlacementHandle"
-                          cx={point.x}
-                          cy={point.y}
-                          r={HANDLE_RADIUS}
+              }
+            >
+              {imageUrl !== null ? (
+                <img
+                  alt={`Źródło do korekty: ${source.sourceRelativePath}`}
+                  onLoad={(event) =>
+                    resetGeometry(
+                      event.currentTarget.naturalWidth,
+                      event.currentTarget.naturalHeight,
+                      existingSourceQuads(source),
+                    )
+                  }
+                  src={imageUrl}
+                />
+              ) : null}
+              {imageSize !== null && pageCorners !== null ? (
+                <svg
+                  aria-label="Nakładka geometrii strony"
+                  onPointerDown={placeNextCorner}
+                  onPointerMove={(event) => {
+                    const point = relativePoint(event);
+                    if (point !== null) updatePoint(point);
+                  }}
+                  onPointerUp={() => setDragging(null)}
+                  viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+                >
+                  {quads.map((quad, index) => (
+                    <polygon
+                      className={
+                        correctionMode === index
+                          ? 'pageGeometryBoard pageGeometryBoardSelected'
+                          : 'pageGeometryBoard'
+                      }
+                      key={index}
+                      points={quad.map(pointText).join(' ')}
+                    />
+                  ))}
+                  {cornerPlacement !== null ? (
+                    <>
+                      {cornerPlacement.length > 1 ? (
+                        <polyline
+                          className="pageGeometryPlacementLine"
+                          points={cornerPlacement.map(pointText).join(' ')}
                         />
-                        <text
-                          className="pageGeometryPlacementLabel"
-                          x={point.x + HANDLE_RADIUS + 4}
-                          y={point.y - HANDLE_RADIUS - 4}
-                        >
-                          {['LT', 'PT', 'PD', 'LD'][index]}
-                        </text>
-                      </g>
-                    ))}
-                  </>
-                ) : null}
-                {correctionMode === 'page'
-                  ? pageCorners.map((point, index) => (
-                      <circle
-                        className="pageGeometryHandle"
-                        cx={point.x}
-                        cy={point.y}
-                        key={index}
-                        onPointerDown={(event) =>
-                          beginDrag(event, { kind: 'page', pointIndex: index })
-                        }
-                        r={HANDLE_RADIUS}
-                      />
-                    ))
-                  : correctionMode === 'curve'
-                    ? mesh.map((point, index) => (
+                      ) : null}
+                      {cornerPlacement.map((point, index) => (
+                        <g key={index}>
+                          <circle
+                            className="pageGeometryHandle pageGeometryPlacementHandle"
+                            cx={point.x}
+                            cy={point.y}
+                            r={HANDLE_RADIUS}
+                          />
+                          <text
+                            className="pageGeometryPlacementLabel"
+                            x={point.x + HANDLE_RADIUS + 4}
+                            y={point.y - HANDLE_RADIUS - 4}
+                          >
+                            {['LT', 'PT', 'PD', 'LD'][index]}
+                          </text>
+                        </g>
+                      ))}
+                    </>
+                  ) : null}
+                  {correctionMode === 'page'
+                    ? pageCorners.map((point, index) => (
                         <circle
-                          className={
-                            isPageGeometryMeshBoundaryPoint(index)
-                              ? 'pageGeometryHandle pageGeometryMeshBoundaryHandle'
-                              : 'pageGeometryHandle pageGeometryMeshInnerHandle'
-                          }
+                          className="pageGeometryHandle"
                           cx={point.x}
                           cy={point.y}
                           key={index}
                           onPointerDown={(event) =>
                             beginDrag(event, {
-                              kind: 'mesh',
+                              kind: 'page',
                               pointIndex: index,
                             })
                           }
                           r={HANDLE_RADIUS}
                         />
                       ))
-                    : (quads[correctionMode] ?? []).map((point, index) => (
-                        <circle
-                          className="pageGeometryHandle pageGeometryBoardHandle"
-                          cx={point.x}
-                          cy={point.y}
-                          key={index}
-                          onPointerDown={(event) =>
-                            beginDrag(event, {
-                              boardIndex: correctionMode,
-                              kind: 'board',
-                              pointIndex: index,
-                            })
-                          }
-                          r={HANDLE_RADIUS}
-                        />
-                      ))}
-              </svg>
-            ) : null}
+                    : correctionMode === 'curve'
+                      ? mesh.map((point, index) => (
+                          <circle
+                            className={
+                              isPageGeometryMeshBoundaryPoint(index)
+                                ? 'pageGeometryHandle pageGeometryMeshBoundaryHandle'
+                                : 'pageGeometryHandle pageGeometryMeshInnerHandle'
+                            }
+                            cx={point.x}
+                            cy={point.y}
+                            key={index}
+                            onPointerDown={(event) =>
+                              beginDrag(event, {
+                                kind: 'mesh',
+                                pointIndex: index,
+                              })
+                            }
+                            r={HANDLE_RADIUS}
+                          />
+                        ))
+                      : (quads[correctionMode] ?? []).map((point, index) => (
+                          <circle
+                            className="pageGeometryHandle pageGeometryBoardHandle"
+                            cx={point.x}
+                            cy={point.y}
+                            key={index}
+                            onPointerDown={(event) =>
+                              beginDrag(event, {
+                                boardIndex: correctionMode,
+                                kind: 'board',
+                                pointIndex: index,
+                              })
+                            }
+                            r={HANDLE_RADIUS}
+                          />
+                        ))}
+                </svg>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}

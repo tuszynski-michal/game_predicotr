@@ -319,6 +319,7 @@ def _v19_assets(
         )
     if (
         revision is not None
+        and revision.crop_artifacts is not None
         and revision.cropper_version == CROPPER_VERSION
         and revision.geometry.get("geometryVersion") == BOARD_CELL_GEOMETRY_VERSION
         and _trusted_persisted_geometry(revision)

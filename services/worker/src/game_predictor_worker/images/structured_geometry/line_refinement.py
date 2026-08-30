@@ -486,7 +486,7 @@ def _detect_grid_lines(
         segment
         for channel in (enhanced, vertical_gradient, horizontal_gradient)
         for segment in _segments(
-            detector.detect(channel)[0],
+            cast(NDArray[np.float32] | None, detector.detect(channel)[0]),
             board_rect=board_rect,
             thresholds=thresholds,
         )
@@ -1126,7 +1126,7 @@ def _normal_line(line: NDArray[np.float64]) -> NDArray[np.float64]:
     normalized = line / scale
     if normalized[0] < 0 or (abs(float(normalized[0])) < 1e-12 and normalized[1] < 0):
         normalized = -normalized
-    return cast(NDArray[np.float64], normalized)
+    return normalized
 
 
 def _line_coordinate(line: NDArray[np.float64], *, at: float, vertical: bool) -> float:

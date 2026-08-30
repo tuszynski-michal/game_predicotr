@@ -4032,3 +4032,14 @@ treningiem. Brak finalnego quada albo awaria pomiaru daje jawne
 `not_evaluated`, a nie sztuczną decyzję. Nie zmieniono trybu żadnej gry, nie
 uruchomiono migracji, backfillu ani operacji na danych. Korpus D-266 pozostaje
 niekompletny i rollout produkcyjny nadal nie jest autoryzowany.
+
+TASK-0330 przywrócił zielony pełny typecheck repozytorium bez zmiany zachowania
+produktu. Browserowy upload zależy od minimalnego, statycznie sprawdzalnego
+portu capacity guarda, a liczniki z JSONB, checkpointów i manifestów storage są
+dekodowane fail-closed jako nieujemne liczby całkowite. Doprecyzowano też
+granice typów iteratorów manifestów, opcjonalnych crop artifacts i wyników
+OpenCV oraz usunięto niepotrzebne wyciszenia mypy.
+
+Pełny `python:typecheck` przechodzi dla 470 plików źródłowych, Ruff jest zielony,
+a 70 skoncentrowanych testów API, workera, storage i geometrii przechodzi.
+Nie zmieniono API, OpenAPI, schematu bazy, UI ani polityki storage.

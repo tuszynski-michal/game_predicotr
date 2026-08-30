@@ -83,7 +83,7 @@ class KeypointTrainingResult:
     model_version: str = KEYPOINT_GEOMETRY_MODEL_VERSION
 
 
-class KeypointGeometryHeatmapNetwork(nn.Module):  # type: ignore[misc]
+class KeypointGeometryHeatmapNetwork(nn.Module):
     """Bounded fully-convolutional encoder with corner and presence heads."""
 
     def __init__(self) -> None:
@@ -170,9 +170,7 @@ def encode_keypoint_training_sample(
     )
 
 
-class _EncodedDataset(
-    Dataset[tuple[Tensor, Tensor, Tensor, Tensor]]  # type: ignore[misc]
-):
+class _EncodedDataset(Dataset[tuple[Tensor, Tensor, Tensor, Tensor]]):
     def __init__(self, values: Sequence[EncodedKeypointTrainingSample]) -> None:
         self._values = tuple(values)
 

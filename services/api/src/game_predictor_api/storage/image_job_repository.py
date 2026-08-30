@@ -47,6 +47,14 @@ from game_predictor_api.storage.models import (
 )
 
 
+def _non_negative_snapshot_count(value: object) -> int:
+    """Decode one internally generated JSON counter without coercing invalid data."""
+
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
+
+
 class SqlAlchemyImageJobOperationsRepository(
     ImageJobOperationsRepository,
     ImageDiagnosticRepository,
@@ -119,7 +127,9 @@ class SqlAlchemyImageJobOperationsRepository(
                         exists=True,
                         file_count=row.file_count,
                         size_bytes=row.size_bytes,
-                        ignored_symlink_count=int(row.details.get("ignoredSymlinkCount", 0)),
+                        ignored_symlink_count=_non_negative_snapshot_count(
+                            row.details.get("ignoredSymlinkCount", 0)
+                        ),
                     )
                 )
             elif row.measurement_source == "filesystem":

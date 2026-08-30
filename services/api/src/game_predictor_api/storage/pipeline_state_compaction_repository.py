@@ -96,18 +96,19 @@ class SqlAlchemyPipelineStateCompactionRepository:
                     disposable = tuple(
                         item for item in stages if item.stage in DISPOSABLE_STAGE_PAYLOADS
                     )
+                    disposable_bytes = sum(item.payload_bytes for item in disposable)
                     entry = {
                         "fileExecutionKey": execution.file_execution_key,
                         "executionUpdatedAt": execution.updated_at.isoformat(),
                         "terminalManifestChecksumSha256": manifest_checksum(payload),
                         "terminalManifest": payload,
                         "disposableStageCount": len(disposable),
-                        "disposableBytes": sum(item.payload_bytes for item in disposable),
+                        "disposableBytes": disposable_bytes,
                     }
                     entries_file.write(canonical_json_bytes(entry))
                     candidate_count += 1
                     stage_count += len(disposable)
-                    candidate_bytes += int(entry["disposableBytes"])
+                    candidate_bytes += disposable_bytes
                 after_key = executions[-1].file_execution_key
         header = {
             "schemaVersion": PIPELINE_COMPACTION_SCHEMA,

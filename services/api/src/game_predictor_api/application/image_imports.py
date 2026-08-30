@@ -13,6 +13,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from secrets import token_urlsafe
 from threading import Lock
+from typing import Protocol
 from uuid import UUID, uuid4
 
 from game_predictor_worker.images.image_file import (
@@ -59,6 +60,12 @@ UPLOAD_METRICS_FILE_NAME = "_upload_metrics.json"
 class ImageSelectionPurpose(StrEnum):
     LAYOUT_IMPORT = "layout_import"
     PHOTO_SELECTION = "photo_selection"
+
+
+class ImageWriteCapacityGuard(Protocol):
+    """Narrow dependency used before a browser upload reserves disk space."""
+
+    def check_image_write(self, input_bytes: int) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,7 +367,7 @@ class BrowserImageSelectionService:
         photo_selection_max_bytes: int | None = None,
         clock: Callable[[], datetime] | None = None,
         retention: BrowserStagingRetention | None = None,
-        capacity_guard: object | None = None,
+        capacity_guard: ImageWriteCapacityGuard | None = None,
     ) -> None:
         self._selection_service = selection_service
         self._upload_root = upload_root.resolve() / "browser-selections"

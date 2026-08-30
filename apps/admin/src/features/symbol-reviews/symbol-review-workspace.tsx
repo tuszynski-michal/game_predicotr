@@ -570,8 +570,6 @@ export function SymbolReviewWorkspace({
           position: cached.position,
           type: 'page_loaded',
         });
-        setSelection(createEmptySymbolReviewSelection());
-        setHiddenCellIds(new Set());
         return;
       }
       pagingRef.current = true;
@@ -589,8 +587,6 @@ export function SymbolReviewWorkspace({
       }
       pagePositionRef.current = position;
       dispatch({ page: result.page, position, type: 'page_loaded' });
-      setSelection(createEmptySymbolReviewSelection());
-      setHiddenCellIds(new Set());
     },
     [api, currentPage, currentPageNumber, filters, filtersConfirmed, workspace],
   );
@@ -753,10 +749,10 @@ export function SymbolReviewWorkspace({
     ) {
       return;
     }
-    const submittedCellIds = symbolReviewSelectionCurrentItemIds(
-      selection,
-      currentItems,
-    );
+    const submittedCellIds =
+      selection.kind === 'explicit'
+        ? Object.keys(selection.targetsById)
+        : symbolReviewSelectionCurrentItemIds(selection, currentItems);
     setIsStartingOperation(true);
     const result = await startSymbolReviewBulkOperation(
       api,

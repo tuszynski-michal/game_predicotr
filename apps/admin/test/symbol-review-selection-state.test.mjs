@@ -57,6 +57,29 @@ test('selects only explicit items from the current page', () => {
   assert.equal(selection.kind, 'explicit');
 });
 
+test('accumulates explicit selections from successive keyset pages', () => {
+  const firstPage = [item('cell-1', 1), item('cell-2', 2)];
+  const secondPage = [item('cell-3', 3), item('cell-4', 4)];
+
+  const afterFirstPage = selectVisibleSymbolReviewItems(
+    createEmptySymbolReviewSelection(),
+    firstPage,
+  ).selection;
+  const afterSecondPage = selectVisibleSymbolReviewItems(
+    afterFirstPage,
+    secondPage,
+  ).selection;
+
+  assert.equal(afterSecondPage.kind, 'explicit');
+  assert.equal(selectedSymbolReviewCount(afterSecondPage), 4);
+  for (const itemOnEitherPage of [...firstPage, ...secondPage]) {
+    assert.equal(
+      isSymbolReviewItemSelected(afterSecondPage, itemOnEitherPage),
+      true,
+    );
+  }
+});
+
 test('page-local selection never exceeds ten thousand exact targets', () => {
   const items = Array.from({ length: 10_001 }, (_, index) =>
     item(`cell-${index}`, index),

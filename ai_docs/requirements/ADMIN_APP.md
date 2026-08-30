@@ -424,6 +424,9 @@ przeglądarki. Operator może zaznaczać pojedyncze karty albo całą bieżącą
 jawnie do 10 000 pozycji. Opcja `Zaznacz wyniki filtra` zapisuje snapshot gry,
 symbolu, stanu, przedziału confidence i rewizji katalogu wraz z co najwyżej
 10 000 `excludedIds`; nie przesyła ani nie utrwala ID wszystkich wyników.
+Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
+więc operator może zbudować jeden job z kilku stron po 500 cropów. Czyści je
+wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.
 Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
 operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
 wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić

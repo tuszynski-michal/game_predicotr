@@ -75,6 +75,19 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(styles, /\.pagination/);
 });
 
+test('keeps an explicit selection across page navigation and tracks every submitted crop', () => {
+  const movePageSource = source.slice(
+    source.indexOf('const movePage'),
+    source.indexOf('async function prepareProjection'),
+  );
+  assert.doesNotMatch(
+    movePageSource,
+    /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
+  );
+  assert.doesNotMatch(movePageSource, /setHiddenCellIds\(new Set\(\)\)/);
+  assert.match(source, /Object\.keys\(selection\.targetsById\)/);
+});
+
 test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.doesNotMatch(source, /className=\{styles\.cardBody\}/);
   assert.match(source, /Zapisywanie zmiany/);

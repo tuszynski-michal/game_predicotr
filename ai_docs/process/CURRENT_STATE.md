@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Selekcja cropów między stronami — TASK-0344
+
+- Weryfikacja symboli zachowuje jawne, checksum-bound zaznaczenie przy
+  przejściu między stronami keysetowymi. Operator może połączyć do 10 000
+  cropów z wielu stron po 500 w jeden job masowy.
+- Zmiana filtra, jawne wyczyszczenie albo przekazanie operacji nadal czyści
+  selection. Pomyślna operacja ukrywa wszystkie jej jawne targety również po
+  powrocie do wcześniej odwiedzonej strony.
+
 ### Zoom korekty geometrii — TASK-0343
 
 - Viewport korekty strony używa wspólnego modelu `fit to viewport` ręcznej

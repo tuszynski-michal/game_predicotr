@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  deleteRepairFile,
   inspectRepairDirectory,
   readRepairManifest,
   writeRepairManifest,
+  writeRepairFile,
 } from '../src/features/manual-image-selection/manual-selection-repair-storage.ts';
 
 class MemoryFileHandle {
@@ -56,6 +58,11 @@ class MemoryDirectoryHandle {
     }
     throw new DOMException('missing', 'NotFoundError');
   }
+
+  async removeEntry(name) {
+    if (!this.files.delete(name))
+      throw new DOMException('missing', 'NotFoundError');
+  }
 }
 
 test('inspects only top-level seq JPEGs and ignores non-image artifacts', async () => {
@@ -100,4 +107,66 @@ test('writes and reads only the same repair manifest owner', async () => {
     }),
     /FOREIGN_REPAIR_MANIFEST/,
   );
+});
+
+test('fills exact bytes and safely undoes only the checksummed repair file', async () => {
+  const directory = new MemoryDirectoryHandle('selected', [
+    new File(['left'], 'seq_1-9.jpg', { type: 'image/jpeg' }),
+    new File(['right'], 'seq_19-27.jpg', { type: 'image/jpeg' }),
+  ]);
+  const source = new MemoryFileHandle(
+    'source.jpg',
+    new File(['chosen-original-bytes'], 'source.jpg', { type: 'image/jpeg' }),
+  );
+  const snapshot = await inspectRepairDirectory(directory);
+  await writeRepairManifest(directory, snapshot.repairManifest);
+  const filled = await writeRepairFile({
+    directory,
+    kind: 'fill',
+    manifest: snapshot.repairManifest,
+    outputManifest: null,
+    source,
+    sourceIndex: 4,
+    sourcePath: 'base/source.jpg',
+    target: { end: 18, start: 10 },
+  });
+  assert.equal(
+    await (
+      await directory.getFileHandle('seq_10-18.jpg')
+    )
+      .getFile()
+      .then((file) => file.text()),
+    'chosen-original-bytes',
+  );
+  const removed = await deleteRepairFile({
+    directory,
+    fileName: 'seq_10-18.jpg',
+    kind: 'undo_fill',
+    manifest: filled,
+    outputManifest: null,
+    sourceIndex: 4,
+    sourcePath: 'base/source.jpg',
+  });
+  assert.equal(removed.file.size, 'chosen-original-bytes'.length);
+  await assert.rejects(directory.getFileHandle('seq_10-18.jpg'), /missing/);
+  assert.deepEqual(removed.manifest.deletedRanges, [{ end: 18, start: 10 }]);
+});
+
+test('fill workspace exposes bounded steps, gap targets, shortcuts and visibility gate', async () => {
+  const source = await import('node:fs/promises').then(({ readFile }) =>
+    readFile(
+      new URL(
+        '../src/features/manual-image-selection/manual-selection-repair-workspace.tsx',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  assert.match(source, /\[1, 2, 5, 10, 20, 50, 100\]/);
+  assert.match(source, /Luka \$\{gapCursor \+ 1\} z \$\{gaps\.length\}/);
+  assert.match(source, /key === 'enter' \|\| key === 'f'/);
+  assert.match(source, /key === 'a'/);
+  assert.match(source, /setViewReady\(true\)/);
+  assert.match(source, /writeRepairFile/);
+  assert.match(source, /sourceCursor \+ 1/);
 });

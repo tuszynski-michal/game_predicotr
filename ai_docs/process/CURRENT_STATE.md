@@ -33,6 +33,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   skok. JPEG-i nie są utrwalane w bazie przeglądarki. Operacja oczekująca jest
   finalizowana po restarcie na podstawie obecności pliku i SHA-256.
 
+### Uzupełnianie luk ręcznej selekcji — TASK-0338
+
+- `v0.10.31` dodaje lokalny workspace uzupełniania wykrytych luk z katalogu
+  bazowego tylko do odczytu. Nawigacja zdjęć ma skoki 1/2/5/10/20/50/100, a
+  targety przechodzą po rzeczywistych lukach zamiast mechanicznego `start+9`.
+- Enter/F zapisuje oryginalne bajty pod dokładnym `seq_<start>-<end>.jpg`,
+  weryfikuje SHA-256 i aktualizuje repair/output manifest oraz trace. Akceptacja
+  jest dostępna po 300 ms rzeczywistej widoczności; ostatni fill można cofnąć
+  bez usuwania obcego albo zmienionego pliku.
+
 ### Fundament 0.10 — TASK-0307
 
 - `v0.10.0` definiuje wyłącznie czysty kontrakt przyszłej wirtualnej geometrii.

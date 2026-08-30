@@ -4,11 +4,13 @@ import {
   createRepairManifest,
   deriveCollectionBounds,
   finalizePendingRepairOperation,
+  findSequenceGaps,
   sortAndValidateSequenceFiles,
   validateRepairManifest,
   type ManualSelectionRepairManifest,
   type ParsedSequenceFile,
   type RepairActiveFile,
+  type RepairOperationKind,
   type SequenceRange,
 } from '@game-predictor/manual-image-selection-core/repair';
 import type { ManualSelectionOutputManifest } from '@game-predictor/manual-image-selection-core';
@@ -18,6 +20,22 @@ import {
 } from './manual-image-selection-fsa-adapter.ts';
 
 export const REPAIR_MANIFEST_NAME = 'manual-image-selection-repair-v1.json';
+export const REPAIR_TRACE_NAME = 'manual-image-selection-repair-trace-v1.json';
+
+export interface ManualSelectionRepairTraceEvent {
+  readonly eventIndex: number;
+  readonly kind: 'viewed' | 'fill' | 'undo_fill' | 'delete' | 'restore';
+  readonly repairKey: string;
+  readonly sourcePath: string | null;
+  readonly sourceIndex: number | null;
+  readonly rangeStart: number;
+  readonly rangeEnd: number;
+  readonly imageChecksum: string | null;
+  readonly outputName: string | null;
+  readonly decoded: boolean;
+  readonly visibleMilliseconds: number;
+  readonly recordedAt: string;
+}
 
 export interface RepairDirectorySnapshot {
   readonly directory: FileSystemDirectoryHandle;
@@ -123,6 +141,149 @@ export async function writeRepairManifest(
   }
 }
 
+export async function appendRepairTraceEvent(
+  directory: FileSystemDirectoryHandle,
+  repairKey: string,
+  event: ManualSelectionRepairTraceEvent,
+): Promise<void> {
+  let events: ManualSelectionRepairTraceEvent[] = [];
+  try {
+    const file = await (
+      await directory.getFileHandle(REPAIR_TRACE_NAME)
+    ).getFile();
+    const parsed: unknown = JSON.parse(await file.text());
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('schemaVersion' in parsed) ||
+      parsed.schemaVersion !== 'manual-image-selection-repair-trace-v1' ||
+      !('repairKey' in parsed) ||
+      parsed.repairKey !== repairKey ||
+      !('events' in parsed) ||
+      !Array.isArray(parsed.events)
+    )
+      throw new Error('INVALID_REPAIR_TRACE');
+    events = parsed.events as ManualSelectionRepairTraceEvent[];
+  } catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'NotFoundError'))
+      throw cause;
+  }
+  await writeJsonFile(directory, REPAIR_TRACE_NAME, {
+    events: [...events, event],
+    repairKey,
+    schemaVersion: 'manual-image-selection-repair-trace-v1',
+    updatedAt: event.recordedAt,
+  });
+}
+
+export async function writeRepairFile(input: {
+  readonly directory: FileSystemDirectoryHandle;
+  readonly manifest: ManualSelectionRepairManifest;
+  readonly outputManifest: ManualSelectionOutputManifest | null;
+  readonly source: FileSystemFileHandle;
+  readonly sourcePath: string;
+  readonly sourceIndex: number;
+  readonly target: SequenceRange;
+  readonly kind: 'fill' | 'restore';
+}): Promise<ManualSelectionRepairManifest> {
+  const fileName = `seq_${input.target.start}-${input.target.end}.jpg`;
+  if (await fileExists(input.directory, fileName))
+    throw new Error(`REPAIR_TARGET_ALREADY_EXISTS:${fileName}`);
+  const sourceFile = await input.source.getFile();
+  const checksumSha256 = await sha256Hex(sourceFile);
+  const pendingOperation = repairOperation({
+    checksumSha256,
+    expectedFileState: 'present',
+    fileName,
+    kind: input.kind,
+    sourceIndex: input.sourceIndex,
+    sourcePath: input.sourcePath,
+    target: input.target,
+  });
+  await writeRepairManifest(input.directory, {
+    ...input.manifest,
+    pendingOperation,
+  });
+  const target = await input.directory.getFileHandle(fileName, {
+    create: true,
+  });
+  const writable = await target.createWritable();
+  try {
+    await writable.write(sourceFile);
+    await writable.close();
+  } catch (cause) {
+    await writable.abort().catch(() => undefined);
+    throw cause;
+  }
+  if ((await sha256Hex(await target.getFile())) !== checksumSha256)
+    throw new Error(`REPAIR_WRITTEN_CHECKSUM_MISMATCH:${fileName}`);
+  const completed = finalizePendingRepairOperation(
+    { ...input.manifest, pendingOperation },
+    'present',
+    new Date().toISOString(),
+  );
+  await writeRepairManifest(input.directory, completed);
+  await synchronizeOutputManifest(
+    input.directory,
+    input.outputManifest,
+    completed,
+  );
+  return completed;
+}
+
+export async function deleteRepairFile(input: {
+  readonly directory: FileSystemDirectoryHandle;
+  readonly manifest: ManualSelectionRepairManifest;
+  readonly outputManifest: ManualSelectionOutputManifest | null;
+  readonly fileName: string;
+  readonly kind: 'delete' | 'undo_fill';
+  readonly sourceIndex: number | null;
+  readonly sourcePath: string | null;
+}): Promise<{
+  readonly file: File;
+  readonly manifest: ManualSelectionRepairManifest;
+}> {
+  const parsed = sortAndValidateSequenceFiles([input.fileName])[0]!;
+  const handle = await input.directory.getFileHandle(input.fileName);
+  const file = await handle.getFile();
+  const checksumSha256 = await sha256Hex(file);
+  const expected = input.manifest.activeFiles.find(
+    (active) => active.fileName === input.fileName,
+  );
+  if (expected === undefined) throw new Error('REPAIR_FILE_NOT_MANAGED');
+  if (
+    expected.checksumSha256 !== null &&
+    expected.checksumSha256 !== checksumSha256
+  )
+    throw new Error(`REPAIR_FILE_CHECKSUM_MISMATCH:${input.fileName}`);
+  const pendingOperation = repairOperation({
+    checksumSha256,
+    expectedFileState: 'absent',
+    fileName: input.fileName,
+    kind: input.kind,
+    sourceIndex: input.sourceIndex,
+    sourcePath: input.sourcePath,
+    target: parsed,
+  });
+  await writeRepairManifest(input.directory, {
+    ...input.manifest,
+    pendingOperation,
+  });
+  await input.directory.removeEntry(input.fileName);
+  const completed = finalizePendingRepairOperation(
+    { ...input.manifest, pendingOperation },
+    'absent',
+    new Date().toISOString(),
+  );
+  await writeRepairManifest(input.directory, completed);
+  await synchronizeOutputManifest(
+    input.directory,
+    input.outputManifest,
+    completed,
+  );
+  return { file, manifest: completed };
+}
+
 export async function reconcileRepairManifest(
   directory: FileSystemDirectoryHandle,
   manifest: ManualSelectionRepairManifest,
@@ -211,6 +372,111 @@ async function attachVerifiedOutputChecksums(
   return { ...manifest, activeFiles };
 }
 
+async function synchronizeOutputManifest(
+  directory: FileSystemDirectoryHandle,
+  original: ManualSelectionOutputManifest | null,
+  repair: ManualSelectionRepairManifest,
+): Promise<void> {
+  if (original === null) return;
+  const originalItems = new Map(
+    original.items.map((item) => [item.outputName, item]),
+  );
+  const operations = new Map<string, (typeof repair.operations)[number]>();
+  for (const operation of repair.operations)
+    operations.set(operation.fileName, operation);
+  const items = repair.activeFiles.map((file) => {
+    const originalItem = originalItems.get(file.fileName);
+    const operation = operations.get(file.fileName);
+    const checksum = file.checksumSha256 ?? originalItem?.imageChecksum;
+    const imagePath = operation?.sourcePath ?? originalItem?.imagePath;
+    if (checksum === undefined || imagePath === undefined || imagePath === null)
+      throw new Error(`REPAIR_OUTPUT_PROVENANCE_MISSING:${file.fileName}`);
+    return {
+      activeBoardCount: file.end - file.start + 1,
+      imageChecksum: checksum,
+      imagePath,
+      outputName: file.fileName,
+      rangeEnd: file.end,
+      rangeStart: file.start,
+    };
+  });
+  const gaps = findSequenceGaps(
+    { end: repair.collectionEnd, start: repair.collectionStart },
+    repair.activeFiles,
+    repair.deletedRanges,
+  );
+  const nextManifest: ManualSelectionOutputManifest = {
+    direction: original.direction,
+    firstLayout: original.firstLayout,
+    gameId: original.gameId,
+    items,
+    schemaVersion: 2,
+    selectionComplete: gaps.length === 0,
+    sequenceUpperBound: repair.collectionEnd,
+    sessionKey: original.sessionKey,
+    sourceDirectoryName: original.sourceDirectoryName,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeJsonFile(
+    directory,
+    'manual-image-selection-output-v1.json',
+    nextManifest,
+  );
+}
+
+function repairOperation(input: {
+  readonly checksumSha256: string;
+  readonly expectedFileState: 'absent' | 'present';
+  readonly fileName: string;
+  readonly kind: RepairOperationKind;
+  readonly sourceIndex: number | null;
+  readonly sourcePath: string | null;
+  readonly target: SequenceRange;
+}) {
+  return {
+    checksumSha256: input.checksumSha256,
+    expectedFileState: input.expectedFileState,
+    fileName: input.fileName,
+    id: crypto.randomUUID(),
+    kind: input.kind,
+    occurredAt: new Date().toISOString(),
+    rangeEnd: input.target.end,
+    rangeStart: input.target.start,
+    sourceIndex: input.sourceIndex,
+    sourcePath: input.sourcePath,
+  } as const;
+}
+
+async function writeJsonFile(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+  value: object,
+): Promise<void> {
+  const target = await directory.getFileHandle(name, { create: true });
+  const writable = await target.createWritable();
+  try {
+    await writable.write(`${JSON.stringify(value, null, 2)}\n`);
+    await writable.close();
+  } catch (cause) {
+    await writable.abort().catch(() => undefined);
+    throw cause;
+  }
+}
+
+async function fileExists(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<boolean> {
+  try {
+    await directory.getFileHandle(name);
+    return true;
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'NotFoundError')
+      return false;
+    throw cause;
+  }
+}
+
 export function outputBounds(
   manifest: ManualSelectionOutputManifest | null,
 ): SequenceRange | null {
@@ -259,6 +525,26 @@ export class ManualSelectionRepairStore {
       const transaction = database.transaction(REPAIR_STORE, 'readonly');
       return await idbResult<ManualSelectionRepairLocalState | null>(
         transaction.objectStore(REPAIR_STORE).get(repairKey),
+      );
+    } finally {
+      database.close();
+    }
+  }
+
+  async loadLatest(): Promise<ManualSelectionRepairLocalState | null> {
+    if (this.factory === undefined) return null;
+    const database = await this.open();
+    try {
+      const transaction = database.transaction(REPAIR_STORE, 'readonly');
+      const states = await idbResult<ManualSelectionRepairLocalState[]>(
+        transaction.objectStore(REPAIR_STORE).getAll(),
+      );
+      return (
+        states.sort(
+          (left, right) =>
+            Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
+            left.repairKey.localeCompare(right.repairKey),
+        )[0] ?? null
       );
     } finally {
       database.close();

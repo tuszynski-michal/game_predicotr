@@ -14683,6 +14683,11 @@
             ],
             "title": "Indexbytesbefore"
           },
+          "preserveReadyProjection": {
+            "default": false,
+            "title": "Preservereadyprojection",
+            "type": "boolean"
+          },
           "schemaVersion": {
             "const": 1,
             "title": "Schemaversion",

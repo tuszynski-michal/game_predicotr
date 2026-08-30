@@ -6,6 +6,11 @@ from uuid import uuid4
 
 import game_predictor_api.storage.image_symbol_review_backfill_repository as backfill_storage
 import pytest
+from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.schemas.jobs import (
+    SymbolCellReviewBackfillJobPayload,
+    _payload_from_domain,
+)
 from game_predictor_api.storage.image_symbol_review_backfill_repository import (
     SqlAlchemySymbolCellReviewBackfillRepository,
 )
@@ -64,3 +69,33 @@ def test_start_marks_reconciliation_of_ready_projection_as_available(
     assert result.created is True
     record = session.add.call_args.args[0]
     assert record.input_payload["preserve_ready_projection"] is True
+
+
+def test_backfill_job_payload_accepts_preserved_ready_projection() -> None:
+    payload = SymbolCellReviewBackfillJobPayload.model_validate(
+        {
+            "schema_version": 1,
+            "workflow": "image_symbol_review_backfill",
+            "generation": 2,
+            "preserve_ready_projection": True,
+        }
+    )
+
+    assert payload.preserve_ready_projection is True
+
+
+def test_job_response_serializes_preserved_ready_projection() -> None:
+    job = create_job(
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "workflow": "image_symbol_review_backfill",
+            "generation": 2,
+            "preserve_ready_projection": True,
+        },
+    )
+
+    payload = _payload_from_domain(job)
+
+    assert payload.preserve_ready_projection is True

@@ -8430,6 +8430,10 @@ export type SymbolCellReviewBackfillJobPayload = {
    */
   indexBytesBefore?: number | null;
   /**
+   * Preservereadyprojection
+   */
+  preserveReadyProjection?: boolean;
+  /**
    * Schemaversion
    */
   schemaVersion: 1;

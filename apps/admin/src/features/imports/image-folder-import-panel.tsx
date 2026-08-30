@@ -300,6 +300,11 @@ export function ImageFolderImportPanel({
 
   async function chooseFolder(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
+    if (enginePolicy === null) {
+      input.value = '';
+      setError('Poczekaj na wczytanie ustawienia silnika tej gry.');
+      return;
+    }
     const selectedFiles = Array.from(input.files ?? []).filter((file) =>
       /\.jpe?g$/i.test(file.name),
     );
@@ -520,8 +525,35 @@ export function ImageFolderImportPanel({
       setEnginePolicy(result.data);
       setPreflight(null);
       setGeometryPreflightJob(null);
+      if (readyUploadId !== null) {
+        const refreshed = await previewReadyBrowserImageImport(
+          api,
+          readyUploadId,
+          gameId,
+        );
+        if (!refreshed.ok) {
+          setError(refreshed.error);
+          return;
+        }
+        if (
+          refreshed.data.imageEnginePolicy !== result.data.policy ||
+          refreshed.data.imageEnginePolicyRevision !== result.data.revision
+        ) {
+          setError(
+            'Raport nie odpowiada zapisanemu ustawieniu silnika. Odśwież status i spróbuj ponownie.',
+          );
+          return;
+        }
+        setPreflight(refreshed.data);
+        setFeedback(
+          result.data.policy === 'structured_shadow'
+            ? 'Ustawienie zapisano. Raport stagingu odświeżono — cold-start nie wymaga historycznego profilu siatki.'
+            : 'Ustawienie zapisano. Raport stagingu odświeżono — przygotuj wymaganą geometrię stron.',
+        );
+        return;
+      }
       setFeedback(
-        'Ustawienie zapisano. Przygotuj nowy raport przed kolejnym importem.',
+        'Ustawienie zapisano. Będzie użyte przez następny raport i import tej gry.',
       );
     } catch {
       setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -787,6 +819,17 @@ export function ImageFolderImportPanel({
           </p>
         </div>
       </div>
+
+      <BoardCellProcessingModePicker
+        disabled={busy || enginePolicy === null}
+        mode={boardCellProcessingMode}
+        onChange={(mode) => void changeEnginePolicy(mode)}
+      />
+      {enginePolicy === null ? (
+        <p className="mutedText" aria-live="polite">
+          Wczytywanie ustawienia silnika tej gry…
+        </p>
+      ) : null}
 
       {error ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
@@ -1061,11 +1104,6 @@ export function ImageFolderImportPanel({
                           stabilnej geometrii.
                         </p>
                       )}
-                      <BoardCellProcessingModePicker
-                        disabled={busy || enginePolicy === null}
-                        mode={boardCellProcessingMode}
-                        onChange={(mode) => void changeEnginePolicy(mode)}
-                      />
                     </>
                   ) : null}
                 </li>
@@ -1125,7 +1163,7 @@ export function ImageFolderImportPanel({
           <button
             aria-busy={activeAction === 'choose-folder'}
             className="secondaryButton"
-            disabled={busy}
+            disabled={busy || enginePolicy === null}
             onClick={() => folderInputRef.current?.click()}
             type="button"
           >

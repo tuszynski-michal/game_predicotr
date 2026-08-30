@@ -4059,3 +4059,11 @@ checksum-bound preflightu geometrii, natomiast `structured_shadow` pomija ten
 etap i nie przyjmuje legacy manifestu. Admin pokazuje jawny stan cold-start i
 odblokowuje start raportu bez tworzenia joba kończącego się
 `IMAGE_PAGE_GEOMETRY_PROFILE_EMPTY`.
+
+### TASK-0333 — wybór silnika przed uploadem
+
+Picker polityki silnika jest teraz widoczny przed wskazaniem folderu oraz
+gotowego stagingu. Admin nie pozwala rozpocząć uploadu, dopóki nie odczyta
+ustawienia gry. Zmiana polityki przy aktywnym stagingu automatycznie odtwarza
+raport, dzięki czemu nowa gra może wybrać `structured_shadow` przed próbą
+utworzenia historycznego preflightu `verified_v19`.

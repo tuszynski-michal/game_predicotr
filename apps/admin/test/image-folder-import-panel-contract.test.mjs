@@ -78,6 +78,15 @@ test('offers only stable v20 and safe structured shadow per game', () => {
   assert.doesNotMatch(modePickerSource, /jawny opt-in/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);
   assert.doesNotMatch(panelSource, /boardCellProcessingStartAllowed/);
+  assert.ok(
+    panelSource.indexOf('<BoardCellProcessingModePicker') <
+      panelSource.indexOf('Gotowy staging do wznowienia'),
+  );
+  assert.match(
+    panelSource,
+    /className="secondaryButton"\s*disabled=\{busy \|\| enginePolicy === null\}[\s\S]*?'Wybierz folder'/,
+  );
+  assert.match(panelSource, /Raport stagingu odświeżono/);
 });
 
 test('provides styled actions and accessible import help', () => {

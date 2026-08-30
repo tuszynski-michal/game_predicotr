@@ -779,7 +779,10 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 Panel importu pokazuje ustawienie przypisane do wybranej gry. Operator może
 wybrać stabilny `v20 — geometria i cropy v19` albo pomiarowy silnik 0.10 w
 trybie shadow. Zapis korzysta z rewizjonowanego preview, nie zmienia istniejących
-jobów i czyści nieaktualny raport importu.
+jobów i czyści nieaktualny raport importu. Picker jest widoczny przed wyborem
+folderu i gotowego stagingu, a upload pozostaje zablokowany do czasu odczytania
+polityki gry. Zmiana silnika dla aktywnego stagingu automatycznie odtwarza jego
+raport bez ponownego przesyłania JPEG-ów.
 
 Dla `verified_v19` Admin automatycznie przygotowuje i pokazuje historyczny
 preflight geometrii przed odblokowaniem startu. Dla `structured_shadow` raport

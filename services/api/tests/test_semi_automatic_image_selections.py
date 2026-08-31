@@ -27,12 +27,14 @@ from game_predictor_api.domain.jobs import (
     JobStatus,
     JobType,
     start_job,
+    wait_for_review,
 )
 from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
+    SemiAutomaticSelectionRunStatus,
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
@@ -325,6 +327,49 @@ def test_pause_resume_cancel_and_output_acknowledgement_are_durable(tmp_path: Pa
     assert cancelled.status.value == "cancelled"
     assert cancelled.job.status is JobStatus.CANCELLED
     assert service.get(run.id) == cancelled
+
+
+def test_resume_requeues_a_paused_worker_checkpoint(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+    now = datetime.now(UTC)
+    processing = start_job(
+        run.job,
+        worker_version="test-worker",
+        worker_id="selection-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(minutes=1),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        started_at=now,
+    )
+    assert processing.lease_token is not None
+    waiting = wait_for_review(
+        processing,
+        lease_token=processing.lease_token,
+        updated_at=now,
+    )
+    repository.save(
+        replace(
+            run,
+            job=waiting,
+            checkpoint={"phase": "scanning", "observationCount": 1},
+            status=SemiAutomaticSelectionRunStatus.RUNNING,
+        )
+    )
+
+    service.pause(run.id)
+    resumed = service.resume(run.id)
+
+    assert resumed.status.value == "ready"
+    assert resumed.job.status is JobStatus.CREATED
+    assert resumed.checkpoint == {"phase": "scanning", "observationCount": 1}
 
 
 def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -> None:

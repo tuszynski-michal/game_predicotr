@@ -6696,8 +6696,24 @@ granice, kierunek oraz fingerprinty wersjonowanych kontraktów. Identyczne
 żądanie zwraca ten sam run także po restarcie API.
 
 Nie powstaje nowy lane ani usługa. Job korzysta z istniejącego slotu selekcji
-zdjęć i jest wykluczony z general lane. Przed wdrożeniem handlera TASK-0353
-pozostaje niepodejmowany w stanie `created`. Staging jest przypinany do joba w
-tej samej transakcji co run, aby GC nie mógł usunąć źródła pomiędzy requestem a
+zdjęć i jest wykluczony z general lane. Staging jest przypinany do joba w tej
+samej transakcji co run, aby GC nie mógł usunąć źródła pomiędzy requestem a
 uruchomieniem workera. Jedyna flaga rolloutowa znajduje się w API i domyślnie
 pozostaje wyłączona.
+
+## D-282 — Grupowanie zakresów jest strumieniowe, a wybór wymaga exact proof
+
+- Status: accepted
+- Date: 2026-08-31
+
+Handler półautomatycznej selekcji wykonuje range-only OCR najwyżej raz na JPEG,
+zapisuje checksummowany, wznawialny strumień obserwacji i nie materializuje
+całego źródła w pamięci. Przerwa bez dowodu może jedynie rozszerzyć granice
+grupy do wersjonowanego maksimum `160`; nie może utworzyć kandydata ani
+przypisać zakresu przez sąsiedztwo.
+
+Reprezentantem jest wyłącznie obserwacja `exact_range` tego samego zakresu,
+najbliższa środkowi grupy z deterministycznymi tie-breakami. Izolowane dowody,
+duplikaty i kolejność niemonotoniczna pozostają w audycie, a pierwszy trwały
+wybór oczekiwanego zakresu nie jest automatycznie zastępowany. Geometria,
+jakość zdjęcia i symbole nie uczestniczą w decyzji.

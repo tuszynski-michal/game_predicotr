@@ -1394,7 +1394,7 @@ końcowego częściowego zakresu jest jawna: nadmiarowa historyczna hipoteza mo�
 zostać przycięta tylko do expected range o tym samym początku i wyłącznie na
 podstawie trzech zgodnych pozycji leżących wewnątrz krótszego zakresu.
 `RangeOnlyGapPolicy` jest osobnym, czystym wynikiem kalibracji korpusu; nie
-grupuje źródeł i zostanie skonsumowany dopiero przez TASK-0353.
+grupuje źródeł i jest konsumowany przez strumieniowy silnik TASK-0353.
 
 ## Odrzucone warianty
 
@@ -1439,6 +1439,33 @@ Finalizacja zapisuje checksummę manifestu także w metrykach uploadu. Każdy
 ponowny odczyt porównuje oba zapisy i ponownie weryfikuje wszystkie JPEG-i.
 
 Nowy `JobType.SEMI_AUTOMATIC_IMAGE_SELECTION` jest wyłączony z general lane i
-ma slot `IMAGE_SELECTION = 2`. TASK-0352 świadomie nie rejestruje handlera;
-trwałe przetwarzanie, checkpoint i grupowanie powstaną dopiero w TASK-0353.
-Rollout kontroluje jedna flaga API, domyślnie wyłączona.
+ma slot `IMAGE_SELECTION = 2`. Rollout kontroluje jedna flaga API, domyślnie
+wyłączona.
+
+## Strumieniowe wykonanie półautomatycznej selekcji — TASK-0353
+
+`SemiAutomaticImageSelectionJobHandler` jest drugim handlerem istniejącego lane
+`image-selection`; nie powstaje nowy worker ani pula wątków. Handler przed
+odczytem obrazu ponownie sprawdza purpose, checksumę manifestu, fingerprint
+źródła, naturalny porządek ścieżek, nazwy storage, rozmiar i SHA-256 JPEG-a.
+
+Skan ma złożoność O(N) i ograniczoną pamięć. `RangeGroupingAccumulator`
+przechowuje najwyżej bieżącą grupę, niepotwierdzone przejście i ograniczony
+licznik braku proof. Każdy wynik OCR jest natychmiast dopisywany do
+`observations.jsonl`, a zamknięta grupa do `groups.jsonl`. Dopiero po zapisie
+diagnostyki atomowo aktualizowany jest checkpoint SQL; przy restarcie suffix
+JSONL nienależący do zatwierdzonego checkpointu jest obcinany, natomiast brak
+zatwierdzonego prefiksu kończy run błędem.
+
+W drugiej, bez-OCR fazie dwa uporządkowane strumienie JSONL są łączone w O(N).
+Selektor środka widzi wyłącznie dokładne dowody z granic danej grupy. Wynik jest
+zapisywany pod blokadą zakresu: pierwszy wybór zmienia `missing` na
+`auto_selected`, a kolejny dowód tego samego oczekiwanego zakresu zwiększa
+licznik duplikatów bez podmiany właściciela. Zakres poza kolejnością jest tylko
+diagnostyką i nie uruchamia interpolacji sąsiadów.
+
+Checkpoint ma fazy `scanning`, `selecting` i `analysis_complete`. Pauza zapisuje
+ostatni ukończony JPEG albo grupę, zwalnia lease przez `waiting_for_review`, a
+wznowienie requeue'uje ten sam job. Końcowy raport zawiera fingerprinty wejścia,
+liczniki i listę brakujących expected ranges; jego checksum jest częścią runu.
+Formatowanie lokalnego outputu pozostaje oddzielone do TASK-0354.

@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
+from game_predictor_worker.semi_automatic_selection.engine import (
+    grouping_policy_fingerprint,
+)
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
-    RANGE_ONLY_GAP_POLICY_VERSION,
-    RANGE_ONLY_OCR_ADAPTER_VERSION,
-    RANGE_ONLY_PROOF_POLICY_VERSION,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
 )
 
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
     ImageSelectionPurpose,
 )
-from game_predictor_api.domain.jobs import request_job_cancellation
+from game_predictor_api.domain.jobs import JobStatus, request_job_cancellation, requeue_job
 from game_predictor_api.domain.semi_automatic_image_selections import (
     SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION,
     SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
@@ -41,26 +40,8 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     run_identity_key,
 )
 
-SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = hashlib.sha256(
-    json.dumps(
-        {
-            "adapterVersion": RANGE_ONLY_OCR_ADAPTER_VERSION,
-            "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-).hexdigest()
-SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = hashlib.sha256(
-    json.dumps(
-        {
-            "contract": "semi-automatic-range-grouping-v1",
-            "gapPolicyVersion": RANGE_ONLY_GAP_POLICY_VERSION,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-).hexdigest()
+SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT
+SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = grouping_policy_fingerprint()
 
 
 class SemiAutomaticSelectionRepository(Protocol):
@@ -218,7 +199,10 @@ class SemiAutomaticImageSelectionService:
 
     def resume(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         run = self._locked(run_id)
-        return self._repository.save(resume_run(run))
+        resumed = resume_run(run)
+        if resumed.job.status is JobStatus.WAITING_FOR_REVIEW:
+            resumed = replace(resumed, job=requeue_job(resumed.job))
+        return self._repository.save(resumed)
 
     def cancel(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         run = self._locked(run_id)
@@ -260,11 +244,14 @@ class SemiAutomaticImageSelectionService:
         expected_checksum_sha256: str,
     ) -> tuple[Path, str]:
         run = self.get(run_id)
-        return self._staging.get_ready_source_asset(
-            run.source.upload_id,
-            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-            source_index=source_index,
-            expected_checksum_sha256=expected_checksum_sha256,
+        return cast(
+            tuple[Path, str],
+            self._staging.get_ready_source_asset(
+                run.source.upload_id,
+                purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+                source_index=source_index,
+                expected_checksum_sha256=expected_checksum_sha256,
+            ),
         )
 
     def _locked(self, run_id: UUID) -> SemiAutomaticSelectionRun:

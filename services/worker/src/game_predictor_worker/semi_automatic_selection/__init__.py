@@ -19,6 +19,13 @@ from .contracts import (
     fingerprint_sources,
     is_valid_run_status_transition,
 )
+from .engine import (
+    RangeGroup,
+    RangeGroupingAccumulator,
+    RangeGroupSelection,
+    grouping_policy_fingerprint,
+    select_middle_exact_observation,
+)
 from .range_only_ocr import (
     RANGE_ONLY_GAP_POLICY_VERSION,
     RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE,
@@ -48,6 +55,9 @@ __all__ = [
     "RangeOnlyOcrAdapter",
     "RangeOnlyRecognition",
     "RangeOnlyRecognizer",
+    "RangeGroup",
+    "RangeGroupSelection",
+    "RangeGroupingAccumulator",
     "RangeEvidenceGate",
     "RangeEvidenceObservation",
     "RangeEvidenceResult",
@@ -63,5 +73,7 @@ __all__ = [
     "fingerprint_sources",
     "build_paddle_range_only_recognizer",
     "calibrate_unproven_gap_policy",
+    "grouping_policy_fingerprint",
     "is_valid_run_status_transition",
+    "select_middle_exact_observation",
 ]

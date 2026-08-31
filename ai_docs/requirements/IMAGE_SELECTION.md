@@ -951,6 +951,28 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 - Funkcja jest domyślnie wyłączona przez
   `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`. Endpoint
   capabilities jest jedynym źródłem tej możliwości dla przyszłego UI.
-- Job używa istniejącego lane selekcji zdjęć. Do czasu TASK-0353 nie ma
-  zarejestrowanego handlera, więc job pozostaje bezpiecznie w stanie `created`
-  i nie może zostać przejęty przez general lane.
+- Job używa istniejącego lane selekcji zdjęć i nie może zostać przejęty przez
+  general lane.
+
+## Deterministyczny silnik wyboru zakresu — TASK-0353
+
+- Każdy JPEG jest dekodowany i przekazywany do range-only OCR najwyżej raz w
+  jednym runie. Obserwacje są przetwarzane strumieniowo w naturalnej kolejności
+  źródła; zakończony prefiks jest wznawiany z checkpointu bez ponownego OCR.
+- Grupę może otworzyć i podtrzymać wyłącznie `exact_range`. Brak dowodu może
+  rozszerzyć bieżący przedział źródeł maksymalnie o skalibrowane `160` pozycji,
+  ale nigdy nie jest kandydatem do wyboru i nie przypisuje zakresu z sąsiadów.
+- Izolowany układ `A/B/A` pozostaje grupą A z audytowalnym odstającym dowodem.
+  `A/B/B` potwierdza przejście do B, a `A/B/C` oraz `A/B/EOF` zachowują mocny
+  dowód B jako singleton. Duplikaty i zakresy poza kolejnością są raportowane,
+  lecz pierwszy zapis oczekiwanego zakresu nie jest nadpisywany.
+- Reprezentantem grupy jest JPEG z dokładnym dowodem tego samego zakresu,
+  najbliższy środkowi przedziału źródeł. Remis rozstrzygają kolejno wyższa
+  pewność, niższy `sourceIndex` i wcześniejsza naturalna ścieżka.
+- Pełny audyt jest zapisywany jako `observations.jsonl`, `groups.jsonl`,
+  atomowy `checkpoint.json` oraz checksummowany `selection-report.json` pod
+  `data/exports/semi-automatic-selection/<runId>/`. Brak lub zmiana
+  zatwierdzonego prefiksu diagnostyki blokuje wznowienie fail-closed.
+- Zakończenie analizy ustawia run na `analysis_complete`, a job na
+  `waiting_for_review`. Zapis lokalnego katalogu wynikowego nadal należy do
+  TASK-0354.

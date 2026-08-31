@@ -32,6 +32,17 @@ RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE = 0.90
 
 _AMBIGUOUS_REASON_MARKERS = ("AMBIGUOUS", "CONFLICT")
 
+RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT = hashlib.sha256(
+    json.dumps(
+        {
+            "adapterVersion": RANGE_ONLY_OCR_ADAPTER_VERSION,
+            "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+).hexdigest()
+
 
 @dataclass(frozen=True, slots=True)
 class RangeOnlyLabelEvidence:
@@ -386,6 +397,7 @@ __all__ = [
     "RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE",
     "RANGE_ONLY_OCR_ADAPTER_VERSION",
     "RANGE_ONLY_PROOF_POLICY_VERSION",
+    "RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT",
     "ExistingProofFirstRangeOnlyBridge",
     "RangeOnlyGapPolicy",
     "RangeOnlyLabelEvidence",

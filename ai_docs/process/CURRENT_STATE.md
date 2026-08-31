@@ -22,8 +22,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - `RangeEvidenceGate` ocenia wyłącznie lokalny dowód OCR dokładnego zakresu
   względem expected ranges. Nie uruchamia ani nie ocenia geometrii, plansz,
   cropów, symboli, ostrości, ekspozycji czy refleksów.
-- Nie ma jeszcze OCR adaptera, stagingu, migracji, joba, API ani UI. Jest to
-  świadome rozdzielenie kontraktu od późniejszego wykonania TASK-0351–0357.
+- Sam kontrakt TASK-0350 nie zależy od adaptera OCR, stagingu, migracji, joba,
+  API ani UI. Późniejsze taski dokładają te warstwy bez rozszerzania domeny.
 
 ### Range-only OCR półautomatycznej selekcji — TASK-0351
 
@@ -34,8 +34,8 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Tylko mocny pozycyjny proof może dać `exact_range`; końcowy krótszy zakres
   wymaga trzech zgodnych obserwacji mieszczących się w jego granicach.
 - Checksumowany rzeczywisty korpus wyznacza wersjonowany maksymalny odstęp `160`
-  źródeł bez proof. Grupowanie, staging, job i API nadal należą do kolejnych
-  tasków.
+  źródeł bez proof. Silnik TASK-0353 konsumuje tę politykę bez dodawania oceny
+  wyglądu plansz.
 
 ### Globalny run półautomatycznej selekcji — TASK-0352
 
@@ -47,10 +47,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   stagingu ani runu; zmieniony manifest lub asset jest blokowany fail-closed.
 - Lokalne API udostępnia capabilities, lifecycle runu, listę zakresów,
   diagnostykę, assety i checksum-bound acknowledgement outputu. Run używa
-  istniejącego selection lane, ale do TASK-0353 celowo nie ma handlera.
+  istniejącego selection lane.
 - Rollout jest domyślnie wyłączony flagą
-  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`. Grupowanie,
-  checkpoint JSONL i wybór środka nadal należą do TASK-0353.
+  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`.
+
+### Deterministyczny silnik półautomatycznej selekcji — TASK-0353
+
+- Istniejący lane selekcji obsługuje teraz także globalny job
+  `semi_automatic_image_selection`; general worker nadal go nie przejmuje.
+- Scanner wykonuje range-only OCR raz na JPEG, grupuje wyłącznie dokładne
+  lokalne dowody i zapisuje strumieniowe JSONL oraz atomowy checkpoint.
+- Wybór środka nie ocenia geometrii ani jakości plansz. Brak proof pozostaje
+  luką, a duplikat lub zakres poza kolejnością jest diagnostyką bez podmiany
+  pierwszego trwałego właściciela.
+- Pauza i restart wznawiają ostatni zatwierdzony prefiks bez ponownego OCR.
+  Zakończona analiza przechodzi do `waiting_for_review`; zapis lokalnego outputu
+  pozostaje zakresem TASK-0354.
 
 ### Częściowa geometria ostatniej strony — TASK-0349
 

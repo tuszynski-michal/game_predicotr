@@ -105,6 +105,10 @@ from game_predictor_worker.releases import (
     ReleaseWorkflowHandler,
     SqlAlchemyReleaseWorkflowStore,
 )
+from game_predictor_worker.semi_automatic_selection.job import (
+    SemiAutomaticImageSelectionJobHandler,
+    SemiAutomaticSelectionJobStore,
+)
 from game_predictor_worker.snapshots import (
     ProductionSnapshotArtifactPublisher,
     ProductionSnapshotGenerator,
@@ -304,7 +308,13 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 scan_workers=scan_workers,
                 scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
                 verification_workers=verification_workers,
-            )
+            ),
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION: SemiAutomaticImageSelectionJobHandler(
+                SemiAutomaticSelectionJobStore(session_factory),
+                browser_upload_root=settings.import_root,
+                artifact_root=artifact_root,
+                repository_root=Path.cwd(),
+            ),
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
     else:

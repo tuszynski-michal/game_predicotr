@@ -15,6 +15,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Widoczny postęp browser uploadu — TASK-0348
+
+- Admin pokazuje postęp przesyłania na podstawie liczników potwierdzonych przez
+  API, a nie wyłącznie lokalnego indeksu pętli.
+- Po pierwszym pliku i następnie co 25 plików klient jawnie oddaje sterowanie
+  przeglądarce, aby duża seria szybkich requestów nie blokowała odmalowania
+  licznika na wartości `0/N`.
+
 ### Czytelne liczniki ręcznej geometrii — TASK-0347
 
 - Preflight i panel korekty opisują liczniki jako zdjęcia źródłowe. Plansze

@@ -104,6 +104,11 @@ kontrolowanego `data/originals` pod tożsamością content-addressed. Manifest
 zachowuje pierwotną ścieżkę względną, checksumę i wynik kopiowania. Pipeline nie
 zależy później od obecności folderu użytkownika.
 
+Browserowy upload folderu raportuje postęp wyłącznie z potwierdzonej odpowiedzi
+API (`uploadedFileCount/expectedFileCount`). Przy tysiącach lokalnych requestów
+klient musi okresowo oddawać sterowanie pętli zdarzeń, aby licznik był widocznie
+odmalowywany podczas pracy, a nie pozostawał na `0/N` do finalizacji stagingu.
+
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,

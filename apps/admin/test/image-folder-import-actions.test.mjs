@@ -23,6 +23,7 @@ test('uploads a browser-native folder and returns a validated selection', async 
     value: 'photos/layout.jpg',
   });
   const calls = [];
+  const progress = [];
 
   const result = await uploadImageFolder(
     {
@@ -57,6 +58,7 @@ test('uploads a browser-native folder and returns a validated selection', async 
       },
     },
     [file],
+    (uploaded, total) => progress.push([uploaded, total]),
   );
 
   assert.deepEqual(result, {
@@ -81,6 +83,7 @@ test('uploads a browser-native folder and returns a validated selection', async 
     file,
   ]);
   assert.deepEqual(calls[2], ['finalize', 'upload-1']);
+  assert.deepEqual(progress, [[1, 1]]);
 });
 
 test('reprocesses an import from its managed originals', async () => {

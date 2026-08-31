@@ -40,6 +40,18 @@ export type ImageFolderImportClient = Pick<
 
 type Failure = { readonly error: string; readonly ok: false };
 
+const UPLOAD_PROGRESS_PAINT_INTERVAL = 25;
+
+async function yieldForUploadProgressPaint(uploadedFileCount: number) {
+  if (
+    uploadedFileCount !== 1 &&
+    uploadedFileCount % UPLOAD_PROGRESS_PAINT_INTERVAL !== 0
+  ) {
+    return;
+  }
+  await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+}
+
 export type BoardCellProcessingMode = NonNullable<
   BrowserImageImportStart['boardCellProcessingMode']
 >;
@@ -102,7 +114,14 @@ export async function uploadImageFolder(
           ok: false,
         };
       }
-      onProgress?.(index + 1, files.length);
+      onProgress?.(
+        uploaded.data.uploadedFileCount,
+        uploaded.data.expectedFileCount,
+      );
+      // A large local folder can produce thousands of very fast sequential
+      // fetch completions. Yield a macrotask after the first acknowledgement
+      // and then periodically so React can paint server-confirmed progress.
+      await yieldForUploadProgressPaint(uploaded.data.uploadedFileCount);
     }
     const finalized = await api.finalizeBrowserImageSelection(uploadId);
     if (finalized.error !== undefined || finalized.data === undefined) {

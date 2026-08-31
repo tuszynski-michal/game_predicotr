@@ -9,6 +9,13 @@ const panelSource = await readFile(
   ),
   'utf8',
 );
+const actionsSource = await readFile(
+  new URL(
+    '../src/features/imports/image-folder-import-actions.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const modePickerSource = await readFile(
   new URL(
     '../src/features/imports/board-cell-processing-mode-picker.tsx',
@@ -148,6 +155,8 @@ test('uses the browser-native directory input without a blocking OS helper', () 
   assert.match(panelSource, /type="file"/);
   assert.match(panelSource, /uploadImageFolder/);
   assert.match(panelSource, /Przesyłanie/);
+  assert.match(actionsSource, /yieldForUploadProgressPaint/);
+  assert.match(actionsSource, /uploaded\.data\.uploadedFileCount/);
   assert.doesNotMatch(panelSource, /Otwieranie…/);
   assert.doesNotMatch(panelSource, /selectImageFolder/);
 });

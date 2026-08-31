@@ -64,6 +64,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Zakończona analiza przechodzi do `waiting_for_review`; zapis lokalnego outputu
   pozostaje zakresem TASK-0354.
 
+### Lokalny output i recovery półautomatycznej selekcji — TASK-0354
+
+- Admin zapisuje wybrane źródła jako niezmienione `seq_<start>-<end>.jpg` i
+  potwierdza zakres do API dopiero po lokalnym read-backu SHA-256.
+- Manifest outputu v1 jest związany z runem, źródłem, pełnym snapshotem
+  zakresów i fingerprintami. Inny run lub zmieniony plik docelowy blokuje
+  zapis bez silent overwrite.
+- Jedna trwała pending operation pozwala wznowić awarię przed albo po zapisie
+  JPEG-a. Ponowienie nie pobiera ponownie zgodnego pliku i może bezpiecznie
+  dokończyć samo acknowledgement.
+- IndexedDB przechowuje tylko uchwyty katalogów i mały stan UI; obrazy nie są
+  utrwalane w przeglądarce. Konfigurator i ekran progresu pozostają zakresem
+  TASK-0355.
+
 ### Częściowa geometria ostatniej strony — TASK-0349
 
 - Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej

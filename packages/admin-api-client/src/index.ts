@@ -1,5 +1,6 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
+  acknowledgeSemiAutomaticImageSelectionOutput as acknowledgeGeneratedSemiAutomaticImageSelectionOutput,
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
   applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
@@ -79,6 +80,7 @@ import {
   refreshImageStorageInventory as refreshGeneratedImageStorageInventory,
   startStorageGcRun as startGeneratedStorageGcRun,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
+  getSemiAutomaticImageSelectionSourceAsset as getGeneratedSemiAutomaticImageSelectionSourceAsset,
   getUnreadableBoardReview as getGeneratedUnreadableBoardReview,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
@@ -284,6 +286,9 @@ import type {
   SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  SemiAutomaticSelectionOutputAcknowledgement,
+  SemiAutomaticSelectionRangeResponse,
+  SemiAutomaticSelectionRunResponse,
   StorageGcRunCreate,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
@@ -487,6 +492,9 @@ export type {
   SymbolCellReviewBulkPreviewResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  SemiAutomaticSelectionOutputAcknowledgement,
+  SemiAutomaticSelectionRangeResponse,
+  SemiAutomaticSelectionRunResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewMutationRequest,
@@ -681,6 +689,26 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    getSemiAutomaticImageSelectionSourceAsset: (
+      runId: string,
+      sourceIndex: number,
+      expectedChecksumSha256: string,
+    ) =>
+      getGeneratedSemiAutomaticImageSelectionSourceAsset({
+        client,
+        path: { run_id: runId, source_index: sourceIndex },
+        query: { expected_checksum_sha256: expectedChecksumSha256 },
+      }),
+    acknowledgeSemiAutomaticImageSelectionOutput: (
+      runId: string,
+      expectedIndex: number,
+      body: SemiAutomaticSelectionOutputAcknowledgement,
+    ) =>
+      acknowledgeGeneratedSemiAutomaticImageSelectionOutput({
+        body,
+        client,
+        path: { expected_index: expectedIndex, run_id: runId },
+      }),
     getImageImportEnginePolicy: (gameId: string) =>
       getGeneratedImageImportEnginePolicy({
         client,

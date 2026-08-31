@@ -6717,3 +6717,19 @@ najbliższa środkowi grupy z deterministycznymi tie-breakami. Izolowane dowody,
 duplikaty i kolejność niemonotoniczna pozostają w audycie, a pierwszy trwały
 wybór oczekiwanego zakresu nie jest automatycznie zastępowany. Geometria,
 jakość zdjęcia i symbole nie uczestniczą w decyzji.
+
+## D-283 — Lokalny output jest journalowany przed potwierdzeniem serwera
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczny wybór kopiuje oryginalne bajty do katalogu operatora i nigdy
+automatycznie nie zastępuje istniejącej innej zawartości. Manifest outputu jest
+związany z dokładnym runem i przechowuje jedną operację oczekującą przed
+mutacją pliku. Po restarcie obecność oraz SHA-256 celu jednoznacznie decydują o
+wycofaniu, finalizacji albo konflikcie.
+
+Acknowledgement serwera następuje dopiero po ponownym odczycie lokalnego pliku.
+Uchwyty i mały stan widoku mogą być zapisane w IndexedDB, ale JPEG-i i Bloby
+pozostają poza nią. Identyczny plik jest chronionym sukcesem idempotentnym;
+odmienny plik wymaga późniejszej jawnej decyzji operatora.

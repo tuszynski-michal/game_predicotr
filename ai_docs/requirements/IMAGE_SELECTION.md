@@ -976,3 +976,22 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 - Zakończenie analizy ustawia run na `analysis_complete`, a job na
   `waiting_for_review`. Zapis lokalnego katalogu wynikowego nadal należy do
   TASK-0354.
+
+## Lokalny output półautomatycznej selekcji — TASK-0354
+
+- Automatycznie wybrany JPEG jest kopiowany do katalogu operatora pod nazwą
+  `seq_<start>-<end>.jpg` bez zmiany bajtów. Przed zapisem i po ponownym
+  odczycie celu musi zgadzać się SHA-256 oraz rozmiar źródła.
+- `semi-automatic-image-selection-output-v1.json` wiąże katalog z dokładnym
+  runem, manifestem źródeł, granicami, fingerprintami algorytmów, wyborami,
+  lukami, konfliktami, checkpointem oraz co najwyżej jedną operacją oczekującą.
+- Istniejący plik o identycznej checksumie jest chronionym, idempotentnym
+  sukcesem. Inna zawartość jest konfliktem i nie może zostać automatycznie
+  nadpisana ani potwierdzona do API.
+- Potwierdzenie outputu jest wysyłane dopiero po lokalnym read-backu i zawiera
+  oczekiwaną rewizję zakresu, checksummę źródła oraz checksummę outputu.
+- Po restarcie brak celu wycofuje tylko pending operation, zgodny cel ją
+  finalizuje, a zmieniony cel zapisuje konflikt. Ukończone wybory nie wymagają
+  ponownego pobierania JPEG-a.
+- IndexedDB przechowuje wyłącznie uchwyty katalogów, checksummę manifestu i
+  mały stan widoku. Bloby ani bajty JPEG-ów nie są tam zapisywane.

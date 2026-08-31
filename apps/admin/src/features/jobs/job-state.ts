@@ -21,6 +21,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   android_build: 'Build APK',
   symbol_training: 'Trening modelu symboli',
   image_selection: 'Selekcja zdjęć',
+  semi_automatic_image_selection: 'Półautomatyczna selekcja zdjęć',
   image_symbol_reinference: 'Przeliczenie oczekujących symboli',
   image_grid_reinference: 'Przeliczenie oczekującej siatki',
   image_symbol_review_bulk: 'Masowa weryfikacja symboli',

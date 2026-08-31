@@ -2436,6 +2436,51 @@ test('manual image selection uses scoped binary upload and idempotent approval',
   });
 });
 
+test('semi-automatic output reads a checksum-bound source and acknowledges exact bytes', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return request.method === 'GET'
+        ? new Response(new Blob(['jpeg'], { type: 'image/jpeg' }))
+        : Response.json({ revision: 2, status: 'output_synced' });
+    },
+  });
+
+  await client.getSemiAutomaticImageSelectionSourceAsset(runId, 12, checksum);
+  await client.acknowledgeSemiAutomaticImageSelectionOutput(runId, 3, {
+    expectedRevision: 1,
+    expectedSourceChecksumSha256: checksum,
+    outputChecksumSha256: checksum,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/sources/12/asset`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges/3/output-acknowledgements`,
+      ],
+    ],
+  );
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('expected_checksum_sha256'),
+    checksum,
+  );
+  assert.deepEqual(await requests[1].clone().json(), {
+    expectedRevision: 1,
+    expectedSourceChecksumSha256: checksum,
+    outputChecksumSha256: checksum,
+  });
+});
+
 test('image selection review queues use scoped idempotent decisions', async () => {
   const requests = [];
   const runId = '22222222-2222-4222-8222-222222222222';

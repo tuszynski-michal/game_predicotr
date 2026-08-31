@@ -1469,3 +1469,26 @@ ostatni ukończony JPEG albo grupę, zwalnia lease przez `waiting_for_review`, a
 wznowienie requeue'uje ten sam job. Końcowy raport zawiera fingerprinty wejścia,
 liczniki i listę brakujących expected ranges; jego checksum jest częścią runu.
 Formatowanie lokalnego outputu pozostaje oddzielone do TASK-0354.
+
+## Lokalna synchronizacja outputu — TASK-0354
+
+Admin posiada framework-free manifest domenowy, adapter File System Access API
+oraz koordynator synchronizacji. Koordynator przyjmuje kompletny, keysetowo
+pobrany snapshot oczekiwanych zakresów i ponownie sprawdza jego indeksy,
+granice oraz nazwy przed pierwszą mutacją katalogu.
+
+Każdy zapis ma kolejność journalową: utrwalenie pending operation, pobranie
+checksum-bound assetu, sprawdzenie źródła, zapis oryginalnego Bloba, read-back,
+finalizacja manifestu i dopiero potem acknowledgement API. Brak odpowiedzi API
+pozostawia lokalny wybór jako niepotwierdzony; ponowienie nie kopiuje pliku, a
+jedynie ponawia bezpieczne potwierdzenie. Serwerowy `output_synced` z identyczną
+checksummą może odbudować lokalny stan acknowledgement bez mutacji serwera.
+
+Manifest należący do innego runu, niepełny snapshot zakresów oraz odmienny plik
+docelowy kończą się fail-closed. Selector version jest częścią
+`groupingPolicyFingerprint`, dlatego lokalne pole `selectorPolicyFingerprint`
+powtarza ten fingerprint zamiast tworzyć niewersjonowaną pochodną.
+
+Uchwyty katalogów oraz zoom/scroll/kursor są przechowywane w osobnej bazie
+IndexedDB v1. Obrazy pozostają wyłącznie w katalogach użytkownika i stagingu;
+nie trafiają do pamięci trwałej przeglądarki ani bazy aplikacji.

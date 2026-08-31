@@ -79,10 +79,19 @@ export const PAGE_MESH_POINT_COUNT = PAGE_MESH_COLUMNS * PAGE_MESH_ROWS;
 export function appendPageGeometryBoardCorner(
   current: readonly PageGeometryPoint[],
   point: PageGeometryPoint,
+  boardCount = PAGE_BOARD_COUNT,
 ): readonly PageGeometryPoint[] {
-  return current.length >= PAGE_BOARD_PLACEMENT_POINT_COUNT
-    ? current
-    : [...current, point];
+  const targetPointCount =
+    normalizePageGeometryBoardCount(boardCount) * PAGE_BOARD_CORNER_COUNT;
+  return current.length >= targetPointCount ? current : [...current, point];
+}
+
+function normalizePageGeometryBoardCount(boardCount: number): number {
+  return Number.isInteger(boardCount) &&
+    boardCount >= 1 &&
+    boardCount <= PAGE_BOARD_COUNT
+    ? boardCount
+    : PAGE_BOARD_COUNT;
 }
 
 function pageGeometryQuadCenter(quad: PageGeometryQuad): PageGeometryPoint {
@@ -111,10 +120,11 @@ function isNextPageGeometryQuadRowMajor(
 
 export function pageGeometryQuadsFromCornerPlacement(
   points: readonly PageGeometryPoint[],
+  boardCount = PAGE_BOARD_COUNT,
 ): readonly PageGeometryQuad[] {
   const quads: PageGeometryQuad[] = [];
   const completedBoardCount = Math.min(
-    PAGE_BOARD_COUNT,
+    normalizePageGeometryBoardCount(boardCount),
     Math.floor(points.length / PAGE_BOARD_CORNER_COUNT),
   );
   for (let boardIndex = 0; boardIndex < completedBoardCount; boardIndex += 1) {
@@ -128,10 +138,16 @@ export function pageGeometryQuadsFromCornerPlacement(
 
 export function completePageGeometryBoardQuads(
   points: readonly PageGeometryPoint[],
+  boardCount = PAGE_BOARD_COUNT,
 ): readonly PageGeometryQuad[] | null {
-  if (points.length !== PAGE_BOARD_PLACEMENT_POINT_COUNT) return null;
-  const quads = pageGeometryQuadsFromCornerPlacement(points);
-  return quads.length === PAGE_BOARD_COUNT ? quads : null;
+  const normalizedBoardCount = normalizePageGeometryBoardCount(boardCount);
+  if (points.length !== normalizedBoardCount * PAGE_BOARD_CORNER_COUNT)
+    return null;
+  const quads = pageGeometryQuadsFromCornerPlacement(
+    points,
+    normalizedBoardCount,
+  );
+  return quads.length === normalizedBoardCount ? quads : null;
 }
 
 const PAGE_BOARD_EDGE_RATIOS = [

@@ -79,6 +79,41 @@ test('collects nine independent board quads in row-major order', () => {
   assert.deepEqual(quads?.[8]?.[2], { x: 308, y: 310 });
 });
 
+test('completes only the five attested boards on a final page', () => {
+  const boardCount = 5;
+  const points = Array.from({ length: boardCount }, (_, boardIndex) => {
+    const row = Math.floor(boardIndex / 3);
+    const column = boardIndex % 3;
+    const left = column * 110;
+    const top = row * 110;
+    return [
+      { x: left, y: top },
+      { x: left + 90, y: top },
+      { x: left + 90, y: top + 90 },
+      { x: left, y: top + 90 },
+    ];
+  }).flat();
+  const placement = points.reduce(
+    (current, point) =>
+      appendPageGeometryBoardCorner(current, point, boardCount),
+    [],
+  );
+
+  assert.equal(placement.length, boardCount * 4);
+  assert.equal(
+    pageGeometryQuadsFromCornerPlacement(placement, boardCount).length,
+    boardCount,
+  );
+  assert.equal(
+    completePageGeometryBoardQuads(placement, boardCount)?.length,
+    boardCount,
+  );
+  assert.deepEqual(
+    appendPageGeometryBoardCorner(placement, { x: 999, y: 999 }, boardCount),
+    placement,
+  );
+});
+
 test('converts independently placed boards to 36 editable corners without drift', () => {
   const quads = Array.from({ length: 9 }, (_, boardIndex) => {
     const row = Math.floor(boardIndex / 3);

@@ -920,62 +920,9 @@ export type BrowserPageGeometryOverrideCreate = {
   /**
    * Finalquads
    */
-  finalQuads: [
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-    [
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-      PageGeometryPoint,
-    ],
-  ];
+  finalQuads: Array<
+    [PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint]
+  >;
   /**
    * Gameid
    */
@@ -1039,6 +986,10 @@ export type BrowserPageGeometryReviewSourceResponse = {
    * Existingoverriderevision
    */
   existingOverrideRevision?: number | null;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number;
   /**
    * Reviewreason
    */

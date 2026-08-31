@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Częściowa geometria ostatniej strony — TASK-0349
+
+- Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej
+  nazwy `seq_<start>-<end>`. Dla `seq_499996-500000.jpg` Admin prowadzi przez
+  dokładnie pięć plansz zamiast wymuszać dziewięć.
+- API, append-only override, preflight i produkcyjny adapter obsługują aktywny
+  prefiks 1–9 quadów w kolejności row-major. Backend ponownie sprawdza liczbę
+  względem manifestu stagingu; częściowa strona nie może zostać globalną
+  kotwicą dla innych zdjęć.
+- Migracja `0086_partial_page_geometry_overrides` luzuje wyłącznie constraint
+  długości JSONB z dokładnie 9 do zakresu 1–9. Istniejące rewizje pozostają
+  niezmienione, a pełne strony nadal używają dziewięciu quadów i 36 uchwytów.
+
 ### Widoczny postęp browser uploadu — TASK-0348
 
 - Admin pokazuje postęp przesyłania na podstawie liczników potwierdzonych przez

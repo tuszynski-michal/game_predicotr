@@ -81,7 +81,7 @@ from .orchestration_store import SqlAlchemyImageBatchStore
 from .page_geometry_registration import (
     PAGE_REGISTRATION_VERSION,
     VerifiedPageRegistrar,
-    is_complete_ordered_grid,
+    is_ordered_active_grid,
 )
 from .pipeline_contract import (
     CURRENT_NORMALIZATION_ADAPTER_VERSION,
@@ -700,6 +700,7 @@ class ProductionImageStageAdapterSuite:
             context.source_checksum_sha256,
             image_width=int(rgb.shape[1]),
             image_height=int(rgb.shape[0]),
+            expected_board_count=_expected_board_count(context.attested_sequence_range),
         )
         if self._page_geometry_manifest:
             if pinned is None:
@@ -2129,12 +2130,20 @@ def _page_geometry_manifest(job: Job, artifact_root: Path) -> Mapping[str, objec
     return cast(Mapping[str, object], entries)
 
 
+def _expected_board_count(attested_range: tuple[int, int] | None) -> int:
+    if attested_range is None:
+        return 9
+    start, end = attested_range
+    return end - start + 1 if 1 <= start <= end <= start + 8 else 9
+
+
 def _registered_page_geometry(
     entries: Mapping[str, object],
     source_checksum_sha256: str,
     *,
     image_width: int,
     image_height: int,
+    expected_board_count: int,
 ) -> Mapping[str, object] | None:
     raw = entries.get(source_checksum_sha256)
     if not isinstance(raw, Mapping) or raw.get("status") != "registered":
@@ -2144,10 +2153,10 @@ def _registered_page_geometry(
     if (
         not isinstance(quads, Sequence)
         or isinstance(quads, str | bytes)
-        or len(quads) != 9
+        or len(quads) != expected_board_count
         or not isinstance(coverages, Sequence)
         or isinstance(coverages, str | bytes)
-        or len(coverages) != 9
+        or len(coverages) != expected_board_count
     ):
         return None
     parsed: list[Quad] = []
@@ -2168,7 +2177,12 @@ def _registered_page_geometry(
             return None
         parsed.append(quad)
         parsed_coverages.append(float(coverage))
-    if not is_complete_ordered_grid(tuple(parsed), image_width, image_height):
+    if not is_ordered_active_grid(
+        tuple(parsed),
+        tuple(range(expected_board_count)),
+        image_width,
+        image_height,
+    ):
         return None
     return {
         "anchorSourceChecksumSha256": raw.get("anchorSourceChecksumSha256"),

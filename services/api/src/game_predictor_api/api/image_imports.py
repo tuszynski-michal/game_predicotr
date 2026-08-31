@@ -220,6 +220,11 @@ def _attested_range_from_relative_path(value: str) -> tuple[int | None, int | No
     return start, end
 
 
+def _expected_board_count_from_relative_path(value: str) -> int:
+    start, end = _attested_range_from_relative_path(value)
+    return 9 if start is None or end is None else end - start + 1
+
+
 def create_image_imports_router(
     selection_service_dependency: Callable[..., object],
     browser_selection_service_dependency: Callable[..., object],
@@ -719,6 +724,9 @@ def create_image_imports_router(
                     source_relative_path=source_relative_path,
                     sequence_range_start=start,
                     sequence_range_end=end,
+                    expected_board_count=_expected_board_count_from_relative_path(
+                        source_relative_path
+                    ),
                     review_reason=(
                         "manual_override" if manual_review_required else "review_required"
                     ),
@@ -840,11 +848,18 @@ def create_image_imports_router(
                 "IMAGE_PAGE_GEOMETRY_SOURCE_DIMENSIONS_CHANGED",
                 "The source dimensions differ from the geometry correction.",
             )
+        expected_board_count = _expected_board_count_from_relative_path(source.relative_path)
+        if len(payload.final_quads) != expected_board_count:
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_BOARD_COUNT_CHANGED",
+                "The correction does not match the attested board count for this source.",
+            )
         value, created = override_service.save(
             game_id=payload.game_id,
             source_checksum_sha256=payload.source_checksum_sha256,
             image_width=width,
             image_height=height,
+            expected_board_count=expected_board_count,
             final_quads=tuple(
                 tuple(point.model_dump(by_alias=True) for point in quad)
                 for quad in payload.final_quads

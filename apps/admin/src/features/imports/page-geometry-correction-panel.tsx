@@ -93,7 +93,7 @@ function existingSourceQuads(
   if (
     raw === null ||
     raw === undefined ||
-    raw.length !== 9 ||
+    raw.length !== source.expectedBoardCount ||
     raw.some((quad) => quad.length !== 4)
   ) {
     return [];
@@ -224,6 +224,7 @@ export function PageGeometryCorrectionPanel({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
+  const expectedBoardCount = source?.expectedBoardCount ?? PAGE_BOARD_COUNT;
   const deferredSourceCount = sources.filter(
     (item) => item.reviewReason === 'review_required',
   ).length;
@@ -251,19 +252,25 @@ export function PageGeometryCorrectionPanel({
     );
   }, [meshOverrides, pageCorners]);
   const quads = useMemo(() => {
-    const generated = pageGeometryQuadsFromMesh(mesh);
+    const generated = pageGeometryQuadsFromMesh(mesh).slice(
+      0,
+      expectedBoardCount,
+    );
     return generated.map((quad, index) => boardOverrides.get(index) ?? quad);
-  }, [boardOverrides, mesh]);
+  }, [boardOverrides, expectedBoardCount, mesh]);
   const placedBoardQuads = useMemo(
     () =>
       boardCornerPlacement === null
         ? []
-        : pageGeometryQuadsFromCornerPlacement(boardCornerPlacement),
-    [boardCornerPlacement],
+        : pageGeometryQuadsFromCornerPlacement(
+            boardCornerPlacement,
+            expectedBoardCount,
+          ),
+    [boardCornerPlacement, expectedBoardCount],
   );
   const activeBoardPlacementIndex = Math.min(
     placedBoardQuads.length,
-    PAGE_BOARD_COUNT - 1,
+    expectedBoardCount - 1,
   );
   const activeBoardPlacementPoints =
     boardCornerPlacement === null
@@ -337,7 +344,7 @@ export function PageGeometryCorrectionPanel({
     setBoardCornerPlacement([]);
     setDragging(null);
     setFeedback(
-      'Plansza 1 z 9 (rząd 1, kolumna 1). Wskaż kolejno: lewy górny, prawy górny, prawy dolny i lewy dolny punkt.',
+      `Plansza 1 z ${expectedBoardCount} (rząd 1, kolumna 1). Wskaż kolejno: lewy górny, prawy górny, prawy dolny i lewy dolny punkt.`,
     );
   }
 
@@ -366,8 +373,15 @@ export function PageGeometryCorrectionPanel({
       y: clamp(point.y, 0, imageSize.height - 1),
     };
     if (boardCornerPlacement !== null) {
-      const next = appendPageGeometryBoardCorner(boardCornerPlacement, bounded);
-      const nextQuads = pageGeometryQuadsFromCornerPlacement(next);
+      const next = appendPageGeometryBoardCorner(
+        boardCornerPlacement,
+        bounded,
+        expectedBoardCount,
+      );
+      const nextQuads = pageGeometryQuadsFromCornerPlacement(
+        next,
+        expectedBoardCount,
+      );
       const expectedCompletedPoints =
         nextQuads.length * PAGE_BOARD_CORNER_COUNT;
       setBoardCornerPlacement(next);
@@ -380,15 +394,26 @@ export function PageGeometryCorrectionPanel({
         );
         return;
       }
-      const completeQuads = completePageGeometryBoardQuads(next);
+      const completeQuads = completePageGeometryBoardQuads(
+        next,
+        expectedBoardCount,
+      );
       if (completeQuads !== null) {
         const outerCorners = outerCornersFromQuads(completeQuads);
-        if (outerCorners === null) return;
-        setPageCorners(outerCorners);
-        showAllBoardCorners(completeQuads);
+        if (outerCorners !== null) {
+          setPageCorners(outerCorners);
+          showAllBoardCorners(completeQuads);
+        } else {
+          setBoardOverrides(
+            new Map(completeQuads.map((quad, index) => [index, quad] as const)),
+          );
+          setCorrectionMode(0);
+        }
         setBoardCornerPlacement(null);
         setFeedback(
-          'Ustawiono osobno wszystkie 9 plansz w kolejności 1–3, 4–6, 7–9. Włączono wszystkie 36 narożników, które możesz teraz doprecyzować przed zapisem.',
+          expectedBoardCount === PAGE_BOARD_COUNT
+            ? 'Ustawiono osobno wszystkie 9 plansz w kolejności 1–3, 4–6, 7–9. Włączono wszystkie 36 narożników, które możesz teraz doprecyzować przed zapisem.'
+            : `Ustawiono osobno wszystkie ${expectedBoardCount} plansz końcowej strony. Możesz doprecyzować każdą planszę przed zapisem.`,
         );
         return;
       }
@@ -396,8 +421,8 @@ export function PageGeometryCorrectionPanel({
       const cornerIndex = next.length - expectedCompletedPoints;
       setFeedback(
         cornerIndex === 0
-          ? `Plansza ${boardIndex + 1} z 9 (rząd ${Math.floor(boardIndex / 3) + 1}, kolumna ${(boardIndex % 3) + 1}). Wskaż lewy górny punkt.`
-          : `Plansza ${boardIndex + 1} z 9: wskaż ${CORNER_NAMES[cornerIndex]}.`,
+          ? `Plansza ${boardIndex + 1} z ${expectedBoardCount} (rząd ${Math.floor(boardIndex / 3) + 1}, kolumna ${(boardIndex % 3) + 1}). Wskaż lewy górny punkt.`
+          : `Plansza ${boardIndex + 1} z ${expectedBoardCount}: wskaż ${CORNER_NAMES[cornerIndex]}.`,
       );
       return;
     }
@@ -506,7 +531,12 @@ export function PageGeometryCorrectionPanel({
   }
 
   async function save() {
-    if (source === null || imageSize === null || quads.length !== 9 || saving)
+    if (
+      source === null ||
+      imageSize === null ||
+      quads.length !== expectedBoardCount ||
+      saving
+    )
       return;
     setSaving(true);
     setError('');
@@ -580,8 +610,9 @@ export function PageGeometryCorrectionPanel({
           <h3>Korekta geometrii strony</h3>
           <p>
             Liczniki dotyczą zdjęć źródłowych, nie pojedynczych plansz. Jedno
-            zdjęcie zawiera dziewięć plansz; zostaną one utworzone dopiero w
-            imporcie po zakończeniu preflightu geometrii.
+            zdjęcie zawiera od jednej do dziewięciu plansz zgodnie z zakresem
+            zapisanym w nazwie; zostaną one utworzone dopiero w imporcie po
+            zakończeniu preflightu geometrii.
           </p>
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
@@ -670,8 +701,12 @@ export function PageGeometryCorrectionPanel({
                 value={String(correctionMode)}
               >
                 <option value="page">Cała strona — 4 główne uchwyty</option>
-                <option value="curve">Wszystkie plansze — 36 narożników</option>
-                {Array.from({ length: 9 }, (_, index) => (
+                {expectedBoardCount === PAGE_BOARD_COUNT ? (
+                  <option value="curve">
+                    Wszystkie plansze — 36 narożników
+                  </option>
+                ) : null}
+                {Array.from({ length: expectedBoardCount }, (_, index) => (
                   <option key={index} value={index}>
                     Plansza {index + 1} — korekta wyjątkowa
                   </option>
@@ -681,8 +716,8 @@ export function PageGeometryCorrectionPanel({
             <p className="geometryInstructions">
               {boardCornerPlacement !== null
                 ? activeBoardPlacementPoints.length >= PAGE_BOARD_CORNER_COUNT
-                  ? `Plansza ${activeBoardPlacementIndex + 1} z 9 nie tworzy poprawnego obrysu albo nie zachowuje kolejności od lewej do prawej. Cofnij błędny punkt.`
-                  : `Plansza ${activeBoardPlacementIndex + 1} z 9 · rząd ${Math.floor(activeBoardPlacementIndex / 3) + 1}, kolumna ${(activeBoardPlacementIndex % 3) + 1} · kliknij punkt ${activeBoardPlacementPoints.length + 1} z 4: ${CORNER_NAMES[activeBoardPlacementPoints.length]}.`
+                  ? `Plansza ${activeBoardPlacementIndex + 1} z ${expectedBoardCount} nie tworzy poprawnego obrysu albo nie zachowuje kolejności od lewej do prawej. Cofnij błędny punkt.`
+                  : `Plansza ${activeBoardPlacementIndex + 1} z ${expectedBoardCount} · rząd ${Math.floor(activeBoardPlacementIndex / 3) + 1}, kolumna ${(activeBoardPlacementIndex % 3) + 1} · kliknij punkt ${activeBoardPlacementPoints.length + 1} z 4: ${CORNER_NAMES[activeBoardPlacementPoints.length]}.`
                 : cornerPlacement !== null
                   ? `Kliknij punkt ${cornerPlacement.length + 1} z 4: ${CORNER_NAMES[cornerPlacement.length]}.`
                   : correctionMode === 'page'
@@ -742,7 +777,7 @@ export function PageGeometryCorrectionPanel({
                 onClick={beginBoardCornerPlacement}
                 type="button"
               >
-                Wyznacz 9 plansz osobno
+                Wyznacz {expectedBoardCount} plansz osobno
               </button>
               {(cornerPlacement !== null && cornerPlacement.length > 0) ||
               (boardCornerPlacement !== null &&

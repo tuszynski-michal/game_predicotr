@@ -153,6 +153,7 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
     source_relative_path: str = Field(min_length=1, max_length=2048)
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
+    expected_board_count: int = Field(ge=1, le=9)
     review_reason: Literal["manual_override", "review_required"] = "review_required"
     existing_final_quads: list[list[PageGeometryPoint]] | None = None
     existing_override_revision: int | None = Field(default=None, ge=1)
@@ -173,17 +174,9 @@ class BrowserPageGeometryOverrideCreate(ApiModel):
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_width: int = Field(ge=1)
     image_height: int = Field(ge=1)
-    final_quads: tuple[
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint],
-    ]
+    final_quads: list[
+        tuple[PageGeometryPoint, PageGeometryPoint, PageGeometryPoint, PageGeometryPoint]
+    ] = Field(min_length=1, max_length=9)
     actor: str = Field(min_length=1, max_length=200)
 
 

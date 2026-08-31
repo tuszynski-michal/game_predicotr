@@ -74,6 +74,7 @@ def _cold_start_job(
     *,
     image_count: int,
     overrides: dict[str, object] | None = None,
+    final_board_count: int = 9,
 ) -> tuple[Job, list[str]]:
     selection_id = uuid4()
     staged = tmp_path / str(selection_id)
@@ -91,7 +92,10 @@ def _cold_start_job(
         files.append(
             {
                 "orderIndex": index,
-                "relativePath": f"seq_{index * 9 + 1}-{index * 9 + 9}.jpg",
+                "relativePath": (
+                    f"seq_{index * 9 + 1}-"
+                    f"{index * 9 + (final_board_count if index == image_count - 1 else 9)}.jpg"
+                ),
                 "storedFileName": source.name,
                 "sizeBytes": len(content),
                 "checksumSha256": checksum,
@@ -215,6 +219,48 @@ def test_manual_override_bootstraps_registration_for_remaining_pages(
     assert payload["entries"][checksums[1]]["anchorSourceChecksumSha256"] == checksums[0]
 
 
+def test_manual_override_registers_attested_five_board_final_page(tmp_path: Path) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(
+        tmp_path,
+        image_count=1,
+        final_board_count=5,
+    )
+    override = {
+        checksums[0]: {
+            "decisionChecksumSha256": "e" * 64,
+            "expectedBoardCount": 5,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": quads[:5],
+            "revision": 1,
+        }
+    }
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={**initial_job.input_payload, "page_geometry_overrides": override},
+    )
+    context = _Context()
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(  # type: ignore[arg-type]
+        context,
+        job,
+    )
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    entry = payload["entries"][checksums[0]]
+    assert payload["registeredSourceCount"] == 1
+    assert payload["reviewRequiredSourceCount"] == 0
+    assert len(entry["quads"]) == 5
+    assert len(entry["boardRedEdgeCoverages"]) == 5
+
+
 def test_geometry_preflight_applies_every_manual_override_from_one_batch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -261,9 +307,7 @@ def test_geometry_preflight_applies_every_manual_override_from_one_batch(
 
     checkpoint = context.checkpoints[-1]["checkpoint_payload"]
     output = (
-        tmp_path
-        / "artifacts"
-        / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
     )
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["registeredSourceCount"] == 3
@@ -271,9 +315,7 @@ def test_geometry_preflight_applies_every_manual_override_from_one_batch(
     assert {
         checksum: payload["entries"][checksum]["manualOverrideDecisionChecksumSha256"]
         for checksum in checksums
-    } == {
-        checksum: overrides[checksum]["decisionChecksumSha256"] for checksum in checksums
-    }
+    } == {checksum: overrides[checksum]["decisionChecksumSha256"] for checksum in checksums}
 
 
 def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) -> None:

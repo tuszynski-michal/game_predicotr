@@ -506,6 +506,48 @@ def test_pinned_complete_page_geometry_bypasses_the_legacy_detector(
     assert len(detection["boards"]) == 9
 
 
+def test_pinned_final_page_geometry_uses_only_attested_five_boards(tmp_path: Path) -> None:
+    artifact_root = tmp_path / "artifacts"
+    normalized_relative = "working/test/normalized.png"
+    normalized_path = artifact_root / "data" / normalized_relative
+    normalized_path.parent.mkdir(parents=True)
+    Image.fromarray(_grid_image(), mode="RGB").save(normalized_path, format="PNG")
+    checksum = "e" * 64
+    quads = _grid_quads()[:5]
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+        page_geometry_manifest={
+            checksum: {
+                "status": "registered",
+                "quads": quads,
+                "boardRedEdgeCoverages": [1.0] * 5,
+                "registrationVersion": "manual-page-geometry-override-v1",
+                "thresholdsVersion": "manual-page-geometry-override-v1",
+            }
+        },
+    )
+    suite._detector = _UnexpectedDetector()  # type: ignore[assignment]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256=checksum,
+        source_relative_path="unused.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "normalization": {"normalizedRelativePath": normalized_relative},
+        },
+        attested_sequence_range=(499996, 500000),
+    )
+
+    detection = suite.board_detection(context)
+
+    assert detection["geometryValidity"] == "verified"
+    assert detection["recoveryMode"] == "pinned_verified_page_registration"
+    assert len(detection["boards"]) == 5
+
+
 def test_production_stages_create_review_ready_board_and_cell_artifacts(
     tmp_path: Path,
 ) -> None:

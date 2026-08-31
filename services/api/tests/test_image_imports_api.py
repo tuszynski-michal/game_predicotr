@@ -791,7 +791,7 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
                 "status": "registered",
             },
             unresolved_source_checksum: {
-                "sourceRelativePath": "new/seq_10-18.jpg",
+                "sourceRelativePath": "new/seq_10-14.jpg",
                 "status": "review_required",
             },
         },
@@ -883,6 +883,7 @@ def test_geometry_review_listing_keeps_manual_overrides_editable_until_batch_sub
     assert response.status_code == 200, response.text
     payload = response.json()
     assert [source["sequenceRangeStart"] for source in payload["sources"]] == [1, 10]
+    assert [source["expectedBoardCount"] for source in payload["sources"]] == [9, 5]
     assert payload["reviewRequiredSourceCount"] == 1
     manual = payload["sources"][0]
     assert manual["reviewReason"] == "manual_override"

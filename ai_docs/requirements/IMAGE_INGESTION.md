@@ -623,8 +623,11 @@ po rozszerzeniu profilu lub poprawione ręcznie na końcu pracy. Niepełna
 geometria nigdy nie trafia do OCR, cropów ani inferencji symboli. Kanoniczne
 numery pozostają pominięte niezależnie od statusu geometrii.
 
-Korekta zapisuje dziewięć finalnych quadów dla checksumy źródła jako append-only
-rewizję. Operator może wskazać cztery narożniki kolejno LT, PT, PD, LD, a UI
+Korekta zapisuje dokładnie `expectedBoardCount` finalnych quadów dla checksumy
+źródła jako append-only rewizję. Wartość wynika z poświadczonego zakresu
+`seq_<start>-<end>` i wynosi `end - start + 1`; dla źródeł bez takiego zakresu
+bezpiecznym kontraktem kompatybilności pozostaje dziewięć. Operator może wskazać
+cztery narożniki kolejno LT, PT, PD, LD, a UI
 odrzuca skrzyżowany lub przeciwny porządek. Z narożników powstaje 6 × 6 punktów
 krawędzi: każda z dziewięciu czerwonych ramek ma osobne krawędzie, więc realne
 odstępy pomiędzy planszami nie są tracone jak w dzielonej siatce 4 × 4. Punkty
@@ -632,20 +635,27 @@ można przesuwać niezależnie, aby odwzorować perspektywę i łuk ekranu, a
 pojedynczy quad pozostaje korektą wyjątkową. `Reset` przywraca dokładną
 geometrię wczytaną przy otwarciu źródła.
 
-Alternatywny tryb `Wyznacz 9 plansz osobno` pozwala ominąć modelowanie całej
+Alternatywny tryb `Wyznacz N plansz osobno` pozwala ominąć modelowanie całej
 strony i krzywizny. Operator wskazuje po cztery narożniki LT, PT, PD, LD dla
-każdej planszy. Kolejność jest jawnie row-major: plansze 1–3 w pierwszym
-rzędzie od lewej, 4–6 w drugim i 7–9 w trzecim. UI nie przechodzi do następnej
+każdej aktywnej planszy. Kolejność jest jawnie row-major: plansze 1–3 w pierwszym
+rzędzie od lewej, 4–6 w drugim i 7–9 w trzecim, przy czym ostatni rząd może być
+niepełny wyłącznie na poświadczonej ostatniej stronie. UI nie przechodzi do następnej
 planszy, dopóki bieżący obrys nie jest wypukły i zgodny z kolejnością. Wynikiem
-pozostaje ten sam kontrakt dziewięciu niezależnych finalnych quadów, dlatego
-zapis, preflight, numeracja `seq_*` oraz source-direct cropper nie wymagają
-osobnej ścieżki backendowej. Dotychczasowe wyznaczanie obrysu całej strony,
-korekta 36 punktów i wyjątkowa korekta pojedynczej planszy pozostają dostępne.
+pozostaje jeden kontrakt 1–9 niezależnych finalnych quadów. API ponownie wylicza
+oczekiwaną liczbę ze źródłowej nazwy i odrzuca drift, preflight zachowuje tylko
+aktywny prefiks, a source-direct cropper tworzy wyłącznie te plansze.
+Dotychczasowe wyznaczanie obrysu całej strony, korekta 36 punktów pełnej strony
+i wyjątkowa korekta pojedynczej planszy pozostają dostępne.
 Po wskazaniu ostatniego narożnika planszy 9 edytor automatycznie przechodzi do
 zakresu `Wszystkie plansze — 36 narożników`. Konwersja nie generuje ponownie
 siatki z obrysu strony: każdy z 36 punktów jest bezstratnie odwzorowany z
 dziewięciu klikniętych quadów. Ten sam zakres można wybrać później z listy bez
 utraty wcześniejszej korekty pojedynczych plansz.
+
+Częściowa ostatnia strona nie staje się globalną kotwicą rejestracji innych
+zdjęć, ponieważ nie dowodzi kompletnej geometrii 3 × 3. Jej zapis jest jednak
+pełnoprawnym override'em własnego źródła i po preflighcie może przejść do
+croppera z dokładnie `expectedBoardCount` planszami.
 
 Zapis kolejnych stron nie uruchamia preflightu po każdej korekcie. Operator
 może zapisać wiele append-only rewizji przez `Zapisz i przejdź dalej`, a potem

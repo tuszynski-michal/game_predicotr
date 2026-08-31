@@ -2734,8 +2734,12 @@ dotyczy tego samego stagingu, gry oraz aktualnego manifestu źródłowego. Brak,
 drift albo nieukończony preflight blokują start. Nierozwiązane wpisy manifestu
 nie blokują importu wpisów `registered`; worker filtruje je jeszcze przed
 kopiowaniem do managed originals i nie wraca do klasycznego detektora. Override
-ma tylko checksumę źródła, rozmiar obrazu,
-dziewięć row-major quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę.
+ma tylko checksumę źródła, rozmiar obrazu, od jednego do dziewięciu row-major
+quadów, aktora, rewizję i checksumę decyzji — nigdy bitmapę. Odpowiedź listy
+korekty zawiera `expectedBoardCount` wyliczony przez backend z poświadczonego
+zakresu `seq_*`. Endpoint zapisu wylicza go ponownie z manifestu stagingu i
+zwraca `IMAGE_PAGE_GEOMETRY_BOARD_COUNT_CHANGED`, jeżeli liczba quadów klienta
+nie odpowiada źródłu.
 Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
 konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
 automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający

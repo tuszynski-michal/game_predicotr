@@ -13,7 +13,7 @@ const panel = await readFile(
 test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
   assert.match(panel, />\s*Wyznacz 4 narożniki\s*</);
-  assert.match(panel, />\s*Wyznacz 9 plansz osobno\s*</);
+  assert.match(panel, /Wyznacz \{expectedBoardCount\} plansz osobno/);
   assert.match(panel, />\s*Cofnij punkt\s*</);
   assert.match(panel, />\s*Reset\s*</);
   assert.match(panel, /setPageCorners\(initialPageCorners\)/);
@@ -23,6 +23,8 @@ test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /showAllBoardCorners\(completeQuads\)/);
   assert.match(panel, /Wszystkie plansze — 36 narożników/);
   assert.match(panel, /rząd.*kolumna/s);
+  assert.match(panel, /source\?\.expectedBoardCount \?\? PAGE_BOARD_COUNT/);
+  assert.match(panel, /quads\.length !== expectedBoardCount/);
 });
 
 test('saving a correction is separated from submitting the saved batch', () => {

@@ -2881,7 +2881,7 @@ class ImageBoardGeometryReviewEventModel(Base):
 
 
 class ImagePageGeometryOverrideModel(Base):
-    """Revisioned human correction for all nine quads on one source photo."""
+    """Revisioned human correction for the attested quads on one source photo."""
 
     __tablename__ = "image_page_geometry_overrides"
     __table_args__ = (
@@ -2895,7 +2895,8 @@ class ImagePageGeometryOverrideModel(Base):
             name="ck_image_page_geometry_overrides_checksums",
         ),
         CheckConstraint(
-            "jsonb_typeof(final_quads) = 'array' AND jsonb_array_length(final_quads) = 9",
+            "jsonb_typeof(final_quads) = 'array' "
+            "AND jsonb_array_length(final_quads) BETWEEN 1 AND 9",
             name="ck_image_page_geometry_overrides_quads",
         ),
         UniqueConstraint(

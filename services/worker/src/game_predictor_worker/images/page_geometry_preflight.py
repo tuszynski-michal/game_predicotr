@@ -17,7 +17,10 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
-from .page_geometry_registration import PAGE_REGISTRATION_VERSION, VerifiedPageRegistrar
+from .page_geometry_registration import (
+    PAGE_REGISTRATION_VERSION,
+    VerifiedPageRegistrar,
+)
 from .source_ingestion import (
     BROWSER_SELECTION_MANIFEST,
     ManagedOriginal,
@@ -35,6 +38,14 @@ _AUTO_ANCHOR_LIMIT_PER_PASS = 21
 # Four pages remain the compatibility default for direct construction.  The
 # supervised general worker passes its bounded cooperative process budget.
 _DEFAULT_REGISTRATION_WORKERS = 4
+
+
+def _expected_board_count(original: ManagedOriginal) -> int:
+    start = original.sequence_range_start
+    end = original.sequence_range_end
+    if isinstance(start, int) and isinstance(end, int) and 1 <= start <= end <= start + 8:
+        return end - start + 1
+    return 9
 
 
 class PageGeometryPreflightHandler:
@@ -210,6 +221,7 @@ class PageGeometryPreflightHandler:
             original.checksum_sha256,
             width=int(rgb.shape[1]),
             height=int(rgb.shape[0]),
+            expected_board_count=_expected_board_count(original),
         )
         if override is not None:
             return (
@@ -380,6 +392,7 @@ class PageGeometryPreflightHandler:
         *,
         width: int,
         height: int,
+        expected_board_count: int,
     ) -> dict[str, object] | None:
         overrides = payload.get("pageGeometryOverrides")
         raw = overrides.get(source_checksum_sha256) if isinstance(overrides, Mapping) else None
@@ -388,11 +401,15 @@ class PageGeometryPreflightHandler:
         if raw.get("imageWidth") != width or raw.get("imageHeight") != height:
             return None
         quads = raw.get("quads")
-        if not isinstance(quads, Sequence) or isinstance(quads, str | bytes) or len(quads) != 9:
+        if (
+            not isinstance(quads, Sequence)
+            or isinstance(quads, str | bytes)
+            or len(quads) != expected_board_count
+        ):
             return None
         return {
             "anchorSourceChecksumSha256": None,
-            "boardRedEdgeCoverages": [1.0] * 9,
+            "boardRedEdgeCoverages": [1.0] * expected_board_count,
             "inlierCount": 0,
             "inlierRatio": 0.0,
             "manualOverrideDecisionChecksumSha256": raw.get("decisionChecksumSha256"),

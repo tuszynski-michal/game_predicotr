@@ -25,23 +25,106 @@ from .contracts import (
     SemiAutomaticSequenceBounds,
 )
 
-RANGE_ONLY_OCR_ADAPTER_VERSION = "semi-automatic-range-only-ocr-v1"
-RANGE_ONLY_PROOF_POLICY_VERSION = "proof-first-local-lattice-v1"
+RANGE_ONLY_OCR_ADAPTER_VERSION_V1 = "semi-automatic-range-only-ocr-v1"
+RANGE_ONLY_OCR_ADAPTER_VERSION_V2 = "semi-automatic-range-only-ocr-v2"
+RANGE_ONLY_PROOF_POLICY_VERSION_V1 = "proof-first-local-lattice-v1"
+RANGE_ONLY_PROOF_POLICY_VERSION_V2 = "proof-first-wide-dynamic-lattice-v2"
+RANGE_ONLY_OCR_ADAPTER_VERSION = RANGE_ONLY_OCR_ADAPTER_VERSION_V2
+RANGE_ONLY_PROOF_POLICY_VERSION = RANGE_ONLY_PROOF_POLICY_VERSION_V2
 RANGE_ONLY_GAP_POLICY_VERSION = "real-corpus-unproven-gap-v1"
 RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE = 0.90
 
 _AMBIGUOUS_REASON_MARKERS = ("AMBIGUOUS", "CONFLICT")
 
-RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT = hashlib.sha256(
+RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1 = hashlib.sha256(
     json.dumps(
         {
-            "adapterVersion": RANGE_ONLY_OCR_ADAPTER_VERSION,
-            "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION,
+            "adapterVersion": RANGE_ONLY_OCR_ADAPTER_VERSION_V1,
+            "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION_V1,
         },
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
 ).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class RangeOnlyCandidatePolicy:
+    """Versioned, range-only viewport for local sequence labels."""
+
+    version: str = "range-only-wide-label-candidates-v1"
+    minimum_x_ratio: float = 0.20
+    maximum_x_ratio: float = 0.82
+    minimum_y_ratio: float = 0.24
+    maximum_y_ratio: float = 0.48
+    minimum_width_ratio: float = 0.025
+    minimum_aspect_ratio: float = 1.20
+    candidate_levels: tuple[int, ...] = (12, 24, 36)
+
+    def __post_init__(self) -> None:
+        if (
+            not 0 <= self.minimum_x_ratio < self.maximum_x_ratio <= 1
+            or not 0 <= self.minimum_y_ratio < self.maximum_y_ratio <= 1
+            or not 0 < self.minimum_width_ratio <= 1
+            or self.minimum_aspect_ratio <= 0
+            or not self.candidate_levels
+            or any(level < 1 for level in self.candidate_levels)
+            or tuple(sorted(set(self.candidate_levels))) != self.candidate_levels
+        ):
+            raise ValueError("Range-only candidate policy is invalid.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "candidateLevels": list(self.candidate_levels),
+            "maximumXRatio": self.maximum_x_ratio,
+            "maximumYRatio": self.maximum_y_ratio,
+            "minimumAspectRatio": self.minimum_aspect_ratio,
+            "minimumWidthRatio": self.minimum_width_ratio,
+            "minimumXRatio": self.minimum_x_ratio,
+            "minimumYRatio": self.minimum_y_ratio,
+            "version": self.version,
+        }
+
+    def accepts(
+        self,
+        *,
+        center: tuple[float, float],
+        crop_shape: tuple[int, int],
+        image_shape: tuple[int, int],
+    ) -> bool:
+        image_height, image_width = image_shape
+        crop_height, crop_width = crop_shape
+        if min(image_height, image_width, crop_height, crop_width) < 1:
+            return False
+        x_ratio = center[0] / image_width
+        y_ratio = center[1] / image_height
+        return (
+            self.minimum_x_ratio <= x_ratio <= self.maximum_x_ratio
+            and self.minimum_y_ratio <= y_ratio <= self.maximum_y_ratio
+            and crop_width / image_width >= self.minimum_width_ratio
+            and crop_width / crop_height >= self.minimum_aspect_ratio
+        )
+
+
+RANGE_ONLY_CANDIDATE_POLICY_V2 = RangeOnlyCandidatePolicy()
+RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2 = hashlib.sha256(
+    json.dumps(
+        {
+            "adapterVersion": RANGE_ONLY_OCR_ADAPTER_VERSION_V2,
+            "candidatePolicy": RANGE_ONLY_CANDIDATE_POLICY_V2.as_dict(),
+            "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION_V2,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+).hexdigest()
+RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS = frozenset(
+    {
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +187,7 @@ StrongProofClassifier = Callable[[object, tuple[str, ...], tuple[object, ...]], 
 class ExistingProofFirstRangeOnlyBridge:
     """Adapt the existing proof-first lattice recognizer without geometry input."""
 
-    version = RANGE_ONLY_OCR_ADAPTER_VERSION
+    version = RANGE_ONLY_OCR_ADAPTER_VERSION_V1
 
     def __init__(
         self,
@@ -112,21 +195,32 @@ class ExistingProofFirstRangeOnlyBridge:
         *,
         strong_proof_classifier: StrongProofClassifier,
         identity: Mapping[str, object],
+        adapter_version: str = RANGE_ONLY_OCR_ADAPTER_VERSION_V1,
+        proof_policy_version: str = RANGE_ONLY_PROOF_POLICY_VERSION_V1,
     ) -> None:
         self._recognizer = recognizer
         self._strong_proof_classifier = strong_proof_classifier
+        self.version = adapter_version
+        self.proof_policy_version = proof_policy_version
+        self._last_diagnostics: dict[str, object] = {}
         self.fingerprint = _canonical_sha256(
             {
                 "adapterVersion": self.version,
                 "legacyRecognizerVersion": recognizer.version,
-                "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION,
+                "proofPolicyVersion": proof_policy_version,
                 "identity": dict(identity),
             }
         )
 
+    @property
+    def last_diagnostics(self) -> Mapping[str, object]:
+        return dict(self._last_diagnostics)
+
     def recognize(self, rgb_image: NDArray[np.uint8]) -> RangeOnlyRecognition:
         _validate_rgb_image(rgb_image)
         raw_result = self._recognizer.recognize(rgb_image, ())
+        diagnostics = getattr(self._recognizer, "last_diagnostics", {})
+        self._last_diagnostics = dict(diagnostics) if isinstance(diagnostics, Mapping) else {}
         recognized_range, reason_codes, raw_labels = _legacy_result_parts(raw_result)
         label_evidence = tuple(_map_label_evidence(value) for value in raw_labels)
         strong = self._strong_proof_classifier(
@@ -168,13 +262,22 @@ class RangeOnlyOcrAdapter:
         self._bounds = bounds
         self._recognizer = recognizer
         self._gate = RangeEvidenceGate(bounds)
+        self.version = recognizer.version
+        proof_policy_version = str(
+            getattr(recognizer, "proof_policy_version", RANGE_ONLY_PROOF_POLICY_VERSION)
+        )
         self.fingerprint = _canonical_sha256(
             {
                 "adapterVersion": self.version,
                 "boundsIndependentRecognizerFingerprint": recognizer.fingerprint,
-                "proofPolicyVersion": RANGE_ONLY_PROOF_POLICY_VERSION,
+                "proofPolicyVersion": proof_policy_version,
             }
         )
+
+    @property
+    def last_diagnostics(self) -> Mapping[str, object]:
+        value = getattr(self._recognizer, "last_diagnostics", {})
+        return dict(value) if isinstance(value, Mapping) else {}
 
     def recognize(
         self,
@@ -296,8 +399,8 @@ def calibrate_unproven_gap_policy(
     )
 
 
-def build_paddle_range_only_recognizer(model_root: Path) -> RangeOnlyRecognizer:
-    """Build the current local Paddle OCR bridge without importing geometry callers."""
+def build_paddle_range_only_recognizer_v1(model_root: Path) -> RangeOnlyRecognizer:
+    """Rebuild the immutable historical v1 recognizer for durable retries."""
 
     from game_predictor_worker.images.selection.adapters import (
         ProofFirstVisibleSequenceLabelRangeRecognizer,
@@ -340,15 +443,177 @@ def build_paddle_range_only_recognizer(model_root: Path) -> RangeOnlyRecognizer:
     return ExistingProofFirstRangeOnlyBridge(
         cast(_LegacyProofFirstRecognizer, legacy),
         strong_proof_classifier=classify,
-        identity={
-            "modelFingerprint": paddle.model_fingerprint,
-            "modelName": paddle.model_name,
-            "modelFiles": dict(paddle.model_files),
-            "ocrVersion": paddle.version,
-            "runtimeName": paddle.runtime_name,
-            "runtimeVersion": paddle.runtime_version,
-        },
+        identity=_paddle_identity(paddle),
+        adapter_version=RANGE_ONLY_OCR_ADAPTER_VERSION_V1,
+        proof_policy_version=RANGE_ONLY_PROOF_POLICY_VERSION_V1,
     )
+
+
+def build_paddle_range_only_recognizer_v2(model_root: Path) -> RangeOnlyRecognizer:
+    """Build the wide, progressive range-only recognizer without geometry callers."""
+
+    from game_predictor_worker.images.geometry import BoardDetection
+    from game_predictor_worker.images.selection.adapters import (
+        ProofFirstVisibleSequenceLabelRangeRecognizer,
+    )
+    from game_predictor_worker.images.selection.contracts import SequenceRange
+    from game_predictor_worker.images.selection.manifest import (
+        PROOF_FIRST_SELECTOR_MANIFEST_V1019,
+        ContiguousSequenceWindowPolicy,
+        LayoutAnchorPolicy,
+        ProgressiveVisibleLabelFallbackPolicy,
+    )
+    from game_predictor_worker.images.selection.range_proof import (
+        has_strong_local_range_proof,
+    )
+    from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
+
+    candidate_policy = RANGE_ONLY_CANDIDATE_POLICY_V2
+    manifest = PROOF_FIRST_SELECTOR_MANIFEST_V1019
+    layout = manifest.layout_anchor_policy
+    window = manifest.contiguous_sequence_window_policy
+    if layout is None or window is None:
+        raise RuntimeError("Proof-first selector manifest is incomplete.")
+    layout_policy = cast(LayoutAnchorPolicy, layout)
+    window_policy = cast(ContiguousSequenceWindowPolicy, window)
+
+    class _WideRangeOnlyRecognizer(ProofFirstVisibleSequenceLabelRangeRecognizer):
+        version = "visible-sequence-label-range-v15+range-only-wide-lattice-v2"
+
+        def __init__(self, recognizer: object) -> None:
+            super().__init__(
+                cast(Any, recognizer),
+                ProgressiveVisibleLabelFallbackPolicy(
+                    candidate_levels=candidate_policy.candidate_levels
+                ),
+                layout_policy,
+                window_policy,
+            )
+            self._last_diagnostics: dict[str, object] = {}
+            self._attempted_levels: list[int] = []
+            self._added_candidates_by_level: list[dict[str, int]] = []
+            self._candidate_count = 0
+            self._ocr_batch_calls = 0
+            self._ocr_crop_count = 0
+            self._resolved_level: int | None = None
+
+        @property
+        def last_diagnostics(self) -> Mapping[str, object]:
+            return dict(self._last_diagnostics)
+
+        def recognize(
+            self,
+            rgb_image: NDArray[np.uint8],
+            boards: tuple[BoardDetection, ...],
+        ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+            self._attempted_levels = []
+            self._added_candidates_by_level = []
+            self._candidate_count = 0
+            self._ocr_batch_calls = 0
+            self._ocr_crop_count = 0
+            self._resolved_level = None
+            result = super().recognize(rgb_image, boards)
+            self._last_diagnostics = {
+                "attemptedCandidateCount": self._candidate_count,
+                "attemptedLevels": list(self._attempted_levels),
+                "candidatesByLevel": list(self._added_candidates_by_level),
+                "candidatePolicyVersion": candidate_policy.version,
+                "ocrBatchCalls": self._ocr_batch_calls,
+                "ocrCropCount": self._ocr_crop_count,
+                "resolvedLevel": self._resolved_level,
+            }
+            return result
+
+        @staticmethod
+        def _is_likely_lattice_label(
+            label: object,
+            *,
+            image_shape: tuple[int, int],
+        ) -> bool:
+            visible = cast(Any, label)
+            return candidate_policy.accepts(
+                center=(float(visible.center[0]), float(visible.center[1])),
+                crop_shape=(int(visible.crop.shape[0]), int(visible.crop.shape[1])),
+                image_shape=image_shape,
+            )
+
+        def _record_level_attempt(self, configured_level: int, added_crops: int) -> None:
+            self._attempted_levels.append(configured_level)
+            self._added_candidates_by_level.append(
+                {"addedCandidates": added_crops, "level": configured_level}
+            )
+            self._candidate_count += added_crops
+            super()._record_level_attempt(configured_level, added_crops)
+
+        def _record_level_resolution(self, configured_level: int, crop_count: int) -> None:
+            self._resolved_level = configured_level
+            super()._record_level_resolution(configured_level, crop_count)
+
+        def _recognize_many(
+            self,
+            crops: tuple[NDArray[np.uint8], ...],
+        ) -> tuple[Any, ...]:
+            self._ocr_batch_calls += (len(crops) + 8) // 9
+            self._ocr_crop_count += len(crops)
+            return cast(tuple[Any, ...], super()._recognize_many(crops))
+
+    paddle = PaddleSequenceNumberRecognizer(model_root)
+    legacy = _WideRangeOnlyRecognizer(paddle)
+
+    def classify(
+        recognized_range: object,
+        reason_codes: tuple[str, ...],
+        labels: tuple[object, ...],
+    ) -> bool:
+        return has_strong_local_range_proof(
+            cast(Any, recognized_range),
+            reason_codes,
+            minimum_confidence=RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE,
+            label_observations=cast(Any, labels),
+            require_position_evidence=True,
+        )
+
+    return ExistingProofFirstRangeOnlyBridge(
+        cast(_LegacyProofFirstRecognizer, legacy),
+        strong_proof_classifier=classify,
+        identity={
+            **_paddle_identity(paddle),
+            "candidatePolicy": candidate_policy.as_dict(),
+        },
+        adapter_version=RANGE_ONLY_OCR_ADAPTER_VERSION_V2,
+        proof_policy_version=RANGE_ONLY_PROOF_POLICY_VERSION_V2,
+    )
+
+
+def build_paddle_range_only_recognizer(model_root: Path) -> RangeOnlyRecognizer:
+    """Build the current v2 range-only recognizer for new runs and acceptance."""
+
+    return build_paddle_range_only_recognizer_v2(model_root)
+
+
+def build_paddle_range_only_recognizer_for_contract(
+    model_root: Path,
+    contract_fingerprint: str,
+) -> RangeOnlyRecognizer:
+    """Resolve a durable run to its immutable recognizer implementation."""
+
+    if contract_fingerprint == RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1:
+        return build_paddle_range_only_recognizer_v1(model_root)
+    if contract_fingerprint == RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2:
+        return build_paddle_range_only_recognizer_v2(model_root)
+    raise ValueError("Unsupported range-only recognizer contract fingerprint.")
+
+
+def _paddle_identity(paddle: object) -> dict[str, object]:
+    value = cast(Any, paddle)
+    return {
+        "modelFingerprint": value.model_fingerprint,
+        "modelName": value.model_name,
+        "modelFiles": dict(value.model_files),
+        "ocrVersion": value.version,
+        "runtimeName": value.runtime_name,
+        "runtimeVersion": value.runtime_version,
+    }
 
 
 def _legacy_result_parts(
@@ -393,17 +658,29 @@ def _canonical_sha256(payload: Mapping[str, object]) -> str:
 
 
 __all__ = [
+    "RANGE_ONLY_CANDIDATE_POLICY_V2",
     "RANGE_ONLY_GAP_POLICY_VERSION",
     "RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE",
     "RANGE_ONLY_OCR_ADAPTER_VERSION",
+    "RANGE_ONLY_OCR_ADAPTER_VERSION_V1",
+    "RANGE_ONLY_OCR_ADAPTER_VERSION_V2",
     "RANGE_ONLY_PROOF_POLICY_VERSION",
+    "RANGE_ONLY_PROOF_POLICY_VERSION_V1",
+    "RANGE_ONLY_PROOF_POLICY_VERSION_V2",
     "RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT",
+    "RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1",
+    "RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2",
+    "SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS",
     "ExistingProofFirstRangeOnlyBridge",
+    "RangeOnlyCandidatePolicy",
     "RangeOnlyGapPolicy",
     "RangeOnlyLabelEvidence",
     "RangeOnlyOcrAdapter",
     "RangeOnlyRecognition",
     "RangeOnlyRecognizer",
     "build_paddle_range_only_recognizer",
+    "build_paddle_range_only_recognizer_for_contract",
+    "build_paddle_range_only_recognizer_v1",
+    "build_paddle_range_only_recognizer_v2",
     "calibrate_unproven_gap_policy",
 ]

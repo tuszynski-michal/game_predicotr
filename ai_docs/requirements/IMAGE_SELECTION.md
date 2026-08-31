@@ -924,6 +924,20 @@ workflow nie może uruchomić tras zależnych od detekcji lub geometrii. Wynik
 OCR nie wystarcza. Końcowy krótszy zakres jest akceptowany wyłącznie wtedy,
 gdy co najmniej trzy dowody pozycyjne mieszczą się w jego rzeczywistej długości.
 
+Nowe runy używają `semi-automatic-range-only-ocr-v2`. V2 zachowuje tę samą
+bramkę dowodu, lecz ma własny filtr rzeczywistych etykiet: X `0.20–0.82`, Y
+`0.24–0.48`, minimalna szerokość `0.025` obrazu i minimalny aspect ratio
+`1.20`. Kandydaci są OCR-owani progresywnie `12 → 24 → 36`, wyłącznie dla
+nowej części poziomu, w batchach do dziewięciu cropów. Analiza kończy się
+wcześniej po jednoznacznym dowodzie. V2 nie korzysta ze stałego viewportu
+pozycji ani z expected range; układ pozycji wynika z dynamicznej lokalnej
+siatki etykiet jednego JPEG-a.
+
+Historyczny v1 pozostaje niezmienny i musi być wybierany dla runu utrwalonego z
+jego fingerprintem. Nieznany fingerprint jest błędem fail-closed. Jedna, dwie,
+sprzeczne albo niewystarczająco mocne etykiety pozostają luką, nawet jeśli
+surowa hipoteza OCR wskazuje jakiś zakres.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

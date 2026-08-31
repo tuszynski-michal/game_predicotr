@@ -14,6 +14,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
+### Bezpieczny szeroki OCR zakresów v2 — TASK-0358
+
+- Nowe runy używają dedykowanego filtra małych etykiet i progresji
+  `12/24/36`, zachowując niezmienioną bramkę minimum trzech zgodnych pozycji
+  oraz pary sąsiadującej.
+- Worker rozwiązuje v1 albo v2 z fingerprintu utrwalonego runu; historyczny v1
+  pozostaje odtwarzalny, a nieznany kontrakt jest blokowany przed OCR.
+- Próba 10 rzeczywistych JPEG-ów osiągnęła `7/10` dokładnych zakresów,
+  `0` fałszywych przypisań i zero wywołań geometrii, croppera oraz symbol
+  inference. TASK-0357 może przejść do ograniczonej próby 100.
+- Feature flag pozostaje domyślnie wyłączona.
+
 ### Kontrakty półautomatycznej selekcji zakresów — TASK-0350
 
 - TASK-0350 tworzy czysty, niezależny od gry kontrakt `seq-inclusive-v1` dla

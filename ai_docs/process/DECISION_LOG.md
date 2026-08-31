@@ -6749,3 +6749,20 @@ Frontend może zastąpić tylko lokalny plik należący do tego samego manifestu
 zgodny z jego poprzednią checksummą. Dzięki temu ręczna korekta domyka tę samą
 listę expected ranges, zachowuje liczniki i audyt runu oraz nie pozwala
 potwierdzić dowolnego pliku spoza stagingu.
+
+## D-285 — Range-only OCR v2 rozszerza kandydatów bez osłabiania dowodu
+
+- Status: accepted
+- Date: 2026-08-31
+
+Nowe runy półautomatycznej selekcji używają osobnego adaptera
+`semi-automatic-range-only-ocr-v2`. Adapter dopuszcza mniejsze etykiety i
+sprawdza kandydatów progresywnie `12/24/36`, lecz zachowuje proof-first:
+minimum trzy zgodne pozycje, parę sąsiadującą i confidence co najmniej `0.90`.
+Brak takiego dowodu pozostaje luką niezależnie od surowej hipotezy OCR.
+
+V2 korzysta z dynamicznego lattice jednego JPEG-a. Stały viewport v10.20 został
+odrzucony dla tego workflowu, ponieważ na rzeczywistym korpusie przesuwał
+pozycje o jeden rząd. Historyczny v1 pozostaje niezmienny, a worker wybiera
+wersję wyłącznie z fingerprintu utrwalonego runu. Geometria plansz, cropper,
+symbole i expected range nie uczestniczą w rozpoznaniu.

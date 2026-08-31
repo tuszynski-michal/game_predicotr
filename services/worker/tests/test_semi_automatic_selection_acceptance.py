@@ -64,8 +64,14 @@ def test_acceptance_uses_seq_names_as_read_only_oracle_and_range_only_counts(
     report = _MODULE.run_acceptance(source_root=source, sample_size=10, recognizer=recognizer)
 
     assert recognizer.calls == 10
+    assert report["contract"] == "semi-automatic-selection-acceptance-v2"
     assert report["falseAssignments"] == 0
+    assert report["exactMatches"] == 10
+    assert report["gatePassed"] is True
     assert report["ocrCalls"] == 10
+    assert report["overlappingAssignments"] == 0
+    assert report["rejectedRawHypotheses"] == 0
+    assert len(str(report["sourceManifestSha256"])) == 64
     assert report["geometryCalls"] == 0
     assert report["cropperCalls"] == 0
     assert report["symbolInferenceCalls"] == 0

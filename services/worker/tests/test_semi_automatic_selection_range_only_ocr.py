@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
+import pytest
 from game_predictor_worker.semi_automatic_selection.contracts import (
     RangeEvidenceStatus,
     SemiAutomaticSelectionRange,
@@ -13,7 +14,11 @@ from game_predictor_worker.semi_automatic_selection.contracts import (
     SemiAutomaticSequenceBounds,
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
+    RANGE_ONLY_CANDIDATE_POLICY_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     ExistingProofFirstRangeOnlyBridge,
+    RangeOnlyCandidatePolicy,
     RangeOnlyLabelEvidence,
     RangeOnlyOcrAdapter,
     RangeOnlyRecognition,
@@ -133,6 +138,47 @@ def test_bridge_calls_existing_recognizer_once_with_no_board_geometry() -> None:
     assert legacy.received_boards == ()
     assert proof_calls == 1
     assert result == _exact_recognition()
+
+
+def test_historical_v1_contract_fingerprint_remains_immutable() -> None:
+    assert RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1 == (
+        "ee695bcc1e21e03313b129d45096e7a3556cd0a0f5e5a5455d477d418deab041"
+    )
+    assert RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2 != (
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1
+    )
+
+
+def test_v2_candidate_policy_accepts_real_label_proportions_and_rejects_noise() -> None:
+    policy = RANGE_ONLY_CANDIDATE_POLICY_V2
+
+    assert policy.accepts(
+        center=(390.0, 720.0),
+        crop_shape=(34, 42),
+        image_shape=(1920, 1080),
+    )
+    assert policy.accepts(
+        center=(750.0, 820.0),
+        crop_shape=(34, 65),
+        image_shape=(1920, 1080),
+    )
+    assert not policy.accepts(
+        center=(100.0, 720.0),
+        crop_shape=(34, 65),
+        image_shape=(1920, 1080),
+    )
+    assert not policy.accepts(
+        center=(390.0, 720.0),
+        crop_shape=(34, 20),
+        image_shape=(1920, 1080),
+    )
+
+
+def test_candidate_policy_requires_strictly_increasing_progressive_levels() -> None:
+    with pytest.raises(ValueError):
+        RangeOnlyCandidatePolicy(candidate_levels=(12, 12, 36))
+    with pytest.raises(ValueError):
+        RangeOnlyCandidatePolicy(candidate_levels=(24, 12, 36))
 
 
 def test_adapter_accepts_exact_proof_without_any_quality_input() -> None:

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from time import perf_counter
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -177,7 +177,8 @@ def _peak_rss_bytes() -> int | None:
     try:
         import resource
 
-        value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        resource_module = cast(Any, resource)
+        value = resource_module.getrusage(resource_module.RUSAGE_SELF).ru_maxrss
         return int(value if sys.platform == "darwin" else value * 1024)
     except (ImportError, OSError):
         return None
@@ -204,6 +205,7 @@ def run_acceptance(
             checksum_sha256=hashlib.sha256(content).hexdigest(),
         )
         evidence = adapter.recognize(source=source, rgb_image=rgb)
+        diagnostics = dict(adapter.last_diagnostics)
         actual = evidence.observed_range
         false_assignment = (
             evidence.status is RangeEvidenceStatus.EXACT_RANGE and actual != case.expected
@@ -214,6 +216,7 @@ def run_acceptance(
                 "expectedRange": [case.expected.start, case.expected.end],
                 "falseAssignment": false_assignment,
                 "filename": case.path.name,
+                "recognizerDiagnostics": diagnostics,
                 "reasonCodes": list(evidence.reason_codes),
                 "sha256": source.checksum_sha256,
                 "status": evidence.status.value,
@@ -223,16 +226,74 @@ def run_acceptance(
     exact = sum(item["status"] == RangeEvidenceStatus.EXACT_RANGE.value for item in results)
     ambiguous = sum(item["status"] == RangeEvidenceStatus.RANGE_AMBIGUOUS.value for item in results)
     false_assignments = sum(bool(item["falseAssignment"]) for item in results)
+    exact_matches = sum(
+        item["status"] == RangeEvidenceStatus.EXACT_RANGE.value
+        and not bool(item["falseAssignment"])
+        for item in results
+    )
+    rejected_raw_hypotheses = sum(
+        item["actualRange"] is not None and item["status"] != RangeEvidenceStatus.EXACT_RANGE.value
+        for item in results
+    )
+    exact_ranges = [
+        tuple(item["actualRange"])
+        for item in results
+        if item["status"] == RangeEvidenceStatus.EXACT_RANGE.value
+        and isinstance(item["actualRange"], list)
+    ]
+    exact_ranges_sorted = sorted(exact_ranges)
+    overlapping_assignments = sum(
+        current[0] <= previous[1]
+        for previous, current in zip(exact_ranges_sorted, exact_ranges_sorted[1:], strict=False)
+    )
+    total_ocr_batches = sum(
+        _metric_int(cast(dict[str, object], item["recognizerDiagnostics"]).get("ocrBatchCalls", 0))
+        for item in results
+    )
+    total_ocr_crops = sum(
+        _metric_int(cast(dict[str, object], item["recognizerDiagnostics"]).get("ocrCropCount", 0))
+        for item in results
+    )
+    minimum_exact_matches = (len(results) + 1) // 2
+    gate_passed = (
+        false_assignments == 0
+        and exact_matches >= minimum_exact_matches
+        and (expected_range is not None or overlapping_assignments == 0)
+    )
+    source_manifest = [
+        {
+            "expectedRange": item["expectedRange"],
+            "filename": item["filename"],
+            "sha256": item["sha256"],
+        }
+        for item in results
+    ]
+    source_manifest_sha256 = hashlib.sha256(
+        json.dumps(
+            source_manifest,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
     return {
-        "contract": "semi-automatic-selection-acceptance-v1",
+        "contract": "semi-automatic-selection-acceptance-v2",
         "elapsedSeconds": round(elapsed, 6),
         "falseAssignments": false_assignments,
+        "exactMatches": exact_matches,
         "geometryCalls": 0,
+        "gatePassed": gate_passed,
         "ocrCalls": len(results),
+        "ocrBatchCalls": total_ocr_batches,
+        "ocrCropCount": total_ocr_crops,
+        "overlappingAssignments": overlapping_assignments,
+        "rejectedRawHypotheses": rejected_raw_hypotheses,
+        "minimumExactMatches": minimum_exact_matches,
         "peakRssBytes": _peak_rss_bytes(),
         "perJpegSeconds": round(elapsed / len(results), 6),
         "results": results,
         "sampleSize": len(results),
+        "sourceManifestSha256": source_manifest_sha256,
         "selection": {
             "autoSelected": exact,
             "ambiguous": ambiguous,
@@ -242,6 +303,10 @@ def run_acceptance(
         "cropperCalls": 0,
         "recognizer": {"fingerprint": recognizer.fingerprint, "version": recognizer.version},
     }
+
+
+def _metric_int(value: object) -> int:
+    return int(value) if isinstance(value, int | str) and not isinstance(value, bool) else 0
 
 
 def main() -> int:
@@ -264,7 +329,7 @@ def main() -> int:
         json.dumps(report_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(report_payload, ensure_ascii=False, indent=2))
-    return 1 if int(report_payload["falseAssignments"]) else 0
+    return 0 if bool(report_payload["gatePassed"]) else 1
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ from game_predictor_worker.semi_automatic_selection.job import (
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RangeOnlyRecognition,
 )
 from PIL import Image
@@ -207,7 +209,11 @@ def _jpeg(color: tuple[int, int, int]) -> bytes:
     return output.getvalue()
 
 
-def _ready_run(tmp_path: Path) -> tuple[SemiAutomaticSelectionRun, tuple[ApiRange, ...]]:
+def _ready_run(
+    tmp_path: Path,
+    *,
+    recognizer_fingerprint: str = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+) -> tuple[SemiAutomaticSelectionRun, tuple[ApiRange, ...]]:
     upload_id = uuid4()
     source_root = tmp_path / "imports" / "browser-selections" / str(upload_id)
     source_root.mkdir(parents=True)
@@ -263,7 +269,7 @@ def _ready_run(tmp_path: Path) -> tuple[SemiAutomaticSelectionRun, tuple[ApiRang
         first_sequence_number=1,
         last_sequence_number=18,
         direction=ApiDirection.ASCENDING,
-        recognizer_fingerprint=RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+        recognizer_fingerprint=recognizer_fingerprint,
         grouping_policy_fingerprint=grouping_policy_fingerprint(),
     )
 
@@ -293,7 +299,7 @@ def test_handler_scans_once_selects_middle_and_resumes_without_ocr(tmp_path: Pat
         browser_upload_root=tmp_path / "imports",
         artifact_root=tmp_path / "artifacts",
         repository_root=tmp_path,
-        recognizer_factory=lambda _path: recognizer,
+        recognizer_factory=lambda _path, _contract: recognizer,
     )
     context = _Context()
 
@@ -313,7 +319,7 @@ def test_handler_scans_once_selects_middle_and_resumes_without_ocr(tmp_path: Pat
         store.run.diagnostics_checksum_sha256
     )
 
-    def fail_if_recognizer_is_rebuilt(_path: Path) -> NoReturn:
+    def fail_if_recognizer_is_rebuilt(_path: Path, _contract: str) -> NoReturn:
         raise AssertionError("A completed checkpoint must not rerun OCR.")
 
     resumed_handler = SemiAutomaticImageSelectionJobHandler(
@@ -337,7 +343,7 @@ def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> N
         browser_upload_root=tmp_path / "imports",
         artifact_root=tmp_path / "artifacts",
         repository_root=tmp_path,
-        recognizer_factory=lambda _path: first_recognizer,
+        recognizer_factory=lambda _path, _contract: first_recognizer,
     )
 
     with pytest.raises(_WaitForReview):
@@ -357,7 +363,7 @@ def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> N
         browser_upload_root=tmp_path / "imports",
         artifact_root=tmp_path / "artifacts",
         repository_root=tmp_path,
-        recognizer_factory=lambda _path: changed_recognizer,
+        recognizer_factory=lambda _path, _contract: changed_recognizer,
     )
     with pytest.raises(JobHandlerError) as changed:
         changed_handler(_Context(), run.job)  # type: ignore[arg-type]
@@ -370,7 +376,7 @@ def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> N
         browser_upload_root=tmp_path / "imports",
         artifact_root=tmp_path / "artifacts",
         repository_root=tmp_path,
-        recognizer_factory=lambda _path: resumed_recognizer,
+        recognizer_factory=lambda _path, _contract: resumed_recognizer,
     )
 
     with pytest.raises(_WaitForReview):
@@ -393,10 +399,67 @@ def test_handler_preserves_lease_conflict_from_the_store(tmp_path: Path) -> None
         browser_upload_root=tmp_path / "imports",
         artifact_root=tmp_path / "artifacts",
         repository_root=tmp_path,
-        recognizer_factory=lambda _path: pytest.fail("OCR must not start without a lease."),
+        recognizer_factory=lambda _path, _contract: pytest.fail(
+            "OCR must not start without a lease."
+        ),
     )
 
     with pytest.raises(JobConflictError) as error:
         handler(_Context(), run.job)  # type: ignore[arg-type]
 
     assert error.value.code == "JOB_LEASE_LOST"
+
+
+@pytest.mark.parametrize(
+    "contract_fingerprint",
+    (
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    ),
+)
+def test_handler_resolves_the_recognizer_from_the_durable_run_contract(
+    tmp_path: Path,
+    contract_fingerprint: str,
+) -> None:
+    run, ranges = _ready_run(tmp_path, recognizer_fingerprint=contract_fingerprint)
+    store = _MemoryStore(run, ranges)
+    recognizer = _ScriptedRecognizer(
+        [_exact(1, 9, 0.95), _exact(1, 9, 0.96), _exact(10, 18, 0.95), _exact(10, 18, 0.94)]
+    )
+    requested_contracts: list[str] = []
+
+    def factory(_path: Path, requested_contract: str) -> _ScriptedRecognizer:
+        requested_contracts.append(requested_contract)
+        return recognizer
+
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=factory,
+    )
+
+    with pytest.raises(_WaitForReview):
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert requested_contracts == [contract_fingerprint]
+
+
+def test_handler_rejects_an_unknown_durable_recognizer_before_ocr(tmp_path: Path) -> None:
+    run, ranges = _ready_run(tmp_path, recognizer_fingerprint="f" * 64)
+    store = _MemoryStore(run, ranges)
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: pytest.fail(
+            "An unsupported durable contract must fail before OCR construction."
+        ),
+    )
+
+    with pytest.raises(JobHandlerError) as error:
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert error.value.code == "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_UNSUPPORTED"

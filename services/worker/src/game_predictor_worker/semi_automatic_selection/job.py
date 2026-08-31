@@ -47,10 +47,10 @@ from .contracts import (
 )
 from .engine import RangeGroupingAccumulator, RangeGroupSelection, grouping_policy_fingerprint
 from .range_only_ocr import (
-    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+    SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS,
     RangeOnlyOcrAdapter,
     RangeOnlyRecognizer,
-    build_paddle_range_only_recognizer,
+    build_paddle_range_only_recognizer_for_contract,
 )
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
@@ -72,7 +72,7 @@ class SelectionApplyOutcome:
     applied: bool
 
 
-RecognizerFactory = Callable[[Path], RangeOnlyRecognizer]
+RecognizerFactory = Callable[[Path, str], RangeOnlyRecognizer]
 
 
 class SemiAutomaticSelectionJobStore:
@@ -242,7 +242,7 @@ class SemiAutomaticImageSelectionJobHandler:
         browser_upload_root: Path,
         artifact_root: Path,
         repository_root: Path,
-        recognizer_factory: RecognizerFactory = build_paddle_range_only_recognizer,
+        recognizer_factory: RecognizerFactory = build_paddle_range_only_recognizer_for_contract,
     ) -> None:
         self._store = store
         self._browser_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
@@ -310,7 +310,8 @@ class SemiAutomaticImageSelectionJobHandler:
     ) -> tuple[SemiAutomaticSelectionRun, dict[str, object]]:
         bounds = _worker_bounds(run)
         recognizer = self._recognizer_factory(
-            self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
+            self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1",
+            run.recognizer_fingerprint,
         )
         checkpoint_recognizer = checkpoint.get("runtimeRecognizerFingerprint")
         if checkpoint_recognizer is not None and checkpoint_recognizer != recognizer.fingerprint:
@@ -488,13 +489,15 @@ class SemiAutomaticImageSelectionJobHandler:
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
                 "The durable job payload differs from its staged source run.",
             )
-        if (
-            run.recognizer_fingerprint != RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT
-            or run.grouping_policy_fingerprint != grouping_policy_fingerprint()
-        ):
+        if run.recognizer_fingerprint not in SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_UNSUPPORTED",
+                "The durable run references an unsupported range recognizer.",
+            )
+        if run.grouping_policy_fingerprint != grouping_policy_fingerprint():
             raise JobHandlerError(
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
-                "The durable run references another recognizer or grouping policy.",
+                "The durable run references another grouping policy.",
             )
 
 

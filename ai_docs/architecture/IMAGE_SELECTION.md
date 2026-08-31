@@ -1396,6 +1396,21 @@ podstawie trzech zgodnych pozycji leżących wewnątrz krótszego zakresu.
 `RangeOnlyGapPolicy` jest osobnym, czystym wynikiem kalibracji korpusu; nie
 grupuje źródeł i jest konsumowany przez strumieniowy silnik TASK-0353.
 
+TASK-0358 dodaje odrębny `semi-automatic-range-only-ocr-v2`, nie modyfikując
+klas historycznych selektorów v10.19–v10.21. Dedykowana podklasa proof-first
+nadpisuje wyłącznie kwalifikację etykiet i progresję kandydatów. Dynamiczny
+lattice mapuje pozycje; stały viewport v10.20 nie jest używany, ponieważ na
+rzeczywistych kadrach przesuwał bazę o jeden rząd. Wspólna bramka
+`has_strong_local_range_proof` nadal wymaga co najmniej trzech zgodnych
+pozycji, pary sąsiadującej i confidence `0.90`.
+
+Kontrakt runu przechowuje fingerprint v1 albo v2. API tworzy nowe runy z v2,
+natomiast worker rozwiązuje builder z utrwalonego fingerprintu. Runtime
+fingerprint obejmuje także model, pliki Paddle, runtime oraz konfigurację
+kandydatów i jest przypinany do checkpointu. Dzięki temu restart nie może
+przełączyć rozpoczętego runu między implementacjami. Nie wymaga to migracji ani
+zmiany kontraktu HTTP.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

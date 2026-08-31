@@ -18,6 +18,7 @@ import {
   buildMobileRelease as buildGeneratedMobileRelease,
   closeReviewerWorkAssignment as closeGeneratedReviewerWorkAssignment,
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
+  cancelSemiAutomaticImageSelection as cancelGeneratedSemiAutomaticImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
   createBrowserPageGeometryOverride as createGeneratedBrowserPageGeometryOverride,
@@ -40,6 +41,7 @@ import {
   finalizeBrowserImageSelection as finalizeGeneratedBrowserImageSelection,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
+  createSemiAutomaticImageSelection as createGeneratedSemiAutomaticImageSelection,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
   createPayline as createGeneratedPayline,
@@ -81,6 +83,8 @@ import {
   startStorageGcRun as startGeneratedStorageGcRun,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getSemiAutomaticImageSelectionSourceAsset as getGeneratedSemiAutomaticImageSelectionSourceAsset,
+  getSemiAutomaticImageSelection as getGeneratedSemiAutomaticImageSelection,
+  getSemiAutomaticImageSelectionCapabilities as getGeneratedSemiAutomaticImageSelectionCapabilities,
   getUnreadableBoardReview as getGeneratedUnreadableBoardReview,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
@@ -173,12 +177,14 @@ import {
   resetGameLayoutData as resetGeneratedGameLayoutData,
   restoreRejectedImageSelectionGroup as restoreGeneratedRejectedImageSelectionGroup,
   retryImageJobFile as retryGeneratedImageJobFile,
+  pauseSemiAutomaticImageSelection as pauseGeneratedSemiAutomaticImageSelection,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
   reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   resolveUnreadableBoardReviewCell as resolveGeneratedUnreadableBoardReviewCell,
+  resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
@@ -287,6 +293,7 @@ import type {
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
   SemiAutomaticSelectionOutputAcknowledgement,
+  SemiAutomaticSelectionCreate,
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
   StorageGcRunCreate,
@@ -493,6 +500,9 @@ export type {
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
   SemiAutomaticSelectionOutputAcknowledgement,
+  SemiAutomaticSelectionCapabilitiesResponse,
+  SemiAutomaticSelectionCreate,
+  SemiAutomaticSelectionCreateResponse,
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
   SymbolCellReviewFilterState,
@@ -689,6 +699,30 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    getSemiAutomaticImageSelectionCapabilities: () =>
+      getGeneratedSemiAutomaticImageSelectionCapabilities({ client }),
+    createSemiAutomaticImageSelection: (body: SemiAutomaticSelectionCreate) =>
+      createGeneratedSemiAutomaticImageSelection({ body, client }),
+    getSemiAutomaticImageSelection: (runId: string) =>
+      getGeneratedSemiAutomaticImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
+    pauseSemiAutomaticImageSelection: (runId: string) =>
+      pauseGeneratedSemiAutomaticImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
+    resumeSemiAutomaticImageSelection: (runId: string) =>
+      resumeGeneratedSemiAutomaticImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
+    cancelSemiAutomaticImageSelection: (runId: string) =>
+      cancelGeneratedSemiAutomaticImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
     getSemiAutomaticImageSelectionSourceAsset: (
       runId: string,
       sourceIndex: number,

@@ -995,3 +995,25 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
   ponownego pobierania JPEG-a.
 - IndexedDB przechowuje wyłącznie uchwyty katalogów, checksummę manifestu i
   mały stan widoku. Bloby ani bajty JPEG-ów nie są tam zapisywane.
+
+## Konfiguracja i postęp półautomatycznej selekcji — TASK-0355
+
+- Admin udostępnia osobną, niezależną od gry zakładkę `Półautomatyczny wybór
+  zdjęć`. Nie jest ona sekcją wybranej gry i nie wymaga `gameId`.
+- Konfigurator przyjmuje dwa lokalne katalogi: rekurencyjnie skanowane źródło
+  JPEG oraz katalog docelowy przyszłego outputu. Widoczny wybór katalogów,
+  granic sekwencji i kierunku poprzedza każdy upload.
+- Pierwsza i ostatnia plansza są dodatnie i rosnące. Liczba oczekiwanych
+  zakresów jest wyliczana wyłącznie z `fullRangeSize` przekazanego przez
+  capabilities API; ostatni zakres może być krótszy.
+- Upload używa globalnego stagingu `semi_automatic_selection` i pokazuje
+  potwierdzone przez API pliki oraz bajty. Błąd pojedynczego pliku umożliwia
+  bounded retry albo jawne anulowanie stagingu.
+- Widok odpyta jeden aktywny run bez nakładających się requestów, pokazuje
+  etap, procent, źródła, skan, wybory, luki, konflikty i błędy oraz udostępnia
+  pause/resume/cancel na istniejących endpointach.
+- Capabilities API jest jedynym źródłem flagi serwerowej. Gdy moduł jest
+  wyłączony, konfiguracja i mutacje są nieaktywne; frontend nie może obejść
+  blokady serwera.
+- TASK-0355 nie udostępnia jeszcze przeglądu oczekiwanych zakresów ani ręcznej
+  edycji źródeł; te tryby należą do TASK-0356.

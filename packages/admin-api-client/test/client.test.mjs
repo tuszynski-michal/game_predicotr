@@ -2481,6 +2481,48 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
   });
 });
 
+test('semi-automatic selection client binds capabilities, lifecycle, and run controls', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.getSemiAutomaticImageSelectionCapabilities();
+  await client.createSemiAutomaticImageSelection({
+    direction: 'descending',
+    firstSequenceNumber: 1,
+    lastSequenceNumber: 99,
+    uploadId: '33333333-3333-4333-8333-333333333333',
+  });
+  await client.getSemiAutomaticImageSelection(runId);
+  await client.pauseSemiAutomaticImageSelection(runId);
+  await client.resumeSemiAutomaticImageSelection(runId);
+  await client.cancelSemiAutomaticImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', '/api/v1/admin/semi-automatic-image-selections/capabilities'],
+      ['POST', '/api/v1/admin/semi-automatic-image-selections'],
+      ['GET', `/api/v1/admin/semi-automatic-image-selections/${runId}`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/pause`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/resume`],
+      ['POST', `/api/v1/admin/semi-automatic-image-selections/${runId}/cancel`],
+    ],
+  );
+  assert.deepEqual(await requests[1].clone().json(), {
+    direction: 'descending',
+    firstSequenceNumber: 1,
+    lastSequenceNumber: 99,
+    uploadId: '33333333-3333-4333-8333-333333333333',
+  });
+});
+
 test('image selection review queues use scoped idempotent decisions', async () => {
   const requests = [];
   const runId = '22222222-2222-4222-8222-222222222222';

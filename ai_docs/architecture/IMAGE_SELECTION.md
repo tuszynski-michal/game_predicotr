@@ -1492,3 +1492,28 @@ powtarza ten fingerprint zamiast tworzyć niewersjonowaną pochodną.
 Uchwyty katalogów oraz zoom/scroll/kursor są przechowywane w osobnej bazie
 IndexedDB v1. Obrazy pozostają wyłącznie w katalogach użytkownika i stagingu;
 nie trafiają do pamięci trwałej przeglądarki ani bazy aplikacji.
+
+## Konfigurator i monitor runu — TASK-0355
+
+`SemiAutomaticSelectionWorkspace` jest oddzielnym workspace'em katalogu Admina
+i nie otrzymuje `gameId`. Pobiera `capabilities` przed odblokowaniem formularza;
+flaga `enabled` pozostaje kontrolą serwera, a UI jest wyłącznie jej wiernym
+klientem.
+
+Folder źródłowy jest skanowany rekurencyjnie przez File System Access API i
+sortowany naturalnie po `relativePath`. Wyłącznie `.jpg` i `.jpeg` trafiają do
+browserowego stagingu globalnego z `purpose=semi_automatic_selection` oraz
+`gameId=null`. Upload ma maksymalnie cztery równoległe transfery i trzy próby
+na plik. Liczniki postępu są aktualizowane tylko potwierdzonym stanem API;
+poprawna odpowiedź finalizacji tworzy lub idempotentnie odzyskuje globalny run.
+
+Wybrane uchwyty katalogów są zapisywane wyłącznie w istniejącym operator-local
+store razem z `runId` i drobnym stanem UI. Nie zapisuje się Blobów ani JPEG-ów
+w IndexedDB. Lokalny klucz przeglądarki umożliwia po reloadzie ponowny odczyt
+runu i wznowienie jego monitorowania.
+
+Polling jest sekwencyjny: następny timeout powstaje dopiero po zakończeniu
+poprzedniego odczytu runu. Ma interwał 2 s oraz lokalny limit 45 minut, a
+pause/resume/cancel korzystają wyłącznie z trwałych endpointów lifecycle.
+TASK-0355 nie uruchamia synchronizacji outputu, review ani edit-source; kończy
+się na widocznym postępie analizy.

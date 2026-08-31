@@ -22,6 +22,7 @@ import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
 import { ManualImageSelectionWorkspace } from '@/features/manual-image-selection/manual-image-selection-workspace';
+import { SemiAutomaticSelectionWorkspace } from '@/features/semi-automatic-image-selection/semi-automatic-selection-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
@@ -73,16 +74,22 @@ const WORKSPACE_OPTIONS: readonly {
     index: '05',
   },
   {
+    id: 'semi-automatic-image-selection',
+    label: 'Półautomatyczny wybór zdjęć',
+    description: 'Wybór środka grupy na podstawie wyłącznie zakresu OCR.',
+    index: '06',
+  },
+  {
     id: 'symbol-verification',
     label: 'Weryfikacja symboli',
     description: 'Masowy przegląd cropów symboli i problemów siatki.',
-    index: '06',
+    index: '07',
   },
   {
     id: 'storage',
     label: 'Pamięć i czyszczenie',
     description: 'Zajętość dysku, retencja i bezpieczny garbage collector.',
-    index: '07',
+    index: '08',
   },
 ];
 
@@ -461,6 +468,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'manual-image-selection' ? (
           <ManualImageSelectionWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'semi-automatic-image-selection' ? (
+          <SemiAutomaticSelectionWorkspace apiBaseUrl={apiBaseUrl} />
         ) : null}
         {navigation.workspace === 'symbol-verification' ? (
           <SymbolReviewWorkspace apiBaseUrl={apiBaseUrl} />

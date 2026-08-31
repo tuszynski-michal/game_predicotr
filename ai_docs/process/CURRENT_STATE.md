@@ -78,6 +78,22 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   utrwalane w przeglądarce. Konfigurator i ekran progresu pozostają zakresem
   TASK-0355.
 
+### Konfiguracja i postęp półautomatycznej selekcji — TASK-0355
+
+- Admin ma niezależny od gry workspace `Półautomatyczny wybór zdjęć`. Odczytuje
+  capabilities API przed odblokowaniem konfiguracji; jedna flaga serwerowa
+  steruje dostępnością i UI nie wysyła mutacji, gdy funkcja jest wyłączona.
+- Operator wybiera źródłowy katalog JPEG oraz lokalny katalog docelowy, podaje
+  dodatnie granice i kierunek. Skan źródła jest naturalnie uporządkowany, upload
+  używa purpose `semi_automatic_selection`, a postęp pokazuje potwierdzone pliki
+  i bajty oraz umożliwia bounded retry albo anulowanie.
+- Po finalizacji Admin tworzy lub odzyskuje idempotentny globalny run. Lokalny
+  klucz i operator-local IndexedDB przywracają run oraz uchwyty po reloadzie.
+  Sekwencyjny polling pokazuje etap i liczniki oraz udostępnia trwałe
+  pause/resume/cancel bez nakładających się requestów.
+- Końcowy review i ręczna edycja nie są jeszcze eksponowane; pozostają zakresem
+  TASK-0356.
+
 ### Częściowa geometria ostatniej strony — TASK-0349
 
 - Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej

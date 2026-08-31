@@ -15271,6 +15271,71 @@
         "title": "StructuredGeometryCandidateJobSnapshotPayload",
         "type": "object"
       },
+      "SymbolCellPreviewBatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolCellPreviewTargetRequest"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          },
+          "previewSize": {
+            "default": 100,
+            "maximum": 256.0,
+            "minimum": 32.0,
+            "title": "Previewsize",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "SymbolCellPreviewBatchRequest",
+        "type": "object"
+      },
+      "SymbolCellPreviewTargetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "expectedCropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcropchecksumsha256",
+            "type": "string"
+          },
+          "expectedRenderSpecChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedrenderspecchecksumsha256"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellReviewId",
+          "expectedRevision",
+          "expectedCropChecksumSha256"
+        ],
+        "title": "SymbolCellPreviewTargetRequest",
+        "type": "object"
+      },
       "SymbolCellReviewAction": {
         "enum": [
           "approve",
@@ -21577,6 +21642,164 @@
         "summary": "Create draft rules version",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-preview-batches": {
+      "post": {
+        "operationId": "createSymbolCellPreviewBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolCellPreviewBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VirtualCellPreviewBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Render a stable WebP atlas for current legacy or virtual symbol cells",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas": {
+      "get": {
+        "operationId": "getSymbolCellPreviewAtlas",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_key",
+            "required": true,
+            "schema": {
+              "title": "Batch Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Read one stable checksum-verified symbol preview atlas",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

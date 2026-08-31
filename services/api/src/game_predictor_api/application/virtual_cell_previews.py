@@ -40,7 +40,7 @@ MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE = 100
 DEFAULT_VIRTUAL_CELL_PREVIEW_SIZE = 100
 MAX_VIRTUAL_CELL_PREVIEW_SIZE = 256
 MIN_VIRTUAL_CELL_PREVIEW_SIZE = 32
-DEFAULT_VIRTUAL_CELL_PREVIEW_TTL = timedelta(minutes=15)
+DEFAULT_VIRTUAL_CELL_PREVIEW_TTL = timedelta(hours=24)
 DEFAULT_VIRTUAL_CELL_PREVIEW_CACHE_BYTES = 2 * 1024 * 1024 * 1024
 _CACHE_KEY_LENGTH = 64
 
@@ -64,6 +64,34 @@ class VirtualCellPreviewTarget:
             code="SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_INVALID",
             message="A virtual preview requires a lowercase render-spec SHA-256 checksum.",
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellPreviewTarget:
+    """One current cell identity for a shared legacy/virtual preview atlas."""
+
+    cell_review_id: UUID
+    expected_revision: int
+    expected_crop_checksum_sha256: str
+    expected_render_spec_checksum_sha256: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.expected_revision < 0:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_REVISION_INVALID",
+                "A symbol preview requires a non-negative expected cell revision.",
+            )
+        _require_sha256(
+            self.expected_crop_checksum_sha256,
+            code="SYMBOL_CELL_REVIEW_PREVIEW_CROP_INVALID",
+            message="A symbol preview requires a lowercase crop SHA-256 checksum.",
+        )
+        if self.expected_render_spec_checksum_sha256 is not None:
+            _require_sha256(
+                self.expected_render_spec_checksum_sha256,
+                code="SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_INVALID",
+                message="A symbol preview render-spec checksum is invalid.",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +163,7 @@ class VirtualCellPreviewService:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._lock = threading.Lock()
         self._flights: dict[str, _PreviewFlight] = {}
+        self._cache_bytes = self._measure_cache_bytes()
 
     def render_batch(
         self,
@@ -154,11 +183,6 @@ class VirtualCellPreviewService:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PREVIEW_SIZE_INVALID",
                 "previewSize must be between 32 and 256 pixels.",
-            )
-        if any(asset.asset_mode != "virtual_source" for asset in assets):
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
-                "A virtual preview batch can contain only virtual-source cells.",
             )
         cell_ids = tuple(asset.cell_review_id for asset in assets)
         if len(set(cell_ids)) != len(cell_ids):
@@ -197,7 +221,8 @@ class VirtualCellPreviewService:
                 now=self._clock(),
             )
             self._write_cached(rendered)
-            self._prune(now=self._clock())
+            if self._cache_bytes > self._max_cache_bytes:
+                self._cache_bytes = self._prune(now=self._clock())
             flight.result = rendered.batch
             return rendered.batch
         except SymbolCellReviewError as error:
@@ -239,19 +264,25 @@ class VirtualCellPreviewService:
         atlas = Image.new("RGB", (columns * preview_size, rows * preview_size), color=(0, 0, 0))
         try:
             for index, asset in enumerate(assets):
-                frame = frames.get(asset.source_checksum_sha256 or "")
-                if frame is None:
-                    source_path = self._managed_source_path(asset)
-                    frame = loader.load(
-                        source_path,
-                        expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
+                if asset.asset_mode == "virtual_source":
+                    frame = frames.get(asset.source_checksum_sha256 or "")
+                    if frame is None:
+                        source_path = self._managed_source_path(asset)
+                        frame = loader.load(
+                            source_path,
+                            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
+                        )
+                        frames[_required(asset.source_checksum_sha256)] = frame
+                    preview = _render_virtual_preview(
+                        asset=asset,
+                        frame=frame,
+                        preview_size=preview_size,
                     )
-                    frames[_required(asset.source_checksum_sha256)] = frame
-                preview = _render_virtual_preview(
-                    asset=asset,
-                    frame=frame,
-                    preview_size=preview_size,
-                )
+                else:
+                    preview = self._render_legacy_preview(
+                        asset=asset,
+                        preview_size=preview_size,
+                    )
                 x = (index % columns) * preview_size
                 y = (index // columns) * preview_size
                 atlas.paste(preview, (x, y))
@@ -302,6 +333,60 @@ class VirtualCellPreviewService:
                 "The managed source image for this virtual symbol-cell preview is unavailable.",
             )
         return candidate
+
+    def _render_legacy_preview(
+        self,
+        *,
+        asset: SymbolCellReviewAsset,
+        preview_size: int,
+    ) -> Image.Image:
+        relative_value = _required(asset.crop_relative_path)
+        relative = Path(relative_value.replace("/", os.sep))
+        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+                "The symbol-cell crop path is unsafe.",
+            )
+        data_root = (self._artifact_root / "data").resolve()
+        candidates = [(self._artifact_root / relative).resolve()]
+        if relative.parts[0] != "data":
+            candidates.append((data_root / relative).resolve())
+        path = next(
+            (
+                candidate
+                for candidate in candidates
+                if candidate.is_relative_to(data_root)
+                and candidate.is_file()
+                and not candidate.is_symlink()
+            ),
+            None,
+        )
+        if path is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
+                "The current symbol-cell crop is unavailable.",
+            )
+        content = path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != asset.crop_checksum_sha256:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
+                "The current symbol-cell crop bytes do not match their checksum.",
+            )
+        try:
+            with Image.open(BytesIO(content)) as source:
+                image = source.convert("RGB")
+                image.thumbnail((preview_size, preview_size), Image.Resampling.LANCZOS)
+                canvas = Image.new("RGB", (preview_size, preview_size), color=(0, 0, 0))
+                canvas.paste(
+                    image,
+                    ((preview_size - image.width) // 2, (preview_size - image.height) // 2),
+                )
+                return canvas
+        except OSError as error:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+                "The current symbol-cell crop cannot be rendered as a thumbnail.",
+            ) from error
 
     def _read_cached(
         self,
@@ -363,11 +448,13 @@ class VirtualCellPreviewService:
                 for tile in cached.batch.tiles
             ],
         }
-        _atomic_write(descriptor_path, canonical_json_bytes(descriptor))
+        descriptor_content = canonical_json_bytes(descriptor)
+        _atomic_write(descriptor_path, descriptor_content)
+        self._cache_bytes += len(cached.content) + len(descriptor_content)
 
-    def _prune(self, *, now: datetime) -> None:
+    def _prune(self, *, now: datetime) -> int:
         if not self._cache_root.exists() or self._cache_root.is_symlink():
-            return
+            return 0
         entries: list[tuple[float, int, Path, Path]] = []
         total = 0
         for descriptor_path in self._cache_root.glob("*.json"):
@@ -410,6 +497,19 @@ class VirtualCellPreviewService:
                 break
             self._remove_cache_pair(descriptor_path, atlas_path)
             total -= size
+        return total
+
+    def _measure_cache_bytes(self) -> int:
+        if not self._cache_root.exists() or self._cache_root.is_symlink():
+            return 0
+        total = 0
+        for path in self._cache_root.iterdir():
+            try:
+                if path.is_file() and not path.is_symlink():
+                    total += path.stat().st_size
+            except OSError:
+                continue
+        return total
 
     def _cache_paths(self, key: str) -> tuple[Path, Path]:
         return self._cache_root / f"{key}.json", self._cache_root / f"{key}.webp"
@@ -544,6 +644,7 @@ def _batch_key(*, game_id: UUID, assets: Sequence[SymbolCellReviewAsset], previe
         "cells": [
             {
                 "cellReviewId": str(asset.cell_review_id),
+                "assetMode": asset.asset_mode,
                 "cellRevision": asset.revision,
                 "cropChecksumSha256": asset.crop_checksum_sha256,
                 "geometryRevision": asset.geometry_revision,
@@ -700,6 +801,7 @@ __all__ = [
     "DEFAULT_VIRTUAL_CELL_PREVIEW_SIZE",
     "DEFAULT_VIRTUAL_CELL_PREVIEW_TTL",
     "MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE",
+    "SymbolCellPreviewTarget",
     "VirtualCellPreviewBatch",
     "VirtualCellPreviewService",
     "VirtualCellPreviewTarget",

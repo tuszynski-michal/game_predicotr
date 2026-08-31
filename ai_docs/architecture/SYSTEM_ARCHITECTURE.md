@@ -763,6 +763,13 @@ limit 2 GiB LRU oraz process-local single-flight; nigdy nie jest referencją
 domenową, nie zapisuje full-board thumbnaili i może zostać usunięty przez GC.
 Legacy file assety pozostają odczytywane dotychczasową ścieżką.
 
+TASK-0361 rozszerza tę samą warstwę na stabilne atlasy strony Weryfikacji
+symboli. `legacy_file` i `virtual_source` są grupowane deterministycznie po 100,
+ale każdy tryb zachowuje własną kontrolę źródła i checksummy. Cache atlasu ma
+24-godzinny TTL, content-addressed klucz pełnej proweniencji i pruning
+uruchamiany dopiero po przekroczeniu limitu; nie skanuje katalogu po każdym
+trafieniu lub renderze.
+
 Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
 kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
 fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z

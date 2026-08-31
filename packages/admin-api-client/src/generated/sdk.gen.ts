@@ -135,6 +135,9 @@ import type {
   CreateStorageGcPreviewData,
   CreateStorageGcPreviewErrors,
   CreateStorageGcPreviewResponses,
+  CreateSymbolCellPreviewBatchData,
+  CreateSymbolCellPreviewBatchErrors,
+  CreateSymbolCellPreviewBatchResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
@@ -336,6 +339,9 @@ import type {
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
+  GetSymbolCellPreviewAtlasData,
+  GetSymbolCellPreviewAtlasErrors,
+  GetSymbolCellPreviewAtlasResponses,
   GetSymbolCellReviewAssetData,
   GetSymbolCellReviewAssetErrors,
   GetSymbolCellReviewAssetResponses,
@@ -1562,6 +1568,51 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Render a stable WebP atlas for current legacy or virtual symbol cells
+ */
+export const createSymbolCellPreviewBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateSymbolCellPreviewBatchData, ThrowOnError>,
+): RequestResult<
+  CreateSymbolCellPreviewBatchResponses,
+  CreateSymbolCellPreviewBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSymbolCellPreviewBatchResponses,
+    CreateSymbolCellPreviewBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one stable checksum-verified symbol preview atlas
+ */
+export const getSymbolCellPreviewAtlas = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellPreviewAtlasData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellPreviewAtlasResponses,
+  GetSymbolCellPreviewAtlasErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellPreviewAtlasResponses,
+    GetSymbolCellPreviewAtlasErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas',
+    ...options,
   });
 
 /**

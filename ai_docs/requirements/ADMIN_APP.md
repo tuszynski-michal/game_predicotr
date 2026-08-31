@@ -394,9 +394,12 @@ następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
 w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
 całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Dla
-`virtual_source` Admin tworzy atlas maksymalnie 100 aktualnie widocznych kart;
-legacy asset jest nadal pobierany leniwie jako checksum-bound thumbnail. Brak
-jednego assetu pokazuje placeholder wyłącznie tej karty.
+Admin dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
+kart, wspólne dla `legacy_file` i `virtual_source`. Dla 500 cropów powstaje
+najwyżej pięć requestów obrazu: najpierw grupa zawierająca widoczny viewport,
+potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,
+tryby assetów i wersję renderera, dlatego powrót na stronę korzysta z tego
+samego content-addressed cache, a zmiana cropa nie może pokazać starego tile'a.
 Podsumowanie pokazuje numer strony i jej jednoznaczny zakres pozycji natychmiast
 po pobraniu metadanych, a następnie uzupełnia niezależnie pełne liczniki. Zakres zależy od
 zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
@@ -406,9 +409,9 @@ Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
 przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
-Karta pobiera checksum-bound thumbnail WebP o maksymalnym rozmiarze 100 × 100,
-nie pełny crop ani base64 w odpowiedzi listy. Przeglądarka utrwala go przez
-content-addressed cache `immutable`.
+Karta pokazuje tile 100 × 100 px ze wspólnego atlasu WebP, nie pełny crop ani
+base64 w odpowiedzi listy. Przeglądarka utrwala atlas przez content-addressed
+cache `immutable`.
 Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje

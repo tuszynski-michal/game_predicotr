@@ -99,6 +99,21 @@ def _current_asset(artifact_root: Path, *, revision: int = 3) -> SymbolCellRevie
     return _asset(artifact_root, revision=revision)
 
 
+def _legacy_asset(artifact_root: Path, *, revision: int = 3) -> SymbolCellReviewAsset:
+    path = artifact_root / "data" / "crops" / f"legacy-{revision}.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (80, 60), color=(25, 140, 210)).save(path, format="PNG")
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+    return SymbolCellReviewAsset(
+        cell_review_id=uuid4(),
+        crop_relative_path=path.relative_to(artifact_root).as_posix(),
+        crop_checksum_sha256=checksum,
+        geometry_revision=2,
+        current_geometry_revision=2,
+        revision=revision,
+    )
+
+
 def test_virtual_preview_atlas_is_checksum_bound_and_tiled(tmp_path: Path) -> None:
     asset = _current_asset(tmp_path)
     service = VirtualCellPreviewService(tmp_path)
@@ -110,6 +125,50 @@ def test_virtual_preview_atlas_is_checksum_bound_and_tiled(tmp_path: Path) -> No
     assert cached.batch.tiles[0].cell_review_id == asset.cell_review_id
     with Image.open(BytesIO(cached.content)) as atlas:
         assert atlas.size == (100, 100)
+
+
+def test_shared_preview_atlas_contains_legacy_and_virtual_cells(tmp_path: Path) -> None:
+    legacy = _legacy_asset(tmp_path)
+    virtual = _current_asset(tmp_path)
+    service = VirtualCellPreviewService(tmp_path)
+    game_id = uuid4()
+
+    first = service.render_batch(
+        game_id=game_id,
+        assets=(legacy, virtual),
+        preview_size=100,
+    )
+    second = service.render_batch(
+        game_id=game_id,
+        assets=(legacy, virtual),
+        preview_size=100,
+    )
+    cached = service.read_atlas(game_id=game_id, batch_key=first.batch_key)
+
+    assert first.batch_key == second.batch_key
+    assert [tile.cell_review_id for tile in first.tiles] == [
+        legacy.cell_review_id,
+        virtual.cell_review_id,
+    ]
+    with Image.open(BytesIO(cached.content)) as atlas:
+        assert atlas.size == (200, 100)
+
+
+def test_preview_cache_prunes_only_after_crossing_the_size_limit(tmp_path: Path) -> None:
+    asset = _legacy_asset(tmp_path)
+
+    class CountingPruneService(VirtualCellPreviewService):
+        prune_calls = 0
+
+        def _prune(self, **kwargs: object) -> int:  # type: ignore[no-untyped-def]
+            type(self).prune_calls += 1
+            return super()._prune(**kwargs)  # type: ignore[arg-type]
+
+    service = CountingPruneService(tmp_path, max_cache_bytes=10_000_000)
+
+    service.render_batch(game_id=uuid4(), assets=(asset,))
+
+    assert CountingPruneService.prune_calls == 0
 
 
 def test_virtual_preview_keeps_render_spec_and_pixel_checksums_independent(tmp_path: Path) -> None:

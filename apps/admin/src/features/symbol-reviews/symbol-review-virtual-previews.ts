@@ -4,7 +4,10 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import type { SymbolReviewClient } from './symbol-review-actions.ts';
-import { boundedVirtualPreviewItems } from './symbol-review-virtual-window.ts';
+import {
+  symbolReviewPreviewChunkOrder,
+  symbolReviewPreviewChunks,
+} from './symbol-review-virtual-window.ts';
 
 export interface SymbolReviewVirtualPreviewTile {
   readonly atlasUrl: string;
@@ -20,46 +23,56 @@ export type SymbolReviewVirtualPreviewResult =
     }
   | { readonly ok: false };
 
-/** Loads a single atlas only for currently rendered virtual cells. */
-export async function loadSymbolReviewVirtualPreviews(
+/** Loads deterministic page atlases sequentially, prioritizing the visible chunk. */
+export async function loadSymbolReviewPreviewAtlases(
   api: SymbolReviewClient,
   gameId: string,
-  visibleItems: readonly SymbolCellReviewListItemResponse[],
+  pageItems: readonly SymbolCellReviewListItemResponse[],
+  firstVisibleCellId: string | null,
+  onAtlas: (
+    tiles: Readonly<Record<string, SymbolReviewVirtualPreviewTile>>,
+  ) => void,
 ): Promise<SymbolReviewVirtualPreviewResult> {
-  const targets = boundedVirtualPreviewItems(visibleItems)
-    .filter(
-      (item) =>
-        item.assetMode === 'virtual_source' &&
-        item.renderSpecChecksumSha256 !== null,
-    )
-    .map((item) => ({
-      cellReviewId: item.id,
-      expectedRenderSpecChecksumSha256: item.renderSpecChecksumSha256!,
-      expectedRevision: item.revision,
-    }));
-  if (targets.length === 0) {
+  const chunks = symbolReviewPreviewChunks(pageItems);
+  if (chunks.length === 0) {
     return { ok: true, tilesByCellReviewId: {} };
   }
+  const tilesByCellReviewId: Record<string, SymbolReviewVirtualPreviewTile> =
+    {};
   try {
-    const result = await api.createVirtualCellPreviewBatch(gameId, {
-      cells: targets,
-      previewSize: 100,
-    });
-    if (result.data === undefined || result.error !== undefined) {
-      return { ok: false };
+    for (const chunkIndex of symbolReviewPreviewChunkOrder(
+      chunks,
+      firstVisibleCellId,
+    )) {
+      const chunk = chunks[chunkIndex]!;
+      const result = await api.createSymbolCellPreviewBatch(gameId, {
+        cells: chunk.map((item) => ({
+          cellReviewId: item.id,
+          expectedCropChecksumSha256: item.cropChecksumSha256,
+          expectedRevision: item.revision,
+          ...(item.renderSpecChecksumSha256 === null
+            ? {}
+            : {
+                expectedRenderSpecChecksumSha256: item.renderSpecChecksumSha256,
+              }),
+        })),
+        previewSize: 100,
+      });
+      if (result.data === undefined || result.error !== undefined) {
+        return { ok: false };
+      }
+      const atlasUrl = api.symbolCellPreviewAtlasUrl(
+        gameId,
+        result.data.batchKey,
+      );
+      for (const tile of result.data.tiles) {
+        tilesByCellReviewId[tile.cellReviewId] = { atlasUrl, tile };
+      }
+      onAtlas({ ...tilesByCellReviewId });
     }
-    const atlasUrl = api.virtualCellPreviewAtlasUrl(
-      gameId,
-      result.data.batchKey,
-    );
     return {
       ok: true,
-      tilesByCellReviewId: Object.fromEntries(
-        result.data.tiles.map((tile) => [
-          tile.cellReviewId,
-          { atlasUrl, tile },
-        ]),
-      ),
+      tilesByCellReviewId,
     };
   } catch {
     return { ok: false };

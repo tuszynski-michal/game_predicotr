@@ -21,6 +21,8 @@ export type SymbolReviewClient = Pick<
   | 'getSymbolCellReviewProjectionStatus'
   | 'startSymbolCellReviewProjectionBackfill'
   | 'symbolCellReviewAssetUrl'
+  | 'createSymbolCellPreviewBatch'
+  | 'symbolCellPreviewAtlasUrl'
   | 'createVirtualCellPreviewBatch'
   | 'virtualCellPreviewAtlasUrl'
 >;

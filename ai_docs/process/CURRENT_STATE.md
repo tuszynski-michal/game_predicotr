@@ -31,6 +31,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Admin renderuje metadane strony od razu, pobiera liczniki niezależnie bez
   nakładania requestów i ignoruje wyniki starego filtra. Błąd agregacji nie
   blokuje listy ani mutacji; skuteczna decyzja odświeża licznik z nowej rewizji.
+
+### Stabilne atlasy Weryfikacji symboli — TASK-0361
+
+- Zarówno plikowe cropy legacy, jak i wirtualne cropy źródłowe korzystają z
+  jednego checksum-bound kontraktu atlasu WebP. Strona 500 rekordów tworzy
+  najwyżej pięć deterministycznych grup po 100.
+- Admin pobiera najpierw grupę widocznych kart, następnie sekwencyjnie pozostałe
+  grupy. Klucz cache obejmuje pełną tożsamość cropa, więc powrót na stronę trafia
+  w ten sam atlas, a zmiana rewizji wymusza nowy.
+- Cache ma TTL 24 godziny i nie wykonuje pełnego skanu po każdym renderze;
+  bounded pruning uruchamia się dopiero po przekroczeniu limitu 2 GiB.
 ### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji

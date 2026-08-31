@@ -1,8 +1,6 @@
 'use client';
 
 /* Symbol-cell assets are checksum-bound local Admin API responses. */
-/* eslint-disable @next/next/no-img-element */
-
 import type {
   GameResponse,
   SymbolCellReviewCountSnapshotResponse,
@@ -68,7 +66,7 @@ import {
   type SymbolReviewPagePosition,
 } from './symbol-review-state';
 import {
-  loadSymbolReviewVirtualPreviews,
+  loadSymbolReviewPreviewAtlases,
   type SymbolReviewVirtualPreviewTile,
 } from './symbol-review-virtual-previews.ts';
 import { SymbolReviewVirtualGrid } from './symbol-review-virtual-grid.tsx';
@@ -190,12 +188,15 @@ export function SymbolReviewWorkspace({
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
   const virtualPreviewRequestId = useRef(0);
+  const previewAnchorCellId = useRef<string | null>(null);
 
   const filters = workspace.filters;
   const currentPage = workspace.currentPage?.page ?? null;
   const currentPageNumber = workspace.currentPage?.position.number ?? 1;
-  const currentItems = (currentPage?.items ?? []).filter(
-    (item) => !hiddenCellIds.has(item.id),
+  const currentItems = useMemo(
+    () =>
+      (currentPage?.items ?? []).filter((item) => !hiddenCellIds.has(item.id)),
+    [currentPage?.items, hiddenCellIds],
   );
   const activeGame = games.find((game) => game.id === filters.gameId) ?? null;
   const trackedOperations = useMemo(
@@ -242,6 +243,7 @@ export function SymbolReviewWorkspace({
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    previewAnchorCellId.current = null;
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
@@ -306,6 +308,7 @@ export function SymbolReviewWorkspace({
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    previewAnchorCellId.current = null;
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
@@ -330,6 +333,7 @@ export function SymbolReviewWorkspace({
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    previewAnchorCellId.current = null;
     setCountsState('idle');
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
@@ -580,16 +584,39 @@ export function SymbolReviewWorkspace({
     workspace,
   ]);
 
+  const hasVisibleItems = visibleItems.length > 0;
+  const handleVisibleItemsChange = useCallback(
+    (items: readonly SymbolCellReviewListItemResponse[]) => {
+      if (previewAnchorCellId.current === null && items.length > 0) {
+        previewAnchorCellId.current = items[0]!.id;
+      }
+      setVisibleItems(items);
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (filters.gameId === null) {
+    if (filters.gameId === null || !hasVisibleItems) {
       return;
     }
     const requestId = ++virtualPreviewRequestId.current;
     let cancelled = false;
-    void loadSymbolReviewVirtualPreviews(
+    void loadSymbolReviewPreviewAtlases(
       api,
       filters.gameId,
-      visibleItems,
+      currentItems,
+      previewAnchorCellId.current,
+      (tiles) => {
+        if (
+          !cancelled &&
+          shouldApplyVirtualPreviewResult(
+            requestId,
+            virtualPreviewRequestId.current,
+          )
+        ) {
+          setVirtualPreviewTiles(tiles);
+        }
+      },
     ).then((result) => {
       if (
         cancelled ||
@@ -605,7 +632,7 @@ export function SymbolReviewWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, filters.gameId, visibleItems]);
+  }, [api, currentItems, filters.gameId, hasVisibleItems]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {
@@ -630,6 +657,9 @@ export function SymbolReviewWorkspace({
             };
       const cached = findCachedSymbolReviewPage(workspace, position.number);
       if (cached !== null) {
+        setVisibleItems([]);
+        previewAnchorCellId.current = null;
+        setVirtualPreviewTiles({});
         pagePositionRef.current = position;
         dispatch({
           page: cached.page,
@@ -655,6 +685,9 @@ export function SymbolReviewWorkspace({
         return;
       }
       pagePositionRef.current = position;
+      setVisibleItems([]);
+      previewAnchorCellId.current = null;
+      setVirtualPreviewTiles({});
       dispatch({ page: result.page, position, type: 'page_loaded' });
       setCountsState('loading');
       setCountsSnapshot(null);
@@ -1132,13 +1165,11 @@ export function SymbolReviewWorkspace({
             ) : (
               <SymbolReviewVirtualGrid
                 items={currentItems}
-                onVisibleItemsChange={setVisibleItems}
+                onVisibleItemsChange={handleVisibleItemsChange}
                 pageNumber={currentPageNumber}
                 renderCard={(item) => (
                   <SymbolReviewCard
-                    api={api}
                     disabled={interactionBusy || pendingCellIds.has(item.id)}
-                    gameId={filters.gameId!}
                     item={item}
                     key={item.id}
                     onToggle={() => toggleItem(item)}
@@ -1227,31 +1258,20 @@ function SymbolReviewStateOption({
 }
 
 function SymbolReviewCard({
-  api,
   disabled,
-  gameId,
   item,
   onToggle,
   pending,
   previewTile,
   selected,
 }: {
-  readonly api: SymbolReviewClient;
   readonly disabled: boolean;
-  readonly gameId: string;
   readonly item: SymbolCellReviewListItemResponse;
   readonly onToggle: () => void;
   readonly pending: boolean;
   readonly previewTile: SymbolReviewVirtualPreviewTile | undefined;
   readonly selected: boolean;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const imageUrl = api.symbolCellReviewAssetUrl(
-    gameId,
-    item.id,
-    item.cropChecksumSha256,
-  );
-  const isVirtualSource = item.assetMode === 'virtual_source';
   return (
     <article
       className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}`}
@@ -1266,7 +1286,7 @@ function SymbolReviewCard({
       >
         {previewTile !== undefined ? (
           <span
-            aria-label={`Wirtualny podgląd: ${item.assignedSymbolName ?? 'nierozpoznany'}`}
+            aria-label={`Podgląd: ${item.assignedSymbolName ?? 'nierozpoznany'}`}
             className={styles.virtualPreview}
             role="img"
             style={{
@@ -1274,29 +1294,14 @@ function SymbolReviewCard({
               backgroundPosition: `-${previewTile.tile.x}px -${previewTile.tile.y}px`,
             }}
           />
-        ) : isVirtualSource ? (
+        ) : (
           <span
-            aria-label="Ładowanie wirtualnego podglądu cropa"
+            aria-label="Ładowanie podglądu cropa"
             className={styles.assetFallback}
             role="status"
           >
             …
           </span>
-        ) : imageFailed ? (
-          <span
-            aria-label="Brak aktualnego cropa"
-            className={styles.assetFallback}
-            role="img"
-          >
-            ?
-          </span>
-        ) : (
-          <img
-            alt={`Crop ${item.assignedSymbolName ?? 'nierozpoznany'} z planszy ${item.sequenceNumber}`}
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-            src={imageUrl}
-          />
         )}
         {pending ? (
           <span

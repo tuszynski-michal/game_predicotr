@@ -797,6 +797,7 @@ def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> Non
     assert response.status_code == 409
     assert response.json()["code"] == "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE"
 
+
 def test_list_endpoint_rejects_a_page_size_above_five_hundred(
     tmp_path: Path,
 ) -> None:
@@ -982,6 +983,20 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
             params={"expectedCropChecksumSha256": "b" * 64},
         )
+        atlas_batch = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "previewSize": 100,
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": asset.revision,
+                        "expectedCropChecksumSha256": checksum,
+                    }
+                ],
+            },
+        )
+        atlas = client.get(atlas_batch.json()["atlasUrl"])
         crop.write_bytes(b"changed")
         changed_file = client.get(
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/asset",
@@ -999,6 +1014,8 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
     assert changed_file.status_code == 409
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
+    assert atlas_batch.status_code == 200
+    assert atlas.headers["cache-control"] == "private, immutable, max-age=31536000"
 
 
 def test_virtual_preview_batch_endpoint_uses_current_render_provenance(tmp_path: Path) -> None:
@@ -1048,6 +1065,21 @@ def test_virtual_preview_batch_endpoint_uses_current_render_provenance(tmp_path:
                 "cells": [{**body["cells"][0], "expectedRevision": asset.revision + 1}],
             },
         )
+        shared = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches",
+            json={
+                "previewSize": 80,
+                "cells": [
+                    {
+                        "cellReviewId": str(item.cell_review_id),
+                        "expectedRevision": asset.revision,
+                        "expectedCropChecksumSha256": asset.crop_checksum_sha256,
+                        "expectedRenderSpecChecksumSha256": (asset.render_spec_checksum_sha256),
+                    }
+                ],
+            },
+        )
+        shared_atlas = client.get(shared.json()["atlasUrl"])
 
     assert created.status_code == 200
     assert created.json()["tiles"] == [
@@ -1066,6 +1098,8 @@ def test_virtual_preview_batch_endpoint_uses_current_render_provenance(tmp_path:
     assert legacy_route.headers["content-type"] == "image/webp"
     assert stale.status_code == 409
     assert stale.json()["code"] == "SYMBOL_CELL_REVIEW_CROP_DRIFT"
+    assert shared.status_code == 200
+    assert shared_atlas.headers["cache-control"] == ("private, immutable, max-age=31536000")
 
 
 def test_single_cell_decision_applies_directly_without_bulk_job(tmp_path: Path) -> None:

@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
-from game_predictor_api.application.virtual_cell_previews import VirtualCellPreviewTarget
+from game_predictor_api.application.virtual_cell_previews import (
+    SymbolCellPreviewTarget,
+    VirtualCellPreviewTarget,
+)
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
@@ -247,6 +250,64 @@ class SymbolCellReviewQueryService:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The virtual symbol-cell render changed after it was loaded. Reload the page.",
+                )
+            ordered.append(asset)
+        return tuple(ordered)
+
+    def preview_assets(
+        self,
+        *,
+        game_id: UUID,
+        targets: tuple[SymbolCellPreviewTarget, ...],
+    ) -> tuple[SymbolCellReviewAsset, ...]:
+        """Validate current legacy and virtual cells for one shared atlas."""
+
+        if not targets:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_BATCH_LIMIT",
+                "A symbol preview batch must contain at least one cell.",
+            )
+        ids = tuple(target.cell_review_id for target in targets)
+        if len(set(ids)) != len(ids):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_DUPLICATE_CELL",
+                "A symbol preview batch cannot contain the same cell more than once.",
+            )
+        by_id = {
+            asset.cell_review_id: asset
+            for asset in self._assets(game_id=game_id, cell_review_ids=ids)
+        }
+        ordered: list[SymbolCellReviewAsset] = []
+        for target in targets:
+            asset = by_id.get(target.cell_review_id)
+            if asset is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
+                    "The symbol-cell review crop does not exist in this current game scope.",
+                )
+            if (
+                asset.revision != target.expected_revision
+                or asset.crop_checksum_sha256 != target.expected_crop_checksum_sha256
+            ):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The symbol-cell review changed after it was loaded. Reload the page.",
+                )
+            if asset.asset_mode == "virtual_source":
+                if (
+                    target.expected_render_spec_checksum_sha256 is None
+                    or asset.render_spec_checksum_sha256
+                    != target.expected_render_spec_checksum_sha256
+                ):
+                    raise SymbolCellReviewError(
+                        "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                        "The virtual symbol-cell render changed after it was loaded. "
+                        "Reload the page.",
+                    )
+            elif target.expected_render_spec_checksum_sha256 is not None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
+                    "A legacy symbol-cell preview must not declare virtual render provenance.",
                 )
             ordered.append(asset)
         return tuple(ordered)

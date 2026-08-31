@@ -16,6 +16,13 @@ const styles = await readFile(
   ),
   'utf8',
 );
+const previewSource = await readFile(
+  new URL(
+    '../src/features/symbol-reviews/symbol-review-virtual-previews.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('provides confirmable game, symbol, state, confidence and unknown filters', () => {
   assert.match(source, /Weryfikacja symboli/);
@@ -33,13 +40,12 @@ test('provides confirmable game, symbol, state, confidence and unknown filters',
   assert.match(source, /mark_unreadable/);
 });
 
-test('uses checksum-bound legacy assets and bounded virtual atlas previews', () => {
-  assert.match(source, /symbolCellReviewAssetUrl/);
-  assert.match(source, /item\.cropChecksumSha256/);
-  assert.match(source, /loading="lazy"/);
-  assert.match(source, /onError=\{\(\) => setImageFailed\(true\)\}/);
-  assert.match(source, /Brak aktualnego cropa/);
-  assert.match(source, /loadSymbolReviewVirtualPreviews/);
+test('uses checksum-bound stable atlases for legacy and virtual previews', () => {
+  assert.match(previewSource, /item\.cropChecksumSha256/);
+  assert.match(previewSource, /createSymbolCellPreviewBatch/);
+  assert.doesNotMatch(source, /symbolCellReviewAssetUrl/);
+  assert.doesNotMatch(source, /<img/);
+  assert.match(source, /loadSymbolReviewPreviewAtlases/);
   assert.match(source, /SymbolReviewVirtualGrid/);
   assert.match(source, /virtualPreviewTiles/);
 });

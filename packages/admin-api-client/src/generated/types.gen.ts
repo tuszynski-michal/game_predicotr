@@ -8799,6 +8799,42 @@ export type StructuredGeometryCandidateJobSnapshotPayload = {
 };
 
 /**
+ * SymbolCellPreviewBatchRequest
+ */
+export type SymbolCellPreviewBatchRequest = {
+  /**
+   * Cells
+   */
+  cells: Array<SymbolCellPreviewTargetRequest>;
+  /**
+   * Previewsize
+   */
+  previewSize?: number;
+};
+
+/**
+ * SymbolCellPreviewTargetRequest
+ */
+export type SymbolCellPreviewTargetRequest = {
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Expectedcropchecksumsha256
+   */
+  expectedCropChecksumSha256: string;
+  /**
+   * Expectedrenderspecchecksumsha256
+   */
+  expectedRenderSpecChecksumSha256?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
  * SymbolCellReviewAction
  */
 export type SymbolCellReviewAction =
@@ -12244,6 +12280,91 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type CreateSymbolCellPreviewBatchData = {
+  body: SymbolCellPreviewBatchRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches';
+};
+
+export type CreateSymbolCellPreviewBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSymbolCellPreviewBatchError =
+  CreateSymbolCellPreviewBatchErrors[keyof CreateSymbolCellPreviewBatchErrors];
+
+export type CreateSymbolCellPreviewBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: VirtualCellPreviewBatchResponse;
+};
+
+export type CreateSymbolCellPreviewBatchResponse =
+  CreateSymbolCellPreviewBatchResponses[keyof CreateSymbolCellPreviewBatchResponses];
+
+export type GetSymbolCellPreviewAtlasData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Key
+     */
+    batch_key: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas';
+};
+
+export type GetSymbolCellPreviewAtlasErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellPreviewAtlasError =
+  GetSymbolCellPreviewAtlasErrors[keyof GetSymbolCellPreviewAtlasErrors];
+
+export type GetSymbolCellPreviewAtlasResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GetSymbolCellReviewCountsData = {
   body?: never;

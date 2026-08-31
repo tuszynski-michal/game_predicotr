@@ -69,9 +69,7 @@ class SymbolCellReviewListItemResponse(ApiModel):
     board_status: str
     prediction_confidence: float | None = Field(default=None, ge=0, le=1)
     asset_mode: Literal["legacy_file", "virtual_source"] = "legacy_file"
-    render_spec_checksum_sha256: str | None = Field(
-        default=None, pattern=r"^[a-f0-9]{64}$"
-    )
+    render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class SymbolCellReviewPageResponse(ApiModel):
@@ -112,6 +110,24 @@ class VirtualCellPreviewBatchResponse(ApiModel):
     atlas_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     tiles: tuple[VirtualCellPreviewTileResponse, ...]
     expires_at: datetime
+
+
+class SymbolCellPreviewTargetRequest(ApiModel):
+    cell_review_id: UUID
+    expected_revision: int = Field(ge=0)
+    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_render_spec_checksum_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+
+
+class SymbolCellPreviewBatchRequest(ApiModel):
+    preview_size: int = Field(default=100, ge=32, le=256)
+    cells: tuple[SymbolCellPreviewTargetRequest, ...] = Field(
+        min_length=1,
+        max_length=100,
+    )
 
 
 class SymbolCellReviewProjectionStatusResponse(ApiModel):
@@ -582,6 +598,8 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
 
 
 __all__ = [
+    "SymbolCellPreviewBatchRequest",
+    "SymbolCellPreviewTargetRequest",
     "SymbolCellReviewBulkExplicitSelectionRequest",
     "SymbolCellReviewBulkExplicitTargetRequest",
     "SymbolCellReviewBulkFilterSelectionRequest",

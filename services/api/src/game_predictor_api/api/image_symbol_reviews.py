@@ -29,6 +29,7 @@ from game_predictor_api.application.unreadable_board_reviews import (
     UnreadableBoardReviewView,
 )
 from game_predictor_api.application.virtual_cell_previews import (
+    SymbolCellPreviewTarget,
     VirtualCellPreviewService,
     VirtualCellPreviewTarget,
 )
@@ -40,6 +41,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
     ResolveUnreadableCellRequest,
+    SymbolCellPreviewBatchRequest,
     SymbolCellReviewBulkOperationRequest,
     SymbolCellReviewBulkOperationResponse,
     SymbolCellReviewBulkOperationStartRequest,
@@ -476,6 +478,67 @@ def create_image_symbol_reviews_router(
             expires_at=batch.expires_at,
         )
 
+    @router.post(
+        "/{game_id}/symbol-cell-preview-batches",
+        response_model=VirtualCellPreviewBatchResponse,
+        operation_id="createSymbolCellPreviewBatch",
+        summary="Render a stable WebP atlas for current legacy or virtual symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def create_symbol_cell_preview_batch(
+        game_id: UUID,
+        request: SymbolCellPreviewBatchRequest,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> VirtualCellPreviewBatchResponse:
+        targets = tuple(
+            SymbolCellPreviewTarget(
+                cell_review_id=cell.cell_review_id,
+                expected_revision=cell.expected_revision,
+                expected_crop_checksum_sha256=cell.expected_crop_checksum_sha256,
+                expected_render_spec_checksum_sha256=(cell.expected_render_spec_checksum_sha256),
+            )
+            for cell in request.cells
+        )
+        assets = service.preview_assets(game_id=game_id, targets=targets)
+        batch = preview_service.render_batch(
+            game_id=game_id,
+            assets=assets,
+            preview_size=request.preview_size,
+        )
+        return VirtualCellPreviewBatchResponse(
+            batch_key=batch.batch_key,
+            atlas_url=(
+                f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch.batch_key}/atlas"
+            ),
+            atlas_checksum_sha256=batch.atlas_checksum_sha256,
+            tiles=tuple(
+                VirtualCellPreviewTileResponse(
+                    cell_review_id=tile.cell_review_id,
+                    x=tile.x,
+                    y=tile.y,
+                    width=tile.width,
+                    height=tile.height,
+                )
+                for tile in batch.tiles
+            ),
+            expires_at=batch.expires_at,
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-preview-batches/{batch_key}/atlas",
+        operation_id="getSymbolCellPreviewAtlas",
+        summary="Read one stable checksum-verified symbol preview atlas",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_preview_atlas(
+        game_id: UUID,
+        batch_key: str,
+        preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
+    ) -> Response:
+        cached = preview_service.read_atlas(game_id=game_id, batch_key=batch_key)
+        return stable_symbol_cell_review_atlas_response(cached.content)
+
     @router.get(
         "/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas",
         operation_id="getVirtualCellPreviewAtlas",
@@ -580,6 +643,19 @@ def virtual_symbol_cell_review_thumbnail_response(content: bytes) -> Response:
         media_type="image/webp",
         headers={
             "Cache-Control": "private, max-age=900, must-revalidate",
+            "Content-Length": str(len(content)),
+        },
+    )
+
+
+def stable_symbol_cell_review_atlas_response(content: bytes) -> Response:
+    """Return a content-addressed atlas reusable across page visits."""
+
+    return Response(
+        content=content,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, immutable, max-age=31536000",
             "Content-Length": str(len(content)),
         },
     )

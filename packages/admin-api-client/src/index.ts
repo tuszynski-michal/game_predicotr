@@ -30,6 +30,7 @@ import {
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
+  createSymbolCellPreviewBatch as createGeneratedSymbolCellPreviewBatch,
   createVirtualCellPreviewBatch as createGeneratedVirtualCellPreviewBatch,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
   createJob as createGeneratedJob,
@@ -294,6 +295,7 @@ import type {
   SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  SymbolCellPreviewBatchRequest,
   SemiAutomaticSelectionOutputAcknowledgement,
   SemiAutomaticSelectionCreate,
   SemiAutomaticSelectionRangeResponse,
@@ -513,6 +515,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellPreviewBatchRequest,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
@@ -1872,6 +1875,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         headers: confirmedTargetHeaders(`virtual-cell-preview:${gameId}`),
         path: { game_id: gameId },
       }),
+    createSymbolCellPreviewBatch: (
+      gameId: string,
+      body: SymbolCellPreviewBatchRequest,
+    ) =>
+      createGeneratedSymbolCellPreviewBatch({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-cell-preview:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    symbolCellPreviewAtlasUrl: (gameId: string, batchKey: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
     virtualCellPreviewAtlasUrl: (gameId: string, batchKey: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/virtual-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
     symbolCellReviewAssetUrl: (

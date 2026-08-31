@@ -5,6 +5,8 @@ import {
   MAX_SYMBOL_REVIEW_ATLAS_CELLS,
   boundedVirtualPreviewItems,
   shouldApplyVirtualPreviewResult,
+  symbolReviewPreviewChunkOrder,
+  symbolReviewPreviewChunks,
   symbolReviewVirtualWindow,
 } from '../src/features/symbol-reviews/symbol-review-virtual-window.ts';
 
@@ -23,6 +25,22 @@ test('limits one virtual preview atlas to 100 visible cells', () => {
   }));
   assert.equal(MAX_SYMBOL_REVIEW_ATLAS_CELLS, 100);
   assert.equal(boundedVirtualPreviewItems(items).length, 100);
+});
+
+test('splits a page into stable groups of one hundred and prioritizes the visible group', () => {
+  const items = Array.from({ length: 500 }, (_, index) => ({
+    id: `cell-${index}`,
+  }));
+  const chunks = symbolReviewPreviewChunks(items);
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.length),
+    [100, 100, 100, 100, 100],
+  );
+  assert.deepEqual(
+    symbolReviewPreviewChunkOrder(chunks, 'cell-245'),
+    [2, 3, 4, 0, 1],
+  );
 });
 
 test('ignores a late preview response after viewport or filter cancellation', () => {

@@ -130,6 +130,9 @@ GET /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/asset
 POST /api/v1/admin/games/{gameId}/virtual-cell-preview-batches
 GET  /api/v1/admin/games/{gameId}/virtual-cell-preview-batches/{batchKey}/atlas
 
+POST /api/v1/admin/games/{gameId}/symbol-cell-preview-batches
+GET  /api/v1/admin/games/{gameId}/symbol-cell-preview-batches/{batchKey}/atlas
+
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
 
 GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
@@ -171,6 +174,15 @@ jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
 ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
 się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
 czyta swój istniejący PNG/JPEG.
+
+`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla obu
+trybów `legacy_file` i `virtual_source`. Każdy target wiąże rewizję i checksumę
+cropa, a źródło wirtualne dodatkowo checksumę render specu. Deterministyczny
+batch zawiera najwyżej 100 komórek i ma stabilny klucz niezależny od chwilowego
+viewportu. Cache pochodny ma TTL 24 godziny i limit 2 GiB; pełne pruning nie
+jest wykonywane po każdym renderze, tylko po przekroczeniu limitu. Atlas jest
+serwowany jako prywatny zasób `immutable`, bo zmiana któregokolwiek składnika
+proweniencji tworzy nowy URL.
 
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez

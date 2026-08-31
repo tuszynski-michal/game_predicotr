@@ -393,8 +393,8 @@ zablokowane; `Zmień wybór` czyści strony, wirtualny viewport i zaznaczenie, a
 następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
 w pamięci najwyżej trzy najbliższe strony metadanych. Nie utrzymuje obrazów dla
-całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Dla
-Admin dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
+całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Admin
+dzieli potwierdzoną stronę deterministycznie na atlasy po maksymalnie 100
 kart, wspólne dla `legacy_file` i `virtual_source`. Dla 500 cropów powstaje
 najwyżej pięć requestów obrazu: najpierw grupa zawierająca widoczny viewport,
 potem pozostałe grupy w kolejności. Klucz atlasu obejmuje rewizje, checksumy,

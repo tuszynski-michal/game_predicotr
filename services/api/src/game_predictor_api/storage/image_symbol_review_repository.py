@@ -512,6 +512,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             statement = statement.where(confidence <= review_filter.max_confidence)
         return statement
 
+
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):
     """Apply checksum-bound crop decisions and reconcile one parent board once."""
 

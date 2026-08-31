@@ -778,6 +778,12 @@ więc atlasy A/B nie kolidują. Brak proweniencji jest metadanym stanem
 `unavailable`, a nie zgodą na użycie innego obrazu. Warstwa A/B jest read-only i
 nie ma portu do mutacji komórek, tworzenia cropów ani jobów.
 
+TASK-0363 potwierdza bounded zachowanie na rzeczywistej projekcji. Jedna strona
+500 rekordów wykonuje najwyżej pięć atlasowych odczytów, a frontend utrzymuje
+najwyżej trzy strony metadanych i wirtualne okno kart. Powtarzalny pomiar jest
+read-only dla domeny i nie tworzy syntetycznych rekordów; pełny wynik znajduje
+się w `quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md`.
+
 Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
 kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
 fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z

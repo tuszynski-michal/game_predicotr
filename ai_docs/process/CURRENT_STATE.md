@@ -53,6 +53,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   fallbacku do cropa legacy.
 - API zwraca wersję i fingerprint renderera oraz dostępność per komórka. Tryb i
   wersja należą do klucza atlasu, dlatego oba warianty cache nie kolidują.
+
+### Odbiór szybkiej Weryfikacji symboli — TASK-0363
+
+- Na rzeczywistej stronie 500 oczekujących cropów metadane osiągnęły p95
+  `1,110 s`, pierwszy atlas `0,488 s`, a komplet pięciu atlasów `2,209 s`.
+- Powrót na stronę wykorzystał te same pięć content-addressed kluczy i zajął
+  `0,085 s`; łączny rozmiar atlasów wyniósł `291 298 B`.
+- Admin pozostaje ograniczony do trzech stron metadanych i wirtualnego okna
+  kart. Liczniki są poza ścieżką krytyczną, a v0.10 pozostaje read-only.
+- Szczegóły odbioru są w
+  `ai_docs/quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md`.
+
 ### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji

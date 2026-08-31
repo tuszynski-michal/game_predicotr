@@ -169,7 +169,7 @@ do katalogu danych PostgreSQL.
 komórek `virtual_source`, każdą z oczekiwaną rewizją i checksumą render specu.
 Zwraca checksumowany atlas WebP, deterministyczne współrzędne tile'ów i czas
 wygaśnięcia. Atlas jest cache'em pochodnym pod `data/working/`, nie nowym
-artefaktem domenowym: TTL wynosi 15 minut, limit wynosi 2 GiB LRU, a render
+artefaktem domenowym: TTL wynosi 24 godziny, limit wynosi 2 GiB, a render
 jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
 ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
 się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
@@ -192,13 +192,12 @@ niedostępny, `batchKey`, `atlasUrl`, check­suma i czas wygaśnięcia są `null
 lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie uruchamia
 joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
 
-
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` filtruje legacy
 `assigned_symbol_id = NULL`; znak `?` jest wyłącznie jego prezentacją w UI, a
 nie identyfikatorem symbolu ani wartością przyszłego outcome v2. Admin zawsze
-używa strony 500, a kontrakt backendowy ogranicza każde żądanie do `1..500`. `minConfidence` i
-`maxConfidence` są domkniętym przedziałem `0..1`; brak wartości nie ogranicza
+używa strony 500, a kontrakt backendowy ogranicza każde żądanie do `1..500`.
+`minConfidence` i `maxConfidence` są domkniętym przedziałem `0..1`; brak wartości nie ogranicza
 listy. Lista używa keysetu `(sequence_number, cell_index, review_item_id)`;
 cursor wiąże grę, wybrany symbol, stan, oba krańce confidence, kierunek oraz
 ostatni klucz i nie może być użyty w innym scope.
@@ -206,10 +205,10 @@ ostatni klucz i nie może być użyty w innym scope.
 Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
 właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
 rewizję komórki i geometrii, aktualną pewność predykcji, tryb assetu oraz — dla
-`virtual_source` — checksumę render specu. Zwraca też liczniki po filtrowaniu,
-monotoniczną `catalogRevision` i kursory poprzedniej/następnej strony. Liczniki
-są pobierane osobnym endpointem dla zgodnej rewizji katalogu i nie należą do
-odpowiedzi strony.
+`virtual_source` — checksumę render specu. Zwraca monotoniczną
+`catalogRevision` i kursory poprzedniej/następnej strony. Liczniki są pobierane
+osobnym endpointem dla zgodnej rewizji katalogu i nie należą do odpowiedzi
+strony.
 `cropSampleId` wraz z checksumą jest obowiązkową tożsamością jawnego targetu
 masowej operacji.
 Łączenie z

@@ -8810,6 +8810,56 @@ export type SymbolCellPreviewBatchRequest = {
    * Previewsize
    */
   previewSize?: number;
+  /**
+   * Renderermode
+   */
+  rendererMode?: 'current' | 'structured_v0_10';
+};
+
+/**
+ * SymbolCellPreviewBatchResponse
+ */
+export type SymbolCellPreviewBatchResponse = {
+  /**
+   * Atlaschecksumsha256
+   */
+  atlasChecksumSha256: string | null;
+  /**
+   * Atlasurl
+   */
+  atlasUrl: string | null;
+  /**
+   * Availablecount
+   */
+  availableCount: number;
+  /**
+   * Batchkey
+   */
+  batchKey: string | null;
+  /**
+   * Expiresat
+   */
+  expiresAt: string | null;
+  /**
+   * Rendererfingerprintsha256
+   */
+  rendererFingerprintSha256: string;
+  /**
+   * Renderermode
+   */
+  rendererMode: 'current' | 'structured_v0_10';
+  /**
+   * Rendererversion
+   */
+  rendererVersion: string;
+  /**
+   * Tiles
+   */
+  tiles: Array<VirtualCellPreviewTileResponse>;
+  /**
+   * Unavailablecellreviewids
+   */
+  unavailableCellReviewIds: Array<string>;
 };
 
 /**
@@ -12319,7 +12369,7 @@ export type CreateSymbolCellPreviewBatchResponses = {
   /**
    * Successful Response
    */
-  200: VirtualCellPreviewBatchResponse;
+  200: SymbolCellPreviewBatchResponse;
 };
 
 export type CreateSymbolCellPreviewBatchResponse =

@@ -14,12 +14,21 @@ export interface SymbolReviewVirtualPreviewTile {
   readonly tile: VirtualCellPreviewTileResponse;
 }
 
+export type SymbolReviewPreviewMode = 'current' | 'structured_v0_10';
+
+export interface SymbolReviewPreviewAvailability {
+  readonly unavailableCellReviewIds: ReadonlySet<string>;
+  readonly rendererVersion: string | null;
+  readonly rendererFingerprintSha256: string | null;
+}
+
 export type SymbolReviewVirtualPreviewResult =
   | {
       readonly ok: true;
       readonly tilesByCellReviewId: Readonly<
         Record<string, SymbolReviewVirtualPreviewTile>
       >;
+      readonly availability: SymbolReviewPreviewAvailability;
     }
   | { readonly ok: false };
 
@@ -29,16 +38,29 @@ export async function loadSymbolReviewPreviewAtlases(
   gameId: string,
   pageItems: readonly SymbolCellReviewListItemResponse[],
   firstVisibleCellId: string | null,
+  previewMode: SymbolReviewPreviewMode,
   onAtlas: (
     tiles: Readonly<Record<string, SymbolReviewVirtualPreviewTile>>,
+    availability: SymbolReviewPreviewAvailability,
   ) => void,
 ): Promise<SymbolReviewVirtualPreviewResult> {
   const chunks = symbolReviewPreviewChunks(pageItems);
   if (chunks.length === 0) {
-    return { ok: true, tilesByCellReviewId: {} };
+    return {
+      ok: true,
+      tilesByCellReviewId: {},
+      availability: {
+        rendererFingerprintSha256: null,
+        rendererVersion: null,
+        unavailableCellReviewIds: new Set(),
+      },
+    };
   }
   const tilesByCellReviewId: Record<string, SymbolReviewVirtualPreviewTile> =
     {};
+  const unavailableCellReviewIds = new Set<string>();
+  let rendererVersion: string | null = null;
+  let rendererFingerprintSha256: string | null = null;
   try {
     for (const chunkIndex of symbolReviewPreviewChunkOrder(
       chunks,
@@ -57,22 +79,42 @@ export async function loadSymbolReviewPreviewAtlases(
               }),
         })),
         previewSize: 100,
+        rendererMode: previewMode,
       });
       if (result.data === undefined || result.error !== undefined) {
         return { ok: false };
       }
-      const atlasUrl = api.symbolCellPreviewAtlasUrl(
-        gameId,
-        result.data.batchKey,
-      );
-      for (const tile of result.data.tiles) {
-        tilesByCellReviewId[tile.cellReviewId] = { atlasUrl, tile };
+      rendererVersion = result.data.rendererVersion;
+      rendererFingerprintSha256 = result.data.rendererFingerprintSha256;
+      for (const cellReviewId of result.data.unavailableCellReviewIds) {
+        unavailableCellReviewIds.add(cellReviewId);
       }
-      onAtlas({ ...tilesByCellReviewId });
+      if (typeof result.data.batchKey === 'string') {
+        const atlasUrl = api.symbolCellPreviewAtlasUrl(
+          gameId,
+          result.data.batchKey,
+        );
+        for (const tile of result.data.tiles) {
+          tilesByCellReviewId[tile.cellReviewId] = { atlasUrl, tile };
+        }
+      }
+      onAtlas(
+        { ...tilesByCellReviewId },
+        {
+          rendererFingerprintSha256,
+          rendererVersion,
+          unavailableCellReviewIds: new Set(unavailableCellReviewIds),
+        },
+      );
     }
     return {
       ok: true,
       tilesByCellReviewId,
+      availability: {
+        rendererFingerprintSha256,
+        rendererVersion,
+        unavailableCellReviewIds,
+      },
     };
   } catch {
     return { ok: false };

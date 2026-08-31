@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 import numpy as np
@@ -36,6 +37,9 @@ from game_predictor_api.domain.image_symbol_reviews import (
 
 VIRTUAL_CELL_PREVIEW_CACHE_VERSION = "virtual-cell-preview-cache-v1"
 VIRTUAL_CELL_PREVIEW_EXTRACTION_MODE = "direct_perspective_cell_v1"
+CURRENT_SYMBOL_CELL_PREVIEW_RENDERER_VERSION = "symbol-review-current-crop-renderer-v1"
+STRUCTURED_V0_10_PREVIEW_RENDERER_VERSION = "symbol-review-structured-v0.10-renderer-v1"
+SymbolCellPreviewRendererMode = Literal["current", "structured_v0_10"]
 MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE = 100
 DEFAULT_VIRTUAL_CELL_PREVIEW_SIZE = 100
 MAX_VIRTUAL_CELL_PREVIEW_SIZE = 256
@@ -112,6 +116,9 @@ class VirtualCellPreviewBatch:
     atlas_checksum_sha256: str
     tiles: tuple[VirtualCellPreviewTile, ...]
     expires_at: datetime
+    renderer_mode: SymbolCellPreviewRendererMode
+    renderer_version: str
+    renderer_fingerprint_sha256: str
 
     def __post_init__(self) -> None:
         _require_sha256(
@@ -126,6 +133,11 @@ class VirtualCellPreviewBatch:
         )
         if self.expires_at.tzinfo is None:
             raise ValueError("expires_at must be timezone-aware")
+        _require_sha256(
+            self.renderer_fingerprint_sha256,
+            code="SYMBOL_CELL_REVIEW_PREVIEW_RENDERER_INVALID",
+            message="A symbol preview renderer fingerprint is invalid.",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +183,7 @@ class VirtualCellPreviewService:
         game_id: UUID,
         assets: Sequence[SymbolCellReviewAsset],
         preview_size: int = DEFAULT_VIRTUAL_CELL_PREVIEW_SIZE,
+        renderer_mode: SymbolCellPreviewRendererMode = "current",
     ) -> VirtualCellPreviewBatch:
         """Return one checksum-bound atlas after validating current virtual provenance."""
 
@@ -190,7 +203,22 @@ class VirtualCellPreviewService:
                 "SYMBOL_CELL_REVIEW_PREVIEW_DUPLICATE_CELL",
                 "A virtual preview batch cannot contain the same cell more than once.",
             )
-        key = _batch_key(game_id=game_id, assets=assets, preview_size=preview_size)
+        renderer_version = symbol_cell_preview_renderer_version(renderer_mode)
+        renderer_fingerprint = symbol_cell_preview_renderer_fingerprint(renderer_mode)
+        if renderer_mode == "structured_v0_10" and any(
+            asset.asset_mode != "virtual_source" for asset in assets
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_PROVENANCE_UNAVAILABLE",
+                "The experimental v0.10 preview requires structured source provenance.",
+            )
+        key = _batch_key(
+            game_id=game_id,
+            assets=assets,
+            preview_size=preview_size,
+            renderer_mode=renderer_mode,
+            renderer_version=renderer_version,
+        )
         cached = self._read_cached(key=key, game_id=game_id, now=self._clock())
         if cached is not None:
             return cached.batch
@@ -219,6 +247,9 @@ class VirtualCellPreviewService:
                 assets=assets,
                 preview_size=preview_size,
                 now=self._clock(),
+                renderer_mode=renderer_mode,
+                renderer_version=renderer_version,
+                renderer_fingerprint_sha256=renderer_fingerprint,
             )
             self._write_cached(rendered)
             if self._cache_bytes > self._max_cache_bytes:
@@ -255,6 +286,9 @@ class VirtualCellPreviewService:
         assets: Sequence[SymbolCellReviewAsset],
         preview_size: int,
         now: datetime,
+        renderer_mode: SymbolCellPreviewRendererMode,
+        renderer_version: str,
+        renderer_fingerprint_sha256: str,
     ) -> _CachedAtlas:
         loader = CanonicalSourceLoader()
         frames: dict[str, object] = {}
@@ -314,6 +348,9 @@ class VirtualCellPreviewService:
                 atlas_checksum_sha256=hashlib.sha256(content).hexdigest(),
                 tiles=tuple(descriptors),
                 expires_at=expires_at,
+                renderer_mode=renderer_mode,
+                renderer_version=renderer_version,
+                renderer_fingerprint_sha256=renderer_fingerprint_sha256,
             ),
             content=content,
         )
@@ -437,6 +474,9 @@ class VirtualCellPreviewService:
             "batchKey": cached.batch.batch_key,
             "expiresAt": cached.batch.expires_at.isoformat(),
             "gameId": str(cached.batch.game_id),
+            "rendererFingerprintSha256": cached.batch.renderer_fingerprint_sha256,
+            "rendererMode": cached.batch.renderer_mode,
+            "rendererVersion": cached.batch.renderer_version,
             "tiles": [
                 {
                     "cellReviewId": str(tile.cell_review_id),
@@ -635,12 +675,21 @@ def _require_virtual_asset_contract(
         )
 
 
-def _batch_key(*, game_id: UUID, assets: Sequence[SymbolCellReviewAsset], preview_size: int) -> str:
+def _batch_key(
+    *,
+    game_id: UUID,
+    assets: Sequence[SymbolCellReviewAsset],
+    preview_size: int,
+    renderer_mode: SymbolCellPreviewRendererMode,
+    renderer_version: str,
+) -> str:
     payload = {
         "cacheVersion": VIRTUAL_CELL_PREVIEW_CACHE_VERSION,
         "extractionMode": VIRTUAL_CELL_PREVIEW_EXTRACTION_MODE,
         "gameId": str(game_id),
         "previewSize": preview_size,
+        "rendererMode": renderer_mode,
+        "rendererVersion": renderer_version,
         "cells": [
             {
                 "cellReviewId": str(asset.cell_review_id),
@@ -698,6 +747,12 @@ def _cached_atlas_from_descriptor(
                 for tile in tiles_value
             ),
             expires_at=expires_at,
+            renderer_mode=_renderer_mode(values.get("rendererMode")),
+            renderer_version=_text(values.get("rendererVersion"), "rendererVersion"),
+            renderer_fingerprint_sha256=_text(
+                values.get("rendererFingerprintSha256"),
+                "rendererFingerprintSha256",
+            ),
         ),
         content=content,
     )
@@ -709,6 +764,36 @@ def _descriptor_game_id(descriptor_path: Path) -> UUID:
         return UUID(_text(_mapping(value, "descriptor").get("gameId"), "gameId"))
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         raise ValueError("cached virtual preview descriptor is invalid") from error
+
+
+def symbol_cell_preview_renderer_version(mode: SymbolCellPreviewRendererMode) -> str:
+    if mode == "current":
+        return CURRENT_SYMBOL_CELL_PREVIEW_RENDERER_VERSION
+    if mode == "structured_v0_10":
+        return STRUCTURED_V0_10_PREVIEW_RENDERER_VERSION
+    raise SymbolCellReviewError(
+        "SYMBOL_CELL_REVIEW_PREVIEW_RENDERER_INVALID",
+        "The requested symbol preview renderer is unsupported.",
+    )
+
+
+def symbol_cell_preview_renderer_fingerprint(mode: SymbolCellPreviewRendererMode) -> str:
+    payload = {
+        "cacheVersion": VIRTUAL_CELL_PREVIEW_CACHE_VERSION,
+        "extractionMode": VIRTUAL_CELL_PREVIEW_EXTRACTION_MODE,
+        "renderSpecVersion": VIRTUAL_CELL_RENDER_SPEC_VERSION,
+        "rendererMode": mode,
+        "rendererVersion": symbol_cell_preview_renderer_version(mode),
+    }
+    return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+
+
+def _renderer_mode(value: object) -> SymbolCellPreviewRendererMode:
+    if value == "current":
+        return "current"
+    if value == "structured_v0_10":
+        return "structured_v0_10"
+    raise ValueError("rendererMode is invalid")
 
 
 def _atomic_write(path: Path, content: bytes) -> None:
@@ -802,6 +887,9 @@ __all__ = [
     "DEFAULT_VIRTUAL_CELL_PREVIEW_TTL",
     "MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE",
     "SymbolCellPreviewTarget",
+    "SymbolCellPreviewRendererMode",
+    "symbol_cell_preview_renderer_fingerprint",
+    "symbol_cell_preview_renderer_version",
     "VirtualCellPreviewBatch",
     "VirtualCellPreviewService",
     "VirtualCellPreviewTarget",

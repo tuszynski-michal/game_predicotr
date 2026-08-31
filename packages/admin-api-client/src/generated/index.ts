@@ -1668,6 +1668,7 @@ export type {
   StoragePipelineCompactionJobPayload,
   StructuredGeometryCandidateJobSnapshotPayload,
   SymbolCellPreviewBatchRequest,
+  SymbolCellPreviewBatchResponse,
   SymbolCellPreviewTargetRequest,
   SymbolCellReviewAction,
   SymbolCellReviewBackfillJobPayload,

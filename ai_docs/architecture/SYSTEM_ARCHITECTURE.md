@@ -770,6 +770,14 @@ ale każdy tryb zachowuje własną kontrolę źródła i checksummy. Cache atlas
 uruchamiany dopiero po przekroczeniu limitu; nie skanuje katalogu po każdym
 trafieniu lub renderze.
 
+TASK-0362 dodaje dwa jawne kontrakty renderera nad tą samą logiczną projekcją
+komórek. `current` odtwarza bieżący asset (`legacy_file` albo `virtual_source`),
+natomiast `structured_v0_10` przyjmuje wyłącznie kompletną proweniencję
+source-direct. Tryb, wersja renderera i jego fingerprint należą do klucza cache,
+więc atlasy A/B nie kolidują. Brak proweniencji jest metadanym stanem
+`unavailable`, a nie zgodą na użycie innego obrazu. Warstwa A/B jest read-only i
+nie ma portu do mutacji komórek, tworzenia cropów ani jobów.
+
 Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
 kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
 fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z

@@ -32,6 +32,8 @@ from game_predictor_api.application.virtual_cell_previews import (
     SymbolCellPreviewTarget,
     VirtualCellPreviewService,
     VirtualCellPreviewTarget,
+    symbol_cell_preview_renderer_fingerprint,
+    symbol_cell_preview_renderer_version,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
@@ -42,6 +44,7 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
     ResolveUnreadableCellRequest,
     SymbolCellPreviewBatchRequest,
+    SymbolCellPreviewBatchResponse,
     SymbolCellReviewBulkOperationRequest,
     SymbolCellReviewBulkOperationResponse,
     SymbolCellReviewBulkOperationStartRequest,
@@ -480,7 +483,7 @@ def create_image_symbol_reviews_router(
 
     @router.post(
         "/{game_id}/symbol-cell-preview-batches",
-        response_model=VirtualCellPreviewBatchResponse,
+        response_model=SymbolCellPreviewBatchResponse,
         operation_id="createSymbolCellPreviewBatch",
         summary="Render a stable WebP atlas for current legacy or virtual symbol cells",
         responses=ERROR_RESPONSES,
@@ -490,7 +493,7 @@ def create_image_symbol_reviews_router(
         request: SymbolCellPreviewBatchRequest,
         service: Annotated[SymbolCellReviewQueryService, service_parameter],
         preview_service: Annotated[VirtualCellPreviewService, virtual_preview_service_parameter],
-    ) -> VirtualCellPreviewBatchResponse:
+    ) -> SymbolCellPreviewBatchResponse:
         targets = tuple(
             SymbolCellPreviewTarget(
                 cell_review_id=cell.cell_review_id,
@@ -501,12 +504,37 @@ def create_image_symbol_reviews_router(
             for cell in request.cells
         )
         assets = service.preview_assets(game_id=game_id, targets=targets)
+        renderer_version = symbol_cell_preview_renderer_version(request.renderer_mode)
+        renderer_fingerprint = symbol_cell_preview_renderer_fingerprint(request.renderer_mode)
+        unavailable = tuple(
+            asset.cell_review_id
+            for asset in assets
+            if request.renderer_mode == "structured_v0_10" and asset.asset_mode != "virtual_source"
+        )
+        unavailable_ids = set(unavailable)
+        renderable_assets = tuple(
+            asset for asset in assets if asset.cell_review_id not in unavailable_ids
+        )
+        if not renderable_assets:
+            return SymbolCellPreviewBatchResponse(
+                batch_key=None,
+                atlas_url=None,
+                atlas_checksum_sha256=None,
+                tiles=(),
+                expires_at=None,
+                renderer_mode=request.renderer_mode,
+                renderer_version=renderer_version,
+                renderer_fingerprint_sha256=renderer_fingerprint,
+                available_count=0,
+                unavailable_cell_review_ids=unavailable,
+            )
         batch = preview_service.render_batch(
             game_id=game_id,
-            assets=assets,
+            assets=renderable_assets,
             preview_size=request.preview_size,
+            renderer_mode=request.renderer_mode,
         )
-        return VirtualCellPreviewBatchResponse(
+        return SymbolCellPreviewBatchResponse(
             batch_key=batch.batch_key,
             atlas_url=(
                 f"/api/v1/admin/games/{game_id}/symbol-cell-preview-batches/{batch.batch_key}/atlas"
@@ -523,6 +551,11 @@ def create_image_symbol_reviews_router(
                 for tile in batch.tiles
             ),
             expires_at=batch.expires_at,
+            renderer_mode=batch.renderer_mode,
+            renderer_version=batch.renderer_version,
+            renderer_fingerprint_sha256=batch.renderer_fingerprint_sha256,
+            available_count=len(batch.tiles),
+            unavailable_cell_review_ids=unavailable,
         )
 
     @router.get(

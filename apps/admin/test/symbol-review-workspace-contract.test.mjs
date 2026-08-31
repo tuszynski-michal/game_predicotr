@@ -62,10 +62,7 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(styles, /height: 100px/);
   assert.match(source, /Zaznacz stronę/);
   assert.match(source, /Zaznacz wyniki filtra/);
-  assert.match(
-    source,
-    /disabled=\{interactionBusy \|\| pendingCellIds\.has\(item\.id\)\}/,
-  );
+  assert.match(source, /previewReadOnly \|\|/);
   assert.match(source, />\s*Zła siatka\s*</);
   assert.match(source, /Nieczytelny symbol/);
   assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
@@ -133,4 +130,15 @@ test('renders metadata before independent revision-bound counts finish', () => {
   assert.match(source, /countsCatalogRevision/);
   assert.match(source, /liczniki niedostępne/);
   assert.doesNotMatch(source, /currentPage\.counts/);
+});
+
+test('keeps the experimental v0.10 preview read only and explicit', () => {
+  assert.match(source, /Aktualne cropy v20\/v19/);
+  assert.match(source, /Eksperymentalny silnik v0\.10/);
+  assert.match(source, /previewMode === 'structured_v0_10'/);
+  assert.match(source, /readOnly \|\| busy \|\| selectedCount === 0/);
+  assert.match(source, /if \(previewReadOnly\) return/);
+  assert.match(source, /Nie zapisuje\s+decyzji, cropów ani jobów/);
+  assert.match(source, /Brak proweniencji dla podglądu v0\.10/);
+  assert.match(previewSource, /rendererMode: previewMode/);
 });

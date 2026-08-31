@@ -124,10 +124,24 @@ class SymbolCellPreviewTargetRequest(ApiModel):
 
 class SymbolCellPreviewBatchRequest(ApiModel):
     preview_size: int = Field(default=100, ge=32, le=256)
+    renderer_mode: Literal["current", "structured_v0_10"] = "current"
     cells: tuple[SymbolCellPreviewTargetRequest, ...] = Field(
         min_length=1,
         max_length=100,
     )
+
+
+class SymbolCellPreviewBatchResponse(ApiModel):
+    batch_key: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    atlas_url: str | None
+    atlas_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    tiles: tuple[VirtualCellPreviewTileResponse, ...]
+    expires_at: datetime | None
+    renderer_mode: Literal["current", "structured_v0_10"]
+    renderer_version: str
+    renderer_fingerprint_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    available_count: int = Field(ge=0)
+    unavailable_cell_review_ids: tuple[UUID, ...]
 
 
 class SymbolCellReviewProjectionStatusResponse(ApiModel):
@@ -599,6 +613,7 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
 
 __all__ = [
     "SymbolCellPreviewBatchRequest",
+    "SymbolCellPreviewBatchResponse",
     "SymbolCellPreviewTargetRequest",
     "SymbolCellReviewBulkExplicitSelectionRequest",
     "SymbolCellReviewBulkExplicitTargetRequest",

@@ -154,6 +154,37 @@ def test_shared_preview_atlas_contains_legacy_and_virtual_cells(tmp_path: Path) 
         assert atlas.size == (200, 100)
 
 
+def test_structured_v0_10_renderer_has_an_independent_cache_identity(tmp_path: Path) -> None:
+    asset = _current_asset(tmp_path)
+    service = VirtualCellPreviewService(tmp_path)
+    game_id = uuid4()
+
+    current = service.render_batch(game_id=game_id, assets=(asset,))
+    experimental = service.render_batch(
+        game_id=game_id,
+        assets=(asset,),
+        renderer_mode="structured_v0_10",
+    )
+
+    assert current.batch_key != experimental.batch_key
+    assert current.renderer_mode == "current"
+    assert experimental.renderer_mode == "structured_v0_10"
+    assert current.renderer_fingerprint_sha256 != experimental.renderer_fingerprint_sha256
+
+
+def test_structured_v0_10_renderer_rejects_legacy_pixels(tmp_path: Path) -> None:
+    legacy = _legacy_asset(tmp_path)
+
+    with pytest.raises(SymbolCellReviewError) as unavailable:
+        VirtualCellPreviewService(tmp_path).render_batch(
+            game_id=uuid4(),
+            assets=(legacy,),
+            renderer_mode="structured_v0_10",
+        )
+
+    assert unavailable.value.code == "SYMBOL_CELL_REVIEW_PREVIEW_PROVENANCE_UNAVAILABLE"
+
+
 def test_preview_cache_prunes_only_after_crossing_the_size_limit(tmp_path: Path) -> None:
     asset = _legacy_asset(tmp_path)
 

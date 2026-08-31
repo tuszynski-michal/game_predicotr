@@ -20,7 +20,14 @@ test('loads at most five stable atlases for five hundred cells', async () => {
       requests.push(body);
       return {
         data: {
+          atlasChecksumSha256: 'a'.repeat(64),
+          atlasUrl: `/atlas/batch-${requests.length}`,
+          availableCount: body.cells.length,
           batchKey: `batch-${requests.length}`,
+          expiresAt: '2026-09-02T00:00:00Z',
+          rendererFingerprintSha256: 'b'.repeat(64),
+          rendererMode: body.rendererMode,
+          rendererVersion: 'renderer-v1',
           tiles: body.cells.map((cell, index) => ({
             cellReviewId: cell.cellReviewId,
             height: 100,
@@ -28,6 +35,7 @@ test('loads at most five stable atlases for five hundred cells', async () => {
             x: index * 100,
             y: 0,
           })),
+          unavailableCellReviewIds: [],
         },
       };
     },
@@ -39,6 +47,7 @@ test('loads at most five stable atlases for five hundred cells', async () => {
     'game-1',
     items(500),
     'cell-245',
+    'current',
     (tiles) => progress.push(Object.keys(tiles).length),
   );
 
@@ -50,6 +59,7 @@ test('loads at most five stable atlases for five hundred cells', async () => {
   );
   assert.deepEqual(progress, [100, 200, 300, 400, 500]);
   assert.equal(requests[0].cells[0].expectedCropChecksumSha256.length, 64);
+  assert.equal(requests[0].rendererMode, 'current');
 });
 
 test('stops the sequential queue after an atlas error', async () => {
@@ -62,8 +72,16 @@ test('stops the sequential queue after an atlas error', async () => {
           ? { error: { code: 'BROKEN_ATLAS' } }
           : {
               data: {
+                atlasChecksumSha256: 'a'.repeat(64),
+                atlasUrl: '/atlas/first',
+                availableCount: 0,
                 batchKey: 'first',
+                expiresAt: '2026-09-02T00:00:00Z',
+                rendererFingerprintSha256: 'b'.repeat(64),
+                rendererMode: 'current',
+                rendererVersion: 'renderer-v1',
                 tiles: [],
+                unavailableCellReviewIds: [],
               },
             };
       },
@@ -72,9 +90,48 @@ test('stops the sequential queue after an atlas error', async () => {
     'game-1',
     items(250),
     'cell-0',
+    'current',
     () => undefined,
   );
 
   assert.equal(result.ok, false);
   assert.equal(calls, 2);
+});
+
+test('reports unavailable structured v0.10 cells without a legacy fallback', async () => {
+  let atlasUrlCalls = 0;
+  const result = await loadSymbolReviewPreviewAtlases(
+    {
+      createSymbolCellPreviewBatch: async (_gameId, body) => ({
+        data: {
+          atlasChecksumSha256: null,
+          atlasUrl: null,
+          availableCount: 0,
+          batchKey: null,
+          expiresAt: null,
+          rendererFingerprintSha256: 'c'.repeat(64),
+          rendererMode: body.rendererMode,
+          rendererVersion: 'structured-v0.10-v1',
+          tiles: [],
+          unavailableCellReviewIds: body.cells.map((cell) => cell.cellReviewId),
+        },
+      }),
+      symbolCellPreviewAtlasUrl: () => {
+        atlasUrlCalls += 1;
+        return '/must-not-be-used';
+      },
+    },
+    'game-1',
+    items(2),
+    'cell-0',
+    'structured_v0_10',
+    () => undefined,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(atlasUrlCalls, 0);
+  assert.deepEqual(
+    [...result.availability.unavailableCellReviewIds],
+    ['cell-0', 'cell-1'],
+  );
 });

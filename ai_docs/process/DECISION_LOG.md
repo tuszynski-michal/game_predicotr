@@ -6766,3 +6766,18 @@ odrzucony dla tego workflowu, ponieważ na rzeczywistym korpusie przesuwał
 pozycje o jeden rząd. Historyczny v1 pozostaje niezmienny, a worker wybiera
 wersję wyłącznie z fingerprintu utrwalonego runu. Geometria plansz, cropper,
 symbole i expected range nie uczestniczą w rozpoznaniu.
+
+## D-286 — Podgląd strukturalny v0.10 jest read-only i nie ma fallbacku
+
+- Status: accepted
+- Date: 2026-09-01
+
+Weryfikacja symboli może renderować tę samą logiczną komórkę przez bieżący
+asset albo eksperymentalny renderer strukturalny v0.10. Tryb eksperymentalny
+nie ma portu do decyzji, zmiany jakości, tworzenia cropów ani uruchamiania joba;
+jego wybór nie zmienia również polityki silnika przypiętej do gry lub importu.
+
+Brak kompletnej proweniencji `virtual_source` jest jawną niedostępnością. Nie
+wolno zastąpić obrazu eksperymentalnego cropem legacy. Tryb, wersja i fingerprint
+renderera należą do content-addressed klucza atlasu, dzięki czemu cache A/B nie
+koliduje, a zmiana proweniencji tworzy nową tożsamość podglądu.

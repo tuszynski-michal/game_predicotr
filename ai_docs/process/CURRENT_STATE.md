@@ -42,6 +42,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   w ten sam atlas, a zmiana rewizji wymusza nowy.
 - Cache ma TTL 24 godziny i nie wykonuje pełnego skanu po każdym renderze;
   bounded pruning uruchamia się dopiero po przekroczeniu limitu 2 GiB.
+
+### Podgląd A/B cropów — TASK-0362
+
+- Weryfikacja symboli ma jawny wybór bieżących cropów v20/v19 albo
+  eksperymentalnego renderera strukturalnego v0.10. Przełączenie nie zmienia
+  projekcji ani danych gry.
+- Tryb v0.10 jest tylko do odczytu i blokuje zaznaczenia oraz wszystkie mutacje.
+  Komórki bez kompletnej proweniencji source-direct pokazują `Brak v0.10`, bez
+  fallbacku do cropa legacy.
+- API zwraca wersję i fingerprint renderera oraz dostępność per komórka. Tryb i
+  wersja należą do klucza atlasu, dlatego oba warianty cache nie kolidują.
 ### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji

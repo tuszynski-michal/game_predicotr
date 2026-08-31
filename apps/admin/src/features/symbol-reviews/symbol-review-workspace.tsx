@@ -67,6 +67,8 @@ import {
 } from './symbol-review-state';
 import {
   loadSymbolReviewPreviewAtlases,
+  type SymbolReviewPreviewAvailability,
+  type SymbolReviewPreviewMode,
   type SymbolReviewVirtualPreviewTile,
 } from './symbol-review-virtual-previews.ts';
 import { SymbolReviewVirtualGrid } from './symbol-review-virtual-grid.tsx';
@@ -115,6 +117,14 @@ interface SymbolReviewToast {
 interface TrackedSymbolReviewOperation {
   readonly operation: SymbolCellReviewBulkOperationResponse;
   readonly submittedCellIds: readonly string[];
+}
+
+function emptyPreviewAvailability(): SymbolReviewPreviewAvailability {
+  return {
+    rendererFingerprintSha256: null,
+    rendererVersion: null,
+    unavailableCellReviewIds: new Set(),
+  };
 }
 
 export function SymbolReviewWorkspace({
@@ -178,6 +188,10 @@ export function SymbolReviewWorkspace({
   const [virtualPreviewTiles, setVirtualPreviewTiles] = useState<
     Readonly<Record<string, SymbolReviewVirtualPreviewTile>>
   >({});
+  const [previewMode, setPreviewMode] =
+    useState<SymbolReviewPreviewMode>('current');
+  const [previewAvailability, setPreviewAvailability] =
+    useState<SymbolReviewPreviewAvailability>(emptyPreviewAvailability);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
@@ -232,6 +246,7 @@ export function SymbolReviewWorkspace({
     isStartingOperation ||
     operationDialog !== null ||
     paging;
+  const previewReadOnly = previewMode === 'structured_v0_10';
 
   const applyFilters = useCallback((nextFilters: SymbolReviewFilters) => {
     const previousFilters = filtersRef.current;
@@ -248,6 +263,7 @@ export function SymbolReviewWorkspace({
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
+    setPreviewAvailability(emptyPreviewAvailability());
     setReassignTargetSymbolId(null);
     if (previousFilters.gameId !== nextFilters.gameId) {
       setSymbols([]);
@@ -313,6 +329,7 @@ export function SymbolReviewWorkspace({
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
+    setPreviewAvailability(emptyPreviewAvailability());
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = true;
     setFiltersConfirmed(true);
@@ -338,6 +355,7 @@ export function SymbolReviewWorkspace({
     setCountsSnapshot(null);
     setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
+    setPreviewAvailability(emptyPreviewAvailability());
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = false;
     setFiltersConfirmed(false);
@@ -606,7 +624,8 @@ export function SymbolReviewWorkspace({
       filters.gameId,
       currentItems,
       previewAnchorCellId.current,
-      (tiles) => {
+      previewMode,
+      (tiles, availability) => {
         if (
           !cancelled &&
           shouldApplyVirtualPreviewResult(
@@ -615,6 +634,7 @@ export function SymbolReviewWorkspace({
           )
         ) {
           setVirtualPreviewTiles(tiles);
+          setPreviewAvailability(availability);
         }
       },
     ).then((result) => {
@@ -628,11 +648,14 @@ export function SymbolReviewWorkspace({
         return;
       }
       setVirtualPreviewTiles(result.ok ? result.tilesByCellReviewId : {});
+      setPreviewAvailability(
+        result.ok ? result.availability : emptyPreviewAvailability(),
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, [api, currentItems, filters.gameId, hasVisibleItems]);
+  }, [api, currentItems, filters.gameId, hasVisibleItems, previewMode]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {
@@ -660,6 +683,7 @@ export function SymbolReviewWorkspace({
         setVisibleItems([]);
         previewAnchorCellId.current = null;
         setVirtualPreviewTiles({});
+        setPreviewAvailability(emptyPreviewAvailability());
         pagePositionRef.current = position;
         dispatch({
           page: cached.page,
@@ -688,6 +712,7 @@ export function SymbolReviewWorkspace({
       setVisibleItems([]);
       previewAnchorCellId.current = null;
       setVirtualPreviewTiles({});
+      setPreviewAvailability(emptyPreviewAvailability());
       dispatch({ page: result.page, position, type: 'page_loaded' });
       setCountsState('loading');
       setCountsSnapshot(null);
@@ -711,6 +736,7 @@ export function SymbolReviewWorkspace({
   }
 
   function selectVisiblePage() {
+    if (previewReadOnly) return;
     const change = selectVisibleSymbolReviewItems(selection, currentItems);
     setSelection(change.selection);
     if (change.rejectedCount > 0) {
@@ -721,6 +747,7 @@ export function SymbolReviewWorkspace({
   }
 
   function selectAllMatchingFilter() {
+    if (previewReadOnly) return;
     if (
       filters.gameId === null ||
       filters.symbolId === null ||
@@ -744,6 +771,7 @@ export function SymbolReviewWorkspace({
   }
 
   function toggleItem(item: SymbolCellReviewListItemResponse) {
+    if (previewReadOnly) return;
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
     if (change.rejectedCount > 0) {
@@ -754,7 +782,8 @@ export function SymbolReviewWorkspace({
   async function previewOperation(
     action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
   ) {
-    if (filters.gameId === null || selectedCount === 0) return;
+    if (previewReadOnly || filters.gameId === null || selectedCount === 0)
+      return;
     const gameId = filters.gameId;
     const targets =
       selection.kind === 'explicit' ? Object.values(selection.targetsById) : [];
@@ -1073,6 +1102,7 @@ export function SymbolReviewWorkspace({
           selectedCount={selectedCount}
           selectionKind={selection.kind}
           symbols={symbols}
+          readOnly={previewReadOnly}
         />
       ) : null}
 
@@ -1134,6 +1164,27 @@ export function SymbolReviewWorkspace({
               {symbolLabel(filters.symbolId, symbols)}
             </span>
             <div className={styles.summaryActions}>
+              <label className={styles.previewMode}>
+                Podgląd cropów
+                <select
+                  disabled={interactionBusy}
+                  onChange={(event) => {
+                    const mode = event.target.value as SymbolReviewPreviewMode;
+                    virtualPreviewRequestId.current += 1;
+                    setPreviewMode(mode);
+                    setVirtualPreviewTiles({});
+                    setPreviewAvailability(emptyPreviewAvailability());
+                    setSelection(createEmptySymbolReviewSelection());
+                    setReassignTargetSymbolId(null);
+                  }}
+                  value={previewMode}
+                >
+                  <option value="current">Aktualne cropy v20/v19</option>
+                  <option value="structured_v0_10">
+                    Eksperymentalny silnik v0.10
+                  </option>
+                </select>
+              </label>
               <span>
                 Strona {currentPageNumber} · zakres{' '}
                 {currentPageRange === null
@@ -1159,6 +1210,15 @@ export function SymbolReviewWorkspace({
               </button>
             </div>
           </div>
+          {previewReadOnly ? (
+            <p className={styles.previewNotice} role="status">
+              Podgląd eksperymentalny v0.10 jest tylko do odczytu. Nie zapisuje
+              decyzji, cropów ani jobów.
+              {previewAvailability.rendererVersion === null
+                ? ''
+                : ` Renderer: ${previewAvailability.rendererVersion}.`}
+            </p>
+          ) : null}
           <div className={styles.pageWorkspace}>
             {currentItems.length === 0 ? (
               <SymbolReviewEmpty />
@@ -1169,12 +1229,19 @@ export function SymbolReviewWorkspace({
                 pageNumber={currentPageNumber}
                 renderCard={(item) => (
                   <SymbolReviewCard
-                    disabled={interactionBusy || pendingCellIds.has(item.id)}
+                    disabled={
+                      previewReadOnly ||
+                      interactionBusy ||
+                      pendingCellIds.has(item.id)
+                    }
                     item={item}
                     key={item.id}
                     onToggle={() => toggleItem(item)}
                     pending={pendingCellIds.has(item.id)}
                     previewTile={virtualPreviewTiles[item.id]}
+                    previewUnavailable={previewAvailability.unavailableCellReviewIds.has(
+                      item.id,
+                    )}
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
                 )}
@@ -1263,6 +1330,7 @@ function SymbolReviewCard({
   onToggle,
   pending,
   previewTile,
+  previewUnavailable,
   selected,
 }: {
   readonly disabled: boolean;
@@ -1270,6 +1338,7 @@ function SymbolReviewCard({
   readonly onToggle: () => void;
   readonly pending: boolean;
   readonly previewTile: SymbolReviewVirtualPreviewTile | undefined;
+  readonly previewUnavailable: boolean;
   readonly selected: boolean;
 }) {
   return (
@@ -1294,6 +1363,14 @@ function SymbolReviewCard({
               backgroundPosition: `-${previewTile.tile.x}px -${previewTile.tile.y}px`,
             }}
           />
+        ) : previewUnavailable ? (
+          <span
+            aria-label="Brak proweniencji dla podglądu v0.10"
+            className={styles.assetFallback}
+            role="img"
+          >
+            Brak v0.10
+          </span>
         ) : (
           <span
             aria-label="Ładowanie podglądu cropa"
@@ -1342,6 +1419,7 @@ function SymbolReviewSelectionToolbar({
   selectedCount,
   selectionKind,
   symbols,
+  readOnly,
 }: {
   readonly busy: boolean;
   readonly canApprove: boolean;
@@ -1360,8 +1438,9 @@ function SymbolReviewSelectionToolbar({
   readonly selectedCount: number;
   readonly selectionKind: SymbolReviewSelection['kind'];
   readonly symbols: readonly SymbolResponse[];
+  readonly readOnly: boolean;
 }) {
-  const actionsDisabled = busy || selectedCount === 0;
+  const actionsDisabled = readOnly || busy || selectedCount === 0;
   return (
     <aside
       aria-label="Masowa weryfikacja zaznaczonych cropów"
@@ -1371,7 +1450,7 @@ function SymbolReviewSelectionToolbar({
         <strong>Wybrane: {selectedCount}</strong>
         <button
           className="secondaryButton"
-          disabled={busy || !canSelectVisible}
+          disabled={readOnly || busy || !canSelectVisible}
           onClick={onSelectVisible}
           type="button"
         >
@@ -1380,6 +1459,7 @@ function SymbolReviewSelectionToolbar({
         <button
           className="secondaryButton"
           disabled={
+            readOnly ||
             busy ||
             !canSelectVisible ||
             !canSelectAllMatching ||

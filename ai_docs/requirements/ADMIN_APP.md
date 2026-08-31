@@ -412,6 +412,14 @@ przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.
 Karta pokazuje tile 100 × 100 px ze wspólnego atlasu WebP, nie pełny crop ani
 base64 w odpowiedzi listy. Przeglądarka utrwala atlas przez content-addressed
 cache `immutable`.
+Operator może przełączyć wyłącznie warstwę podglądu między `Aktualne cropy
+v20/v19` i `Eksperymentalny silnik v0.10`. Drugi tryb jest zawsze tylko do
+odczytu: blokuje zaznaczanie, zatwierdzanie, zmianę symbolu i oznaczanie jakości,
+nie tworzy cropów ani jobów i nie zmienia polityki silnika gry. Komórka bez
+pełnej proweniencji `virtual_source` pokazuje `Brak v0.10`; nie wolno wyświetlić
+pliku legacy pod etykietą eksperymentalnego renderera. Oba tryby zachowują ten
+sam identyfikator logicznej komórki, ale używają różnych fingerprintów i kluczy
+atlasu.
 Do czasu gotowości projekcji gra pokazuje
 kontrolowany stan przebudowy, a nie mylący pusty wynik. Stan pokazuje
 oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akcje
@@ -448,6 +456,8 @@ kolejką geometrii i poza kohortą treningową. Karta pokazuje zwięzły badge
 bieżących pikseli. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
+W trybie eksperymentalnego podglądu v0.10 cały toolbar pozostaje widoczny, lecz
+wszystkie akcje i zaznaczanie są zablokowane.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
 usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez

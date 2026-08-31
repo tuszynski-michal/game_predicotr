@@ -184,6 +184,14 @@ jest wykonywane po każdym renderze, tylko po przekroczeniu limitu. Atlas jest
 serwowany jako prywatny zasób `immutable`, bo zmiana któregokolwiek składnika
 proweniencji tworzy nowy URL.
 
+Żądanie przyjmuje `rendererMode=current|structured_v0_10`. Odpowiedź zawsze
+zwraca tryb, wersję i SHA-256 fingerprintu renderera, `availableCount` oraz
+`unavailableCellReviewIds`. Dla `structured_v0_10` renderowane są wyłącznie
+komórki z kompletną bieżącą proweniencją `virtual_source`. Jeśli cały batch jest
+niedostępny, `batchKey`, `atlasUrl`, check­suma i czas wygaśnięcia są `null`, a
+lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie uruchamia
+joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
+
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=unknown` filtruje legacy
@@ -199,7 +207,9 @@ Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego
 właściciela `game + sequence_number`, w tym `cropSampleId`, checksumę cropa,
 rewizję komórki i geometrii, aktualną pewność predykcji, tryb assetu oraz — dla
 `virtual_source` — checksumę render specu. Zwraca też liczniki po filtrowaniu,
-monotoniczną `catalogRevision` i kursory poprzedniej/następnej strony.
+monotoniczną `catalogRevision` i kursory poprzedniej/następnej strony. Liczniki
+są pobierane osobnym endpointem dla zgodnej rewizji katalogu i nie należą do
+odpowiedzi strony.
 `cropSampleId` wraz z checksumą jest obowiązkową tożsamością jawnego targetu
 masowej operacji.
 Łączenie z

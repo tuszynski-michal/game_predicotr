@@ -19,11 +19,35 @@ from .contracts import (
     fingerprint_sources,
     is_valid_run_status_transition,
 )
+from .range_only_ocr import (
+    RANGE_ONLY_GAP_POLICY_VERSION,
+    RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE,
+    RANGE_ONLY_OCR_ADAPTER_VERSION,
+    RANGE_ONLY_PROOF_POLICY_VERSION,
+    ExistingProofFirstRangeOnlyBridge,
+    RangeOnlyGapPolicy,
+    RangeOnlyLabelEvidence,
+    RangeOnlyOcrAdapter,
+    RangeOnlyRecognition,
+    RangeOnlyRecognizer,
+    build_paddle_range_only_recognizer,
+    calibrate_unproven_gap_policy,
+)
 
 __all__ = [
     "SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION",
     "SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE",
     "SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION",
+    "RANGE_ONLY_GAP_POLICY_VERSION",
+    "RANGE_ONLY_MINIMUM_PROOF_CONFIDENCE",
+    "RANGE_ONLY_OCR_ADAPTER_VERSION",
+    "RANGE_ONLY_PROOF_POLICY_VERSION",
+    "ExistingProofFirstRangeOnlyBridge",
+    "RangeOnlyGapPolicy",
+    "RangeOnlyLabelEvidence",
+    "RangeOnlyOcrAdapter",
+    "RangeOnlyRecognition",
+    "RangeOnlyRecognizer",
     "RangeEvidenceGate",
     "RangeEvidenceObservation",
     "RangeEvidenceResult",
@@ -37,5 +61,7 @@ __all__ = [
     "SemiAutomaticSequenceBounds",
     "expected_ranges_fingerprint",
     "fingerprint_sources",
+    "build_paddle_range_only_recognizer",
+    "calibrate_unproven_gap_policy",
     "is_valid_run_status_transition",
 ]

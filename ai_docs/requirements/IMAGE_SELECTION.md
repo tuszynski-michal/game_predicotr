@@ -915,3 +915,17 @@ Wynik bramki jest jednym z: `exact_range`, `range_unreadable`,
 `source_error`. Tylko `exact_range` może wejść do późniejszego grupowania.
 Brak pewnego dowodu jest prawidłową luką do ręcznego uzupełnienia, a nie
 podstawą do zgadywania zakresu z sąsiednich zdjęć.
+
+Adapter `semi-automatic-range-only-ocr-v1` przyjmuje wyłącznie zdekodowany
+obraz RGB oraz checksummowaną tożsamość źródła. Istniejący proof-first
+recognizer jest wywoływany dokładnie raz z pustą kolekcją plansz, dlatego w tym
+workflow nie może uruchomić tras zależnych od detekcji lub geometrii. Wynik
+`exact_range` wymaga mocnego, pozycyjnego dowodu lokalnego; sama wysoka pewność
+OCR nie wystarcza. Końcowy krótszy zakres jest akceptowany wyłącznie wtedy,
+gdy co najmniej trzy dowody pozycyjne mieszczą się w jego rzeczywistej długości.
+
+Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
+maksymalna liczba kolejnych źródeł bez dowodu. Polityka
+`real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego
+korpusu rzeczywistych zdjęć; bieżąca wartość wynosi `160`. Parametr nie nadaje
+zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.

@@ -25,6 +25,18 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Nie ma jeszcze OCR adaptera, stagingu, migracji, joba, API ani UI. Jest to
   świadome rozdzielenie kontraktu od późniejszego wykonania TASK-0351–0357.
 
+### Range-only OCR półautomatycznej selekcji — TASK-0351
+
+- Adapter `semi-automatic-range-only-ocr-v1` wykorzystuje istniejący
+  Paddle/proof-first OCR przez port przyjmujący wyłącznie RGB. Bridge przekazuje
+  pusty zestaw plansz, więc workflow nie uruchamia geometrii, croppera ani
+  symbol inference i nie ma bramki jakości obrazu.
+- Tylko mocny pozycyjny proof może dać `exact_range`; końcowy krótszy zakres
+  wymaga trzech zgodnych obserwacji mieszczących się w jego granicach.
+- Checksumowany rzeczywisty korpus wyznacza wersjonowany maksymalny odstęp `160`
+  źródeł bez proof. Grupowanie, staging, job i API nadal należą do kolejnych
+  tasków.
+
 ### Częściowa geometria ostatniej strony — TASK-0349
 
 - Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej

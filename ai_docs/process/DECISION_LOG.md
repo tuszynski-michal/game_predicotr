@@ -6669,3 +6669,18 @@ checksummowana tożsamość i exact strong local proof zakresu z listy expected
 ranges. Brak dowodu pozostaje luką; nie jest wypełniany przez sąsiadów ani
 automatycznie zastępowany. Automatyczna zamiana istniejącego pliku jest
 zabroniona.
+
+## D-280 — Range-only OCR wykorzystuje wyłącznie lokalny proof etykiet
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomat wykorzystuje istniejący Paddle/proof-first OCR przez osobny adapter
+RGB, który przekazuje pustą kolekcję plansz. Zapobiega to uruchomieniu tras
+zależnych od detekcji i geometrii bez kopiowania modelu OCR. Mocny dowód nadal
+wymaga pozycyjnych obserwacji i jest jedyną drogą do `exact_range`; confidence,
+ostrość i jakość plansz nie mogą zastąpić proof.
+
+Maksymalna seria źródeł bez proof jest wersjonowaną wartością wyliczoną z
+checksumowanego rzeczywistego korpusu, obecnie `160`. Jest to ograniczenie dla
+późniejszego grupowania, a nie podstawa do przypisywania zakresu.

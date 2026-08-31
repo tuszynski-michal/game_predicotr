@@ -1381,6 +1381,21 @@ zmienia globalnego `JobStatus`. Range statusy obejmują wynik automatu, lokalną
 synchronizację, konflikt i późniejsze ręczne decyzje. Runtime, staging, SQL,
 HTTP i UI należą do kolejnych tasków.
 
+TASK-0351 dodaje w tym samym czystym pakiecie port `RangeOnlyRecognizer` oraz
+adapter `RangeOnlyOcrAdapter`. Port nie ma parametrów plansz, geometrii ani
+jakości. Produkcyjny bridge ładuje istniejący Paddle/proof-first recognizer
+leniwie i przekazuje mu pustą kolekcję plansz, co zachowuje jedynie trasę
+lokalnej siatki etykiet. Strong proof jest ponownie klasyfikowany przez wspólną
+historyczną funkcję z obowiązkowym dowodem pozycji i minimalną pewnością `0,90`.
+
+Adapter mapuje wynik na `RangeEvidenceGate` i nie posiada alternatywnej ścieżki
+opartej o jakość obrazu, wygląd plansz lub confidence bez proof. Obsługa
+końcowego częściowego zakresu jest jawna: nadmiarowa historyczna hipoteza może
+zostać przycięta tylko do expected range o tym samym początku i wyłącznie na
+podstawie trzech zgodnych pozycji leżących wewnątrz krótszego zakresu.
+`RangeOnlyGapPolicy` jest osobnym, czystym wynikiem kalibracji korpusu; nie
+grupuje źródeł i zostanie skonsumowany dopiero przez TASK-0353.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

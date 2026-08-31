@@ -649,6 +649,15 @@ i preflight całej partii. Lista korekty obejmuje również istniejące ręczne
 override'y, dzięki czemu błędnej, starszej kotwicy nie trzeba omijać ani usuwać
 z audytu. Zatwierdzone numery i ich cropy nie są tym zmieniane.
 
+Postęp preflightu geometrii raportuje zdjęcia źródłowe, a nie pojedyncze
+plansze. Jedno źródło `seq_*` może utworzyć do dziewięciu plansz dopiero w
+późniejszym imporcie. Ponowna korekta źródła, które bieżący manifest już
+oznacza jako `registered`, aktualizuje przypięte quady i ich checksumę, ale nie
+zwiększa `registeredSourceCount`. UI musi odróżniać taką aktualizację od
+przeniesienia nowego źródła z `review_required` do `registered`. Snapshot
+nowego preflightu zawsze zawiera wszystkie bieżące override'y gry; partia nie
+może zostać zredukowana do ostatniego zapisu.
+
 Viewport korekty korzysta z tego samego modelu dopasowania co ręczna selekcja
 zdjęć i udostępnia zoom `100–3000%` ze skokiem 25 punktów procentowych.
 Powiększony obraz można przewijać w obu osiach. Zoom i scroll są wyłącznie

@@ -215,6 +215,67 @@ def test_manual_override_bootstraps_registration_for_remaining_pages(
     assert payload["entries"][checksums[1]]["anchorSourceChecksumSha256"] == checksums[0]
 
 
+def test_geometry_preflight_applies_every_manual_override_from_one_batch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _image, quads = _page()
+    initial_job, checksums = _cold_start_job(tmp_path, image_count=3)
+    overrides = {
+        checksum: {
+            "decisionChecksumSha256": f"{index + 1:x}" * 64,
+            "imageHeight": 480,
+            "imageWidth": 680,
+            "overrideId": str(uuid4()),
+            "quads": quads,
+            "revision": 1,
+        }
+        for index, checksum in enumerate(checksums)
+    }
+    job = create_job(
+        JobType.VALIDATE,
+        game_id=initial_job.game_id,
+        input_payload={**initial_job.input_payload, "page_geometry_overrides": overrides},
+    )
+    context = _Context()
+
+    class _OverrideOnlyRegistrar:
+        available = True
+
+        def __init__(self, _profile, **_kwargs) -> None:
+            pass
+
+        def register(self, _rgb):
+            raise AssertionError("Every source should use its direct override.")
+
+    monkeypatch.setattr(
+        preflight_module,
+        "VerifiedPageRegistrar",
+        _OverrideOnlyRegistrar,
+    )
+
+    PageGeometryPreflightHandler(artifact_root=tmp_path / "artifacts")(  # type: ignore[arg-type]
+        context,
+        job,
+    )
+
+    checkpoint = context.checkpoints[-1]["checkpoint_payload"]
+    output = (
+        tmp_path
+        / "artifacts"
+        / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["registeredSourceCount"] == 3
+    assert payload["reviewRequiredSourceCount"] == 0
+    assert {
+        checksum: payload["entries"][checksum]["manualOverrideDecisionChecksumSha256"]
+        for checksum in checksums
+    } == {
+        checksum: overrides[checksum]["decisionChecksumSha256"] for checksum in checksums
+    }
+
+
 def test_geometry_preflight_writes_a_content_addressed_manifest(tmp_path: Path) -> None:
     image, quads = _page()
     selection_id = uuid4()

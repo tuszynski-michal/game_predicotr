@@ -33,6 +33,9 @@ test('saving a correction is separated from submitting the saved batch', () => {
     panel,
     /async function submitSaved\(\)[\s\S]*await onSubmitSaved\(\)/,
   );
+  assert.match(panel, /Liczniki dotyczą zdjęć źródłowych/);
+  assert.match(panel, /aktualizacja już zarejestrowanej geometrii/);
+  assert.match(panel, /nie zwiększy tego licznika/);
 });
 
 test('geometry editor uses the manual-selection fit model and bounded zoom', () => {

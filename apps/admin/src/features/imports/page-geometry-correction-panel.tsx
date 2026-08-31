@@ -224,6 +224,10 @@ export function PageGeometryCorrectionPanel({
   }, [refresh]);
 
   const source = sources[sourceIndex] ?? null;
+  const deferredSourceCount = sources.filter(
+    (item) => item.reviewReason === 'review_required',
+  ).length;
+  const registeredUpdateSourceCount = sources.length - deferredSourceCount;
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -532,7 +536,9 @@ export function PageGeometryCorrectionPanel({
         return;
       }
       setFeedback(
-        'Korekta została zapisana lokalnie w partii. Preflight nie został jeszcze uruchomiony.',
+        source.reviewReason === 'manual_override'
+          ? 'Zapisano aktualizację już zarejestrowanej geometrii. Licznik poprawnych zdjęć nie wzrośnie, ponieważ to źródło było w nim wcześniej.'
+          : 'Zapisano geometrię odroczonego zdjęcia. Po wysłaniu partii i ukończeniu preflightu przejdzie ono do zarejestrowanych.',
       );
       setSavedCount((current) => current + 1);
       setSources((current) =>
@@ -573,8 +579,9 @@ export function PageGeometryCorrectionPanel({
         <div>
           <h3>Korekta geometrii strony</h3>
           <p>
-            Żadna z tych stron nie zostanie pocięta ani przekazana do symboli,
-            dopóki kompletna siatka 3×3 nie zostanie potwierdzona.
+            Liczniki dotyczą zdjęć źródłowych, nie pojedynczych plansz. Jedno
+            zdjęcie zawiera dziewięć plansz; zostaną one utworzone dopiero w
+            imporcie po zakończeniu preflightu geometrii.
           </p>
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
@@ -620,6 +627,10 @@ export function PageGeometryCorrectionPanel({
         <div className="pageGeometryCorrectionGrid">
           <div className="pageGeometryControls">
             <p className="curatedImportStatus">
+              Pozostałe zdjęcia: odroczone {deferredSourceCount} · aktualizacje
+              wcześniej zarejestrowanej geometrii {registeredUpdateSourceCount}
+            </p>
+            <p className="curatedImportStatus">
               Strona {sourceIndex + 1}/{sources.length} ·{' '}
               {source.sourceRelativePath}
               {source.sequenceRangeStart !== null &&
@@ -627,8 +638,13 @@ export function PageGeometryCorrectionPanel({
                 ? ` · plansze ${source.sequenceRangeStart}–${source.sequenceRangeEnd}`
                 : ''}
               {source.reviewReason === 'manual_override'
-                ? ` · zapisana korekta r${source.existingOverrideRevision ?? '?'}`
-                : ' · wymaga korekty'}
+                ? ` · aktualizacja już zarejestrowanej geometrii r${source.existingOverrideRevision ?? '?'}`
+                : ' · odroczone zdjęcie — wymaga geometrii'}
+            </p>
+            <p className="geometryInstructions">
+              {source.reviewReason === 'manual_override'
+                ? 'To zdjęcie jest już uwzględnione w liczniku zarejestrowanych. Zapis zmieni jego obrys, ale nie zwiększy tego licznika.'
+                : 'Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.'}
             </p>
             <label>
               Zakres korekty

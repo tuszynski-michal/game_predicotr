@@ -57,12 +57,16 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /preflightResult\.data\.geometryPreflightRequired/);
   assert.match(panelSource, /result\.data\.geometryPreflightRequired/);
-  assert.match(panelSource, /W nowej grze popraw najpierw jedną/);
+  assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.match(panelSource, /BoardCellProcessingModePicker/);
   assert.match(panelSource, /jobMatchesBoardCellProcessingMode/);
   assert.match(panelSource, /Rozpocznij import v20 z raportu/);
-  assert.match(panelSource, /Ręczna korekta geometrii — zostaw na koniec/);
+  assert.match(
+    panelSource,
+    /Ręczna korekta zdjęć geometrii — zostaw na\s+koniec/,
+  );
+  assert.match(panelSource, /zarejestrowane zdjęcia/);
   assert.doesNotMatch(panelSource, /Import jest zablokowany/);
   assert.match(panelSource, /utworzony — oczekuje na worker/);
   assert.match(panelSource, /Usuń nieużywany staging/);

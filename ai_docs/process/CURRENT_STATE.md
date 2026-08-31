@@ -15,6 +15,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Czytelne liczniki ręcznej geometrii — TASK-0347
+
+- Preflight i panel korekty opisują liczniki jako zdjęcia źródłowe. Plansze
+  powstają po dziewięć na zdjęcie dopiero w późniejszym imporcie.
+- Panel rozróżnia odroczone zdjęcie od ponownej korekty geometrii, która była
+  już zarejestrowana. Ta druga zmienia quady, ale zgodnie z domeną nie zwiększa
+  licznika zarejestrowanych źródeł.
+- Regresja workera potwierdza, że jeden snapshot partii stosuje wszystkie
+  zapisane override'y, a nie wyłącznie ostatni.
+
 ### Edycja wszystkich narożników po wyznaczeniu plansz — TASK-0346
 
 - Zakończenie trybu osobnego wyznaczania dziewięciu plansz automatycznie

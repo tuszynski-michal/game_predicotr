@@ -1066,26 +1066,29 @@ export function ImageFolderImportPanel({
                           </button>
                           {geometryPreflightJob !== null ? (
                             <span className="curatedImportStatus">
-                              Geometria: {geometryPreflightJob.status} ·{' '}
+                              Geometria zdjęć: {geometryPreflightJob.status} ·{' '}
                               {geometryPreflightJob.progress.current}/
                               {geometryPreflightJob.progress.total ?? '—'} ·
-                              poprawne {geometryPreflightJob.progress.succeeded}{' '}
-                              · odroczone {geometryPreflightJob.progress.review}
+                              zarejestrowane zdjęcia{' '}
+                              {geometryPreflightJob.progress.succeeded} ·
+                              odroczone zdjęcia{' '}
+                              {geometryPreflightJob.progress.review}
                             </span>
                           ) : null}
                           {geometryPreflightJob?.status === 'completed' &&
                           geometryPreflightJob.progress.review > 0 ? (
                             <details>
                               <summary>
-                                Ręczna korekta geometrii — zostaw na koniec (
-                                {geometryPreflightJob.progress.review})
+                                Ręczna korekta zdjęć geometrii — zostaw na
+                                koniec ({geometryPreflightJob.progress.review})
                               </summary>
                               <p className="curatedImportStatus">
-                                W nowej grze popraw najpierw jedną dobrze
-                                widoczną stronę. Zapisana korekta stanie się
-                                kotwicą kolejnego preflightu. Pozostałe
-                                nierozwiązane pozycje są bezpiecznie odroczone i
-                                nie trafią do cięcia ani rozpoznawania symboli.
+                                Każda pozycja oznacza jedno zdjęcie zawierające
+                                dziewięć plansz. Ponowna korekta wcześniej
+                                zarejestrowanego zdjęcia zmienia jego geometrię,
+                                ale nie zwiększa licznika zarejestrowanych.
+                                Plansze powstaną dopiero po uruchomieniu
+                                importu.
                               </p>
                               <PageGeometryCorrectionPanel
                                 api={api}

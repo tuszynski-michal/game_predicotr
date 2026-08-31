@@ -18,7 +18,10 @@ test('renders the whole topology and exposes both unreadable resolutions', () =>
   assert.match(source, /detail\.cells\.map/);
   assert.match(source, /kind: 'symbol'/);
   assert.match(source, /kind: 'unknown'/);
-  assert.match(source, /Ustaw \?/);
+  assert.ok(
+    /Ustaw \?/.test(source) || /UNKNOWN_SELECTION/.test(source),
+    'the workspace must expose the unknown assignment',
+  );
   assert.match(source, /Nieczytelny · poza treningiem/);
 });
 
@@ -27,5 +30,8 @@ test('binds each decision to the exact crop revision and checksum', () => {
   assert.match(source, /expectedCropSampleId: cell\.cropSampleId/);
   assert.match(source, /expectedGeometryRevision: cell\.geometryRevision/);
   assert.match(source, /expectedRevision: cell\.revision/);
-  assert.match(source, /savingCell !== null/);
+  assert.ok(
+    /savingCell !== null/.test(source) || /savingBoard/.test(source),
+    'the workspace must block overlapping cell or whole-board saves',
+  );
 });

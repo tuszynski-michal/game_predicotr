@@ -448,8 +448,10 @@ class JobModel(Base):
         ),
         CheckConstraint(
             "(status = 'processing' "
-            "AND ((job_type = 'image_selection' AND execution_slot = 2) "
-            "OR (job_type <> 'image_selection' AND execution_slot = 1)) "
+            "AND ((job_type IN ('image_selection', 'semi_automatic_image_selection') "
+            "AND execution_slot = 2) "
+            "OR (job_type NOT IN ('image_selection', 'semi_automatic_image_selection') "
+            "AND execution_slot = 1)) "
             "AND lease_owner IS NOT NULL AND lease_token IS NOT NULL "
             "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL) "
             "OR (status <> 'processing' AND execution_slot IS NULL "
@@ -610,6 +612,173 @@ class WorkerLaneRuntimeModel(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+
+class SemiAutomaticImageSelectionRunModel(Base):
+    __tablename__ = "semi_automatic_image_selection_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "source_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "source_fingerprint ~ '^[0-9a-f]{64}$' AND "
+            "expected_ranges_fingerprint ~ '^[0-9a-f]{64}$' AND "
+            "recognizer_fingerprint ~ '^[0-9a-f]{64}$' AND "
+            "grouping_policy_fingerprint ~ '^[0-9a-f]{64}$' AND "
+            "identity_key ~ '^[0-9a-f]{64}$' AND "
+            "(diagnostics_checksum_sha256 IS NULL OR "
+            "diagnostics_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_semi_automatic_selection_runs_checksums",
+        ),
+        CheckConstraint(
+            "source_count > 0 AND source_total_bytes > 0 AND "
+            "first_sequence_number > 0 AND last_sequence_number >= first_sequence_number AND "
+            "full_range_size = 9 AND revision >= 0",
+            name="ck_semi_automatic_selection_runs_bounds",
+        ),
+        CheckConstraint(
+            "direction IN ('ascending', 'descending') AND "
+            "range_convention = 'seq-inclusive-v1'",
+            name="ck_semi_automatic_selection_runs_contract",
+        ),
+        CheckConstraint(
+            "status IN ('ready', 'running', 'paused', 'analysis_complete', "
+            "'syncing_output', 'review_mode', 'edit_source_mode', 'completed', "
+            "'failed', 'cancelled')",
+            name="ck_semi_automatic_selection_runs_status",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(checkpoint) = 'object' AND jsonb_typeof(counters) = 'object'",
+            name="ck_semi_automatic_selection_runs_json",
+        ),
+        CheckConstraint(
+            "length(btrim(source_display_name)) > 0 AND "
+            "(diagnostics_relative_path IS NULL OR "
+            "(diagnostics_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "diagnostics_relative_path !~ '^[A-Za-z]:' AND "
+            "diagnostics_relative_path NOT LIKE '/%' AND "
+            "diagnostics_relative_path NOT LIKE '%\\%'))",
+            name="ck_semi_automatic_selection_runs_paths",
+        ),
+        UniqueConstraint("job_id", name="uq_semi_automatic_selection_runs_job"),
+        UniqueConstraint("identity_key", name="uq_semi_automatic_selection_runs_identity"),
+        Index("ix_semi_automatic_selection_runs_status_created", "status", "created_at"),
+        Index("ix_semi_automatic_selection_runs_source_upload", "source_upload_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_upload_id: Mapped[UUID] = mapped_column(nullable=False)
+    source_display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_total_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    first_sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    range_convention: Mapped[str] = mapped_column(String(40), nullable=False)
+    full_range_size: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    expected_ranges_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    recognizer_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    grouping_policy_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    identity_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    checkpoint: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    counters: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False, default=dict)
+    diagnostics_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    diagnostics_checksum_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SemiAutomaticImageSelectionRangeModel(Base):
+    __tablename__ = "semi_automatic_image_selection_ranges"
+    __table_args__ = (
+        CheckConstraint(
+            "expected_index >= 0 AND range_start > 0 AND range_end >= range_start AND "
+            "range_end - range_start + 1 BETWEEN 1 AND 9 AND revision >= 0",
+            name="ck_semi_automatic_selection_ranges_bounds",
+        ),
+        CheckConstraint(
+            "status IN ('missing', 'auto_selected', 'output_synced', 'conflict')",
+            name="ck_semi_automatic_selection_ranges_status",
+        ),
+        CheckConstraint(
+            "(source_index IS NULL AND source_relative_path IS NULL AND "
+            "source_size_bytes IS NULL AND source_checksum_sha256 IS NULL) OR "
+            "(source_index >= 0 AND source_relative_path IS NOT NULL AND "
+            "source_size_bytes > 0 AND source_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_semi_automatic_selection_ranges_source",
+        ),
+        CheckConstraint(
+            "(group_first_source_index IS NULL AND group_last_source_index IS NULL) OR "
+            "(group_first_source_index >= 0 AND "
+            "group_last_source_index >= group_first_source_index)",
+            name="ck_semi_automatic_selection_ranges_group",
+        ),
+        CheckConstraint(
+            "range_confidence IS NULL OR range_confidence BETWEEN 0 AND 1",
+            name="ck_semi_automatic_selection_ranges_confidence",
+        ),
+        CheckConstraint(
+            "output_checksum_sha256 IS NULL OR output_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_semi_automatic_selection_ranges_output_checksum",
+        ),
+        CheckConstraint(
+            "source_relative_path IS NULL OR "
+            "(source_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "source_relative_path !~ '^[A-Za-z]:' AND "
+            "source_relative_path NOT LIKE '/%' AND "
+            "source_relative_path NOT LIKE '%\\%')",
+            name="ck_semi_automatic_selection_ranges_path",
+        ),
+        UniqueConstraint(
+            "run_id", "expected_index", name="uq_semi_automatic_selection_ranges_index"
+        ),
+        UniqueConstraint(
+            "run_id", "range_start", "range_end", name="uq_semi_automatic_selection_ranges_range"
+        ),
+        Index(
+            "ix_semi_automatic_selection_ranges_run_status_index",
+            "run_id",
+            "status",
+            "expected_index",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    expected_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_index: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    source_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    source_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    source_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    group_first_source_index: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    group_last_source_index: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    range_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    selection_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    output_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
 

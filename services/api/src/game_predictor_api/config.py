@@ -38,6 +38,7 @@ class ApiSettings:
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     browser_layout_import_max_bytes: int = _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
+    semi_automatic_image_selection_enabled: bool = False
     storage_warning_gib: int = 80
     storage_automatic_gc_gib: int = 60
     storage_target_gib: int = 80
@@ -111,6 +112,10 @@ class ApiSettings:
                 str(_DEFAULT_IMAGE_SELECTION_MAX_BYTES),
             ),
             variable_name="GAME_PREDICTOR_IMAGE_SELECTION_MAX_BYTES",
+        )
+        semi_automatic_image_selection_enabled = _parse_boolean(
+            source.get("GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION", "false"),
+            variable_name="GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION",
         )
         storage_warning_gib = _parse_positive_integer(
             source.get("GAME_PREDICTOR_STORAGE_WARNING_GIB", "80"),
@@ -224,6 +229,9 @@ class ApiSettings:
             import_max_bytes=import_max_bytes,
             browser_layout_import_max_bytes=browser_layout_import_max_bytes,
             image_selection_max_bytes=image_selection_max_bytes,
+            semi_automatic_image_selection_enabled=(
+                semi_automatic_image_selection_enabled
+            ),
             storage_warning_gib=storage_warning_gib,
             storage_automatic_gc_gib=storage_automatic_gc_gib,
             storage_target_gib=storage_target_gib,

@@ -1417,3 +1417,28 @@ cropów oraz review dla duplikatów.
 
 Odrzucony. Obecny lokalny stos ma potrzebne biblioteki, a problem wymaga najpierw
 benchmarku algorytmu i I/O, nie nowej infrastruktury.
+
+## Trwałość globalnej półautomatycznej selekcji — TASK-0352
+
+Migracja `0087_semi_automatic_image_selection` dodaje addytywne tabele
+`semi_automatic_image_selection_runs` i
+`semi_automatic_image_selection_ranges`. Run wskazuje globalny upload i
+dedykowany job, ale nie ma `game_id`. Oczekiwane zakresy są prealokowane w
+porządku rosnącego `expected_index`, co pozwala późniejszemu scannerowi
+zapisywać wyniki bez materializowania listy w pamięci.
+
+`identity_key` jest unikalnym SHA-256 całego kontraktu wejściowego. Repozytorium
+tworzy job, run, zakresy i przypięcie browser stagingu w jednej transakcji.
+Jest to celowe: osobna transakcja retencji nie widziałaby jeszcze
+niezatwierdzonego joba i mogłaby pozostawić gotowy staging bez trwałej
+zależności.
+
+Globalny staging korzysta z fizycznych nazw `00000001.jpg`, ale jego publiczną
+tożsamością pozostają naturalnie posortowana `relativePath`, rozmiar i SHA-256.
+Finalizacja zapisuje checksummę manifestu także w metrykach uploadu. Każdy
+ponowny odczyt porównuje oba zapisy i ponownie weryfikuje wszystkie JPEG-i.
+
+Nowy `JobType.SEMI_AUTOMATIC_IMAGE_SELECTION` jest wyłączony z general lane i
+ma slot `IMAGE_SELECTION = 2`. TASK-0352 świadomie nie rejestruje handlera;
+trwałe przetwarzanie, checkpoint i grupowanie powstaną dopiero w TASK-0353.
+Rollout kontroluje jedna flaga API, domyślnie wyłączona.

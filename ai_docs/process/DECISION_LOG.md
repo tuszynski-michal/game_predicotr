@@ -6684,3 +6684,20 @@ ostrość i jakość plansz nie mogą zastąpić proof.
 Maksymalna seria źródeł bez proof jest wersjonowaną wartością wyliczoną z
 checksumowanego rzeczywistego korpusu, obecnie `160`. Jest to ograniczenie dla
 późniejszego grupowania, a nie podstawa do przypisywania zakresu.
+
+## D-281 — Półautomatyczna selekcja ma globalny run i istniejący selection lane
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczny wybór nie należy do gry, dlatego jego staging, run oraz job mają
+`gameId = null`. Trwałą tożsamość stanowi checksummowany manifest źródeł,
+granice, kierunek oraz fingerprinty wersjonowanych kontraktów. Identyczne
+żądanie zwraca ten sam run także po restarcie API.
+
+Nie powstaje nowy lane ani usługa. Job korzysta z istniejącego slotu selekcji
+zdjęć i jest wykluczony z general lane. Przed wdrożeniem handlera TASK-0353
+pozostaje niepodejmowany w stanie `created`. Staging jest przypinany do joba w
+tej samej transakcji co run, aby GC nie mógł usunąć źródła pomiędzy requestem a
+uruchomieniem workera. Jedyna flaga rolloutowa znajduje się w API i domyślnie
+pozostaje wyłączona.

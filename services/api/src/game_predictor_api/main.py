@@ -125,6 +125,9 @@ from game_predictor_api.application.reviewer_work_lifecycle import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.semi_automatic_image_selections import (
+    SemiAutomaticImageSelectionService,
+)
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
@@ -300,6 +303,9 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.semi_automatic_image_selection_repository import (
+    SqlAlchemySemiAutomaticSelectionRepository,
+)
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
@@ -339,6 +345,7 @@ def create_app(
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
     image_selection_service_dependency: Callable[..., object] | None = None,
+    semi_automatic_image_selection_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
@@ -387,6 +394,7 @@ def create_app(
             dataset_service_dependency,
             job_service_dependency,
             image_selection_service_dependency,
+            semi_automatic_image_selection_service_dependency,
             image_job_service_dependency,
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
@@ -701,6 +709,26 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+
+    def default_semi_automatic_image_selection_service_dependency() -> Iterator[
+        SemiAutomaticImageSelectionService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SemiAutomaticImageSelectionService(
+                    SqlAlchemySemiAutomaticSelectionRepository(session),
+                    default_browser_image_selection_service,
+                    enabled=resolved_settings.semi_automatic_image_selection_enabled,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_semi_automatic_image_selection_dependency = (
+        semi_automatic_image_selection_service_dependency
+        or default_semi_automatic_image_selection_service_dependency
     )
     default_remote_manual_selection_host_service = RemoteManualSelectionHostService(
         controlled_folder_picker,
@@ -1261,6 +1289,7 @@ def create_app(
             resolved_dataset_dependency,
             resolved_job_dependency,
             resolved_image_selection_dependency,
+            resolved_semi_automatic_image_selection_dependency,
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,

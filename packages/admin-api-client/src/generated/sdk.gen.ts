@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  AcknowledgeSemiAutomaticImageSelectionOutputData,
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses,
   ActivateGridProfileData,
   ActivateGridProfileErrors,
   ActivateGridProfileResponses,
@@ -51,6 +54,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  CancelSemiAutomaticImageSelectionData,
+  CancelSemiAutomaticImageSelectionErrors,
+  CancelSemiAutomaticImageSelectionResponses,
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
@@ -123,6 +129,9 @@ import type {
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
+  CreateSemiAutomaticImageSelectionData,
+  CreateSemiAutomaticImageSelectionErrors,
+  CreateSemiAutomaticImageSelectionResponses,
   CreateStorageGcPreviewData,
   CreateStorageGcPreviewErrors,
   CreateStorageGcPreviewResponses,
@@ -313,6 +322,17 @@ import type {
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
+  GetSemiAutomaticImageSelectionCapabilitiesData,
+  GetSemiAutomaticImageSelectionCapabilitiesResponses,
+  GetSemiAutomaticImageSelectionData,
+  GetSemiAutomaticImageSelectionDiagnosticsData,
+  GetSemiAutomaticImageSelectionDiagnosticsErrors,
+  GetSemiAutomaticImageSelectionDiagnosticsResponses,
+  GetSemiAutomaticImageSelectionErrors,
+  GetSemiAutomaticImageSelectionResponses,
+  GetSemiAutomaticImageSelectionSourceAssetData,
+  GetSemiAutomaticImageSelectionSourceAssetErrors,
+  GetSemiAutomaticImageSelectionSourceAssetResponses,
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
@@ -451,6 +471,9 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSemiAutomaticImageSelectionRangesData,
+  ListSemiAutomaticImageSelectionRangesErrors,
+  ListSemiAutomaticImageSelectionRangesResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -477,6 +500,9 @@ import type {
   OpenOnlineReviewerWorkData,
   OpenOnlineReviewerWorkErrors,
   OpenOnlineReviewerWorkResponses,
+  PauseSemiAutomaticImageSelectionData,
+  PauseSemiAutomaticImageSelectionErrors,
+  PauseSemiAutomaticImageSelectionResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
@@ -582,6 +608,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeSemiAutomaticImageSelectionData,
+  ResumeSemiAutomaticImageSelectionErrors,
+  ResumeSemiAutomaticImageSelectionResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -5108,6 +5137,235 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Create Run
+ */
+export const createSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CreateSemiAutomaticImageSelectionResponses,
+  CreateSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSemiAutomaticImageSelectionResponses,
+    CreateSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Capabilities
+ */
+export const getSemiAutomaticImageSelectionCapabilities = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    GetSemiAutomaticImageSelectionCapabilitiesData,
+    ThrowOnError
+  >,
+): RequestResult<
+  GetSemiAutomaticImageSelectionCapabilitiesResponses,
+  unknown,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetSemiAutomaticImageSelectionCapabilitiesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/capabilities',
+    ...options,
+  });
+
+/**
+ * Get Run
+ */
+export const getSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionResponses,
+  GetSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionResponses,
+    GetSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CancelSemiAutomaticImageSelectionResponses,
+  CancelSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelSemiAutomaticImageSelectionResponses,
+    CancelSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/cancel',
+    ...options,
+  });
+
+/**
+ * Diagnostics
+ */
+export const getSemiAutomaticImageSelectionDiagnostics = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionDiagnosticsData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionDiagnosticsResponses,
+  GetSemiAutomaticImageSelectionDiagnosticsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionDiagnosticsResponses,
+    GetSemiAutomaticImageSelectionDiagnosticsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics',
+    ...options,
+  });
+
+/**
+ * Pause
+ */
+export const pauseSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PauseSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  PauseSemiAutomaticImageSelectionResponses,
+  PauseSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PauseSemiAutomaticImageSelectionResponses,
+    PauseSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/pause',
+    ...options,
+  });
+
+/**
+ * List Ranges
+ */
+export const listSemiAutomaticImageSelectionRanges = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSemiAutomaticImageSelectionRangesData, ThrowOnError>,
+): RequestResult<
+  ListSemiAutomaticImageSelectionRangesResponses,
+  ListSemiAutomaticImageSelectionRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticImageSelectionRangesResponses,
+    ListSemiAutomaticImageSelectionRangesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges',
+    ...options,
+  });
+
+/**
+ * Acknowledge
+ */
+export const acknowledgeSemiAutomaticImageSelectionOutput = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    AcknowledgeSemiAutomaticImageSelectionOutputData,
+    ThrowOnError
+  >,
+): RequestResult<
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+    AcknowledgeSemiAutomaticImageSelectionOutputErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges/{expected_index}/output-acknowledgements',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resume
+ */
+export const resumeSemiAutomaticImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResumeSemiAutomaticImageSelectionData, ThrowOnError>,
+): RequestResult<
+  ResumeSemiAutomaticImageSelectionResponses,
+  ResumeSemiAutomaticImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeSemiAutomaticImageSelectionResponses,
+    ResumeSemiAutomaticImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/resume',
+    ...options,
+  });
+
+/**
+ * Source Asset
+ */
+export const getSemiAutomaticImageSelectionSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSemiAutomaticImageSelectionSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetSemiAutomaticImageSelectionSourceAssetResponses,
+  GetSemiAutomaticImageSelectionSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSemiAutomaticImageSelectionSourceAssetResponses,
+    GetSemiAutomaticImageSelectionSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset',
+    ...options,
   });
 
 /**

@@ -3644,7 +3644,8 @@ export type ImageSelectionOutputResponse = {
 /**
  * ImageSelectionPurpose
  */
-export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
+export type ImageSelectionPurpose =
+  'layout_import' | 'photo_selection' | 'semi_automatic_selection';
 
 /**
  * ImageSelectionRangeConfirmationCommand
@@ -4318,6 +4319,7 @@ export type JobResponse = {
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
+    | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
@@ -4371,6 +4373,7 @@ export type JobStatus =
 export type JobType =
   | 'import'
   | 'image_selection'
+  | 'semi_automatic_image_selection'
   | 'validate'
   | 'payout'
   | 'snapshot'
@@ -8063,6 +8066,423 @@ export type RulesVersionUpdate = {
    * Spincost
    */
   spinCost?: number | null;
+};
+
+/**
+ * SemiAutomaticImageSelectionJobPayload
+ */
+export type SemiAutomaticImageSelectionJobPayload = {
+  /**
+   * Direction
+   */
+  direction: 'ascending' | 'descending';
+  /**
+   * Expectedrangesfingerprint
+   */
+  expectedRangesFingerprint: string;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Selectionkind
+   */
+  selectionKind: 'semi_automatic_image_selection';
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcefingerprint
+   */
+  sourceFingerprint: string;
+  /**
+   * Sourcemanifestchecksumsha256
+   */
+  sourceManifestChecksumSha256: string;
+  /**
+   * Sourceuploadid
+   */
+  sourceUploadId: string;
+};
+
+/**
+ * SemiAutomaticSelectionCapabilitiesResponse
+ */
+export type SemiAutomaticSelectionCapabilitiesResponse = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 1;
+  /**
+   * Enabled
+   */
+  enabled: boolean;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Maximumboardsperrange
+   */
+  maximumBoardsPerRange: 9;
+  /**
+   * Minimumsequencenumber
+   */
+  minimumSequenceNumber: 1;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Stagingpurpose
+   */
+  stagingPurpose: 'semi_automatic_selection';
+};
+
+/**
+ * SemiAutomaticSelectionCreate
+ */
+export type SemiAutomaticSelectionCreate = {
+  direction?: SemiAutomaticSelectionDirection;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
+};
+
+/**
+ * SemiAutomaticSelectionCreateResponse
+ */
+export type SemiAutomaticSelectionCreateResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  run: SemiAutomaticSelectionRunResponse;
+};
+
+/**
+ * SemiAutomaticSelectionDiagnosticsResponse
+ */
+export type SemiAutomaticSelectionDiagnosticsResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Checkpoint
+   */
+  checkpoint: {
+    [key: string]: unknown;
+  };
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string | null;
+  /**
+   * Counters
+   */
+  counters: {
+    [key: string]: number;
+  };
+  /**
+   * Relativepath
+   */
+  relativePath: string | null;
+  /**
+   * Runid
+   */
+  runId: string;
+};
+
+/**
+ * SemiAutomaticSelectionDirection
+ */
+export type SemiAutomaticSelectionDirection = 'ascending' | 'descending';
+
+/**
+ * SemiAutomaticSelectionOutputAcknowledgement
+ */
+export type SemiAutomaticSelectionOutputAcknowledgement = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string;
+};
+
+/**
+ * SemiAutomaticSelectionRangePageResponse
+ */
+export type SemiAutomaticSelectionRangePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionRangeResponse>;
+  /**
+   * Nextafterexpectedindex
+   */
+  nextAfterExpectedIndex?: number | null;
+};
+
+/**
+ * SemiAutomaticSelectionRangeResponse
+ */
+export type SemiAutomaticSelectionRangeResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expectedindex
+   */
+  expectedIndex: number;
+  /**
+   * Filename
+   */
+  fileName: string;
+  /**
+   * Groupfirstsourceindex
+   */
+  groupFirstSourceIndex?: number | null;
+  /**
+   * Grouplastsourceindex
+   */
+  groupLastSourceIndex?: number | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string | null;
+  /**
+   * Rangeconfidence
+   */
+  rangeConfidence?: number | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Selectionmethod
+   */
+  selectionMethod: string | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string | null;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string | null;
+  /**
+   * Sourcesizebytes
+   */
+  sourceSizeBytes?: number | null;
+  status: SemiAutomaticSelectionRangeStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * SemiAutomaticSelectionRangeStatus
+ */
+export type SemiAutomaticSelectionRangeStatus =
+  'missing' | 'auto_selected' | 'output_synced' | 'conflict';
+
+/**
+ * SemiAutomaticSelectionRunResponse
+ */
+export type SemiAutomaticSelectionRunResponse = {
+  /**
+   * Checkpoint
+   */
+  checkpoint: {
+    [key: string]: unknown;
+  };
+  /**
+   * Counters
+   */
+  counters: {
+    [key: string]: number;
+  };
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Diagnosticschecksumsha256
+   */
+  diagnosticsChecksumSha256: string | null;
+  /**
+   * Diagnosticsrelativepath
+   */
+  diagnosticsRelativePath: string | null;
+  direction: SemiAutomaticSelectionDirection;
+  /**
+   * Expectedrangesfingerprint
+   */
+  expectedRangesFingerprint: string;
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber: number;
+  /**
+   * Fullrangesize
+   */
+  fullRangeSize: 9;
+  /**
+   * Gameid
+   */
+  gameId?: null;
+  /**
+   * Groupingpolicyfingerprint
+   */
+  groupingPolicyFingerprint: string;
+  /**
+   * Id
+   */
+  id: string;
+  job: JobResponse;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber: number;
+  /**
+   * Rangeconvention
+   */
+  rangeConvention: 'seq-inclusive-v1';
+  /**
+   * Recognizerfingerprint
+   */
+  recognizerFingerprint: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  source: SemiAutomaticSelectionSourceResponse;
+  status: SemiAutomaticSelectionRunStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * SemiAutomaticSelectionRunStatus
+ */
+export type SemiAutomaticSelectionRunStatus =
+  | 'ready'
+  | 'running'
+  | 'paused'
+  | 'analysis_complete'
+  | 'syncing_output'
+  | 'review_mode'
+  | 'edit_source_mode'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/**
+ * SemiAutomaticSelectionSourceResponse
+ */
+export type SemiAutomaticSelectionSourceResponse = {
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcefingerprint
+   */
+  sourceFingerprint: string;
+  /**
+   * Sourcetotalbytes
+   */
+  sourceTotalBytes: number;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
 };
 
 /**
@@ -19272,6 +19692,417 @@ export type UpdateRulesVersionSymbolResponses = {
 
 export type UpdateRulesVersionSymbolResponse =
   UpdateRulesVersionSymbolResponses[keyof UpdateRulesVersionSymbolResponses];
+
+export type CreateSemiAutomaticImageSelectionData = {
+  body: SemiAutomaticSelectionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections';
+};
+
+export type CreateSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSemiAutomaticImageSelectionError =
+  CreateSemiAutomaticImageSelectionErrors[keyof CreateSemiAutomaticImageSelectionErrors];
+
+export type CreateSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionCreateResponse;
+};
+
+export type CreateSemiAutomaticImageSelectionResponse =
+  CreateSemiAutomaticImageSelectionResponses[keyof CreateSemiAutomaticImageSelectionResponses];
+
+export type GetSemiAutomaticImageSelectionCapabilitiesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/capabilities';
+};
+
+export type GetSemiAutomaticImageSelectionCapabilitiesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionCapabilitiesResponse;
+};
+
+export type GetSemiAutomaticImageSelectionCapabilitiesResponse =
+  GetSemiAutomaticImageSelectionCapabilitiesResponses[keyof GetSemiAutomaticImageSelectionCapabilitiesResponses];
+
+export type GetSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}';
+};
+
+export type GetSemiAutomaticImageSelectionErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionError =
+  GetSemiAutomaticImageSelectionErrors[keyof GetSemiAutomaticImageSelectionErrors];
+
+export type GetSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type GetSemiAutomaticImageSelectionResponse =
+  GetSemiAutomaticImageSelectionResponses[keyof GetSemiAutomaticImageSelectionResponses];
+
+export type CancelSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/cancel';
+};
+
+export type CancelSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type CancelSemiAutomaticImageSelectionError =
+  CancelSemiAutomaticImageSelectionErrors[keyof CancelSemiAutomaticImageSelectionErrors];
+
+export type CancelSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type CancelSemiAutomaticImageSelectionResponse =
+  CancelSemiAutomaticImageSelectionResponses[keyof CancelSemiAutomaticImageSelectionResponses];
+
+export type GetSemiAutomaticImageSelectionDiagnosticsData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics';
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsError =
+  GetSemiAutomaticImageSelectionDiagnosticsErrors[keyof GetSemiAutomaticImageSelectionDiagnosticsErrors];
+
+export type GetSemiAutomaticImageSelectionDiagnosticsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionDiagnosticsResponse;
+};
+
+export type GetSemiAutomaticImageSelectionDiagnosticsResponse =
+  GetSemiAutomaticImageSelectionDiagnosticsResponses[keyof GetSemiAutomaticImageSelectionDiagnosticsResponses];
+
+export type PauseSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/pause';
+};
+
+export type PauseSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type PauseSemiAutomaticImageSelectionError =
+  PauseSemiAutomaticImageSelectionErrors[keyof PauseSemiAutomaticImageSelectionErrors];
+
+export type PauseSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type PauseSemiAutomaticImageSelectionResponse =
+  PauseSemiAutomaticImageSelectionResponses[keyof PauseSemiAutomaticImageSelectionResponses];
+
+export type ListSemiAutomaticImageSelectionRangesData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Expected Index
+     */
+    after_expected_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges';
+};
+
+export type ListSemiAutomaticImageSelectionRangesErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionRangesError =
+  ListSemiAutomaticImageSelectionRangesErrors[keyof ListSemiAutomaticImageSelectionRangesErrors];
+
+export type ListSemiAutomaticImageSelectionRangesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRangePageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionRangesResponse =
+  ListSemiAutomaticImageSelectionRangesResponses[keyof ListSemiAutomaticImageSelectionRangesResponses];
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputData = {
+  body: SemiAutomaticSelectionOutputAcknowledgement;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Expected Index
+     */
+    expected_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges/{expected_index}/output-acknowledgements';
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputError =
+  AcknowledgeSemiAutomaticImageSelectionOutputErrors[keyof AcknowledgeSemiAutomaticImageSelectionOutputErrors];
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRangeResponse;
+};
+
+export type AcknowledgeSemiAutomaticImageSelectionOutputResponse =
+  AcknowledgeSemiAutomaticImageSelectionOutputResponses[keyof AcknowledgeSemiAutomaticImageSelectionOutputResponses];
+
+export type ResumeSemiAutomaticImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/resume';
+};
+
+export type ResumeSemiAutomaticImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ResumeSemiAutomaticImageSelectionError =
+  ResumeSemiAutomaticImageSelectionErrors[keyof ResumeSemiAutomaticImageSelectionErrors];
+
+export type ResumeSemiAutomaticImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunResponse;
+};
+
+export type ResumeSemiAutomaticImageSelectionResponse =
+  ResumeSemiAutomaticImageSelectionResponses[keyof ResumeSemiAutomaticImageSelectionResponses];
+
+export type GetSemiAutomaticImageSelectionSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Source Index
+     */
+    source_index: number;
+  };
+  query: {
+    /**
+     * Expected Checksum Sha256
+     */
+    expected_checksum_sha256: string;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset';
+};
+
+export type GetSemiAutomaticImageSelectionSourceAssetErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type GetSemiAutomaticImageSelectionSourceAssetError =
+  GetSemiAutomaticImageSelectionSourceAssetErrors[keyof GetSemiAutomaticImageSelectionSourceAssetErrors];
+
+export type GetSemiAutomaticImageSelectionSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListWorkerLanesData = {
   body?: never;

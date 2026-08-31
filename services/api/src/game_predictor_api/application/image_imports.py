@@ -61,6 +61,7 @@ UPLOAD_METRICS_FILE_NAME = "_upload_metrics.json"
 class ImageSelectionPurpose(StrEnum):
     LAYOUT_IMPORT = "layout_import"
     PHOTO_SELECTION = "photo_selection"
+    SEMI_AUTOMATIC_SELECTION = "semi_automatic_selection"
 
 
 class ImageWriteCapacityGuard(Protocol):
@@ -115,6 +116,27 @@ class BrowserReadySelection:
     completed_at: datetime | None
 
 
+@dataclass(frozen=True, slots=True)
+class BrowserReadySource:
+    source_index: int
+    relative_path: str
+    stored_file_name: str
+    size_bytes: int
+    checksum_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserReadySourceSelection:
+    upload_id: UUID
+    display_name: str
+    purpose: ImageSelectionPurpose
+    manifest_checksum_sha256: str
+    source_fingerprint: str
+    sources: tuple[BrowserReadySource, ...]
+    total_bytes: int
+    completed_at: datetime | None
+
+
 class ImageFolderSelectionService:
     """Keep short-lived approved paths outside browser-controlled payloads."""
 
@@ -161,6 +183,13 @@ class ImageFolderSelectionService:
             raise JobError(
                 "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
                 "Photo-selection staging requires a game and an input manifest.",
+            )
+        if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and (
+            game_id is not None or input_manifest_sha256 is None
+        ):
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "Semi-automatic selection staging must be global and finalized.",
             )
         now = self._clock()
         stable_selection_id = selection_id or uuid4()
@@ -406,7 +435,11 @@ class BrowserImageSelectionService:
             )
         max_files = (
             MAX_PHOTO_SELECTION_FILES
-            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            if purpose
+            in {
+                ImageSelectionPurpose.PHOTO_SELECTION,
+                ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            }
             else MAX_PREFLIGHT_FILES
         )
         if not 1 <= expected_file_count <= max_files:
@@ -416,7 +449,11 @@ class BrowserImageSelectionService:
             )
         max_bytes = (
             self._photo_selection_max_bytes
-            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            if purpose
+            in {
+                ImageSelectionPurpose.PHOTO_SELECTION,
+                ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            }
             else self._max_bytes
         )
         if not 1 <= expected_total_bytes <= max_bytes:
@@ -433,6 +470,11 @@ class BrowserImageSelectionService:
             raise JobError(
                 "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
                 "Photo-selection staging must be scoped to one game.",
+            )
+        if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and game_id is not None:
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                "Semi-automatic selection staging cannot be scoped to a game.",
             )
         now = self._clock()
         with self._lock:
@@ -601,6 +643,7 @@ class BrowserImageSelectionService:
                 ),
                 "schemaVersion": 1,
                 "startedAt": upload.created_at.isoformat(),
+                "manifestChecksumSha256": manifest_sha256,
             }
             metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
             temporary_metrics = upload.path / f".{UPLOAD_METRICS_FILE_NAME}.part"
@@ -634,7 +677,13 @@ class BrowserImageSelectionService:
             self._uploads.pop(upload_id, None)
             return selected
 
-    def mark_in_use(self, upload_id: UUID, *, game_id: UUID, job_id: UUID) -> None:
+    def mark_in_use(
+        self,
+        upload_id: UUID,
+        *,
+        game_id: UUID | None,
+        job_id: UUID,
+    ) -> None:
         if self._retention is not None:
             self._retention.record_in_use(
                 upload_id=upload_id,
@@ -697,6 +746,180 @@ class BrowserImageSelectionService:
 
     def manifest(self, upload_id: UUID) -> BrowserSequenceManifest:
         return self.get_ready(upload_id).manifest
+
+    def get_ready_source_selection(
+        self,
+        upload_id: UUID,
+        *,
+        purpose: ImageSelectionPurpose,
+    ) -> BrowserReadySourceSelection:
+        """Read a finalized generic JPEG staging without interpreting board ranges."""
+
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if upload.purpose is not purpose:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                    "The browser staging belongs to another workflow.",
+                )
+            if purpose is ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION and upload.game_id:
+                raise JobError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
+                    "Semi-automatic selection staging cannot reference a game.",
+                )
+            return self._ready_source_selection(upload)
+
+    def get_ready_source_asset(
+        self,
+        upload_id: UUID,
+        *,
+        purpose: ImageSelectionPurpose,
+        source_index: int,
+        expected_checksum_sha256: str,
+    ) -> tuple[Path, str]:
+        ready = self.get_ready_source_selection(upload_id, purpose=purpose)
+        if source_index < 0 or source_index >= len(ready.sources):
+            raise JobError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
+                "The requested staged source does not exist.",
+            )
+        source = ready.sources[source_index]
+        if source.checksum_sha256 != expected_checksum_sha256:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The requested source identity no longer matches the staging manifest.",
+            )
+        upload = self.get(upload_id)
+        path = upload.path / source.stored_file_name
+        if not path.is_file() or sha256_file(path) != source.checksum_sha256:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The requested source file changed after the staging was finalized.",
+            )
+        return path, PurePosixPath(source.relative_path).name
+
+    def _ready_source_selection(
+        self,
+        upload: BrowserImageUpload,
+    ) -> BrowserReadySourceSelection:
+        manifest_path = upload.path / UPLOAD_MANIFEST_FILE_NAME
+        if not manifest_path.is_file():
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_NOT_FINALIZED",
+                "The browser staging has not been finalized.",
+            )
+        try:
+            manifest_bytes = manifest_path.read_bytes()
+            payload = json.loads(manifest_bytes)
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest cannot be read.",
+            ) from error
+        manifest_checksum_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+        metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
+        try:
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            completed = metrics.get("completedAt")
+            expected_manifest_checksum = metrics.get("manifestChecksumSha256")
+            if (
+                not isinstance(completed, str)
+                or expected_manifest_checksum != manifest_checksum_sha256
+            ):
+                raise ValueError("finalization identity mismatch")
+            completed_at = datetime.fromisoformat(completed)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source finalization record changed or cannot be read.",
+            ) from error
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schemaVersion") != 1
+            or payload.get("purpose") != upload.purpose.value
+            or payload.get("gameId") is not None
+            or payload.get("orderingPolicy") != "natural_relative_path_v1"
+        ):
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest has an incompatible scope or contract.",
+            )
+        raw_files = payload.get("files")
+        if not isinstance(raw_files, list) or len(raw_files) != upload.expected_file_count:
+            raise JobConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The staged source manifest contains an unexpected file set.",
+            )
+        sources: list[BrowserReadySource] = []
+        for expected_index, raw in enumerate(raw_files):
+            if not isinstance(raw, dict) or raw.get("orderIndex") != expected_index:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "The staged source ordering changed after finalization.",
+                )
+            try:
+                relative_path = PurePosixPath(str(raw["relativePath"]).replace("\\", "/"))
+                stored_file_name = str(raw["storedFileName"])
+                size_bytes = int(raw["sizeBytes"])
+                checksum_sha256 = str(raw["checksumSha256"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source record is invalid.",
+                ) from error
+            if (
+                relative_path.is_absolute()
+                or any(part in {"", ".", ".."} for part in relative_path.parts)
+                or relative_path.suffix.casefold() not in SUPPORTED_IMAGE_SUFFIXES
+                or stored_file_name != f"{expected_index + 1:08d}{relative_path.suffix.casefold()}"
+                or size_bytes < 1
+                or len(checksum_sha256) != 64
+                or any(character not in "0123456789abcdef" for character in checksum_sha256)
+            ):
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source record has unsafe or inconsistent metadata.",
+                )
+            target = upload.path / stored_file_name
+            try:
+                if target.stat().st_size != size_bytes or sha256_file(target) != checksum_sha256:
+                    raise OSError("source identity mismatch")
+            except (OSError, ImageFileError) as error:
+                raise JobConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "A staged source file changed after finalization.",
+                ) from error
+            sources.append(
+                BrowserReadySource(
+                    source_index=expected_index,
+                    relative_path=relative_path.as_posix(),
+                    stored_file_name=stored_file_name,
+                    size_bytes=size_bytes,
+                    checksum_sha256=checksum_sha256,
+                )
+            )
+        source_payload = [
+            {
+                "checksumSha256": source.checksum_sha256,
+                "relativePath": source.relative_path,
+                "sizeBytes": source.size_bytes,
+                "sourceIndex": source.source_index,
+            }
+            for source in sources
+        ]
+        source_fingerprint = hashlib.sha256(
+            json.dumps(source_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        return BrowserReadySourceSelection(
+            upload_id=upload.upload_id,
+            display_name=upload.display_name,
+            purpose=upload.purpose,
+            manifest_checksum_sha256=manifest_checksum_sha256,
+            source_fingerprint=source_fingerprint,
+            sources=tuple(sources),
+            total_bytes=sum(source.size_bytes for source in sources),
+            completed_at=completed_at,
+        )
 
     def _ready_selection(
         self,

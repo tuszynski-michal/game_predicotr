@@ -37,6 +37,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   źródeł bez proof. Grupowanie, staging, job i API nadal należą do kolejnych
   tasków.
 
+### Globalny run półautomatycznej selekcji — TASK-0352
+
+- Migracja `0087` utrwala globalny run i jego oczekiwane zakresy bez
+  przypisania do gry. Idempotencja obejmuje cały kontrakt stagingu, granic,
+  kierunku i wersji algorytmów.
+- Purpose `semi_automatic_selection` przechowuje naturalnie uporządkowane
+  JPEG-i, checksumę manifestu i fingerprint źródła. Restart API nie traci
+  stagingu ani runu; zmieniony manifest lub asset jest blokowany fail-closed.
+- Lokalne API udostępnia capabilities, lifecycle runu, listę zakresów,
+  diagnostykę, assety i checksum-bound acknowledgement outputu. Run używa
+  istniejącego selection lane, ale do TASK-0353 celowo nie ma handlera.
+- Rollout jest domyślnie wyłączony flagą
+  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`. Grupowanie,
+  checkpoint JSONL i wybór środka nadal należą do TASK-0353.
+
 ### Częściowa geometria ostatniej strony — TASK-0349
 
 - Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej

@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 class JobType(StrEnum):
     IMPORT = "import"
     IMAGE_SELECTION = "image_selection"
+    SEMI_AUTOMATIC_IMAGE_SELECTION = "semi_automatic_image_selection"
     VALIDATE = "validate"
     PAYOUT = "payout"
     SNAPSHOT = "snapshot"
@@ -213,7 +214,8 @@ def start_job(
         _raise_invalid_transition(job, JobStatus.PROCESSING)
     expected_slot = (
         JobExecutionSlot.IMAGE_SELECTION
-        if job.job_type is JobType.IMAGE_SELECTION
+        if job.job_type
+        in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}
         else JobExecutionSlot.GENERAL
     )
     if execution_slot is not expected_slot:

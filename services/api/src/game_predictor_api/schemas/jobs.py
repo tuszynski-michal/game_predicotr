@@ -243,6 +243,24 @@ class ImageSelectionJobPayload(ApiModel):
     )
 
 
+class SemiAutomaticImageSelectionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    selection_kind: Literal["semi_automatic_image_selection"]
+    run_id: UUID
+    source_upload_id: UUID
+    source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_count: int = Field(ge=1)
+    first_sequence_number: int = Field(ge=1)
+    last_sequence_number: int = Field(ge=1)
+    direction: Literal["ascending", "descending"]
+    range_convention: Literal["seq-inclusive-v1"]
+    full_range_size: Literal[9]
+    expected_ranges_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    recognizer_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    grouping_policy_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class ValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
@@ -437,6 +455,7 @@ JobPayloadResponse = (
     | CuratedImageImportJobPayload
     | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
+    | SemiAutomaticImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
@@ -754,6 +773,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
         return ImageSelectionJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
+        return SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)

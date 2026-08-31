@@ -38,6 +38,9 @@ from game_predictor_api.api.remote_manual_selections import (
 from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
 from game_predictor_api.api.rules import create_rules_router
+from game_predictor_api.api.semi_automatic_image_selections import (
+    create_semi_automatic_image_selections_router,
+)
 from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
 from game_predictor_api.api.symbol_references import create_symbol_references_router
 from game_predictor_api.api.verified_training_cohorts import (
@@ -56,6 +59,7 @@ def create_api_router(
     dataset_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
     image_selection_service_dependency: Callable[..., object],
+    semi_automatic_image_selection_service_dependency: Callable[..., object],
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
@@ -150,6 +154,11 @@ def create_api_router(
         create_image_selections_router(
             image_selection_service_dependency,
             image_folder_selection_service_dependency,
+        )
+    )
+    router.include_router(
+        create_semi_automatic_image_selections_router(
+            semi_automatic_image_selection_service_dependency
         )
     )
     router.include_router(

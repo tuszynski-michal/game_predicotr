@@ -23,6 +23,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.import_max_bytes == 1024 * 1024 * 1024
     assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
     assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
+    assert settings.semi_automatic_image_selection_enabled is False
     assert settings.storage_gc_observe_only is False
     assert settings.remote_manual_selection_host_mapping_enabled is True
     assert settings.remote_selection_deselect_enabled is True
@@ -202,6 +203,14 @@ def test_storage_gc_requires_explicit_rollout_after_observe_only() -> None:
     settings = ApiSettings.from_environment({"GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY": "false"})
 
     assert settings.storage_gc_observe_only is False
+
+
+def test_semi_automatic_selection_requires_explicit_rollout() -> None:
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION": "true"}
+    )
+
+    assert settings.semi_automatic_image_selection_enabled is True
 
 
 def test_remote_host_mapping_can_be_disabled_for_rollback() -> None:

@@ -6485,7 +6485,8 @@
       "ImageSelectionPurpose": {
         "enum": [
           "layout_import",
-          "photo_selection"
+          "photo_selection",
+          "semi_automatic_selection"
         ],
         "title": "ImageSelectionPurpose",
         "type": "string"
@@ -7710,6 +7711,9 @@
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SemiAutomaticImageSelectionJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/ValidateJobPayload"
               },
               {
@@ -7844,6 +7848,7 @@
         "enum": [
           "import",
           "image_selection",
+          "semi_automatic_image_selection",
           "validate",
           "payout",
           "snapshot",
@@ -14052,6 +14057,723 @@
           }
         },
         "title": "RulesVersionUpdate",
+        "type": "object"
+      },
+      "SemiAutomaticImageSelectionJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "expectedRangesFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedrangesfingerprint",
+            "type": "string"
+          },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
+          "fullRangeSize": {
+            "const": 9,
+            "title": "Fullrangesize",
+            "type": "integer"
+          },
+          "groupingPolicyFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Groupingpolicyfingerprint",
+            "type": "string"
+          },
+          "lastSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Lastsequencenumber",
+            "type": "integer"
+          },
+          "rangeConvention": {
+            "const": "seq-inclusive-v1",
+            "title": "Rangeconvention",
+            "type": "string"
+          },
+          "recognizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Recognizerfingerprint",
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "selectionKind": {
+            "const": "semi_automatic_image_selection",
+            "title": "Selectionkind",
+            "type": "string"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          },
+          "sourceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcefingerprint",
+            "type": "string"
+          },
+          "sourceManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceUploadId": {
+            "format": "uuid",
+            "title": "Sourceuploadid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selectionKind",
+          "runId",
+          "sourceUploadId",
+          "sourceManifestChecksumSha256",
+          "sourceFingerprint",
+          "sourceCount",
+          "firstSequenceNumber",
+          "lastSequenceNumber",
+          "direction",
+          "rangeConvention",
+          "fullRangeSize",
+          "expectedRangesFingerprint",
+          "recognizerFingerprint",
+          "groupingPolicyFingerprint"
+        ],
+        "title": "SemiAutomaticImageSelectionJobPayload",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionCapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": 1,
+            "title": "Contractversion",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fullRangeSize": {
+            "const": 9,
+            "title": "Fullrangesize",
+            "type": "integer"
+          },
+          "groupingPolicyFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Groupingpolicyfingerprint",
+            "type": "string"
+          },
+          "maximumBoardsPerRange": {
+            "const": 9,
+            "title": "Maximumboardsperrange",
+            "type": "integer"
+          },
+          "minimumSequenceNumber": {
+            "const": 1,
+            "title": "Minimumsequencenumber",
+            "type": "integer"
+          },
+          "rangeConvention": {
+            "const": "seq-inclusive-v1",
+            "title": "Rangeconvention",
+            "type": "string"
+          },
+          "recognizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Recognizerfingerprint",
+            "type": "string"
+          },
+          "stagingPurpose": {
+            "const": "semi_automatic_selection",
+            "title": "Stagingpurpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "contractVersion",
+          "rangeConvention",
+          "fullRangeSize",
+          "minimumSequenceNumber",
+          "maximumBoardsPerRange",
+          "stagingPurpose",
+          "recognizerFingerprint",
+          "groupingPolicyFingerprint"
+        ],
+        "title": "SemiAutomaticSelectionCapabilitiesResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionDirection",
+            "default": "ascending"
+          },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
+          "lastSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Lastsequencenumber",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId",
+          "firstSequenceNumber",
+          "lastSequenceNumber"
+        ],
+        "title": "SemiAutomaticSelectionCreate",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "run": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+          }
+        },
+        "required": [
+          "run",
+          "created"
+        ],
+        "title": "SemiAutomaticSelectionCreateResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionDiagnosticsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "checkpoint": {
+            "additionalProperties": true,
+            "title": "Checkpoint",
+            "type": "object"
+          },
+          "checksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checksumsha256"
+          },
+          "counters": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counters",
+            "type": "object"
+          },
+          "relativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relativepath"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "available",
+          "relativePath",
+          "checksumSha256",
+          "checkpoint",
+          "counters"
+        ],
+        "title": "SemiAutomaticSelectionDiagnosticsResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionDirection": {
+        "enum": [
+          "ascending",
+          "descending"
+        ],
+        "title": "SemiAutomaticSelectionDirection",
+        "type": "string"
+      },
+      "SemiAutomaticSelectionOutputAcknowledgement": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          },
+          "outputChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Outputchecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "expectedSourceChecksumSha256",
+          "outputChecksumSha256"
+        ],
+        "title": "SemiAutomaticSelectionOutputAcknowledgement",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionRangePageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SemiAutomaticSelectionRangeResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterExpectedIndex": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextafterexpectedindex"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SemiAutomaticSelectionRangePageResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionRangeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expectedIndex": {
+            "minimum": 0.0,
+            "title": "Expectedindex",
+            "type": "integer"
+          },
+          "fileName": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "groupFirstSourceIndex": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groupfirstsourceindex"
+          },
+          "groupLastSourceIndex": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grouplastsourceindex"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "outputChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputchecksumsha256"
+          },
+          "rangeConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeconfidence"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "selectionMethod": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selectionmethod"
+          },
+          "sourceChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcechecksumsha256"
+          },
+          "sourceIndex": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceindex"
+          },
+          "sourceRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerelativepath"
+          },
+          "sourceSizeBytes": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcesizebytes"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionRangeStatus"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "runId",
+          "expectedIndex",
+          "rangeStart",
+          "rangeEnd",
+          "fileName",
+          "status",
+          "sourceRelativePath",
+          "sourceChecksumSha256",
+          "selectionMethod",
+          "outputChecksumSha256",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "SemiAutomaticSelectionRangeResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionRangeStatus": {
+        "enum": [
+          "missing",
+          "auto_selected",
+          "output_synced",
+          "conflict"
+        ],
+        "title": "SemiAutomaticSelectionRangeStatus",
+        "type": "string"
+      },
+      "SemiAutomaticSelectionRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpoint": {
+            "additionalProperties": true,
+            "title": "Checkpoint",
+            "type": "object"
+          },
+          "counters": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counters",
+            "type": "object"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "diagnosticsChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnosticschecksumsha256"
+          },
+          "diagnosticsRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnosticsrelativepath"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionDirection"
+          },
+          "expectedRangesFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedrangesfingerprint",
+            "type": "string"
+          },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
+          "fullRangeSize": {
+            "const": 9,
+            "title": "Fullrangesize",
+            "type": "integer"
+          },
+          "gameId": {
+            "title": "Gameid",
+            "type": "null"
+          },
+          "groupingPolicyFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Groupingpolicyfingerprint",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "lastSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Lastsequencenumber",
+            "type": "integer"
+          },
+          "rangeConvention": {
+            "const": "seq-inclusive-v1",
+            "title": "Rangeconvention",
+            "type": "string"
+          },
+          "recognizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Recognizerfingerprint",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionSourceResponse"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SemiAutomaticSelectionRunStatus"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "job",
+          "source",
+          "firstSequenceNumber",
+          "lastSequenceNumber",
+          "direction",
+          "rangeConvention",
+          "fullRangeSize",
+          "expectedRangesFingerprint",
+          "recognizerFingerprint",
+          "groupingPolicyFingerprint",
+          "status",
+          "checkpoint",
+          "counters",
+          "diagnosticsRelativePath",
+          "diagnosticsChecksumSha256",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "SemiAutomaticSelectionRunResponse",
+        "type": "object"
+      },
+      "SemiAutomaticSelectionRunStatus": {
+        "enum": [
+          "ready",
+          "running",
+          "paused",
+          "analysis_complete",
+          "syncing_output",
+          "review_mode",
+          "edit_source_mode",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "SemiAutomaticSelectionRunStatus",
+        "type": "string"
+      },
+      "SemiAutomaticSelectionSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          },
+          "sourceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcefingerprint",
+            "type": "string"
+          },
+          "sourceTotalBytes": {
+            "minimum": 1.0,
+            "title": "Sourcetotalbytes",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId",
+          "displayName",
+          "manifestChecksumSha256",
+          "sourceFingerprint",
+          "sourceCount",
+          "sourceTotalBytes"
+        ],
+        "title": "SemiAutomaticSelectionSourceResponse",
         "type": "object"
       },
       "SnapshotJobCreate": {
@@ -34626,6 +35348,728 @@
         "summary": "Configure a draft rules-version symbol",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections": {
+      "post": {
+        "operationId": "createSemiAutomaticImageSelection",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemiAutomaticSelectionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Run",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/capabilities": {
+      "get": {
+        "operationId": "getSemiAutomaticImageSelectionCapabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capabilities",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}": {
+      "get": {
+        "operationId": "getSemiAutomaticImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancelSemiAutomaticImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics": {
+      "get": {
+        "operationId": "getSemiAutomaticImageSelectionDiagnostics",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "Diagnostics",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/pause": {
+      "post": {
+        "operationId": "pauseSemiAutomaticImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Pause",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges": {
+      "get": {
+        "operationId": "listSemiAutomaticImageSelectionRanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_expected_index",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Expected Index"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRangePageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "List Ranges",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/ranges/{expected_index}/output-acknowledgements": {
+      "post": {
+        "operationId": "acknowledgeSemiAutomaticImageSelectionOutput",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "expected_index",
+            "required": true,
+            "schema": {
+              "title": "Expected Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemiAutomaticSelectionOutputAcknowledgement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Acknowledge",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/resume": {
+      "post": {
+        "operationId": "resumeSemiAutomaticImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resume",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset": {
+      "get": {
+        "operationId": "getSemiAutomaticImageSelectionSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_index",
+            "required": true,
+            "schema": {
+              "title": "Source Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_checksum_sha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Expected Checksum Sha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "Source Asset",
+        "tags": [
+          "semi-automatic-image-selections"
         ]
       }
     },

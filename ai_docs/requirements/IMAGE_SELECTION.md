@@ -929,3 +929,28 @@ maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego
 korpusu rzeczywistych zdjęć; bieżąca wartość wynosi `160`. Parametr nie nadaje
 zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
+
+## Trwały globalny run półautomatycznej selekcji — TASK-0352
+
+- Workflow nie należy do gry: staging, run i job mają `gameId = null`.
+- Browser staging ma osobny purpose `semi_automatic_selection`, naturalną
+  kolejność względnych ścieżek oraz niezmienną checksummę finalnego manifestu.
+  Purpose gry, zmiana manifestu, zmiana JPEG-a albo błędna check­summa assetu
+  blokują odczyt fail-closed.
+- Start wymaga pełnych granic sekwencji i kierunku. Tworzy z góry wszystkie
+  oczekiwane zakresy `seq-inclusive-v1`, w tym krótszy zakres końcowy.
+- Idempotencja obejmuje upload, manifest, fingerprint źródła, granice,
+  kierunek, recognizer i politykę grupowania. Identyczne żądanie zwraca ten sam
+  run; zmiana któregokolwiek wejścia tworzy inną tożsamość.
+- Run i jego oczekiwane zakresy są trwałe. API udostępnia capabilities,
+  start/status, keysetową listę zakresów, diagnostykę, checksum-bound asset,
+  pause/resume/cancel oraz potwierdzenie lokalnego outputu.
+- Potwierdzenie outputu wymaga bieżącej rewizji, checksummy wybranego źródła i
+  identycznej checksummy zapisanych bajtów. Aktualizacja zakresu i liczników
+  runu jest jedną transakcją.
+- Funkcja jest domyślnie wyłączona przez
+  `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`. Endpoint
+  capabilities jest jedynym źródłem tej możliwości dla przyszłego UI.
+- Job używa istniejącego lane selekcji zdjęć. Do czasu TASK-0353 nie ma
+  zarejestrowanego handlera, więc job pozostaje bezpiecznie w stanie `created`
+  i nie może zostać przejęty przez general lane.

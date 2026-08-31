@@ -36,7 +36,10 @@ from sqlalchemy import case, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
+GENERAL_JOB_TYPES = frozenset(JobType) - {
+    JobType.IMAGE_SELECTION,
+    JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+}
 
 
 class SqlAlchemyWorkerJobStore:

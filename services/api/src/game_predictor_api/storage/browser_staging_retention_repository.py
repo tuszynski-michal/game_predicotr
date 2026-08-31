@@ -71,7 +71,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
         self,
         *,
         upload_id: UUID,
-        game_id: UUID,
+        game_id: UUID | None,
         job_id: UUID,
         used_at: datetime,
     ) -> None:

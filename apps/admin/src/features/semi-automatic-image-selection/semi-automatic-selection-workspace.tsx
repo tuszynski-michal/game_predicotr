@@ -5,7 +5,7 @@ import type {
   SemiAutomaticSelectionCapabilitiesResponse,
   SemiAutomaticSelectionRunResponse,
 } from '@game-predictor/admin-api-client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
@@ -31,7 +31,9 @@ import {
   IndexedDbSemiAutomaticSelectionLocalSessionStore,
   restoreSemiAutomaticSelectionLocalSession,
   type SemiAutomaticOutputDirectoryHandle,
+  type SemiAutomaticSelectionLocalUiState,
 } from './semi-automatic-selection-output-storage.ts';
+import { SemiAutomaticSelectionReviewWorkspace } from './semi-automatic-selection-review-workspace';
 
 const EMPTY_UPLOAD_PROGRESS: SemiAutomaticSelectionUploadProgress = {
   totalBytes: 0,
@@ -48,9 +50,12 @@ interface SemiAutomaticSelectionWorkspaceProps {
   readonly client?: SemiAutomaticSelectionClient &
     Pick<
       AdminApiClient,
+      | 'acknowledgeSemiAutomaticImageSelectionOutput'
       | 'cancelSemiAutomaticImageSelection'
       | 'getSemiAutomaticImageSelection'
       | 'getSemiAutomaticImageSelectionCapabilities'
+      | 'getSemiAutomaticImageSelectionSourceAsset'
+      | 'listSemiAutomaticImageSelectionRanges'
       | 'pauseSemiAutomaticImageSelection'
       | 'resumeSemiAutomaticImageSelection'
     >;
@@ -92,6 +97,8 @@ export function SemiAutomaticSelectionWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [restoredUi, setRestoredUi] =
+    useState<SemiAutomaticSelectionLocalUiState | null>(null);
   const pollDeadlineRef = useRef<number | null>(null);
 
   const first = parsePositiveInteger(firstSequenceNumber);
@@ -108,7 +115,6 @@ export function SemiAutomaticSelectionWorkspace({
           100,
           (uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100,
         );
-  const running = run !== null && isActiveRun(run);
   const capabilitiesLoading = capabilities === null && error === '';
 
   useEffect(() => {
@@ -153,6 +159,12 @@ export function SemiAutomaticSelectionWorkspace({
       if (cancelled || restored === null) return;
       setSourceDirectory(restored.sourceDirectory as BrowserDirectoryHandle);
       setOutputDirectory(restored.outputDirectory);
+      setRestoredUi(restored.ui);
+      const restoredFiles = await collectSemiAutomaticSourceFiles(
+        restored.sourceDirectory as BrowserDirectoryHandle,
+      );
+      if (cancelled) return;
+      setSourceFiles(restoredFiles);
       setNotice(
         'Przywrócono run i lokalne foldery. Analiza może być dalej monitorowana.',
       );
@@ -305,6 +317,13 @@ export function SemiAutomaticSelectionWorkspace({
         },
         updatedAt: new Date().toISOString(),
       });
+      setRestoredUi({
+        activeExpectedIndex: null,
+        mode: 'configuration',
+        scrollLeft: 0,
+        scrollTop: 0,
+        zoomPercent: 100,
+      });
       setNotice(
         result.created.created
           ? 'Run został utworzony. Worker rozpozna wyłącznie zakresy widoczne na zdjęciach.'
@@ -370,6 +389,30 @@ export function SemiAutomaticSelectionWorkspace({
       setBusy(false);
     }
   }
+
+  const persistReviewUi = useCallback(
+    async (
+      ui: SemiAutomaticSelectionLocalUiState,
+      outputManifestChecksumSha256: string | null,
+    ): Promise<void> => {
+      if (run === null || sourceDirectory === null || outputDirectory === null)
+        return;
+      const current = await localSessionStore.load(run.id);
+      await localSessionStore.save({
+        outputDirectory,
+        outputManifestChecksumSha256:
+          outputManifestChecksumSha256 ??
+          current?.outputManifestChecksumSha256 ??
+          null,
+        runId: run.id,
+        sourceDirectory,
+        ui,
+        updatedAt: new Date().toISOString(),
+      });
+      setRestoredUi(ui);
+    },
+    [localSessionStore, outputDirectory, run, sourceDirectory],
+  );
 
   return (
     <section
@@ -637,7 +680,8 @@ export function SemiAutomaticSelectionWorkspace({
                 Wstrzymaj po checkpointcie
               </button>
             ) : null}
-            {run.job.status === 'waiting_for_review' ? (
+            {run.job.status === 'waiting_for_review' &&
+            run.status === 'paused' ? (
               <button
                 className="primaryButton"
                 disabled={busy}
@@ -669,6 +713,26 @@ export function SemiAutomaticSelectionWorkspace({
             </p>
           ) : null}
         </section>
+      ) : null}
+      {run !== null &&
+      outputDirectory !== null &&
+      sourceDirectory !== null &&
+      sourceFiles.length > 0 &&
+      [
+        'analysis_complete',
+        'syncing_output',
+        'review_mode',
+        'edit_source_mode',
+        'completed',
+      ].includes(run.status) ? (
+        <SemiAutomaticSelectionReviewWorkspace
+          client={api}
+          initialUi={restoredUi}
+          onPersistUi={persistReviewUi}
+          outputDirectory={outputDirectory}
+          run={run}
+          sourceFiles={sourceFiles}
+        />
       ) : null}
     </section>
   );

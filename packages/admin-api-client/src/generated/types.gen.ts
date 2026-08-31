@@ -8261,6 +8261,10 @@ export type SemiAutomaticSelectionOutputAcknowledgement = {
    * Outputchecksumsha256
    */
   outputChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex?: number | null;
 };
 
 /**

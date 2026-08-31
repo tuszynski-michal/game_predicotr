@@ -322,6 +322,66 @@ def acknowledge_output(
     )
 
 
+def acknowledge_manual_output(
+    item: SemiAutomaticSelectionRange,
+    *,
+    expected_revision: int,
+    source_index: int,
+    source_relative_path: str,
+    source_size_bytes: int,
+    source_checksum_sha256: str,
+    output_checksum_sha256: str,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRange:
+    """Bind a manually chosen staged source and its verified local output."""
+
+    _require_sha256(source_checksum_sha256, "source checksum")
+    _require_sha256(output_checksum_sha256, "output checksum")
+    if item.revision != expected_revision:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_CURSOR_STALE",
+            "The expected range changed after it was loaded.",
+        )
+    if source_index < 0 or source_size_bytes < 1 or not source_relative_path.strip():
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_SOURCE_INVALID",
+            "The manually selected source identity is invalid.",
+        )
+    if output_checksum_sha256 != source_checksum_sha256:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_OUTPUT_CHECKSUM_MISMATCH",
+            "The local output differs from the manually selected source bytes.",
+        )
+    if (
+        item.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+        and item.source_index == source_index
+        and item.source_relative_path == source_relative_path
+        and item.source_size_bytes == source_size_bytes
+        and item.source_checksum_sha256 == source_checksum_sha256
+        and item.output_checksum_sha256 == output_checksum_sha256
+    ):
+        return item
+    selection_method = (
+        "manual-source-added-v1" if item.source_index is None else "manual-source-replaced-v1"
+    )
+    now = changed_at or datetime.now(UTC)
+    return replace(
+        item,
+        status=SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
+        source_index=source_index,
+        source_relative_path=source_relative_path,
+        source_size_bytes=source_size_bytes,
+        source_checksum_sha256=source_checksum_sha256,
+        group_first_source_index=None,
+        group_last_source_index=None,
+        range_confidence=None,
+        selection_method=selection_method,
+        output_checksum_sha256=output_checksum_sha256,
+        revision=item.revision + 1,
+        updated_at=now,
+    )
+
+
 def apply_range_status_transition(
     run: SemiAutomaticSelectionRun,
     *,
@@ -332,15 +392,16 @@ def apply_range_status_transition(
 
     if previous.run_id != run.id or current.run_id != run.id or previous.id != current.id:
         raise ValueError("A range transition must belong to the supplied run.")
-    if previous.status is current.status:
+    if previous == current:
         return run
     counters = dict(run.counters)
-    previous_key = _range_counter_key(previous.status)
-    current_key = _range_counter_key(current.status)
-    if counters.get(previous_key, 0) < 1:
-        raise ValueError("Run counters do not contain the previous range state.")
-    counters[previous_key] -= 1
-    counters[current_key] = counters.get(current_key, 0) + 1
+    if previous.status is not current.status:
+        previous_key = _range_counter_key(previous.status)
+        current_key = _range_counter_key(current.status)
+        if counters.get(previous_key, 0) < 1:
+            raise ValueError("Run counters do not contain the previous range state.")
+        counters[previous_key] -= 1
+        counters[current_key] = counters.get(current_key, 0) + 1
     return replace(
         run,
         counters=counters,
@@ -477,6 +538,7 @@ __all__ = [
     "SemiAutomaticSelectionRun",
     "SemiAutomaticSelectionRunStatus",
     "SemiAutomaticSelectionSourceManifest",
+    "acknowledge_manual_output",
     "acknowledge_output",
     "apply_range_status_transition",
     "cancel_run",

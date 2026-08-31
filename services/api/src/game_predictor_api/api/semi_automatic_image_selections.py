@@ -201,6 +201,7 @@ def create_semi_automatic_image_selections_router(
                 expected_revision=payload.expected_revision,
                 expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
                 output_checksum_sha256=payload.output_checksum_sha256,
+                source_index=payload.source_index,
             )
         )
 

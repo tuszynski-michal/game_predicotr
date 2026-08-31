@@ -117,6 +117,7 @@ class SemiAutomaticSelectionOutputAcknowledgement(ApiModel):
     expected_revision: int = Field(ge=0)
     expected_source_checksum_sha256: Sha256
     output_checksum_sha256: Sha256
+    source_index: int | None = Field(default=None, ge=0)
 
 
 def to_run_response(run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRunResponse:

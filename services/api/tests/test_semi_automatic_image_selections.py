@@ -329,6 +329,74 @@ def test_pause_resume_cancel_and_output_acknowledgement_are_durable(tmp_path: Pa
     assert service.get(run.id) == cancelled
 
 
+def test_manual_output_acknowledgement_adds_and_replaces_a_checksum_bound_source(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+
+    added = service.acknowledge_output(
+        run.id,
+        0,
+        expected_revision=0,
+        expected_source_checksum_sha256=ready.sources[0].checksum_sha256,
+        output_checksum_sha256=ready.sources[0].checksum_sha256,
+        source_index=0,
+    )
+    replaced = service.acknowledge_output(
+        run.id,
+        0,
+        expected_revision=added.revision,
+        expected_source_checksum_sha256=ready.sources[1].checksum_sha256,
+        output_checksum_sha256=ready.sources[1].checksum_sha256,
+        source_index=1,
+    )
+
+    assert added.status is SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED
+    assert added.selection_method == "manual-source-added-v1"
+    assert replaced.source_index == 1
+    assert replaced.source_relative_path == "selection-source/photo-2.jpg"
+    assert replaced.selection_method == "manual-source-replaced-v1"
+    assert service.get(run.id).counters["outputSynced"] == 1
+    assert service.get(run.id).revision == 2
+
+
+def test_manual_output_acknowledgement_rejects_a_changed_source(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(repository, staging, enabled=True)
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+    )
+
+    with pytest.raises(JobError) as error:
+        service.acknowledge_output(
+            run.id,
+            0,
+            expected_revision=0,
+            expected_source_checksum_sha256="0" * 64,
+            output_checksum_sha256="0" * 64,
+            source_index=0,
+        )
+
+    assert error.value.code == "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED"
+    assert repository.ranges[(run.id, 0)].status is SemiAutomaticSelectionRangeStatus.MISSING
+
+
 def test_resume_requeues_a_paused_worker_checkpoint(tmp_path: Path) -> None:
     staging, upload_id, _ = _ready_staging(tmp_path)
     repository = MemorySemiAutomaticSelectionRepository()

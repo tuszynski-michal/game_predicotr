@@ -94,6 +94,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Końcowy review i ręczna edycja nie są jeszcze eksponowane; pozostają zakresem
   TASK-0356.
 
+### Review i ręczna edycja półautomatycznej selekcji — TASK-0356
+
+- Ukończony run otwiera pełny, keysetowo pobrany przegląd expected ranges po
+  lokalnej synchronizacji automatycznych wyborów. Postęp zapisu jest widoczny,
+  a nieciągły snapshot blokuje mutację.
+- `REVIEW MODE` nawiguje po zakresach, natomiast `EDIT SOURCE MODE` blokuje
+  zakres i nawiguje po źródłowych JPEG-ach we wspólnym viewerze. Luka zaczyna
+  po poprzednim wyborze, a zastąpienie od dokładnego zapisanego indeksu.
+- Ręczne dodanie i zastąpienie zachowują oryginalne bajty, journal recovery i
+  ochronę przed silent overwrite. Acknowledgement wiąże rewizję z ponownie
+  zweryfikowanym źródłem stagingu przez opcjonalny `sourceIndex`.
+- TASK-0357 pozostaje odpowiedzialny za rollout flagi i odbiór na rzeczywistych
+  katalogach 10/100 zdjęć.
+
 ### Częściowa geometria ostatniej strony — TASK-0349
 
 - Lista ręcznej korekty zwraca `expectedBoardCount` wyliczony z poświadczonej

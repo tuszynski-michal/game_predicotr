@@ -1017,3 +1017,22 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
   blokady serwera.
 - TASK-0355 nie udostępnia jeszcze przeglądu oczekiwanych zakresów ani ręcznej
   edycji źródeł; te tryby należą do TASK-0356.
+
+## Przegląd i ręczna edycja źródeł — TASK-0356
+
+- Przed pierwszym review Admin pobiera wszystkie oczekiwane zakresy
+  keysetowo i synchronizuje automatyczne wybory z lokalnym katalogiem.
+  Niepełny, obcy albo nieciągły snapshot jest blokowany przed mutacją plików.
+- `REVIEW MODE` nawiguje po zablokowanych zakresach. `←` i `→` zmieniają
+  zakres, a `F` otwiera edycję jego źródła. Zakres bez wyboru przechodzi od
+  razu do `EDIT SOURCE MODE`.
+- `EDIT SOURCE MODE` nie zmienia aktywnego zakresu. `←` i `→` przeglądają
+  źródłowe JPEG-i, `Enter` albo `F` zapisuje bieżący JPEG, a `Escape` anuluje
+  edycję. Skróty nie przejmują zdarzeń z kontrolek formularza.
+- Istniejący wybór otwiera dokładny `sourceIndex`. Luka rozpoczyna od indeksu
+  poprzedniego wyboru powiększonego o jeden, z fallbackiem `0` i ograniczeniem
+  do końca katalogu.
+- Ręczne dodanie albo zastąpienie zapisuje oryginalne bajty i wymaga zgodności
+  SHA-256, rozmiaru, rewizji zakresu oraz tożsamości źródła ze stagingiem.
+  Istniejący obcy plik nie jest nadpisywany. Lokalny journal umożliwia recovery
+  po przerwaniu przed acknowledgement API.

@@ -6733,3 +6733,19 @@ Acknowledgement serwera następuje dopiero po ponownym odczycie lokalnego pliku.
 Uchwyty i mały stan widoku mogą być zapisane w IndexedDB, ale JPEG-i i Bloby
 pozostają poza nią. Identyczny plik jest chronionym sukcesem idempotentnym;
 odmienny plik wymaga późniejszej jawnej decyzji operatora.
+
+## D-284 — Ręczne źródło zakresu używa istniejącego acknowledgement
+
+- Status: accepted
+- Date: 2026-08-31
+
+Ręczne uzupełnienie luki i zastąpienie wyboru nie tworzą równoległego API ani
+drugiej tabeli. Istniejący endpoint acknowledgement przyjmuje opcjonalny
+`sourceIndex`, po czym serwer ponownie weryfikuje dokładny wpis niezmiennego
+stagingu, jego ścieżkę, rozmiar i SHA-256. Brak indeksu zachowuje kontrakt
+automatycznego wyboru.
+
+Frontend może zastąpić tylko lokalny plik należący do tego samego manifestu i
+zgodny z jego poprzednią checksummą. Dzięki temu ręczna korekta domyka tę samą
+listę expected ranges, zachowuje liczniki i audyt runu oraz nie pozwala
+potwierdzić dowolnego pliku spoza stagingu.

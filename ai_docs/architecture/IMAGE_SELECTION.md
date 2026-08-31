@@ -1517,3 +1517,24 @@ poprzedniego odczytu runu. Ma interwał 2 s oraz lokalny limit 45 minut, a
 pause/resume/cancel korzystają wyłącznie z trwałych endpointów lifecycle.
 TASK-0355 nie uruchamia synchronizacji outputu, review ani edit-source; kończy
 się na widocznym postępie analizy.
+
+## Przegląd i edycja źródła zakresu — TASK-0356
+
+`SemiAutomaticSelectionReviewWorkspace` przejmuje ukończony run dopiero po
+ponownym zebraniu lokalnych uchwytów źródła i celu. Najpierw pobiera wszystkie
+zakresy stronami po 500, weryfikuje ciągłość `expectedIndex`, a następnie używa
+koordynatora TASK-0354 do journalowanej synchronizacji automatycznych wyborów.
+
+Review i edycja są dwoma jawnymi trybami. Review zmienia wyłącznie aktywny
+expected range. Edycja blokuje ten range, a nawigację przekazuje źródłowym
+JPEG-om wyświetlanym przez wspólny `ManualImageViewer`. Dla luki indeks
+startowy wynika z poprzedniego trwałego wyboru, natomiast dla zastąpienia jest
+dokładnie zapisanym `sourceIndex`.
+
+Ręczna mutacja rozszerza istniejące acknowledgement o opcjonalny
+`sourceIndex`; nie powstaje nowy endpoint ani tabela. Serwis ponownie ładuje
+poświadczony staging, wiąże indeks z względną ścieżką, rozmiarem i SHA-256 oraz
+odrzuca drift źródła. Lokalny zapis może zastąpić wyłącznie plik, którego
+bieżąca check­summa odpowiada poprzedniemu wyborowi tego samego manifestu.
+Zmiana metadanych przy niezmienionym statusie zakresu nadal zwiększa rewizję
+runu, ale nie zmienia liczników statusów.

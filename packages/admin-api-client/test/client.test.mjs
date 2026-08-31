@@ -2444,6 +2444,9 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
     baseUrl: 'http://127.0.0.1:8000',
     fetch: async (request) => {
       requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/ranges')) {
+        return Response.json({ items: [], nextAfterExpectedIndex: null });
+      }
       return request.method === 'GET'
         ? new Response(new Blob(['jpeg'], { type: 'image/jpeg' }))
         : Response.json({ revision: 2, status: 'output_synced' });
@@ -2451,10 +2454,12 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
   });
 
   await client.getSemiAutomaticImageSelectionSourceAsset(runId, 12, checksum);
+  await client.listSemiAutomaticImageSelectionRanges(runId, 499, 500);
   await client.acknowledgeSemiAutomaticImageSelectionOutput(runId, 3, {
     expectedRevision: 1,
     expectedSourceChecksumSha256: checksum,
     outputChecksumSha256: checksum,
+    sourceIndex: 12,
   });
 
   assert.deepEqual(
@@ -2463,6 +2468,10 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
       [
         'GET',
         `/api/v1/admin/semi-automatic-image-selections/${runId}/sources/12/asset`,
+      ],
+      [
+        'GET',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges`,
       ],
       [
         'POST',
@@ -2474,10 +2483,16 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
     new URL(requests[0].url).searchParams.get('expected_checksum_sha256'),
     checksum,
   );
-  assert.deepEqual(await requests[1].clone().json(), {
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('after_expected_index'),
+    '499',
+  );
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '500');
+  assert.deepEqual(await requests[2].clone().json(), {
     expectedRevision: 1,
     expectedSourceChecksumSha256: checksum,
     outputChecksumSha256: checksum,
+    sourceIndex: 12,
   });
 });
 

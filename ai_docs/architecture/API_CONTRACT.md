@@ -2744,3 +2744,12 @@ Operacje obrazowe mogą zwrócić `STORAGE_CAPACITY_INSUFFICIENT`, jeśli ich
 konserwatywna estymacja narusza twardą rezerwę woluminu. Poniżej progu
 automatycznego GC system tworzy jeden idempotentny run `automatic`; trwający
 pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się błędem.
+
+### Ręczne źródło półautomatycznego zakresu
+
+`POST /api/v1/admin/semi-automatic-image-selections/{runId}/ranges/{expectedIndex}/output-acknowledgements`
+zachowuje dotychczasowy payload automatycznego wyboru i opcjonalnie przyjmuje
+`sourceIndex`. Jeżeli indeks jest obecny, backend ponownie odczytuje gotowy
+staging runu i wymaga zgodności indeksu, checksummy źródła, checksummy outputu
+oraz oczekiwanej rewizji zakresu. Nie można w ten sposób potwierdzić pliku
+spoza źródłowego manifestu ani zmienionego JPEG-a.

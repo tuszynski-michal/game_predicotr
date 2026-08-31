@@ -35,18 +35,25 @@ export interface ManualImageViewerState {
   onViewportScroll(scrollLeft: number, scrollTop: number): void;
 }
 
+export interface ManualImageViewerInitialView {
+  readonly scrollLeft: number;
+  readonly scrollTop: number;
+  readonly zoom: number;
+}
+
 export function useManualImageViewer(
   images: readonly ManualImageViewerFile[],
   currentImageIndex: number,
   onError: (message: string) => void,
+  initialView?: ManualImageViewerInitialView,
 ): ManualImageViewerState {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const imageViewportRef = useRef<HTMLDivElement | null>(null);
   const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
   const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
-  const imageScrollLeftRef = useRef(0);
-  const imageScrollTopRef = useRef(0);
+  const imageScrollLeftRef = useRef(Math.max(0, initialView?.scrollLeft ?? 0));
+  const imageScrollTopRef = useRef(Math.max(0, initialView?.scrollTop ?? 0));
   const pendingScrollRestoreRef = useRef(false);
   const previousImageIndexRef = useRef(currentImageIndex);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -56,7 +63,9 @@ export function useManualImageViewer(
   const [imageViewportSize, setImageViewportSize] =
     useState<ManualImageSize | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() =>
+    Math.max(1, Math.min(30, initialView?.zoom ?? 1)),
+  );
   const visibleImageUrl = imageUrlIndex === currentImageIndex ? imageUrl : null;
   const zoomedImageSize = fitManualImageToViewport(
     loadedImageSize?.sourceUrl === visibleImageUrl

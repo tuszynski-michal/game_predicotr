@@ -49,6 +49,7 @@ export async function synchronizeSemiAutomaticSelectionOutput(input: {
   readonly ranges: readonly SemiAutomaticSelectionRangeResponse[];
   readonly run: SemiAutomaticSelectionRunResponse;
   readonly now?: () => string;
+  readonly onProgress?: (processed: number, total: number) => void;
   readonly operationId?: () => string;
 }): Promise<SemiAutomaticSelectionOutputSyncResult> {
   const now = input.now ?? (() => new Date().toISOString());
@@ -79,9 +80,51 @@ export async function synchronizeSemiAutomaticSelectionOutput(input: {
   let acknowledgedCount = 0;
   const gaps: number[] = [];
 
-  for (const range of ranges) {
+  for (let rangeOffset = 0; rangeOffset < ranges.length; rangeOffset += 1) {
+    const range = ranges[rangeOffset]!;
     if (range.status === 'missing' || range.status === 'conflict') {
+      const manual = manifest.selections.find(
+        (selection) =>
+          selection.expectedIndex === range.expectedIndex &&
+          (selection.status === 'MANUALLY_ADDED' ||
+            selection.status === 'MANUALLY_REPLACED'),
+      );
+      if (manual !== undefined && !manual.acknowledged) {
+        const acknowledgement =
+          await input.client.acknowledgeSemiAutomaticImageSelectionOutput(
+            input.run.id,
+            range.expectedIndex,
+            {
+              expectedRevision: range.revision,
+              expectedSourceChecksumSha256: manual.source.checksumSha256,
+              outputChecksumSha256: manual.outputChecksumSha256,
+              sourceIndex: manual.source.sourceIndex,
+            },
+          );
+        if (
+          acknowledgement.error !== undefined ||
+          acknowledgement.data === undefined
+        ) {
+          throw new Error(
+            'SEMI_AUTOMATIC_SELECTION_OUTPUT_ACKNOWLEDGEMENT_FAILED',
+          );
+        }
+        manifest = acknowledgeSemiAutomaticLocalSelection(
+          manifest,
+          range.expectedIndex,
+          acknowledgement.data.revision,
+          now(),
+        );
+        await writeSemiAutomaticSelectionOutputManifest(
+          input.directory,
+          manifest,
+        );
+        acknowledgedCount += 1;
+        input.onProgress?.(rangeOffset + 1, ranges.length);
+        continue;
+      }
       gaps.push(range.expectedIndex);
+      input.onProgress?.(rangeOffset + 1, ranges.length);
       continue;
     }
     const source = sourceIdentity(range);
@@ -113,6 +156,7 @@ export async function synchronizeSemiAutomaticSelectionOutput(input: {
         manifest,
       );
       gaps.push(range.expectedIndex);
+      input.onProgress?.(rangeOffset + 1, ranges.length);
       continue;
     }
 
@@ -207,12 +251,14 @@ export async function synchronizeSemiAutomaticSelectionOutput(input: {
           manifest,
         );
       }
+      input.onProgress?.(rangeOffset + 1, ranges.length);
       continue;
     }
     if (
       selection.acknowledged &&
       selection.serverRangeRevision === range.revision
     ) {
+      input.onProgress?.(rangeOffset + 1, ranges.length);
       continue;
     }
 
@@ -240,6 +286,7 @@ export async function synchronizeSemiAutomaticSelectionOutput(input: {
     );
     await writeSemiAutomaticSelectionOutputManifest(input.directory, manifest);
     acknowledgedCount += 1;
+    input.onProgress?.(rangeOffset + 1, ranges.length);
   }
 
   manifest = updateSemiAutomaticOutputSummary(manifest, {
@@ -270,6 +317,65 @@ async function reconcilePendingOperation(
   const range = ranges.find(
     (item) => item.expectedIndex === pending.expectedIndex,
   );
+  const manual =
+    pending.selectionStatus === 'MANUALLY_ADDED' ||
+    pending.selectionStatus === 'MANUALLY_REPLACED';
+  if (manual) {
+    if (range === undefined) {
+      throw new Error('SEMI_AUTOMATIC_SELECTION_PENDING_SOURCE_CHANGED');
+    }
+    const local = await readLocalOutputFile(directory, pending.outputName);
+    if (local === null) {
+      const rolledBack = rollbackSemiAutomaticOutputOperation(manifest, now());
+      await writeSemiAutomaticSelectionOutputManifest(directory, rolledBack);
+      return rolledBack;
+    }
+    if (local.checksumSha256 === pending.source.checksumSha256) {
+      let finalized = finalizeSemiAutomaticOutputOperation(manifest, now());
+      if (
+        range.status === 'output_synced' &&
+        range.sourceIndex === pending.source.sourceIndex &&
+        range.sourceRelativePath === pending.source.relativePath &&
+        range.sourceSizeBytes === pending.source.sizeBytes &&
+        range.sourceChecksumSha256 === pending.source.checksumSha256 &&
+        range.outputChecksumSha256 === pending.source.checksumSha256
+      ) {
+        finalized = acknowledgeSemiAutomaticLocalSelection(
+          finalized,
+          range.expectedIndex,
+          range.revision,
+          now(),
+        );
+      } else if (range.revision !== pending.expectedRangeRevision) {
+        throw new Error('SEMI_AUTOMATIC_SELECTION_PENDING_SOURCE_CHANGED');
+      }
+      await writeSemiAutomaticSelectionOutputManifest(directory, finalized);
+      return finalized;
+    }
+    if (
+      pending.previousOutputChecksumSha256 !== null &&
+      pending.previousOutputChecksumSha256 !== undefined &&
+      local.checksumSha256 === pending.previousOutputChecksumSha256
+    ) {
+      const rolledBack = rollbackSemiAutomaticOutputOperation(manifest, now());
+      await writeSemiAutomaticSelectionOutputManifest(directory, rolledBack);
+      return rolledBack;
+    }
+    const conflicted = recordSemiAutomaticOutputConflict(
+      manifest,
+      {
+        actualChecksumSha256: local.checksumSha256,
+        detectedAt: now(),
+        expectedChecksumSha256: pending.source.checksumSha256,
+        expectedIndex: pending.expectedIndex,
+        outputName: pending.outputName,
+        reason: 'PENDING_TARGET_CHANGED',
+      },
+      now(),
+    );
+    await writeSemiAutomaticSelectionOutputManifest(directory, conflicted);
+    return conflicted;
+  }
   if (
     range === undefined ||
     (range.status !== 'auto_selected' && range.status !== 'output_synced') ||

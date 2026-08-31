@@ -236,6 +236,56 @@ export async function writeOriginalOutputBytes(input: {
   return { checksumSha256: writtenChecksum, created: true };
 }
 
+export async function replaceOwnedOutputBytes(input: {
+  readonly directory: SemiAutomaticOutputDirectoryHandle;
+  readonly outputName: string;
+  readonly source: Blob;
+  readonly expectedChecksumSha256: string;
+  readonly expectedSizeBytes: number;
+  readonly expectedPreviousChecksumSha256: string | null;
+}): Promise<{ readonly replaced: boolean; readonly checksumSha256: string }> {
+  if (input.source.size !== input.expectedSizeBytes) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED');
+  }
+  const sourceChecksum = await sha256Hex(input.source);
+  if (sourceChecksum !== input.expectedChecksumSha256) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED');
+  }
+  const existing = await readLocalOutputFile(input.directory, input.outputName);
+  if (existing !== null && existing.checksumSha256 === sourceChecksum) {
+    return { checksumSha256: sourceChecksum, replaced: false };
+  }
+  if (
+    (existing === null && input.expectedPreviousChecksumSha256 !== null) ||
+    (existing !== null &&
+      (input.expectedPreviousChecksumSha256 === null ||
+        existing.checksumSha256 !== input.expectedPreviousChecksumSha256))
+  ) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_TARGET_CONFLICT');
+  }
+
+  const target = await input.directory.getFileHandle(input.outputName, {
+    create: true,
+  });
+  const writable = await target.createWritable();
+  try {
+    await writable.write(input.source);
+    await writable.close();
+  } catch (error) {
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
+  const written = await target.getFile();
+  const writtenChecksum = await sha256Hex(written);
+  if (
+    written.size !== input.expectedSizeBytes ||
+    writtenChecksum !== input.expectedChecksumSha256
+  ) {
+    throw new Error('SEMI_AUTOMATIC_SELECTION_OUTPUT_CHECKSUM_MISMATCH');
+  }
+  return { checksumSha256: writtenChecksum, replaced: existing !== null };
+}
+
 export async function restoreSemiAutomaticSelectionLocalSession(
   store: SemiAutomaticSelectionLocalSessionStore,
   runId: string,

@@ -31,6 +31,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionSourceManifest,
+    acknowledge_manual_output,
     acknowledge_output,
     apply_range_status_transition,
     cancel_run,
@@ -218,6 +219,7 @@ class SemiAutomaticImageSelectionService:
         expected_revision: int,
         expected_source_checksum_sha256: str,
         output_checksum_sha256: str,
+        source_index: int | None = None,
     ) -> SemiAutomaticSelectionRange:
         run = self._locked(run_id)
         item = self._repository.get_range_for_update(run_id, expected_index)
@@ -226,12 +228,38 @@ class SemiAutomaticImageSelectionService:
                 "SEMI_AUTOMATIC_SELECTION_RANGE_NOT_FOUND",
                 "The expected range does not exist.",
             )
-        updated_item = acknowledge_output(
-            item,
-            expected_revision=expected_revision,
-            expected_source_checksum_sha256=expected_source_checksum_sha256,
-            output_checksum_sha256=output_checksum_sha256,
-        )
+        if source_index is None:
+            updated_item = acknowledge_output(
+                item,
+                expected_revision=expected_revision,
+                expected_source_checksum_sha256=expected_source_checksum_sha256,
+                output_checksum_sha256=output_checksum_sha256,
+            )
+        else:
+            ready = self._staging.get_ready_source_selection(
+                run.source.upload_id,
+                purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            )
+            if source_index < 0 or source_index >= len(ready.sources):
+                raise SemiAutomaticSelectionNotFoundError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
+                    "The requested staged source does not exist.",
+                )
+            source = ready.sources[source_index]
+            if source.checksum_sha256 != expected_source_checksum_sha256:
+                raise SemiAutomaticSelectionConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                    "The manually selected source changed after it was loaded.",
+                )
+            updated_item = acknowledge_manual_output(
+                item,
+                expected_revision=expected_revision,
+                source_index=source.source_index,
+                source_relative_path=source.relative_path,
+                source_size_bytes=source.size_bytes,
+                source_checksum_sha256=source.checksum_sha256,
+                output_checksum_sha256=output_checksum_sha256,
+            )
         updated_run = apply_range_status_transition(run, previous=item, current=updated_item)
         _, stored_item = self._repository.save_run_and_range(updated_run, updated_item)
         return stored_item

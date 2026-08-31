@@ -50,6 +50,8 @@ export interface SemiAutomaticLocalHistoryEvent {
     | 'output_written'
     | 'preexisting_protected'
     | 'output_acknowledged'
+    | 'manual_source_added'
+    | 'manual_source_replaced'
     | 'pending_reconciled'
     | 'conflict_detected';
   readonly occurredAt: string;
@@ -64,7 +66,12 @@ export interface SemiAutomaticPendingOutputOperation {
   readonly rangeEnd: number;
   readonly outputName: string;
   readonly expectedRangeRevision: number;
-  readonly selectionStatus: 'AUTO_SELECTED' | 'PREEXISTING_PROTECTED';
+  readonly previousOutputChecksumSha256?: string | null;
+  readonly selectionStatus:
+    | 'AUTO_SELECTED'
+    | 'MANUALLY_ADDED'
+    | 'MANUALLY_REPLACED'
+    | 'PREEXISTING_PROTECTED';
   readonly source: SemiAutomaticLocalSourceIdentity;
   readonly startedAt: string;
 }
@@ -208,6 +215,8 @@ export function validateSemiAutomaticSelectionOutputManifest(
         'output_written',
         'preexisting_protected',
         'output_acknowledged',
+        'manual_source_added',
+        'manual_source_replaced',
         'pending_reconciled',
         'conflict_detected',
       ].includes(event.kind) ||
@@ -311,7 +320,11 @@ export function finalizeSemiAutomaticOutputOperation(
         kind:
           pending.selectionStatus === 'AUTO_SELECTED'
             ? 'output_written'
-            : 'preexisting_protected',
+            : pending.selectionStatus === 'MANUALLY_ADDED'
+              ? 'manual_source_added'
+              : pending.selectionStatus === 'MANUALLY_REPLACED'
+                ? 'manual_source_replaced'
+                : 'preexisting_protected',
         occurredAt: now,
         previousSource:
           manifest.selections.find(
@@ -580,13 +593,22 @@ function validatePendingOperation(
     throw new Error('SEMI_AUTOMATIC_SELECTION_OUTPUT_OPERATION_INVALID');
   }
   if (
-    !['AUTO_SELECTED', 'PREEXISTING_PROTECTED'].includes(
-      operation.selectionStatus,
-    ) ||
+    ![
+      'AUTO_SELECTED',
+      'MANUALLY_ADDED',
+      'MANUALLY_REPLACED',
+      'PREEXISTING_PROTECTED',
+    ].includes(operation.selectionStatus) ||
     !Number.isSafeInteger(operation.expectedRangeRevision) ||
     operation.expectedRangeRevision < 0
   ) {
     throw new Error('SEMI_AUTOMATIC_SELECTION_OUTPUT_OPERATION_INVALID');
+  }
+  if (
+    operation.previousOutputChecksumSha256 !== undefined &&
+    operation.previousOutputChecksumSha256 !== null
+  ) {
+    requireSha(operation.previousOutputChecksumSha256);
   }
   validateSource(operation.source);
   requireTimestamp(operation.startedAt);

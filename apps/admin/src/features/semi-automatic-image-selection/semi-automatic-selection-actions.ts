@@ -40,6 +40,7 @@ interface DirectoryPickerWindow extends Window {
 
 export interface SemiAutomaticSourceFile {
   readonly file: File;
+  readonly handle: FileSystemFileHandle;
   readonly relativePath: string;
 }
 
@@ -316,6 +317,10 @@ async function collectDirectoryFiles(
       continue;
     }
     if (!/\.jpe?g$/iu.test(name)) continue;
-    target.push({ file: await entry.getFile(), relativePath });
+    target.push({
+      file: await entry.getFile(),
+      handle: entry as unknown as FileSystemFileHandle,
+      relativePath,
+    });
   }
 }

@@ -11,12 +11,18 @@ import {
 import {
   readLocalOutputFile,
   readSemiAutomaticSelectionOutputManifest,
+  replaceOwnedOutputBytes,
   sha256Hex,
   validateLocalSessionRecord,
   writeOriginalOutputBytes,
   writeSemiAutomaticSelectionOutputManifest,
 } from '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-storage.ts';
 import { synchronizeSemiAutomaticSelectionOutput } from '../src/features/semi-automatic-image-selection/semi-automatic-selection-output-sync.ts';
+import {
+  loadAllSemiAutomaticSelectionRanges,
+  manualEditSourceStartIndex,
+  writeManualSemiAutomaticSelection,
+} from '../src/features/semi-automatic-image-selection/semi-automatic-selection-review.ts';
 
 const SHA_A = 'a'.repeat(64);
 const SHA_B = 'b'.repeat(64);
@@ -300,6 +306,232 @@ test('keeps only directory handles and small UI state in the local record', () =
       }),
     /SEMI_AUTOMATIC_SELECTION_LOCAL_SESSION_INVALID/,
   );
+});
+
+test('starts manual source editing from the exact selection or after the previous source', () => {
+  const ranges = [
+    { sourceIndex: 10 },
+    { sourceIndex: null },
+    { sourceIndex: 19 },
+    { sourceIndex: null },
+  ];
+
+  assert.equal(manualEditSourceStartIndex(ranges, 0, 20), 10);
+  assert.equal(manualEditSourceStartIndex(ranges, 1, 20), 11);
+  assert.equal(manualEditSourceStartIndex(ranges, 2, 20), 19);
+  assert.equal(manualEditSourceStartIndex(ranges, 3, 20), 19);
+  assert.equal(manualEditSourceStartIndex([{ sourceIndex: null }], 0, 20), 0);
+});
+
+test('loads the complete expected-range snapshot in deterministic keyset pages', async () => {
+  const calls = [];
+  const pageOne = Array.from({ length: 500 }, (_, expectedIndex) => ({
+    expectedIndex,
+    runId: 'run-1',
+  }));
+  const pageTwo = [{ expectedIndex: 500, runId: 'run-1' }];
+
+  const ranges = await loadAllSemiAutomaticSelectionRanges(
+    {
+      acknowledgeSemiAutomaticImageSelectionOutput: async () => ({}),
+      listSemiAutomaticImageSelectionRanges: async (
+        _runId,
+        afterExpectedIndex,
+        limit,
+      ) => {
+        calls.push([afterExpectedIndex, limit]);
+        return afterExpectedIndex === undefined
+          ? {
+              data: {
+                items: pageOne,
+                nextAfterExpectedIndex: 499,
+              },
+            }
+          : { data: { items: pageTwo, nextAfterExpectedIndex: null } };
+      },
+    },
+    'run-1',
+  );
+
+  assert.equal(ranges.length, 501);
+  assert.deepEqual(calls, [
+    [undefined, 500],
+    [499, 500],
+  ]);
+});
+
+test('manually adds and then safely replaces one range using original bytes', async () => {
+  const directory = new MemoryDirectory('selected');
+  const missingRange = {
+    ...rangeResponse({ checksum: null, size: null }),
+    selectionMethod: null,
+    sourceChecksumSha256: null,
+    sourceIndex: null,
+    sourceRelativePath: null,
+    sourceSizeBytes: null,
+    status: 'missing',
+  };
+  const synchronized = await synchronizeSemiAutomaticSelectionOutput({
+    client: {
+      acknowledgeSemiAutomaticImageSelectionOutput: async () => ({}),
+      getSemiAutomaticImageSelectionSourceAsset: async () => ({}),
+    },
+    directory,
+    ranges: [missingRange],
+    run: runResponse(),
+  });
+  const first = new Blob(['manual-first'], { type: 'image/jpeg' });
+  const firstChecksum = await sha256Hex(first);
+  let revision = 1;
+  const client = {
+    acknowledgeSemiAutomaticImageSelectionOutput: async (
+      _runId,
+      _expectedIndex,
+      body,
+    ) => ({
+      data: {
+        ...missingRange,
+        outputChecksumSha256: body.outputChecksumSha256,
+        revision: ++revision,
+        selectionMethod:
+          revision === 2
+            ? 'manual-source-added-v1'
+            : 'manual-source-replaced-v1',
+        sourceChecksumSha256: body.expectedSourceChecksumSha256,
+        sourceIndex: body.sourceIndex,
+        sourceRelativePath: revision === 2 ? 'first.jpg' : 'second.jpg',
+        sourceSizeBytes: revision === 2 ? first.size : 13,
+        status: 'output_synced',
+      },
+    }),
+  };
+  const added = await writeManualSemiAutomaticSelection({
+    client,
+    directory,
+    manifest: synchronized.manifest,
+    now: incrementingClock(),
+    operationId: () => 'manual-add',
+    range: missingRange,
+    runId: 'run-1',
+    source: { file: first, relativePath: 'first.jpg', sourceIndex: 4 },
+  });
+  const second = new Blob(['manual-second'], { type: 'image/jpeg' });
+  const replaced = await writeManualSemiAutomaticSelection({
+    client,
+    directory,
+    manifest: added.manifest,
+    now: incrementingClock(),
+    operationId: () => 'manual-replace',
+    range: added.range,
+    runId: 'run-1',
+    source: { file: second, relativePath: 'second.jpg', sourceIndex: 5 },
+  });
+
+  assert.equal(
+    firstChecksum,
+    added.manifest.history.at(-2)?.source?.checksumSha256,
+  );
+  assert.equal(replaced.manifest.selections[0]?.status, 'MANUALLY_REPLACED');
+  assert.equal(replaced.manifest.selections[0]?.source.sourceIndex, 5);
+  assert.equal(replaced.manifest.status, 'completed');
+  assert.equal(await directory.text('seq_1-9.jpg'), 'manual-second');
+});
+
+test('owned output replacement refuses a foreign current target', async () => {
+  const directory = new MemoryDirectory('selected');
+  const source = new Blob(['next'], { type: 'image/jpeg' });
+  directory.put('seq_1-9.jpg', new Blob(['foreign']));
+
+  await assert.rejects(
+    replaceOwnedOutputBytes({
+      directory,
+      expectedChecksumSha256: await sha256Hex(source),
+      expectedPreviousChecksumSha256: SHA_A,
+      expectedSizeBytes: source.size,
+      outputName: 'seq_1-9.jpg',
+      source,
+    }),
+    /SEMI_AUTOMATIC_SELECTION_TARGET_CONFLICT/,
+  );
+  assert.equal(await directory.text('seq_1-9.jpg'), 'foreign');
+});
+
+test('recovers a lost manual acknowledgement response without rewriting bytes', async () => {
+  const directory = new MemoryDirectory('selected');
+  const source = new Blob(['manual-source'], { type: 'image/jpeg' });
+  const checksum = await sha256Hex(source);
+  const missingRange = {
+    ...rangeResponse({ checksum: null, size: null }),
+    revision: 1,
+    selectionMethod: null,
+    sourceChecksumSha256: null,
+    sourceIndex: null,
+    sourceRelativePath: null,
+    sourceSizeBytes: null,
+    status: 'missing',
+  };
+  let manifest = createSemiAutomaticSelectionOutputManifest({
+    now: '2026-08-31T10:00:00.000Z',
+    outputDirectoryName: directory.name,
+    run: runIdentity(),
+  });
+  manifest = beginSemiAutomaticOutputOperation(
+    manifest,
+    {
+      expectedIndex: 0,
+      expectedRangeRevision: 1,
+      operationId: 'lost-manual-ack',
+      outputName: 'seq_1-9.jpg',
+      previousOutputChecksumSha256: null,
+      rangeEnd: 9,
+      rangeStart: 1,
+      selectionStatus: 'MANUALLY_ADDED',
+      source: {
+        checksumSha256: checksum,
+        relativePath: 'source/manual.jpg',
+        sizeBytes: source.size,
+        sourceIndex: 7,
+      },
+      startedAt: '2026-08-31T10:00:01.000Z',
+    },
+    '2026-08-31T10:00:01.000Z',
+  );
+  await writeSemiAutomaticSelectionOutputManifest(directory, manifest);
+  directory.put('seq_1-9.jpg', source);
+
+  let downloadCalls = 0;
+  const recovered = await synchronizeSemiAutomaticSelectionOutput({
+    client: {
+      acknowledgeSemiAutomaticImageSelectionOutput: async () => {
+        throw new Error('acknowledgement must not be repeated');
+      },
+      getSemiAutomaticImageSelectionSourceAsset: async () => {
+        downloadCalls += 1;
+        return {};
+      },
+    },
+    directory,
+    ranges: [
+      {
+        ...missingRange,
+        outputChecksumSha256: checksum,
+        revision: 2,
+        selectionMethod: 'manual-source-added-v1',
+        sourceChecksumSha256: checksum,
+        sourceIndex: 7,
+        sourceRelativePath: 'source/manual.jpg',
+        sourceSizeBytes: source.size,
+        status: 'output_synced',
+      },
+    ],
+    run: runResponse(),
+  });
+
+  assert.equal(recovered.manifest.pendingOperation, null);
+  assert.equal(recovered.manifest.selections[0]?.acknowledged, true);
+  assert.equal(recovered.manifest.selections[0]?.serverRangeRevision, 2);
+  assert.equal(downloadCalls, 0);
+  assert.equal(await directory.text('seq_1-9.jpg'), 'manual-source');
 });
 
 function runIdentity() {

@@ -141,6 +141,7 @@ import {
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
+  listSemiAutomaticImageSelectionRanges as listGeneratedSemiAutomaticImageSelectionRanges,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
   listUnreadableBoardReviews as listGeneratedUnreadableBoardReviews,
@@ -707,6 +708,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedSemiAutomaticImageSelection({
         client,
         path: { run_id: runId },
+      }),
+    listSemiAutomaticImageSelectionRanges: (
+      runId: string,
+      afterExpectedIndex?: number,
+      limit = 500,
+    ) =>
+      listGeneratedSemiAutomaticImageSelectionRanges({
+        client,
+        path: { run_id: runId },
+        query: {
+          ...(afterExpectedIndex === undefined
+            ? {}
+            : { after_expected_index: afterExpectedIndex }),
+          limit,
+        },
       }),
     pauseSemiAutomaticImageSelection: (runId: string) =>
       pauseGeneratedSemiAutomaticImageSelection({

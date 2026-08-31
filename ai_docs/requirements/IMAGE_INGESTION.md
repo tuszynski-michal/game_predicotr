@@ -636,6 +636,11 @@ pozostaje ten sam kontrakt dziewięciu niezależnych finalnych quadów, dlatego
 zapis, preflight, numeracja `seq_*` oraz source-direct cropper nie wymagają
 osobnej ścieżki backendowej. Dotychczasowe wyznaczanie obrysu całej strony,
 korekta 36 punktów i wyjątkowa korekta pojedynczej planszy pozostają dostępne.
+Po wskazaniu ostatniego narożnika planszy 9 edytor automatycznie przechodzi do
+zakresu `Wszystkie plansze — 36 narożników`. Konwersja nie generuje ponownie
+siatki z obrysu strony: każdy z 36 punktów jest bezstratnie odwzorowany z
+dziewięciu klikniętych quadów. Ten sam zakres można wybrać później z listy bez
+utraty wcześniejszej korekty pojedynczych plansz.
 
 Zapis kolejnych stron nie uruchamia preflightu po każdej korekcie. Operator
 może zapisać wiele append-only rewizji przez `Zapisz i przejdź dalej`, a potem

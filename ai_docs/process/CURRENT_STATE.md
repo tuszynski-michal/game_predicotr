@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Edycja wszystkich narożników po wyznaczeniu plansz — TASK-0346
+
+- Zakończenie trybu osobnego wyznaczania dziewięciu plansz automatycznie
+  przełącza korektę na `Wszystkie plansze — 36 narożników`, zamiast pozostawiać
+  aktywne uchwyty tylko planszy 1.
+- Dziewięć niezależnych quadów jest bezstratnie mapowanych na istniejącą siatkę
+  6 × 6. Ponowne wybranie tego zakresu zachowuje bieżące obrysy, odstępy i
+  krzywiznę; nie odtwarza ich z czterech narożników całej strony.
+
 ### Osobne wyznaczanie dziewięciu plansz — TASK-0345
 
 - Korekta geometrii strony ma dodatkowy prowadzony tryb, w którym operator

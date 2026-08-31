@@ -10,6 +10,7 @@ import {
   createPageGeometryMesh,
   PAGE_BOARD_PLACEMENT_POINT_COUNT,
   PAGE_MESH_POINT_COUNT,
+  pageGeometryMeshFromQuads,
   pageGeometryPointFromRenderedCanvas,
   pageGeometryQuadsFromCornerPlacement,
   pageGeometryQuadsFromMesh,
@@ -76,6 +77,25 @@ test('collects nine independent board quads in row-major order', () => {
   assert.deepEqual(quads?.[0]?.[0], { x: 0, y: 0 });
   assert.deepEqual(quads?.[3]?.[0], { x: 0, y: 110 });
   assert.deepEqual(quads?.[8]?.[2], { x: 308, y: 310 });
+});
+
+test('converts independently placed boards to 36 editable corners without drift', () => {
+  const quads = Array.from({ length: 9 }, (_, boardIndex) => {
+    const row = Math.floor(boardIndex / 3);
+    const column = boardIndex % 3;
+    const left = column * 111 + row;
+    const top = row * 109 + column;
+    return [
+      { x: left, y: top },
+      { x: left + 88, y: top + 3 },
+      { x: left + 91, y: top + 93 },
+      { x: left - 2, y: top + 89 },
+    ];
+  });
+  const mesh = pageGeometryMeshFromQuads(quads);
+
+  assert.equal(mesh?.length, PAGE_MESH_POINT_COUNT);
+  assert.deepEqual(pageGeometryQuadsFromMesh(mesh ?? []), quads);
 });
 
 test('does not advance individual placement after a board breaks row-major order', () => {

@@ -20,6 +20,8 @@ test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /setBoardOverrides\(initialBoardOverrides\)/);
   assert.match(panel, /beginBoardCornerPlacement/);
   assert.match(panel, /completePageGeometryBoardQuads/);
+  assert.match(panel, /showAllBoardCorners\(completeQuads\)/);
+  assert.match(panel, /Wszystkie plansze — 36 narożników/);
   assert.match(panel, /rząd.*kolumna/s);
 });
 

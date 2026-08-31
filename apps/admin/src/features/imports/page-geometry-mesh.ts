@@ -203,6 +203,30 @@ export function pageGeometryQuadsFromMesh(
   );
 }
 
+export function pageGeometryMeshFromQuads(
+  quads: readonly PageGeometryQuad[],
+): PageGeometryMesh | null {
+  if (quads.length !== PAGE_BOARD_COUNT) return null;
+  const mesh: Array<PageGeometryPoint | undefined> = Array.from({
+    length: PAGE_MESH_POINT_COUNT,
+  });
+  quads.forEach((quad, index) => {
+    const row = Math.floor(index / PAGE_BOARD_COLUMNS);
+    const column = index % PAGE_BOARD_COLUMNS;
+    const topLeft = row * 2 * PAGE_MESH_COLUMNS + column * 2;
+    const topRight = topLeft + 1;
+    const bottomLeft = topLeft + PAGE_MESH_COLUMNS;
+    const bottomRight = bottomLeft + 1;
+    mesh[topLeft] = quad[0];
+    mesh[topRight] = quad[1];
+    mesh[bottomRight] = quad[2];
+    mesh[bottomLeft] = quad[3];
+  });
+  return mesh.every((point) => point !== undefined)
+    ? (mesh as PageGeometryPoint[])
+    : null;
+}
+
 export function pageGeometryMeshPointPosition(index: number): Readonly<{
   column: number;
   row: number;

@@ -32,6 +32,7 @@ import {
   PAGE_BOARD_CORNER_COUNT,
   PAGE_BOARD_COUNT,
   pageGeometryPointFromRenderedCanvas,
+  pageGeometryMeshFromQuads,
   pageGeometryQuadsFromCornerPlacement,
   pageGeometryQuadsFromMesh,
   type PageGeometryCorners,
@@ -336,6 +337,17 @@ export function PageGeometryCorrectionPanel({
     );
   }
 
+  function showAllBoardCorners(currentQuads: readonly Quad[]) {
+    const independentMesh = pageGeometryMeshFromQuads(currentQuads);
+    if (independentMesh === null) return false;
+    setMeshOverrides(
+      new Map(independentMesh.map((point, index) => [index, point] as const)),
+    );
+    setBoardOverrides(new Map());
+    setCorrectionMode('curve');
+    return true;
+  }
+
   function placeNextCorner(event: PointerEvent<SVGSVGElement>) {
     if (
       (cornerPlacement === null && boardCornerPlacement === null) ||
@@ -369,14 +381,10 @@ export function PageGeometryCorrectionPanel({
         const outerCorners = outerCornersFromQuads(completeQuads);
         if (outerCorners === null) return;
         setPageCorners(outerCorners);
-        setMeshOverrides(new Map());
-        setBoardOverrides(
-          new Map(completeQuads.map((quad, index) => [index, quad] as const)),
-        );
+        showAllBoardCorners(completeQuads);
         setBoardCornerPlacement(null);
-        setCorrectionMode(0);
         setFeedback(
-          'Ustawiono osobno wszystkie 9 plansz w kolejności 1–3, 4–6, 7–9. Możesz zapisać stronę albo doprecyzować wybraną planszę.',
+          'Ustawiono osobno wszystkie 9 plansz w kolejności 1–3, 4–6, 7–9. Włączono wszystkie 36 narożników, które możesz teraz doprecyzować przed zapisem.',
         );
         return;
       }
@@ -634,7 +642,8 @@ export function PageGeometryCorrectionPanel({
                 onChange={(event) => {
                   const value = event.target.value;
                   if (value === 'curve') {
-                    setBoardOverrides(new Map());
+                    showAllBoardCorners(quads);
+                    return;
                   }
                   setCorrectionMode(
                     value === 'page' || value === 'curve'
@@ -645,9 +654,7 @@ export function PageGeometryCorrectionPanel({
                 value={String(correctionMode)}
               >
                 <option value="page">Cała strona — 4 główne uchwyty</option>
-                <option value="curve">
-                  Krzywizna i odstępy — 36 punktów krawędzi
-                </option>
+                <option value="curve">Wszystkie plansze — 36 narożników</option>
                 {Array.from({ length: 9 }, (_, index) => (
                   <option key={index} value={index}>
                     Plansza {index + 1} — korekta wyjątkowa
@@ -665,7 +672,7 @@ export function PageGeometryCorrectionPanel({
                   : correctionMode === 'page'
                     ? 'Najpierw ustaw cztery żółte uchwyty na zewnętrznych narożnikach. Ta operacja zeruje korektę krzywizny.'
                     : correctionMode === 'curve'
-                      ? 'Przesuń punkty krawędzi każdej czerwonej ramki. Osobne linie zachowują odstępy między planszami i pozwalają odwzorować łuk góry, środka i dołu.'
+                      ? 'Przesuń dowolny z 36 niezależnych narożników dziewięciu plansz. Każda plansza zachowuje własny obrys, odstępy i krzywiznę.'
                       : 'W razie wyjątku doprecyzuj tylko tę jedną planszę. Pozostałe zachowają elastyczną geometrię całej strony.'}
             </p>
             <div className="pageGeometryNavigation">

@@ -889,3 +889,29 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - V10.20 ma adapter `visible-sequence-label-range-v18` i fingerprint
   `5b979eb826bbf943047bff41a98e293ecf9f3cb46ba95044b606edd32a33bd86`.
   Manifest i fingerprint v10.19 pozostają niezmienne.
+
+## Półautomatyczny wybór zdjęć v1 — kontrakt zakresu
+
+Półautomatyczny wybór jest niezależnym od gry workflowem przygotowującym
+katalog `seq_<start>-<end>.jpg`. Nie zastępuje historycznej automatycznej
+selekcji v10 ani lokalnej ręcznej selekcji.
+
+Jego automat odpowiada wyłącznie na pytanie, czy bieżący JPEG samodzielnie i
+jednoznacznie dowodzi dokładnego oczekiwanego zakresu. Nie wykonuje detekcji
+plansz, geometrii, homografii, croppera, klasyfikacji symboli ani oceny jakości
+plansz. Ostrość, ekspozycja, okluzja albo jakość symboli nie mogą odrzucić
+zdjęcia z mocnym lokalnym dowodem zakresu; ich ewentualna ocena należy do
+późniejszego, ręcznego review.
+
+Zakresy mają wersjonowaną konwencję `seq-inclusive-v1`: numery dodatnie,
+inkluzywne, nazwa zawsze rosnąca, pełny zakres obecnie do dziewięciu plansz i
+końcowy zakres krótszy, gdy wymaga tego deklarowana granica. Rozmiar pełnego
+zakresu jest kontraktem możliwości modułu, a nie topologią gry. Dla `1–19809`
+ostatnim poprawnym zakresem jest `19801–19809`; `19800–19809` ma dziesięć
+plansz i nie jest poprawną nazwą.
+
+Wynik bramki jest jednym z: `exact_range`, `range_unreadable`,
+`range_ambiguous`, `outside_requested_range`, `not_expected_range` albo
+`source_error`. Tylko `exact_range` może wejść do późniejszego grupowania.
+Brak pewnego dowodu jest prawidłową luką do ręcznego uzupełnienia, a nie
+podstawą do zgadywania zakresu z sąsiednich zdjęć.

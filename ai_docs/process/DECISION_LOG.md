@@ -6650,3 +6650,22 @@ LD, a skrzyżowany obrys jest odrzucany przed API. Rewizje poszczególnych stron
 są zapisywane append-only, lecz nowy preflight powstaje dopiero po jawnej akcji
 wysłania całej zapisanej partii. Historyczne override'y pozostają dostępne do
 ponownej korekty zamiast być ukrywane lub nadpisywane.
+
+## D-279 — Półautomat wybiera wyłącznie po dowodzie zakresu
+
+- Status: accepted
+- Date: 2026-08-31
+
+Półautomatyczna selekcja zdjęć jest niezależna od gry i rozstrzyga wyłącznie,
+czy jeden JPEG dostarcza mocnego lokalnego dowodu dokładnego zakresu
+`seq_<start>-<end>`. Nie jest walidatorem plansz: nie uruchamia geometrii,
+detekcji ramek, croppera, inferencji symboli ani bramek ostrości, ekspozycji,
+okluzji lub jakości symboli. Zdjęcie z pewnym zakresem może być zapisane, a
+jego wartość wizualna jest oceniana później przez ręczny review.
+
+Zakresy są generowane przez wersjonowaną konwencję `seq-inclusive-v1`, a nie
+przez topologię gry. Jedyny twardy automat to poprawne dekodowanie źródła,
+checksummowana tożsamość i exact strong local proof zakresu z listy expected
+ranges. Brak dowodu pozostaje luką; nie jest wypełniany przez sąsiadów ani
+automatycznie zastępowany. Automatyczna zamiana istniejącego pliku jest
+zabroniona.

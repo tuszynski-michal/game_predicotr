@@ -14,6 +14,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
+### Kontrakty półautomatycznej selekcji zakresów — TASK-0350
+
+- TASK-0350 tworzy czysty, niezależny od gry kontrakt `seq-inclusive-v1` dla
+  przyszłego półautomatu. Zakresy są dodatnie i inkluzywne, pełny zakres ma
+  obecnie dziewięć plansz, a ostatnia strona może być krótsza.
+- `RangeEvidenceGate` ocenia wyłącznie lokalny dowód OCR dokładnego zakresu
+  względem expected ranges. Nie uruchamia ani nie ocenia geometrii, plansz,
+  cropów, symboli, ostrości, ekspozycji czy refleksów.
+- Nie ma jeszcze OCR adaptera, stagingu, migracji, joba, API ani UI. Jest to
+  świadome rozdzielenie kontraktu od późniejszego wykonania TASK-0351–0357.
 
 ### Częściowa geometria ostatniej strony — TASK-0349
 

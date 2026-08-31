@@ -1354,6 +1354,33 @@ Postęp ma dwa niezależne pola: `manual_count/manual` dla wyboru JPEG-a oraz
 pozostaje sumą operacyjną do sterowania jobem, lecz nie jest liczbą logicznych
 grup ani miarą skuteczności automatu.
 
+## Architektura półautomatycznej selekcji zakresów v1
+
+TASK-0350 wprowadza wyłącznie framework-free kontrakty pod niezależny od gry
+workflow. Kod znajduje się w
+`game_predictor_worker.semi_automatic_selection`, a nie w pakiecie
+`game_predictor_worker.images`: import pakietu `images` materializuje obecnie
+pełne zależności geometrii i API, podczas gdy kontrakty muszą pozostać czyste
+i testowalne bez uruchamiania pipeline'u obrazowego.
+
+`SemiAutomaticSequenceBounds` jest właścicielem inkluzywnej konwencji
+`seq-inclusive-v1`, kolejności przetwarzania oraz listy expected ranges.
+`SemiAutomaticSelectionSource` wiąże ordinal z bezpieczną względną ścieżką,
+rozmiarem i SHA-256, więc sam `sourceIndex` nie może zidentyfikować obrazu po
+zmianie katalogu. Deterministyczne fingerprinty obejmują wszystkie te pola.
+
+`RangeEvidenceGate` konsumuje wynik przyszłego adaptera OCR: range, confidence,
+flagę istniejącego strong local proof oraz diagnostykę. Gate nie posiada progu
+confidence i nie zna jakości zdjęcia, plansz, geometrii ani symboli. Adapter
+TASK-0351 jest jedynym miejscem, które mapuje wersjonowaną politykę obecnego
+OCR na `has_strong_local_proof`. Gate klasyfikuje wyłącznie poprawność dowodu
+zakresu względem expected ranges.
+
+Statusy runu opisują docelowy lifecycle, ale TASK-0350 nie tworzy joba ani nie
+zmienia globalnego `JobStatus`. Range statusy obejmują wynik automatu, lokalną
+synchronizację, konflikt i późniejsze ręczne decyzje. Runtime, staging, SQL,
+HTTP i UI należą do kolejnych tasków.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

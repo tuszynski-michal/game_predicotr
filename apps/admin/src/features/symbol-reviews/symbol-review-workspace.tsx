@@ -5,11 +5,11 @@
 
 import type {
   GameResponse,
+  SymbolCellReviewCountSnapshotResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewBulkOperationResponse,
   SymbolCellReviewBulkPreviewResponse,
-  SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStatusResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
@@ -26,6 +26,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import {
   loadSymbolReviewGames,
+  loadSymbolReviewCounts,
   loadSymbolReviewPage,
   loadSymbolReviewProjection,
   loadSymbolReviewSymbols,
@@ -136,6 +137,14 @@ export function SymbolReviewWorkspace({
   const [gamesState, setGamesState] = useState<LoadState>('loading');
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [pageState, setPageState] = useState<LoadState>('ready');
+  const [countsState, setCountsState] = useState<
+    'error' | 'idle' | 'loading' | 'ready'
+  >('idle');
+  const [countsSnapshot, setCountsSnapshot] =
+    useState<SymbolCellReviewCountSnapshotResponse | null>(null);
+  const [countsCatalogRevision, setCountsCatalogRevision] = useState<
+    number | null
+  >(null);
   const [error, setError] = useState('');
   const [projectionStatus, setProjectionStatus] =
     useState<SymbolCellReviewProjectionStatusResponse | null>(null);
@@ -174,6 +183,7 @@ export function SymbolReviewWorkspace({
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
+  const countsRequestId = useRef(0);
   const projectionRequestId = useRef(0);
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
   const filtersConfirmedRef = useRef(false);
@@ -202,14 +212,14 @@ export function SymbolReviewWorkspace({
   const selectedCount =
     currentPage === null ? 0 : selectedSymbolReviewCount(selection);
   const currentFilteredCount =
-    currentPage === null
-      ? 0
-      : filteredSymbolReviewCount(currentPage, filters.state);
+    countsSnapshot === null
+      ? null
+      : filteredSymbolReviewCount(countsSnapshot, filters.state);
   const currentPageRange = symbolReviewPageRange(
     currentPageNumber,
     currentPage?.items.length ?? 0,
     filters.pageSize,
-    currentFilteredCount,
+    currentFilteredCount ?? currentPageNumber * filters.pageSize,
   );
   const hasLoadError =
     gamesState === 'error' ||
@@ -226,11 +236,15 @@ export function SymbolReviewWorkspace({
     const previousFilters = filtersRef.current;
     filtersRef.current = nextFilters;
     pageRequestId.current += 1;
+    countsRequestId.current += 1;
     pagePositionRef.current = { number: 1 };
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    setCountsState('idle');
+    setCountsSnapshot(null);
+    setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
     setReassignTargetSymbolId(null);
     if (previousFilters.gameId !== nextFilters.gameId) {
@@ -255,6 +269,10 @@ export function SymbolReviewWorkspace({
     setProjectionState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionStatus(null);
     setPageState('ready');
+    countsRequestId.current += 1;
+    setCountsState('idle');
+    setCountsSnapshot(null);
+    setCountsCatalogRevision(null);
     filtersConfirmedRef.current = false;
     setFiltersConfirmed(false);
     pagePositionRef.current = { number: 1 };
@@ -282,11 +300,15 @@ export function SymbolReviewWorkspace({
       return;
     }
     pageRequestId.current += 1;
+    countsRequestId.current += 1;
     pagePositionRef.current = { number: 1 };
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    setCountsState('idle');
+    setCountsSnapshot(null);
+    setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = true;
@@ -302,11 +324,15 @@ export function SymbolReviewWorkspace({
   const unlockFilters = useCallback(() => {
     if (interactionBusy || selectedCount > 0) return;
     pageRequestId.current += 1;
+    countsRequestId.current += 1;
     pagePositionRef.current = { number: 1 };
     setError('');
     setSelection(createEmptySymbolReviewSelection());
     setHiddenCellIds(new Set());
     setVisibleItems([]);
+    setCountsState('idle');
+    setCountsSnapshot(null);
+    setCountsCatalogRevision(null);
     setVirtualPreviewTiles({});
     dispatch({ type: 'clear_page' });
     filtersConfirmedRef.current = false;
@@ -466,6 +492,9 @@ export function SymbolReviewWorkspace({
         return;
       }
       dispatch({ page: result.page, position, type: 'page_loaded' });
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(result.page.catalogRevision);
       setHiddenCellIds(new Set());
       setPageState('ready');
     });
@@ -476,6 +505,43 @@ export function SymbolReviewWorkspace({
     projectionStatus?.status,
     reloadRevision,
   ]);
+
+  useEffect(() => {
+    const pageFilters = asPageFilters(filters);
+    if (!filtersConfirmed || pageFilters === null || currentPage === null) {
+      return;
+    }
+    const catalogRevision =
+      countsCatalogRevision ?? currentPage.catalogRevision;
+    const requestId = ++countsRequestId.current;
+    const filterScope = symbolReviewFilterScope(pageFilters);
+    void loadSymbolReviewCounts(api, {
+      catalogRevision,
+      gameId: pageFilters.gameId,
+      maxConfidence: pageFilters.maxConfidence,
+      minConfidence: pageFilters.minConfidence,
+      state: pageFilters.state,
+      symbolId: pageFilters.symbolId,
+    }).then((result) => {
+      if (
+        requestId !== countsRequestId.current ||
+        symbolReviewFilterScope(asPageFilters(filtersRef.current)) !==
+          filterScope
+      ) {
+        return;
+      }
+      if (!result.ok) {
+        setCountsSnapshot(null);
+        setCountsState('error');
+        return;
+      }
+      setCountsSnapshot(result.snapshot);
+      setCountsState('ready');
+    });
+    return () => {
+      countsRequestId.current += 1;
+    };
+  }, [api, countsCatalogRevision, currentPage, filters, filtersConfirmed]);
 
   useEffect(() => {
     const pageFilters = asPageFilters(filters);
@@ -570,6 +636,9 @@ export function SymbolReviewWorkspace({
           position: cached.position,
           type: 'page_loaded',
         });
+        setCountsState('loading');
+        setCountsSnapshot(null);
+        setCountsCatalogRevision(cached.page.catalogRevision);
         return;
       }
       pagingRef.current = true;
@@ -587,6 +656,9 @@ export function SymbolReviewWorkspace({
       }
       pagePositionRef.current = position;
       dispatch({ page: result.page, position, type: 'page_loaded' });
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(result.page.catalogRevision);
     },
     [api, currentPage, currentPageNumber, filters, filtersConfirmed, workspace],
   );
@@ -619,7 +691,8 @@ export function SymbolReviewWorkspace({
     if (
       filters.gameId === null ||
       filters.symbolId === null ||
-      currentPage === null
+      currentPage === null ||
+      currentFilteredCount === null
     ) {
       return;
     }
@@ -669,6 +742,9 @@ export function SymbolReviewWorkspace({
       }
       setSelection(createEmptySymbolReviewSelection());
       setHiddenCellIds((current) => new Set([...current, target.cellReviewId]));
+      setCountsState('loading');
+      setCountsSnapshot(null);
+      setCountsCatalogRevision(result.value.catalogRevision);
       setToast({
         kind: 'success',
         message:
@@ -720,6 +796,14 @@ export function SymbolReviewWorkspace({
         setHiddenCellIds(
           (current) => new Set([...current, ...tracked.submittedCellIds]),
         );
+      }
+      if (
+        operation.catalogRevision !== null &&
+        operation.catalogRevision !== undefined
+      ) {
+        setCountsState('loading');
+        setCountsSnapshot(null);
+        setCountsCatalogRevision(operation.catalogRevision);
       }
       setActiveOperations((current) => {
         const next = { ...current };
@@ -941,6 +1025,7 @@ export function SymbolReviewWorkspace({
         <SymbolReviewSelectionToolbar
           busy={interactionBusy}
           canApprove={filters.symbolId !== 'unknown'}
+          canSelectAllMatching={currentFilteredCount !== null}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
           onApprove={() => void previewOperation('approve')}
@@ -1021,8 +1106,9 @@ export function SymbolReviewWorkspace({
                 {currentPageRange === null
                   ? 'brak wyników'
                   : `${currentPageRange.start}–${currentPageRange.end}`}{' '}
-                · zatwierdzone: {currentPage.counts.approvedCount} · oczekujące:{' '}
-                {currentPage.counts.pendingCount}
+                · zatwierdzone: {countsSnapshot?.counts.approvedCount ?? '…'} ·
+                oczekujące: {countsSnapshot?.counts.pendingCount ?? '…'}
+                {countsState === 'error' ? ' · liczniki niedostępne' : ''}
               </span>
               <button
                 className="secondaryButton"
@@ -1236,6 +1322,7 @@ function SymbolReviewCard({
 function SymbolReviewSelectionToolbar({
   busy,
   canApprove,
+  canSelectAllMatching,
   canSelectVisible,
   hasActiveSymbols,
   onApprove,
@@ -1253,6 +1340,7 @@ function SymbolReviewSelectionToolbar({
 }: {
   readonly busy: boolean;
   readonly canApprove: boolean;
+  readonly canSelectAllMatching: boolean;
   readonly canSelectVisible: boolean;
   readonly hasActiveSymbols: boolean;
   readonly onApprove: () => void;
@@ -1287,7 +1375,10 @@ function SymbolReviewSelectionToolbar({
         <button
           className="secondaryButton"
           disabled={
-            busy || !canSelectVisible || selectionKind === 'all_matching_filter'
+            busy ||
+            !canSelectVisible ||
+            !canSelectAllMatching ||
+            selectionKind === 'all_matching_filter'
           }
           onClick={onSelectAllMatchingFilter}
           type="button"
@@ -1638,12 +1729,25 @@ function stateLabel(state: SymbolCellReviewFilterState): string {
 }
 
 function filteredSymbolReviewCount(
-  page: SymbolCellReviewPageResponse,
+  snapshot: SymbolCellReviewCountSnapshotResponse,
   state: SymbolCellReviewFilterState,
 ): number {
-  if (state === 'approved') return page.counts.approvedCount;
-  if (state === 'pending') return page.counts.pendingCount;
-  return page.counts.allCount;
+  if (state === 'approved') return snapshot.counts.approvedCount;
+  if (state === 'pending') return snapshot.counts.pendingCount;
+  return snapshot.counts.allCount;
+}
+
+function symbolReviewFilterScope(
+  filters: LoadSymbolReviewPageOptions | null,
+): string {
+  if (filters === null) return '';
+  return JSON.stringify([
+    filters.gameId,
+    filters.symbolId,
+    filters.state,
+    filters.minConfidence ?? null,
+    filters.maxConfidence ?? null,
+  ]);
 }
 
 function formatBytes(value: number | null | undefined): string {

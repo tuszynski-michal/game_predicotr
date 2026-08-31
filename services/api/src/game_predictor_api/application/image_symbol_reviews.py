@@ -10,6 +10,7 @@ from game_predictor_api.application.virtual_cell_previews import VirtualCellPrev
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
+    SymbolCellReviewCountSnapshot,
     SymbolCellReviewCursorDirection,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
@@ -125,7 +126,6 @@ class SymbolCellReviewQueryService:
         items = page_slice.items
         return SymbolCellReviewPage(
             items=items,
-            counts=self._repository.counts(review_filter=review_filter),
             catalog_revision=catalog_revision,
             next_cursor=(
                 encode_symbol_cell_review_cursor(
@@ -145,6 +145,38 @@ class SymbolCellReviewQueryService:
                 if items and page_slice.has_previous
                 else None
             ),
+        )
+
+    def counts(
+        self,
+        *,
+        game_id: UUID,
+        symbol_id: UUID | None,
+        state: SymbolCellReviewFilterState,
+        expected_catalog_revision: int,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
+    ) -> SymbolCellReviewCountSnapshot:
+        review_filter = SymbolCellReviewListFilter(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            state=state,
+            min_confidence=min_confidence,
+            max_confidence=max_confidence,
+        )
+        catalog_revision = self._repository.require_ready_game(game_id)
+        if catalog_revision != expected_catalog_revision:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE",
+                "The symbol-cell review catalog changed after the page was loaded.",
+                details={
+                    "actualCatalogRevision": catalog_revision,
+                    "expectedCatalogRevision": expected_catalog_revision,
+                },
+            )
+        return SymbolCellReviewCountSnapshot(
+            counts=self._repository.counts(review_filter=review_filter),
+            catalog_revision=catalog_revision,
         )
 
     def asset(

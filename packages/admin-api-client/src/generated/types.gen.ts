@@ -9079,6 +9079,17 @@ export type SymbolCellReviewBulkPreviewResponse = {
 };
 
 /**
+ * SymbolCellReviewCountSnapshotResponse
+ */
+export type SymbolCellReviewCountSnapshotResponse = {
+  /**
+   * Catalogrevision
+   */
+  catalogRevision: number;
+  counts: SymbolCellReviewCountsResponse;
+};
+
+/**
  * SymbolCellReviewCountsResponse
  */
 export type SymbolCellReviewCountsResponse = {
@@ -9298,7 +9309,6 @@ export type SymbolCellReviewPageResponse = {
    * Catalogrevision
    */
   catalogRevision: number;
-  counts: SymbolCellReviewCountsResponse;
   /**
    * Items
    */
@@ -12234,6 +12244,64 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type GetSymbolCellReviewCountsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Symbolid
+     */
+    symbolId: string;
+    /**
+     * Catalogrevision
+     */
+    catalogRevision: number;
+    state?: SymbolCellReviewFilterState;
+    /**
+     * Minconfidence
+     */
+    minConfidence?: number | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts';
+};
+
+export type GetSymbolCellReviewCountsErrors = {
+  /**
+   * Game or current crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cursor, readiness, or crop conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid symbol-cell review query
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolCellReviewCountsError =
+  GetSymbolCellReviewCountsErrors[keyof GetSymbolCellReviewCountsErrors];
+
+export type GetSymbolCellReviewCountsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolCellReviewCountSnapshotResponse;
+};
+
+export type GetSymbolCellReviewCountsResponse =
+  GetSymbolCellReviewCountsResponses[keyof GetSymbolCellReviewCountsResponses];
 
 export type StartSymbolCellReviewBulkOperationData = {
   body: SymbolCellReviewBulkOperationStartRequest;

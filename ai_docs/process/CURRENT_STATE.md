@@ -22,6 +22,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Cursor v3 zachowuje natywny UUID; istniejące scoped cursory v2 pozostają
   czytelne. Na bieżącej bazie pięć odczytów 500 rekordów zajęło
   `0.066–0.357 s` wobec wcześniejszych około `4.6–5.7 s` bez liczników.
+
+### Liczniki poza krytyczną ścieżką — TASK-0360
+
+- Odpowiedź listy cropów nie wykonuje już globalnych agregacji i nie zawiera
+  liczników. Osobny endpoint zwraca snapshot liczników związany z dokładnym
+  filtrem i `catalogRevision`.
+- Admin renderuje metadane strony od razu, pobiera liczniki niezależnie bez
+  nakładania requestów i ignoruje wyniki starego filtra. Błąd agregacji nie
+  blokuje listy ani mutacji; skuteczna decyzja odświeża licznik z nowej rewizji.
 ### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji

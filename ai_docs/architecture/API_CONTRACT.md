@@ -53,6 +53,7 @@ Format błędu:
 /games/{gameId}/symbols
 /games/{gameId}/board-search
 /games/{gameId}/symbol-cell-reviews
+/games/{gameId}/symbol-cell-review-counts
 /games/{gameId}/rules-versions
 /rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines

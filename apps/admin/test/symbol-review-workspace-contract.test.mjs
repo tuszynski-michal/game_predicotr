@@ -120,3 +120,11 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /zakres/);
   assert.match(source, /filteredSymbolReviewCount/);
 });
+
+test('renders metadata before independent revision-bound counts finish', () => {
+  assert.match(source, /loadSymbolReviewCounts/);
+  assert.match(source, /countsRequestId/);
+  assert.match(source, /countsCatalogRevision/);
+  assert.match(source, /liczniki niedostępne/);
+  assert.doesNotMatch(source, /currentPage\.counts/);
+});

@@ -747,6 +747,17 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
                 "beforeCursor": second.json()["previousCursor"],
             },
         )
+        counts = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                "symbolId": str(symbol_id),
+                "catalogRevision": first.json()["catalogRevision"],
+            },
+        )
+        approved = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "state": "approved"},
+        )
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -755,18 +766,36 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     second_ids = [item["id"] for item in second.json()["items"]]
     assert len(set(first_ids).intersection(second_ids)) == 0
     assert [item["id"] for item in previous.json()["items"]] == first_ids
-    assert first.json()["counts"] == {"allCount": 3, "approvedCount": 1, "pendingCount": 2}
+    assert "counts" not in first.json()
+    assert counts.status_code == 200
+    assert counts.json() == {
+        "catalogRevision": 17,
+        "counts": {"allCount": 2, "approvedCount": 0, "pendingCount": 2},
+    }
     assert first.json()["items"][0]["cropSampleId"] == "b" * 64
-
-    with _client(repository, artifact_root=tmp_path) as client:
-        approved = client.get(
-            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
-            params={"symbolId": str(symbol_id), "state": "approved"},
-        )
-
     assert approved.status_code == 200
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
 
+
+def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(),
+    )
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                "symbolId": str(symbol_id),
+                "catalogRevision": 16,
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE"
 
 def test_list_endpoint_rejects_a_page_size_above_five_hundred(
     tmp_path: Path,

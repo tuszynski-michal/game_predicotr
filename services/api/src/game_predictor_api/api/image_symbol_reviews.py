@@ -45,6 +45,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     SymbolCellReviewBulkOperationStartRequest,
     SymbolCellReviewBulkOperationStartResponse,
     SymbolCellReviewBulkPreviewResponse,
+    SymbolCellReviewCountSnapshotResponse,
     SymbolCellReviewMutationRequest,
     SymbolCellReviewMutationResponse,
     SymbolCellReviewPageResponse,
@@ -59,6 +60,7 @@ from game_predictor_api.schemas.image_symbol_reviews import (
     to_symbol_cell_review_bulk_operation_response,
     to_symbol_cell_review_bulk_preview_response,
     to_symbol_cell_review_bulk_request,
+    to_symbol_cell_review_count_snapshot_response,
     to_symbol_cell_review_mutation_response,
     to_symbol_cell_review_page_response,
     to_symbol_cell_review_projection_start_response,
@@ -348,6 +350,33 @@ def create_image_symbol_reviews_router(
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
                 limit=limit,
+            )
+        )
+
+    @router.get(
+        "/{game_id}/symbol-cell-review-counts",
+        response_model=SymbolCellReviewCountSnapshotResponse,
+        operation_id="getSymbolCellReviewCounts",
+        summary="Count one revision-bound symbol-cell review filter independently",
+        responses=ERROR_RESPONSES,
+    )
+    def get_symbol_cell_review_counts(
+        game_id: UUID,
+        service: Annotated[SymbolCellReviewQueryService, service_parameter],
+        symbol_id: Annotated[str, Query(alias="symbolId")],
+        catalog_revision: Annotated[int, Query(alias="catalogRevision", ge=0)],
+        state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.PENDING,
+        min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
+        max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+    ) -> SymbolCellReviewCountSnapshotResponse:
+        return to_symbol_cell_review_count_snapshot_response(
+            service.counts(
+                game_id=game_id,
+                symbol_id=_parse_symbol_filter(symbol_id),
+                state=state,
+                expected_catalog_revision=catalog_revision,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
             )
         )
 

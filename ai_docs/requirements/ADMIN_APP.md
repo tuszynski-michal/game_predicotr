@@ -385,7 +385,10 @@ prezentowane ani dostępne do masowych decyzji.
 Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
 `Oczekujące`. Wejście do zakładki nie pobiera strony cropów: operator najpierw
 ustawia filtry, a następnie wybiera `Zatwierdź wybór`. Dopiero ta jawna akcja
-pobiera stronę o stałym rozmiarze 500 metadanych. Po zatwierdzeniu ustawienia są
+pobiera stronę o stałym rozmiarze 500 metadanych. Globalne liczniki nie należą
+do krytycznej ścieżki listy: są pobierane osobno dla dokładnego filtra i rewizji
+katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
+spóźniona odpowiedź poprzedniego filtra jest odrzucana. Po zatwierdzeniu ustawienia są
 zablokowane; `Zmień wybór` czyści strony, wirtualny viewport i zaznaczenie, a
 następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
@@ -394,7 +397,8 @@ całej strony: DOM zawiera tylko karty viewportu i małego overscanu. Dla
 `virtual_source` Admin tworzy atlas maksymalnie 100 aktualnie widocznych kart;
 legacy asset jest nadal pobierany leniwie jako checksum-bound thumbnail. Brak
 jednego assetu pokazuje placeholder wyłącznie tej karty.
-Podsumowanie pokazuje numer strony, jej jednoznaczny zakres pozycji zależny od
+Podsumowanie pokazuje numer strony i jej jednoznaczny zakres pozycji natychmiast
+po pobraniu metadanych, a następnie uzupełnia niezależnie pełne liczniki. Zakres zależy od
 zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
 wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
 wyników.

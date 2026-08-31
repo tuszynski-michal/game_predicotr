@@ -1406,6 +1406,7 @@ def create_app(
             status_code = 404
         elif error.code in {
             "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+            "SYMBOL_CELL_REVIEW_CATALOG_REVISION_STALE",
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
             "SYMBOL_CELL_REVIEW_CURSOR_DIRECTION_CONFLICT",
             "SYMBOL_CELL_REVIEW_CURRENT_OWNER_CONFLICT",

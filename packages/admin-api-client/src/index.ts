@@ -78,6 +78,7 @@ import {
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getStorageGcRun as getGeneratedStorageGcRun,
+  getSymbolCellReviewCounts as getGeneratedSymbolCellReviewCounts,
   createStorageGcPreview as createGeneratedStorageGcPreview,
   refreshImageStorageInventory as refreshGeneratedImageStorageInventory,
   startStorageGcRun as startGeneratedStorageGcRun,
@@ -489,6 +490,7 @@ export type {
   SymbolModelActivationPreviewResponse,
   SymbolModelActivationResponse,
   SymbolCellReviewCountsResponse,
+  SymbolCellReviewCountSnapshotResponse,
   SymbolCellReviewAction,
   SymbolCellReviewBulkExplicitSelectionRequest,
   SymbolCellReviewBulkExplicitTargetRequest,
@@ -651,6 +653,15 @@ export interface ListSymbolCellReviewsOptions {
   readonly limit?: number;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
+}
+
+export interface GetSymbolCellReviewCountsOptions {
+  readonly catalogRevision: number;
+  readonly gameId: string;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly state?: SymbolCellReviewFilterState;
+  readonly symbolId: string | 'unknown';
 }
 
 export interface ListUnreadableBoardReviewsOptions {
@@ -1827,6 +1838,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.maxConfidence === undefined
+            ? {}
+            : { maxConfidence: options.maxConfidence }),
+          ...(options.minConfidence === undefined
+            ? {}
+            : { minConfidence: options.minConfidence }),
+        },
+      }),
+    getSymbolCellReviewCounts: (options: GetSymbolCellReviewCountsOptions) =>
+      getGeneratedSymbolCellReviewCounts({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          symbolId: options.symbolId,
+          catalogRevision: options.catalogRevision,
+          ...(options.state === undefined ? {} : { state: options.state }),
           ...(options.maxConfidence === undefined
             ? {}
             : { maxConfidence: options.maxConfidence }),

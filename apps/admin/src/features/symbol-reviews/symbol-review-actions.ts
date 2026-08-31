@@ -1,5 +1,6 @@
 import type {
   GameResponse,
+  SymbolCellReviewCountSnapshotResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStartResponse,
@@ -16,6 +17,7 @@ export type SymbolReviewClient = Pick<
   | 'listGames'
   | 'listSymbols'
   | 'listSymbolCellReviews'
+  | 'getSymbolCellReviewCounts'
   | 'getSymbolCellReviewProjectionStatus'
   | 'startSymbolCellReviewProjectionBackfill'
   | 'symbolCellReviewAssetUrl'
@@ -94,6 +96,22 @@ export interface LoadSymbolReviewPageOptions {
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'unknown';
 }
+
+export interface LoadSymbolReviewCountsOptions {
+  readonly catalogRevision: number;
+  readonly gameId: string;
+  readonly maxConfidence?: number;
+  readonly minConfidence?: number;
+  readonly state: SymbolCellReviewFilterState;
+  readonly symbolId: string | 'unknown';
+}
+
+export type SymbolReviewCountsResult =
+  | {
+      readonly ok: true;
+      readonly snapshot: SymbolCellReviewCountSnapshotResponse;
+    }
+  | { readonly error: string; readonly ok: false };
 
 export type SymbolReviewPageResult =
   | { readonly ok: true; readonly page: SymbolCellReviewPageResponse }
@@ -197,6 +215,30 @@ export async function loadSymbolReviewPage(
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       isProjectionRebuilding: false,
+      ok: false,
+    };
+  }
+}
+
+export async function loadSymbolReviewCounts(
+  api: SymbolReviewClient,
+  options: LoadSymbolReviewCountsOptions,
+): Promise<SymbolReviewCountsResult> {
+  try {
+    const result = await api.getSymbolCellReviewCounts(options);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać liczników weryfikacji.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, snapshot: result.data };
+  } catch {
+    return {
+      error: 'Nie udało się pobrać liczników weryfikacji.',
       ok: false,
     };
   }

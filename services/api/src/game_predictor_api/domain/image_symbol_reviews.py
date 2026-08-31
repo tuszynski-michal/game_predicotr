@@ -202,10 +202,19 @@ class SymbolCellReviewCounts:
 @dataclass(frozen=True, slots=True)
 class SymbolCellReviewPage:
     items: tuple[SymbolCellReviewListItem, ...]
-    counts: SymbolCellReviewCounts
     catalog_revision: int
     next_cursor: str | None
     previous_cursor: str | None
+
+    def __post_init__(self) -> None:
+        if self.catalog_revision < 0:
+            raise ValueError("catalog_revision cannot be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolCellReviewCountSnapshot:
+    counts: SymbolCellReviewCounts
+    catalog_revision: int
 
     def __post_init__(self) -> None:
         if self.catalog_revision < 0:
@@ -891,6 +900,7 @@ __all__ = [
     "SymbolCellReviewAsset",
     "SymbolCellBoardResolution",
     "SymbolCellReviewCounts",
+    "SymbolCellReviewCountSnapshot",
     "SymbolCellCropApprovalState",
     "SymbolCellCropIdentity",
     "SymbolCellReview",

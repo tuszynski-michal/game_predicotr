@@ -15802,6 +15802,25 @@
         "title": "SymbolCellReviewBulkPreviewResponse",
         "type": "object"
       },
+      "SymbolCellReviewCountSnapshotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogRevision": {
+            "minimum": 0.0,
+            "title": "Catalogrevision",
+            "type": "integer"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/SymbolCellReviewCountsResponse"
+          }
+        },
+        "required": [
+          "counts",
+          "catalogRevision"
+        ],
+        "title": "SymbolCellReviewCountSnapshotResponse",
+        "type": "object"
+      },
       "SymbolCellReviewCountsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -16196,9 +16215,6 @@
             "title": "Catalogrevision",
             "type": "integer"
           },
-          "counts": {
-            "$ref": "#/components/schemas/SymbolCellReviewCountsResponse"
-          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/SymbolCellReviewListItemResponse"
@@ -16231,7 +16247,6 @@
         },
         "required": [
           "items",
-          "counts",
           "catalogRevision",
           "nextCursor",
           "previousCursor"
@@ -21562,6 +21577,133 @@
         "summary": "Create draft rules version",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-review-counts": {
+      "get": {
+        "operationId": "getSymbolCellReviewCounts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "symbolId",
+            "required": true,
+            "schema": {
+              "title": "Symbolid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "catalogRevision",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "title": "Catalogrevision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SymbolCellReviewFilterState",
+              "default": "pending"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minConfidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Minconfidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maxConfidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Maxconfidence"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolCellReviewCountSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or current crop not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cursor, readiness, or crop conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid symbol-cell review query"
+          }
+        },
+        "summary": "Count one revision-bound symbol-cell review filter independently",
+        "tags": [
+          "symbol-cell-reviews"
         ]
       }
     },

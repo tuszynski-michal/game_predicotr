@@ -30,6 +30,7 @@ from game_predictor_api.application.unreadable_board_reviews import (
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewCounts,
+    SymbolCellReviewCountSnapshot,
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
@@ -75,10 +76,14 @@ class SymbolCellReviewListItemResponse(ApiModel):
 
 class SymbolCellReviewPageResponse(ApiModel):
     items: tuple[SymbolCellReviewListItemResponse, ...]
-    counts: SymbolCellReviewCountsResponse
     catalog_revision: int = Field(ge=0)
     next_cursor: str | None
     previous_cursor: str | None
+
+
+class SymbolCellReviewCountSnapshotResponse(ApiModel):
+    counts: SymbolCellReviewCountsResponse
+    catalog_revision: int = Field(ge=0)
 
 
 class VirtualCellPreviewTargetRequest(ApiModel):
@@ -336,10 +341,18 @@ def to_symbol_cell_review_page_response(
 ) -> SymbolCellReviewPageResponse:
     return SymbolCellReviewPageResponse(
         items=tuple(_to_item_response(item) for item in page.items),
-        counts=_to_counts_response(page.counts),
         catalog_revision=page.catalog_revision,
         next_cursor=page.next_cursor,
         previous_cursor=page.previous_cursor,
+    )
+
+
+def to_symbol_cell_review_count_snapshot_response(
+    snapshot: SymbolCellReviewCountSnapshot,
+) -> SymbolCellReviewCountSnapshotResponse:
+    return SymbolCellReviewCountSnapshotResponse(
+        counts=_to_counts_response(snapshot.counts),
+        catalog_revision=snapshot.catalog_revision,
     )
 
 
@@ -579,6 +592,7 @@ __all__ = [
     "SymbolCellReviewBulkPreviewResponse",
     "SymbolCellReviewBulkSelectionRequest",
     "SymbolCellReviewCountsResponse",
+    "SymbolCellReviewCountSnapshotResponse",
     "SymbolCellReviewListItemResponse",
     "SymbolCellReviewMutationRequest",
     "SymbolCellReviewMutationResponse",
@@ -593,6 +607,7 @@ __all__ = [
     "to_symbol_cell_review_bulk_operation_response",
     "to_symbol_cell_review_bulk_preview_response",
     "to_symbol_cell_review_bulk_request",
+    "to_symbol_cell_review_count_snapshot_response",
     "to_symbol_cell_review_mutation_response",
     "to_symbol_cell_review_page_response",
     "to_symbol_cell_review_projection_start_response",

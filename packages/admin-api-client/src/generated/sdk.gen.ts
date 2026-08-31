@@ -342,6 +342,9 @@ import type {
   GetSymbolCellReviewBulkOperationData,
   GetSymbolCellReviewBulkOperationErrors,
   GetSymbolCellReviewBulkOperationResponses,
+  GetSymbolCellReviewCountsData,
+  GetSymbolCellReviewCountsErrors,
+  GetSymbolCellReviewCountsResponses,
   GetSymbolCellReviewProjectionStatusData,
   GetSymbolCellReviewProjectionStatusErrors,
   GetSymbolCellReviewProjectionStatusResponses,
@@ -1559,6 +1562,25 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Count one revision-bound symbol-cell review filter independently
+ */
+export const getSymbolCellReviewCounts = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolCellReviewCountsData, ThrowOnError>,
+): RequestResult<
+  GetSymbolCellReviewCountsResponses,
+  GetSymbolCellReviewCountsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolCellReviewCountsResponses,
+    GetSymbolCellReviewCountsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts',
+    ...options,
   });
 
 /**

@@ -6153,6 +6153,15 @@ div.imageJobInlineError {
   stroke-width: 3.4;
 }
 
+.pageGeometryBoardPlacement {
+  fill: rgba(75, 211, 238, 0.18);
+  pointer-events: none;
+  stroke: #67e8f9;
+  stroke-dasharray: 11 7;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
 .pageGeometryHandle {
   cursor: grab;
   fill: #ffd15b;

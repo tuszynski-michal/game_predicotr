@@ -627,6 +627,16 @@ można przesuwać niezależnie, aby odwzorować perspektywę i łuk ekranu, a
 pojedynczy quad pozostaje korektą wyjątkową. `Reset` przywraca dokładną
 geometrię wczytaną przy otwarciu źródła.
 
+Alternatywny tryb `Wyznacz 9 plansz osobno` pozwala ominąć modelowanie całej
+strony i krzywizny. Operator wskazuje po cztery narożniki LT, PT, PD, LD dla
+każdej planszy. Kolejność jest jawnie row-major: plansze 1–3 w pierwszym
+rzędzie od lewej, 4–6 w drugim i 7–9 w trzecim. UI nie przechodzi do następnej
+planszy, dopóki bieżący obrys nie jest wypukły i zgodny z kolejnością. Wynikiem
+pozostaje ten sam kontrakt dziewięciu niezależnych finalnych quadów, dlatego
+zapis, preflight, numeracja `seq_*` oraz source-direct cropper nie wymagają
+osobnej ścieżki backendowej. Dotychczasowe wyznaczanie obrysu całej strony,
+korekta 36 punktów i wyjątkowa korekta pojedynczej planszy pozostają dostępne.
+
 Zapis kolejnych stron nie uruchamia preflightu po każdej korekcie. Operator
 może zapisać wiele append-only rewizji przez `Zapisz i przejdź dalej`, a potem
 jedną akcją `Wyślij zapisane do weryfikacji` utworzyć nowy, niezmienny snapshot

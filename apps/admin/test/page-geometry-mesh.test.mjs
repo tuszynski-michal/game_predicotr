@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  appendPageGeometryBoardCorner,
   appendPageGeometryCorner,
   applyPageGeometryMeshOverrides,
+  completePageGeometryBoardQuads,
   completePageGeometryCorners,
   createPageGeometryMesh,
+  PAGE_BOARD_PLACEMENT_POINT_COUNT,
   PAGE_MESH_POINT_COUNT,
   pageGeometryPointFromRenderedCanvas,
+  pageGeometryQuadsFromCornerPlacement,
   pageGeometryQuadsFromMesh,
 } from '../src/features/imports/page-geometry-mesh.ts';
 
@@ -44,6 +48,59 @@ test('rejects crossed or counter-clockwise corner click order', () => {
       { x: 90, y: 90 },
       { x: 90, y: 10 },
     ]),
+    null,
+  );
+});
+
+test('collects nine independent board quads in row-major order', () => {
+  const points = Array.from({ length: 9 }, (_, boardIndex) => {
+    const row = Math.floor(boardIndex / 3);
+    const column = boardIndex % 3;
+    const left = column * 110;
+    const top = row * 110;
+    return [
+      { x: left, y: top },
+      { x: left + 90, y: top + 2 },
+      { x: left + 88, y: top + 90 },
+      { x: left + 2, y: top + 88 },
+    ];
+  }).flat();
+  const placement = points.reduce(
+    (current, point) => appendPageGeometryBoardCorner(current, point),
+    [],
+  );
+  const quads = completePageGeometryBoardQuads(placement);
+
+  assert.equal(placement.length, PAGE_BOARD_PLACEMENT_POINT_COUNT);
+  assert.equal(quads?.length, 9);
+  assert.deepEqual(quads?.[0]?.[0], { x: 0, y: 0 });
+  assert.deepEqual(quads?.[3]?.[0], { x: 0, y: 110 });
+  assert.deepEqual(quads?.[8]?.[2], { x: 308, y: 310 });
+});
+
+test('does not advance individual placement after a board breaks row-major order', () => {
+  const firstBoard = [
+    { x: 100, y: 10 },
+    { x: 190, y: 10 },
+    { x: 190, y: 100 },
+    { x: 100, y: 100 },
+  ];
+  const misplacedSecondBoard = [
+    { x: 0, y: 10 },
+    { x: 90, y: 10 },
+    { x: 90, y: 100 },
+    { x: 0, y: 100 },
+  ];
+
+  assert.equal(
+    pageGeometryQuadsFromCornerPlacement([
+      ...firstBoard,
+      ...misplacedSecondBoard,
+    ]).length,
+    1,
+  );
+  assert.equal(
+    completePageGeometryBoardQuads([...firstBoard, ...misplacedSecondBoard]),
     null,
   );
 });

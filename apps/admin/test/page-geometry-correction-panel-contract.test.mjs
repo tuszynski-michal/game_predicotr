@@ -13,10 +13,14 @@ const panel = await readFile(
 test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
   assert.match(panel, />\s*Wyznacz 4 narożniki\s*</);
+  assert.match(panel, />\s*Wyznacz 9 plansz osobno\s*</);
   assert.match(panel, />\s*Cofnij punkt\s*</);
   assert.match(panel, />\s*Reset\s*</);
   assert.match(panel, /setPageCorners\(initialPageCorners\)/);
   assert.match(panel, /setBoardOverrides\(initialBoardOverrides\)/);
+  assert.match(panel, /beginBoardCornerPlacement/);
+  assert.match(panel, /completePageGeometryBoardQuads/);
+  assert.match(panel, /rząd.*kolumna/s);
 });
 
 test('saving a correction is separated from submitting the saved batch', () => {

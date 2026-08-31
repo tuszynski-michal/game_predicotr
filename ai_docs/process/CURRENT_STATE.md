@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Osobne wyznaczanie dziewięciu plansz — TASK-0345
+
+- Korekta geometrii strony ma dodatkowy prowadzony tryb, w którym operator
+  wskazuje LT → PT → PD → LD osobno dla każdej z dziewięciu plansz.
+- Plansze są zbierane w domenowej kolejności row-major: 1–3, 4–6, 7–9. Każdy
+  poprawny obrys jest od razu widoczny, a niepoprawny lub przestawiony quad
+  blokuje przejście dalej i można go cofnąć jednym punktem.
+- Wynik korzysta z istniejącego zapisu dziewięciu finalnych quadów. Nie zmienia
+  API, numeracji `seq_*`, preflightu ani source-direct croppera; wcześniejsze
+  tryby obrysu strony, krzywizny i pojedynczej planszy nadal działają.
+
 ### Selekcja cropów między stronami — TASK-0344
 
 - Weryfikacja symboli zachowuje jawne, checksum-bound zaznaczenie przy

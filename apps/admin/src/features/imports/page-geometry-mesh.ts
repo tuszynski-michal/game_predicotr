@@ -65,12 +65,74 @@ export function isClockwiseScreenQuad(corners: PageGeometryCorners): boolean {
 
 export const PAGE_BOARD_COLUMNS = 3;
 export const PAGE_BOARD_ROWS = 3;
+export const PAGE_BOARD_COUNT = PAGE_BOARD_COLUMNS * PAGE_BOARD_ROWS;
+export const PAGE_BOARD_CORNER_COUNT = 4;
+export const PAGE_BOARD_PLACEMENT_POINT_COUNT =
+  PAGE_BOARD_COUNT * PAGE_BOARD_CORNER_COUNT;
 // Every board owns two independent edge lines.  Adjacent boards are separated
 // by a real screen gutter, so a shared 4x4 cell lattice would systematically
 // crop labels/gaps instead of following the nine red frames.
 export const PAGE_MESH_COLUMNS = PAGE_BOARD_COLUMNS * 2;
 export const PAGE_MESH_ROWS = PAGE_BOARD_ROWS * 2;
 export const PAGE_MESH_POINT_COUNT = PAGE_MESH_COLUMNS * PAGE_MESH_ROWS;
+
+export function appendPageGeometryBoardCorner(
+  current: readonly PageGeometryPoint[],
+  point: PageGeometryPoint,
+): readonly PageGeometryPoint[] {
+  return current.length >= PAGE_BOARD_PLACEMENT_POINT_COUNT
+    ? current
+    : [...current, point];
+}
+
+function pageGeometryQuadCenter(quad: PageGeometryQuad): PageGeometryPoint {
+  return {
+    x: quad.reduce((sum, point) => sum + point.x, 0) / quad.length,
+    y: quad.reduce((sum, point) => sum + point.y, 0) / quad.length,
+  };
+}
+
+function isNextPageGeometryQuadRowMajor(
+  quads: readonly PageGeometryQuad[],
+  quad: PageGeometryQuad,
+): boolean {
+  const index = quads.length;
+  const row = Math.floor(index / PAGE_BOARD_COLUMNS);
+  const column = index % PAGE_BOARD_COLUMNS;
+  const center = pageGeometryQuadCenter(quad);
+  if (column > 0 && center.x <= pageGeometryQuadCenter(quads[index - 1]!).x) {
+    return false;
+  }
+  return (
+    row === 0 ||
+    center.y > pageGeometryQuadCenter(quads[index - PAGE_BOARD_COLUMNS]!).y
+  );
+}
+
+export function pageGeometryQuadsFromCornerPlacement(
+  points: readonly PageGeometryPoint[],
+): readonly PageGeometryQuad[] {
+  const quads: PageGeometryQuad[] = [];
+  const completedBoardCount = Math.min(
+    PAGE_BOARD_COUNT,
+    Math.floor(points.length / PAGE_BOARD_CORNER_COUNT),
+  );
+  for (let boardIndex = 0; boardIndex < completedBoardCount; boardIndex += 1) {
+    const offset = boardIndex * PAGE_BOARD_CORNER_COUNT;
+    const quad = completePageGeometryCorners(points.slice(offset, offset + 4));
+    if (quad === null || !isNextPageGeometryQuadRowMajor(quads, quad)) break;
+    quads.push(quad);
+  }
+  return quads;
+}
+
+export function completePageGeometryBoardQuads(
+  points: readonly PageGeometryPoint[],
+): readonly PageGeometryQuad[] | null {
+  if (points.length !== PAGE_BOARD_PLACEMENT_POINT_COUNT) return null;
+  const quads = pageGeometryQuadsFromCornerPlacement(points);
+  return quads.length === PAGE_BOARD_COUNT ? quads : null;
+}
 
 const PAGE_BOARD_EDGE_RATIOS = [
   0, 0.2933333333, 0.3533333333, 0.6466666667, 0.7066666667, 1,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import replace
 from uuid import UUID
 
@@ -11,10 +13,15 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
     SymbolCellQualityIssue,
     SymbolCellReview,
+    SymbolCellReviewCursorDirection,
     SymbolCellReviewError,
+    SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
     SymbolCellReviewState,
     approve_symbol_cell_review,
+    decode_symbol_cell_review_cursor,
     derive_symbol_cell_board_resolution,
+    encode_symbol_cell_review_cursor,
     invalidate_symbol_cell_reviews_for_geometry,
     is_symbol_cell_training_eligible,
     map_current_symbol_cell_reviews,
@@ -23,6 +30,48 @@ from game_predictor_api.domain.image_symbol_reviews import (
     reassign_symbol_cell_review,
     resolve_unreadable_symbol_cell_review,
 )
+
+
+def _cursor_payload(value: str) -> dict[str, object]:
+    return json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
+
+
+def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.PENDING,
+    )
+    key = (123, 4, UUID(int=3))
+
+    encoded = encode_symbol_cell_review_cursor(
+        review_filter=review_filter,
+        direction=SymbolCellReviewCursorDirection.AFTER,
+        key=key,
+    )
+    payload = _cursor_payload(encoded)
+    legacy_payload = {**payload, "version": 2}
+    legacy_raw = json.dumps(legacy_payload, separators=(",", ":"), sort_keys=True).encode()
+    legacy = base64.urlsafe_b64encode(legacy_raw).decode().rstrip("=")
+
+    assert payload["version"] == 3
+    assert payload["key"] == [123, 4, str(UUID(int=3))]
+    assert (
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+    assert (
+        decode_symbol_cell_review_cursor(
+            legacy,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
 
 
 def _sha(seed: int) -> str:

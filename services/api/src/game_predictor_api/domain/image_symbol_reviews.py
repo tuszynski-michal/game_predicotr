@@ -178,8 +178,8 @@ class SymbolCellReviewListItem:
             raise ValueError("virtual_source requires a render spec checksum")
 
     @property
-    def cursor_key(self) -> tuple[int, int, str]:
-        return (self.sequence_number, self.cell_index, str(self.review_item_id))
+    def cursor_key(self) -> tuple[int, int, UUID]:
+        return (self.sequence_number, self.cell_index, self.review_item_id)
 
     @property
     def is_unknown(self) -> bool:
@@ -730,19 +730,19 @@ def encode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
     direction: SymbolCellReviewCursorDirection,
-    key: tuple[int, int, str],
+    key: tuple[int, int, UUID],
 ) -> str:
     """Encode a keyset cursor that cannot be replayed in another list scope."""
 
     payload = {
         "direction": direction.value,
         "gameId": str(review_filter.game_id),
-        "key": list(key),
+        "key": [key[0], key[1], str(key[2])],
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
         "symbolId": "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id),
-        "version": 2,
+        "version": 3,
     }
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
@@ -753,7 +753,7 @@ def decode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
     direction: SymbolCellReviewCursorDirection,
-) -> tuple[int, int, str]:
+) -> tuple[int, int, UUID]:
     """Decode and bind a cursor to game, symbol filter, state and direction."""
 
     try:
@@ -775,7 +775,7 @@ def decode_symbol_cell_review_cursor(
 
     expected_symbol = "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
     if (
-        payload.get("version") != 2
+        payload.get("version") not in {2, 3}
         or parsed_game_id != review_filter.game_id
         or parsed_symbol_id != expected_symbol
         or parsed_state is not review_filter.state
@@ -803,13 +803,13 @@ def decode_symbol_cell_review_cursor(
             "The symbol-cell review cursor key is invalid.",
         )
     try:
-        UUID(key[2])
+        review_item_id = UUID(key[2])
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
             "The symbol-cell review cursor item identity is invalid.",
         ) from error
-    return key[0], key[1], key[2]
+    return key[0], key[1], review_item_id
 
 
 def _validate_complete_cells(

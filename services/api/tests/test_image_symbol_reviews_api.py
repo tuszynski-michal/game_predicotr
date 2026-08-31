@@ -92,8 +92,8 @@ class MemorySymbolCellReviewRepository:
         self,
         *,
         review_filter: SymbolCellReviewListFilter,
-        after_key: tuple[int, int, str] | None,
-        before_key: tuple[int, int, str] | None,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
         limit: int,
     ) -> SymbolCellReviewListSlice:
         self.filters.append(review_filter)

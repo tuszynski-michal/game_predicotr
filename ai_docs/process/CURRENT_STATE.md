@@ -14,6 +14,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
+
+### Szybkie stronicowanie Weryfikacji symboli — TASK-0359
+
+- Lista 500 cropów używa teraz wymuszonego `seek → owner check → hydrate`,
+  dzięki czemu szerokie rekordy i JSONB nie są materializowane przed limitem.
+- Cursor v3 zachowuje natywny UUID; istniejące scoped cursory v2 pozostają
+  czytelne. Na bieżącej bazie pięć odczytów 500 rekordów zajęło
+  `0.066–0.357 s` wobec wcześniejszych około `4.6–5.7 s` bez liczników.
 ### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji

@@ -231,40 +231,76 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         self,
         *,
         review_filter: SymbolCellReviewListFilter,
-        after_key: tuple[int, int, str] | None,
-        before_key: tuple[int, int, str] | None,
+        after_key: tuple[int, int, UUID] | None,
+        before_key: tuple[int, int, UUID] | None,
         limit: int,
     ) -> SymbolCellReviewListSlice:
         if after_key is not None and before_key is not None:
             raise ValueError("only one symbol-cell review keyset direction is allowed")
-        statement = self._list_statement(review_filter=review_filter)
+        statement = self._candidate_seek_statement(review_filter=review_filter)
         sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
+        seek_key = before_key if before_key is not None else after_key
+        descending = before_key is not None
+        visible_ids: list[UUID] = []
+        seek_batch_size = max(limit + 1, 1_000)
+        while len(visible_ids) < limit + 1:
+            batch_statement = statement
+            if seek_key is not None:
+                batch_statement = batch_statement.where(
+                    _symbol_cell_review_before_key(seek_key)
+                    if descending
+                    else _symbol_cell_review_after_key(seek_key)
+                )
+            batch_statement = batch_statement.order_by(
+                sequence.desc() if descending else sequence,
+                cell_index.desc() if descending else cell_index,
+                review_item_key.desc() if descending else review_item_key,
+            ).limit(seek_batch_size)
+            candidate_rows = self._session.execute(batch_statement).all()
+            if not candidate_rows:
+                break
+            candidate_ids = tuple(cast(UUID, row[0]) for row in candidate_rows)
+            current_ids = {
+                cast(UUID, row[0])
+                for row in self._session.execute(
+                    self._base_visible_statement(
+                        review_filter=review_filter,
+                        include_prediction_confidence=False,
+                    )
+                    .with_only_columns(ImageSymbolReviewCellModel.id)
+                    .where(ImageSymbolReviewCellModel.id.in_(candidate_ids))
+                ).all()
+            }
+            visible_ids.extend(cell_id for cell_id in candidate_ids if cell_id in current_ids)
+            last = candidate_rows[-1]
+            seek_key = (int(last[1]), int(last[2]), cast(UUID, last[3]))
+            if len(candidate_rows) < seek_batch_size:
+                break
+
         if before_key is not None:
-            rows = self._session.execute(
-                statement.where(_symbol_cell_review_before_key(before_key))
-                .order_by(sequence.desc(), cell_index.desc(), review_item_key.desc())
-                .limit(limit + 1)
-            ).all()
-            has_previous = len(rows) > limit
-            visible = tuple(reversed(rows[:limit]))
-            has_next = bool(visible) and self._has_item_after(
-                review_filter=review_filter,
-                key=_row_to_list_item(visible[-1]).cursor_key,
-            )
+            has_previous = len(visible_ids) > limit
+            page_ids = tuple(reversed(visible_ids[:limit]))
+            has_next = bool(page_ids)
         else:
-            if after_key is not None:
-                statement = statement.where(_symbol_cell_review_after_key(after_key))
-            rows = self._session.execute(
-                statement.order_by(sequence, cell_index, review_item_key).limit(limit + 1)
-            ).all()
-            has_next = len(rows) > limit
-            visible = tuple(rows[:limit])
-            has_previous = bool(visible) and self._has_item_before(
-                review_filter=review_filter,
-                key=_row_to_list_item(visible[0]).cursor_key,
+            has_next = len(visible_ids) > limit
+            page_ids = tuple(visible_ids[:limit])
+            has_previous = after_key is not None and bool(page_ids)
+        if not page_ids:
+            return SymbolCellReviewListSlice(items=(), has_previous=False, has_next=False)
+        hydrated_rows = self._session.execute(
+            self._list_statement(review_filter=review_filter).where(
+                ImageSymbolReviewCellModel.id.in_(page_ids)
             )
+        ).all()
+        hydrated_items = tuple(_row_to_list_item(row) for row in hydrated_rows)
+        item_by_id = {item.cell_review_id: item for item in hydrated_items}
+        # A concurrent mutation may move one seeked item outside the filter
+        # before hydration under READ COMMITTED. Returning the remaining
+        # checksum-bound rows is safer than serving stale metadata or failing
+        # the whole page.
+        visible = tuple(item_by_id[cell_id] for cell_id in page_ids if cell_id in item_by_id)
         return SymbolCellReviewListSlice(
-            items=tuple(_row_to_list_item(row) for row in visible),
+            items=visible,
             has_previous=has_previous,
             has_next=has_next,
         )
@@ -272,7 +308,10 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         cell = ImageSymbolReviewCellModel
         rows = self._session.execute(
-            self._visible_statement(review_filter=review_filter)
+            self._base_visible_statement(
+                review_filter=review_filter,
+                include_prediction_confidence=False,
+            )
             .with_only_columns(cell.review_state, func.count(cell.id))
             .group_by(cell.review_state)
         ).all()
@@ -385,7 +424,42 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             .outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
         )
 
+    def _candidate_seek_statement(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+    ) -> Select[Any]:
+        """Seek indexed candidates without allowing ownership joins to force a global sort."""
+
+        cell = ImageSymbolReviewCellModel
+        statement = select(
+            cell.id,
+            cell.sequence_number,
+            cell.cell_index,
+            cell.review_item_id,
+        ).where(
+            cell.game_id == review_filter.game_id,
+        )
+        if review_filter.symbol_id is None:
+            statement = statement.where(cell.assigned_symbol_id.is_(None))
+        else:
+            statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+        if review_filter.state is not SymbolCellReviewFilterState.ALL:
+            statement = statement.where(cell.review_state == review_filter.state.value)
+        return statement
+
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
+        return self._base_visible_statement(
+            review_filter=review_filter,
+            include_prediction_confidence=True,
+        )
+
+    def _base_visible_statement(
+        self,
+        *,
+        review_filter: SymbolCellReviewListFilter,
+        include_prediction_confidence: bool,
+    ) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
         prediction_revision = ImageSymbolPredictionRevisionModel
@@ -403,18 +477,6 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 ),
             )
             .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
-            .outerjoin(
-                prediction_revision,
-                prediction_revision.id == cell.prediction_revision_id,
-            )
-            .outerjoin(
-                observation,
-                and_(
-                    observation.recognized_board_id == cell.recognized_board_id,
-                    observation.row_index == cell.row_index,
-                    observation.column_index == cell.column_index,
-                ),
-            )
             .where(
                 cell.game_id == review_filter.game_id,
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
@@ -426,45 +488,29 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
         if review_filter.state is not SymbolCellReviewFilterState.ALL:
             statement = statement.where(cell.review_state == review_filter.state.value)
+        confidence_is_required = (
+            include_prediction_confidence
+            or review_filter.min_confidence is not None
+            or review_filter.max_confidence is not None
+        )
+        if confidence_is_required:
+            statement = statement.outerjoin(
+                prediction_revision,
+                prediction_revision.id == cell.prediction_revision_id,
+            ).outerjoin(
+                observation,
+                and_(
+                    observation.recognized_board_id == cell.recognized_board_id,
+                    observation.row_index == cell.row_index,
+                    observation.column_index == cell.column_index,
+                ),
+            )
         confidence = _prediction_confidence_expression()
         if review_filter.min_confidence is not None:
             statement = statement.where(confidence >= review_filter.min_confidence)
         if review_filter.max_confidence is not None:
             statement = statement.where(confidence <= review_filter.max_confidence)
         return statement
-
-    def _has_item_after(
-        self,
-        *,
-        review_filter: SymbolCellReviewListFilter,
-        key: tuple[int, int, str],
-    ) -> bool:
-        return (
-            self._session.execute(
-                self._visible_statement(review_filter=review_filter)
-                .with_only_columns(ImageSymbolReviewCellModel.id)
-                .where(_symbol_cell_review_after_key(key))
-                .limit(1)
-            ).first()
-            is not None
-        )
-
-    def _has_item_before(
-        self,
-        *,
-        review_filter: SymbolCellReviewListFilter,
-        key: tuple[int, int, str],
-    ) -> bool:
-        return (
-            self._session.execute(
-                self._visible_statement(review_filter=review_filter)
-                .with_only_columns(ImageSymbolReviewCellModel.id)
-                .where(_symbol_cell_review_before_key(key))
-                .limit(1)
-            ).first()
-            is not None
-        )
-
 
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):
     """Apply checksum-bound crop decisions and reconcile one parent board once."""
@@ -2026,10 +2072,10 @@ def _locked_board_reviews(
 
 def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
     cell = ImageSymbolReviewCellModel
-    return cell.sequence_number, cell.cell_index, cell.review_item_id.cast(String)
+    return cell.sequence_number, cell.cell_index, cell.review_item_id
 
 
-def _symbol_cell_review_after_key(key: tuple[int, int, str]) -> ColumnElement[bool]:
+def _symbol_cell_review_after_key(key: tuple[int, int, UUID]) -> ColumnElement[bool]:
     sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
     return or_(
         sequence > key[0],
@@ -2038,7 +2084,7 @@ def _symbol_cell_review_after_key(key: tuple[int, int, str]) -> ColumnElement[bo
     )
 
 
-def _symbol_cell_review_before_key(key: tuple[int, int, str]) -> ColumnElement[bool]:
+def _symbol_cell_review_before_key(key: tuple[int, int, UUID]) -> ColumnElement[bool]:
     sequence, cell_index, review_item_key = _symbol_cell_review_order_columns()
     return or_(
         sequence < key[0],

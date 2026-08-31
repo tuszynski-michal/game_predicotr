@@ -72,6 +72,7 @@ def test_acceptance_uses_seq_names_as_read_only_oracle_and_range_only_counts(
     assert report["overlappingAssignments"] == 0
     assert report["rejectedRawHypotheses"] == 0
     assert len(str(report["sourceManifestSha256"])) == 64
+    assert float(report["medianPerJpegSeconds"]) >= 0
     assert report["geometryCalls"] == 0
     assert report["cropperCalls"] == 0
     assert report["symbolInferenceCalls"] == 0

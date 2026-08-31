@@ -1411,6 +1411,12 @@ kandydatów i jest przypinany do checkpointu. Dzięki temu restart nie może
 przełączyć rozpoczętego runu między implementacjami. Nie wymaga to migracji ani
 zmiany kontraktu HTTP.
 
+Read-only harness odbiorczy mierzy osobno czas każdego JPEG-a i zapisuje
+checksumę kanonicznego manifestu źródeł. Na próbie 100 v2 wykazał liniowy koszt
+względem próby 10, a wszystkie niezgodne lub słabe surowe hipotezy zostały
+zatrzymane przed automatycznym wyborem. Raport nie jest źródłem konfiguracji i
+nie może samodzielnie włączyć feature flagi.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

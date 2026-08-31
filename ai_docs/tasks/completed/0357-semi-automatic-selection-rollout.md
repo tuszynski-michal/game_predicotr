@@ -1,6 +1,6 @@
 ---
 title: TASK-0357 — Odbiór i rollout półautomatycznej selekcji zdjęć
-status: blocked
+status: done
 last_updated: 2026-08-31
 ---
 
@@ -51,12 +51,12 @@ bajty ani katalog nie mogą być zmienione.
 
 ## Acceptance criteria
 
-- [ ] Próby 10 i 100 używają realnych, checksummowanych JPEG-ów i mają zapisany wynik.
-- [ ] Każde fałszywe przypisanie jest jawnie raportowane; brak mocnego proof pozostaje luką.
-- [ ] Raport potwierdza jedną analizę OCR na źródło, O(N), bounded RAM oraz zero tras geometrii/croppera/symboli.
-- [ ] API, OpenAPI, wygenerowany klient, Admin i worker przechodzą właściwe kontrole jakości.
-- [ ] Flaga `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION` pozostaje domyślnie `false`.
-- [ ] Nie zostają zmienione dane użytkownika ani katalogi obrazów użyte do odbioru.
+- [x] Próby 10 i 100 używają realnych, checksummowanych JPEG-ów i mają zapisany wynik.
+- [x] Każde fałszywe przypisanie jest jawnie raportowane; brak mocnego proof pozostaje luką.
+- [x] Raport potwierdza jedną analizę OCR na źródło, O(N), bounded RAM oraz zero tras geometrii/croppera/symboli.
+- [x] API, OpenAPI, wygenerowany klient, Admin i worker przechodzą właściwe kontrole jakości.
+- [x] Flaga `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION` pozostaje domyślnie `false`.
+- [x] Nie zostają zmienione dane użytkownika ani katalogi obrazów użyte do odbioru.
 
 ## Technical notes
 
@@ -105,34 +105,39 @@ npm run admin:build
   oraz raportuje wybory, luki, wieloznaczności i fałszywe przypisania.
 - Dodano regresję narzędzia oraz lazy import `create_app`, aby import domeny API
   nie cyklicznie materializował ASGI i geometrii przed uruchomieniem OCR.
+- Po wdrożeniu TASK-0358 narzędzie raportuje także poziomy `12/24/36`, batche,
+  cropy, odrzucone surowe hipotezy, overlap, medianę czasu i checksumę
+  deterministycznego manifestu źródeł.
 
 ### Verification results
 
-- Test 10 rzeczywistych, niemodyfikowanych plików
-  `C:\Users\user\Documents\777\1-19809\seq_1-9.jpg` … `seq_82-90.jpg`:
-  `12.190625 s`, `1.219063 s/JPEG`, peak RSS `311500800 B`, 10 wywołań OCR,
-  0 wywołań geometrii/croppera/symbol inference, 0 fałszywych przypisań,
-  0 automatycznych wyborów i 10 luk `range_unreadable`.
-- Kontrolowana próba surowego katalogu `E:\blazing zd\blazing 21400` została
-  przerwana po przekroczeniu czasu bez postępu podczas inicjalizacji OCR. Nie
-  utworzyła raportu, stagingu, joba ani nie zmieniła plików źródłowych.
-- Skoncentrowane testy workera: `39 passed`; rozszerzony zestaw konfiguracji,
-  API i workera: `85 passed`.
-- Testy Admina: `346 passed`; klient Admin API: `49 passed`; kontrola OpenAPI
-  potwierdziła aktualny artefakt.
-- Ruff oraz format nowych plików przeszły. Mypy uruchomiony dla zmienionych
-  modułów nie zgłosił błędów.
+- V2 na 10 rzeczywistych, niemodyfikowanych plikach: `7/10` exact, `3` luki,
+  `0` false assignments, `0` overlap, `13.461687 s` i zero wywołań geometrii,
+  croppera oraz symbol inference.
+- V2 na 100 rzeczywistych plikach: `68/100` exact, `32` luki, `0` false
+  assignments, `0` overlap, `131.883438 s`, mediana `1.421131 s/JPEG` i peak
+  RSS `541708288 B`.
+- Przebieg 100 wykonał `538` batchy dla `3228` cropów etykiet. Zakończył
+  `31` zdjęć na poziomie 24, `30` na poziomie 36, a `39` pozostawił bez mocnego
+  dowodu po maksymalnym poziomie.
+- Stosunek czasu 100/10 wyniósł około `9.80`, zgodnie z liniowym kosztem O(N)
+  tej ograniczonej próby.
+- Pełny raport wraz z manifestami SHA-256 znajduje się w
+  `ai_docs/quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V2_ACCEPTANCE.md`.
+- Skoncentrowane testy API/workera: `54 passed`; testy Admina: `346 passed`;
+  klient Admin API: `49 passed`; OpenAPI, Admin typecheck i produkcyjny build
+  przeszły.
+- Ruff i mypy dla zmienionego pionu przeszły. Pełny Admin lint pozostaje
+  zablokowany przez istniejącą zmianę poza tym taskiem w
+  `unreadable-board-review-workspace.tsx:133` (`react-hooks/set-state-in-effect`).
+  Task OCR nie zmienia tego pliku.
+- Pełny mypy API nie zwrócił wyniku przez 60 sekund i został kontrolowanie
+  przerwany; ograniczony mypy trzech zmienionych modułów zakończył się bez
+  błędów.
 
-### Not completed
+### Rollout decision
 
-- Próba 100 JPEG-ów i realny rollout nie zostały wykonane. Bramka 10 nie
-  osiągnęła ani jednego `exact_range`; uruchomienie większej próby nie byłoby
-  uzasadnionym odbiorem.
 - Flaga `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION` pozostaje
   domyślnie `false`.
-
-### Recommended next task
-
-- Zdiagnozować i poprawić range-only OCR na rzeczywistym korpusie, zaczynając
-  od widocznych etykiet 1–9. Następnie ponowić TASK-0357 od testu 10, dopiero
-  potem 100 i jawnego rollout'u.
+- Włączenie funkcji wymaga osobnej jawnej decyzji operatora; samo zakończenie
+  odbioru nie zmienia konfiguracji runtime.

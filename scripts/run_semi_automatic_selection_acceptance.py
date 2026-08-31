@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import statistics
 import sys
 from dataclasses import dataclass
 from io import BytesIO
@@ -197,6 +198,7 @@ def run_acceptance(
     results: list[dict[str, object]] = []
     started = perf_counter()
     for case in cases:
+        case_started = perf_counter()
         content, rgb = _decode_and_hash(case.path)
         source = SemiAutomaticSelectionSource(
             source_index=case.index,
@@ -213,6 +215,7 @@ def run_acceptance(
         results.append(
             {
                 "actualRange": None if actual is None else [actual.start, actual.end],
+                "elapsedSeconds": round(perf_counter() - case_started, 6),
                 "expectedRange": [case.expected.start, case.expected.end],
                 "falseAssignment": false_assignment,
                 "filename": case.path.name,
@@ -223,6 +226,7 @@ def run_acceptance(
             }
         )
     elapsed = perf_counter() - started
+    per_image_durations = [cast(float, item["elapsedSeconds"]) for item in results]
     exact = sum(item["status"] == RangeEvidenceStatus.EXACT_RANGE.value for item in results)
     ambiguous = sum(item["status"] == RangeEvidenceStatus.RANGE_AMBIGUOUS.value for item in results)
     false_assignments = sum(bool(item["falseAssignment"]) for item in results)
@@ -289,6 +293,7 @@ def run_acceptance(
         "overlappingAssignments": overlapping_assignments,
         "rejectedRawHypotheses": rejected_raw_hypotheses,
         "minimumExactMatches": minimum_exact_matches,
+        "medianPerJpegSeconds": round(statistics.median(per_image_durations), 6),
         "peakRssBytes": _peak_rss_bytes(),
         "perJpegSeconds": round(elapsed / len(results), 6),
         "results": results,

@@ -14,17 +14,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
-### Bezpieczny szeroki OCR zakresów v2 — TASK-0358
+### Odebrany szeroki OCR zakresów v2 — TASK-0357/TASK-0358
 
 - Nowe runy używają dedykowanego filtra małych etykiet i progresji
   `12/24/36`, zachowując niezmienioną bramkę minimum trzech zgodnych pozycji
   oraz pary sąsiadującej.
 - Worker rozwiązuje v1 albo v2 z fingerprintu utrwalonego runu; historyczny v1
   pozostaje odtwarzalny, a nieznany kontrakt jest blokowany przed OCR.
-- Próba 10 rzeczywistych JPEG-ów osiągnęła `7/10` dokładnych zakresów,
-  `0` fałszywych przypisań i zero wywołań geometrii, croppera oraz symbol
-  inference. TASK-0357 może przejść do ograniczonej próby 100.
-- Feature flag pozostaje domyślnie wyłączona.
+- Próby 10/100 osiągnęły odpowiednio `7/10` i `68/100` dokładnych zakresów,
+  zawsze z `0` fałszywych przypisań, `0` overlap i bez wywołań geometrii,
+  croppera oraz symbol inference. Koszt próby 100 wyniósł `131.883438 s`,
+  mediana `1.421131 s/JPEG`, a peak RSS `541708288 B`.
+- Pełny raport jest w
+  `ai_docs/quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V2_ACCEPTANCE.md`.
+  Feature flag pozostaje domyślnie wyłączona do osobnej decyzji operatora.
 
 ### Kontrakty półautomatycznej selekcji zakresów — TASK-0350
 

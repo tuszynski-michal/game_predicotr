@@ -938,6 +938,11 @@ jego fingerprintem. Nieznany fingerprint jest błędem fail-closed. Jedna, dwie,
 sprzeczne albo niewystarczająco mocne etykiety pozostają luką, nawet jeśli
 surowa hipoteza OCR wskazuje jakiś zakres.
 
+Odbiór v2 na checksummowanych próbach 10/100 musi pozostać zapisany wraz z
+fingerprintem recognizera, czasem, poziomem zakończenia i potwierdzeniem braku
+wywołań ciężkiego pipeline'u. Spełnienie bramki odbioru nie włącza feature
+flagi; rollout pozostaje osobną decyzją operatora.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

@@ -1,0 +1,126 @@
+{
+  "contract": "middle-row-range-ocr-v4-tuning-v1",
+  "description": "Checksum-bound tuning-only sources used for locator and crop diagnostics. This set is disjoint from the frozen golden and challenge sets and is never reported as acceptance evidence.",
+  "cases": [
+    {
+      "relativePath": "blazing 21400_000020.jpg",
+      "sha256": "d2e11ad079d47046a9003ce0ab2d65c71d3216453ed3e34a7f433f37c78fbd25"
+    },
+    {
+      "relativePath": "blazing 21400_000021.jpg",
+      "sha256": "3d90c8b9947729db2bba416fc0bef2bbaa0f112c2c64d7aa666672122c1c3296"
+    },
+    {
+      "relativePath": "blazing 21400_000022.jpg",
+      "sha256": "ddeb65575f843f86935c33bfa8f5a922fbd8ef494f942ee41bba705608f5c43a"
+    },
+    {
+      "relativePath": "blazing 21400_000023.jpg",
+      "sha256": "e019b3c84667496842748d17706a2714e5e118aedc94017d884bf6ca2c2c690f"
+    },
+    {
+      "relativePath": "blazing 21400_000024.jpg",
+      "sha256": "d6095851af280f35d0b304de17c7ed298be5df007e2c7238d244587b92a585a2"
+    },
+    {
+      "relativePath": "blazing 21400_000025.jpg",
+      "sha256": "4bf7e6a3695a43b494d07d658c696f8fdd04c0980f595355a7685efa0d5c3711"
+    },
+    {
+      "relativePath": "blazing 21400_000026.jpg",
+      "sha256": "b4d2e6464893d77c80a0a52a08479c57236c7b0fe0034c927543b9a1c90e04e6"
+    },
+    {
+      "relativePath": "blazing 21400_000027.jpg",
+      "sha256": "649772d4c7eaa7ff29b758d9f790615f2ada82c58f0cf528be2de600e0754dac"
+    },
+    {
+      "relativePath": "blazing 21400_000028.jpg",
+      "sha256": "5637f59ddbc508bee812c817af9e76fc925b006d6130e3323dcf70731530c995"
+    },
+    {
+      "relativePath": "blazing 21400_000029.jpg",
+      "sha256": "0e0a263f055d0e6c55bd104c1ec5e94bf8ed5a5b99887651022e58309fcce3aa"
+    },
+    {
+      "relativePath": "blazing 21400_001000.jpg",
+      "sha256": "a1dbcf06a12f5a2b1fbe0f2ee417d5aafd84bc2e88d3d735e2494e35d5a74b7e"
+    },
+    {
+      "relativePath": "blazing 21400_001001.jpg",
+      "sha256": "500f09c626ba1cc105e5ab91aecd53bc20e5533896438056a9421fd8f7e7dc7a"
+    },
+    {
+      "relativePath": "blazing 21400_001002.jpg",
+      "sha256": "780720b630c363060ba2b3ae3fd51a42182559b7f27d01c95f20a62e762d71a5"
+    },
+    {
+      "relativePath": "blazing 21400_001003.jpg",
+      "sha256": "5b0a5f8112285180f00bdd2a1fdf07dc3ea15666a32e02feeff7bb02e5fc924a"
+    },
+    {
+      "relativePath": "blazing 21400_001004.jpg",
+      "sha256": "cc82f9a6bfe105d524f33a55ac307cb70644fcd4a95b3b10975cc6d9fce6edc4"
+    },
+    {
+      "relativePath": "blazing 21400_001005.jpg",
+      "sha256": "4dbcb2c573a7c704fff48ddedc161e3e1e1c42499ecaa2e106118e90e08eb348"
+    },
+    {
+      "relativePath": "blazing 21400_001006.jpg",
+      "sha256": "9d125aa85726e16bed3557aaf559309f749274c8a92d60b7e5a584181e941dfa"
+    },
+    {
+      "relativePath": "blazing 21400_001007.jpg",
+      "sha256": "1306696d20d6f44869ec54d7dc915fc8b89f2b256c22fa07b1bad019de1b83e2"
+    },
+    {
+      "relativePath": "blazing 21400_001008.jpg",
+      "sha256": "e8fcf75eb7851d4cdffb6122619af8e64997c5e618a140799e5da1dc97df9ca3"
+    },
+    {
+      "relativePath": "blazing 21400_001009.jpg",
+      "sha256": "ee384fa3913292f7011f05b7238386e3e1c3a88ffa70b06553e0f47740550fc4"
+    },
+    {
+      "relativePath": "blazing 21400_009000.jpg",
+      "sha256": "33bad58b3c430e12b81fd89c8fafb84ec0e6dcb5926160ecf114c726e906cabc"
+    },
+    {
+      "relativePath": "blazing 21400_009001.jpg",
+      "sha256": "218e4d1cecbecb47a55aa44727be9a02d1f6f9124d535c069b37f03a905a2a99"
+    },
+    {
+      "relativePath": "blazing 21400_009002.jpg",
+      "sha256": "0971760cfe1c6954363175bb04b0ddb6bbe37104ab9e6b36ac724c1b0ec59ef1"
+    },
+    {
+      "relativePath": "blazing 21400_009003.jpg",
+      "sha256": "408cd233a6a9523a6f92e205b625a4f230f9ee5a9e829c81e490daf59ccbb669"
+    },
+    {
+      "relativePath": "blazing 21400_009004.jpg",
+      "sha256": "11fab2d57601e199ae7582903ef4cfd37a0e4186d4d25d936df03b27209dd70b"
+    },
+    {
+      "relativePath": "blazing 21400_009005.jpg",
+      "sha256": "ee6203a5938df6630614e5e7f9a19795a7e21ad8dc5ad2d42dc58975dd535e98"
+    },
+    {
+      "relativePath": "blazing 21400_009006.jpg",
+      "sha256": "5ce44136a8f71721682fe36898e3a5ca840cb0db56194eed1f613a3f55379539"
+    },
+    {
+      "relativePath": "blazing 21400_009007.jpg",
+      "sha256": "e1586a17fd800cb9ea90e852684e62d037a7a99ad2ecaed580379cf37b03d9fa"
+    },
+    {
+      "relativePath": "blazing 21400_009008.jpg",
+      "sha256": "886c67c5a3a1304b77034550bda7e361150db481c6e1c4bd53b24173fe2028b3"
+    },
+    {
+      "relativePath": "blazing 21400_009009.jpg",
+      "sha256": "0e7208861013c7d6c05d433d4a0f163d8dccf30565bf28d0d8710f1927e3591b"
+    }
+  ]
+}

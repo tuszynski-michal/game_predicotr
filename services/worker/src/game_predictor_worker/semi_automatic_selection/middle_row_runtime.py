@@ -203,6 +203,8 @@ class MiddleRowOcrMetrics:
     internal_batches: int = 0
     crops: int = 0
     recognition_seconds: float = 0.0
+    preprocessing_seconds: float = 0.0
+    inference_seconds: float = 0.0
 
     @property
     def batch_fill_ratio(self) -> float:
@@ -252,7 +254,17 @@ class MiddleRowPaddleRecognitionAdapter:
         started = perf_counter()
         for offset in range(0, len(crops), self.internal_batch_size):
             page = tuple(crops[offset : offset + self.internal_batch_size])
+            preprocessing_before = float(getattr(self._backend, "preprocessing_seconds", 0.0))
+            inference_before = float(getattr(self._backend, "inference_seconds", 0.0))
             values = tuple(self._backend.recognize_many(page))
+            self.metrics.preprocessing_seconds += max(
+                0.0,
+                float(getattr(self._backend, "preprocessing_seconds", 0.0)) - preprocessing_before,
+            )
+            self.metrics.inference_seconds += max(
+                0.0,
+                float(getattr(self._backend, "inference_seconds", 0.0)) - inference_before,
+            )
             if len(values) != len(page):
                 raise ValueError("Paddle batch result count differs from its crop count.")
             self.metrics.internal_batches += 1
@@ -467,10 +479,13 @@ class MiddleRowBatchRuntime:
         ] = []
         ordered: list[RangeEvidenceResult | None] = [None] * len(payloads)
         locator_seconds: dict[int, float] = {}
+        rotation_seconds: dict[int, float] = {}
         for offset, payload in enumerate(payloads):
             try:
                 canonical = canonicalize_source_image(payload.content)
+                rotation_started = perf_counter()
                 oriented = rotate_canonical_source(canonical, self.rotation)
+                rotation_seconds[offset] = perf_counter() - rotation_started
             except ValueError:
                 ordered[offset] = self._unknown(
                     payload.source,
@@ -496,8 +511,11 @@ class MiddleRowBatchRuntime:
                             **dict(located.diagnostics),
                             "locatorVersion": MIDDLE_ROW_LOCATOR_VERSION,
                             "processingTimes": {
+                                "decodeSeconds": canonical.decode_seconds,
+                                "exifSeconds": canonical.exif_seconds,
                                 "locatorSeconds": locator_seconds[offset],
                                 "ocrBatchSeconds": 0.0,
+                                "rotationSeconds": rotation_seconds[offset],
                             },
                         },
                     ),
@@ -562,8 +580,11 @@ class MiddleRowBatchRuntime:
                     "ocrPreprocessingVersion": MIDDLE_ROW_OCR_PREPROCESSING_VERSION,
                     "paddleAdapterVersion": self.recognizer.version,
                     "processingTimes": {
+                        "decodeSeconds": canonical.decode_seconds,
+                        "exifSeconds": canonical.exif_seconds,
                         "locatorSeconds": locator_seconds[offset],
                         "ocrBatchSeconds": recognition_seconds,
+                        "rotationSeconds": rotation_seconds[offset],
                     },
                     "recognizedTexts": list(proof.recognized_texts),
                     "recognitionConfidences": list(proof.recognition_confidences),

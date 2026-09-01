@@ -1,0 +1,1102 @@
+{
+  "contract": "middle-row-range-ocr-v4-corpus-v1",
+  "description": "Frozen checksum-bound golden set sampled across the real 21,210-image corpus and labelled only from source pixels. Source 18507 is ambiguous because it captures an animated transition with inconsistent rows.",
+  "cases": [
+    {
+      "relativePath": "blazing 21400_000501.jpg",
+      "sha256": "a207121ec03c4eac70733b942b2d33b39877f8e69271399a20c4b47f5fb0be99",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000502.jpg",
+      "sha256": "3212ebb4842f462da7a7770bb856951366fb6753e59d6c86bc8cb449b2549569",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000503.jpg",
+      "sha256": "86ae9830303aad29d7d7f60bf63c37895e2d381d2a75a328e6f3f9e49d6dd5f8",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000504.jpg",
+      "sha256": "a23038034d842f503afe1bec003ab37c3ef52df19025889cb60e86bad4bd5cb7",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000505.jpg",
+      "sha256": "80207892cf9bc7fedc843fb3a93630d5dbe71bc104af5c70cfaa86f231a31e11",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000506.jpg",
+      "sha256": "70b59a5e49fde9fdb165a687a08e42c839c1eb06eba32467d2128bdc1052869c",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000507.jpg",
+      "sha256": "f8cfa3b12afb9c73302b0cdc398439e39a69249cd45243f81385ed7843d6ec39",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000508.jpg",
+      "sha256": "ff82d1dd6675825d8470fdd4b4ce1c55c884e3306de4ada7923a58883944a7ae",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000509.jpg",
+      "sha256": "b1ced561dbf9954d66ac64c466e1a23fed49e645198f4eba1ab27d1d3dfa01e2",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_000510.jpg",
+      "sha256": "40bc772f41b43f800e92256e4acd6bc0c2ebd1e545411faeb9aa3b2235973590",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          21646,
+          21654
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002501.jpg",
+      "sha256": "6844674f43437e1297f1537a31fadc2dd323a8b9661b4d30b144c2927e6db8cc",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24391,
+          24399
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002502.jpg",
+      "sha256": "538e7757e9375f79286061a00b1fc0a412f9bbd4ae2cd91c409bb177d61af758",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24391,
+          24399
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002503.jpg",
+      "sha256": "1a3f7b1583c921a904f9ca0edc6eeb55230f83bedabe17a065841468ec0d7e56",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24391,
+          24399
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002504.jpg",
+      "sha256": "62ca5fb97e71b26ce218807a5575d181654b7a4b9e1823206499ae48889c1a71",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24391,
+          24399
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002505.jpg",
+      "sha256": "b0b9ab4ea6a49c2d384bceaf165a6168f7bcb47e4f9a8cbe974958624140bba4",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24400,
+          24408
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002506.jpg",
+      "sha256": "b16038d3ca69c6d134e34980e536b7334835fe1e6e6febd52bcfa4567acd0dc8",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24400,
+          24408
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002507.jpg",
+      "sha256": "28fdedcea578b76cfc814d8e22a812b08afa180afec6c914714e021deae97a51",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24400,
+          24408
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002508.jpg",
+      "sha256": "bb3e95b899eeee8caec842b5eb7f90ef30f94871c62b4b9dba10f95f2d9a8844",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24400,
+          24408
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002509.jpg",
+      "sha256": "537e94164fb95378cf3f58a747bbcfbd9d48a53ce3d6a40bb32418fbe1de8a5d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24400,
+          24408
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_002510.jpg",
+      "sha256": "6a3310dbcf5315136ee2f45f10f0016f58c76f0212ff828435edb59ba9323353",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          24409,
+          24417
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004501.jpg",
+      "sha256": "5eb3b417d64ce011bf38ca182aeb982cea1a9ff7ecb569a7b6571cf361e048fd",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004502.jpg",
+      "sha256": "ab216ebeb62a2f9b753b6797d75b5f66979112df6384473ffe3b75c952d37c44",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004503.jpg",
+      "sha256": "6871f026623eba7cc27b422b732cd234d494ffc988769b8699e034ad656dcfaf",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004504.jpg",
+      "sha256": "a0c00eb9eae96544512af7c0838957a031088d6cfcac4f316e1a97eb575f691b",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004505.jpg",
+      "sha256": "7be2f47d85411a1ae4a83f2e9ce196ae351ce82ed278e9636e595db36fad1a17",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004506.jpg",
+      "sha256": "25b72786db98a9d01989800986eae4e215246b54576272ca256c73771ece6f16",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004507.jpg",
+      "sha256": "cd728c43c6b2ad457ad3422dee8021f2c98c82014bb3e72d6b943dbc8450512d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004508.jpg",
+      "sha256": "29d873ffccd0671694077ececd2bfce92d3a8ccdca91f6ba63e9e8d71cd16e82",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004509.jpg",
+      "sha256": "1ac5865b4dc8529c1a589da4c3485b1d29af5e14e06cc2b47870f2bfc78d3039",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_004510.jpg",
+      "sha256": "c303e9dfff7a6590017106319e9e850bf74b25f84fbe28e6ff80df571395ccee",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          26452,
+          26460
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006501.jpg",
+      "sha256": "a0666929b6c6a05128a3cc849f506ddd67b949210d8760036b85202a0c944970",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006502.jpg",
+      "sha256": "127012a0e6d24cc2d8124ea8e54cd888bb00953b7458d4521ff8347a28ba1ba2",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006503.jpg",
+      "sha256": "db0f370824b050bc5a3808873fe04d567f56532b35dc1081e5e0d78625f26c0d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006504.jpg",
+      "sha256": "bec590b5cf6e19236e8e61a184e132b35d906e8891aa6ea29fd58a9b520380bf",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006505.jpg",
+      "sha256": "48832467f70a45c9437b90a72084b61d1ce25efe9eadd6f89988449c7de502b7",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006506.jpg",
+      "sha256": "f29a4145ac76dc910ff5e0216bc910516a6aac5ad805e5c983e326e63ae57082",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006507.jpg",
+      "sha256": "6fc0b0aa3bddc7a3f9941e7c70813e58223d572071deaaf3c379ba465df10c86",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006508.jpg",
+      "sha256": "bd484949796e60e1646ca13549f385f3bde4c3da4c721c4906e5e828f27de8b5",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006509.jpg",
+      "sha256": "1842c6e6af7dd2820df871b16ab542ba00fc6870c97d757befb862966d396adb",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_006510.jpg",
+      "sha256": "c508bb174fbc863dc6a8594af256f9a7a8b7bec9b408802f2a92b6c947449da6",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          28459,
+          28467
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008501.jpg",
+      "sha256": "5e96489bc3d8e70e802da7e960329f21cff1d0746f0d99c833b730c03d3343df",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30790,
+          30798
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008502.jpg",
+      "sha256": "954ad3a8a264419718d912704fa7b914aa5dc4cac4f8ae5aaced4e357a25d55d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30790,
+          30798
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008503.jpg",
+      "sha256": "8b265d945fe4c1beb73e18c76d90be67345d1d38e540261d5f9d7ca6730319fa",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30790,
+          30798
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008504.jpg",
+      "sha256": "40ec62d33fd7bff771c420b00cae6689fded39ffb6ae4bc4744a03da77914d49",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30799,
+          30807
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008505.jpg",
+      "sha256": "7b843f828b09f933dafb8276fd7443cf8165160a4ce4a730fd22462ccc62e63c",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30799,
+          30807
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008506.jpg",
+      "sha256": "a31980ccc07197bbea21ff195529bdbb46a6ebe17eedaabdaa8165be2bb5d74d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30799,
+          30807
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008507.jpg",
+      "sha256": "a73549059ea224e146f06ddf9e90da46fcc1b873be203ec61b64d26b01ac234a",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30799,
+          30807
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008508.jpg",
+      "sha256": "ed505a15b3a329af0d76ef3632652062669e9b7854ad0d84c6deffb360615a84",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30808,
+          30816
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008509.jpg",
+      "sha256": "f009d44765fdf46c3728cf62889ceaa685dbee290f37b26ebb84ff78005c74c6",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30808,
+          30816
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_008510.jpg",
+      "sha256": "a56e44423d5ac7ffa794522fa6a3f3288bd3cf02bf04bc2970a95f9a63b00f32",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          30808,
+          30816
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010501.jpg",
+      "sha256": "45e633660575e30fbb426efc0dfdea9ec234cafc42cf305568dad68c71558576",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010502.jpg",
+      "sha256": "2cd07dbdc580a19af3381dbb1fbc0b107895ec5770fc7f83ccf87440ce123d79",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010503.jpg",
+      "sha256": "ab076043894a33b2d95a414572ff9af63e45b3d77b1bcb9536cc15f627e58e2b",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010504.jpg",
+      "sha256": "f178cdcac7cd748d2c1f215e5dc9a7c57cdfd3f622c47cbfa653c77981e4e718",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010505.jpg",
+      "sha256": "60c4e6df0fdbf2cb10e42868937178f878d8b78c40fda3b91740cb5300cd1232",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010506.jpg",
+      "sha256": "3d074e8ad2a75a2415f38b6cafe74ef714a6512780ac49a7174b8f8f92681e99",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010507.jpg",
+      "sha256": "856015cda1433cae003e5a82c4101dfb822987f383ab80ff31dac11f7bf2a50a",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010508.jpg",
+      "sha256": "949b0a9648cf87957275cb901582842253487faf763ca25c5cfc728ba3502fde",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010509.jpg",
+      "sha256": "81de8c769c91ed295ff210beef88b2dbd00eb8c94dccd23cc5d7bd0e376bb067",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_010510.jpg",
+      "sha256": "64b5eced834e6b408abea7a02ed19265140b4ee060573c0572bdc8623ca1a058",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          33256,
+          33264
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012501.jpg",
+      "sha256": "c56e894c56e4ac6e0a83f89dbf5c96f112779b18ba9f5446040f17283f1960a8",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012502.jpg",
+      "sha256": "6a96ced8a1de2d5312aabbab774e62d174bbff7d0559a61f8a05b8cce3a732c6",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012503.jpg",
+      "sha256": "e7a4d3dc74f964d12d48f2abbde8e7f5d36d77a712d3a384cd5adce265010081",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012504.jpg",
+      "sha256": "059838baf0310fa8cd0d10206a711a7673c058bca52eee13214aaae8fd94952c",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012505.jpg",
+      "sha256": "c67d3e323363fd4cf8a4efc17e2abd57c7e7b45ce3c7ec0f08b8fc1addfca5af",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012506.jpg",
+      "sha256": "64c70fba83b64b41ef875398768c2565a6ec4358cc72c9515a1ac47d25f38279",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012507.jpg",
+      "sha256": "1ce0d633b73beee49af59ef7ed5d223bee782c863756cc88ca229a11804cab14",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012508.jpg",
+      "sha256": "effc413014db93acf046e3945ad33856a42fd0fa155ebf0fffb41792ec68ae11",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012509.jpg",
+      "sha256": "263f97800a1f6b2911984837ae3b689a212406f2a2b8e685add63ca07e9b5927",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_012510.jpg",
+      "sha256": "51ecd3046dc8164b4f91bdf49053bb14876c34c3dd4c543577bf657d26f7a857",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          35659,
+          35667
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014501.jpg",
+      "sha256": "f361293925c5e845ea3fed2b2e5ec4713562f92adec3717280bbbe19a179b262",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38260,
+          38268
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014502.jpg",
+      "sha256": "946d90238782988529cad4c39f586292d0d70b73a3785450217b41420a261b3f",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38260,
+          38268
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014503.jpg",
+      "sha256": "845fc080bfbe361ad95919c29c92024cd14b8bc70dd3684274da480dbd05e5dd",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38260,
+          38268
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014504.jpg",
+      "sha256": "e1d1cc283a0c1e6852b5f521d6cd2e51044860dd480f71b6a4193edae76f7bc6",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38260,
+          38268
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014505.jpg",
+      "sha256": "9d9119766d5d0d035b75c7d7af0c804074290ea98e713a9a19a4e3bb183dae7e",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38260,
+          38268
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014506.jpg",
+      "sha256": "e4066b9758666fc581ffd0c58ecf2c6895fa081340f105b2dd0e8d8b659866e8",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38269,
+          38277
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014507.jpg",
+      "sha256": "ed5c7cd7dc5ab2494757bec33411411f297a4ad320d6f5d16da612366dee5fdf",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38269,
+          38277
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014508.jpg",
+      "sha256": "af511cfe72ccebf2fd961357e83e09ccf9995e0139c2001c51e3abfbb40056d7",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38269,
+          38277
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014509.jpg",
+      "sha256": "2327601ce528b10accaa8980293301a85d0bc6534aa8514387f3a46a174d8323",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38269,
+          38277
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_014510.jpg",
+      "sha256": "e27aa7143596d2cf63907c8f8515cc754cbc4125abcd84e0dd51ebe29f4d99a2",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          38269,
+          38277
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016501.jpg",
+      "sha256": "3b1c4043fe88559890f98b569ae3eb2173ff276461f978d2df44eff0e210c6c3",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016502.jpg",
+      "sha256": "16d593fd4ba30061df4f7909e5221e414f19e5a5dd99390b90ff01831a033470",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016503.jpg",
+      "sha256": "aacc9addadb4ea8b32abef8f3602e295f3624926f65be27dd29ef402518793df",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016504.jpg",
+      "sha256": "b5c22acceb35b9a37c7e35a67c983a297b5f486309a37ce7fb35e7380ba0587d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016505.jpg",
+      "sha256": "9d138454ae222a7344f9b292fb5675751c8a43970ddd8a3b7f5fefa1f66dfdcd",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016506.jpg",
+      "sha256": "28672ec2fb20fbb00f112bce76022d5751c07fa0b1f4680dd8863fb8d06fbdfd",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016507.jpg",
+      "sha256": "12a3ca181ed0f5605bb1b6c72697624e379148b68fe6290d568ee253562d9488",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016508.jpg",
+      "sha256": "1a1ecfec32c3a75b2ccecb5a47854a8ecceac4ca4a8c1fccb089ac187e4ba442",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016509.jpg",
+      "sha256": "6e36f489aa28e515ef88b76c82feacdb4222c72eb4c000e7162cb81186e67f66",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_016510.jpg",
+      "sha256": "f91f36d40f5f6c7448a78a111af409115f0714257f8df5551d5a0ef49738e8a4",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          40753,
+          40761
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018501.jpg",
+      "sha256": "a90864625324f4128ec20b7c0ca2a543e18b664e253864d293430217a891beeb",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43471,
+          43479
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018502.jpg",
+      "sha256": "48a01c13ec95671e72e271d59d0f1a38b05808d3790f584b051b5c4e82198f42",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43471,
+          43479
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018503.jpg",
+      "sha256": "b5f43283e9c789f809cb85c155982ec0fd6faa59e5bd73bd98bfeeff33afcba7",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43480,
+          43488
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018504.jpg",
+      "sha256": "4474505c394e59e1074b1c4e9258f51a8713db04c121a946ec384f54f58f3b5d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43480,
+          43488
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018505.jpg",
+      "sha256": "d9303efd897427db6d10e40f56258b08afbbed32bcc2f7f1b6a98a6ba6267cba",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43480,
+          43488
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018506.jpg",
+      "sha256": "2b12831ebf1371a4236ce7e930a0d29076560e81b97ee949f5cac5294c6bc8e8",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43480,
+          43488
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018507.jpg",
+      "sha256": "e363bc6c5fd3206f3c071e470b53e04019bf6386c7e3473e51ffba012c7a6863",
+      "humanLabel": {
+        "kind": "ambiguous"
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018508.jpg",
+      "sha256": "e00f38bcb77f1d1ece63e48a8728ce8691e07ff3467b604cb349f2d915327598",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43489,
+          43497
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018509.jpg",
+      "sha256": "ff8f57caea51a0e36e19b8847262aebbc5f65b384c1242afa830562424693fb0",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43489,
+          43497
+        ]
+      }
+    },
+    {
+      "relativePath": "blazing 21400_018510.jpg",
+      "sha256": "5016541792c9cbf2ab29bdb44896ce1a08df50544d62208441c587bc6e77c18d",
+      "humanLabel": {
+        "kind": "human_readable_exact",
+        "expectedRange": [
+          43489,
+          43497
+        ]
+      }
+    }
+  ]
+}

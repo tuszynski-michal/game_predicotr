@@ -980,6 +980,15 @@ minimalne confidence OCR i niższy source index. Rollout i próby 10/100/1000
 pozostają w TASK-0370. V1–v3 i ich fingerprinty zachowują dotychczasowe
 zachowanie.
 
+Odbiór TASK-0370 nie dopuścił v4.1 do rolloutu. Challenge zachował zero false
+exact, `62,5%` readable coverage i `100%` group capture, lecz zamrożony golden
+set osiągnął tylko `26,3%` readable coverage oraz `35,3%` group capture przy
+zerowej liczbie false exact. Cele szybkości zostały przekroczone (`4,83` i
+`5,05` źródła/s), a wszystkie 120 reprezentantów prób 1000 przeszły ręczną
+kontrolę. Bezpieczeństwo proof pozostaje niezmienne; nowy run nadal używa v3,
+dopóki kolejny fingerprint nie przejdzie nowego, wcześniej niewidzianego
+holdoutu.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

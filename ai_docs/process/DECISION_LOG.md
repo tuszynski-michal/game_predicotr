@@ -6838,3 +6838,19 @@ zakresu, ale nie rozszerza granic grupy ani nie może zostać reprezentantem.
 musi wskazywać źródło mające własny `MIDDLE_ROW_TRIPLE_EXACT`. Orientacja i
 pozycjowy lattice prior są utrwalane, lecz prior nie może zawierać ani dowodzić
 wartości numerów. Nowe runy pozostają na v3 do odbioru TASK-0370.
+
+## D-290 — Range-only OCR v4.1 pozostaje wyłączony po nieudanym coverage
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+V4.1 zachowuje zero false exact na checksum-bound challenge i frozen golden,
+osiąga ponad `4,8` źródła/s oraz wybiera wyłącznie reprezentantów mających
+własny exact proof. Nie spełnia jednak minimalnej jakości recall: frozen golden
+dał `26,3%` readable frame coverage i `35,3%` range group capture wobec bramek
+`50%` i `90%`.
+
+Wariant nie staje się domyślnym recognizerem. Nie wolno stroić go na frozen
+golden ani osłabiać exact proof. Następna iteracja musi dostać nowy fingerprint,
+użyć oddzielnego tuning setu, poprawić identyfikację środkowego rzędu i przejść
+nowy, wcześniej niewidziany holdout. Historyczne v1–v3 pozostają bez zmian.

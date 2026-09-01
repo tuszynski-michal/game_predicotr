@@ -1,0 +1,2322 @@
+{
+  "contract": "middle-row-range-ocr-v4-acceptance-v1",
+  "gateEvaluation": {
+    "challengeOrGoldenPrecisionPassed": true,
+    "coveragePassed": true,
+    "groupCapturePassed": true,
+    "selectedOwnProofPassed": true,
+    "selectedPrecisionPassed": true
+  },
+  "grouping": {
+    "capturedHumanReadableGroups": 1,
+    "humanReadableGroups": 1,
+    "rangeGroupCaptureRate": 1.0,
+    "selected": [
+      {
+        "evidenceDistanceFromMidpoint": 0.5,
+        "evidenceSpan": [
+          7,
+          18
+        ],
+        "observationKey": "406ff6dffabfe3b5f76e0e37217ece9afdfcb0729401d9e5ac7a4791a9a97c3c",
+        "rangeEnd": 21177,
+        "rangeStart": 21169,
+        "relativePath": "blazing 21400_000014.jpg",
+        "selectionMethod": "middle-row-evidence-span-midpoint-v1",
+        "sourceIndex": 13
+      }
+    ],
+    "allSelectedReviewed": true,
+    "reviewedSelectedRanges": 1,
+    "selectedFrameOwnProofRate": 1.0,
+    "selectedNearEvidenceMidpointRate": 1.0,
+    "selectedRangePrecision": 1.0
+  },
+  "manifest": {
+    "cases": [
+      {
+        "relativePath": "blazing 21400_000001.jpg",
+        "sha256": "be37f55fa59baed1d16148712ec19e357e0c5b2fd4a48650e73b09ef4f9fe457",
+        "sizeBytes": 244847,
+        "sourceIndex": 0
+      },
+      {
+        "relativePath": "blazing 21400_000002.jpg",
+        "sha256": "02f1213bfb3b679002600539eaa0f0e69ab8a8285f70ab15daec5fc0802366e0",
+        "sizeBytes": 238965,
+        "sourceIndex": 1
+      },
+      {
+        "relativePath": "blazing 21400_000003.jpg",
+        "sha256": "5978a8aa8cb11ec73874a7783e1e17170b39127ae7046302611ab4145884d00e",
+        "sizeBytes": 239653,
+        "sourceIndex": 2
+      },
+      {
+        "relativePath": "blazing 21400_000004.jpg",
+        "sha256": "bf0608d8648b2682e1f34d7956f5fcca34be97991ef31d787ea0a43340c7e1e4",
+        "sizeBytes": 239802,
+        "sourceIndex": 3
+      },
+      {
+        "relativePath": "blazing 21400_000005.jpg",
+        "sha256": "eeb7ad5f1a4c3388e33cecdbd9c37d5dc5155309fea3c3559307c1c41b9e4093",
+        "sizeBytes": 247763,
+        "sourceIndex": 4
+      },
+      {
+        "relativePath": "blazing 21400_000006.jpg",
+        "sha256": "f013c7f56a5714d4701f24ae317cf7b0aeff6f2d5232c0104700d36feac8ac2f",
+        "sizeBytes": 251822,
+        "sourceIndex": 5
+      },
+      {
+        "relativePath": "blazing 21400_000007.jpg",
+        "sha256": "62079ff871d66301e8c6972c117f68d45004f619a39f4270d82ca45f7541e08d",
+        "sizeBytes": 264561,
+        "sourceIndex": 6
+      },
+      {
+        "relativePath": "blazing 21400_000008.jpg",
+        "sha256": "21aeeca3505b2ad03e117fa9da6b5ca53156747a194bff1620562bf7230d7ebc",
+        "sizeBytes": 267324,
+        "sourceIndex": 7
+      },
+      {
+        "relativePath": "blazing 21400_000009.jpg",
+        "sha256": "4ec76a3cd233b5142518de98e7d5174271d4923eeac4e26a5ed38d7d998a8686",
+        "sizeBytes": 258028,
+        "sourceIndex": 8
+      },
+      {
+        "relativePath": "blazing 21400_000010.jpg",
+        "sha256": "8887ac0708c0363a3ffa045a05d4222a3858c72ba8c0d8facc2d8d992004c22e",
+        "sizeBytes": 274393,
+        "sourceIndex": 9
+      },
+      {
+        "relativePath": "blazing 21400_000011.jpg",
+        "sha256": "2a9043807a196b1ba1a8cb51b3963a345536e50caa432691b8d7c38ee2718f99",
+        "sizeBytes": 229653,
+        "sourceIndex": 10
+      },
+      {
+        "relativePath": "blazing 21400_000012.jpg",
+        "sha256": "616bf4a78b1afbe2b1a9d3c7b05acf4a3545f248c6b9494c8c5772a51d0ef676",
+        "sizeBytes": 237512,
+        "sourceIndex": 11
+      },
+      {
+        "relativePath": "blazing 21400_000013.jpg",
+        "sha256": "4c6119234122919e298c1dbc602c8e4879212e0cfbbc1b54969b7755b4046b5d",
+        "sizeBytes": 250918,
+        "sourceIndex": 12
+      },
+      {
+        "relativePath": "blazing 21400_000014.jpg",
+        "sha256": "9328441865a72c07c60d91941e5417731093aa3ff612f5e5a9caca9204891666",
+        "sizeBytes": 273046,
+        "sourceIndex": 13
+      },
+      {
+        "relativePath": "blazing 21400_000015.jpg",
+        "sha256": "87e9951ff1f79371d66aa8df9c996e87afe02e45bb04fe7b899665391acc1f6b",
+        "sizeBytes": 271225,
+        "sourceIndex": 14
+      },
+      {
+        "relativePath": "blazing 21400_000016.jpg",
+        "sha256": "1298ed526cab855c5e3dabb3e90e4c5d3786c849fa3e0f3e5a3084be9ce0debe",
+        "sizeBytes": 260180,
+        "sourceIndex": 15
+      },
+      {
+        "relativePath": "blazing 21400_000017.jpg",
+        "sha256": "9908776651ad48559c168882d4c47f331a1882b0a55966eeaf7b07ab244da042",
+        "sizeBytes": 257506,
+        "sourceIndex": 16
+      },
+      {
+        "relativePath": "blazing 21400_000018.jpg",
+        "sha256": "9663d502533c2fa4b7b6cc6514b0ffaf3473f9be3e6e5363176b81a5d1b3fccf",
+        "sizeBytes": 264384,
+        "sourceIndex": 17
+      },
+      {
+        "relativePath": "blazing 21400_000019.jpg",
+        "sha256": "c0d2efc016db240936f38e25a809db9cab922e45dfd8576a98ea4b39b418c839",
+        "sizeBytes": 265403,
+        "sourceIndex": 18
+      }
+    ],
+    "sha256": "65089b84c87ba197a75e2d310b0127e979fc407bbd5ac7097d475f9700ff6f94"
+  },
+  "orientation": {
+    "orientation": "0",
+    "orientationCalibrationProofs": {
+      "0": 0
+    },
+    "orientationCalibrationSamples": [],
+    "orientationOverride": "0",
+    "orientationSource": "manual_override",
+    "orientationUnresolved": false
+  },
+  "quality": {
+    "allExactObservations": 10,
+    "correctExactObservations": 10,
+    "exactPrecision": 1.0,
+    "falseExactCount": 0,
+    "humanAmbiguousFrames": 0,
+    "humanReadableFrames": 16,
+    "humanUnreadableFrames": 3,
+    "readableFrameCoverage": 0.625,
+    "unreadableUnknownRate": 1.0,
+    "labelledFrames": 19
+  },
+  "recognizer": {
+    "contractFingerprint": "ef4707e81d53816ea5ba931ad3c2bc3de9f2f4974102f9f1c5be1cd4e49a81e9",
+    "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+    "adapterVersion": "middle-row-paddle-recognition-only-v1",
+    "internalBatchSize": 9,
+    "modelFiles": {
+      "inference.json": "fd1b6ec722ea841a72d3ba43e527df1d1066d5d7808e0503ee3eec7265188753",
+      "inference.pdiparams": "3ec8a97ed6cefe8568d3e2ee90bb193299b566a7661aa4fd52d224b96b59f66b",
+      "inference.yml": "27e91d0582f40168aa218303c76e184bc78fa7a5d105aad0cfbad8458b441067"
+    },
+    "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
+    "modelName": "en_PP-OCRv5_mobile_rec",
+    "ocrVersion": "sequence-number-ocr-v1",
+    "runtimeName": "paddlepaddle-cpu",
+    "runtimeVersion": "3.3.1"
+  },
+  "results": [
+    {
+      "actualRange": null,
+      "confidence": 0.3700156666666667,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "a1d5563c136c5d3c787e529166d55f9a197f91a80e1cab70df8bb6cbc4a6a088",
+      "originalSourceIndex": 0,
+      "reasonCodes": [
+        "LOW_OCR_CONFIDENCE"
+      ],
+      "relativePath": "blazing 21400_000001.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 688,
+            "left": 504,
+            "right": 611,
+            "top": 652
+          },
+          {
+            "bottom": 674,
+            "left": 730,
+            "right": 837,
+            "top": 638
+          },
+          {
+            "bottom": 670,
+            "left": 978,
+            "right": 1085,
+            "top": 634
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.001557632398753894,
+            "contrast": 217.0,
+            "darkRatio": 0.0012980269989615785,
+            "directionalBlurRatio": 1.7986485748463217,
+            "edgeDensity": 0.18457943925233644,
+            "readable": true,
+            "tenengrad": 140.62026977539062
+          },
+          {
+            "brightRatio": 0.024402907580477674,
+            "contrast": 234.0,
+            "darkRatio": 0.005711318795430945,
+            "directionalBlurRatio": 1.5323765632404938,
+            "edgeDensity": 0.17107995846313603,
+            "readable": true,
+            "tenengrad": 154.55633544921875
+          },
+          {
+            "brightRatio": 0.06256490134994808,
+            "contrast": 237.0,
+            "darkRatio": 0.0020768431983385254,
+            "directionalBlurRatio": 1.3275870151083873,
+            "edgeDensity": 0.14823468328141226,
+            "readable": true,
+            "tenengrad": 151.3965301513672
+          }
+        ],
+        "locatorAmbiguityMargin": 0.03268165187737648,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.8534894874251121,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.020994999998947605,
+          "exifSeconds": 0.03783309999562334,
+          "locatorSeconds": 0.015604100000928156,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 2.6900001103058457e-05
+        },
+        "recognizedTexts": [
+          "07",
+          "2170",
+          "21474"
+        ],
+        "recognitionConfidences": [
+          0.135199,
+          0.270913,
+          0.703935
+        ]
+      },
+      "sha256": "be37f55fa59baed1d16148712ec19e357e0c5b2fd4a48650e73b09ef4f9fe457",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.38752866666666663,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "3ca2ee089fd359144b6d79b05c46e2e388008de8f353b0f783971198c0bc2ba5",
+      "originalSourceIndex": 1,
+      "reasonCodes": [
+        "LOW_OCR_CONFIDENCE"
+      ],
+      "relativePath": "blazing 21400_000002.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 674,
+            "left": 500,
+            "right": 607,
+            "top": 638
+          },
+          {
+            "bottom": 663,
+            "left": 730,
+            "right": 837,
+            "top": 627
+          },
+          {
+            "bottom": 662,
+            "left": 978,
+            "right": 1085,
+            "top": 626
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.004413291796469367,
+            "contrast": 224.0,
+            "darkRatio": 0.0028556593977154725,
+            "directionalBlurRatio": 1.9872867629457425,
+            "edgeDensity": 0.18509865005192108,
+            "readable": true,
+            "tenengrad": 146.1152801513672
+          },
+          {
+            "brightRatio": 0.03426791277258567,
+            "contrast": 235.0,
+            "darkRatio": 0.005451713395638629,
+            "directionalBlurRatio": 1.610862421677542,
+            "edgeDensity": 0.1773104880581516,
+            "readable": true,
+            "tenengrad": 157.55557250976562
+          },
+          {
+            "brightRatio": 0.06360332294911734,
+            "contrast": 238.0,
+            "darkRatio": 0.0036344755970924196,
+            "directionalBlurRatio": 1.320978625688968,
+            "edgeDensity": 0.14875389408099687,
+            "readable": true,
+            "tenengrad": 154.66351318359375
+          }
+        ],
+        "locatorAmbiguityMargin": 1.0,
+        "locatorMode": "MIDDLE_ROW_WITH_LOCKED_PRIOR",
+        "locatorScore": 0.5,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.020561900004395284,
+          "exifSeconds": 0.03471710000303574,
+          "locatorSeconds": 0.0312502000015229,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 6.200000643730164e-05
+        },
+        "recognizedTexts": [
+          "070",
+          "07",
+          "21474"
+        ],
+        "recognitionConfidences": [
+          0.400026,
+          0.104821,
+          0.657739
+        ]
+      },
+      "sha256": "02f1213bfb3b679002600539eaa0f0e69ab8a8285f70ab15daec5fc0802366e0",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.415481,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "4b0a79792bcbe16c0bbd42ea6dd889b1700c604fc8778150485b11b2c3bc32cf",
+      "originalSourceIndex": 2,
+      "reasonCodes": [
+        "LOW_OCR_CONFIDENCE"
+      ],
+      "relativePath": "blazing 21400_000003.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 662,
+            "left": 498,
+            "right": 606,
+            "top": 626
+          },
+          {
+            "bottom": 653,
+            "left": 729,
+            "right": 837,
+            "top": 617
+          },
+          {
+            "bottom": 654,
+            "left": 978,
+            "right": 1086,
+            "top": 618
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.007458847736625514,
+            "contrast": 225.0,
+            "darkRatio": 0.00102880658436214,
+            "directionalBlurRatio": 1.2816255728405546,
+            "edgeDensity": 0.17258230452674897,
+            "readable": true,
+            "tenengrad": 133.9573211669922
+          },
+          {
+            "brightRatio": 0.03832304526748971,
+            "contrast": 236.0,
+            "darkRatio": 0.00205761316872428,
+            "directionalBlurRatio": 1.1801537808003442,
+            "edgeDensity": 0.13220164609053497,
+            "readable": true,
+            "tenengrad": 146.04486083984375
+          },
+          {
+            "brightRatio": 0.08693415637860083,
+            "contrast": 238.0,
+            "darkRatio": 0.0007716049382716049,
+            "directionalBlurRatio": 1.0564876555792324,
+            "edgeDensity": 0.11162551440329219,
+            "readable": true,
+            "tenengrad": 144.75912475585938
+          }
+        ],
+        "locatorAmbiguityMargin": 0.07910786504647305,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.891662508628085,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.0223346999991918,
+          "exifSeconds": 0.03346170000440907,
+          "locatorSeconds": 0.022207399990293197,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 7.139999070204794e-05
+        },
+        "recognizedTexts": [
+          "2",
+          "373",
+          "23374"
+        ],
+        "recognitionConfidences": [
+          0.034565,
+          0.229812,
+          0.982066
+        ]
+      },
+      "sha256": "5978a8aa8cb11ec73874a7783e1e17170b39127ae7046302611ab4145884d00e",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.33674933333333334,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "c93fd7d3513ada1e24b97684423ba318ceaffa90004f45726b0c3521b37355a8",
+      "originalSourceIndex": 3,
+      "reasonCodes": [
+        "INCOMPLETE_OCR"
+      ],
+      "relativePath": "blazing 21400_000004.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 652,
+            "left": 494,
+            "right": 601,
+            "top": 616
+          },
+          {
+            "bottom": 644,
+            "left": 726,
+            "right": 833,
+            "top": 608
+          },
+          {
+            "bottom": 648,
+            "left": 976,
+            "right": 1083,
+            "top": 612
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.0012980269989615785,
+            "contrast": 217.0,
+            "darkRatio": 0.0,
+            "directionalBlurRatio": 1.1062864371955814,
+            "edgeDensity": 0.14927310488058151,
+            "readable": true,
+            "tenengrad": 123.70508575439453
+          },
+          {
+            "brightRatio": 0.03271028037383177,
+            "contrast": 235.0,
+            "darkRatio": 0.0020768431983385254,
+            "directionalBlurRatio": 1.1787629822568906,
+            "edgeDensity": 0.14122533748701974,
+            "readable": true,
+            "tenengrad": 141.98841857910156
+          },
+          {
+            "brightRatio": 0.09190031152647975,
+            "contrast": 238.0,
+            "darkRatio": 0.0033748701973001036,
+            "directionalBlurRatio": 1.4070315564908547,
+            "edgeDensity": 0.10851505711318796,
+            "readable": true,
+            "tenengrad": 144.79638671875
+          }
+        ],
+        "locatorAmbiguityMargin": 1.0,
+        "locatorMode": "MIDDLE_ROW_WITH_LOCKED_PRIOR",
+        "locatorScore": 0.5,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.02105640000081621,
+          "exifSeconds": 0.02457019999565091,
+          "locatorSeconds": 0.031201800011331216,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 0.00019029999384656549
+        },
+        "recognizedTexts": [
+          "",
+          "2",
+          "23374"
+        ],
+        "recognitionConfidences": [
+          0.0,
+          0.106084,
+          0.904164
+        ]
+      },
+      "sha256": "bf0608d8648b2682e1f34d7956f5fcca34be97991ef31d787ea0a43340c7e1e4",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.35808999999999996,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "ea28818b8c9292a2ca5c2440fa845390055ede07e3f5f12428c3017a53c31eeb",
+      "originalSourceIndex": 4,
+      "reasonCodes": [
+        "INCOMPLETE_OCR"
+      ],
+      "relativePath": "blazing 21400_000005.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 643,
+            "left": 490,
+            "right": 599,
+            "top": 607
+          },
+          {
+            "bottom": 637,
+            "left": 724,
+            "right": 833,
+            "top": 601
+          },
+          {
+            "bottom": 645,
+            "left": 974,
+            "right": 1083,
+            "top": 609
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.017584097859327217,
+            "contrast": 229.53999999999996,
+            "darkRatio": 0.0015290519877675841,
+            "directionalBlurRatio": 1.0745313203491278,
+            "edgeDensity": 0.14271151885830785,
+            "readable": true,
+            "tenengrad": 129.3080596923828
+          },
+          {
+            "brightRatio": 0.053771661569826705,
+            "contrast": 237.0,
+            "darkRatio": 0.001783893985728848,
+            "directionalBlurRatio": 1.0437416297061617,
+            "edgeDensity": 0.12436289500509684,
+            "readable": true,
+            "tenengrad": 145.50076293945312
+          },
+          {
+            "brightRatio": 0.09862385321100918,
+            "contrast": 238.0,
+            "darkRatio": 0.0007645259938837921,
+            "directionalBlurRatio": 1.2336125731244854,
+            "edgeDensity": 0.09938837920489296,
+            "readable": true,
+            "tenengrad": 142.7766571044922
+          }
+        ],
+        "locatorAmbiguityMargin": 0.09630944203770686,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9027936104356895,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.020451000003959052,
+          "exifSeconds": 0.03239940000639763,
+          "locatorSeconds": 0.013386199992964976,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 7.110000296961516e-05
+        },
+        "recognizedTexts": [
+          "",
+          "28373",
+          "21374"
+        ],
+        "recognitionConfidences": [
+          0.0,
+          0.197735,
+          0.876535
+        ]
+      },
+      "sha256": "eeb7ad5f1a4c3388e33cecdbd9c37d5dc5155309fea3c3559307c1c41b9e4093",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.8740593333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "90a873f9c083b9b20cbe8a5f865ebb711c4fe28ecf708d6bd3e69da67f5061c5",
+      "originalSourceIndex": 5,
+      "reasonCodes": [
+        "LOW_OCR_CONFIDENCE"
+      ],
+      "relativePath": "blazing 21400_000006.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 637,
+            "left": 490,
+            "right": 599,
+            "top": 601
+          },
+          {
+            "bottom": 631,
+            "left": 722,
+            "right": 831,
+            "top": 595
+          },
+          {
+            "bottom": 641,
+            "left": 974,
+            "right": 1083,
+            "top": 605
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.03211009174311927,
+            "contrast": 233.0,
+            "darkRatio": 0.0,
+            "directionalBlurRatio": 1.2854378251938579,
+            "edgeDensity": 0.1111111111111111,
+            "readable": true,
+            "tenengrad": 132.70230102539062
+          },
+          {
+            "brightRatio": 0.07415902140672782,
+            "contrast": 239.0,
+            "darkRatio": 0.001783893985728848,
+            "directionalBlurRatio": 1.053298706708653,
+            "edgeDensity": 0.11824668705402651,
+            "readable": true,
+            "tenengrad": 148.88743591308594
+          },
+          {
+            "brightRatio": 0.12589194699286443,
+            "contrast": 239.0,
+            "darkRatio": 0.0015290519877675841,
+            "directionalBlurRatio": 1.1736721547702078,
+            "edgeDensity": 0.09582059123343527,
+            "readable": true,
+            "tenengrad": 150.2824249267578
+          }
+        ],
+        "locatorAmbiguityMargin": 0.027159940456583986,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.8714635921029548,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.01465160000952892,
+          "exifSeconds": 0.023594199999934062,
+          "locatorSeconds": 0.01625679999415297,
+          "ocrBatchSeconds": 0.7528141000075266,
+          "rotationSeconds": 4.2400002712383866e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.682493,
+          0.942163,
+          0.997522
+        ]
+      },
+      "sha256": "f013c7f56a5714d4701f24ae317cf7b0aeff6f2d5232c0104700d36feac8ac2f",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.935871,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "9f6203c4de9a06680bb930339ffefb5e4799b114d64f660cde4bdbd480e91082",
+      "originalSourceIndex": 6,
+      "reasonCodes": [
+        "NO_EXPECTED_RANGE_MATCH"
+      ],
+      "relativePath": "blazing 21400_000007.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 773,
+            "left": 470,
+            "right": 597,
+            "top": 730
+          },
+          {
+            "bottom": 777,
+            "left": 704,
+            "right": 831,
+            "top": 734
+          },
+          {
+            "bottom": 793,
+            "left": 960,
+            "right": 1087,
+            "top": 750
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.09100897271561985,
+            "contrast": 233.0,
+            "darkRatio": 0.0058597326496978575,
+            "directionalBlurRatio": 1.301322186313812,
+            "edgeDensity": 0.10639077092107672,
+            "readable": true,
+            "tenengrad": 110.53693389892578
+          },
+          {
+            "brightRatio": 0.10932063724592565,
+            "contrast": 235.0,
+            "darkRatio": 0.009888298846365134,
+            "directionalBlurRatio": 1.4278553471526074,
+            "edgeDensity": 0.09924922175425746,
+            "readable": true,
+            "tenengrad": 125.65426635742188
+          },
+          {
+            "brightRatio": 0.09961545504486358,
+            "contrast": 236.0,
+            "darkRatio": 0.03094671305621681,
+            "directionalBlurRatio": 1.6912868910120435,
+            "edgeDensity": 0.10840505401941036,
+            "readable": true,
+            "tenengrad": 125.55376434326172
+          }
+        ],
+        "locatorAmbiguityMargin": 1.0,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.7375791175705044,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.01886650000233203,
+          "exifSeconds": 0.03384010000445414,
+          "locatorSeconds": 0.028040600009262562,
+          "ocrBatchSeconds": 0.9650642000051448,
+          "rotationSeconds": 5.0699993153102696e-05
+        },
+        "recognizedTexts": [
+          "21175",
+          "21176",
+          "21177"
+        ],
+        "recognitionConfidences": [
+          0.845026,
+          0.967683,
+          0.994904
+        ]
+      },
+      "sha256": "62079ff871d66301e8c6972c117f68d45004f619a39f4270d82ca45f7541e08d",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9942843333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.987868,
+      "observationKey": "5c4509d0f6b3aaff59168e493a2cd541b4c20c17f5d5637ef9cf0daf6992c582",
+      "originalSourceIndex": 7,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000008.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 626,
+            "left": 490,
+            "right": 600,
+            "top": 590
+          },
+          {
+            "bottom": 626,
+            "left": 725,
+            "right": 835,
+            "top": 590
+          },
+          {
+            "bottom": 639,
+            "left": 975,
+            "right": 1085,
+            "top": 603
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.09393939393939393,
+            "contrast": 236.0,
+            "darkRatio": 0.0025252525252525255,
+            "directionalBlurRatio": 1.3896222462289713,
+            "edgeDensity": 0.09545454545454546,
+            "readable": true,
+            "tenengrad": 139.87945556640625
+          },
+          {
+            "brightRatio": 0.12601010101010102,
+            "contrast": 240.0,
+            "darkRatio": 0.0073232323232323236,
+            "directionalBlurRatio": 1.4614161120799936,
+            "edgeDensity": 0.09722222222222222,
+            "readable": true,
+            "tenengrad": 154.003662109375
+          },
+          {
+            "brightRatio": 0.13434343434343435,
+            "contrast": 239.0,
+            "darkRatio": 0.0017676767676767678,
+            "directionalBlurRatio": 1.3585780990493168,
+            "edgeDensity": 0.09823232323232323,
+            "readable": true,
+            "tenengrad": 149.2285919189453
+          }
+        ],
+        "locatorAmbiguityMargin": 0.05168831626605608,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.8997404783736985,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.017245199996978045,
+          "exifSeconds": 0.028841299994383007,
+          "locatorSeconds": 0.019715799993718974,
+          "ocrBatchSeconds": 0.9650642000051448,
+          "rotationSeconds": 6.399999256245792e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.987868,
+          0.998468,
+          0.996517
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "21aeeca3505b2ad03e117fa9da6b5ca53156747a194bff1620562bf7230d7ebc",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9960626666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.991152,
+      "observationKey": "6b6449459f15c484b5f3d12c089712eca705b3e4ae770d994b41d1400053b68a",
+      "originalSourceIndex": 8,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000009.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 626,
+            "left": 490,
+            "right": 601,
+            "top": 590
+          },
+          {
+            "bottom": 626,
+            "left": 726,
+            "right": 837,
+            "top": 590
+          },
+          {
+            "bottom": 641,
+            "left": 976,
+            "right": 1087,
+            "top": 605
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.08458458458458458,
+            "contrast": 236.0,
+            "darkRatio": 0.0005005005005005005,
+            "directionalBlurRatio": 1.8837555869123068,
+            "edgeDensity": 0.0935935935935936,
+            "readable": true,
+            "tenengrad": 137.54283142089844
+          },
+          {
+            "brightRatio": 0.11586586586586586,
+            "contrast": 238.0,
+            "darkRatio": 0.00850850850850851,
+            "directionalBlurRatio": 1.7791767595812273,
+            "edgeDensity": 0.10035035035035035,
+            "readable": true,
+            "tenengrad": 153.47479248046875
+          },
+          {
+            "brightRatio": 0.12687687687687688,
+            "contrast": 239.0,
+            "darkRatio": 0.0055055055055055055,
+            "directionalBlurRatio": 1.6009760855245116,
+            "edgeDensity": 0.09509509509509509,
+            "readable": true,
+            "tenengrad": 147.86761474609375
+          }
+        ],
+        "locatorAmbiguityMargin": 0.0975342151700791,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9064421038835907,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.018901999996160157,
+          "exifSeconds": 0.027104699998744763,
+          "locatorSeconds": 0.019916100005502813,
+          "ocrBatchSeconds": 0.9650642000051448,
+          "rotationSeconds": 3.9699996705166996e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.997785,
+          0.999251,
+          0.991152
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "4ec76a3cd233b5142518de98e7d5174271d4923eeac4e26a5ed38d7d998a8686",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9989683333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.997813,
+      "observationKey": "a3c02a1bf0e315ce874520fa73b3aaf28055cae8787f8204658cb29f5233394b",
+      "originalSourceIndex": 9,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000010.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 624,
+            "left": 490,
+            "right": 601,
+            "top": 588
+          },
+          {
+            "bottom": 625,
+            "left": 726,
+            "right": 837,
+            "top": 589
+          },
+          {
+            "bottom": 639,
+            "left": 976,
+            "right": 1087,
+            "top": 603
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.0935935935935936,
+            "contrast": 236.0,
+            "darkRatio": 0.0007507507507507507,
+            "directionalBlurRatio": 1.5294881904615392,
+            "edgeDensity": 0.0965965965965966,
+            "readable": true,
+            "tenengrad": 138.80921936035156
+          },
+          {
+            "brightRatio": 0.11936936936936937,
+            "contrast": 239.0,
+            "darkRatio": 0.016016016016016016,
+            "directionalBlurRatio": 1.5830338709707865,
+            "edgeDensity": 0.09509509509509509,
+            "readable": true,
+            "tenengrad": 154.8831024169922
+          },
+          {
+            "brightRatio": 0.1313813813813814,
+            "contrast": 239.0,
+            "darkRatio": 0.00950950950950951,
+            "directionalBlurRatio": 1.4775881386517005,
+            "edgeDensity": 0.0945945945945946,
+            "readable": true,
+            "tenengrad": 151.1882781982422
+          }
+        ],
+        "locatorAmbiguityMargin": 0.07147464689706251,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.919353603404264,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.02421449999383185,
+          "exifSeconds": 0.03688420000253245,
+          "locatorSeconds": 0.025582999995094724,
+          "ocrBatchSeconds": 0.9650642000051448,
+          "rotationSeconds": 4.320000880397856e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.997813,
+          0.999575,
+          0.999517
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "8887ac0708c0363a3ffa045a05d4222a3858c72ba8c0d8facc2d8d992004c22e",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": null,
+      "confidence": 0.0,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "fcd273bb78e7b66c8c3a6384015965e895b492d5d47c5ab705780ccdea8d8705",
+      "originalSourceIndex": 10,
+      "reasonCodes": [
+        "INCOMPLETE_OCR"
+      ],
+      "relativePath": "blazing 21400_000011.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 767,
+            "left": 477,
+            "right": 603,
+            "top": 724
+          },
+          {
+            "bottom": 777,
+            "left": 715,
+            "right": 841,
+            "top": 734
+          },
+          {
+            "bottom": 797,
+            "left": 971,
+            "right": 1097,
+            "top": 754
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.06330749354005168,
+            "contrast": 231.0,
+            "darkRatio": 0.0014765596160944998,
+            "directionalBlurRatio": 4.078071831363457,
+            "edgeDensity": 0.1435954226651901,
+            "readable": true,
+            "tenengrad": 119.44153594970703
+          },
+          {
+            "brightRatio": 0.09043927648578812,
+            "contrast": 232.0,
+            "darkRatio": 0.002030269472129937,
+            "directionalBlurRatio": 3.4733926930853496,
+            "edgeDensity": 0.1184939091915836,
+            "readable": true,
+            "tenengrad": 113.4111328125
+          },
+          {
+            "brightRatio": 0.06035437430786268,
+            "contrast": 231.0,
+            "darkRatio": 0.00516795865633075,
+            "directionalBlurRatio": 3.0307042045131705,
+            "edgeDensity": 0.10778885197489849,
+            "readable": true,
+            "tenengrad": 103.18328094482422
+          }
+        ],
+        "locatorAmbiguityMargin": 1.0,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.757929467361962,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.026995399995939806,
+          "exifSeconds": 0.04273849999299273,
+          "locatorSeconds": 0.02553170001192484,
+          "ocrBatchSeconds": 0.9650642000051448,
+          "rotationSeconds": 6.19000056758523e-05
+        },
+        "recognizedTexts": [
+          "",
+          "",
+          ""
+        ],
+        "recognitionConfidences": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sha256": "2a9043807a196b1ba1a8cb51b3963a345536e50caa432691b8d7c38ee2718f99",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": null,
+      "confidence": null,
+      "humanLabel": {
+        "expectedRange": null,
+        "kind": "unreadable"
+      },
+      "minimumOcrConfidence": null,
+      "observationKey": "1f570e918beb3773a33c1d4cd8411c32ea34da4dfc3b5143cd34f23997db8e49",
+      "originalSourceIndex": 11,
+      "reasonCodes": [
+        "CROP_POSSIBLY_CLIPPED"
+      ],
+      "relativePath": "blazing 21400_000012.jpg",
+      "runtimeDiagnostics": {
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropBoxes": [
+          {
+            "bottom": 625,
+            "left": 510,
+            "right": 621,
+            "top": 589
+          },
+          {
+            "bottom": 628,
+            "left": 746,
+            "right": 857,
+            "top": 592
+          },
+          {
+            "bottom": 645,
+            "left": 996,
+            "right": 1107,
+            "top": 609
+          }
+        ],
+        "locatorMode": "FULL_LATTICE",
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "processingTimes": {
+          "decodeSeconds": 0.02257899999676738,
+          "exifSeconds": 0.0248581999912858,
+          "locatorSeconds": 0.01472799999464769,
+          "ocrBatchSeconds": 0.0,
+          "rotationSeconds": 2.61999957729131e-05
+        }
+      },
+      "sha256": "616bf4a78b1afbe2b1a9d3c7b05acf4a3545f248c6b9494c8c5772a51d0ef676",
+      "status": "range_unreadable"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9706083333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.912754,
+      "observationKey": "4f736f9677e0753c2b518e89b57b83cdbb6dc7e873b28f02fb8cf7512e9d9964",
+      "originalSourceIndex": 12,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000013.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 624,
+            "left": 518,
+            "right": 629,
+            "top": 588
+          },
+          {
+            "bottom": 629,
+            "left": 754,
+            "right": 865,
+            "top": 593
+          },
+          {
+            "bottom": 648,
+            "left": 1002,
+            "right": 1113,
+            "top": 612
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.08058058058058058,
+            "contrast": 235.0,
+            "darkRatio": 0.0005005005005005005,
+            "directionalBlurRatio": 2.0866580029355877,
+            "edgeDensity": 0.09684684684684684,
+            "readable": true,
+            "tenengrad": 139.1228485107422
+          },
+          {
+            "brightRatio": 0.11011011011011011,
+            "contrast": 238.0,
+            "darkRatio": 0.011511511511511512,
+            "directionalBlurRatio": 2.080484336181997,
+            "edgeDensity": 0.10635635635635636,
+            "readable": true,
+            "tenengrad": 156.02586364746094
+          },
+          {
+            "brightRatio": 0.10260260260260261,
+            "contrast": 238.0,
+            "darkRatio": 0.01001001001001001,
+            "directionalBlurRatio": 1.772081731119225,
+            "edgeDensity": 0.1061061061061061,
+            "readable": true,
+            "tenengrad": 144.90322875976562
+          }
+        ],
+        "locatorAmbiguityMargin": 0.06834179853293998,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9197759060707744,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.018777700010105036,
+          "exifSeconds": 0.033418999999412335,
+          "locatorSeconds": 0.018972599995322526,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 3.989999822806567e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.9997,
+          0.999371,
+          0.912754
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "4c6119234122919e298c1dbc602c8e4879212e0cfbbc1b54969b7755b4046b5d",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.999296,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.998675,
+      "observationKey": "406ff6dffabfe3b5f76e0e37217ece9afdfcb0729401d9e5ac7a4791a9a97c3c",
+      "originalSourceIndex": 13,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000014.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 623,
+            "left": 520,
+            "right": 631,
+            "top": 587
+          },
+          {
+            "bottom": 629,
+            "left": 756,
+            "right": 867,
+            "top": 593
+          },
+          {
+            "bottom": 648,
+            "left": 1006,
+            "right": 1117,
+            "top": 612
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.09734734734734735,
+            "contrast": 236.0,
+            "darkRatio": 0.00025025025025025025,
+            "directionalBlurRatio": 1.5943489904647496,
+            "edgeDensity": 0.08808808808808809,
+            "readable": true,
+            "tenengrad": 139.73667907714844
+          },
+          {
+            "brightRatio": 0.11836836836836837,
+            "contrast": 238.0,
+            "darkRatio": 0.009259259259259259,
+            "directionalBlurRatio": 1.626223724677941,
+            "edgeDensity": 0.09634634634634634,
+            "readable": true,
+            "tenengrad": 154.90687561035156
+          },
+          {
+            "brightRatio": 0.13038038038038038,
+            "contrast": 239.0,
+            "darkRatio": 0.015015015015015015,
+            "directionalBlurRatio": 1.5118922401737442,
+            "edgeDensity": 0.09759759759759759,
+            "readable": true,
+            "tenengrad": 153.06309509277344
+          }
+        ],
+        "locatorAmbiguityMargin": 0.07475255854998175,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9241064108073233,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.022590400010813028,
+          "exifSeconds": 0.03458479999972042,
+          "locatorSeconds": 0.019213999999919906,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 6.350000330712646e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.998675,
+          0.999595,
+          0.999618
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "9328441865a72c07c60d91941e5417731093aa3ff612f5e5a9caca9204891666",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9988983333333333,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.998369,
+      "observationKey": "52940eaccc5ddcff68f40c8112cdd24ff54c97df20e075dac4f4eaa49dd39e7f",
+      "originalSourceIndex": 14,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000015.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 620,
+            "left": 522,
+            "right": 633,
+            "top": 584
+          },
+          {
+            "bottom": 626,
+            "left": 758,
+            "right": 869,
+            "top": 590
+          },
+          {
+            "bottom": 648,
+            "left": 1008,
+            "right": 1119,
+            "top": 612
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.0970970970970971,
+            "contrast": 237.0,
+            "darkRatio": 0.00025025025025025025,
+            "directionalBlurRatio": 1.395146538334782,
+            "edgeDensity": 0.0965965965965966,
+            "readable": true,
+            "tenengrad": 141.69578552246094
+          },
+          {
+            "brightRatio": 0.12387387387387387,
+            "contrast": 240.0,
+            "darkRatio": 0.008258258258258258,
+            "directionalBlurRatio": 1.4567926880534805,
+            "edgeDensity": 0.1016016016016016,
+            "readable": true,
+            "tenengrad": 158.01100158691406
+          },
+          {
+            "brightRatio": 0.1338838838838839,
+            "contrast": 239.0,
+            "darkRatio": 0.0055055055055055055,
+            "directionalBlurRatio": 1.4320965706575117,
+            "edgeDensity": 0.10135135135135136,
+            "readable": true,
+            "tenengrad": 153.88232421875
+          }
+        ],
+        "locatorAmbiguityMargin": 0.07414860617589125,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9261538157076623,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.021773400003439747,
+          "exifSeconds": 0.028925899998284876,
+          "locatorSeconds": 0.013782800000626594,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 9.439999121241271e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.998369,
+          0.999045,
+          0.999281
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "87e9951ff1f79371d66aa8df9c996e87afe02e45bb04fe7b899665391acc1f6b",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9973736666666667,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.996415,
+      "observationKey": "033f98826e3c416b5d09e62b1e48a416ec8c459fbd505404e0ad7d263a991271",
+      "originalSourceIndex": 15,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000016.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 616,
+            "left": 520,
+            "right": 637,
+            "top": 580
+          },
+          {
+            "bottom": 624,
+            "left": 758,
+            "right": 875,
+            "top": 588
+          },
+          {
+            "bottom": 645,
+            "left": 1006,
+            "right": 1123,
+            "top": 609
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.08095916429249762,
+            "contrast": 236.0,
+            "darkRatio": 0.0011870845204178537,
+            "directionalBlurRatio": 1.5880604541614813,
+            "edgeDensity": 0.10612535612535613,
+            "readable": true,
+            "tenengrad": 136.66058349609375
+          },
+          {
+            "brightRatio": 0.09401709401709402,
+            "contrast": 238.0,
+            "darkRatio": 0.0011870845204178537,
+            "directionalBlurRatio": 1.544344700680411,
+            "edgeDensity": 0.11087369420702754,
+            "readable": true,
+            "tenengrad": 150.2493438720703
+          },
+          {
+            "brightRatio": 0.09472934472934473,
+            "contrast": 239.0,
+            "darkRatio": 0.002136752136752137,
+            "directionalBlurRatio": 1.473434884101491,
+            "edgeDensity": 0.11752136752136752,
+            "readable": true,
+            "tenengrad": 150.4932861328125
+          }
+        ],
+        "locatorAmbiguityMargin": 1.0,
+        "locatorMode": "MIDDLE_ROW_WITH_LOCKED_PRIOR",
+        "locatorScore": 0.5,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.01639479999721516,
+          "exifSeconds": 0.025587399999494664,
+          "locatorSeconds": 0.031080000000656582,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 3.5200006095692515e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.999045,
+          0.996415,
+          0.996661
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "1298ed526cab855c5e3dabb3e90e4c5d3786c849fa3e0f3e5a3084be9ce0debe",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9749396666666666,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.938344,
+      "observationKey": "1ca785577adf3967a65b5ca695d5ed727e10eb0bf6bc820c35a8472b5dc1681d",
+      "originalSourceIndex": 16,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000017.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 613,
+            "left": 528,
+            "right": 639,
+            "top": 577
+          },
+          {
+            "bottom": 619,
+            "left": 764,
+            "right": 875,
+            "top": 583
+          },
+          {
+            "bottom": 641,
+            "left": 1012,
+            "right": 1123,
+            "top": 605
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.07357357357357357,
+            "contrast": 236.0,
+            "darkRatio": 0.0007507507507507507,
+            "directionalBlurRatio": 1.0897686521830796,
+            "edgeDensity": 0.09434434434434434,
+            "readable": true,
+            "tenengrad": 136.8099822998047
+          },
+          {
+            "brightRatio": 0.08933933933933934,
+            "contrast": 239.0,
+            "darkRatio": 0.003003003003003003,
+            "directionalBlurRatio": 1.1291220297545448,
+            "edgeDensity": 0.11261261261261261,
+            "readable": true,
+            "tenengrad": 152.55909729003906
+          },
+          {
+            "brightRatio": 0.09534534534534535,
+            "contrast": 239.0,
+            "darkRatio": 0.0012512512512512512,
+            "directionalBlurRatio": 1.1125588743276924,
+            "edgeDensity": 0.11611611611611612,
+            "readable": true,
+            "tenengrad": 149.34024047851562
+          }
+        ],
+        "locatorAmbiguityMargin": 0.06515200366191187,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9182795074233762,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.015436600006069057,
+          "exifSeconds": 0.026579700002912432,
+          "locatorSeconds": 0.01611369999591261,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 3.4599986975081265e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.998919,
+          0.987556,
+          0.938344
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "9908776651ad48559c168882d4c47f331a1882b0a55966eeaf7b07ab244da042",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9976349999999999,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.995149,
+      "observationKey": "517dcd5d57a45e6e14b28bf664cc8ba2793f7673b0cf48336327de96a61071bb",
+      "originalSourceIndex": 17,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000018.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 610,
+            "left": 526,
+            "right": 637,
+            "top": 574
+          },
+          {
+            "bottom": 616,
+            "left": 764,
+            "right": 875,
+            "top": 580
+          },
+          {
+            "bottom": 638,
+            "left": 1012,
+            "right": 1123,
+            "top": 602
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.0980980980980981,
+            "contrast": 236.0,
+            "darkRatio": 0.0007507507507507507,
+            "directionalBlurRatio": 1.3542513899279556,
+            "edgeDensity": 0.08658658658658659,
+            "readable": true,
+            "tenengrad": 135.1151123046875
+          },
+          {
+            "brightRatio": 0.12212212212212212,
+            "contrast": 239.0,
+            "darkRatio": 0.0075075075075075074,
+            "directionalBlurRatio": 1.4094525913003007,
+            "edgeDensity": 0.09934934934934934,
+            "readable": true,
+            "tenengrad": 153.48599243164062
+          },
+          {
+            "brightRatio": 0.12787787787787788,
+            "contrast": 239.0,
+            "darkRatio": 0.0065065065065065065,
+            "directionalBlurRatio": 1.3601240918518933,
+            "edgeDensity": 0.0970970970970971,
+            "readable": true,
+            "tenengrad": 148.21217346191406
+          }
+        ],
+        "locatorAmbiguityMargin": 0.05287956165639196,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.9052854117445462,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.020973199993022718,
+          "exifSeconds": 0.03999269999621902,
+          "locatorSeconds": 0.025042900000698864,
+          "ocrBatchSeconds": 0.7549695000052452,
+          "rotationSeconds": 6.550000398419797e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.995149,
+          0.998585,
+          0.999171
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "9663d502533c2fa4b7b6cc6514b0ffaf3473f9be3e6e5363176b81a5d1b3fccf",
+      "status": "exact_range"
+    },
+    {
+      "actualRange": [
+        21169,
+        21177
+      ],
+      "confidence": 0.9989043333333334,
+      "humanLabel": {
+        "expectedRange": [
+          21169,
+          21177
+        ],
+        "kind": "human_readable_exact"
+      },
+      "minimumOcrConfidence": 0.998526,
+      "observationKey": "395819ac94ca8bad6b615c81293175026e5d4d8effbed4b39dd5af853cd039a9",
+      "originalSourceIndex": 18,
+      "reasonCodes": [
+        "MIDDLE_ROW_TRIPLE_EXACT"
+      ],
+      "relativePath": "blazing 21400_000019.jpg",
+      "runtimeDiagnostics": {
+        "coordinateSpace": "exif-transposed-rgb-v1",
+        "exifOrientation": 8,
+        "orientedHeight": 1920,
+        "orientedWidth": 1440,
+        "rawHeight": 1440,
+        "rawWidth": 1920,
+        "runRotation": "0",
+        "cropCompleteness": [
+          true,
+          true,
+          true
+        ],
+        "cropBoxes": [
+          {
+            "bottom": 607,
+            "left": 524,
+            "right": 636,
+            "top": 572
+          },
+          {
+            "bottom": 613,
+            "left": 761,
+            "right": 873,
+            "top": 578
+          },
+          {
+            "bottom": 635,
+            "left": 1010,
+            "right": 1122,
+            "top": 600
+          }
+        ],
+        "localQualityScores": [
+          {
+            "brightRatio": 0.09770408163265307,
+            "contrast": 236.0,
+            "darkRatio": 0.0020408163265306124,
+            "directionalBlurRatio": 1.688507860123806,
+            "edgeDensity": 0.08979591836734693,
+            "readable": true,
+            "tenengrad": 138.68905639648438
+          },
+          {
+            "brightRatio": 0.12448979591836734,
+            "contrast": 238.0,
+            "darkRatio": 0.015816326530612244,
+            "directionalBlurRatio": 1.7291587637244696,
+            "edgeDensity": 0.1038265306122449,
+            "readable": true,
+            "tenengrad": 158.51026916503906
+          },
+          {
+            "brightRatio": 0.12270408163265306,
+            "contrast": 239.0,
+            "darkRatio": 0.011224489795918367,
+            "directionalBlurRatio": 1.6267594924999103,
+            "edgeDensity": 0.10306122448979592,
+            "readable": true,
+            "tenengrad": 155.83050537109375
+          }
+        ],
+        "locatorAmbiguityMargin": 0.04991614210302597,
+        "locatorMode": "FULL_LATTICE",
+        "locatorScore": 0.8986740713990494,
+        "locatorVersion": "middle-row-triple-locator-v2-partial-lattice",
+        "ocrPreprocessingVersion": "middle-row-rgb-source-v1",
+        "paddleAdapterVersion": "middle-row-paddle-recognition-only-v1",
+        "processingTimes": {
+          "decodeSeconds": 0.0176045999978669,
+          "exifSeconds": 0.030416199995670468,
+          "locatorSeconds": 0.016643299997667782,
+          "ocrBatchSeconds": 0.35459600000467617,
+          "rotationSeconds": 5.3800002206116915e-05
+        },
+        "recognizedTexts": [
+          "21172",
+          "21173",
+          "21174"
+        ],
+        "recognitionConfidences": [
+          0.998526,
+          0.999013,
+          0.999174
+        ],
+        "runtimeFingerprint": "79772b3be4a23aa373a8a697823384315e8258f227823e4324a8c0fd146d594e",
+        "matchedExpectedRange": {
+          "end": 21177,
+          "start": 21169
+        },
+        "proofType": "MIDDLE_ROW_TRIPLE_EXACT"
+      },
+      "sha256": "c0d2efc016db240936f38e25a809db9cab922e45dfd8576a98ea4b39b418c839",
+      "status": "exact_range"
+    }
+  ],
+  "sample": {
+    "firstOriginalSourceIndex": 0,
+    "lastOriginalSourceIndex": 18,
+    "size": 19
+  },
+  "timing": {
+    "batchP50Seconds": 1.2160712000040803,
+    "batchP95Seconds": 1.4459697999991477,
+    "calibrationSeconds": 4.339999577496201e-05,
+    "checkpointSeconds": 0.0,
+    "decodeSeconds": 0.3824039000173798,
+    "exifSeconds": 0.6003483999811579,
+    "groupingSeconds": 0.0001731000083964318,
+    "locatorSeconds": 0.4042709999921499,
+    "medianTimePerSource": 0.2026785333340134,
+    "modelInitializationSeconds": 2.2519624000124168,
+    "ocrCalls": 5,
+    "ocrCrops": 72,
+    "ocrInferenceSeconds": 3.733858699997654,
+    "ocrInternalBatches": 9,
+    "ocrPreprocessingSeconds": 0.013835699995979667,
+    "ocrRecognitionSeconds": 3.7561144000064814,
+    "peakMemoryBytes": 545685504,
+    "p95TimePerSource": 0.24099496666652462,
+    "projected42000ScanSeconds": 9523.344378956705,
+    "rotationSeconds": 0.0011366999824531376,
+    "scanSeconds": 4.308179600004223,
+    "sourceReadSeconds": 0.008487599989166483,
+    "sourcesPerSecond": 4.410215395844077,
+    "totalSeconds": 8.00912950001657,
+    "warmupSeconds": 1.4489441000041552
+  },
+  "diagnostics": {
+    "exactSources": 10,
+    "ocrBatchFillRatio": 0.8888888888888888,
+    "reasonCounts": {
+      "CROP_POSSIBLY_CLIPPED": 1,
+      "INCOMPLETE_OCR": 3,
+      "LOW_OCR_CONFIDENCE": 4,
+      "MIDDLE_ROW_TRIPLE_EXACT": 10,
+      "NO_EXPECTED_RANGE_MATCH": 1
+    },
+    "rejectedBeforeOcrCount": 1,
+    "rejectedBeforeOcrRatio": 0.05263157894736842,
+    "runtimeCounters": {
+      "exactSources": 10,
+      "locatedSources": 18,
+      "locatorFullLattice": 15,
+      "locatorPriorFallback": 3,
+      "ocrCalls": 5,
+      "ocrCrops": 72,
+      "ocrInternalBatches": 9,
+      "unknownConfidence": 4,
+      "unknownCropCompleteness": 1,
+      "unknownExpectedRange": 1,
+      "unknownIncompleteOcr": 3
+    }
+  },
+  "versions": {
+    "batchPolicy": {
+      "checkpointIntervalBatches": 1,
+      "cpuMathLibraryNumThreads": 1,
+      "internalOcrBatchSize": 9,
+      "sourceBatchSize": 6,
+      "version": "middle-row-source-batches-v1"
+    },
+    "report": "middle-row-range-ocr-v4-acceptance-v1"
+  },
+  "corpusManifestSha256": "15854a0b34493ce7ec1c337935ecc35f03612bdfb23733c086b20fce5b9eea37",
+  "selectedReviewSha256": "748473a58e70cc1c250c0aecc4a997d3a64fa81d88b5e92913629df7f2f96fe5"
+}

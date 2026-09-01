@@ -1487,6 +1487,27 @@ strumieniuje audit i wybiera exact proof najbliższy środkowi evidence span.
 Checkpoint przechowuje orientację, prior, aktywną grupę, ukończony prefiks,
 diagnostykę, zapisane zakresy, numer batcha i `sourceBatchSize=6`.
 
+## Odbiór range-only OCR v4.1 — TASK-0370
+
+Read-only harness wiąże każdy przypadek golden/challenge z SHA-256 źródła i
+oddziela tuning od zamrożonego acceptance setu. Ground truth pochodzi wyłącznie
+z ręcznego odczytu pikseli. Próby wydajnościowe bez pełnego ground truth nie
+raportują `falseExactCount`; ich jakość jest ograniczona do ręcznej kontroli
+każdego automatycznie wybranego reprezentanta. Protokół review można dołączyć
+do istniejącego raportu bez ponownej inferencji, ale oczekiwany zakres review
+musi dokładnie odpowiadać zakresowi wybranej grupy.
+
+Na rzeczywistych danych koszt skanu jest liniowy i wynosi około `4,83–5,05`
+źródła/s. Inferencja Paddle odpowiada za największą część czasu, następnie
+łączny locator oraz EXIF. Mimo bezpiecznej precision zamrożony golden set nie
+przeszedł coverage: dominujące `NO_EXPECTED_RANGE_MATCH` wskazuje na wybór
+niewłaściwego rzędu przez locator, a nie na błąd polityki exact proof.
+
+Z tego powodu factory nowych runów nie przełącza się na v4.1. Kolejna iteracja
+może zmienić locator, crop albo preprocessing wyłącznie pod nowym fingerprintem
+i na oddzielnym tuning secie. Obecnego golden wyniku nie wolno użyć do strojenia
+ani zastąpić korzystniejszą próbką.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

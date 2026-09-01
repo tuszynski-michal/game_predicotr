@@ -10,10 +10,11 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from io import BytesIO
 from statistics import median
+from time import perf_counter
 
 import cv2
 import numpy as np
@@ -23,8 +24,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from .middle_row_range import MIDDLE_ROW_RANGE_VARIANT, MiddleRowUnknownReason
 
 MIDDLE_ROW_COORDINATE_SPACE = "exif-transposed-rgb-v1"
-MIDDLE_ROW_LOCATOR_VERSION = "middle-row-triple-locator-v1"
-MIDDLE_ROW_CROP_POLICY_VERSION = "middle-row-source-crops-v1"
+MIDDLE_ROW_LOCATOR_VERSION = "middle-row-triple-locator-v2-partial-lattice"
+MIDDLE_ROW_CROP_POLICY_VERSION = "middle-row-source-crops-v2-compact-label"
 MIDDLE_ROW_CROP_COMPLETENESS_VERSION = "middle-row-crop-completeness-v1"
 MIDDLE_ROW_READABILITY_VERSION = "middle-row-local-readability-v1"
 MIDDLE_ROW_OCR_PREPROCESSING_VERSION = "middle-row-rgb-source-v1"
@@ -89,6 +90,8 @@ class CanonicalSourceImage:
     oriented_dimensions: ImageDimensions
     exif_orientation: int
     coordinate_space: str = MIDDLE_ROW_COORDINATE_SPACE
+    decode_seconds: float = field(default=0.0, repr=False, compare=False)
+    exif_seconds: float = field(default=0.0, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.rgb.dtype != np.uint8 or self.rgb.ndim != 3 or self.rgb.shape[2] != 3:
@@ -111,8 +114,13 @@ def canonicalize_source_image(content: bytes) -> CanonicalSourceImage:
             orientation = int(source.getexif().get(274, 1))
             if orientation not in range(1, 9):
                 orientation = 1
+            decode_started = perf_counter()
+            source.load()
+            decode_seconds = perf_counter() - decode_started
+            exif_started = perf_counter()
             oriented = ImageOps.exif_transpose(source)
             rgb = np.asarray(oriented.convert("RGB"), dtype=np.uint8).copy()
+            exif_seconds = perf_counter() - exif_started
     except (OSError, UnidentifiedImageError, ValueError) as error:
         raise ValueError("SOURCE_DECODE_ERROR") from error
     dimensions = ImageDimensions(width=int(rgb.shape[1]), height=int(rgb.shape[0]))
@@ -121,6 +129,8 @@ def canonicalize_source_image(content: bytes) -> CanonicalSourceImage:
         raw_dimensions=raw,
         oriented_dimensions=dimensions,
         exif_orientation=orientation,
+        decode_seconds=decode_seconds,
+        exif_seconds=exif_seconds,
     )
 
 
@@ -156,12 +166,16 @@ class MiddleRowLocatorConfig:
     axis_x_tolerance_ratio: float = 0.035
     column_minimum_gap_ratio: float = 0.12
     column_maximum_gap_ratio: float = 0.38
-    axis_y_tolerance_ratio: float = 0.012
+    axis_y_tolerance_ratio: float = 0.022
     row_minimum_gap_ratio: float = 0.028
     row_maximum_gap_ratio: float = 0.12
     assignment_x_tolerance_ratio: float = 0.09
     assignment_y_tolerance_ratio: float = 0.025
-    minimum_full_lattice_cells: int = 9
+    # Side controls can merge with one or two outer labels.  Seven structural
+    # matches still establish all three rows and columns, while the exact
+    # range proof continues to require all three independently read middle
+    # labels below.
+    minimum_full_lattice_cells: int = 7
     minimum_ambiguity_margin: float = 0.025
     prior_axis_tolerance_ratio: float = 0.035
 
@@ -267,9 +281,9 @@ class MiddleRowCropPolicy:
     width_spacing_ratio: float = 0.48
     minimum_width_ratio: float = 0.065
     maximum_width_ratio: float = 0.12
-    height_spacing_ratio: float = 0.55
-    minimum_height_ratio: float = 0.022
-    maximum_height_ratio: float = 0.05
+    height_spacing_ratio: float = 0.28
+    minimum_height_ratio: float = 0.016
+    maximum_height_ratio: float = 0.035
     union_padding_ratio: float = 0.30
 
     def as_dict(self) -> dict[str, object]:

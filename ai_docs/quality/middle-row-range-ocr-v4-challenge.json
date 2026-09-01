@@ -1,0 +1,25 @@
+{
+  "contract": "middle-row-range-ocr-v4-corpus-v1",
+  "description": "Checksum-bound challenge sequence reviewed from source pixels; sources 1, 11 and 12 are unreadable because of motion blur.",
+  "cases": [
+    {"relativePath":"blazing 21400_000001.jpg","sha256":"be37f55fa59baed1d16148712ec19e357e0c5b2fd4a48650e73b09ef4f9fe457","humanLabel":{"kind":"unreadable"}},
+    {"relativePath":"blazing 21400_000002.jpg","sha256":"02f1213bfb3b679002600539eaa0f0e69ab8a8285f70ab15daec5fc0802366e0","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000003.jpg","sha256":"5978a8aa8cb11ec73874a7783e1e17170b39127ae7046302611ab4145884d00e","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000004.jpg","sha256":"bf0608d8648b2682e1f34d7956f5fcca34be97991ef31d787ea0a43340c7e1e4","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000005.jpg","sha256":"eeb7ad5f1a4c3388e33cecdbd9c37d5dc5155309fea3c3559307c1c41b9e4093","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000006.jpg","sha256":"f013c7f56a5714d4701f24ae317cf7b0aeff6f2d5232c0104700d36feac8ac2f","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000007.jpg","sha256":"62079ff871d66301e8c6972c117f68d45004f619a39f4270d82ca45f7541e08d","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000008.jpg","sha256":"21aeeca3505b2ad03e117fa9da6b5ca53156747a194bff1620562bf7230d7ebc","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000009.jpg","sha256":"4ec76a3cd233b5142518de98e7d5174271d4923eeac4e26a5ed38d7d998a8686","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000010.jpg","sha256":"8887ac0708c0363a3ffa045a05d4222a3858c72ba8c0d8facc2d8d992004c22e","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000011.jpg","sha256":"2a9043807a196b1ba1a8cb51b3963a345536e50caa432691b8d7c38ee2718f99","humanLabel":{"kind":"unreadable"}},
+    {"relativePath":"blazing 21400_000012.jpg","sha256":"616bf4a78b1afbe2b1a9d3c7b05acf4a3545f248c6b9494c8c5772a51d0ef676","humanLabel":{"kind":"unreadable"}},
+    {"relativePath":"blazing 21400_000013.jpg","sha256":"4c6119234122919e298c1dbc602c8e4879212e0cfbbc1b54969b7755b4046b5d","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000014.jpg","sha256":"9328441865a72c07c60d91941e5417731093aa3ff612f5e5a9caca9204891666","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000015.jpg","sha256":"87e9951ff1f79371d66aa8df9c996e87afe02e45bb04fe7b899665391acc1f6b","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000016.jpg","sha256":"1298ed526cab855c5e3dabb3e90e4c5d3786c849fa3e0f3e5a3084be9ce0debe","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000017.jpg","sha256":"9908776651ad48559c168882d4c47f331a1882b0a55966eeaf7b07ab244da042","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000018.jpg","sha256":"9663d502533c2fa4b7b6cc6514b0ffaf3473f9be3e6e5363176b81a5d1b3fccf","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}},
+    {"relativePath":"blazing 21400_000019.jpg","sha256":"c0d2efc016db240936f38e25a809db9cab922e45dfd8576a98ea4b39b418c839","humanLabel":{"kind":"human_readable_exact","expectedRange":[21169,21177]}}
+  ]
+}

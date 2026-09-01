@@ -112,6 +112,16 @@ def test_full_lattice_returns_exactly_three_source_resolution_crops() -> None:
     assert result.location.crop_boxes[1].right < result.location.crop_boxes[2].left
 
 
+def test_partial_outer_lattice_keeps_complete_middle_row_available() -> None:
+    result = MiddleRowTripleLocator().locate(_synthetic_grid(missing={7, 8}))
+
+    assert result.reason_code is None
+    assert result.location is not None
+    assert result.location.locator_mode is MiddleRowLocatorMode.FULL_LATTICE
+    assert len(result.location.crops) == 3
+    assert all(crop.complete and crop.readable for crop in result.location.crops)
+
+
 def test_digit_components_are_grouped_into_nine_complete_labels() -> None:
     locator = MiddleRowTripleLocator()
     thumbnail, _, _ = locator._thumbnail(_synthetic_grid().rgb)

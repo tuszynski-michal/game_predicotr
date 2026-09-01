@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Odbiór range-only OCR v4.1 — TASK-0370
+
+- V4.1 przeszedł bramki bezpieczeństwa i wydajności, ale nie przeszedł bramek
+  coverage. Na challenge: `0` false exact, `62,5%` readable coverage i `100%`
+  group capture. Na frozen golden: `0` false exact, lecz tylko `26,3%`
+  readable coverage i `35,3%` group capture.
+- Próby 1000 surowych JPEG-ów osiągnęły `4,83` oraz `5,05` źródła/s. Ręczna
+  kontrola wszystkich 120 wybranych reprezentantów potwierdziła `100%` zakresu
+  i własnego exact proof; koszt skaluje się liniowo.
+- Rollout został odrzucony. Nowe runy nadal używają v3, a v4.1 pozostaje za
+  flagą. Następna iteracja musi poprawić lokalizację środkowego rzędu pod nowym
+  fingerprintem i przejść nowy holdout bez osłabiania proof.
+
 ### Batch, orientacja i recovery range-only OCR v4.1 — TASK-0369
 
 - V4.1 ma osobną, fingerprintowaną ścieżkę runtime'u: recognition-only Paddle,

@@ -6870,3 +6870,20 @@ niejednoznacznym OCR albo niską pewnością odrzuca obraz jako możliwą klatk�
 przejściową. Rząd fizycznie niewidoczny lub przycięty nie jest dowodem ani
 vetem. Nazwa pliku, source index, sąsiednie obrazy i pozycjowy prior nie mogą
 uzupełniać brakującego proof.
+
+## D-292 — Lokalizator v5 wykrywa niezależne wiersze, nie pełną siatkę
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+`semi-automatic-range-only-ocr-v5-row-first-v1` zastępuje w swojej przyszłej
+ścieżce pełny, afiniczny wymóg 3×3 niezależnymi hipotezami trzech etykiet
+jednego poziomego wiersza. Dopuszcza dwa widoczne wiersze, lokalne pochylenie
+i wersjonowane, progresywne ROI. Kontrolka boczna połączona z numerem może być
+rozcięta wyłącznie w istniejącej dolinie pikseli; w razie braku takiej doliny
+lokalizator nie zgaduje podziału.
+
+Opcjonalny prior zawiera wyłącznie pozycje trzech rzędów i tylko mapuje crop do
+`top`/`middle`/`bottom`. Nie zawiera wartości, nazwy pliku, indeksu źródła ani
+ciągłości sekwencji i dlatego nigdy nie stanowi dowodu zakresu. OCR i finalna
+bramka dwóch zgodnych wierszy pozostają kolejnymi, osobnymi krokami.

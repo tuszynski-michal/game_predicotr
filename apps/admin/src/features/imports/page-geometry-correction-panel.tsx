@@ -60,7 +60,7 @@ interface PageGeometryCorrectionPanelProps {
   readonly uploadId: string;
 }
 
-const HANDLE_RADIUS = 14;
+const HANDLE_SCREEN_RADIUS = 7;
 const MIN_GEOMETRY_ZOOM = 1;
 const MAX_GEOMETRY_ZOOM = 30;
 const GEOMETRY_ZOOM_STEP = 0.25;
@@ -293,6 +293,10 @@ export function PageGeometryCorrectionPanel({
     viewportSize,
     zoom,
   );
+  const handleRadius =
+    imageSize === null || zoomedCanvasSize === null
+      ? HANDLE_SCREEN_RADIUS
+      : (HANDLE_SCREEN_RADIUS * imageSize.width) / zoomedCanvasSize.width;
 
   const imageUrl =
     source === null
@@ -948,12 +952,12 @@ export function PageGeometryCorrectionPanel({
                             className="pageGeometryHandle pageGeometryPlacementHandle"
                             cx={point.x}
                             cy={point.y}
-                            r={HANDLE_RADIUS}
+                            r={handleRadius}
                           />
                           <text
                             className="pageGeometryPlacementLabel"
-                            x={point.x + HANDLE_RADIUS + 4}
-                            y={point.y - HANDLE_RADIUS - 4}
+                            x={point.x + handleRadius + 4 / zoom}
+                            y={point.y - handleRadius - 4 / zoom}
                           >
                             {CORNER_LABELS[index]}
                           </text>
@@ -975,12 +979,12 @@ export function PageGeometryCorrectionPanel({
                             className="pageGeometryHandle pageGeometryPlacementHandle"
                             cx={point.x}
                             cy={point.y}
-                            r={HANDLE_RADIUS}
+                            r={handleRadius}
                           />
                           <text
                             className="pageGeometryPlacementLabel"
-                            x={point.x + HANDLE_RADIUS + 4}
-                            y={point.y - HANDLE_RADIUS - 4}
+                            x={point.x + handleRadius + 4 / zoom}
+                            y={point.y - handleRadius - 4 / zoom}
                           >
                             {CORNER_LABELS[index]}
                           </text>
@@ -1002,7 +1006,7 @@ export function PageGeometryCorrectionPanel({
                                 pointIndex: index,
                               })
                             }
-                            r={HANDLE_RADIUS}
+                            r={handleRadius}
                           />
                         ))
                       : correctionMode === 'curve'
@@ -1022,7 +1026,7 @@ export function PageGeometryCorrectionPanel({
                                   pointIndex: index,
                                 })
                               }
-                              r={HANDLE_RADIUS}
+                              r={handleRadius}
                             />
                           ))
                         : (quads[correctionMode] ?? []).map((point, index) => (
@@ -1038,7 +1042,7 @@ export function PageGeometryCorrectionPanel({
                                   pointIndex: index,
                                 })
                               }
-                              r={HANDLE_RADIUS}
+                              r={handleRadius}
                             />
                           ))
                     : null}

@@ -9,6 +9,10 @@ const panel = await readFile(
   ),
   'utf8',
 );
+const styles = await readFile(
+  new URL('../src/app/globals.css', import.meta.url),
+  'utf8',
+);
 
 test('page geometry editor exposes ordered corners and exact reset', () => {
   assert.match(panel, /lewy górny.*prawy górny.*prawy dolny.*lewy dolny/s);
@@ -48,6 +52,16 @@ test('geometry editor uses the manual-selection fit model and bounded zoom', () 
   assert.match(panel, /Powiększenie zdjęcia geometrii/);
   assert.match(panel, /Przewijaj powiększony obraz w obu osiach/);
   assert.match(panel, /className="pageGeometryViewport" ref=\{viewportRef\}/);
+  assert.match(panel, /HANDLE_SCREEN_RADIUS = 7/);
+  assert.match(
+    panel,
+    /HANDLE_SCREEN_RADIUS \* imageSize\.width\) \/ zoomedCanvasSize\.width/,
+  );
+  assert.doesNotMatch(panel, /r=\{HANDLE_RADIUS\}/);
+  assert.match(
+    styles,
+    /\.pageGeometryCorrectionGrid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s,
+  );
 });
 
 test('geometry editor hides the system proposal while placing manual geometry and previews 5x3 cuts', () => {

@@ -6350,8 +6350,20 @@ div.imageJobInlineError {
 
 .pageGeometryCorrectionGrid {
   display: grid;
-  grid-template-columns: minmax(200px, 0.48fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+}
+
+.pageGeometryControls {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: start;
+}
+
+.pageGeometryControls > .curatedImportStatus,
+.pageGeometryControls > .geometryInstructions,
+.pageGeometryControls > .pageGeometryNavigation,
+.pageGeometryControls > .pageGeometryZoom {
+  grid-column: 1 / -1;
 }
 
 .pageGeometryControls label {
@@ -6464,7 +6476,7 @@ div.imageJobInlineError {
   cursor: grab;
   fill: #ffd15b;
   stroke: #14130d;
-  stroke-width: 4;
+  stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
 }
 

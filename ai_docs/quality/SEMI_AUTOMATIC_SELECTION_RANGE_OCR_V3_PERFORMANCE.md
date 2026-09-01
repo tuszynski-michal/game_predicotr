@@ -50,37 +50,36 @@ Scheduler zapisuje fingerprint i source index razem z groupingiem. Test
 pause/restart potwierdził próby `0,5`, wznowienie od `10`, brak powtórzenia OCR
 zatwierdzonego prefiksu oraz końcowe liczniki `3 probed / 8 skipped`.
 
-## Rozszerzony odbiór 1000 + 1000
+## Rozszerzony odbiór surowych zdjęć 1000 + 1000
 
-Test wykonano 2026-09-01 na dwóch rzeczywistych korpusach. Czas inicjalizacji
-Paddle nie należy do `elapsedSeconds`; obejmuje on checksumming, thumbnail,
-deskryptor, pełny decode zaplanowanych prób i OCR.
+Test wykonano 2026-09-01 na dwóch rozłącznych, naturalnie uporządkowanych
+odcinkach pełnego katalogu `E:\blazing zd\blazing 21400`. Nie użyto ręcznie
+wybranych plików `seq_*`. Czas inicjalizacji Paddle nie należy do
+`elapsedSeconds`; pomiar obejmuje checksumming, thumbnail, deskryptor, pełny
+decode zaplanowanych prób i OCR.
 
-| Próba | Źródła | Próby OCR | Mocny/zaakceptowany dowód | Czas | JPEG/s |
+| Surowy odcinek | Źródła | Próby OCR | Mocny dowód | Czas | JPEG/s |
 |---|---:|---:|---:|---:|---:|
-| trudna: 1000 różnych zatwierdzonych `seq_*` | 1000 | 205 | 138 | 421,802 s | 2,37 |
-| łatwa: 1000 kolejnych, poprawnie ustawionych surowych kadrów | 1000 | 201 | 141 | 475,335 s | 2,10 |
+| offset `0` | 1000 | 201 | 137 | 526,801 s | 1,90 |
+| offset `9000` | 1000 | 201 | 141 | 475,335 s | 2,10 |
+| łącznie | 2000 | 402 | 278 | 1002,136 s | 2,00 |
 
-Trudna próba miała oracle w nazwach plików. Końcowa bramka zaakceptowała 138
-dokładnych zakresów, odrzuciła 23 surowe niekanoniczne hipotezy i nie dopuściła
-żadnego błędnego automatycznego przypisania. Jest to celowo skrajny, gęsty
-strumień, w którym każde kolejne zdjęcie przedstawia inny zakres; 795
-pominiętych źródeł ujawnia ograniczenie recall schedulera dla grup krótszych
-niż wymuszony interwał.
-
-Łatwa próba pochodzi z `E:\blazing zd\blazing 21400`, offset `9000`. Numery są
-czytelne i obraz jest prawidłowo ustawiony. Mocny dowód uzyskało 141 z 201 prób
-OCR. Brak oracle dla pozostałych surowych klatek nie pozwala wyliczyć pełnego
-precision/recall grupowania, dlatego wynik opisuje skuteczność prób, nie
-końcowych wyborów.
-
-Checksummy manifestów wejściowych:
-
-- trudny: `51f53047ed1a4699a3999c2c9ec6aa72f5b2e2fa0ca829b0ec98f6e84a0a374c`;
-- łatwy: `2b19fe63a05d53d7ba704e394f8e5391e192028256b45ec05aa5bf2003f89802`.
+W obu odcinkach scheduler skierował do OCR około 20% surowych klatek. Mocny
+dowód uzyskało 278 z 402 prób, czyli 69,2%. Pierwszy odcinek był droższy:
+mediana próby OCR wyniosła `2,122 s` wobec `1,902 s` dla offsetu `9000`.
+Brak niezależnego oracle dla każdej surowej klatki nie pozwala wyliczyć
+precision/recall końcowego grupowania. Wynik mierzy przepustowość i odsetek
+prób z lokalnym dowodem, nie poprawność wszystkich finalnych wyborów.
 
 Fingerprint recognizera obu prób:
 `61e35b0653fe0787b352fcf9c4670edae28f020eed3e20f35acdadeae355dd8e`.
+
+Próba 1000 zatwierdzonych plików `seq_*` nie jest korpusem odbiorczym
+półautomatu: usuwa redundancję pełnego strumienia i każde kolejne zdjęcie ma
+inny zakres. Pozostaje wyłącznie diagnostyką bramki z oracle. Potwierdziła
+`138` dokładnych zakresów, `23` odrzucone surowe hipotezy i zero błędnych
+automatycznych przypisań, ale jej czasu ani recall nie wolno używać do oceny
+produkcyjnego wyboru reprezentantów.
 
 ### Diagnostyka orientacji
 
@@ -93,14 +92,15 @@ naprawić orientacji niezapisanej w metadanych.
 
 ### Wnioski wydajnościowe
 
-- cel minimum `2 JPEG/s` został spełniony w obu właściwych próbach;
-- cel `3–6 JPEG/s` dla łatwego, użytecznego materiału nie został spełniony;
-- w łatwej próbie OCR zajął `407,503 s` z `475,335 s`, czyli około 85,7% czasu;
-- mediana jednej próby OCR wyniosła `1,902 s`; lekka ścieżka bez OCR kosztowała
-  około `0,068 s/JPEG`;
+- łączny wynik `2,00 JPEG/s` jest na granicy celu minimalnego; trudniejszy
+  odcinek osiągnął tylko `1,90 JPEG/s`;
+- cel `3–6 JPEG/s` dla użytecznego materiału nie został spełniony;
+- OCR zajął łącznie `864,248 s` z `1002,136 s`, czyli około 86,2% czasu;
+- lekka ścieżka bez OCR kosztowała łącznie około `0,069 s/JPEG`;
 - przy udziale prób około 20% osiągnięcie `3 JPEG/s` wymaga zejścia ze średnim
   kosztem próby do około `1,32 s`; `6 JPEG/s` wymagałoby około `0,49 s`;
-- projekcja 42 000 zdjęć z właściwych prób wynosi około `4 h 55 min–5 h 33 min`.
+- projekcja 42 000 zdjęć z dwóch surowych odcinków wynosi około
+  `5 h 33 min–6 h 09 min`, bez jednorazowej inicjalizacji Paddle.
 
 ### Rekomendowane dalsze zmiany
 

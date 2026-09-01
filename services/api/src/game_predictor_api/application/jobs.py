@@ -272,6 +272,13 @@ class JobRepository(Protocol):
 
     def add_job(self, job: Job) -> Job: ...
 
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job: ...
+
     def get_job(self, job_id: UUID) -> Job | None: ...
 
     def get_job_for_update(self, job_id: UUID) -> Job | None: ...
@@ -1066,6 +1073,19 @@ class JobService:
                 "JOB_INPUT_ALREADY_EXISTS",
                 "A job with the same type and input already exists.",
                 details={"existingJobId": str(existing.id)},
+            )
+        source_selection_id = input_payload.get("source_selection_id")
+        if isinstance(source_selection_id, str):
+            try:
+                selection_id = UUID(source_selection_id)
+            except ValueError as error:
+                raise JobError(
+                    "IMAGE_FOLDER_SELECTION_ID_INVALID",
+                    "The source selection identifier is invalid.",
+                ) from error
+            return self._repository.add_source_bound_job(
+                job,
+                source_selection_id=selection_id,
             )
         return self._repository.add_job(job)
 

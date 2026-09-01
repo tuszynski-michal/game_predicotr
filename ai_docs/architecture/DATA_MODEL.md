@@ -1937,6 +1937,9 @@ przechowuje potwierdzony lifecycle handoffu browserowego stagingu. Job
 `storage_inventory` jest read-only; job `storage_gc` może wykonać wyłącznie
 wcześniej utworzony checksum-bound preview.
 
+FK `import_job_id` jest ustawiany w tej samej transakcji co nowy job związany
+ze stagingiem, aby stan `in_use` nigdy nie wskazywał niezatwierdzonego rekordu.
+
 ## Produkcyjny manifest i katalog artefaktu
 
 Manifest M3 ma `manifestVersion = 1` i zawiera:

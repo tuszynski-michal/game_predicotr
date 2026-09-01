@@ -52,6 +52,7 @@ class MemoryJobRepository(JobRepository):
         self.topology_rules_version_id = uuid4()
         self.board_topology: tuple[int, int] | None = (3, 5)
         self.image_geometry_rollout: ImageGeometryRolloutJobReference | None = None
+        self.source_bound_additions: list[tuple[UUID, UUID]] = []
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -100,6 +101,15 @@ class MemoryJobRepository(JobRepository):
     def add_job(self, job: Job) -> Job:
         self.items[job.id] = job
         return job
+
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job:
+        self.source_bound_additions.append((job.id, source_selection_id))
+        return self.add_job(job)
 
     def get_job(self, job_id: UUID) -> Job | None:
         return self.items.get(job_id)
@@ -510,6 +520,25 @@ def test_service_rejects_import_without_server_source_attestation() -> None:
         )
 
     assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
+
+
+def test_page_geometry_preflight_uses_atomic_source_bound_persistence(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+
+    job = service.create_page_geometry_preflight_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=tmp_path,
+        source_display_name="seq import",
+        source_manifest_sha256="a" * 64,
+    )
+
+    assert repository.source_bound_additions == [(job.id, selection_id)]
 
 
 def test_service_physically_deletes_cancelled_image_selection_job(

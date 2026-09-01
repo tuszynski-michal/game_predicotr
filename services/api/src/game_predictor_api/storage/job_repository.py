@@ -25,6 +25,7 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.storage.models import (
+    BrowserSelectionRetentionModel,
     CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
@@ -134,6 +135,37 @@ class SqlAlchemyJobRepository(JobRepository):
         record = job_record_from_domain(job)
         self._session.add(record)
         self._flush_or_raise_conflict()
+        return job_from_record(record)
+
+    def add_source_bound_job(
+        self,
+        job: Job,
+        *,
+        source_selection_id: UUID,
+    ) -> Job:
+        retention = self._session.scalar(
+            select(BrowserSelectionRetentionModel)
+            .where(BrowserSelectionRetentionModel.upload_id == source_selection_id)
+            .with_for_update()
+        )
+        if retention is not None and retention.game_id not in {None, job.game_id}:
+            raise JobConflictError(
+                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                "The staged folder belongs to a different game.",
+            )
+
+        record = job_record_from_domain(job)
+        self._session.add(record)
+        self._flush_or_raise_conflict()
+        if retention is not None:
+            retention.game_id = job.game_id
+            retention.import_job_id = job.id
+            retention.state = "in_use"
+            retention.last_dependency_at = job.created_at
+            retention.eligible_at = None
+            retention.blocked_reason = None
+            retention.updated_at = job.created_at
+            self._flush_or_raise_conflict()
         return job_from_record(record)
 
     def get_job(self, job_id: UUID) -> Job | None:

@@ -2737,6 +2737,11 @@ Admin automatycznie wywołuje idempotentny endpoint geometrii po przygotowaniu
 raportu stagingu. Ponowne wejście odzyskuje istniejący job o tym samym wejściu,
 zamiast wymagać ręcznego przycisku startu.
 
+Dla `created = true` zapis joba i przypięcie lifecycle'u browser stagingu są
+atomowe w jednej transakcji. Dla `created = false` API może odświeżyć ochronę
+stagingu osobnym zapisem, ponieważ wskazany job jest już zatwierdzony. Endpoint
+nie może blokować własnego commita na FK do jeszcze niewidocznego joba.
+
 Nowa gra może utworzyć preflight bez aktywnego profilu rejestracji niezależnie
 od wybranego bezpiecznego presetu. Taki job kończy się poprawnym manifestem,
 w którym źródła

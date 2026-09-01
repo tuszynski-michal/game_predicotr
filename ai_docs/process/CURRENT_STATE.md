@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Atomowy start browser stagingu — TASK-0365
+
+- Nowy preflight geometrii albo import i przypięcie rekordu retencji stagingu
+  są zapisywane w jednej transakcji. Usuwa to wzajemne oczekiwanie dwóch sesji
+  na FK do jeszcze niezatwierdzonego joba.
+- Idempotentne odzyskanie istniejącego joba nadal odświeża ochronę stagingu.
+  Zakres `seq_*` pozostaje automatycznym źródłem sekwencji i liczby plansz;
+  nie powstaje dodatkowy przycisk ani drugi workflow.
+
 ### Szybkie stronicowanie Weryfikacji symboli — TASK-0359
 
 - Lista 500 cropów używa teraz wymuszonego `seek → owner check → hydrate`,

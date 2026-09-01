@@ -536,6 +536,21 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
 def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     tmp_path: Path,
 ) -> None:
+    class RetentionGuard:
+        def record_ready(self, **_values: object) -> None:
+            return None
+
+        def record_in_use(self, **_values: object) -> None:
+            raise AssertionError(
+                "A newly created source-bound job must pin retention in its own transaction."
+            )
+
+        def record_ingested(self, _handoff: object) -> None:
+            return None
+
+        def discard_unused(self, *, upload_id: UUID) -> None:
+            del upload_id
+
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
     repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
@@ -549,6 +564,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         tmp_path / "imports",
         max_bytes=10 * 1024 * 1024,
         clock=lambda: NOW,
+        retention=RetentionGuard(),
     )
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
     job_service = JobService(repository)

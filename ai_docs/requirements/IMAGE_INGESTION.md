@@ -1160,6 +1160,9 @@ Finalizacja zapisuje trwały stan `ready`, a start preflightu lub importu stan
 `in_use`. Worker może zapisać `ingested` dopiero po skopiowaniu i ponownej
 weryfikacji rozmiaru oraz SHA-256 każdego JPEG-a z manifestu — również źródeł,
 które później zostaną pominięte jako kanoniczne lub odroczone przez geometrię.
+Utworzenie nowego joba związanego ze źródłem oraz przejście stagingu do
+`in_use` są jedną transakcją bazy. API nie może przypinać
+niezatwierdzonego jeszcze joba przez drugą sesję.
 Po tym handoffie staging może stać się kandydatem GC po 24 godzinach od
 ostatniej aktywnej zależności. Historia importu i rerun korzystają wtedy z
 niezmiennego manifestu managed originals, a nie z browserowej kopii.

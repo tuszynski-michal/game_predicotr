@@ -19,6 +19,8 @@ from .contracts import (
 from .engine import RangeGroup, RangeGroupSelection, select_middle_exact_observation
 from .middle_row_grouping import (
     MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+    select_exact_evidence_span_observation,
     select_middle_row_exact_observation,
 )
 
@@ -100,6 +102,12 @@ class SemiAutomaticSelectionAudit:
             evidence = group_evidence()
             if selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
                 yield select_middle_row_exact_observation(group, evidence)
+            elif selection_method == ROW_FIRST_EVIDENCE_SELECTOR_VERSION:
+                yield select_exact_evidence_span_observation(
+                    group,
+                    evidence,
+                    selector_version=ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+                )
             else:
                 yield select_middle_exact_observation(group, evidence)
 

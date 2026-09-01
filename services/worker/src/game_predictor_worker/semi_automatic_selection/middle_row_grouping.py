@@ -22,6 +22,8 @@ from .engine import RangeGroup, RangeGroupSelection
 
 MIDDLE_ROW_GROUPING_VERSION = "middle-row-exact-span-grouping-v1"
 MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION = "middle-row-evidence-span-midpoint-v1"
+ROW_FIRST_GROUPING_VERSION = "row-first-exact-span-grouping-v1"
+ROW_FIRST_EVIDENCE_SELECTOR_VERSION = "row-first-evidence-span-midpoint-v1"
 MIDDLE_ROW_GROUPING_CHECKPOINT_VERSION = 1
 MIDDLE_ROW_MAXIMUM_UNKNOWN_GAP = 160
 MIDDLE_ROW_GROUPING_CALIBRATION_MANIFEST_SHA256 = (
@@ -30,12 +32,34 @@ MIDDLE_ROW_GROUPING_CALIBRATION_MANIFEST_SHA256 = (
 
 
 def middle_row_grouping_policy_fingerprint() -> str:
+    return exact_evidence_span_grouping_policy_fingerprint(
+        algorithm_version=MIDDLE_ROW_GROUPING_VERSION,
+        selector_version=MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    )
+
+
+def row_first_grouping_policy_fingerprint() -> str:
+    """Fingerprint the v5 grouping contract independently from v4.1."""
+
+    return exact_evidence_span_grouping_policy_fingerprint(
+        algorithm_version=ROW_FIRST_GROUPING_VERSION,
+        selector_version=ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+    )
+
+
+def exact_evidence_span_grouping_policy_fingerprint(
+    *,
+    algorithm_version: str,
+    selector_version: str,
+) -> str:
+    if not algorithm_version or not selector_version:
+        raise ValueError("Exact-evidence grouping versions cannot be empty.")
     return _canonical_sha256(
         {
-            "algorithmVersion": MIDDLE_ROW_GROUPING_VERSION,
+            "algorithmVersion": algorithm_version,
             "calibrationManifestSha256": (MIDDLE_ROW_GROUPING_CALIBRATION_MANIFEST_SHA256),
             "maximumConsecutiveUnknownSources": MIDDLE_ROW_MAXIMUM_UNKNOWN_GAP,
-            "selectorVersion": MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+            "selectorVersion": selector_version,
         }
     )
 
@@ -154,11 +178,15 @@ class MiddleRowGroupingAccumulator:
         self,
         *,
         maximum_consecutive_unknown_sources: int = MIDDLE_ROW_MAXIMUM_UNKNOWN_GAP,
+        algorithm_version: str = MIDDLE_ROW_GROUPING_VERSION,
+        selector_version: str = MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
         checkpoint: Mapping[str, object] | None = None,
     ) -> None:
-        if maximum_consecutive_unknown_sources < 0:
+        if maximum_consecutive_unknown_sources < 0 or not algorithm_version or not selector_version:
             raise ValueError("Maximum unknown gap cannot be negative.")
         self._maximum_gap = maximum_consecutive_unknown_sources
+        self._algorithm_version = algorithm_version
+        self._selector_version = selector_version
         self._next_source_index = 0
         self._next_group_order = 0
         self._active: _OpenExactSpan | None = None
@@ -194,7 +222,7 @@ class MiddleRowGroupingAccumulator:
     def checkpoint(self) -> dict[str, object]:
         return {
             "activeGroup": None if self._active is None else self._active.to_checkpoint(),
-            "algorithmVersion": MIDDLE_ROW_GROUPING_VERSION,
+            "algorithmVersion": self._algorithm_version,
             "maximumConsecutiveUnknownSources": self._maximum_gap,
             "nextGroupOrder": self._next_group_order,
             "nextSourceIndex": self._next_source_index,
@@ -242,14 +270,18 @@ class MiddleRowGroupingAccumulator:
         self._next_group_order += 1
         return FinalizedMiddleRowGroup(
             group=group,
-            selection=select_middle_row_exact_observation(group, value.exact_candidates),
+            selection=select_exact_evidence_span_observation(
+                group,
+                value.exact_candidates,
+                selector_version=self._selector_version,
+            ),
         )
 
     def _restore(self, checkpoint: Mapping[str, object]) -> None:
         try:
             if (
                 checkpoint.get("schemaVersion") != MIDDLE_ROW_GROUPING_CHECKPOINT_VERSION
-                or checkpoint.get("algorithmVersion") != MIDDLE_ROW_GROUPING_VERSION
+                or checkpoint.get("algorithmVersion") != self._algorithm_version
                 or _as_int(checkpoint["maximumConsecutiveUnknownSources"]) != self._maximum_gap
             ):
                 raise ValueError("contract mismatch")
@@ -272,7 +304,25 @@ def select_middle_row_exact_observation(
     group: RangeGroup,
     evidence: Iterable[RangeEvidenceResult],
 ) -> RangeGroupSelection:
+    """Select a v4.1 own-proof observation without changing its contract."""
+
+    return select_exact_evidence_span_observation(
+        group,
+        evidence,
+        selector_version=MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    )
+
+
+def select_exact_evidence_span_observation(
+    group: RangeGroup,
+    evidence: Iterable[RangeEvidenceResult],
+    *,
+    selector_version: str,
+) -> RangeGroupSelection:
     """Select own-proof evidence closest to the exact evidence-span midpoint."""
+
+    if not selector_version:
+        raise ValueError("Evidence-span selector version cannot be empty.")
 
     candidates = tuple(
         item
@@ -308,7 +358,7 @@ def select_middle_row_exact_observation(
     return RangeGroupSelection(
         group=group,
         evidence=selected,
-        selection_method=MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+        selection_method=selector_version,
     )
 
 
@@ -383,8 +433,13 @@ __all__ = [
     "MIDDLE_ROW_GROUPING_CHECKPOINT_VERSION",
     "MIDDLE_ROW_GROUPING_VERSION",
     "MIDDLE_ROW_MAXIMUM_UNKNOWN_GAP",
+    "ROW_FIRST_EVIDENCE_SELECTOR_VERSION",
+    "ROW_FIRST_GROUPING_VERSION",
     "FinalizedMiddleRowGroup",
     "MiddleRowGroupingAccumulator",
+    "exact_evidence_span_grouping_policy_fingerprint",
     "middle_row_grouping_policy_fingerprint",
+    "row_first_grouping_policy_fingerprint",
+    "select_exact_evidence_span_observation",
     "select_middle_row_exact_observation",
 ]

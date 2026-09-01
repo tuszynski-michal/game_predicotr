@@ -989,6 +989,20 @@ kontrolę. Bezpieczeństwo proof pozostaje niezmienne; nowy run nadal używa v3,
 dopóki kolejny fingerprint nie przejdzie nowego, wcześniej niewidzianego
 holdoutu.
 
+Wariant v5 `semi-automatic-range-only-ocr-v5-row-first-v1` jest podłączony do
+trwałego joba wyłącznie przez własny fingerprint. Każde źródło jest
+kanonizowane zgodnie z EXIF dokładnie raz; v5 nie wykonuje dodatkowego OCR do
+kalibracji obrotu. Locator może zwrócić niezależne wiersze, ale auto-wybór
+wymaga dwóch zgodnych, kompletnych wierszy tego samego JPEG-a. Jeden wiersz,
+konflikt widocznych wierszy albo nieczytelny crop daje lukę.
+
+Skan v5 zachowuje source batch `6`, dzieli recognition-only Paddle na batche
+nie większe niż dziewięć cropów i zapisuje checkpoint dopiero po pełnym batchu
+źródeł. Wznowienie używa utrwalonego fingerprintu runtime'u, observation key i
+polityki grupowania v5; nie może przełączyć runu v1–v4.1 ani dublować
+zatwierdzonego prefiksu. Wariant nie jest jeszcze domyślny ani nie uruchamia
+geometrii, board/cell croppera lub inferencji symboli.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

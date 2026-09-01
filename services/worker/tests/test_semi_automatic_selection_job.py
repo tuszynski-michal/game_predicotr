@@ -40,7 +40,9 @@ from game_predictor_worker.semi_automatic_selection.job import (
 )
 from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
     MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
     middle_row_grouping_policy_fingerprint,
+    row_first_grouping_policy_fingerprint,
 )
 from game_predictor_worker.semi_automatic_selection.middle_row_locator import (
     BoundingBox,
@@ -61,6 +63,16 @@ from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     RangeOnlyRecognition,
+)
+from game_predictor_worker.semi_automatic_selection.range_proof_v5 import RangeRowOffset
+from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import (
+    RowFirstLabelCrop,
+    RowFirstLocation,
+    RowFirstLocatorResult,
+    RowFirstRowHypothesis,
+)
+from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (
+    ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
 )
 from PIL import Image
 
@@ -190,6 +202,67 @@ class _MiddleRowLocator:
         )
 
 
+class _RowFirstLocator:
+    fingerprint = "e" * 64
+
+    def __init__(self, values: Sequence[tuple[tuple[int, int, int], tuple[int, int, int]]]) -> None:
+        self.values = list(values)
+
+    def locate(self, _source: CanonicalSourceImage) -> RowFirstLocatorResult:
+        top_values, middle_values = self.values.pop(0)
+        boxes = (
+            BoundingBox(1, 2, 3, 4),
+            BoundingBox(5, 2, 7, 4),
+            BoundingBox(9, 2, 11, 4),
+        )
+        quality = LocalQualityScores(
+            tenengrad=50,
+            contrast=20,
+            edge_density=0.2,
+            dark_ratio=0.2,
+            bright_ratio=0.2,
+            directional_blur_ratio=1,
+        )
+
+        def build_row(
+            row: RangeRowOffset,
+            values: tuple[int, int, int],
+        ) -> RowFirstRowHypothesis:
+            crops = tuple(
+                RowFirstLabelCrop(
+                    box=box,
+                    component_box=box,
+                    rgb=np.full((2, 2, 3), value, dtype=np.uint8),
+                    complete=True,
+                    quality=quality,
+                    readable=True,
+                )
+                for box, value in zip(boxes, values, strict=True)
+            )
+            return RowFirstRowHypothesis(
+                row=row,
+                centers=((2, 3), (6, 3), (10, 3)),
+                component_boxes=boxes,
+                crops=crops,  # type: ignore[arg-type]
+                baseline_slope=0,
+                score=0.95,
+                source_roi_level=0,
+            )
+
+        return RowFirstLocatorResult(
+            location=RowFirstLocation(
+                rows=(
+                    build_row(RangeRowOffset.TOP, top_values),
+                    build_row(RangeRowOffset.MIDDLE, middle_values),
+                ),
+                candidate_boxes=(),
+                locator_fingerprint=self.fingerprint,
+            ),
+            reason_code=None,
+            diagnostics={},
+        )
+
+
 class _MemoryStore:
     def __init__(
         self,
@@ -261,11 +334,17 @@ class _MemoryStore:
             )
             counters["autoSelected"] += 1
             counters["missing"] -= 1
-            if group_selection.selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
+            if group_selection.selection_method in {
+                MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+                ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+            }:
                 counters["selectedRanges"] = counters.get("selectedRanges", 0) + 1
         else:
             counters["duplicateGroups"] = counters.get("duplicateGroups", 0) + 1
-            if group_selection.selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
+            if group_selection.selection_method in {
+                MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+                ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+            }:
                 counters["duplicateRanges"] = counters.get("duplicateRanges", 0) + 1
         if increment_out_of_order:
             counters["outOfOrderGroups"] = counters.get("outOfOrderGroups", 0) + 1
@@ -381,7 +460,11 @@ def _ready_run(
         grouping_policy_fingerprint=(
             middle_row_grouping_policy_fingerprint()
             if recognizer_fingerprint == MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4
-            else grouping_policy_fingerprint()
+            else (
+                row_first_grouping_policy_fingerprint()
+                if recognizer_fingerprint == ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5
+                else grouping_policy_fingerprint()
+            )
         ),
     )
 
@@ -665,6 +748,81 @@ def test_v4_already_saved_and_out_of_order_ranges_remain_diagnostic(
     assert store.run.counters["outOfOrderGroups"] == 1
     assert store.ranges[(10, 18)].source_index == 0
     assert store.ranges[(1, 9)].source_index == 2
+
+
+def test_v5_batch_checkpoint_resumes_without_duplicate_observations(
+    tmp_path: Path,
+) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        recognizer_fingerprint=ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
+        source_count=8,
+    )
+    store = _MemoryStore(run, ranges)
+    store.pause_after_processed_sources = 6
+    first_backend = _MiddleRowRecognitionBackend()
+    first_handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        middle_row_recognizer_factory=lambda _path: MiddleRowPaddleRecognitionAdapter(
+            first_backend
+        ),
+        row_first_locator_factory=lambda: _RowFirstLocator(
+            tuple((((1, 2, 3), (4, 5, 6))) for _ in range(6))
+        ),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(_WaitForReview):
+        first_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert store.run.status is SemiAutomaticSelectionRunStatus.PAUSED
+    assert store.run.checkpoint["observationCount"] == 6
+    assert store.run.checkpoint["lastCommittedBatch"] == 0
+    assert store.run.checkpoint["sourceBatchSize"] == 6
+    assert first_backend.batch_sizes == [9, 9, 9, 9]
+
+    observations_path = (
+        tmp_path
+        / "artifacts"
+        / "exports"
+        / "semi-automatic-selection"
+        / str(run.id)
+        / "observations.jsonl"
+    )
+    with observations_path.open("a", encoding="utf-8") as stream:
+        stream.write("{}\n")
+
+    store.run = replace(store.run, status=SemiAutomaticSelectionRunStatus.READY)
+    resumed_backend = _MiddleRowRecognitionBackend()
+    resumed_handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        middle_row_recognizer_factory=lambda _path: MiddleRowPaddleRecognitionAdapter(
+            resumed_backend
+        ),
+        row_first_locator_factory=lambda: _RowFirstLocator(
+            (((10, 11, 12), (13, 14, 15)), ((10, 11, 12), (13, 14, 15)))
+        ),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(_WaitForReview):
+        resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    persisted_observations = [
+        json.loads(line) for line in observations_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(persisted_observations) == 8
+    assert [item["sourceIndex"] for item in persisted_observations] == list(range(8))
+    assert len({item["observationKey"] for item in persisted_observations}) == 8
+    assert resumed_backend.batch_sizes == [9, 3]
+    assert store.run.status is SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE
+    assert store.run.counters["selectedRanges"] == 2
+    assert store.ranges[(1, 9)].source_index == 2
+    assert store.ranges[(10, 18)].source_index == 6
 
 
 def test_handler_preserves_lease_conflict_from_the_store(tmp_path: Path) -> None:

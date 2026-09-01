@@ -1508,6 +1508,30 @@ może zmienić locator, crop albo preprocessing wyłącznie pod nowym fingerprin
 i na oddzielnym tuning secie. Obecnego golden wyniku nie wolno użyć do strojenia
 ani zastąpić korzystniejszą próbką.
 
+## Runtime row-first range-only OCR v5 — TASK-0373
+
+`RowFirstBatchRuntime` jest niezależnym adapterem wybieranym wyłącznie przez
+utrwalony fingerprint `semi-automatic-range-only-ocr-v5-row-first-v1`.
+Kanonizacja EXIF następuje raz na źródło, a polityka v5 zachowuje wynik w tym
+układzie zamiast wykonywać drugi przebieg OCR na próbkach orientacji. Locator
+zwraca zero, jeden lub dwa niezależne wiersze source-direct; każdy wiersz ma
+trzy cropy i jest rozwiązywany przez `RowFirstExactResolver` przed finalną
+bramką `verify_range_candidate`.
+
+Jeden source batch obejmuje sześć JPEG-ów. Wszystkie cropy zlokalizowanych
+wierszy są mapowane z powrotem do źródła i wiersza, a recognition-only Paddle
+otrzymuje je w kolejnych wywołaniach po maksymalnie dziewięć cropów. Finalny
+`exact` wymaga dwóch zgodnych wierszy jednego źródła; kompletna, ale
+niezweryfikowana albo sprzeczna trójka zamienia wynik w `unknown`. Brak proofu
+nie staje się kandydatem grupy.
+
+V5 używa tej samej bounded implementacji evidence-span, lecz z osobną wersją
+algorytmu i selektora w fingerprintcie grupowania. Checkpoint po pełnym batchu
+zawiera wersję runtime'u, jego fingerprint, source batch size oraz wersjonowany
+stan grouping. Audit odcina niezatwierdzony suffix po restarcie, a observation
+key wiąże run, źródło i runtime. V1–v4.1 zachowują swoje factory, selection
+method i checkpointy.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

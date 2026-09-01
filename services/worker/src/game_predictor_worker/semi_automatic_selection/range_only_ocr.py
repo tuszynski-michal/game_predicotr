@@ -25,6 +25,7 @@ from .contracts import (
     SemiAutomaticSequenceBounds,
 )
 from .middle_row_runtime import MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4
+from .row_first_runtime_v5 import ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5
 
 RANGE_ONLY_OCR_ADAPTER_VERSION_V1 = "semi-automatic-range-only-ocr-v1"
 RANGE_ONLY_OCR_ADAPTER_VERSION_V2 = "semi-automatic-range-only-ocr-v2"
@@ -202,6 +203,7 @@ SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS = frozenset(
         RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
         RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
         MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+        ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
     }
 )
 
@@ -566,9 +568,7 @@ def build_paddle_range_only_recognizer_v3(model_root: Path) -> RangeOnlyRecogniz
     return _build_progressive_range_only_recognizer(
         model_root,
         candidate_policy=RANGE_ONLY_CANDIDATE_POLICY_V3,
-        recognizer_version=(
-            "visible-sequence-label-range-v15+range-only-adaptive-probes-v3"
-        ),
+        recognizer_version=("visible-sequence-label-range-v15+range-only-adaptive-probes-v3"),
         adapter_version=RANGE_ONLY_OCR_ADAPTER_VERSION_V3,
         proof_policy_version=RANGE_ONLY_PROOF_POLICY_VERSION_V3,
         execution_policy=RANGE_ONLY_EXECUTION_POLICY_V3,

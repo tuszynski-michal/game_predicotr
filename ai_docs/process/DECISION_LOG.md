@@ -6887,3 +6887,20 @@ Opcjonalny prior zawiera wyłącznie pozycje trzech rzędów i tylko mapuje crop
 `top`/`middle`/`bottom`. Nie zawiera wartości, nazwy pliku, indeksu źródła ani
 ciągłości sekwencji i dlatego nigdy nie stanowi dowodu zakresu. OCR i finalna
 bramka dwóch zgodnych wierszy pozostają kolejnymi, osobnymi krokami.
+
+## D-293 — Runtime v5 checkpointuje wyłącznie pełny batch źródeł
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Runtime v5 jest wybierany wyłącznie z utrwalonego fingerprintu contractu runu.
+Każdy obraz jest kanonizowany według EXIF dokładnie raz, bez dodatkowego OCR
+kalibracji orientacji. Sześć źródeł tworzy checkpointowalny batch, a
+source-direct cropy etykiet są kierowane do Paddle tylko w batchach nie
+większych niż dziewięć.
+
+Audit, grupowanie i checkpoint są zapisywane dopiero po ukończeniu całego
+batcha źródeł. Po restarcie odcinany jest wyłącznie niezatwierdzony suffix, a
+observation key wiąże run, checksumę źródła i fingerprint runtime'u. V5 ma
+własną wersję polityki grupowania oraz selektora, aby checkpoint nie był
+zgodny z v4.1 mimo wspólnej semantyki evidence span.

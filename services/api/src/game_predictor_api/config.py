@@ -114,7 +114,7 @@ class ApiSettings:
             variable_name="GAME_PREDICTOR_IMAGE_SELECTION_MAX_BYTES",
         )
         semi_automatic_image_selection_enabled = _parse_boolean(
-            source.get("GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION", "false"),
+            source.get("GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION", "true"),
             variable_name="GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION",
         )
         storage_warning_gib = _parse_positive_integer(

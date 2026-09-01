@@ -6923,3 +6923,19 @@ cropów, preprocessingu, confidence ani dowodu na tych dwóch zamrożonych
 zbiorach. Kolejna próba wymaga nowego fingerprintu, rozłącznego tuningu oraz
 nowego, wcześniej niewidzianego holdoutu. V1–v4.1 i aktywny v3 pozostają
 odtwarzalne bez zmian.
+
+## D-295 — Odebrany v3 jest domyślnym półautomatem, warianty eksperymentalne pozostają wyłączone
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Po jawnej decyzji operatora lokalna instalacja domyślnie udostępnia
+półautomatyczną selekcję opartą na odebranym
+`semi-automatic-range-only-ocr-v3`. V3 zachowuje fail-closed proof, zero
+fałszywych przypisań na zaakceptowanych próbach, trwałe checkpointy oraz
+izolację od geometrii, croppera i inferencji symboli.
+
+Decyzja nie promuje odrzuconych v4.1 ani v5. Historyczny run zawsze wybiera
+adapter z utrwalonego fingerprintu, a konfiguracja środowiskowa nadal może
+jawnie wyłączyć cały workflow przez
+`GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`.

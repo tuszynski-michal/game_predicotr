@@ -50,6 +50,7 @@ def _records(
         cells_prediction={},
         board_confidence=0.9,
         pipeline_fingerprint="c" * 64,
+        asset_mode="legacy_file",
         status="pending_review",
     )
     item = ImageReviewItemModel(

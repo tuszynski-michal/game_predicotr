@@ -6904,3 +6904,22 @@ batcha źródeł. Po restarcie odcinany jest wyłącznie niezatwierdzony suffix,
 observation key wiąże run, checksumę źródła i fingerprint runtime'u. V5 ma
 własną wersję polityki grupowania oraz selektora, aby checkpoint nie był
 zgodny z v4.1 mimo wspólnej semantyki evidence span.
+
+## D-294 — V5 row-first pozostaje wyłączony po negatywnym odbiorze
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Checksum-bound challenge (`19`) i wcześniej niewidziany frozen golden (`100`)
+zwróciły dla `semi-automatic-range-only-ocr-v5-row-first-v1` wyłącznie
+`unknown`. Wariant nie stworzył false exact ani nie uruchomił geometrii,
+croppera plansz/komórek lub inferencji symboli, lecz osiągnął `0%` readable
+coverage oraz `0%` group capture. Dominującym powodem jest
+`COMPLETE_ROW_UNVERIFIED`; inferencja OCR odpowiada za największą część czasu
+skanu.
+
+V5 nie staje się domyślnym adapterem i nie wolno stroić jego lokalizatora,
+cropów, preprocessingu, confidence ani dowodu na tych dwóch zamrożonych
+zbiorach. Kolejna próba wymaga nowego fingerprintu, rozłącznego tuningu oraz
+nowego, wcześniej niewidzianego holdoutu. V1–v4.1 i aktywny v3 pozostają
+odtwarzalne bez zmian.

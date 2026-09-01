@@ -1532,6 +1532,14 @@ stan grouping. Audit odcina niezatwierdzony suffix po restarcie, a observation
 key wiąże run, źródło i runtime. V1–v4.1 zachowują swoje factory, selection
 method i checkpointy.
 
+Checksum-bound odbiór TASK-0374 nie autoryzował aktywacji v5. Challenge `19`
+oraz frozen golden `100` zwróciły wyłącznie `unknown`; brak fałszywego wyboru
+nie zastępuje wymaganej coverage i group capture. W obu zestawach dominuje
+`COMPLETE_ROW_UNVERIFIED`, a golden spędził `90,17 s` z `102,05 s` skanu w
+inferencji OCR. Jest to diagnostyka do osobnej iteracji z nowym fingerprintem,
+nie powód zmiany kontraktu proof, korzystania z nazw źródeł lub przestawienia
+domyślnego factory.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

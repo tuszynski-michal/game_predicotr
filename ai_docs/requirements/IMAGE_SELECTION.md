@@ -1003,6 +1003,14 @@ polityki grupowania v5; nie może przełączyć runu v1–v4.1 ani dublować
 zatwierdzonego prefiksu. Wariant nie jest jeszcze domyślny ani nie uruchamia
 geometrii, board/cell croppera lub inferencji symboli.
 
+Odbiór checksum-bound TASK-0374 odrzucił rollout v5 bez zmiany jego kontraktu.
+Na challenge `19` oraz frozen golden `100` wariant nie utworzył żadnego
+`exact`, więc zachował zero false exact, lecz nie spełnił bramek coverage ani
+group capture. Dominujący reason code `COMPLETE_ROW_UNVERIFIED` wskazuje, że
+rozpoznawanie etykiet po lokalizacji nie potwierdza pełnych rzędów; nie jest to
+uprawnienie do obniżenia proof. V5 pozostaje wyłączony, a następna iteracja
+musi powstać pod nowym fingerprintem i przejść wcześniej niewidziany holdout.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

@@ -966,9 +966,19 @@ wpisu `ExpectedRangeTable`. Nazwa pliku, katalog, source index, sąsiednie zdję
 i fuzzy correction nie mogą dostarczyć ani uzupełnić dowodu. Częściowa końcowa
 strona jest rozpoznawalna tylko wtedy, gdy zawiera cały środkowy rząd.
 
-TASK-0368 nie przełącza nowych runów na v4.1. Produkcyjny Paddle, batching,
-orientacja runu, grouping i checkpoint należą do TASK-0369, a rollout i pomiary
-do TASK-0370. Do tego czasu v1–v3 i ich fingerprinty pozostają bez zmian.
+TASK-0369 podłącza v4.1 do produkcyjnego recognition-only Paddle i trwałego
+runtime'u joba, ale nadal nie przełącza na niego nowych runów. Batch źródeł ma
+wartość `6`, wybraną jako najlepszy wynik bounded pomiaru `1/3/6/12`; każde
+źródło wnosi najwyżej trzy cropy, a wewnętrzny batch Paddle pozostaje równy
+dziewięć. Orientacja `auto | 0 | 90 | 180 | 270`, run-level prior, grouping,
+pełny prefiks oraz diagnostyka są przypięte fingerprintem i checkpointem.
+
+`Unknown` może leżeć pomiędzy dwoma exact proof tego samego zakresu, lecz nigdy
+nie zostaje kandydatem i nie rozszerza granic evidence span. Reprezentantem jest
+exact proof najbliższy środkowi tego span; jako tie-break służą czytelność,
+minimalne confidence OCR i niższy source index. Rollout i próby 10/100/1000
+pozostają w TASK-0370. V1–v3 i ich fingerprinty zachowują dotychczasowe
+zachowanie.
 
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka

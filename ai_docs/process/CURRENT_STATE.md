@@ -15,6 +15,19 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Batch, orientacja i recovery range-only OCR v4.1 — TASK-0369
+
+- V4.1 ma osobną, fingerprintowaną ścieżkę runtime'u: recognition-only Paddle,
+  stałą orientację runu, bounded lattice prior, batchowanie i checkpoint po
+  pełnym prefiksie. Historyczne v1–v3 nadal wybierają własne adaptery.
+- Rzeczywisty bounded pomiar `1/3/6/12` wybrał `sourceBatchSize=6`: medianowo
+  około `6,23 źródła/s` dla OCR wobec `5,25` dla batcha 3. Jeden wewnętrzny
+  batch Paddle nadal obejmuje najwyżej dziewięć cropów.
+- Unknown nie jest kandydatem i nie przesuwa granic evidence span. Po restarcie
+  audit odcina tylko niezatwierdzony suffix, a observation key oraz checkpoint
+  zapobiegają duplikatom. V4.1 nie jest jeszcze domyślne; próby jakościowe i
+  rollout pozostają zakresem TASK-0370.
+
 ### Exact proof środkowego rzędu v4.1 — TASK-0368
 
 - Powstał niezależny komponent przyszłego

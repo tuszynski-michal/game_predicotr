@@ -6820,3 +6820,21 @@ cropper plansz i symbol inference pozostają zabronione.
 TASK-0368 tworzy wyłącznie czyste kontrakty i locator. Nie zmienia aktywnego
 fingerprintu nowych runów. V1–v3 są odtwarzalne bez zmian, a integracja runtime
 i rollout wymagają osobnych tasków oraz bramki zero false exact.
+
+## D-289 — Runtime v4.1 używa batcha sześciu źródeł i evidence span exact proof
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Bounded pomiar rzeczywistego recognition-only Paddle dla batchów `1/3/6/12`
+wykazał najlepszy medianowy throughput dla sześciu źródeł. Batch trzy był ponad
+5% wolniejszy, dlatego produkcyjny kontrakt v4.1 przypina `sourceBatchSize=6`,
+wewnętrzny batch dziewięciu cropów i checkpoint po każdym pełnym source batchu.
+Wartość uczestniczy w fingerprintcie i nie może zmienić się po starcie runu.
+
+Unknown wewnątrz odcinka może połączyć dwa własne exact proof tego samego
+zakresu, ale nie rozszerza granic grupy ani nie może zostać reprezentantem.
+Środek liczony jest wyłącznie pomiędzy pierwszym i ostatnim exact proof, a wybór
+musi wskazywać źródło mające własny `MIDDLE_ROW_TRIPLE_EXACT`. Orientacja i
+pozycjowy lattice prior są utrwalane, lecz prior nie może zawierać ani dowodzić
+wartości numerów. Nowe runy pozostają na v3 do odbioru TASK-0370.

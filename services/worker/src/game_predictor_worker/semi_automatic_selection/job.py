@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -47,6 +47,28 @@ from .contracts import (
     SemiAutomaticSequenceBounds,
 )
 from .engine import RangeGroupingAccumulator, RangeGroupSelection, grouping_policy_fingerprint
+from .middle_row_grouping import (
+    MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    FinalizedMiddleRowGroup,
+    MiddleRowGroupingAccumulator,
+    middle_row_grouping_policy_fingerprint,
+)
+from .middle_row_locator import MiddleRowTripleLocator
+from .middle_row_range import ExpectedRangeTable
+from .middle_row_runtime import (
+    DEFAULT_MIDDLE_ROW_RUNTIME_POLICY,
+    MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+    MiddleRowBatchRuntime,
+    MiddleRowLatticePriorTracker,
+    MiddleRowOrientationCalibration,
+    MiddleRowPaddleRecognitionAdapter,
+    MiddleRowRunOrientation,
+    MiddleRowRuntimePolicy,
+    MiddleRowSourcePayload,
+    build_middle_row_paddle_adapter,
+    calibrate_middle_row_orientation,
+    deterministic_orientation_sample_indexes,
+)
 from .range_only_ocr import (
     RANGE_ONLY_OCR_SCHEDULING_POLICY_V3,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
@@ -80,6 +102,8 @@ class SelectionApplyOutcome:
 
 
 RecognizerFactory = Callable[[Path, str], RangeOnlyRecognizer]
+MiddleRowRecognizerFactory = Callable[[Path], MiddleRowPaddleRecognitionAdapter]
+MiddleRowLocatorFactory = Callable[[], MiddleRowTripleLocator]
 
 
 class SemiAutomaticSelectionJobStore:
@@ -187,8 +211,12 @@ class SemiAutomaticSelectionJobStore:
                 item.updated_at = persisted_at
                 counters["autoSelected"] = counters.get("autoSelected", 0) + 1
                 counters["missing"] = max(0, counters.get("missing", 0) - 1)
+                if selection.selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
+                    counters["selectedRanges"] = counters.get("selectedRanges", 0) + 1
             else:
                 counters["duplicateGroups"] = counters.get("duplicateGroups", 0) + 1
+                if selection.selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
+                    counters["duplicateRanges"] = counters.get("duplicateRanges", 0) + 1
             if run.status != SemiAutomaticSelectionRunStatus.PAUSED.value:
                 run.status = SemiAutomaticSelectionRunStatus.RUNNING.value
             _apply_run_progress(run, checkpoint, counters, persisted_at)
@@ -250,12 +278,20 @@ class SemiAutomaticImageSelectionJobHandler:
         artifact_root: Path,
         repository_root: Path,
         recognizer_factory: RecognizerFactory = build_paddle_range_only_recognizer_for_contract,
+        middle_row_recognizer_factory: MiddleRowRecognizerFactory = (
+            build_middle_row_paddle_adapter
+        ),
+        middle_row_locator_factory: MiddleRowLocatorFactory = MiddleRowTripleLocator,
+        v4_orientation_override: MiddleRowRunOrientation = MiddleRowRunOrientation.AUTO,
     ) -> None:
         self._store = store
         self._browser_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._recognizer_factory = recognizer_factory
+        self._middle_row_recognizer_factory = middle_row_recognizer_factory
+        self._middle_row_locator_factory = middle_row_locator_factory
+        self._v4_orientation_override = v4_orientation_override
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         try:
@@ -315,6 +351,16 @@ class SemiAutomaticImageSelectionJobHandler:
         audit: SemiAutomaticSelectionAudit,
         checkpoint: dict[str, object],
     ) -> tuple[SemiAutomaticSelectionRun, dict[str, object]]:
+        if run.recognizer_fingerprint == MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4:
+            return self._scan_middle_row_v4(
+                context,
+                job,
+                run=run,
+                sources=sources,
+                source_root=source_root,
+                audit=audit,
+                checkpoint=checkpoint,
+            )
         bounds = _worker_bounds(run)
         recognizer = self._recognizer_factory(
             self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1",
@@ -404,6 +450,197 @@ class SemiAutomaticImageSelectionJobHandler:
         _job_checkpoint(context, run, checkpoint, total=len(sources))
         return run, checkpoint
 
+    def _scan_middle_row_v4(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+        *,
+        run: SemiAutomaticSelectionRun,
+        sources: tuple[_StagedSource, ...],
+        source_root: Path,
+        audit: SemiAutomaticSelectionAudit,
+        checkpoint: dict[str, object],
+    ) -> tuple[SemiAutomaticSelectionRun, dict[str, object]]:
+        bounds = _worker_bounds(run)
+        expected_ranges = ExpectedRangeTable.from_bounds(bounds)
+        locator = self._middle_row_locator_factory()
+        recognizer = self._middle_row_recognizer_factory(
+            self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
+        )
+        runtime_policy = MiddleRowRuntimePolicy(
+            batch=DEFAULT_MIDDLE_ROW_RUNTIME_POLICY.batch,
+            orientation=DEFAULT_MIDDLE_ROW_RUNTIME_POLICY.orientation,
+            prior=DEFAULT_MIDDLE_ROW_RUNTIME_POLICY.prior,
+            orientation_override=self._v4_orientation_override,
+        )
+        calibration_raw = checkpoint.get("orientationCalibration")
+        calibration: MiddleRowOrientationCalibration
+        if isinstance(calibration_raw, Mapping):
+            calibration = MiddleRowOrientationCalibration.from_dict(calibration_raw)
+            if (
+                calibration.unresolved
+                and self._v4_orientation_override is not MiddleRowRunOrientation.AUTO
+            ):
+                calibration = calibrate_middle_row_orientation(
+                    payloads=(),
+                    expected_ranges=expected_ranges,
+                    locator=locator,
+                    recognizer=recognizer,
+                    override=self._v4_orientation_override,
+                    policy=runtime_policy.orientation,
+                )
+        else:
+            sample_indexes = deterministic_orientation_sample_indexes(
+                len(sources),
+                sample_count=runtime_policy.orientation.calibration_source_count,
+            )
+            sample_payloads = _load_middle_row_payloads(
+                tuple(sources[index] for index in sample_indexes),
+                source_root=source_root,
+            )
+            calibration = calibrate_middle_row_orientation(
+                payloads=sample_payloads,
+                expected_ranges=expected_ranges,
+                locator=locator,
+                recognizer=recognizer,
+                override=self._v4_orientation_override,
+                policy=runtime_policy.orientation,
+            )
+
+        if calibration.unresolved or calibration.orientation is None:
+            counters = dict(run.counters)
+            counters["unknownOrientation"] = counters.get("unknownOrientation", 0) + 1
+            checkpoint = {
+                **checkpoint,
+                "diagnosticCounters": dict(counters),
+                "orientationCalibration": calibration.as_dict(),
+                "orientationUnresolved": True,
+                "phase": "scanning",
+                "runtimeVariant": MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+                "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
+                "sourceBatchSize": runtime_policy.batch.source_batch_size,
+            }
+            audit.write_checkpoint(checkpoint)
+            run = self._store.persist_checkpoint(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                checkpoint=checkpoint,
+                counters=counters,
+                persisted_at=context.now(),
+            )
+            _job_checkpoint(context, run, checkpoint, total=len(sources))
+            context.wait_for_review()
+
+        grouping_checkpoint = cast(
+            Mapping[str, object] | None,
+            checkpoint.get("groupingState"),
+        )
+        accumulator = MiddleRowGroupingAccumulator(checkpoint=grouping_checkpoint)
+        prior_checkpoint = cast(
+            Mapping[str, object] | None,
+            checkpoint.get("latticePriorState"),
+        )
+        prior_tracker = MiddleRowLatticePriorTracker(
+            runtime_policy.prior,
+            checkpoint=prior_checkpoint,
+        )
+        runtime = MiddleRowBatchRuntime(
+            run_id=run.id,
+            expected_ranges=expected_ranges,
+            rotation=cast(MiddleRowRunOrientation, calibration.orientation),
+            locator=locator,
+            recognizer=recognizer,
+            policy=runtime_policy,
+            prior_tracker=prior_tracker,
+        )
+        checkpoint_runtime = checkpoint.get("runtimeRecognizerFingerprint")
+        if checkpoint_runtime is not None and checkpoint_runtime != runtime.runtime_fingerprint:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "The v4.1 runtime fingerprint changed after checkpointing.",
+            )
+        checkpoint_batch_size = checkpoint.get("sourceBatchSize")
+        if checkpoint_batch_size is not None and _object_as_int(checkpoint_batch_size) != (
+            runtime_policy.batch.source_batch_size
+        ):
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "The v4.1 source batch size changed after checkpointing.",
+            )
+
+        counters = dict(run.counters)
+        counter_base = dict(counters)
+        next_source = accumulator.next_source_index
+        batch_number = _object_as_int(checkpoint.get("lastCommittedBatch", -1)) + 1
+        while next_source < len(sources):
+            staged_batch = sources[
+                next_source : next_source + runtime_policy.batch.source_batch_size
+            ]
+            payloads = _load_middle_row_payloads(staged_batch, source_root=source_root)
+            observations = runtime.process_batch(payloads)
+            finalized_groups: list[FinalizedMiddleRowGroup] = []
+            for evidence in observations:
+                audit.append_observation(evidence)
+                finalized_groups.extend(accumulator.consume(evidence))
+                _increment_observation_counters(counters, evidence)
+            audit.append_groups(item.group for item in finalized_groups)
+            counters["processedSources"] = accumulator.next_source_index
+            counters["groups"] = accumulator.next_group_order
+            for key, value in runtime.counters.values.items():
+                counters[key] = counter_base.get(key, 0) + value
+            checkpoint = _middle_row_scanning_checkpoint(
+                accumulator=accumulator,
+                calibration=calibration,
+                runtime=runtime,
+                counters=counters,
+                last_committed_batch=batch_number,
+            )
+            audit.write_checkpoint(checkpoint)
+            run = self._store.persist_checkpoint(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                checkpoint=checkpoint,
+                counters=counters,
+                persisted_at=context.now(),
+            )
+            _job_checkpoint(context, run, checkpoint, total=len(sources))
+            if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
+                context.wait_for_review()
+            next_source = accumulator.next_source_index
+            batch_number += 1
+
+        final_groups = accumulator.finish()
+        audit.append_groups(item.group for item in final_groups)
+        counters["groups"] = accumulator.next_group_order
+        checkpoint = {
+            "diagnosticCounters": dict(counters),
+            "finalizedGroupCount": accumulator.next_group_order,
+            "lastCommittedBatch": max(-1, batch_number - 1),
+            "nextGroupOrderForSelection": 0,
+            "observationCount": len(sources),
+            "ocrBatchFillRatio": _middle_row_batch_fill_ratio(counters),
+            "orientationCalibration": calibration.as_dict(),
+            "phase": "selecting",
+            "runtimeRecognizerFingerprint": runtime.runtime_fingerprint,
+            "runtimeVariant": MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+            "savedRanges": list(cast(Sequence[object], checkpoint.get("savedRanges", []))),
+            "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
+            "sourceBatchSize": runtime_policy.batch.source_batch_size,
+        }
+        audit.write_checkpoint(checkpoint)
+        run = self._store.persist_checkpoint(
+            job_id=job.id,
+            run_id=run.id,
+            lease_token=context.lease_token,
+            checkpoint=checkpoint,
+            counters=counters,
+            persisted_at=context.now(),
+        )
+        _job_checkpoint(context, run, checkpoint, total=len(sources))
+        return run, checkpoint
+
     def _select(
         self,
         context: JobExecutionContext,
@@ -415,11 +652,18 @@ class SemiAutomaticImageSelectionJobHandler:
     ) -> tuple[SemiAutomaticSelectionRun, dict[str, object]]:
         start = _checkpoint_int(checkpoint, "nextGroupOrderForSelection")
         maximum_seen = _object_as_int(checkpoint.get("maximumTraversalExpectedIndexSeen", -1))
-        for selection in audit.iter_group_selections(start_group_order=start):
+        is_middle_row_v4 = (
+            run.recognizer_fingerprint == MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4
+        )
+        selection_method = MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION if is_middle_row_v4 else None
+        for selection in audit.iter_group_selections(
+            start_group_order=start,
+            selection_method=selection_method,
+        ):
             is_out_of_order = selection.group.expected_index < maximum_seen
             maximum_seen = max(maximum_seen, selection.group.expected_index)
             next_group = selection.group.group_order + 1
-            checkpoint = {
+            next_checkpoint: dict[str, object] = {
                 "finalizedGroupCount": _checkpoint_int(checkpoint, "finalizedGroupCount"),
                 "maximumTraversalExpectedIndexSeen": maximum_seen,
                 "nextGroupOrderForSelection": next_group,
@@ -428,6 +672,25 @@ class SemiAutomaticImageSelectionJobHandler:
                 "runtimeRecognizerFingerprint": checkpoint["runtimeRecognizerFingerprint"],
                 "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
             }
+            if is_middle_row_v4:
+                saved_ranges = [
+                    _object_as_int(item)
+                    for item in cast(Sequence[object], checkpoint.get("savedRanges", []))
+                ]
+                if selection.group.expected_index not in saved_ranges:
+                    saved_ranges.append(selection.group.expected_index)
+                next_checkpoint.update(
+                    {
+                        "diagnosticCounters": checkpoint.get("diagnosticCounters", {}),
+                        "lastCommittedBatch": checkpoint.get("lastCommittedBatch", -1),
+                        "ocrBatchFillRatio": checkpoint.get("ocrBatchFillRatio", 0.0),
+                        "orientationCalibration": checkpoint["orientationCalibration"],
+                        "runtimeVariant": MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+                        "savedRanges": saved_ranges,
+                        "sourceBatchSize": checkpoint["sourceBatchSize"],
+                    }
+                )
+            checkpoint = next_checkpoint
             outcome = self._store.apply_selection(
                 job_id=job.id,
                 run_id=run.id,
@@ -519,7 +782,12 @@ class SemiAutomaticImageSelectionJobHandler:
                 "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_UNSUPPORTED",
                 "The durable run references an unsupported range recognizer.",
             )
-        if run.grouping_policy_fingerprint != grouping_policy_fingerprint():
+        expected_grouping_fingerprint = (
+            middle_row_grouping_policy_fingerprint()
+            if run.recognizer_fingerprint == MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4
+            else grouping_policy_fingerprint()
+        )
+        if run.grouping_policy_fingerprint != expected_grouping_fingerprint:
             raise JobHandlerError(
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
                 "The durable run references another grouping policy.",
@@ -591,6 +859,30 @@ def _load_staged_sources(
     if fingerprint != run.source.source_fingerprint:
         _fail_source_changed("The staged source fingerprint changed after run creation.")
     return tuple(staged)
+
+
+def _load_middle_row_payloads(
+    staged_sources: Sequence[_StagedSource],
+    *,
+    source_root: Path,
+) -> tuple[MiddleRowSourcePayload, ...]:
+    payloads: list[MiddleRowSourcePayload] = []
+    for staged in staged_sources:
+        path = _safe_child(source_root, staged.stored_file_name)
+        try:
+            content = path.read_bytes()
+        except OSError as error:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "A staged JPEG disappeared before middle-row OCR.",
+            ) from error
+        if (
+            len(content) != staged.identity.size_bytes
+            or hashlib.sha256(content).hexdigest() != staged.identity.checksum_sha256
+        ):
+            _fail_source_changed("A staged JPEG changed after run creation.")
+        payloads.append(MiddleRowSourcePayload(source=staged.identity, content=content))
+    return tuple(payloads)
 
 
 def _recognize_staged_source(
@@ -763,6 +1055,40 @@ def _scanning_checkpoint(
     return checkpoint
 
 
+def _middle_row_scanning_checkpoint(
+    *,
+    accumulator: MiddleRowGroupingAccumulator,
+    calibration: MiddleRowOrientationCalibration,
+    runtime: MiddleRowBatchRuntime,
+    counters: Mapping[str, int],
+    last_committed_batch: int,
+) -> dict[str, object]:
+    state = accumulator.checkpoint()
+    orientation = calibration.as_dict()
+    return {
+        "diagnosticCounters": dict(counters),
+        "finalizedGroupCount": accumulator.next_group_order,
+        "groupingState": state,
+        "lastCommittedBatch": last_committed_batch,
+        "latticePriorState": runtime.prior_tracker.checkpoint(),
+        "observationCount": accumulator.next_source_index,
+        "ocrBatchFillRatio": _middle_row_batch_fill_ratio(counters),
+        "orientation": orientation["orientation"],
+        "orientationCalibration": orientation,
+        "orientationCalibrationProofs": orientation["orientationCalibrationProofs"],
+        "orientationCalibrationSamples": orientation["orientationCalibrationSamples"],
+        "orientationOverride": orientation["orientationOverride"],
+        "orientationSource": orientation["orientationSource"],
+        "orientationUnresolved": orientation["orientationUnresolved"],
+        "phase": "scanning",
+        "runtimeRecognizerFingerprint": runtime.runtime_fingerprint,
+        "runtimeVariant": MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
+        "savedRanges": [],
+        "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
+        "sourceBatchSize": runtime.policy.batch.source_batch_size,
+    }
+
+
 def _increment_observation_counters(
     counters: dict[str, int],
     evidence: RangeEvidenceResult,
@@ -777,6 +1103,13 @@ def _increment_observation_counters(
         RangeEvidenceStatus.SOURCE_ERROR: "sourceErrors",
     }[evidence.status]
     counters[key] = counters.get(key, 0) + 1
+
+
+def _middle_row_batch_fill_ratio(counters: Mapping[str, int]) -> float:
+    internal_batches = counters.get("ocrInternalBatches", 0)
+    if internal_batches < 1:
+        return 0.0
+    return counters.get("ocrCrops", 0) / (internal_batches * 9)
 
 
 def _job_checkpoint(

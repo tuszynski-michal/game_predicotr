@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -278,6 +278,24 @@ class RangeEvidenceResult:
     expected_index: int | None
     confidence: float | None
     reason_codes: tuple[str, ...]
+    local_readability_score: float | None = None
+    minimum_ocr_confidence: float | None = None
+    observation_key: str | None = None
+    runtime_diagnostics: Mapping[str, object] | None = None
+
+    def __post_init__(self) -> None:
+        if self.local_readability_score is not None and self.local_readability_score < 0:
+            _fail(
+                "SEMI_AUTOMATIC_SELECTION_RANGE_CONFIDENCE_INVALID",
+                "Local readability score cannot be negative.",
+            )
+        if self.minimum_ocr_confidence is not None and not 0 <= self.minimum_ocr_confidence <= 1:
+            _fail(
+                "SEMI_AUTOMATIC_SELECTION_RANGE_CONFIDENCE_INVALID",
+                "Minimum OCR confidence must be between zero and one.",
+            )
+        if self.observation_key is not None:
+            validate_sha256(self.observation_key, field="observationKey")
 
     @property
     def is_exact_range(self) -> bool:

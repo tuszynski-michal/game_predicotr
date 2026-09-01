@@ -1459,6 +1459,34 @@ maskę i grupowanie, model lattice, crop policy, bramki jakości, preprocessing
 oraz wersję exact proof. TASK-0368 nie rejestruje go jeszcze w resolverze runów;
 integracja Paddle, orientacji, batchowania i recovery jest zakresem TASK-0369.
 
+## Runtime range-only OCR v4.1 — TASK-0369
+
+`MiddleRowBatchRuntime` jest oddzielną ścieżką wybieraną wyłącznie przez
+utrwalony fingerprint v4.1. Historyczny factory v1–v3 nie jest modyfikowany.
+Nieznany fingerprint kończy się fail-closed przed konstrukcją recognizera.
+Paddle jest używany przez publiczne `recognize_many`; jeden source batch ma sześć
+JPEG-ów i maksymalnie 18 cropów, dzielonych na dwa rzeczywiste batche po dziewięć.
+Ostatni niepełny batch nie jest dopełniany sztucznymi obrazami.
+
+Orientacja jest ustalana raz po EXIF na ośmiu deterministycznych próbkach albo
+pochodzi z ręcznego override. Najpierw badane są `0°/180°`, a bounded fallback
+`90°/270°` jest dopuszczony tylko bez exact proof wariantów podstawowych i przy
+zgodnej przesłance EXIF/proporcji. Wynik wraz z proof counts trafia do
+checkpointu; nierozstrzygnięcie zatrzymuje automatyczny skan.
+
+Pozycjowy lattice prior przechowuje medianę najwyżej siedmiu pełnych lokalizacji,
+jest pomijany co dziesiąte źródło i resetowany po trzech kolejnych porażkach.
+Nie zawiera numerów i nie może dostarczyć dowodu. Obserwacje batcha wracają w
+porządku źródeł, otrzymują idempotentny klucz związany z runem, źródłem i
+fingerprintem runtime'u, a JSONL jest checkpointowany wyłącznie po całym batchu.
+
+`MiddleRowGroupingAccumulator` wyznacza granice grupy od pierwszego do ostatniego
+własnego exact proof. Wewnętrzny unknown może połączyć ten sam zakres w limicie
+160 źródeł, ale nie jest zapisywalnym kandydatem. Selekcja w drugiej fazie
+strumieniuje audit i wybiera exact proof najbliższy środkowi evidence span.
+Checkpoint przechowuje orientację, prior, aktywną grupę, ukończony prefiks,
+diagnostykę, zapisane zakresy, numer batcha i `sourceBatchSize=6`.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

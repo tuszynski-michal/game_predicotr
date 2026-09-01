@@ -17,6 +17,10 @@ from .contracts import (
     SemiAutomaticSelectionSource,
 )
 from .engine import RangeGroup, RangeGroupSelection, select_middle_exact_observation
+from .middle_row_grouping import (
+    MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
+    select_middle_row_exact_observation,
+)
 
 SEMI_AUTOMATIC_SELECTION_DIAGNOSTIC_CONTRACT = "semi-automatic-range-selection-diagnostics-v1"
 
@@ -72,6 +76,7 @@ class SemiAutomaticSelectionAudit:
         self,
         *,
         start_group_order: int = 0,
+        selection_method: str | None = None,
     ) -> Iterator[RangeGroupSelection]:
         """Merge both ordered JSONL streams in O(N) time and bounded memory."""
 
@@ -92,7 +97,11 @@ class SemiAutomaticSelectionAudit:
                     current = next(observations, None)
                     yield value
 
-            yield select_middle_exact_observation(group, group_evidence())
+            evidence = group_evidence()
+            if selection_method == MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION:
+                yield select_middle_row_exact_observation(group, evidence)
+            else:
+                yield select_middle_exact_observation(group, evidence)
 
     def write_report(self, payload: Mapping[str, object]) -> tuple[str, str]:
         document = {
@@ -108,7 +117,7 @@ class SemiAutomaticSelectionAudit:
 
 
 def observation_to_dict(evidence: RangeEvidenceResult) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "confidence": evidence.confidence,
         "expectedIndex": evidence.expected_index,
         "observedRange": (
@@ -126,6 +135,15 @@ def observation_to_dict(evidence: RangeEvidenceResult) -> dict[str, object]:
         "sourceSizeBytes": evidence.source.size_bytes,
         "status": evidence.status.value,
     }
+    if evidence.local_readability_score is not None:
+        payload["localReadabilityScore"] = evidence.local_readability_score
+    if evidence.minimum_ocr_confidence is not None:
+        payload["minimumOcrConfidence"] = evidence.minimum_ocr_confidence
+    if evidence.observation_key is not None:
+        payload["observationKey"] = evidence.observation_key
+    if evidence.runtime_diagnostics is not None:
+        payload["runtimeDiagnostics"] = dict(evidence.runtime_diagnostics)
+    return payload
 
 
 def observation_from_dict(value: dict[str, object]) -> RangeEvidenceResult:
@@ -141,6 +159,11 @@ def observation_from_dict(value: dict[str, object]) -> RangeEvidenceResult:
         )
         expected_index_raw = value.get("expectedIndex")
         confidence_raw = value.get("confidence")
+        readability_raw = value.get("localReadabilityScore")
+        minimum_confidence_raw = value.get("minimumOcrConfidence")
+        diagnostics_raw = value.get("runtimeDiagnostics")
+        if diagnostics_raw is not None and not isinstance(diagnostics_raw, dict):
+            raise TypeError("runtime diagnostics")
         return RangeEvidenceResult(
             source=SemiAutomaticSelectionSource(
                 source_index=_as_int(value["sourceIndex"]),
@@ -154,6 +177,18 @@ def observation_from_dict(value: dict[str, object]) -> RangeEvidenceResult:
             confidence=None if confidence_raw is None else _as_float(confidence_raw),
             reason_codes=tuple(
                 str(item) for item in cast(list[object], value.get("reasonCodes", []))
+            ),
+            local_readability_score=(
+                None if readability_raw is None else _as_float(readability_raw)
+            ),
+            minimum_ocr_confidence=(
+                None if minimum_confidence_raw is None else _as_float(minimum_confidence_raw)
+            ),
+            observation_key=(
+                None if value.get("observationKey") is None else str(value["observationKey"])
+            ),
+            runtime_diagnostics=(
+                None if diagnostics_raw is None else cast(dict[str, object], diagnostics_raw)
             ),
         )
     except (KeyError, TypeError, ValueError) as error:

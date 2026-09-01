@@ -101,7 +101,10 @@ class MemorySymbolCellReviewRepository:
         filtered = tuple(
             item
             for item in self.items
-            if (item.assigned_symbol_id == review_filter.symbol_id)
+            if (
+                review_filter.include_all_symbols
+                or item.assigned_symbol_id == review_filter.symbol_id
+            )
             and (
                 review_filter.state is SymbolCellReviewFilterState.ALL
                 or item.review_state.value == review_filter.state.value
@@ -154,7 +157,10 @@ class MemorySymbolCellReviewRepository:
         visible = tuple(
             item
             for item in self.items
-            if (item.assigned_symbol_id == review_filter.symbol_id)
+            if (
+                review_filter.include_all_symbols
+                or item.assigned_symbol_id == review_filter.symbol_id
+            )
             and (
                 review_filter.state is SymbolCellReviewFilterState.ALL
                 or item.review_state.value == review_filter.state.value
@@ -758,6 +764,10 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
             f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
             params={"symbolId": str(symbol_id), "state": "approved"},
         )
+        all_symbols = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": "all", "state": "all"},
+        )
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -775,6 +785,9 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert first.json()["items"][0]["cropSampleId"] == "b" * 64
     assert approved.status_code == 200
     assert [item["reviewState"] for item in approved.json()["items"]] == ["approved"]
+    assert all_symbols.status_code == 200
+    assert len(all_symbols.json()["items"]) == 3
+    assert repository.filters[-1].include_all_symbols is True
 
 
 def test_counts_endpoint_rejects_a_stale_catalog_revision(tmp_path: Path) -> None:

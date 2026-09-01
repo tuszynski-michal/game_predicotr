@@ -2429,6 +2429,13 @@ class ImageSymbolReviewCellModel(Base):
             "review_item_id",
         ),
         Index(
+            "ix_image_symbol_review_cells_game_sequence",
+            "game_id",
+            "sequence_number",
+            "cell_index",
+            "review_item_id",
+        ),
+        Index(
             "ix_image_symbol_review_cells_grid_quality_issue",
             "game_id",
             "review_item_id",

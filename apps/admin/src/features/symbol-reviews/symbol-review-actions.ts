@@ -96,7 +96,7 @@ export interface LoadSymbolReviewPageOptions {
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
   readonly state: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'all' | 'unknown';
 }
 
 export interface LoadSymbolReviewCountsOptions {
@@ -105,7 +105,7 @@ export interface LoadSymbolReviewCountsOptions {
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
   readonly state: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'all' | 'unknown';
 }
 
 export type SymbolReviewCountsResult =

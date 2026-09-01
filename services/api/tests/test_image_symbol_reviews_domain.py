@@ -74,6 +74,34 @@ def test_symbol_review_cursor_v3_uses_uuid_key_and_accepts_scoped_v2() -> None:
     )
 
 
+def test_symbol_review_cursor_v4_binds_the_game_wide_scope() -> None:
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=True,
+    )
+    key = (123, 4, UUID(int=3))
+
+    encoded = encode_symbol_cell_review_cursor(
+        review_filter=review_filter,
+        direction=SymbolCellReviewCursorDirection.AFTER,
+        key=key,
+    )
+    payload = _cursor_payload(encoded)
+
+    assert payload["version"] == 4
+    assert payload["symbolId"] == "all"
+    assert (
+        decode_symbol_cell_review_cursor(
+            encoded,
+            review_filter=review_filter,
+            direction=SymbolCellReviewCursorDirection.AFTER,
+        )
+        == key
+    )
+
+
 def _sha(seed: int) -> str:
     return f"{seed:064x}"
 

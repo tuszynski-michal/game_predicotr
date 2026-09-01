@@ -440,10 +440,11 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         ).where(
             cell.game_id == review_filter.game_id,
         )
-        if review_filter.symbol_id is None:
-            statement = statement.where(cell.assigned_symbol_id.is_(None))
-        else:
-            statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+        if not review_filter.include_all_symbols:
+            if review_filter.symbol_id is None:
+                statement = statement.where(cell.assigned_symbol_id.is_(None))
+            else:
+                statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
         if review_filter.state is not SymbolCellReviewFilterState.ALL:
             statement = statement.where(cell.review_state == review_filter.state.value)
         return statement
@@ -482,10 +483,11 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
             )
         )
-        if review_filter.symbol_id is None:
-            statement = statement.where(cell.assigned_symbol_id.is_(None))
-        else:
-            statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
+        if not review_filter.include_all_symbols:
+            if review_filter.symbol_id is None:
+                statement = statement.where(cell.assigned_symbol_id.is_(None))
+            else:
+                statement = statement.where(cell.assigned_symbol_id == review_filter.symbol_id)
         if review_filter.state is not SymbolCellReviewFilterState.ALL:
             statement = statement.where(cell.review_state == review_filter.state.value)
         confidence_is_required = (

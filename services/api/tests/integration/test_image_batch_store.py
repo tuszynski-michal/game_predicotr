@@ -1290,6 +1290,20 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert grid_result.board_reopened is False
             assert grid_result.quality_issue is SymbolCellQualityIssue.GRID_ISSUE
             session.flush()
+            all_game_crops = SqlAlchemySymbolCellReviewQueryRepository(
+                session
+            ).list_items(
+                review_filter=SymbolCellReviewListFilter(
+                    game_id=game.id,
+                    symbol_id=None,
+                    state=SymbolCellReviewFilterState.ALL,
+                    include_all_symbols=True,
+                ),
+                after_key=None,
+                before_key=None,
+                limit=20,
+            )
+            assert [item.cell_index for item in all_game_crops.items] == list(range(15))
             operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
             grid_issue_page = operational_repository.list_items(
                 game_id=game.id,

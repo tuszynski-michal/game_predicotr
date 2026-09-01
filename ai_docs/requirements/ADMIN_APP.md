@@ -374,21 +374,22 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 ### Weryfikacja symboli
 
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
-nawigacji Admina. Operator wybiera grę, aktywny symbol (lub techniczne
-`Nierozpoznany (?)`), stan `Wszystkie` / `Zatwierdzone` / `Oczekujące` oraz
-opcjonalny przedział pewności predykcji `wszystkie` / niska / średnia / wysoka.
+nawigacji Admina. Operator wybiera wyłącznie grę. Lista zawsze obejmuje
+wszystkie dostępne cropy jej bieżącego właściciela — niezależnie od symbolu,
+stanu weryfikacji i confidence — a symbol pozostaje wybierany tylko jako cel
+akcji `Zmień symbol`.
 Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
 operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
-Pierwsza aktywna pozycja katalogu jest domyślna, a domyślny stan to
-`Oczekujące`. Wejście do zakładki nie pobiera strony cropów: operator najpierw
-ustawia filtry, a następnie wybiera `Zatwierdź wybór`. Dopiero ta jawna akcja
+Pierwsza dostępna gra jest domyślna. Wejście do zakładki nie pobiera strony
+cropów: operator najpierw wybiera grę, a następnie używa `Zatwierdź wybór`.
+Dopiero ta jawna akcja
 pobiera stronę o stałym rozmiarze 500 metadanych. Globalne liczniki nie należą
-do krytycznej ścieżki listy: są pobierane osobno dla dokładnego filtra i rewizji
+do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
 katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
-spóźniona odpowiedź poprzedniego filtra jest odrzucana. Po zatwierdzeniu ustawienia są
+spóźniona odpowiedź poprzedniej gry jest odrzucana. Po zatwierdzeniu ustawienia są
 zablokowane; `Zmień wybór` czyści strony, wirtualny viewport i zaznaczenie, a
 następnie pozwala ponownie ustawić parametry. Widok zachowuje jawne przyciski
 poprzedniej/następnej strony, prefetchuje wyłącznie jedną kolejną stronę i trzyma
@@ -403,7 +404,7 @@ samego content-addressed cache, a zmiana cropa nie może pokazać starego tile'a
 Podsumowanie pokazuje numer strony i jej jednoznaczny zakres pozycji natychmiast
 po pobraniu metadanych, a następnie uzupełnia niezależnie pełne liczniki. Zakres zależy od
 zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
-wybranego symbolu. Zakres ostatniej strony kończy się na rzeczywistej liczbie
+wybranej gry. Zakres ostatniej strony kończy się na rzeczywistej liczbie
 wyników.
 Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
@@ -436,9 +437,9 @@ oczekiwane/przetworzone plansze i komórki, ID joba, diagnostykę oraz jawne akc
   fail-closed.
 Zaznaczanie i masowe operacje działają bez pobierania całego wyniku do
 przeglądarki. Operator może zaznaczać pojedyncze karty albo całą bieżącą stronę
-jawnie do 10 000 pozycji. Opcja `Zaznacz wyniki filtra` zapisuje snapshot gry,
-symbolu, stanu, przedziału confidence i rewizji katalogu wraz z co najwyżej
-10 000 `excludedIds`; nie przesyła ani nie utrwala ID wszystkich wyników.
+jawnie do 10 000 pozycji. Game-wide widok nie udostępnia akcji `Zaznacz wyniki
+filtra`, ponieważ jego zakres może zawierać jednocześnie zwykłe, nierozpoznane i
+odrzucone jakościowo cropy o różnych dozwolonych mutacjach.
 Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
 więc operator może zbudować jeden job z kilku stron po 500 cropów. Czyści je
 wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.

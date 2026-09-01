@@ -114,7 +114,7 @@ GET  /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
-  ?symbolId={UUID|unknown}
+  ?symbolId={UUID|all|unknown}
   &state=all|approved|pending
   &minConfidence=0..1
   &maxConfidence=0..1
@@ -193,13 +193,14 @@ lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie urucham
 joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
-zdalny Reviewer ani przez token review. `symbolId=unknown` filtruje legacy
+zdalny Reviewer ani przez token review. `symbolId=all` zwraca wszystkie bieżące
+cropy gry bez ograniczenia przypisania, natomiast `symbolId=unknown` filtruje legacy
 `assigned_symbol_id = NULL`; znak `?` jest wyłącznie jego prezentacją w UI, a
 nie identyfikatorem symbolu ani wartością przyszłego outcome v2. Admin zawsze
 używa strony 500, a kontrakt backendowy ogranicza każde żądanie do `1..500`.
 `minConfidence` i `maxConfidence` są domkniętym przedziałem `0..1`; brak wartości nie ogranicza
 listy. Lista używa keysetu `(sequence_number, cell_index, review_item_id)`;
-cursor wiąże grę, wybrany symbol, stan, oba krańce confidence, kierunek oraz
+cursor wiąże grę, zakres symbolu (`all`, `unknown` albo UUID), stan, oba krańce confidence, kierunek oraz
 ostatni klucz i nie może być użyty w innym scope.
 
 Odpowiedź zwraca wyłącznie metadane cropów bieżącego, deterministycznego

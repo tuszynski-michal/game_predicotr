@@ -83,6 +83,7 @@ class SymbolCellReviewQueryService:
         min_confidence: float | None = None,
         max_confidence: float | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
+        include_all_symbols: bool = False,
     ) -> SymbolCellReviewPage:
         if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
             raise SymbolCellReviewError(
@@ -100,6 +101,7 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            include_all_symbols=include_all_symbols,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -159,6 +161,7 @@ class SymbolCellReviewQueryService:
         expected_catalog_revision: int,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        include_all_symbols: bool = False,
     ) -> SymbolCellReviewCountSnapshot:
         review_filter = SymbolCellReviewListFilter(
             game_id=game_id,
@@ -166,6 +169,7 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            include_all_symbols=include_all_symbols,
         )
         catalog_revision = self._repository.require_ready_game(game_id)
         if catalog_revision != expected_catalog_revision:

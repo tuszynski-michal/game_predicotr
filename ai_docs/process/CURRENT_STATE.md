@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Wszystkie cropy gry w Weryfikacji symboli — TASK-0371
+
+- `Weryfikacja symboli` wybiera wyłącznie grę i po jawnej akcji pokazuje
+  wszystkie jej bieżące cropy, bez filtrowania po symbolu, stanie lub confidence.
+- Admin API obsługuje odrębny zakres `symbolId=all`; `unknown` zachowuje swoje
+  dotychczasowe znaczenie, cursor game-wide jest związany z własnym scope, a
+  kolejność pełnego katalogu ma dedykowany indeks seek.
+- W mieszanym widoku dostępne jest jawne zaznaczanie kart lub strony. Masowe
+  zaznaczenie całego filtra pozostaje wyłączone, aby nie łączyć niezgodnych
+  mutacji cropów zwykłych i nierozpoznanych.
+
 ### Odbiór range-only OCR v4.1 — TASK-0370
 
 - V4.1 przeszedł bramki bezpieczeństwa i wydajności, ale nie przeszedł bramek

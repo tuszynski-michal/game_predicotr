@@ -24,17 +24,17 @@ const previewSource = await readFile(
   'utf8',
 );
 
-test('provides confirmable game, symbol, state, confidence and unknown filters', () => {
+test('loads every available crop after confirming only the selected game', () => {
   assert.match(source, /Weryfikacja symboli/);
-  assert.match(source, /Nierozpoznany \(\?\)/);
-  assert.match(source, /Zatwierdzone/);
-  assert.match(source, /Oczekujące/);
-  assert.match(source, /Pewność predykcji/);
+  assert.match(source, /wszystkie aktualne cropy[\s\S]*wybranej gry/);
+  assert.doesNotMatch(source, />\s*Symbol\s*<select/);
+  assert.doesNotMatch(source, /Pewność predykcji/);
+  assert.doesNotMatch(source, /<legend>Stan<\/legend>/);
   assert.match(source, /Zatwierdź wybór/);
   assert.match(source, /Zmień wybór/);
   assert.match(source, /filtersConfirmed/);
-  assert.match(styles, /\.filters fieldset \{[\s\S]*grid-column: 1 \/ span 3;/);
-  assert.match(source, /state: 'pending'/);
+  assert.match(source, /state: 'all'/);
+  assert.match(source, /symbolId: 'all'/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
   assert.match(source, /mark_unreadable/);
@@ -61,11 +61,11 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.match(styles, /width: 100px/);
   assert.match(styles, /height: 100px/);
   assert.match(source, /Zaznacz stronę/);
-  assert.match(source, /Zaznacz wyniki filtra/);
+  assert.doesNotMatch(source, /Zaznacz wyniki filtra/);
   assert.match(source, /previewReadOnly \|\|/);
   assert.match(source, />\s*Zła siatka\s*</);
   assert.match(source, /Nieczytelny symbol/);
-  assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
+  assert.match(source, /Zmiana gry wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
   assert.match(source, /activeOperations/);
@@ -121,7 +121,7 @@ test('shows durable projection preparation states and progress', () => {
   assert.match(source, /currentPageRange\.start/);
   assert.match(source, /currentPageRange\.end/);
   assert.match(source, /zakres/);
-  assert.match(source, /filteredSymbolReviewCount/);
+  assert.match(source, /countsSnapshot\.counts\.allCount/);
 });
 
 test('renders metadata before independent revision-bound counts finish', () => {

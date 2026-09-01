@@ -20,7 +20,7 @@ export interface SymbolReviewFilters {
   readonly gameId: string | null;
   readonly pageSize: number;
   readonly state: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown' | null;
+  readonly symbolId: string | 'all' | 'unknown' | null;
 }
 
 export interface SymbolReviewPagePosition {

@@ -345,16 +345,18 @@ def create_image_symbol_reviews_router(
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
+        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_page_response(
             service.list(
                 game_id=game_id,
-                symbol_id=_parse_symbol_filter(symbol_id),
+                symbol_id=parsed_symbol_id,
                 state=state,
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
                 limit=limit,
+                include_all_symbols=include_all_symbols,
             )
         )
 
@@ -374,14 +376,16 @@ def create_image_symbol_reviews_router(
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
     ) -> SymbolCellReviewCountSnapshotResponse:
+        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
             service.counts(
                 game_id=game_id,
-                symbol_id=_parse_symbol_filter(symbol_id),
+                symbol_id=parsed_symbol_id,
                 state=state,
                 expected_catalog_revision=catalog_revision,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                include_all_symbols=include_all_symbols,
             )
         )
 
@@ -703,15 +707,17 @@ def _required_relative_path(value: str | None) -> str:
     return value
 
 
-def _parse_symbol_filter(value: str) -> UUID | None:
+def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool]:
+    if value == "all":
+        return None, True
     if value == "unknown":
-        return None
+        return None, False
     try:
-        return UUID(value)
+        return UUID(value), False
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
-            "symbolId must be an active symbol UUID or the literal unknown.",
+            "symbolId must be an active symbol UUID, all, or unknown.",
         ) from error
 
 

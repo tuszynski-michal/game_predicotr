@@ -96,6 +96,8 @@ IMAGE_GEOMETRY_ROLLOUT_JOB_TYPE_REVISION = "0083_image_geometry_rollout_backfill
 ADDITIVE_VIRTUAL_GEOMETRY_CONTRACTS_REVISION = "0084_additive_virtual_geometry_contracts"
 PER_GAME_IMAGE_ENGINE_POLICY_REVISION = "0085_per_game_image_engine_policy"
 PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION = "0086_partial_page_geometry_overrides"
+SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION = "0087_semi_automatic_image_selection"
+SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION = "0088_symbol_review_game_sequence_index"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -356,7 +358,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     per_game_image_engine_policy = script.get_revision(PER_GAME_IMAGE_ENGINE_POLICY_REVISION)
     partial_page_geometry_overrides = script.get_revision(PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION)
-    assert script.get_heads() == [PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION]
+    semi_automatic_image_selection = script.get_revision(SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION)
+    symbol_review_game_sequence_index = script.get_revision(
+        SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
+    )
+    assert script.get_heads() == [SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -384,6 +390,12 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     assert partial_page_geometry_overrides is not None
     assert partial_page_geometry_overrides.down_revision == PER_GAME_IMAGE_ENGINE_POLICY_REVISION
+    assert semi_automatic_image_selection is not None
+    assert semi_automatic_image_selection.down_revision == PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION
+    assert symbol_review_game_sequence_index is not None
+    assert (
+        symbol_review_game_sequence_index.down_revision == SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION
+    )
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

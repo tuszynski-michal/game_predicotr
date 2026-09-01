@@ -96,7 +96,8 @@ class SymbolCellReviewListFilter:
     """One local-admin list scope.
 
     ``symbol_id=None`` means the deliberate synthetic ``unknown`` (`?`)
-    filter, never an unfiltered scan of a whole game.
+    filter unless ``include_all_symbols`` is set.  The explicit flag keeps the
+    historical unknown scope distinct from the game-wide crop view.
     """
 
     game_id: UUID
@@ -104,15 +105,19 @@ class SymbolCellReviewListFilter:
     state: SymbolCellReviewFilterState
     min_confidence: float | None = None
     max_confidence: float | None = None
+    include_all_symbols: bool = False
 
     def __post_init__(self) -> None:
+        if self.include_all_symbols and self.symbol_id is not None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
+                "A game-wide crop filter cannot also select one symbol.",
+            )
         for name, value in (
             ("min_confidence", self.min_confidence),
             ("max_confidence", self.max_confidence),
         ):
-            if value is not None and (
-                isinstance(value, bool) or not 0.0 <= value <= 1.0
-            ):
+            if value is not None and (isinstance(value, bool) or not 0.0 <= value <= 1.0):
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CONFIDENCE_INVALID",
                     f"{name} must be a number between 0 and 1.",
@@ -750,8 +755,8 @@ def encode_symbol_cell_review_cursor(
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
         "state": review_filter.state.value,
-        "symbolId": "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id),
-        "version": 3,
+        "symbolId": _symbol_cell_review_filter_scope(review_filter),
+        "version": 4 if review_filter.include_all_symbols else 3,
     }
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
@@ -782,9 +787,10 @@ def decode_symbol_cell_review_cursor(
             "The symbol-cell review cursor is invalid.",
         ) from error
 
-    expected_symbol = "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
+    expected_symbol = _symbol_cell_review_filter_scope(review_filter)
+    expected_versions = {4} if review_filter.include_all_symbols else {2, 3}
     if (
-        payload.get("version") not in {2, 3}
+        payload.get("version") not in expected_versions
         or parsed_game_id != review_filter.game_id
         or parsed_symbol_id != expected_symbol
         or parsed_state is not review_filter.state
@@ -819,6 +825,12 @@ def decode_symbol_cell_review_cursor(
             "The symbol-cell review cursor item identity is invalid.",
         ) from error
     return key[0], key[1], review_item_id
+
+
+def _symbol_cell_review_filter_scope(review_filter: SymbolCellReviewListFilter) -> str:
+    if review_filter.include_all_symbols:
+        return "all"
+    return "unknown" if review_filter.symbol_id is None else str(review_filter.symbol_id)
 
 
 def _validate_complete_cells(

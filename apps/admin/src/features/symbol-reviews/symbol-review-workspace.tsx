@@ -4,7 +4,6 @@
 import type {
   GameResponse,
   SymbolCellReviewCountSnapshotResponse,
-  SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewBulkOperationResponse,
   SymbolCellReviewBulkPreviewResponse,
@@ -46,7 +45,6 @@ import {
   type SymbolReviewMutationClient,
 } from './symbol-review-mutation-actions';
 import {
-  createAllMatchingFilterSymbolReviewSelection,
   createEmptySymbolReviewSelection,
   isSymbolReviewItemSelected,
   selectVisibleSymbolReviewItems,
@@ -59,7 +57,6 @@ import {
   createSymbolReviewWorkspaceState,
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   findCachedSymbolReviewPage,
-  symbolReviewConfidenceRange,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
@@ -100,8 +97,8 @@ const INITIAL_FILTERS: SymbolReviewFilters = {
   confidence: 'all',
   gameId: null,
   pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
-  state: 'pending',
-  symbolId: null,
+  state: 'all',
+  symbolId: 'all',
 };
 
 interface SymbolReviewWorkspaceProps {
@@ -227,9 +224,7 @@ export function SymbolReviewWorkspace({
   const selectedCount =
     currentPage === null ? 0 : selectedSymbolReviewCount(selection);
   const currentFilteredCount =
-    countsSnapshot === null
-      ? null
-      : filteredSymbolReviewCount(countsSnapshot, filters.state);
+    countsSnapshot === null ? null : countsSnapshot.counts.allCount;
   const currentPageRange = symbolReviewPageRange(
     currentPageNumber,
     currentPage?.items.length ?? 0,
@@ -310,11 +305,7 @@ export function SymbolReviewWorkspace({
   );
 
   const confirmFilters = useCallback(() => {
-    if (
-      filters.gameId === null ||
-      filters.symbolId === null ||
-      interactionBusy
-    ) {
+    if (filters.gameId === null || interactionBusy) {
       return;
     }
     pageRequestId.current += 1;
@@ -334,12 +325,7 @@ export function SymbolReviewWorkspace({
     filtersConfirmedRef.current = true;
     setFiltersConfirmed(true);
     setPageState(projectionStatus?.status === 'ready' ? 'loading' : 'ready');
-  }, [
-    filters.gameId,
-    filters.symbolId,
-    interactionBusy,
-    projectionStatus?.status,
-  ]);
+  }, [filters.gameId, interactionBusy, projectionStatus?.status]);
 
   const unlockFilters = useCallback(() => {
     if (interactionBusy || selectedCount > 0) return;
@@ -389,7 +375,7 @@ export function SymbolReviewWorkspace({
         applyFilters({
           ...currentFilters,
           gameId: selectedGameId,
-          symbolId: null,
+          symbolId: 'all',
         });
       }
     });
@@ -411,21 +397,11 @@ export function SymbolReviewWorkspace({
       }
       setSymbols(result.symbols);
       setSymbolsState('ready');
-      const currentFilters = filtersRef.current;
-      if (currentFilters.gameId !== gameId) return;
-      const selectedSymbolId = result.symbols.some(
-        (symbol) => symbol.id === currentFilters.symbolId,
-      )
-        ? currentFilters.symbolId
-        : (result.symbols[0]?.id ?? null);
-      if (selectedSymbolId !== currentFilters.symbolId) {
-        applyFilters({ ...currentFilters, symbolId: selectedSymbolId });
-      }
     });
     return () => {
       symbolsRequestId.current += 1;
     };
-  }, [api, applyFilters, filters.gameId, reloadRevision]);
+  }, [api, filters.gameId, reloadRevision]);
 
   useEffect(() => {
     if (filters.gameId === null) return;
@@ -746,30 +722,6 @@ export function SymbolReviewWorkspace({
     }
   }
 
-  function selectAllMatchingFilter() {
-    if (previewReadOnly) return;
-    if (
-      filters.gameId === null ||
-      filters.symbolId === null ||
-      currentPage === null ||
-      currentFilteredCount === null
-    ) {
-      return;
-    }
-    const confidenceRange = symbolReviewConfidenceRange(filters.confidence);
-    setSelection(
-      createAllMatchingFilterSymbolReviewSelection({
-        catalogRevision: currentPage.catalogRevision,
-        gameId: filters.gameId,
-        matchedCount: currentFilteredCount,
-        maxConfidence: confidenceRange.maxConfidence ?? null,
-        minConfidence: confidenceRange.minConfidence ?? null,
-        state: filters.state,
-        symbolId: filters.symbolId,
-      }),
-    );
-  }
-
   function toggleItem(item: SymbolCellReviewListItemResponse) {
     if (previewReadOnly) return;
     const change = toggleSymbolReviewItem(selection, item);
@@ -803,7 +755,8 @@ export function SymbolReviewWorkspace({
         return;
       }
       setSelection(createEmptySymbolReviewSelection());
-      setHiddenCellIds((current) => new Set([...current, target.cellReviewId]));
+      setPageState('loading');
+      setReloadRevision((revision) => revision + 1);
       setCountsState('loading');
       setCountsSnapshot(null);
       setCountsCatalogRevision(result.value.catalogRevision);
@@ -846,7 +799,7 @@ export function SymbolReviewWorkspace({
 
   const finishOperation = useCallback(
     (
-      tracked: TrackedSymbolReviewOperation,
+      _tracked: TrackedSymbolReviewOperation,
       operation: SymbolCellReviewBulkOperationResponse,
     ) => {
       const completelyApplied =
@@ -855,9 +808,8 @@ export function SymbolReviewWorkspace({
         operation.conflictCount === 0 &&
         operation.failedCount === 0;
       if (completelyApplied) {
-        setHiddenCellIds(
-          (current) => new Set([...current, ...tracked.submittedCellIds]),
-        );
+        setPageState('loading');
+        setReloadRevision((revision) => revision + 1);
       }
       if (
         operation.catalogRevision !== null &&
@@ -938,8 +890,8 @@ export function SymbolReviewWorkspace({
           <p className="eyebrow">Lokalny workflow · cropy symboli</p>
           <h1>Weryfikacja symboli</h1>
           <p className="lead">
-            Przeglądaj, zaznaczaj i masowo weryfikuj aktualne cropy wybranego
-            symbolu.
+            Przeglądaj, zaznaczaj i masowo weryfikuj wszystkie aktualne cropy
+            wybranej gry.
           </p>
         </div>
       </header>
@@ -965,7 +917,7 @@ export function SymbolReviewWorkspace({
               requestFilterChange({
                 ...filters,
                 gameId: event.target.value || null,
-                symbolId: null,
+                symbolId: 'all',
               })
             }
             value={filters.gameId ?? ''}
@@ -978,61 +930,12 @@ export function SymbolReviewWorkspace({
             ))}
           </select>
         </label>
-        <label>
-          Symbol
-          <select
-            disabled={
-              filters.gameId === null ||
-              symbolsState !== 'ready' ||
-              interactionBusy ||
-              filtersConfirmed
-            }
-            onChange={(event) =>
-              requestFilterChange({
-                ...filters,
-                symbolId: event.target.value || null,
-              })
-            }
-            value={filters.symbolId ?? ''}
-          >
-            {symbols.length === 0 ? (
-              <option value="">Brak aktywnych symboli</option>
-            ) : null}
-            {symbols.map((symbol) => (
-              <option key={symbol.id} value={symbol.id}>
-                {symbol.name}
-              </option>
-            ))}
-            <option value="unknown">Nierozpoznany (?)</option>
-          </select>
-        </label>
-        <label>
-          Pewność predykcji
-          <select
-            disabled={interactionBusy || filtersConfirmed}
-            onChange={(event) =>
-              requestFilterChange({
-                ...filters,
-                confidence: event.target
-                  .value as SymbolReviewFilters['confidence'],
-              })
-            }
-            value={filters.confidence}
-          >
-            <option value="all">Wszystkie</option>
-            <option value="low">Niska (poniżej 50%)</option>
-            <option value="medium">Średnia (50–79%)</option>
-            <option value="high">Wysoka (80%+)</option>
-          </select>
-        </label>
         <div className={styles.filterActions}>
           <button
             className="primaryButton"
             disabled={
               interactionBusy ||
-              (filtersConfirmed
-                ? selectedCount > 0
-                : filters.gameId === null || filters.symbolId === null)
+              (filtersConfirmed ? selectedCount > 0 : filters.gameId === null)
             }
             onClick={() => {
               if (filtersConfirmed) {
@@ -1049,45 +952,12 @@ export function SymbolReviewWorkspace({
             <span>Wyczyść zaznaczenie, aby zmienić filtry.</span>
           ) : null}
         </div>
-        <fieldset
-          disabled={
-            filters.gameId === null ||
-            symbolsState !== 'ready' ||
-            interactionBusy ||
-            filtersConfirmed
-          }
-        >
-          <legend>Stan</legend>
-          <SymbolReviewStateOption
-            checked={filters.state === 'all'}
-            label="Wszystkie"
-            onChange={() => requestFilterChange({ ...filters, state: 'all' })}
-            value="all"
-          />
-          <SymbolReviewStateOption
-            checked={filters.state === 'approved'}
-            label="Zatwierdzone"
-            onChange={() =>
-              requestFilterChange({ ...filters, state: 'approved' })
-            }
-            value="approved"
-          />
-          <SymbolReviewStateOption
-            checked={filters.state === 'pending'}
-            label="Oczekujące"
-            onChange={() =>
-              requestFilterChange({ ...filters, state: 'pending' })
-            }
-            value="pending"
-          />
-        </fieldset>
       </div>
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
           busy={interactionBusy}
-          canApprove={filters.symbolId !== 'unknown'}
-          canSelectAllMatching={currentFilteredCount !== null}
+          canApprove={selection.kind === 'explicit'}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
           onApprove={() => void previewOperation('approve')}
@@ -1095,12 +965,10 @@ export function SymbolReviewWorkspace({
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
-          onSelectAllMatchingFilter={selectAllMatchingFilter}
           onSelectVisible={selectVisiblePage}
           onTargetSymbolChange={setReassignTargetSymbolId}
           reassignTargetSymbolId={reassignTargetSymbolId}
           selectedCount={selectedCount}
-          selectionKind={selection.kind}
           symbols={symbols}
           readOnly={previewReadOnly}
         />
@@ -1150,7 +1018,7 @@ export function SymbolReviewWorkspace({
       ) : null}
       {projectionStatus?.status === 'ready' && !filtersConfirmed ? (
         <SymbolReviewStatus
-          text="Wybierz grę, symbol, stan i liczbę cropów, a następnie zatwierdź wybór. Lista nie została jeszcze pobrana."
+          text="Wybierz grę i zatwierdź wybór. Zostaną pobrane wszystkie dostępne cropy tej gry."
           title="Ustaw parametry widoku"
         />
       ) : null}
@@ -1159,10 +1027,7 @@ export function SymbolReviewWorkspace({
       currentPage !== null ? (
         <>
           <div className={styles.summary}>
-            <span>
-              {activeGame?.name ?? 'Gra'} · {stateLabel(filters.state)} ·{' '}
-              {symbolLabel(filters.symbolId, symbols)}
-            </span>
+            <span>{activeGame?.name ?? 'Gra'} · wszystkie dostępne cropy</span>
             <div className={styles.summaryActions}>
               <label className={styles.previewMode}>
                 Podgląd cropów
@@ -1245,7 +1110,7 @@ export function SymbolReviewWorkspace({
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
                 )}
-                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? ''}:${filters.state}:${filters.confidence}`}
+                scopeKey={`${filters.gameId ?? ''}:all`}
               />
             )}
             <div className={styles.pagination}>
@@ -1296,31 +1161,6 @@ export function SymbolReviewWorkspace({
         />
       ) : null}
     </section>
-  );
-}
-
-function SymbolReviewStateOption({
-  checked,
-  label,
-  onChange,
-  value,
-}: {
-  readonly checked: boolean;
-  readonly label: string;
-  readonly onChange: () => void;
-  readonly value: SymbolCellReviewFilterState;
-}) {
-  return (
-    <label>
-      <input
-        checked={checked}
-        name="symbol-review-state"
-        onChange={onChange}
-        type="radio"
-        value={value}
-      />
-      {label}
-    </label>
   );
 }
 
@@ -1404,7 +1244,6 @@ function SymbolReviewCard({
 function SymbolReviewSelectionToolbar({
   busy,
   canApprove,
-  canSelectAllMatching,
   canSelectVisible,
   hasActiveSymbols,
   onApprove,
@@ -1412,18 +1251,15 @@ function SymbolReviewSelectionToolbar({
   onMarkGridIssue,
   onMarkUnreadable,
   onReassign,
-  onSelectAllMatchingFilter,
   onSelectVisible,
   onTargetSymbolChange,
   reassignTargetSymbolId,
   selectedCount,
-  selectionKind,
   symbols,
   readOnly,
 }: {
   readonly busy: boolean;
   readonly canApprove: boolean;
-  readonly canSelectAllMatching: boolean;
   readonly canSelectVisible: boolean;
   readonly hasActiveSymbols: boolean;
   readonly onApprove: () => void;
@@ -1431,12 +1267,10 @@ function SymbolReviewSelectionToolbar({
   readonly onMarkGridIssue: () => void;
   readonly onMarkUnreadable: () => void;
   readonly onReassign: () => void;
-  readonly onSelectAllMatchingFilter: () => void;
   readonly onSelectVisible: () => void;
   readonly onTargetSymbolChange: (symbolId: string | null) => void;
   readonly reassignTargetSymbolId: string | null;
   readonly selectedCount: number;
-  readonly selectionKind: SymbolReviewSelection['kind'];
   readonly symbols: readonly SymbolResponse[];
   readonly readOnly: boolean;
 }) {
@@ -1455,20 +1289,6 @@ function SymbolReviewSelectionToolbar({
           type="button"
         >
           Zaznacz stronę
-        </button>
-        <button
-          className="secondaryButton"
-          disabled={
-            readOnly ||
-            busy ||
-            !canSelectVisible ||
-            !canSelectAllMatching ||
-            selectionKind === 'all_matching_filter'
-          }
-          onClick={onSelectAllMatchingFilter}
-          type="button"
-        >
-          Zaznacz wyniki filtra
         </button>
         <button
           className="secondaryButton"
@@ -1629,9 +1449,9 @@ function SymbolReviewFilterChangeDialog({
   return (
     <div className={styles.modalBackdrop} role="presentation">
       <section aria-modal="true" className={styles.modal} role="dialog">
-        <h2>Zmienić filtr?</h2>
+        <h2>Zmienić grę?</h2>
         <p>
-          Zmiana filtra wyczyści bieżące zaznaczenie ({selectedCount} cropów).
+          Zmiana gry wyczyści bieżące zaznaczenie ({selectedCount} cropów).
           Żadna decyzja ani plik nie zostaną zmienione.
         </p>
         <div className={styles.modalActions}>
@@ -1639,7 +1459,7 @@ function SymbolReviewFilterChangeDialog({
             Anuluj
           </button>
           <button className="primaryButton" onClick={onConfirm} type="button">
-            Zmień filtr
+            Zmień grę
           </button>
         </div>
       </section>
@@ -1707,8 +1527,8 @@ function SymbolReviewOperationDialog({
 function SymbolReviewEmpty() {
   return (
     <div className={styles.empty}>
-      <h2>Brak cropów dla wybranego filtra</h2>
-      <p>Zmień symbol albo stan, aby zobaczyć inne bieżące wyniki.</p>
+      <h2>Brak cropów dla wybranej gry</h2>
+      <p>Uzupełnij projekcję, jeżeli gra powinna już zawierać cropy.</p>
     </div>
   );
 }
@@ -1807,21 +1627,6 @@ function SymbolReviewStatus({
   );
 }
 
-function stateLabel(state: SymbolCellReviewFilterState): string {
-  if (state === 'approved') return 'zatwierdzone';
-  if (state === 'pending') return 'oczekujące';
-  return 'wszystkie';
-}
-
-function filteredSymbolReviewCount(
-  snapshot: SymbolCellReviewCountSnapshotResponse,
-  state: SymbolCellReviewFilterState,
-): number {
-  if (state === 'approved') return snapshot.counts.approvedCount;
-  if (state === 'pending') return snapshot.counts.pendingCount;
-  return snapshot.counts.allCount;
-}
-
 function symbolReviewFilterScope(
   filters: LoadSymbolReviewPageOptions | null,
 ): string {
@@ -1862,26 +1667,17 @@ function operationStatusLabel(
   return 'Niepowodzenie';
 }
 
-function symbolLabel(
-  symbolId: string | 'unknown' | null,
-  symbols: readonly SymbolResponse[],
-): string {
-  if (symbolId === 'unknown') return 'Nierozpoznany (?)';
-  return symbols.find((symbol) => symbol.id === symbolId)?.name ?? 'Symbol';
-}
-
 function asPageFilters(
   filters: SymbolReviewFilters,
 ): LoadSymbolReviewPageOptions | null {
-  if (filters.gameId === null || filters.symbolId === null) {
+  if (filters.gameId === null) {
     return null;
   }
   return {
-    ...symbolReviewConfidenceRange(filters.confidence),
     gameId: filters.gameId,
     limit: filters.pageSize,
-    state: filters.state,
-    symbolId: filters.symbolId,
+    state: 'all',
+    symbolId: 'all',
   };
 }
 

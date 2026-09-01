@@ -80,6 +80,23 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `ai_docs/quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V2_ACCEPTANCE.md`.
   Feature flag pozostaje domyślnie wyłączona do osobnej decyzji operatora.
 
+### Adaptacyjne próby OCR zakresów v3 — TASK-0364
+
+- Nowe runy przypinają `semi-automatic-range-only-ocr-v3`. Sam recognizer jest
+  zgodny jakościowo z v2 (`12/24/36`, minimum trzy pozycje, para sąsiednia,
+  confidence `0.90`); zmienia się wyłącznie harmonogram wywołań.
+- Thumbnailowy deskryptor wybiera mocne granice, a próba co piąte źródło
+  ogranicza ryzyko pominięcia subtelnej zmiany. Pominięty JPEG jest jawnie
+  `unproven` i nie może utworzyć zakresu.
+- Scheduler i grouping mają wspólny trwały prefiks. Checkpoint v3 jest bounded
+  do 10 źródeł, więc restart nie zmienia kontraktu ani nie powtarza już
+  zatwierdzonych prób.
+- Golden 10/100 zachował `7/10` i `68/100` exact oraz zero fałszywych
+  przypisań. Modelowa seria 10 rzeczywistych ekranów po 10 ujęć osiągnęła
+  `3,30 JPEG/s`; rzeczywisty fragment 200 zdjęć osiągnął `7,30 JPEG/s`.
+  Projekcja dla 42 000 zdjęć wynosi około `1 h 36 min–3 h 32 min`, zależnie od
+  udziału wymagających prób. Flaga rolloutowa nadal pozostaje wyłączona.
+
 ### Kontrakty półautomatycznej selekcji zakresów — TASK-0350
 
 - TASK-0350 tworzy czysty, niezależny od gry kontrakt `seq-inclusive-v1` dla

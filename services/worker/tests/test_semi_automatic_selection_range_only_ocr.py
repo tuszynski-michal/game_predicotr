@@ -15,8 +15,10 @@ from game_predictor_worker.semi_automatic_selection.contracts import (
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_CANDIDATE_POLICY_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     ExistingProofFirstRangeOnlyBridge,
     RangeOnlyCandidatePolicy,
     RangeOnlyLabelEvidence,
@@ -147,6 +149,13 @@ def test_historical_v1_contract_fingerprint_remains_immutable() -> None:
     assert RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2 != (
         RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1
     )
+    assert RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT == (
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3
+    )
+    assert RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3 not in {
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    }
 
 
 def test_v2_candidate_policy_accepts_real_label_proportions_and_rejects_noise() -> None:
@@ -193,6 +202,23 @@ def test_adapter_accepts_exact_proof_without_any_quality_input() -> None:
     assert recognizer.calls == 1
     assert result.status is RangeEvidenceStatus.EXACT_RANGE
     assert result.expected_index == 0
+
+
+def test_adapter_can_record_an_unproven_scheduled_source_without_calling_ocr() -> None:
+    recognizer = _RangeRecognizer(_exact_recognition())
+    adapter = RangeOnlyOcrAdapter(
+        bounds=SemiAutomaticSequenceBounds(1, 18),
+        recognizer=recognizer,
+    )
+
+    result = adapter.unproven(
+        source=_source(),
+        reason_codes=("RANGE_OCR_SKIPPED_VISUAL_REDUNDANCY",),
+    )
+
+    assert recognizer.calls == 0
+    assert result.status is RangeEvidenceStatus.RANGE_UNREADABLE
+    assert "RANGE_OCR_SKIPPED_VISUAL_REDUNDANCY" in result.reason_codes
 
 
 def test_high_confidence_without_strong_local_proof_remains_ambiguous() -> None:

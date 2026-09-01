@@ -95,6 +95,7 @@ implementacyjnym.
 - [Virtual geometry 0.10 cutover acceptance](quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md)
 - [Keypoint geometry fallback 0.10](quality/V0_10_KEYPOINT_GEOMETRY_FALLBACK.md)
 - [Fast symbol verification acceptance](quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md)
+- [Semi-automatic range OCR v3 performance](quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V3_PERFORMANCE.md)
 - [Theoretical symbol-cell review scalability analysis](quality/SYMBOL_CELL_REVIEW_SCALABILITY_ANALYSIS.md)
   — analiza granic pamięci i transakcji TASK-0294; nie jest pomiarem czasu.
 - [Remote source browser capability spike](quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md)

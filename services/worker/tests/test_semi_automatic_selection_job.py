@@ -38,9 +38,9 @@ from game_predictor_worker.semi_automatic_selection.job import (
     SemiAutomaticImageSelectionJobHandler,
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
-    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     RangeOnlyRecognition,
 )
 from PIL import Image
@@ -212,15 +212,17 @@ def _jpeg(color: tuple[int, int, int]) -> bytes:
 def _ready_run(
     tmp_path: Path,
     *,
-    recognizer_fingerprint: str = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+    recognizer_fingerprint: str = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    source_count: int = 4,
+    source_color: tuple[int, int, int] | None = None,
 ) -> tuple[SemiAutomaticSelectionRun, tuple[ApiRange, ...]]:
     upload_id = uuid4()
     source_root = tmp_path / "imports" / "browser-selections" / str(upload_id)
     source_root.mkdir(parents=True)
     sources: list[SemiAutomaticSelectionSource] = []
     files: list[dict[str, object]] = []
-    for index in range(4):
-        content = _jpeg((10 + index, 20 + index, 30 + index))
+    for index in range(source_count):
+        content = _jpeg(source_color or (10 + index, 20 + index, 30 + index))
         checksum = hashlib.sha256(content).hexdigest()
         relative_path = f"selection/photo-{index + 1}.jpg"
         stored_file_name = f"{index + 1:08d}.jpg"
@@ -387,6 +389,52 @@ def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> N
     assert store.run.counters["processedSources"] == 4
 
 
+def test_v3_scheduler_resumes_and_avoids_redundant_ocr(tmp_path: Path) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        recognizer_fingerprint=RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
+        source_count=11,
+        source_color=(20, 30, 40),
+    )
+    store = _MemoryStore(run, ranges)
+    store.pause_after_processed_sources = 10
+    first_recognizer = _ScriptedRecognizer([_exact(1, 9, 0.95), _exact(1, 9, 0.96)])
+    first_handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: first_recognizer,
+    )
+
+    with pytest.raises(_WaitForReview):
+        first_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert first_recognizer.calls == 2
+    assert store.run.checkpoint["observationCount"] == 10
+    scheduling = store.run.checkpoint["ocrSchedulingState"]
+    assert isinstance(scheduling, dict)
+    assert scheduling["nextSourceIndex"] == 10
+
+    store.run = replace(store.run, status=SemiAutomaticSelectionRunStatus.READY)
+    resumed_recognizer = _ScriptedRecognizer([_exact(1, 9, 0.97)])
+    resumed_handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: resumed_recognizer,
+    )
+
+    with pytest.raises(_WaitForReview):
+        resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert resumed_recognizer.calls == 1
+    assert store.run.counters["processedSources"] == 11
+    assert store.run.counters["ocrProbedSources"] == 3
+    assert store.run.counters["ocrSkippedSources"] == 8
+
+
 def test_handler_preserves_lease_conflict_from_the_store(tmp_path: Path) -> None:
     run, _ranges = _ready_run(tmp_path)
 
@@ -415,6 +463,7 @@ def test_handler_preserves_lease_conflict_from_the_store(tmp_path: Path) -> None
     (
         RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
         RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     ),
 )
 def test_handler_resolves_the_recognizer_from_the_durable_run_contract(

@@ -28,6 +28,7 @@ from game_predictor_api.storage.models import (
 from game_predictor_api.storage.semi_automatic_image_selection_repository import (
     SqlAlchemySemiAutomaticSelectionRepository,
 )
+from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -47,10 +48,16 @@ from .contracts import (
 )
 from .engine import RangeGroupingAccumulator, RangeGroupSelection, grouping_policy_fingerprint
 from .range_only_ocr import (
+    RANGE_ONLY_OCR_SCHEDULING_POLICY_V3,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     SUPPORTED_RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINTS,
     RangeOnlyOcrAdapter,
     RangeOnlyRecognizer,
     build_paddle_range_only_recognizer_for_contract,
+)
+from .range_only_scheduler import (
+    RANGE_ONLY_OCR_SKIPPED_REASON,
+    AdaptiveRangeOcrProbeScheduler,
 )
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
@@ -325,23 +332,41 @@ class SemiAutomaticImageSelectionJobHandler:
             checkpoint.get("groupingState"),
         )
         accumulator = RangeGroupingAccumulator(checkpoint=grouping_checkpoint)
+        scheduler = _restore_ocr_probe_scheduler(
+            run=run,
+            checkpoint=checkpoint,
+            next_source_index=accumulator.next_source_index,
+        )
         counters = dict(run.counters)
         for staged in sources[accumulator.next_source_index :]:
-            evidence = _recognize_staged_source(
+            evidence, ocr_probed = _recognize_staged_source(
                 adapter,
                 staged,
                 source_root=source_root,
                 bounds=bounds,
+                scheduler=scheduler,
             )
             audit.append_observation(evidence)
             groups = accumulator.consume(evidence)
             audit.append_groups(groups)
             _increment_observation_counters(counters, evidence)
+            if scheduler is not None:
+                if ocr_probed:
+                    counters["ocrProbedSources"] = counters.get("ocrProbedSources", 0) + 1
+                elif RANGE_ONLY_OCR_SKIPPED_REASON in evidence.reason_codes:
+                    counters["ocrSkippedSources"] = counters.get("ocrSkippedSources", 0) + 1
             counters["processedSources"] = accumulator.next_source_index
             counters["groups"] = _object_as_int(accumulator.checkpoint()["nextGroupOrder"])
+            if scheduler is not None and (
+                accumulator.next_source_index
+                % RANGE_ONLY_OCR_SCHEDULING_POLICY_V3.checkpoint_interval_sources
+                and accumulator.next_source_index != len(sources)
+            ):
+                continue
             checkpoint = _scanning_checkpoint(
                 accumulator,
                 runtime_recognizer_fingerprint=recognizer.fingerprint,
+                ocr_scheduling_state=(None if scheduler is None else scheduler.checkpoint()),
             )
             audit.write_checkpoint(checkpoint)
             run = self._store.persist_checkpoint(
@@ -574,28 +599,98 @@ def _recognize_staged_source(
     *,
     source_root: Path,
     bounds: SemiAutomaticSequenceBounds,
-) -> RangeEvidenceResult:
+    scheduler: AdaptiveRangeOcrProbeScheduler | None,
+) -> tuple[RangeEvidenceResult, bool]:
     source = staged.identity
     path = _safe_child(source_root, staged.stored_file_name)
     try:
         if path.stat().st_size != source.size_bytes or _sha256_file(path) != source.checksum_sha256:
             _fail_source_changed("A staged JPEG changed after run creation.")
-        with Image.open(path) as image:
-            rgb = np.asarray(ImageOps.exif_transpose(image).convert("RGB"), dtype=np.uint8)
+        if scheduler is not None:
+            thumbnail_rgb = _load_scheduler_thumbnail(
+                path,
+                maximum_edge=RANGE_ONLY_OCR_SCHEDULING_POLICY_V3.thumbnail_max_edge,
+            )
+            decision = scheduler.decide(
+                source_index=source.source_index,
+                thumbnail_rgb=thumbnail_rgb,
+            )
+            if not decision.should_probe:
+                return (
+                    adapter.unproven(
+                        source=source,
+                        reason_codes=(RANGE_ONLY_OCR_SKIPPED_REASON,),
+                    ),
+                    False,
+                )
+        rgb = _load_full_rgb(path)
     except JobHandlerError:
         raise
     except (OSError, UnidentifiedImageError, ValueError):
-        return RangeEvidenceGate(bounds).evaluate(
-            RangeEvidenceObservation(
-                source=source,
-                observed_range=None,
-                confidence=None,
-                has_strong_local_proof=False,
-                source_decodable=False,
-                diagnostic_reason_codes=("SOURCE_DECODE_FAILED",),
-            )
+        if scheduler is not None:
+            if scheduler.next_source_index == source.source_index:
+                scheduler.record_unavailable(source_index=source.source_index)
+            else:
+                scheduler.force_probe_after_failure()
+        return (
+            RangeEvidenceGate(bounds).evaluate(
+                RangeEvidenceObservation(
+                    source=source,
+                    observed_range=None,
+                    confidence=None,
+                    has_strong_local_proof=False,
+                    source_decodable=False,
+                    diagnostic_reason_codes=("SOURCE_DECODE_FAILED",),
+                )
+            ),
+            False,
         )
-    return adapter.recognize(source=source, rgb_image=rgb)
+    return adapter.recognize(source=source, rgb_image=rgb), True
+
+
+def _load_scheduler_thumbnail(path: Path, *, maximum_edge: int) -> NDArray[np.uint8]:
+    with Image.open(path) as image:
+        image.draft("RGB", (maximum_edge, maximum_edge))
+        thumbnail = ImageOps.exif_transpose(image).convert("RGB")
+        thumbnail.thumbnail((maximum_edge, maximum_edge), Image.Resampling.BILINEAR)
+        return np.asarray(thumbnail, dtype=np.uint8)
+
+
+def _load_full_rgb(path: Path) -> NDArray[np.uint8]:
+    with Image.open(path) as image:
+        return np.asarray(ImageOps.exif_transpose(image).convert("RGB"), dtype=np.uint8)
+
+
+def _restore_ocr_probe_scheduler(
+    *,
+    run: SemiAutomaticSelectionRun,
+    checkpoint: Mapping[str, object],
+    next_source_index: int,
+) -> AdaptiveRangeOcrProbeScheduler | None:
+    raw_state = checkpoint.get("ocrSchedulingState")
+    if run.recognizer_fingerprint != RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3:
+        if raw_state is not None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "A historical OCR run cannot contain adaptive scheduling state.",
+            )
+        return None
+    state = cast(Mapping[str, object] | None, raw_state)
+    if next_source_index > 0 and state is None:
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+            "The adaptive OCR run is missing its durable scheduling state.",
+        )
+    scheduler = AdaptiveRangeOcrProbeScheduler(
+        RANGE_ONLY_OCR_SCHEDULING_POLICY_V3,
+        checkpoint=state,
+    )
+    if scheduler.next_source_index != next_source_index:
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+            "OCR scheduling and range grouping checkpoints differ.",
+        )
+    return scheduler
 
 
 def _worker_bounds(run: SemiAutomaticSelectionRun) -> SemiAutomaticSequenceBounds:
@@ -652,9 +747,10 @@ def _scanning_checkpoint(
     accumulator: RangeGroupingAccumulator,
     *,
     runtime_recognizer_fingerprint: str,
+    ocr_scheduling_state: Mapping[str, object] | None,
 ) -> dict[str, object]:
     state = accumulator.checkpoint()
-    return {
+    checkpoint: dict[str, object] = {
         "finalizedGroupCount": _object_as_int(state["nextGroupOrder"]),
         "groupingState": state,
         "observationCount": accumulator.next_source_index,
@@ -662,6 +758,9 @@ def _scanning_checkpoint(
         "runtimeRecognizerFingerprint": runtime_recognizer_fingerprint,
         "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
     }
+    if ocr_scheduling_state is not None:
+        checkpoint["ocrSchedulingState"] = dict(ocr_scheduling_state)
+    return checkpoint
 
 
 def _increment_observation_counters(

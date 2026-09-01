@@ -943,6 +943,14 @@ fingerprintem recognizera, czasem, poziomem zakończenia i potwierdzeniem braku
 wywołań ciężkiego pipeline'u. Spełnienie bramki odbioru nie włącza feature
 flagi; rollout pozostaje osobną decyzją operatora.
 
+Nowe runy po TASK-0364 używają `semi-automatic-range-only-ocr-v3`. Każda
+wykonana próba zachowuje bez zmian kandydatów `12/24/36` oraz proof v2, ale
+OCR nie jest uruchamiany na każdym podobnym JPEG-u. Tani deskryptor wyglądu
+wyzwala próbę na mocnej zmianie, a niezależny bounded interval wymusza ją co
+najwyżej pięć źródeł. Wygląd nie jest dowodem zakresu: pominięty JPEG ma wynik
+`unproven`, nie może zostać reprezentantem ani odziedziczyć numeru od sąsiada.
+Historyczne runy v1/v2 nadal wykonują swój zapisany kontrakt bez schedulera.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego
@@ -975,9 +983,10 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 
 ## Deterministyczny silnik wyboru zakresu — TASK-0353
 
-- Każdy JPEG jest dekodowany i przekazywany do range-only OCR najwyżej raz w
-  jednym runie. Obserwacje są przetwarzane strumieniowo w naturalnej kolejności
-  źródła; zakończony prefiks jest wznawiany z checkpointu bez ponownego OCR.
+- Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w
+  jednym runie. V1/v2 badają wszystkie źródła; v3 zapisuje pominięte podobne
+  źródła jako `unproven`. Obserwacje są przetwarzane strumieniowo w naturalnej
+  kolejności; zakończony prefiks jest wznawiany z checkpointu bez ponownego OCR.
 - Grupę może otworzyć i podtrzymać wyłącznie `exact_range`. Brak dowodu może
   rozszerzyć bieżący przedział źródeł maksymalnie o skalibrowane `160` pozycji,
   ale nigdy nie jest kandydatem do wyboru i nie przypisuje zakresu z sąsiadów.

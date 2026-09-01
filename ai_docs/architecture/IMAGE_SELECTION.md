@@ -1417,6 +1417,20 @@ względem próby 10, a wszystkie niezgodne lub słabe surowe hipotezy zostały
 zatrzymane przed automatycznym wyborem. Raport nie jest źródłem konfiguracji i
 nie może samodzielnie włączyć feature flagi.
 
+TASK-0364 dodaje kontrakt v3 bez zmiany proof OCR. Przed pełnym dekodowaniem
+`AdaptiveRangeOcrProbeScheduler` oblicza deskryptor
+`opencv-appearance-descriptor-v2` na JPEG thumbnailu do 640 px. Próbę wymusza
+silna odległość `0.08` albo maksymalny interwał pięciu źródeł. Wysoki próg
+zmiany jest celowy: bounded interval odpowiada za bezpieczeństwo, a deskryptor
+ma jedynie przyspieszyć reakcję na oczywistą granicę. Scheduler nie zna bounds,
+expected range ani wyniku sąsiada i zwraca wyłącznie `probe | unproven`.
+
+Checkpoint v3 przechowuje fingerprint polityki, poprzedni deskryptor, ostatni
+deskryptor próby i kolejny source index. Stan grupowania i schedulera muszą
+wskazywać ten sam prefiks. SQL oraz atomowy checkpoint plikowy są utrwalane co
+10 źródeł; crash może powtórzyć tylko niezatwierdzony suffix, który audit
+odcina przed wznowieniem. V1/v2 nadal checkpointują i OCR-ują historycznie.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

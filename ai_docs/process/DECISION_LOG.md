@@ -6781,3 +6781,19 @@ Brak kompletnej proweniencji `virtual_source` jest jawną niedostępnością. Ni
 wolno zastąpić obrazu eksperymentalnego cropem legacy. Tryb, wersja i fingerprint
 renderera należą do content-addressed klucza atlasu, dzięki czemu cache A/B nie
 koliduje, a zmiana proweniencji tworzy nową tożsamość podglądu.
+
+## D-287 — Wygląd może planować OCR, ale nie może dowodzić zakresu
+
+- Status: accepted
+- Date: 2026-09-01
+
+Półautomat v3 używa taniego deskryptora wyglądu wyłącznie do wyboru źródeł,
+na których uruchamia kosztowny range-only OCR. Niezależna próba co najwyżej
+pięć źródeł ogranicza wpływ subtelnych zmian, a mocna granica może wywołać OCR
+wcześniej. Obraz pominięty przez scheduler pozostaje `unproven`: nie dziedziczy
+zakresu, nie może zostać wybrany i nie zwiększa siły dowodu grupy.
+
+Każda automatyczna kandydatura nadal wymaga dokładnie tego samego lokalnego
+dowodu trzech pozycji co v2. Fingerprint v3 obejmuje scheduler, a jego stan jest
+checkpointowany razem z groupingiem. Historyczne v1/v2 nie korzystają z tej
+optymalizacji i zachowują odtwarzalność.

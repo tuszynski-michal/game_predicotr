@@ -39,7 +39,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
-    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
 )
 from PIL import Image
 
@@ -206,7 +206,7 @@ def test_global_staging_and_run_survive_service_recreation(tmp_path: Path) -> No
     assert duplicate.id == run.id
     assert run.job.game_id is None
     assert run.job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
-    assert run.recognizer_fingerprint == RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+    assert run.recognizer_fingerprint == RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3
     assert recreated_ready.source_fingerprint == ready.source_fingerprint
     assert [(item.range_start, item.range_end) for item in ranges] == [(1, 9), (10, 18), (19, 23)]
     assert asset.read_bytes() == first_jpeg

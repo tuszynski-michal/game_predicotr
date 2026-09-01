@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol
 from uuid import UUID
 
 from game_predictor_worker.semi_automatic_selection.engine import (
@@ -272,14 +272,11 @@ class SemiAutomaticImageSelectionService:
         expected_checksum_sha256: str,
     ) -> tuple[Path, str]:
         run = self.get(run_id)
-        return cast(
-            tuple[Path, str],
-            self._staging.get_ready_source_asset(
-                run.source.upload_id,
-                purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-                source_index=source_index,
-                expected_checksum_sha256=expected_checksum_sha256,
-            ),
+        return self._staging.get_ready_source_asset(
+            run.source.upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+            source_index=source_index,
+            expected_checksum_sha256=expected_checksum_sha256,
         )
 
     def _locked(self, run_id: UUID) -> SemiAutomaticSelectionRun:

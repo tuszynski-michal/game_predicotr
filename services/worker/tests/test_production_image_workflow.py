@@ -200,6 +200,24 @@ def test_attested_sequence_range_keeps_partial_geometry_in_review() -> None:
     )
 
 
+def test_attested_sequence_range_assigns_short_final_page_with_sparse_geometry() -> None:
+    detections = tuple({"positionIndex": index} for index in range(5))
+
+    payload = _attested_sequence_payload(
+        detections,
+        (499_996, 500_000),
+        allow_sparse=True,
+    )
+
+    boards = payload["boards"]
+    assert isinstance(boards, list)
+    assert [board["normalizedNumber"] for board in boards] == list(
+        range(499_996, 500_001)
+    )
+    assert all(board["sequenceSource"] == "filename" for board in boards)
+    assert all(board["reviewReasons"] == [] for board in boards)
+
+
 def test_geometry_manifest_defers_unregistered_sources_before_pipeline() -> None:
     registered = ManagedOriginal("a" * 64, "seq_1-9.jpg", "data/a.jpg", 10)
     review_required = ManagedOriginal("b" * 64, "seq_10-18.jpg", "data/b.jpg", 10)

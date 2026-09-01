@@ -2357,22 +2357,25 @@ def _attested_sequence_payload(
 ) -> dict[str, object]:
     """Assign row-major numbers from a validated ``seq_start-end`` filename.
 
-    The filename is authoritative only when the detector returned exactly the
-    declared number of boards. A partial grid remains reviewable, but no
-    remaining board is shifted to fill the missing position.
+    The filename is authoritative when the detector returned the complete
+    declared page. Sparse geometry on a full nine-board page keeps its physical
+    position; neither path shifts a remaining board to fill a missing slot.
     """
 
     start, end = sequence_range
     expected_count = end - start + 1
     positions = [_integer(board, "positionIndex") for board in detections]
-    complete = (
-        expected_count == 9
-        and positions == sorted(set(positions))
-        and all(position < expected_count for position in positions)
-        if allow_sparse
-        else len(detections) == expected_count
-        and all(position == index for index, position in enumerate(positions))
+    exact_declared_page = len(detections) == expected_count and positions == list(
+        range(expected_count)
     )
+    sparse_full_page = (
+        allow_sparse
+        and expected_count == 9
+        and bool(positions)
+        and positions == sorted(set(positions))
+        and all(0 <= position < expected_count for position in positions)
+    )
+    complete = exact_declared_page or sparse_full_page
     boards: list[dict[str, object]] = []
     for board in detections:
         position = _integer(board, "positionIndex")

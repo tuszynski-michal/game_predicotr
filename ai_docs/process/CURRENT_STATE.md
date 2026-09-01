@@ -15,6 +15,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Numery końcowej częściowej strony `seq_*` — TASK-0366
+
+- Produkcyjny adapter przypisuje teraz numery z poświadczonej nazwy również
+  kompletnej stronie krótszej niż dziewięć plansz. `seq_499996-500000.jpg`
+  daje deterministycznie numery `499996–500000` dla pozycji `0–4`.
+- Niekompletna geometria nadal pozostaje do korekty i nie przesuwa numerów.
+  Istniejące pięć rekordów gry `777` skorygowano atomowo na podstawie nazwy
+  źródłowej; odbudowa projekcji zostanie wznowiona po zwolnieniu blokady
+  trwających importów.
+
 ### Atomowy start browser stagingu — TASK-0365
 
 - Nowy preflight geometrii albo import i przypięcie rekordu retencji stagingu

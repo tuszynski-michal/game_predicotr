@@ -2134,7 +2134,13 @@ def _expected_board_count(attested_range: tuple[int, int] | None) -> int:
     if attested_range is None:
         return 9
     start, end = attested_range
-    return end - start + 1 if 1 <= start <= end <= start + 8 else 9
+    expected_count = end - start + 1
+    if start < 1 or not 1 <= expected_count <= 9:
+        raise ImagePipelineExecutionError(
+            "IMAGE_ATTESTED_SEQUENCE_RANGE_INVALID",
+            "The attested filename range must declare between one and nine boards.",
+        )
+    return expected_count
 
 
 def _registered_page_geometry(

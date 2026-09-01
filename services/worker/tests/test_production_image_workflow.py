@@ -51,6 +51,7 @@ from game_predictor_worker.images.production_workflow import (
     ProductionImageStageAdapterSuite,
     _attested_sequence_payload,
     _calibrated_quad,
+    _expected_board_count,
     _filter_registered_geometry_originals,
     _pending_reason,
     _resolve_page_sequence_numbers,
@@ -216,6 +217,23 @@ def test_attested_sequence_range_assigns_short_final_page_with_sparse_geometry()
     )
     assert all(board["sequenceSource"] == "filename" for board in boards)
     assert all(board["reviewReasons"] == [] for board in boards)
+
+
+def test_expected_board_count_comes_from_attested_filename_range() -> None:
+    assert _expected_board_count((499_996, 500_000)) == 5
+    assert _expected_board_count((1, 9)) == 9
+
+
+def test_expected_board_count_uses_nine_only_without_attested_range() -> None:
+    assert _expected_board_count(None) == 9
+
+
+def test_expected_board_count_rejects_invalid_attested_range_instead_of_falling_back() -> None:
+    with pytest.raises(
+        ImagePipelineExecutionError,
+        match="attested filename range must declare between one and nine boards",
+    ):
+        _expected_board_count((10, 19))
 
 
 def test_geometry_manifest_defers_unregistered_sources_before_pipeline() -> None:

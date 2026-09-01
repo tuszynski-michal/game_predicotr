@@ -24,6 +24,9 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   Istniejące pięć rekordów gry `777` skorygowano atomowo na podstawie nazwy
   źródłowej; odbudowa projekcji zostanie wznowiona po zwolnieniu blokady
   trwających importów.
+- `expectedBoardCount` zawsze wynika z `end - start + 1`, gdy istnieje
+  poświadczony zakres. Fallback dziewięciu dotyczy tylko źródła bez zakresu;
+  niepoprawny zakres kończy się fail-closed.
 
 ### Atomowy start browser stagingu — TASK-0365
 

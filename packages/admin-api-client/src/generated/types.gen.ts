@@ -1710,6 +1710,57 @@ export type ErrorResponse = {
 };
 
 /**
+ * FilenameRangeVerificationItemResponse
+ */
+export type FilenameRangeVerificationItemResponse = {
+  /**
+   * Anchorpositions
+   */
+  anchorPositions: Array<number>;
+  expectedRange: SequenceRangeValueResponse | null;
+  observedRange: SequenceRangeValueResponse | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Sourcesizebytes
+   */
+  sourceSizeBytes: number;
+  /**
+   * Verificationstatus
+   */
+  verificationStatus:
+    'verified' | 'mismatch' | 'unreadable' | 'invalid_filename';
+};
+
+/**
+ * FilenameRangeVerificationPageResponse
+ */
+export type FilenameRangeVerificationPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<FilenameRangeVerificationItemResponse>;
+  /**
+   * Nextaftersourceindex
+   */
+  nextAfterSourceIndex?: number | null;
+};
+
+/**
  * GameCreate
  */
 export type GameCreate = {
@@ -8147,6 +8198,14 @@ export type SemiAutomaticSelectionCapabilitiesResponse = {
    */
   enabled: boolean;
   /**
+   * Filenameverificationenabled
+   */
+  filenameVerificationEnabled: boolean;
+  /**
+   * Filenameverificationrecognizerfingerprint
+   */
+  filenameVerificationRecognizerFingerprint: string;
+  /**
    * Fullrangesize
    */
   fullRangeSize: 9;
@@ -8189,6 +8248,10 @@ export type SemiAutomaticSelectionCreate = {
    * Lastsequencenumber
    */
   lastSequenceNumber: number;
+  /**
+   * Mode
+   */
+  mode?: 'selection' | 'filename_verification';
   /**
    * Uploadid
    */
@@ -8487,6 +8550,20 @@ export type SemiAutomaticSelectionSourceResponse = {
    * Uploadid
    */
   uploadId: string;
+};
+
+/**
+ * SequenceRangeValueResponse
+ */
+export type SequenceRangeValueResponse = {
+  /**
+   * End
+   */
+  end: number;
+  /**
+   * Start
+   */
+  start: number;
 };
 
 /**
@@ -20115,6 +20192,55 @@ export type GetSemiAutomaticImageSelectionDiagnosticsResponses = {
 
 export type GetSemiAutomaticImageSelectionDiagnosticsResponse =
   GetSemiAutomaticImageSelectionDiagnosticsResponses[keyof GetSemiAutomaticImageSelectionDiagnosticsResponses];
+
+export type ListSemiAutomaticFilenameRangeVerificationsData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * After Source Index
+     */
+    after_source_index?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications';
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsError =
+  ListSemiAutomaticFilenameRangeVerificationsErrors[keyof ListSemiAutomaticFilenameRangeVerificationsErrors];
+
+export type ListSemiAutomaticFilenameRangeVerificationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameRangeVerificationPageResponse;
+};
+
+export type ListSemiAutomaticFilenameRangeVerificationsResponse =
+  ListSemiAutomaticFilenameRangeVerificationsResponses[keyof ListSemiAutomaticFilenameRangeVerificationsResponses];
 
 export type PauseSemiAutomaticImageSelectionData = {
   body?: never;

@@ -480,6 +480,9 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSemiAutomaticFilenameRangeVerificationsData,
+  ListSemiAutomaticFilenameRangeVerificationsErrors,
+  ListSemiAutomaticFilenameRangeVerificationsResponses,
   ListSemiAutomaticImageSelectionRangesData,
   ListSemiAutomaticImageSelectionRangesErrors,
   ListSemiAutomaticImageSelectionRangesResponses,
@@ -5323,6 +5326,30 @@ export const getSemiAutomaticImageSelectionDiagnostics = <
     ThrowOnError
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/diagnostics',
+    ...options,
+  });
+
+/**
+ * List Filename Verifications
+ */
+export const listSemiAutomaticFilenameRangeVerifications = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ListSemiAutomaticFilenameRangeVerificationsData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ListSemiAutomaticFilenameRangeVerificationsResponses,
+  ListSemiAutomaticFilenameRangeVerificationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticFilenameRangeVerificationsResponses,
+    ListSemiAutomaticFilenameRangeVerificationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications',
     ...options,
   });
 

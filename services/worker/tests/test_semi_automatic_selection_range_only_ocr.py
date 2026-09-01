@@ -202,6 +202,17 @@ def test_adapter_accepts_exact_proof_without_any_quality_input() -> None:
     assert recognizer.calls == 1
     assert result.status is RangeEvidenceStatus.EXACT_RANGE
     assert result.expected_index == 0
+    assert result.runtime_diagnostics == {
+        "labelEvidence": [
+            {
+                "confidence": 0.94,
+                "positionIndex": position,
+                "route": "label_lattice",
+                "sequenceNumber": 1 + position,
+            }
+            for position in (0, 1, 4)
+        ]
+    }
 
 
 def test_adapter_can_record_an_unproven_scheduled_source_without_calling_ocr() -> None:

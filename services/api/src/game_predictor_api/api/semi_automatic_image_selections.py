@@ -12,6 +12,8 @@ from game_predictor_api.application.semi_automatic_image_selections import (
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.semi_automatic_image_selections import (
+    FilenameRangeVerificationItemResponse,
+    FilenameRangeVerificationPageResponse,
     SemiAutomaticSelectionCapabilitiesResponse,
     SemiAutomaticSelectionCreate,
     SemiAutomaticSelectionCreateResponse,
@@ -48,9 +50,7 @@ def create_semi_automatic_image_selections_router(
     def capabilities(
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionCapabilitiesResponse:
-        return SemiAutomaticSelectionCapabilitiesResponse.model_validate(
-            service.capabilities()
-        )
+        return SemiAutomaticSelectionCapabilitiesResponse.model_validate(service.capabilities())
 
     @router.post(
         "",
@@ -67,6 +67,7 @@ def create_semi_automatic_image_selections_router(
             first_sequence_number=payload.first_sequence_number,
             last_sequence_number=payload.last_sequence_number,
             direction=payload.direction,
+            mode=payload.mode,
         )
         return SemiAutomaticSelectionCreateResponse(run=to_run_response(run), created=created)
 
@@ -102,6 +103,31 @@ def create_semi_automatic_image_selections_router(
         return SemiAutomaticSelectionRangePageResponse(
             items=[to_range_response(item) for item in items],
             next_after_expected_index=(items[-1].expected_index if len(items) == limit else None),
+        )
+
+    @router.get(
+        "/{run_id}/filename-verifications",
+        response_model=FilenameRangeVerificationPageResponse,
+        operation_id="listSemiAutomaticFilenameRangeVerifications",
+        responses=ERROR_RESPONSES,
+    )
+    def list_filename_verifications(
+        run_id: UUID,
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+        after_source_index: Annotated[int | None, Query(ge=0)] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    ) -> FilenameRangeVerificationPageResponse:
+        items = service.list_filename_verification_items(
+            run_id,
+            after_source_index=after_source_index,
+            limit=limit,
+        )
+        responses = [FilenameRangeVerificationItemResponse.model_validate(item) for item in items]
+        return FilenameRangeVerificationPageResponse(
+            items=responses,
+            next_after_source_index=(
+                responses[-1].source_index if len(responses) == limit else None
+            ),
         )
 
     @router.get(

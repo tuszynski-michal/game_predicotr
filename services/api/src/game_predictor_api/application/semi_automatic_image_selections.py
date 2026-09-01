@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_worker.semi_automatic_selection.engine import (
@@ -13,6 +15,7 @@ from game_predictor_worker.semi_automatic_selection.engine import (
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
 )
 
 from game_predictor_api.application.image_imports import (
@@ -43,6 +46,12 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
 
 SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT
 SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = grouping_policy_fingerprint()
+SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE = "filename_verification"
+SEMI_AUTOMATIC_SELECTION_MODE = "selection"
+_SEQUENCE_FILE_PATTERN = re.compile(
+    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
+)
+_VERIFICATION_ANCHORS = frozenset({0, 2, 4, 6, 8})
 
 
 class SemiAutomaticSelectionRepository(Protocol):
@@ -95,14 +104,17 @@ class SemiAutomaticImageSelectionService:
         staging: BrowserImageSelectionService,
         *,
         enabled: bool,
+        artifact_root: Path | None = None,
     ) -> None:
         self._repository = repository
         self._staging = staging
         self._enabled = enabled
+        self._artifact_root = None if artifact_root is None else artifact_root.resolve()
 
     def capabilities(self) -> dict[str, object]:
         return {
             "enabled": self._enabled,
+            "filenameVerificationEnabled": True,
             "contractVersion": SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION,
             "rangeConvention": SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
             "fullRangeSize": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
@@ -110,6 +122,9 @@ class SemiAutomaticImageSelectionService:
             "maximumBoardsPerRange": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
             "stagingPurpose": ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION.value,
             "recognizerFingerprint": SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
+            "filenameVerificationRecognizerFingerprint": (
+                RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+            ),
             "groupingPolicyFingerprint": SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
         }
 
@@ -120,12 +135,26 @@ class SemiAutomaticImageSelectionService:
         first_sequence_number: int,
         last_sequence_number: int,
         direction: SemiAutomaticSelectionDirection,
+        mode: str = SEMI_AUTOMATIC_SELECTION_MODE,
     ) -> tuple[SemiAutomaticSelectionRun, bool]:
-        if not self._enabled:
+        if mode == SEMI_AUTOMATIC_SELECTION_MODE and not self._enabled:
             raise SemiAutomaticSelectionError(
                 "SEMI_AUTOMATIC_SELECTION_DISABLED",
                 "Semi-automatic image selection is disabled by the server rollout gate.",
             )
+        if mode not in {
+            SEMI_AUTOMATIC_SELECTION_MODE,
+            SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE,
+        }:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+                "The requested semi-automatic workflow mode is unsupported.",
+            )
+        recognizer_fingerprint = (
+            RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+            if mode == SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE
+            else SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT
+        )
         ready = self._staging.get_ready_source_selection(
             upload_id,
             purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
@@ -143,7 +172,7 @@ class SemiAutomaticImageSelectionService:
             first_sequence_number=first_sequence_number,
             last_sequence_number=last_sequence_number,
             direction=direction,
-            recognizer_fingerprint=SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
+            recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
         )
         existing = self._repository.find_by_identity(identity_key)
@@ -154,7 +183,7 @@ class SemiAutomaticImageSelectionService:
             first_sequence_number=first_sequence_number,
             last_sequence_number=last_sequence_number,
             direction=direction,
-            recognizer_fingerprint=SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
+            recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
         )
         try:
@@ -165,6 +194,74 @@ class SemiAutomaticImageSelectionService:
             if concurrent is None:
                 raise
             return concurrent, False
+
+    def list_filename_verification_items(
+        self,
+        run_id: UUID,
+        *,
+        after_source_index: int | None,
+        limit: int,
+    ) -> tuple[dict[str, object], ...]:
+        run = self.get(run_id)
+        if run.recognizer_fingerprint != RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+                "The run was not created for filename range verification.",
+            )
+        if limit < 1 or limit > 500:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_PAGE_INVALID",
+                "The verification page limit must be between 1 and 500.",
+            )
+        if self._artifact_root is None:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_DIAGNOSTICS_UNAVAILABLE",
+                "The range verification diagnostics store is unavailable.",
+            )
+        observations_path = (
+            self._artifact_root
+            / "exports"
+            / "semi-automatic-selection"
+            / str(run.id)
+            / "observations.jsonl"
+        ).resolve()
+        expected_parent = (
+            self._artifact_root / "exports" / "semi-automatic-selection" / str(run.id)
+        ).resolve()
+        if (
+            observations_path.parent != expected_parent
+            or self._artifact_root not in observations_path.parents
+        ):
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "The verification diagnostics path is unsafe.",
+            )
+        committed = _committed_observation_count(run)
+        if not observations_path.exists() or committed == 0:
+            return ()
+        first_index = 0 if after_source_index is None else after_source_index + 1
+        if first_index >= committed:
+            return ()
+        items: list[dict[str, object]] = []
+        try:
+            with observations_path.open("r", encoding="utf-8") as source:
+                for line_index, line in enumerate(source):
+                    if line_index >= committed or len(items) >= limit:
+                        break
+                    if line_index < first_index:
+                        continue
+                    value = json.loads(line)
+                    if not isinstance(value, dict) or value.get("sourceIndex") != line_index:
+                        raise ValueError("non-contiguous observation")
+                    items.append(
+                        classify_filename_range_verification(cast(dict[str, object], value))
+                    )
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "The committed filename verification diagnostics are invalid.",
+            ) from error
+        return tuple(items)
 
     def get(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         run = self._repository.get(run_id)
@@ -289,9 +386,111 @@ class SemiAutomaticImageSelectionService:
         return run
 
 
+def classify_filename_range_verification(
+    observation: dict[str, object],
+) -> dict[str, object]:
+    """Compare filename expectation with five source-local OCR anchors.
+
+    The filename never supplies OCR evidence. It is parsed only after the
+    recognition result has been persisted and is used as the expected value.
+    """
+
+    relative_path = str(observation.get("sourceRelativePath", ""))
+    file_name = relative_path.replace("\\", "/").rsplit("/", 1)[-1]
+    match = _SEQUENCE_FILE_PATTERN.fullmatch(file_name)
+    observed_raw = observation.get("observedRange")
+    observed = (
+        None
+        if not isinstance(observed_raw, dict)
+        else {
+            "start": int(observed_raw["start"]),
+            "end": int(observed_raw["end"]),
+        }
+    )
+    expected = (
+        None
+        if match is None
+        else {"start": int(match.group("start")), "end": int(match.group("end"))}
+    )
+    diagnostics = observation.get("runtimeDiagnostics")
+    label_evidence = diagnostics.get("labelEvidence", []) if isinstance(diagnostics, dict) else []
+    anchor_positions = _matching_anchor_positions(label_evidence, observed)
+    has_anchor_proof = _has_spread_five_anchor_proof(anchor_positions)
+    if (
+        expected is None
+        or expected["end"] < expected["start"]
+        or expected["end"] - expected["start"] >= 9
+    ):
+        verification_status = "invalid_filename"
+    elif observed is None or not has_anchor_proof:
+        verification_status = "unreadable"
+    elif observed == expected:
+        verification_status = "verified"
+    else:
+        verification_status = "mismatch"
+    return {
+        "anchorPositions": sorted(anchor_positions),
+        "expectedRange": expected,
+        "observedRange": observed,
+        "reasonCodes": list(cast(list[object], observation.get("reasonCodes", []))),
+        "sourceChecksumSha256": str(observation.get("sourceChecksumSha256", "")),
+        "sourceIndex": int(observation["sourceIndex"]),
+        "sourceRelativePath": relative_path,
+        "sourceSizeBytes": int(observation["sourceSizeBytes"]),
+        "verificationStatus": verification_status,
+    }
+
+
+def _matching_anchor_positions(
+    label_evidence: object,
+    observed: dict[str, int] | None,
+) -> frozenset[int]:
+    if observed is None or not isinstance(label_evidence, list):
+        return frozenset()
+    positions: set[int] = set()
+    for raw in label_evidence:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            position = int(raw["positionIndex"])
+            number = int(raw["sequenceNumber"])
+            confidence = float(raw["confidence"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (
+            position in _VERIFICATION_ANCHORS
+            and number == observed["start"] + position
+            and confidence >= 0.82
+        ):
+            positions.add(position)
+    return frozenset(positions)
+
+
+def _has_spread_five_anchor_proof(positions: frozenset[int]) -> bool:
+    if len(positions) < 3:
+        return False
+    rows = {position // 3 for position in positions}
+    columns = {position % 3 for position in positions}
+    has_center_or_opposite_corners = (
+        4 in positions or {0, 8}.issubset(positions) or {2, 6}.issubset(positions)
+    )
+    return len(rows) >= 2 and len(columns) >= 2 and has_center_or_opposite_corners
+
+
+def _committed_observation_count(run: SemiAutomaticSelectionRun) -> int:
+    raw = run.checkpoint.get("observationCount")
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return max(0, min(raw, run.source.source_count))
+    processed = run.counters.get("processedSources", 0)
+    return max(0, min(processed, run.source.source_count))
+
+
 __all__ = [
     "SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT",
     "SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT",
+    "SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE",
+    "SEMI_AUTOMATIC_SELECTION_MODE",
     "SemiAutomaticImageSelectionService",
     "SemiAutomaticSelectionRepository",
+    "classify_filename_range_verification",
 ]

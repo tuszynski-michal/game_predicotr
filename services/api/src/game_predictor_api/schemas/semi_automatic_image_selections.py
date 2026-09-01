@@ -23,6 +23,7 @@ Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     enabled: bool
+    filename_verification_enabled: bool
     contract_version: Literal[1]
     range_convention: Literal["seq-inclusive-v1"]
     full_range_size: Literal[9]
@@ -30,6 +31,7 @@ class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     maximum_boards_per_range: Literal[9]
     staging_purpose: Literal["semi_automatic_selection"]
     recognizer_fingerprint: Sha256
+    filename_verification_recognizer_fingerprint: Sha256
     grouping_policy_fingerprint: Sha256
 
 
@@ -38,6 +40,29 @@ class SemiAutomaticSelectionCreate(ApiModel):
     first_sequence_number: int = Field(ge=1)
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection = SemiAutomaticSelectionDirection.ASCENDING
+    mode: Literal["selection", "filename_verification"] = "selection"
+
+
+class SequenceRangeValueResponse(ApiModel):
+    start: int = Field(ge=1)
+    end: int = Field(ge=1)
+
+
+class FilenameRangeVerificationItemResponse(ApiModel):
+    source_index: int = Field(ge=0)
+    source_relative_path: str
+    source_size_bytes: int = Field(ge=1)
+    source_checksum_sha256: Sha256
+    expected_range: SequenceRangeValueResponse | None
+    observed_range: SequenceRangeValueResponse | None
+    anchor_positions: list[int]
+    verification_status: Literal["verified", "mismatch", "unreadable", "invalid_filename"]
+    reason_codes: list[str]
+
+
+class FilenameRangeVerificationPageResponse(ApiModel):
+    items: list[FilenameRangeVerificationItemResponse]
+    next_after_source_index: int | None = Field(default=None, ge=0)
 
 
 class SemiAutomaticSelectionSourceResponse(ApiModel):
@@ -179,6 +204,8 @@ def to_range_response(
 
 
 __all__ = [
+    "FilenameRangeVerificationItemResponse",
+    "FilenameRangeVerificationPageResponse",
     "SemiAutomaticSelectionCapabilitiesResponse",
     "SemiAutomaticSelectionCreate",
     "SemiAutomaticSelectionCreateResponse",

@@ -143,6 +143,7 @@ import {
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
+  listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
   listSemiAutomaticImageSelectionRanges as listGeneratedSemiAutomaticImageSelectionRanges,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
@@ -295,6 +296,8 @@ import type {
   SymbolCellReviewMutationResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  FilenameRangeVerificationItemResponse,
+  FilenameRangeVerificationPageResponse,
   SymbolCellPreviewBatchRequest,
   SemiAutomaticSelectionOutputAcknowledgement,
   SemiAutomaticSelectionCreate,
@@ -504,6 +507,8 @@ export type {
   SymbolCellReviewBulkPreviewResponse,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
+  FilenameRangeVerificationItemResponse,
+  FilenameRangeVerificationPageResponse,
   SemiAutomaticSelectionOutputAcknowledgement,
   SemiAutomaticSelectionCapabilitiesResponse,
   SemiAutomaticSelectionCreate,
@@ -735,6 +740,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(afterExpectedIndex === undefined
             ? {}
             : { after_expected_index: afterExpectedIndex }),
+          limit,
+        },
+      }),
+    listSemiAutomaticFilenameRangeVerifications: (
+      runId: string,
+      afterSourceIndex?: number,
+      limit = 500,
+    ) =>
+      listGeneratedSemiAutomaticFilenameRangeVerifications({
+        client,
+        path: { run_id: runId },
+        query: {
+          ...(afterSourceIndex === undefined
+            ? {}
+            : { after_source_index: afterSourceIndex }),
           limit,
         },
       }),

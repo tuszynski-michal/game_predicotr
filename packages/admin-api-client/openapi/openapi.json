@@ -3019,6 +3019,116 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "FilenameRangeVerificationItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "anchorPositions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Anchorpositions",
+            "type": "array"
+          },
+          "expectedRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SequenceRangeValueResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observedRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SequenceRangeValueResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "sourceRelativePath": {
+            "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "sourceSizeBytes": {
+            "minimum": 1.0,
+            "title": "Sourcesizebytes",
+            "type": "integer"
+          },
+          "verificationStatus": {
+            "enum": [
+              "verified",
+              "mismatch",
+              "unreadable",
+              "invalid_filename"
+            ],
+            "title": "Verificationstatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "sourceRelativePath",
+          "sourceSizeBytes",
+          "sourceChecksumSha256",
+          "expectedRange",
+          "observedRange",
+          "anchorPositions",
+          "verificationStatus",
+          "reasonCodes"
+        ],
+        "title": "FilenameRangeVerificationItemResponse",
+        "type": "object"
+      },
+      "FilenameRangeVerificationPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FilenameRangeVerificationItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterSourceIndex": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextaftersourceindex"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FilenameRangeVerificationPageResponse",
+        "type": "object"
+      },
       "GameCreate": {
         "additionalProperties": false,
         "properties": {
@@ -14173,6 +14283,15 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "filenameVerificationEnabled": {
+            "title": "Filenameverificationenabled",
+            "type": "boolean"
+          },
+          "filenameVerificationRecognizerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Filenameverificationrecognizerfingerprint",
+            "type": "string"
+          },
           "fullRangeSize": {
             "const": 9,
             "title": "Fullrangesize",
@@ -14211,6 +14330,7 @@
         },
         "required": [
           "enabled",
+          "filenameVerificationEnabled",
           "contractVersion",
           "rangeConvention",
           "fullRangeSize",
@@ -14218,6 +14338,7 @@
           "maximumBoardsPerRange",
           "stagingPurpose",
           "recognizerFingerprint",
+          "filenameVerificationRecognizerFingerprint",
           "groupingPolicyFingerprint"
         ],
         "title": "SemiAutomaticSelectionCapabilitiesResponse",
@@ -14239,6 +14360,15 @@
             "minimum": 1.0,
             "title": "Lastsequencenumber",
             "type": "integer"
+          },
+          "mode": {
+            "default": "selection",
+            "enum": [
+              "selection",
+              "filename_verification"
+            ],
+            "title": "Mode",
+            "type": "string"
           },
           "uploadId": {
             "format": "uuid",
@@ -14786,6 +14916,27 @@
           "sourceTotalBytes"
         ],
         "title": "SemiAutomaticSelectionSourceResponse",
+        "type": "object"
+      },
+      "SequenceRangeValueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "minimum": 1.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 1.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "SequenceRangeValueResponse",
         "type": "object"
       },
       "SnapshotJobCreate": {
@@ -36137,6 +36288,98 @@
           }
         },
         "summary": "Diagnostics",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications": {
+      "get": {
+        "operationId": "listSemiAutomaticFilenameRangeVerifications",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_source_index",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Source Index"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilenameRangeVerificationPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "List Filename Verifications",
         "tags": [
           "semi-automatic-image-selections"
         ]

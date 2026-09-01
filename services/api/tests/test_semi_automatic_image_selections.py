@@ -20,6 +20,7 @@ from game_predictor_api.application.image_imports import (
 )
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
+    classify_filename_range_verification,
 )
 from game_predictor_api.domain.jobs import (
     JobError,
@@ -39,6 +40,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
+    RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
 )
 from PIL import Image
@@ -296,11 +298,15 @@ def test_pause_resume_cancel_and_output_acknowledgement_are_durable(tmp_path: Pa
         source_size_bytes=staging.get_ready_source_selection(
             upload_id,
             purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-        ).sources[0].size_bytes,
+        )
+        .sources[0]
+        .size_bytes,
         source_checksum_sha256=staging.get_ready_source_selection(
             upload_id,
             purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
-        ).sources[0].checksum_sha256,
+        )
+        .sources[0]
+        .checksum_sha256,
     )
     repository.save_range(selected)
     repository.save(
@@ -471,6 +477,9 @@ def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -
 
     assert capabilities.status_code == 200
     assert capabilities.json()["enabled"] is True
+    assert capabilities.json()["filenameVerificationRecognizerFingerprint"] == (
+        RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+    )
     assert created.json()["created"] is True
     assert created.json()["run"]["gameId"] is None
     assert duplicate.status_code == 200
@@ -481,6 +490,81 @@ def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -
         "seq_10-18.jpg",
         "seq_19-19.jpg",
     ]
+
+
+def test_filename_verification_requires_three_spread_image_anchors() -> None:
+    base = {
+        "sourceIndex": 0,
+        "sourceRelativePath": "seq_10-18.jpg",
+        "sourceSizeBytes": 100,
+        "sourceChecksumSha256": "a" * 64,
+        "observedRange": {"start": 10, "end": 18},
+        "reasonCodes": ["EXACT_LOCAL_RANGE_PROOF"],
+    }
+    verified = classify_filename_range_verification(
+        {
+            **base,
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 10 + position,
+                        "confidence": 0.94,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 4, 8)
+                ]
+            },
+        }
+    )
+    insufficient = classify_filename_range_verification(
+        {
+            **base,
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 10 + position,
+                        "confidence": 0.94,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 2)
+                ]
+            },
+        }
+    )
+
+    assert verified["verificationStatus"] == "verified"
+    assert verified["anchorPositions"] == [0, 4, 8]
+    assert insufficient["verificationStatus"] == "unreadable"
+
+
+def test_filename_verification_reports_strong_mismatch_without_using_filename_as_evidence() -> None:
+    result = classify_filename_range_verification(
+        {
+            "sourceIndex": 4,
+            "sourceRelativePath": "seq_10-18.jpg",
+            "sourceSizeBytes": 100,
+            "sourceChecksumSha256": "b" * 64,
+            "observedRange": {"start": 19, "end": 27},
+            "reasonCodes": ["EXACT_LOCAL_RANGE_PROOF"],
+            "runtimeDiagnostics": {
+                "labelEvidence": [
+                    {
+                        "positionIndex": position,
+                        "sequenceNumber": 19 + position,
+                        "confidence": 0.95,
+                        "route": "label_lattice",
+                    }
+                    for position in (0, 4, 8)
+                ]
+            },
+        }
+    )
+
+    assert result["verificationStatus"] == "mismatch"
+    assert result["expectedRange"] == {"start": 10, "end": 18}
+    assert result["observedRange"] == {"start": 19, "end": 27}
 
 
 def test_semi_automatic_jobs_use_only_the_existing_selection_lane(tmp_path: Path) -> None:

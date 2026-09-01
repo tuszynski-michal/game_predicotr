@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -394,7 +394,7 @@ class RangeOnlyOcrAdapter:
             )
 
         observed_range, strong = self._canonical_expected_range(recognition)
-        return self._gate.evaluate(
+        result = self._gate.evaluate(
             RangeEvidenceObservation(
                 source=source,
                 observed_range=observed_range,
@@ -403,6 +403,21 @@ class RangeOnlyOcrAdapter:
                 is_ambiguous=recognition.is_ambiguous,
                 diagnostic_reason_codes=recognition.reason_codes,
             )
+        )
+        diagnostics = dict(self.last_diagnostics)
+        if recognition.label_evidence:
+            diagnostics["labelEvidence"] = [
+                {
+                    "confidence": item.confidence,
+                    "positionIndex": item.position_index,
+                    "route": item.route,
+                    "sequenceNumber": item.sequence_number,
+                }
+                for item in recognition.label_evidence
+            ]
+        return replace(
+            result,
+            runtime_diagnostics=diagnostics or None,
         )
 
     def unproven(

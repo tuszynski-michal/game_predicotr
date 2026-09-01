@@ -720,6 +720,7 @@ def create_app(
                     SqlAlchemySemiAutomaticSelectionRepository(session),
                     default_browser_image_selection_service,
                     enabled=resolved_settings.semi_automatic_image_selection_enabled,
+                    artifact_root=resolved_settings.artifact_root,
                 )
                 session.commit()
             except BaseException:

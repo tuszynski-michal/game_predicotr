@@ -209,6 +209,31 @@ test('admin mounts repair directly below local selection and redirects repaired 
   assert.match(workspace, /Kontynuuj w sekcji „Popraw selekcję”/);
 });
 
+test('admin mounts durable filename range verification with five-anchor manual review', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const workspace = await readFile(
+    new URL(
+      '../src/features/manual-image-selection/manual-selection-range-verification-workspace.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const parent = await readFile(
+    new URL(
+      '../src/features/manual-image-selection/manual-image-selection-workspace.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+
+  assert.match(parent, /ManualSelectionRangeVerificationWorkspace/);
+  assert.match(workspace, /Weryfikacja zakresów/);
+  assert.match(workspace, /filename_verification/);
+  assert.match(workspace, /listSemiAutomaticFilenameRangeVerifications/);
+  assert.match(workspace, /Odrzuć i usuń F/);
+  assert.match(workspace, /jobProgressPercent/);
+});
+
 test('fill workspace exposes bounded steps, gap targets, shortcuts and visibility gate', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(

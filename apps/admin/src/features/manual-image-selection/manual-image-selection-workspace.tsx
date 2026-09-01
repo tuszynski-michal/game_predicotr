@@ -36,6 +36,7 @@ import { ManualImageSelectionStore } from './manual-image-selection-store';
 import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
 import { RemoteManualSelectionHostPanel } from './remote-manual-selection-host-panel';
 import { ManualSelectionRepairWorkspace } from './manual-selection-repair-workspace';
+import { ManualSelectionRangeVerificationWorkspace } from './manual-selection-range-verification-workspace';
 import { readRepairManifest } from './manual-selection-repair-storage.ts';
 
 interface DirectoryPickerWindow extends Window {
@@ -58,6 +59,7 @@ export function ManualImageSelectionWorkspace({
       <RemoteManualSelectionHostPanel apiBaseUrl={apiBaseUrl} />
       <LocalManualImageSelectionWorkspace />
       <ManualSelectionRepairWorkspace />
+      <ManualSelectionRangeVerificationWorkspace apiBaseUrl={apiBaseUrl} />
     </div>
   );
 }

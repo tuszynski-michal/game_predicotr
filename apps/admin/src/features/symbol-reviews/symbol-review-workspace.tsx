@@ -65,7 +65,6 @@ import {
 import {
   loadSymbolReviewPreviewAtlases,
   type SymbolReviewPreviewAvailability,
-  type SymbolReviewPreviewMode,
   type SymbolReviewVirtualPreviewTile,
 } from './symbol-review-virtual-previews.ts';
 import { SymbolReviewVirtualGrid } from './symbol-review-virtual-grid.tsx';
@@ -185,8 +184,6 @@ export function SymbolReviewWorkspace({
   const [virtualPreviewTiles, setVirtualPreviewTiles] = useState<
     Readonly<Record<string, SymbolReviewVirtualPreviewTile>>
   >({});
-  const [previewMode, setPreviewMode] =
-    useState<SymbolReviewPreviewMode>('current');
   const [previewAvailability, setPreviewAvailability] =
     useState<SymbolReviewPreviewAvailability>(emptyPreviewAvailability);
   const gamesRequestId = useRef(0);
@@ -241,7 +238,6 @@ export function SymbolReviewWorkspace({
     isStartingOperation ||
     operationDialog !== null ||
     paging;
-  const previewReadOnly = previewMode === 'structured_v0_10';
 
   const applyFilters = useCallback((nextFilters: SymbolReviewFilters) => {
     const previousFilters = filtersRef.current;
@@ -600,7 +596,7 @@ export function SymbolReviewWorkspace({
       filters.gameId,
       currentItems,
       previewAnchorCellId.current,
-      previewMode,
+      'current',
       (tiles, availability) => {
         if (
           !cancelled &&
@@ -631,7 +627,7 @@ export function SymbolReviewWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, currentItems, filters.gameId, hasVisibleItems, previewMode]);
+  }, [api, currentItems, filters.gameId, hasVisibleItems]);
 
   const movePage = useCallback(
     async (direction: -1 | 1) => {
@@ -712,7 +708,6 @@ export function SymbolReviewWorkspace({
   }
 
   function selectVisiblePage() {
-    if (previewReadOnly) return;
     const change = selectVisibleSymbolReviewItems(selection, currentItems);
     setSelection(change.selection);
     if (change.rejectedCount > 0) {
@@ -723,7 +718,6 @@ export function SymbolReviewWorkspace({
   }
 
   function toggleItem(item: SymbolCellReviewListItemResponse) {
-    if (previewReadOnly) return;
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
     if (change.rejectedCount > 0) {
@@ -734,8 +728,7 @@ export function SymbolReviewWorkspace({
   async function previewOperation(
     action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
   ) {
-    if (previewReadOnly || filters.gameId === null || selectedCount === 0)
-      return;
+    if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
     const targets =
       selection.kind === 'explicit' ? Object.values(selection.targetsById) : [];
@@ -930,6 +923,32 @@ export function SymbolReviewWorkspace({
             ))}
           </select>
         </label>
+        <label>
+          Symbol
+          <select
+            disabled={
+              filters.gameId === null ||
+              symbolsState !== 'ready' ||
+              interactionBusy ||
+              filtersConfirmed
+            }
+            onChange={(event) =>
+              requestFilterChange({
+                ...filters,
+                symbolId: event.target.value as SymbolReviewFilters['symbolId'],
+              })
+            }
+            value={filters.symbolId ?? 'all'}
+          >
+            <option value="all">Wszystkie symbole</option>
+            {symbols.map((symbol) => (
+              <option key={symbol.id} value={symbol.id}>
+                {symbol.name}
+              </option>
+            ))}
+            <option value="unknown">Nierozpoznany (?)</option>
+          </select>
+        </label>
         <div className={styles.filterActions}>
           <button
             className="primaryButton"
@@ -970,7 +989,7 @@ export function SymbolReviewWorkspace({
           reassignTargetSymbolId={reassignTargetSymbolId}
           selectedCount={selectedCount}
           symbols={symbols}
-          readOnly={previewReadOnly}
+          readOnly={false}
         />
       ) : null}
 
@@ -1027,29 +1046,11 @@ export function SymbolReviewWorkspace({
       currentPage !== null ? (
         <>
           <div className={styles.summary}>
-            <span>{activeGame?.name ?? 'Gra'} · wszystkie dostępne cropy</span>
+            <span>
+              {activeGame?.name ?? 'Gra'} ·{' '}
+              {symbolFilterLabel(filters.symbolId, symbols)}
+            </span>
             <div className={styles.summaryActions}>
-              <label className={styles.previewMode}>
-                Podgląd cropów
-                <select
-                  disabled={interactionBusy}
-                  onChange={(event) => {
-                    const mode = event.target.value as SymbolReviewPreviewMode;
-                    virtualPreviewRequestId.current += 1;
-                    setPreviewMode(mode);
-                    setVirtualPreviewTiles({});
-                    setPreviewAvailability(emptyPreviewAvailability());
-                    setSelection(createEmptySymbolReviewSelection());
-                    setReassignTargetSymbolId(null);
-                  }}
-                  value={previewMode}
-                >
-                  <option value="current">Aktualne cropy v20/v19</option>
-                  <option value="structured_v0_10">
-                    Eksperymentalny silnik v0.10
-                  </option>
-                </select>
-              </label>
               <span>
                 Strona {currentPageNumber} · zakres{' '}
                 {currentPageRange === null
@@ -1075,15 +1076,6 @@ export function SymbolReviewWorkspace({
               </button>
             </div>
           </div>
-          {previewReadOnly ? (
-            <p className={styles.previewNotice} role="status">
-              Podgląd eksperymentalny v0.10 jest tylko do odczytu. Nie zapisuje
-              decyzji, cropów ani jobów.
-              {previewAvailability.rendererVersion === null
-                ? ''
-                : ` Renderer: ${previewAvailability.rendererVersion}.`}
-            </p>
-          ) : null}
           <div className={styles.pageWorkspace}>
             {currentItems.length === 0 ? (
               <SymbolReviewEmpty />
@@ -1094,11 +1086,7 @@ export function SymbolReviewWorkspace({
                 pageNumber={currentPageNumber}
                 renderCard={(item) => (
                   <SymbolReviewCard
-                    disabled={
-                      previewReadOnly ||
-                      interactionBusy ||
-                      pendingCellIds.has(item.id)
-                    }
+                    disabled={interactionBusy || pendingCellIds.has(item.id)}
                     item={item}
                     key={item.id}
                     onToggle={() => toggleItem(item)}
@@ -1110,7 +1098,7 @@ export function SymbolReviewWorkspace({
                     selected={isSymbolReviewItemSelected(selection, item)}
                   />
                 )}
-                scopeKey={`${filters.gameId ?? ''}:all`}
+                scopeKey={`${filters.gameId ?? ''}:${filters.symbolId ?? 'all'}`}
               />
             )}
             <div className={styles.pagination}>
@@ -1677,8 +1665,19 @@ function asPageFilters(
     gameId: filters.gameId,
     limit: filters.pageSize,
     state: 'all',
-    symbolId: 'all',
+    symbolId: filters.symbolId ?? 'all',
   };
+}
+
+function symbolFilterLabel(
+  symbolId: SymbolReviewFilters['symbolId'],
+  symbols: readonly SymbolResponse[],
+): string {
+  if (symbolId === 'unknown') return 'nierozpoznane (?)';
+  if (symbolId === null || symbolId === 'all') return 'wszystkie symbole';
+  return (
+    symbols.find((symbol) => symbol.id === symbolId)?.name ?? 'wybrany symbol'
+  );
 }
 
 function symbolReviewPageCursorOptions(

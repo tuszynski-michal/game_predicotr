@@ -6939,3 +6939,18 @@ Decyzja nie promuje odrzuconych v4.1 ani v5. Historyczny run zawsze wybiera
 adapter z utrwalonego fingerprintu, a konfiguracja środowiskowa nadal może
 jawnie wyłączyć cały workflow przez
 `GAME_PREDICTOR_ENABLE_SEMI_AUTOMATIC_IMAGE_SELECTION=false`.
+
+## D-296 — Weryfikacja symboli renderuje wyłącznie bieżący asset
+
+- **Status:** accepted; supersedes the UI part of D-286
+- **Date:** 2026-09-02
+
+Weryfikacja symboli nie udostępnia osobnego przełącznika podglądu A/B. Każda
+komórka jest renderowana według własnej, aktualnej i checksum-bound
+proweniencji: `legacy_file` dla historycznego wyniku albo `virtual_source` dla
+wyniku aktywnego silnika v0.10. Ten sam widok służy do decyzji operatora.
+
+Zakres listy jest wybierany jawnie: wszystkie symbole, jeden aktywny symbol lub
+nierozpoznane `?`. `symbolId=all` pozostaje kontraktem API, lecz nie jest już
+wymuszany przez UI. Historyczny shadow nie jest przedstawiany jako bieżący
+crop i nie może podszywać się pod aktywny wynik v0.10.

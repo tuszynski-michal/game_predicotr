@@ -6854,3 +6854,19 @@ Wariant nie staje się domyślnym recognizerem. Nie wolno stroić go na frozen
 golden ani osłabiać exact proof. Następna iteracja musi dostać nowy fingerprint,
 użyć oddzielnego tuning setu, poprawić identyfikację środkowego rzędu i przejść
 nowy, wcześniej niewidziany holdout. Historyczne v1–v3 pozostają bez zmian.
+
+## D-291 — V5 rozdziela prowizoryczny proof rzędu od finalnego wyboru
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Rozpoznanie jednej kolejnej trójki numerów z górnego, środkowego albo dolnego
+rzędu może utworzyć wyłącznie prowizoryczną obserwację zakresu. Nie może samo
+zapisać reprezentanta, niezależnie od confidence albo pozycji w sekwencji.
+
+Finalny wybór wymaga dwóch różnych, kompletnych rzędów własnego obrazu zgodnych
+z jednym oczekiwanym zakresem. Dodatkowy kompletny rząd z konfliktem,
+niejednoznacznym OCR albo niską pewnością odrzuca obraz jako możliwą klatkę
+przejściową. Rząd fizycznie niewidoczny lub przycięty nie jest dowodem ani
+vetem. Nazwa pliku, source index, sąsiednie obrazy i pozycjowy prior nie mogą
+uzupełniać brakującego proof.

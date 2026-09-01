@@ -15,6 +15,21 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Exact proof środkowego rzędu v4.1 — TASK-0368
+
+- Powstał niezależny komponent przyszłego
+  `semi-automatic-range-only-ocr-v4-middle-row-triple-v2`: jednokrotna
+  kanonizacja EXIF, bounded locator afinicznej siatki 3×3, dokładnie trzy cropy
+  środkowego rzędu i fail-closed bramki kompletności oraz czytelności.
+- `ExpectedRangeTable` i resolver dopuszczają `exact` tylko dla trzech kolejnych
+  odczytów pasujących do dokładnie jednego oczekiwanego zakresu. Brak fuzzy,
+  inferencji z nazwy, indeksu albo sąsiadów; częściowa strona bez pełnego
+  środkowego rzędu pozostaje `unknown`.
+- Dostępny rzeczywisty `seq_21169-21177.jpg` po EXIF wymagał ograniczonego
+  rozszerzenia ROI i został zlokalizowany jako trzy kompletne, czytelne cropy.
+  Produkcyjny Paddle, grouping, checkpoint i przełączenie runów pozostają
+  zakresem TASK-0369; v1–v3 nie zmieniły zachowania.
+
 ### Numery końcowej częściowej strony `seq_*` — TASK-0366
 
 - Produkcyjny adapter przypisuje teraz numery z poświadczonej nazwy również

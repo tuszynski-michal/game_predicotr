@@ -951,6 +951,25 @@ najwyżej pięć źródeł. Wygląd nie jest dowodem zakresu: pominięty JPEG ma
 `unproven`, nie może zostać reprezentantem ani odziedziczyć numeru od sąsiada.
 Historyczne runy v1/v2 nadal wykonują swój zapisany kontrakt bez schedulera.
 
+Komponent przygotowany w TASK-0368 definiuje przyszły wariant
+`semi-automatic-range-only-ocr-v4-middle-row-triple-v2`. V4.1 lokalizuje
+wyłącznie trzy pełne etykiety środkowego rzędu po jednokrotnej kanonizacji EXIF.
+Stałe ROI X `0.20–0.82` i Y `0.24–0.48` jest wersjonowanym pierwszym przebiegiem;
+jeżeli nie daje kompletnej, jednoznacznej siatki, locator może rozszerzyć tylko
+dolną granicę do `0.60`. Rozszerzenie nadal kończy się `unknown`, gdy lekki
+afiniczny układ 3×3 pozostaje niejednoznaczny.
+
+Każdy wynik v4.1 jest albo lokalnym `exact`, albo jawnym `unknown`. `Exact`
+wymaga trzech kolejnych, numerycznych odczytów z kompletnych i czytelnych cropów
+źródłowej rozdzielczości, progów confidence oraz dopasowania do dokładnie jednego
+wpisu `ExpectedRangeTable`. Nazwa pliku, katalog, source index, sąsiednie zdjęcia
+i fuzzy correction nie mogą dostarczyć ani uzupełnić dowodu. Częściowa końcowa
+strona jest rozpoznawalna tylko wtedy, gdy zawiera cały środkowy rząd.
+
+TASK-0368 nie przełącza nowych runów na v4.1. Produkcyjny Paddle, batching,
+orientacja runu, grouping i checkpoint należą do TASK-0369, a rollout i pomiary
+do TASK-0370. Do tego czasu v1–v3 i ich fingerprinty pozostają bez zmian.
+
 Jedyny skalibrowany parametr przekazywany do późniejszego grupowania to
 maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 `real-corpus-unproven-gap-v1` wyznacza ją deterministycznie z checksumowanego

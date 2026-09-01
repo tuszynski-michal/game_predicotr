@@ -1431,6 +1431,34 @@ wskazywać ten sam prefiks. SQL oraz atomowy checkpoint plikowy są utrwalane co
 10 źródeł; crash może powtórzyć tylko niezatwierdzony suffix, który audit
 odcina przed wznowieniem. V1/v2 nadal checkpointują i OCR-ują historycznie.
 
+## Komponenty range-only OCR v4.1 — TASK-0368
+
+V4.1 rozdziela czyste kontrakty dowodu od lokalizacji obrazu. Moduł
+`middle_row_range` tworzy niezmienny `ExpectedRangeTable` z granic runu i
+topologii stron, a `MiddleRowExactResolver` przyjmuje wyłącznie trzy teksty,
+confidence oraz flagi kompletności i czytelności. Nie zależy od OpenCV, Paddle,
+SQL ani lifecycle joba.
+
+Moduł `middle_row_locator` dekoduje JPEG raz, stosuje `ImageOps.exif_transpose`
+raz i dalej operuje w jednym układzie współrzędnych RGB. Na bounded thumbnailu
+wyszukuje jasne komponenty etykiet, łączy fragmenty cyfr oraz odrzuca obiekty,
+które nie mają minimalnej szerokości i proporcji pełnej etykiety. Pierwszy
+przebieg używa wersjonowanego ROI; drugi, nadal bounded przebieg może rozszerzyć
+wyłącznie jego dolną granicę.
+
+Lattice jest lekkim modelem afinicznym 3×3, a nie detekcją plansz. Dopasowuje
+dwa lokalne wektory siatki, obsługuje pochylenie i umiarkowaną perspektywę,
+deduplikuje te same przypisania oraz wymaga jawnego ambiguity margin. Locked
+prior może dostarczyć wyłącznie położenie, skalę i pochylenie; nigdy nie zawiera
+numerów. Z siatki powstają dokładnie trzy cropy środkowego rzędu wycięte
+bezpośrednio z obrazu źródłowego. Crop przycięty, rozmyty, o niskim lokalnym
+kontraście albo niejednoznaczny kończy się reason-coded `unknown` przed OCR.
+
+Fingerprint komponentu obejmuje EXIF policy, ROI wraz z bounded rozszerzeniem,
+maskę i grupowanie, model lattice, crop policy, bramki jakości, preprocessing
+oraz wersję exact proof. TASK-0368 nie rejestruje go jeszcze w resolverze runów;
+integracja Paddle, orientacji, batchowania i recovery jest zakresem TASK-0369.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

@@ -6797,3 +6797,26 @@ Każda automatyczna kandydatura nadal wymaga dokładnie tego samego lokalnego
 dowodu trzech pozycji co v2. Fingerprint v3 obejmuje scheduler, a jego stan jest
 checkpointowany razem z groupingiem. Historyczne v1/v2 nie korzystają z tej
 optymalizacji i zachowują odtwarzalność.
+
+## D-288 — V4.1 wymaga exact proof trzech numerów środkowego rzędu
+
+- **Status:** accepted
+- **Date:** 2026-09-01
+
+Przyszły wariant `semi-automatic-range-only-ocr-v4-middle-row-triple-v2`
+rozpoznaje wyłącznie trzy etykiety środkowego rzędu. Jedynym wynikiem
+automatycznym jest `exact` z trzech kolejnych wartości dopasowanych do dokładnie
+jednego wpisu `ExpectedRangeTable`; każdy inny przypadek jest reason-coded
+`unknown`. Nie wolno korygować znaków, uzupełniać wartości ani wyprowadzać
+zakresu z nazwy pliku, source index lub sąsiednich zdjęć.
+
+Locator stosuje EXIF dokładnie raz, używa bounded thumbnailu i lekkiego
+afinicznego lattice 3×3. Wersjonowane ROI może zostać rozszerzone wyłącznie w
+dół, gdy pierwszy przebieg nie obejmuje kompletnej siatki. Locked prior zawiera
+tylko położenie, skalę i pochylenie, nigdy wartości sekwencji. OCR otrzyma w
+TASK-0369 najwyżej trzy source-resolution cropy; board detection, geometria,
+cropper plansz i symbol inference pozostają zabronione.
+
+TASK-0368 tworzy wyłącznie czyste kontrakty i locator. Nie zmienia aktywnego
+fingerprintu nowych runów. V1–v3 są odtwarzalne bez zmian, a integracja runtime
+i rollout wymagają osobnych tasków oraz bramki zero false exact.

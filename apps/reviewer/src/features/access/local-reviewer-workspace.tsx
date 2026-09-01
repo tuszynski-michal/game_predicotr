@@ -29,18 +29,29 @@ export function LocalReviewerWorkspace({
 
   useEffect(() => {
     let active = true;
-    setMode(null);
-    setDiagnosticError('');
-    void Promise.all([
-      api.listImageGridReviews({ gameId, importJobId, limit: 1, view: 'all' }),
-      api.listPendingBoardCellGeometry({
-        gameId,
-        importJobId,
-        limit: 1,
-        status: 'pending',
-      }),
-    ])
-      .then(([gridResult, deferredResult]) => {
+    void Promise.resolve()
+      .then(() => {
+        if (!active) return null;
+        setMode(null);
+        setDiagnosticError('');
+        return Promise.all([
+          api.listImageGridReviews({
+            gameId,
+            importJobId,
+            limit: 1,
+            view: 'all',
+          }),
+          api.listPendingBoardCellGeometry({
+            gameId,
+            importJobId,
+            limit: 1,
+            status: 'pending',
+          }),
+        ]);
+      })
+      .then((results) => {
+        if (results === null) return;
+        const [gridResult, deferredResult] = results;
         if (!active) return;
         if (
           gridResult.error !== undefined ||

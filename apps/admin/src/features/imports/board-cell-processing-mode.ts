@@ -11,9 +11,10 @@ export const VERIFIED_V19_ACTIVATION_VERSION =
 export function boardCellProcessingModeLabel(
   mode: BoardCellProcessingMode,
 ): string {
-  return mode === 'verified_v19'
-    ? 'v20 — zweryfikowana geometria v19'
-    : '0.10 — geometria strukturalna w cieniu';
+  if (mode === 'verified_v19') return 'v20 — zweryfikowana geometria v19';
+  if (mode === 'structured_default')
+    return 'v0.10 — główny silnik strukturalny';
+  return 'v0.10 — historyczny tryb pomiarowy';
 }
 
 export function boardCellProcessingJobLabel(job: JobResponse): string {
@@ -25,6 +26,9 @@ export function boardCellProcessingJobLabel(job: JobResponse): string {
     'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
   if (rollout?.geometryMode === 'structured_shadow') {
     return '0.10 — nowy silnik w cieniu · primary v20/v19';
+  }
+  if (rollout?.geometryMode === 'structured_default') {
+    return 'v0.10 — główny silnik strukturalny · wirtualne cropy';
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;
@@ -46,6 +50,9 @@ export function jobMatchesBoardCellProcessingMode(
     'imageGeometryRollout' in payload ? payload.imageGeometryRollout : null;
   if (rollout?.geometryMode === 'structured_shadow') {
     return mode === 'structured_shadow';
+  }
+  if (rollout?.geometryMode === 'structured_default') {
+    return mode === 'structured_default';
   }
   const snapshot =
     'boardCellProcessing' in payload ? payload.boardCellProcessing : null;

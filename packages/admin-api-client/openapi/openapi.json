@@ -1393,7 +1393,8 @@
               {
                 "enum": [
                   "verified_v19",
-                  "structured_shadow"
+                  "structured_shadow",
+                  "structured_default"
                 ],
                 "type": "string"
               },
@@ -5045,7 +5046,8 @@
       "ImageImportEnginePolicy": {
         "enum": [
           "verified_v19",
-          "structured_shadow"
+          "structured_shadow",
+          "structured_default"
         ],
         "title": "ImageImportEnginePolicy",
         "type": "string"

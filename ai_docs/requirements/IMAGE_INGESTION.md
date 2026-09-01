@@ -1209,17 +1209,21 @@ logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.
 
 - Każda gra ma serwerowe, rewizjonowane ustawienie używane wyłącznie przy
   tworzeniu nowych importów.
-- Dostępne są dwa bezpieczne presety: `verified_v19` oraz
-  `structured_shadow`. Drugi zapisuje pomiar nowej geometrii, ale nie zmienia
-  wyniku primary i nie aktywuje Geometry v2 produkcyjnie.
+- Dla nowych importów dostępne są dwa presety operatorskie: `verified_v19`
+  oraz `structured_default`. Drugi zapisuje geometrię i cropy jako bieżące
+  `virtual_default`; historyczny `structured_shadow` pozostaje czytelny i
+  odtwarzalny, ale nie jest oferowany jako aktywny silnik.
 - Preflight zawiera nazwę i rewizję polityki. Zmiana ustawienia po preflighcie
   wymaga przygotowania nowego raportu.
-- Raport jawnie zwraca `geometryPreflightRequired`. Oba bezpieczne presety
-  wymagają checksum-bound manifestu geometrii, ponieważ w obu primary pozostaje
-  v20/v19. Nowa gra może utworzyć pierwszy preflight bez historycznego profilu,
+- Raport jawnie zwraca `geometryPreflightRequired`. Oba presety operatorskie
+  wymagają checksum-bound manifestu geometrii; v19 używa go w swoim pipeline,
+  a v0.10 zachowuje go jako niezmienną proweniencję źródła. Nowa gra może
+  utworzyć pierwszy preflight bez historycznego profilu,
   niezależnie od wybranego presetu: źródła trafiają wtedy do korekty, a
   zapisana ręcznie
   strona staje się kotwicą następnego, niezmiennego preflightu. Nierozwiązane
   źródła nie trafiają do croppera ani inferencji.
 - Payload klienta nie może nadpisać polityki gry, a istniejące joby zachowują
   przypięte wcześniej snapshoty.
+- Zmiana polityki nie konwertuje cropów istniejącego joba. Jawny rerun z
+  managed originals tworzy nowy wynik przypięty do aktualnej polityki.

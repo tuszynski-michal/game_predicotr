@@ -27,7 +27,11 @@ test('uses verified v19 processing as the default for new imports', () => {
   assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
   assert.equal(
     boardCellProcessingModeLabel('structured_shadow'),
-    '0.10 — geometria strukturalna w cieniu',
+    'v0.10 — historyczny tryb pomiarowy',
+  );
+  assert.equal(
+    boardCellProcessingModeLabel('structured_default'),
+    'v0.10 — główny silnik strukturalny',
   );
 });
 
@@ -40,6 +44,9 @@ test('labels each persisted import with its pinned board processing engine', () 
     { activationVersion: VERIFIED_V19_ACTIVATION_VERSION },
     { geometryMode: 'structured_shadow' },
   );
+  const structuredDefault = imageImportJob(undefined, {
+    geometryMode: 'structured_default',
+  });
 
   assert.equal(
     boardCellProcessingJobLabel(historical),
@@ -53,6 +60,10 @@ test('labels each persisted import with its pinned board processing engine', () 
     boardCellProcessingJobLabel(shadow),
     '0.10 — nowy silnik w cieniu · primary v20/v19',
   );
+  assert.equal(
+    boardCellProcessingJobLabel(structuredDefault),
+    'v0.10 — główny silnik strukturalny · wirtualne cropy',
+  );
 });
 
 test('rejects a returned job whose immutable snapshot differs from the game policy', () => {
@@ -64,6 +75,9 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
     { activationVersion: VERIFIED_V19_ACTIVATION_VERSION },
     { geometryMode: 'structured_shadow' },
   );
+  const structuredDefault = imageImportJob(undefined, {
+    geometryMode: 'structured_default',
+  });
 
   assert.equal(
     jobMatchesBoardCellProcessingMode(historical, 'verified_v19'),
@@ -84,5 +98,13 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
   assert.equal(
     jobMatchesBoardCellProcessingMode(shadow, 'structured_shadow'),
     true,
+  );
+  assert.equal(
+    jobMatchesBoardCellProcessingMode(structuredDefault, 'structured_default'),
+    true,
+  );
+  assert.equal(
+    jobMatchesBoardCellProcessingMode(shadow, 'structured_default'),
+    false,
   );
 });

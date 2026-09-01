@@ -492,7 +492,7 @@ export function ImageFolderImportPanel({
   }
 
   async function changeEnginePolicy(
-    targetPolicy: 'verified_v19' | 'structured_shadow',
+    targetPolicy: 'verified_v19' | 'structured_default',
   ) {
     if (busy || enginePolicy === null || targetPolicy === enginePolicy.policy)
       return;
@@ -546,8 +546,8 @@ export function ImageFolderImportPanel({
         }
         setPreflight(refreshed.data);
         setFeedback(
-          result.data.policy === 'structured_shadow'
-            ? 'Ustawienie zapisano. Raport stagingu odświeżono — cold-start nie wymaga historycznego profilu siatki.'
+          result.data.policy === 'structured_default'
+            ? 'Ustawienie zapisano. Raport stagingu odświeżono — nowe importy użyją głównego silnika v0.10.'
             : 'Ustawienie zapisano. Raport stagingu odświeżono — przygotuj wymaganą geometrię stron.',
         );
         return;

@@ -15,10 +15,20 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
-### Wszystkie cropy gry w Weryfikacji symboli — TASK-0371
+### Produkcyjny silnik v0.10 per gra — TASK-0384
 
-- `Weryfikacja symboli` wybiera wyłącznie grę i po jawnej akcji pokazuje
-  wszystkie jej bieżące cropy, bez filtrowania po symbolu, stanie lub confidence.
+- Admin przywraca jednoznaczny wybór pomiędzy stabilnym v19 i produkcyjnym
+  v0.10 dla nowych importów. Historyczny shadow pozostaje odtwarzalny, ale nie
+  jest opcją operatorską.
+- Weryfikacja symboli renderuje bieżący asset zapisany na komórce; dane legacy
+  pozostają legacy do czasu jawnego ponownego przetworzenia, a nowe wyniki
+  `virtual_default` są bezpośrednio mutowalne.
+
+### Zakres cropów gry w Weryfikacji symboli — TASK-0371/TASK-0383
+
+- `Weryfikacja symboli` wybiera grę oraz jawny zakres: wszystkie bieżące cropy,
+  jeden aktywny symbol albo nierozpoznane `?`. Stan i confidence nie zawężają
+  listy.
 - Admin API obsługuje odrębny zakres `symbolId=all`; `unknown` zachowuje swoje
   dotychczasowe znaczenie, cursor game-wide jest związany z własnym scope, a
   kolejność pełnego katalogu ma dedykowany indeks seek.

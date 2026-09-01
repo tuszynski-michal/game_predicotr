@@ -1205,6 +1205,13 @@ dopuszczona wyłącznie dla `geometryMode = structured_shadow` i zawiera jedno
 SHA-256. Pole służy replayowi diagnostycznego sidecaru; nie daje klientowi ani
 workerowi uprawnienia do aktywacji kandydata. Snapshot v1 nie zawiera tego pola.
 
+Polityka silnika per gra przyjmuje `verified_v19`, historyczny
+`structured_shadow` oraz produkcyjny `structured_default`. Admin oferuje do
+nowych importów tylko `verified_v19` i `structured_default`; ostatni mapuje się
+na `geometryMode = structured_default` oraz
+`cellAssetMode = virtual_default`. Zmiana polityki jest preview-bound,
+rewizjonowana i nie zmienia żadnego istniejącego joba.
+
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
 `payout-v2` oraz dokładna kombinacja:

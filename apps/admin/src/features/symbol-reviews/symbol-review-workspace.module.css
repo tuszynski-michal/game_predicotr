@@ -120,29 +120,6 @@
   white-space: nowrap;
 }
 
-.previewMode {
-  display: grid;
-  gap: 4px;
-  min-width: 230px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.previewMode select {
-  width: 100%;
-}
-
-.previewNotice {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 9%, var(--panel-soft));
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
 .card {
   display: grid;
   width: 100px;

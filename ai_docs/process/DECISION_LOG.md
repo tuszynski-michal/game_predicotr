@@ -6954,3 +6954,18 @@ Zakres listy jest wybierany jawnie: wszystkie symbole, jeden aktywny symbol lub
 nierozpoznane `?`. `symbolId=all` pozostaje kontraktem API, lecz nie jest już
 wymuszany przez UI. Historyczny shadow nie jest przedstawiany jako bieżący
 crop i nie może podszywać się pod aktywny wynik v0.10.
+
+## D-297 — Produkcyjny v0.10 jest jawną polityką per gra
+
+- **Status:** accepted; supersedes the selectable-shadow part of D-286
+- **Date:** 2026-09-02
+
+Operator może wybrać dla nowych importów stabilny tor v19 albo produkcyjny
+`structured_default / virtual_default`. Tryb `structured_shadow` pozostaje
+wyłącznie historycznym, odtwarzalnym pomiarem i nie jest oferowany jako silnik
+do nowych decyzji.
+
+Zmiana polityki gry nie przepisuje istniejących jobów, cropów ani decyzji.
+Każdy import zachowuje przypięty snapshot. Istniejące dane legacy mogą przejść
+na v0.10 wyłącznie przez jawne, nowe przetworzenie z managed originals; dopiero
+nowy wynik ma proweniencję `virtual_source` i może być bieżącym assetem review.

@@ -12,6 +12,7 @@ from uuid import UUID
 class ImageImportEnginePolicy(StrEnum):
     VERIFIED_V19 = "verified_v19"
     STRUCTURED_SHADOW = "structured_shadow"
+    STRUCTURED_DEFAULT = "structured_default"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +35,9 @@ class ImageImportEnginePolicyPreview:
 def policy_rollout_modes(policy: ImageImportEnginePolicy) -> tuple[str, str]:
     if policy is ImageImportEnginePolicy.VERIFIED_V19:
         return "legacy", "legacy_files"
-    return "structured_shadow", "virtual_shadow"
+    if policy is ImageImportEnginePolicy.STRUCTURED_SHADOW:
+        return "structured_shadow", "virtual_shadow"
+    return "structured_default", "virtual_default"
 
 
 def policy_from_rollout_modes(
@@ -46,6 +49,8 @@ def policy_from_rollout_modes(
         return ImageImportEnginePolicy.VERIFIED_V19
     if pair == ("structured_shadow", "virtual_shadow"):
         return ImageImportEnginePolicy.STRUCTURED_SHADOW
+    if pair == ("structured_default", "virtual_default"):
+        return ImageImportEnginePolicy.STRUCTURED_DEFAULT
     raise ValueError("The rollout state is not a user-selectable image engine policy.")
 
 

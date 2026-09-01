@@ -773,7 +773,8 @@ export type BrowserImageImportStart = {
   /**
    * Boardcellprocessingmode
    */
-  boardCellProcessingMode?: 'verified_v19' | 'structured_shadow' | null;
+  boardCellProcessingMode?:
+    'verified_v19' | 'structured_shadow' | 'structured_default' | null;
   /**
    * Gameid
    */
@@ -2862,7 +2863,8 @@ export type ImageGridReviewView =
 /**
  * ImageImportEnginePolicy
  */
-export type ImageImportEnginePolicy = 'verified_v19' | 'structured_shadow';
+export type ImageImportEnginePolicy =
+  'verified_v19' | 'structured_shadow' | 'structured_default';
 
 /**
  * ImageImportEnginePolicyPreviewRequest

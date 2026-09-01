@@ -1,7 +1,7 @@
 interface BoardCellProcessingModePickerProps {
   readonly disabled: boolean;
-  readonly mode: 'verified_v19' | 'structured_shadow';
-  readonly onChange: (mode: 'verified_v19' | 'structured_shadow') => void;
+  readonly mode: 'verified_v19' | 'structured_shadow' | 'structured_default';
+  readonly onChange: (mode: 'verified_v19' | 'structured_default') => void;
 }
 
 export function BoardCellProcessingModePicker({
@@ -28,17 +28,31 @@ export function BoardCellProcessingModePicker({
             </small>
           </span>
         </label>
-        <label className={`boardCellProcessingModeOption ${mode === 'structured_shadow' ? 'selected' : ''}`}>
-          <input checked={mode === 'structured_shadow'} name="engine-policy" onChange={() => onChange('structured_shadow')} type="radio" />
+        <label
+          className={`boardCellProcessingModeOption ${mode === 'structured_default' ? 'selected' : ''}`}
+        >
+          <input
+            checked={mode === 'structured_default'}
+            name="engine-policy"
+            onChange={() => onChange('structured_default')}
+            type="radio"
+          />
           <span>
-            <strong>0.10 — nowy silnik w cieniu</strong>
+            <strong>v0.10 — główny silnik strukturalny</strong>
             <small>
-              Nowa geometria jest mierzona i audytowana, ale stabilny wynik
-              pozostaje nadrzędny. Tryb nie aktywuje Geometry v2 produkcyjnie.
+              Nowe importy zapisują bieżącą geometrię i cropy jako wirtualne
+              assety source-direct. Można je bezpośrednio zatwierdzać w
+              Weryfikacji symboli.
             </small>
           </span>
         </label>
       </div>
+      {mode === 'structured_shadow' ? (
+        <p className="feedbackBanner" role="status">
+          Ta gra ma historyczny tryb pomiarowy v0.10. Wybierz główny silnik
+          v0.10, aby nowe importy zapisywały aktualne cropy wirtualne.
+        </p>
+      ) : null}
     </fieldset>
   );
 }

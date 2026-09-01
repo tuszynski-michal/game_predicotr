@@ -80,11 +80,12 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Import plansz z folderu/);
 });
 
-test('offers only stable v20 and safe structured shadow per game', () => {
+test('offers stable v19 and production structured v0.10 per game', () => {
   assert.match(modePickerSource, /wyłącznie nowych importów tej gry/);
   assert.match(modePickerSource, /v20 — geometria i cropy v19/);
-  assert.match(modePickerSource, /nowy silnik w cieniu/);
-  assert.match(modePickerSource, /nie aktywuje Geometry v2 produkcyjnie/);
+  assert.match(modePickerSource, /v0.10 — główny silnik strukturalny/);
+  assert.match(modePickerSource, /wirtualne\s+assety source-direct/);
+  assert.doesNotMatch(modePickerSource, /onChange\('structured_shadow'\)/);
   assert.match(modePickerSource, /Nie ma fallbacku do\s*v18/);
   assert.doesNotMatch(modePickerSource, /jawny opt-in/);
   assert.doesNotMatch(panelSource, /verifiedV19Confirmed/);

@@ -310,9 +310,9 @@ def create_image_imports_router(
         engine_policy = job_service.current_image_import_engine_policy(game_id=game_id)
         payload["imageEnginePolicy"] = engine_policy.policy.value
         payload["imageEnginePolicyRevision"] = engine_policy.revision
-        # Both safe presets keep v20/v19 as the primary geometry owner.  A new
-        # structured-shadow game may bootstrap this manifest from a manual
-        # page correction, but it must never start with no page geometry.
+        # Every selectable engine requires checksum-bound page geometry.  The
+        # structured production path uses it as immutable source provenance;
+        # switching the game policy must never bypass the reviewed page gate.
         payload["geometryPreflightRequired"] = True
         checksum = hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(

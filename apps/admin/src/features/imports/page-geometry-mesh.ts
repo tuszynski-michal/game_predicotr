@@ -19,6 +19,11 @@ export type PageGeometryCorners = readonly [
 
 export type PageGeometryMesh = readonly PageGeometryPoint[];
 
+export type PageGeometryGuideLine = readonly [
+  PageGeometryPoint,
+  PageGeometryPoint,
+];
+
 export function appendPageGeometryCorner(
   current: readonly PageGeometryPoint[],
   point: PageGeometryPoint,
@@ -173,6 +178,79 @@ function bilinear(
   const upper = lerp(corners[0], corners[1], u);
   const lower = lerp(corners[3], corners[2], u);
   return lerp(upper, lower, v);
+}
+
+function projectivePoint(
+  quad: PageGeometryQuad,
+  u: number,
+  v: number,
+): PageGeometryPoint {
+  const [topLeft, topRight, bottomRight, bottomLeft] = quad;
+  const dx1 = topRight.x - bottomRight.x;
+  const dx2 = bottomLeft.x - bottomRight.x;
+  const dx3 = topLeft.x - topRight.x + bottomRight.x - bottomLeft.x;
+  const dy1 = topRight.y - bottomRight.y;
+  const dy2 = bottomLeft.y - bottomRight.y;
+  const dy3 = topLeft.y - topRight.y + bottomRight.y - bottomLeft.y;
+  const determinant = dx1 * dy2 - dx2 * dy1;
+  if (Math.abs(determinant) < 1e-9) {
+    return bilinear(quad, u, v);
+  }
+  const perspectiveX = (dx3 * dy2 - dx2 * dy3) / determinant;
+  const perspectiveY = (dx1 * dy3 - dx3 * dy1) / determinant;
+  const scale = perspectiveX * u + perspectiveY * v + 1;
+  if (Math.abs(scale) < 1e-9) {
+    return bilinear(quad, u, v);
+  }
+  return {
+    x:
+      ((topRight.x - topLeft.x + perspectiveX * topRight.x) * u +
+        (bottomLeft.x - topLeft.x + perspectiveY * bottomLeft.x) * v +
+        topLeft.x) /
+      scale,
+    y:
+      ((topRight.y - topLeft.y + perspectiveX * topRight.y) * u +
+        (bottomLeft.y - topLeft.y + perspectiveY * bottomLeft.y) * v +
+        topLeft.y) /
+      scale,
+  };
+}
+
+/**
+ * Project the logical 5 x 3 symbol-cell boundaries back onto the source quad.
+ * The downstream cropper rectifies the same quad before splitting it into
+ * equal slots, so these lines describe the prospective cuts rather than a
+ * cosmetic axis-aligned approximation.
+ */
+export function pageGeometrySymbolCutLines(
+  quad: PageGeometryQuad,
+  rows = 3,
+  columns = 5,
+): readonly PageGeometryGuideLine[] {
+  if (
+    !Number.isInteger(rows) ||
+    !Number.isInteger(columns) ||
+    rows < 1 ||
+    columns < 1
+  ) {
+    return [];
+  }
+  return [
+    ...Array.from({ length: columns - 1 }, (_, index) => {
+      const u = (index + 1) / columns;
+      return [
+        projectivePoint(quad, u, 0),
+        projectivePoint(quad, u, 1),
+      ] as const;
+    }),
+    ...Array.from({ length: rows - 1 }, (_, index) => {
+      const v = (index + 1) / rows;
+      return [
+        projectivePoint(quad, 0, v),
+        projectivePoint(quad, 1, v),
+      ] as const;
+    }),
+  ];
 }
 
 export function createPageGeometryMesh(

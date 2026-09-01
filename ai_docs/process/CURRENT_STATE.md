@@ -4475,3 +4475,16 @@ jest teraz atomowo koordynowane z bazą i obejmuje puste preflighty/importy,
 jakiejkolwiek planszy, review, aktywnego joba albo chronionej referencji blokuje
 operację. Z lokalnej bazy usunięto zweryfikowane pozostałości stagingów gry
 `7777` z `10:09` i `10:16`; nie miały plansz, review ani wpisów canonical.
+
+### TASK-0371 — podgląd ręcznej korekty geometrii strony
+
+Edytor korekty strony utrzymuje komplet `expectedBoardCount` propozycji:
+częściowo wczytane quady są zachowane, a brakujące pozycje otrzymują roboczą
+geometrię do jawnej korekty. Na każdym kompletnym quadzie widoczne są
+projektowane granice komórek 5 × 3 zgodne z rektyfikacją planszy.
+
+Po rozpoczęciu trybu `Wyznacz 4 narożniki` albo `Wyznacz N plansz osobno`
+poprzednia nakładka systemu jest ukrywana. Tryb osobnych plansz pokazuje jedynie
+quady ukończone w bieżącej operacji i ich linie 5 × 3. Zmiana jest wyłącznie
+narzędziem ręcznej korekty; nie promuje `structured_default`, nie zmienia
+progów Structured OpenCV ani zaakceptowanej bramki cutoveru v0.10.

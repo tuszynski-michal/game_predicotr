@@ -49,3 +49,15 @@ test('geometry editor uses the manual-selection fit model and bounded zoom', () 
   assert.match(panel, /Przewijaj powiększony obraz w obu osiach/);
   assert.match(panel, /className="pageGeometryViewport" ref=\{viewportRef\}/);
 });
+
+test('geometry editor hides the system proposal while placing manual geometry and previews 5x3 cuts', () => {
+  assert.match(
+    panel,
+    /manualPlacementActive\s*=\s*cornerPlacement !== null \|\| boardCornerPlacement !== null/,
+  );
+  assert.match(panel, /\{!manualPlacementActive\s*\? quads\.map/);
+  assert.match(panel, /pageGeometrySymbolCutLines\(quad\)/);
+  assert.match(panel, /pageGeometrySymbolCutPlacement/);
+  assert.match(panel, /potencjalny podział na\s*symbole 5 × 3/);
+  assert.match(panel, /komplet \$\{expectedBoardCount\} edytowalnych plansz/);
+});

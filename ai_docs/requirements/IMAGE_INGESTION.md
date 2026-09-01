@@ -652,6 +652,19 @@ siatki z obrysu strony: każdy z 36 punktów jest bezstratnie odwzorowany z
 dziewięciu klikniętych quadów. Ten sam zakres można wybrać później z listy bez
 utraty wcześniejszej korekty pojedynczych plansz.
 
+Edytor zawsze utrzymuje dokładnie `expectedBoardCount` edytowalnych slotów.
+Jeżeli wczytana propozycja zawiera tylko część quadów, zachowuje je na ich
+pozycjach, a brakujące sloty uzupełnia roboczą geometrią wyprowadzoną z obrysu
+strony. Taki komplet pozostaje propozycją do jawnej korekty lub akceptacji; nie
+oznacza automatycznego dowodu poprawności brakującej planszy.
+
+Każdy kompletny quad pokazuje cztery pionowe i dwie poziome linie potencjalnego
+podziału symboli 5 × 3. Linie są projekcją logicznych granic po rektyfikacji i
+nie zmieniają zapisywanej geometrii. Po rozpoczęciu `Wyznacz 4 narożniki` albo
+`Wyznacz N plansz osobno` wcześniejsza propozycja systemu znika. W trybie
+osobnych plansz widoczne są wyłącznie ukończone w bieżącej operacji quady oraz
+ich podziały 5 × 3, aby automat nie zasłaniał miejsca kliknięcia.
+
 Częściowa ostatnia strona nie staje się globalną kotwicą rejestracji innych
 zdjęć, ponieważ nie dowodzi kompletnej geometrii 3 × 3. Jej zapis jest jednak
 pełnoprawnym override'em własnego źródła i po preflighcie może przejść do

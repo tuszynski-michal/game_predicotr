@@ -35,6 +35,7 @@ import {
   pageGeometryMeshFromQuads,
   pageGeometryQuadsFromCornerPlacement,
   pageGeometryQuadsFromMesh,
+  pageGeometrySymbolCutLines,
   type PageGeometryCorners,
   type PageGeometryPoint,
   type PageGeometryQuad,
@@ -93,7 +94,8 @@ function existingSourceQuads(
   if (
     raw === null ||
     raw === undefined ||
-    raw.length !== source.expectedBoardCount ||
+    raw.length < 1 ||
+    raw.length > source.expectedBoardCount ||
     raw.some((quad) => quad.length !== 4)
   ) {
     return [];
@@ -278,6 +280,14 @@ export function PageGeometryCorrectionPanel({
       : boardCornerPlacement.slice(
           activeBoardPlacementIndex * PAGE_BOARD_CORNER_COUNT,
         );
+  const manualPlacementActive =
+    cornerPlacement !== null || boardCornerPlacement !== null;
+  const symbolGuideQuads =
+    boardCornerPlacement !== null
+      ? placedBoardQuads
+      : cornerPlacement !== null
+        ? []
+        : quads;
   const zoomedCanvasSize = fitManualImageToViewport(
     imageSize,
     viewportSize,
@@ -675,7 +685,7 @@ export function PageGeometryCorrectionPanel({
             <p className="geometryInstructions">
               {source.reviewReason === 'manual_override'
                 ? 'To zdjęcie jest już uwzględnione w liczniku zarejestrowanych. Zapis zmieni jego obrys, ale nie zwiększy tego licznika.'
-                : 'Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.'}
+                : `Edytor przygotował komplet ${expectedBoardCount} edytowalnych plansz. Po zapisaniu i wykonaniu preflightu to zdjęcie przejdzie z odroczonych do zarejestrowanych.`}
             </p>
             <label>
               Zakres korekty
@@ -725,6 +735,11 @@ export function PageGeometryCorrectionPanel({
                     : correctionMode === 'curve'
                       ? 'Przesuń dowolny z 36 niezależnych narożników dziewięciu plansz. Każda plansza zachowuje własny obrys, odstępy i krzywiznę.'
                       : 'W razie wyjątku doprecyzuj tylko tę jedną planszę. Pozostałe zachowają elastyczną geometrię całej strony.'}
+            </p>
+            <p className="geometryInstructions">
+              Przerywane linie wewnątrz plansz pokazują potencjalny podział na
+              symbole 5 × 3 po rektyfikacji. Po rozpoczęciu ręcznego wyznaczania
+              poprzednia propozycja systemu jest ukrywana.
             </p>
             <div className="pageGeometryNavigation">
               <button
@@ -879,17 +894,19 @@ export function PageGeometryCorrectionPanel({
                   onPointerUp={() => setDragging(null)}
                   viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
                 >
-                  {quads.map((quad, index) => (
-                    <polygon
-                      className={
-                        correctionMode === index
-                          ? 'pageGeometryBoard pageGeometryBoardSelected'
-                          : 'pageGeometryBoard'
-                      }
-                      key={index}
-                      points={quad.map(pointText).join(' ')}
-                    />
-                  ))}
+                  {!manualPlacementActive
+                    ? quads.map((quad, index) => (
+                        <polygon
+                          className={
+                            correctionMode === index
+                              ? 'pageGeometryBoard pageGeometryBoardSelected'
+                              : 'pageGeometryBoard'
+                          }
+                          key={index}
+                          points={quad.map(pointText).join(' ')}
+                        />
+                      ))
+                    : null}
                   {boardCornerPlacement !== null
                     ? placedBoardQuads.map((quad, index) => (
                         <polygon
@@ -899,6 +916,22 @@ export function PageGeometryCorrectionPanel({
                         />
                       ))
                     : null}
+                  {symbolGuideQuads.flatMap((quad, boardIndex) =>
+                    pageGeometrySymbolCutLines(quad).map((line, lineIndex) => (
+                      <line
+                        className={
+                          manualPlacementActive
+                            ? 'pageGeometrySymbolCut pageGeometrySymbolCutPlacement'
+                            : 'pageGeometrySymbolCut'
+                        }
+                        key={`symbol-cut-${boardIndex}-${lineIndex}`}
+                        x1={line[0].x}
+                        x2={line[1].x}
+                        y1={line[0].y}
+                        y2={line[1].y}
+                      />
+                    )),
+                  )}
                   {boardCornerPlacement !== null ? (
                     <>
                       {activeBoardPlacementPoints.length > 1 ? (

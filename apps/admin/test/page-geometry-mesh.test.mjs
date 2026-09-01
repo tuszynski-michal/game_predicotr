@@ -14,6 +14,7 @@ import {
   pageGeometryPointFromRenderedCanvas,
   pageGeometryQuadsFromCornerPlacement,
   pageGeometryQuadsFromMesh,
+  pageGeometrySymbolCutLines,
 } from '../src/features/imports/page-geometry-mesh.ts';
 
 test('collects four page corners in explicit LT PT PD LD click order', () => {
@@ -200,6 +201,23 @@ test('lets one frame corner bend a board without closing neighbouring gutters', 
 
 test('returns no quads for an incomplete control mesh', () => {
   assert.deepEqual(pageGeometryQuadsFromMesh([{ x: 0, y: 0 }]), []);
+});
+
+test('projects the prospective 5x3 symbol cuts inside a board quad', () => {
+  const quad = [
+    { x: 10, y: 20 },
+    { x: 110, y: 10 },
+    { x: 130, y: 100 },
+    { x: 0, y: 120 },
+  ];
+  const lines = pageGeometrySymbolCutLines(quad);
+
+  assert.equal(lines.length, 6);
+  assert.deepEqual(pageGeometrySymbolCutLines(quad, 0, 5), []);
+  assert.ok(lines.slice(0, 4).every(([start]) => start.y <= 20));
+  assert.ok(lines.slice(0, 4).every(([, end]) => end.y >= 100));
+  assert.ok(lines.slice(4).every(([start]) => start.x <= 10));
+  assert.ok(lines.slice(4).every(([, end]) => end.x >= 110));
 });
 
 test('maps the same visual point to source coordinates at every zoom', () => {

@@ -6439,6 +6439,18 @@ div.imageJobInlineError {
   stroke-width: 3.4;
 }
 
+.pageGeometrySymbolCut {
+  pointer-events: none;
+  stroke: rgba(255, 244, 183, 0.88);
+  stroke-dasharray: 7 5;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.pageGeometrySymbolCutPlacement {
+  stroke: rgba(103, 232, 249, 0.92);
+}
+
 .pageGeometryBoardPlacement {
   fill: rgba(75, 211, 238, 0.18);
   pointer-events: none;

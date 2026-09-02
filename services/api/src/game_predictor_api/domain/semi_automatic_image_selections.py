@@ -47,6 +47,8 @@ class SemiAutomaticSelectionRunStatus(StrEnum):
     SYNCING_OUTPUT = "syncing_output"
     REVIEW_MODE = "review_mode"
     EDIT_SOURCE_MODE = "edit_source_mode"
+    CLEANUP_PENDING = "cleanup_pending"
+    CLEANUP_BLOCKED = "cleanup_blocked"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -305,11 +307,106 @@ def cancel_run(
     if run.status is SemiAutomaticSelectionRunStatus.CANCELLED:
         return run
     if run.status in {
+        SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+        SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED,
         SemiAutomaticSelectionRunStatus.COMPLETED,
         SemiAutomaticSelectionRunStatus.FAILED,
     }:
         _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CANCELLED)
     return _with_status(run, SemiAutomaticSelectionRunStatus.CANCELLED, changed_at)
+
+
+def begin_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Move a fully-reviewed filename run into its terminal cleanup workflow."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can remove their working data.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        return run
+    if run.status not in {
+        SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+        SemiAutomaticSelectionRunStatus.REVIEW_MODE,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING, changed_at)
+
+
+def block_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Persist a recoverable cleanup block without discarding the run summary."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can have filename cleanup blocked.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED:
+        return run
+    if run.status not in {
+        SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+        SemiAutomaticSelectionRunStatus.REVIEW_MODE,
+        SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+    }:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED, changed_at)
+
+
+def resume_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Retry a cleanup after its concrete external block was removed."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can resume this cleanup.",
+        )
+    if run.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        return run
+    if run.status is not SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING)
+    return _with_status(run, SemiAutomaticSelectionRunStatus.CLEANUP_PENDING, changed_at)
+
+
+def complete_filename_verification_cleanup(
+    run: SemiAutomaticSelectionRun,
+    *,
+    checkpoint: dict[str, object],
+    counters: dict[str, int] | None = None,
+    changed_at: datetime | None = None,
+) -> SemiAutomaticSelectionRun:
+    """Persist the compact, immutable terminal history of a verified folder."""
+
+    if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        raise SemiAutomaticSelectionConflictError(
+            "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+            "Only filename verification runs can complete this cleanup.",
+        )
+    if run.status is not SemiAutomaticSelectionRunStatus.CLEANUP_PENDING:
+        _invalid_run_transition(run, SemiAutomaticSelectionRunStatus.COMPLETED)
+    now = changed_at or datetime.now(UTC)
+    return replace(
+        run,
+        status=SemiAutomaticSelectionRunStatus.COMPLETED,
+        checkpoint=dict(checkpoint),
+        counters=dict(run.counters if counters is None else counters),
+        diagnostics_relative_path=None,
+        diagnostics_checksum_sha256=None,
+        revision=run.revision + 1,
+        updated_at=now,
+    )
 
 
 def acknowledge_output(
@@ -683,11 +780,15 @@ __all__ = [
     "acknowledge_manual_output",
     "acknowledge_output",
     "apply_range_status_transition",
+    "begin_filename_verification_cleanup",
+    "block_filename_verification_cleanup",
     "cancel_run",
     "classify_filename_range_verification",
+    "complete_filename_verification_cleanup",
     "create_semi_automatic_selection_run",
     "expected_ranges_fingerprint",
     "pause_run",
     "resume_run",
+    "resume_filename_verification_cleanup",
     "run_identity_key",
 ]

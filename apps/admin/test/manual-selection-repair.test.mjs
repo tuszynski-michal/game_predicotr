@@ -265,6 +265,10 @@ test('admin mounts durable filename range verification with five-anchor manual r
   assert.match(workspace, /decideSemiAutomaticFilenameRangeVerification/);
   assert.match(workspace, /retryJob/);
   assert.match(workspace, /Wznów analizę/);
+  assert.match(workspace, /cleanup_pending/);
+  assert.match(workspace, /cleanup_blocked/);
+  assert.match(workspace, /Wznów czyszczenie/);
+  assert.match(workspace, /dane robocze usunięte/);
   assert.match(workspace, /remoteAssetHandle/);
   assert.match(workspace, /directoryPermissionIsGranted/);
   assert.match(workspace, /Odrzuć i usuń F/);

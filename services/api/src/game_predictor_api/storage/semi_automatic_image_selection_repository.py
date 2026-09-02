@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticSelectionRepository,
 )
+from game_predictor_api.domain.jobs import requeue_job
 from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReview,
     FilenameRangeVerificationReviewDecision,
@@ -23,6 +24,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
     SemiAutomaticSelectionWorkflowMode,
+    begin_filename_verification_cleanup,
 )
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
@@ -91,6 +93,16 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             raise SemiAutomaticSelectionConflictError(
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_SCOPE_INVALID",
                 "The global staging is already scoped to a game.",
+            )
+        if retention.state == "blocked":
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CLEANUP_ACTIVE",
+                "The global staging is being removed by a completed verification run.",
+            )
+        if retention.import_job_id not in {None, run.job.id}:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_IN_USE",
+                "The global staging already belongs to another active selection run.",
             )
         retention.import_job_id = run.job.id
         retention.state = "in_use"
@@ -182,6 +194,28 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         *,
         expected_revision: int,
     ) -> FilenameRangeVerificationReview:
+        run = self._session.scalar(
+            select(SemiAutomaticImageSelectionRunModel)
+            .where(SemiAutomaticImageSelectionRunModel.id == review.run_id)
+            .with_for_update()
+        )
+        if (
+            run is None
+            or run.workflow_mode
+            != SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION.value
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
+                "The filename verification run no longer exists.",
+            )
+        if run.status not in {
+            SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE.value,
+            SemiAutomaticSelectionRunStatus.REVIEW_MODE.value,
+        }:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_NOT_REVIEWABLE",
+                "Filename verification decisions are no longer accepted for this run.",
+            )
         record = self._session.get(
             FilenameRangeVerificationReviewModel,
             {"run_id": review.run_id, "source_index": review.source_index},
@@ -214,6 +248,40 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             record.revision = review.revision
             record.updated_at = review.updated_at
         self._session.flush()
+        required = int(run.counters.get("filenameReviewRequired", 0))
+        completed = int(
+            self._session.scalar(
+                select(func.count())
+                .select_from(FilenameRangeVerificationReviewModel)
+                .where(FilenameRangeVerificationReviewModel.run_id == review.run_id)
+            )
+            or 0
+        )
+        if required > 0 and completed >= required:
+            job_record = self._session.scalar(
+                select(JobModel).where(JobModel.id == run.job_id).with_for_update()
+            )
+            if job_record is None:
+                raise SemiAutomaticSelectionConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
+                    "The filename verification job no longer exists.",
+                )
+            domain_run = _run_from_records(run, job_record)
+            cleanup_run = begin_filename_verification_cleanup(
+                domain_run,
+                changed_at=review.updated_at,
+            )
+            cleanup_job = requeue_job(cleanup_run.job, updated_at=review.updated_at)
+            apply_job_to_record(job_record, cleanup_job)
+            run.status = cleanup_run.status.value
+            run.checkpoint = {
+                **dict(run.checkpoint),
+                "cleanup": "pending",
+                "phase": "cleanup_pending",
+            }
+            run.revision = cleanup_run.revision
+            run.updated_at = cleanup_run.updated_at
+            self._session.flush()
         return _review_from_record(record)
 
     def list_ranges(

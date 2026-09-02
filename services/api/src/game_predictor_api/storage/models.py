@@ -646,8 +646,8 @@ class SemiAutomaticImageSelectionRunModel(Base):
         ),
         CheckConstraint(
             "status IN ('ready', 'running', 'paused', 'analysis_complete', "
-            "'syncing_output', 'review_mode', 'edit_source_mode', 'completed', "
-            "'failed', 'cancelled')",
+            "'syncing_output', 'review_mode', 'edit_source_mode', 'cleanup_pending', "
+            "'cleanup_blocked', 'completed', 'failed', 'cancelled')",
             name="ck_semi_automatic_selection_runs_status",
         ),
         CheckConstraint(

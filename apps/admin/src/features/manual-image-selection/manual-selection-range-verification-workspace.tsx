@@ -473,7 +473,9 @@ export function ManualSelectionRangeVerificationWorkspace({
       setRun(resumed);
       setRuns((existing) => replaceRun(existing, resumed));
       setNotice(
-        'Wznowiono analizę z zapisanych obserwacji OCR — obrazy nie będą odczytywane ponownie.',
+        run.status === 'cleanup_blocked'
+          ? 'Wznowiono bezpieczne czyszczenie. OCR ani ręczne decyzje nie będą powtarzane.'
+          : 'Wznowiono analizę z zapisanych obserwacji OCR — obrazy nie będą odczytywane ponownie.',
       );
     } catch (cause) {
       setError(errorMessage(cause));
@@ -565,6 +567,11 @@ export function ManualSelectionRangeVerificationWorkspace({
             : item,
         ),
       );
+      const refreshed = await api.getSemiAutomaticImageSelection(run.id);
+      if (refreshed.error === undefined && refreshed.data !== undefined) {
+        setRun(refreshed.data);
+        setRuns((existing) => replaceRun(existing, refreshed.data));
+      }
       const nextCursor = Math.min(
         safeCursor,
         Math.max(0, reviewItems.length - 2),
@@ -721,8 +728,7 @@ export function ManualSelectionRangeVerificationWorkspace({
       {run !== null && !isReviewable(run) ? (
         <div className="manualImageSelectionActions">
           <p className="manualImageSelectionStatus">
-            Ten proces ma status „{jobProgressLabel(run.job)}”. Wyniki review będą
-            dostępne po poprawnym zakończeniu.
+            {filenameVerificationRunMessage(run)}
           </p>
           {run.job.status === 'failed' ? (
             <button
@@ -731,7 +737,9 @@ export function ManualSelectionRangeVerificationWorkspace({
               onClick={() => void retryAnalysis()}
               type="button"
             >
-              Wznów analizę
+              {run.status === 'cleanup_blocked'
+                ? 'Wznów czyszczenie'
+                : 'Wznów analizę'}
             </button>
           ) : null}
         </div>
@@ -1065,10 +1073,23 @@ function replaceRun(
   );
 }
 function isActive(run: SemiAutomaticSelectionRunResponse): boolean {
-  return ['ready', 'running', 'paused', 'syncing_output'].includes(run.status);
+  return ['ready', 'running', 'paused', 'syncing_output', 'cleanup_pending'].includes(
+    run.status,
+  );
 }
 function isReviewable(run: SemiAutomaticSelectionRunResponse): boolean {
-  return ['analysis_complete', 'review_mode', 'completed'].includes(run.status);
+  return ['analysis_complete', 'review_mode'].includes(run.status);
+}
+function filenameVerificationRunMessage(
+  run: SemiAutomaticSelectionRunResponse,
+): string {
+  if (run.status === 'cleanup_pending')
+    return 'Kończę weryfikację i bezpiecznie usuwam dane robocze tego procesu.';
+  if (run.status === 'cleanup_blocked')
+    return 'Czyszczenie wymaga uwagi. Żadne dane wspólne nie zostały usunięte; usuń wskazaną referencję lub wznów czyszczenie.';
+  if (run.status === 'completed')
+    return 'Zakończono · dane robocze usunięte. W historii pozostaje tylko podsumowanie procesu.';
+  return `Ten proces ma status „${jobProgressLabel(run.job)}”. Wyniki review będą dostępne po poprawnym zakończeniu.`;
 }
 function baseName(path: string): string {
   return path.replaceAll('\\', '/').split('/').at(-1) ?? path;

@@ -63,6 +63,7 @@ from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V1,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
+    RangeOnlyLabelEvidence,
     RangeOnlyRecognition,
 )
 from game_predictor_worker.semi_automatic_selection.range_proof_v5 import RangeRowOffset
@@ -431,6 +432,65 @@ class _MemoryStore:
         )
         return self.run
 
+    def begin_filename_verification_cleanup(
+        self,
+        *,
+        persisted_at: datetime,
+        **_values: object,
+    ) -> SemiAutomaticSelectionRun:
+        self.run = replace(
+            self.run,
+            status=SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+            checkpoint={**self.run.checkpoint, "cleanup": "pending", "phase": "cleanup_pending"},
+            revision=self.run.revision + 1,
+            updated_at=persisted_at,
+        )
+        return self.run
+
+    def complete_filename_verification_cleanup(
+        self,
+        *,
+        persisted_at: datetime,
+        **_values: object,
+    ) -> SemiAutomaticSelectionRun:
+        self.ranges.clear()
+        self.run = replace(
+            self.run,
+            status=SemiAutomaticSelectionRunStatus.COMPLETED,
+            checkpoint={
+                "cleanup": "completed",
+                "observationCount": self.run.source.source_count,
+                "phase": "cleanup_complete",
+                "schemaVersion": 1,
+            },
+            diagnostics_relative_path=None,
+            diagnostics_checksum_sha256=None,
+            revision=self.run.revision + 1,
+            updated_at=persisted_at,
+        )
+        return self.run
+
+    def mark_filename_verification_cleanup_blocked(
+        self,
+        *,
+        persisted_at: datetime,
+        error_code: str,
+        **_values: object,
+    ) -> SemiAutomaticSelectionRun:
+        self.run = replace(
+            self.run,
+            status=SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED,
+            checkpoint={
+                **self.run.checkpoint,
+                "cleanup": "blocked",
+                "cleanupErrorCode": error_code,
+                "phase": "cleanup_blocked",
+            },
+            revision=self.run.revision + 1,
+            updated_at=persisted_at,
+        )
+        return self.run
+
 
 def _jpeg(color: tuple[int, int, int]) -> bytes:
     output = BytesIO()
@@ -528,6 +588,24 @@ def _exact(start: int, end: int, confidence: float) -> RangeOnlyRecognition:
         confidence=confidence,
         has_strong_local_proof=True,
         reason_codes=("TEST_EXACT_RANGE",),
+    )
+
+
+def _filename_verified_exact(start: int, end: int) -> RangeOnlyRecognition:
+    return RangeOnlyRecognition(
+        observed_range=SemiAutomaticSelectionRange(start=start, end=end),
+        confidence=0.95,
+        has_strong_local_proof=True,
+        reason_codes=("TEST_EXACT_RANGE",),
+        label_evidence=tuple(
+            RangeOnlyLabelEvidence(
+                position_index=position,
+                sequence_number=start + position,
+                confidence=0.95,
+                route="test",
+            )
+            for position in (0, 4, 8)
+        ),
     )
 
 
@@ -631,6 +709,76 @@ def test_filename_verification_finishes_without_selection_or_progress_regression
     )
     with pytest.raises(_WaitForReview):
         resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+
+def test_filename_verification_with_only_matching_files_cleans_working_data(
+    tmp_path: Path,
+) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        source_count=2,
+        source_relative_paths=("seq_1-9.jpg", "seq_10-18.jpg"),
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION,
+    )
+    store = _MemoryStore(run, ranges)
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: _ScriptedRecognizer(
+            [_filename_verified_exact(1, 9), _filename_verified_exact(10, 18)]
+        ),
+    )
+    context = _Context()
+
+    handler(context, run.job)  # type: ignore[arg-type]
+
+    assert store.apply_selection_calls == 0
+    assert store.run.status is SemiAutomaticSelectionRunStatus.COMPLETED
+    assert store.run.checkpoint["cleanup"] == "completed"
+    assert store.run.diagnostics_relative_path is None
+    assert store.ranges == {}
+    assert not (
+        tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)
+    ).exists()
+    assert not (
+        tmp_path / "artifacts" / "exports" / "semi-automatic-selection" / str(run.id)
+    ).exists()
+
+
+def test_filename_cleanup_blocks_without_deleting_staging_on_unsafe_artifact(
+    tmp_path: Path,
+) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        source_count=1,
+        source_relative_paths=("seq_1-9.jpg",),
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION,
+    )
+    store = _MemoryStore(
+        replace(run, status=SemiAutomaticSelectionRunStatus.CLEANUP_PENDING),
+        ranges,
+    )
+    artifact_root = tmp_path / "artifacts"
+    unsafe_artifact = artifact_root / "exports" / "semi-automatic-selection" / str(run.id)
+    unsafe_artifact.parent.mkdir(parents=True)
+    unsafe_artifact.write_text("not a directory", encoding="utf-8")
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+    )
+
+    with pytest.raises(JobHandlerError) as error:
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert error.value.code == "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED"
+    assert store.run.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED
+    assert (
+        tmp_path / "imports" / "browser-selections" / str(run.source.upload_id)
+    ).is_dir()
 
 
 def test_handler_resumes_a_paused_scan_from_the_next_source(tmp_path: Path) -> None:

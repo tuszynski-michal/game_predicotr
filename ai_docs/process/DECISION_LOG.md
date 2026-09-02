@@ -7031,3 +7031,19 @@ Ponowienie failed runu zachowuje checksummowane obserwacje OCR i resetuje tylko
 techniczny progres joba. Pozwala to odtworzyć błąd checkpointu bez kosztu oraz
 ryzyka ponownej analizy obrazu; dowolny historyczny output blokuje automatyczne
 cofnięcie błędnego wyboru fail-closed.
+
+## D-302 — Zakończona weryfikacja nazw usuwa wyłącznie własne dane robocze
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+`filename_verification` po pełnym automatycznym wyniku albo po wszystkich
+ręcznych decyzjach kończy się automatycznym, wznawialnym cleanupem. W historii
+pozostaje minimalne podsumowanie, natomiast browser staging, obserwacje OCR,
+raporty, checkpointy, ranges i decyzje pojedynczych plików są odtwarzalnymi
+danymi roboczymi i mogą zostać usunięte.
+
+Cleanup nigdy nie usuwa folderu operatora `seq_*`, źródeł lokalnych, ręcznej
+selekcji, cropów, modeli, danych gry, innych importów ani zasobu ze wspólną lub
+aktywną referencją. Każdy taki przypadek jest fail-closed jako
+`cleanup_blocked`; wznowienie nie powtarza OCR ani decyzji ręcznych.

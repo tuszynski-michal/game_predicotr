@@ -2811,8 +2811,10 @@ dozwolona wyłącznie po terminalnym sukcesie.
 `PUT /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verifications/{sourceIndex}/review-decision`
 przyjmuje `decision`, `expectedSourceChecksumSha256` i `expectedRevision`.
 Backend sprawdza przynależność indeksu do immutable stagingu oraz jego
-checksummę. Pierwsza decyzja używa rewizji `0`; ponowienie identycznej decyzji
-jest idempotentne, a odmienna stale mutation kończy się `409`.
+checksummę oraz klasyfikację observation. Pierwsza decyzja używa rewizji `0`;
+ponowienie identycznej decyzji jest idempotentne, a odmienna stale mutation
+kończy się `409`. Decyzja dla automatycznie `verified` pliku zwraca
+`SEMI_AUTOMATIC_SELECTION_REVIEW_NOT_REQUIRED`.
 
 Po OCR `filename_verification` nie używa endpointu ani mechanizmu wyboru
 reprezentanta. Worker zapisuje tylko klasyfikację `verified`, `unreadable`,
@@ -2820,3 +2822,10 @@ reprezentanta. Worker zapisuje tylko klasyfikację `verified`, `unreadable`,
 local outputu `seq_*`. `POST /api/v1/admin/jobs/{jobId}/retry` dla failed
 filename workflow requeue'uje ten sam job ze świeżym postępem technicznym, a
 worker odczytuje istniejące obserwacje zamiast ponownie uruchamiać OCR.
+
+Po automatycznie zgodnym wyniku albo ostatniej decyzji review run przechodzi
+przez `cleanup_pending`. Worker usuwa tylko dane należące do tego runu, po
+ponownym sprawdzeniu wszystkich referencji. Udany run odpowiada statusem
+`completed` i lekkim podsumowaniem; endpoint szczegółów nie serwuje już
+usuniętych obserwacji. `cleanup_blocked` zachowuje dane oraz diagnostykę, a
+zwykłe `POST /api/v1/admin/jobs/{jobId}/retry` wznawia wyłącznie cleanup.

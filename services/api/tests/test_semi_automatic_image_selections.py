@@ -29,17 +29,23 @@ from game_predictor_api.domain.jobs import (
     JobExecutionSlot,
     JobStatus,
     JobType,
+    requeue_job,
     start_job,
     wait_for_review,
 )
 from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReview,
+    FilenameRangeVerificationReviewDecision,
+    SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionWorkflowMode,
+    begin_filename_verification_cleanup,
+    block_filename_verification_cleanup,
+    resume_filename_verification_cleanup,
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
@@ -127,6 +133,16 @@ class MemorySemiAutomaticSelectionRepository:
         elif existing.revision != expected_revision:
             raise AssertionError("Unexpected stale review update.")
         self.reviews[(review.run_id, review.source_index)] = review
+        run = self.runs[review.run_id]
+        required = run.counters.get("filenameReviewRequired", 0)
+        if required > 0 and len(
+            [item for key, item in self.reviews.items() if key[0] == review.run_id]
+        ) >= required:
+            cleanup = begin_filename_verification_cleanup(run, changed_at=review.updated_at)
+            self.runs[review.run_id] = replace(
+                cleanup,
+                job=requeue_job(cleanup.job, updated_at=review.updated_at),
+            )
         return review
 
     def list_ranges(
@@ -627,6 +643,161 @@ def test_filename_verification_history_and_decisions_are_durable(tmp_path: Path)
     assert decision.json()["revision"] == 0
     assert reloaded.json()["items"][0]["reviewDecision"] == "keep"
     assert reloaded.json()["items"][0]["reviewRevision"] == 0
+
+
+def test_last_filename_verification_decision_schedules_only_cleanup(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    artifacts = tmp_path / "artifacts"
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=artifacts,
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    observations = artifacts / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "sourceIndex": index,
+                    "sourceRelativePath": source.relative_path,
+                    "sourceSizeBytes": source.size_bytes,
+                    "sourceChecksumSha256": source.checksum_sha256,
+                    "observedRange": None,
+                    "reasonCodes": ["NO_PROOF"],
+                    "runtimeDiagnostics": {"labelEvidence": []},
+                }
+            )
+            for index, source in enumerate(ready.sources)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            counters={**run.counters, "filenameReviewRequired": 1},
+            checkpoint={"observationCount": len(ready.sources)},
+        )
+    )
+
+    review = service.decide_filename_verification(
+        run.id,
+        0,
+        decision=FilenameRangeVerificationReviewDecision.KEEP,
+        expected_source_checksum_sha256=ready.sources[0].checksum_sha256,
+        expected_revision=0,
+    )
+
+    stored = repository.get(run.id)
+    assert review.decision is FilenameRangeVerificationReviewDecision.KEEP
+    assert stored is not None
+    assert stored.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING
+    assert stored.job.status is JobStatus.CREATED
+
+
+def test_filename_verification_rejects_manual_decision_for_verified_source(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    artifacts = tmp_path / "artifacts"
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=artifacts,
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    source = ready.sources[0]
+    observations = artifacts / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        json.dumps(
+            {
+                "sourceIndex": 0,
+                "sourceRelativePath": "seq_1-9.jpg",
+                "sourceSizeBytes": source.size_bytes,
+                "sourceChecksumSha256": source.checksum_sha256,
+                "observedRange": {"start": 1, "end": 9},
+                "reasonCodes": [],
+                "runtimeDiagnostics": {
+                    "labelEvidence": [
+                        {
+                            "positionIndex": position,
+                            "sequenceNumber": position + 1,
+                            "confidence": 0.99,
+                        }
+                        for position in (0, 4, 8)
+                    ]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            checkpoint={"observationCount": 1},
+        )
+    )
+
+    with pytest.raises(SemiAutomaticSelectionConflictError) as raised:
+        service.decide_filename_verification(
+            run.id,
+            0,
+            decision=FilenameRangeVerificationReviewDecision.KEEP,
+            expected_source_checksum_sha256=source.checksum_sha256,
+            expected_revision=0,
+        )
+    assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_REVIEW_NOT_REQUIRED"
+
+
+def test_filename_cleanup_block_is_retryable_without_reopening_review(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=9,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    analysis = replace(run, status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE)
+    pending = begin_filename_verification_cleanup(analysis)
+    blocked = block_filename_verification_cleanup(pending)
+    resumed = resume_filename_verification_cleanup(blocked)
+
+    assert blocked.status is SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED
+    assert resumed.status is SemiAutomaticSelectionRunStatus.CLEANUP_PENDING
 
 
 def test_legacy_recognizer_fingerprint_classifies_filename_verification_only() -> None:

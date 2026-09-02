@@ -6,7 +6,9 @@ import hashlib
 import json
 import logging
 import re
+import shutil
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -20,10 +22,16 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionWorkflowMode,
+    begin_filename_verification_cleanup,
+    block_filename_verification_cleanup,
     classify_filename_range_verification,
+    complete_filename_verification_cleanup,
+    resume_filename_verification_cleanup,
 )
 from game_predictor_api.schemas.jobs import SemiAutomaticImageSelectionJobPayload
 from game_predictor_api.storage.models import (
+    BrowserSelectionRetentionModel,
+    FilenameRangeVerificationReviewModel,
     JobModel,
     SemiAutomaticImageSelectionRangeModel,
     SemiAutomaticImageSelectionRunModel,
@@ -33,7 +41,7 @@ from game_predictor_api.storage.semi_automatic_image_selection_repository import
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
@@ -114,6 +122,16 @@ class _StagedSource:
 class SelectionApplyOutcome:
     run: SemiAutomaticSelectionRun
     applied: bool
+
+
+@dataclass(frozen=True, slots=True)
+class FilenameVerificationCleanupPlan:
+    """Direct, run-owned paths which may be removed after database fencing."""
+
+    artifact_directory: Path
+    artifact_trash_directory: Path
+    staging_directory: Path
+    staging_trash_directory: Path
 
 
 RecognizerFactory = Callable[[Path, str], RangeOnlyRecognizer]
@@ -267,6 +285,177 @@ class SemiAutomaticSelectionJobStore:
             _apply_run_progress(run, checkpoint, counters, persisted_at)
         return self._get_run(run_id)
 
+    def begin_filename_verification_cleanup(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        persisted_at: datetime,
+    ) -> SemiAutomaticSelectionRun:
+        """Reserve a terminal, output-free filename run for managed cleanup."""
+
+        with self._session_factory() as session, session.begin():
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            record = _locked_run(session, run_id)
+            _locked_job(session, job_id)
+            run = _domain_run(session, run_id)
+            if record.status == SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED.value:
+                updated = resume_filename_verification_cleanup(run, changed_at=persisted_at)
+            else:
+                updated = begin_filename_verification_cleanup(run, changed_at=persisted_at)
+            _assert_filename_verification_cleanup_references(
+                session,
+                run_record=record,
+                job_id=job_id,
+            )
+            retention = session.get(
+                BrowserSelectionRetentionModel,
+                record.source_upload_id,
+                with_for_update=True,
+            )
+            if retention is not None:
+                if (
+                    retention.game_id is not None
+                    or retention.import_job_id != job_id
+                    or retention.state not in {"in_use", "blocked"}
+                ):
+                    raise JobHandlerError(
+                        "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+                        "The filename verification staging has a foreign database reference.",
+                    )
+                retention.state = "blocked"
+                retention.blocked_reason = "filename_verification_cleanup"
+                retention.updated_at = persisted_at
+            record.status = updated.status.value
+            record.checkpoint = {
+                **dict(record.checkpoint),
+                "cleanup": "pending",
+                "phase": "cleanup_pending",
+            }
+            record.revision = updated.revision
+            record.updated_at = updated.updated_at
+            # The local worker will complete the processing job after physical
+            # cleanup.  Locking it above proves that the run cannot be
+            # simultaneously requeued by the Admin request path.
+        return self._get_run(run_id)
+
+    def complete_filename_verification_cleanup(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        persisted_at: datetime,
+    ) -> SemiAutomaticSelectionRun:
+        """Delete only run-owned rows and persist the compact terminal summary."""
+
+        with self._session_factory() as session, session.begin():
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            record = _locked_run(session, run_id)
+            _locked_job(session, job_id)
+            run = _domain_run(session, run_id)
+            if record.status != SemiAutomaticSelectionRunStatus.CLEANUP_PENDING.value:
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+                    "The filename verification run is not reserved for cleanup.",
+                )
+            _assert_filename_verification_cleanup_references(
+                session,
+                run_record=record,
+                job_id=job_id,
+            )
+            retention = session.get(
+                BrowserSelectionRetentionModel,
+                record.source_upload_id,
+                with_for_update=True,
+            )
+            if retention is not None and (
+                retention.game_id is not None
+                or retention.import_job_id != job_id
+                or retention.state != "blocked"
+            ):
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+                    "The filename verification staging changed before cleanup completed.",
+                )
+            manual_counts = dict(
+                session.execute(
+                    select(
+                        FilenameRangeVerificationReviewModel.decision,
+                        func.count(),
+                    )
+                    .where(FilenameRangeVerificationReviewModel.run_id == run_id)
+                    .group_by(FilenameRangeVerificationReviewModel.decision)
+                )
+            )
+            counters = {
+                **dict(run.counters),
+                "filenameManualKept": int(manual_counts.get("keep", 0)),
+                "filenameManualRejected": int(manual_counts.get("reject", 0)),
+            }
+            checkpoint = {
+                "cleanup": "completed",
+                "completedAt": persisted_at.isoformat(),
+                "observationCount": run.source.source_count,
+                "phase": "cleanup_complete",
+                "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
+                "sourceCount": run.source.source_count,
+            }
+            completed = complete_filename_verification_cleanup(
+                run,
+                checkpoint=checkpoint,
+                counters=counters,
+                changed_at=persisted_at,
+            )
+            session.execute(
+                delete(FilenameRangeVerificationReviewModel).where(
+                    FilenameRangeVerificationReviewModel.run_id == run_id
+                )
+            )
+            session.execute(
+                delete(SemiAutomaticImageSelectionRangeModel).where(
+                    SemiAutomaticImageSelectionRangeModel.run_id == run_id
+                )
+            )
+            if retention is not None:
+                session.delete(retention)
+            record.status = completed.status.value
+            record.checkpoint = dict(completed.checkpoint)
+            record.counters = dict(completed.counters)
+            record.diagnostics_relative_path = None
+            record.diagnostics_checksum_sha256 = None
+            record.revision = completed.revision
+            record.updated_at = completed.updated_at
+        return self._get_run(run_id)
+
+    def mark_filename_verification_cleanup_blocked(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        error_code: str,
+        persisted_at: datetime,
+    ) -> SemiAutomaticSelectionRun:
+        """Keep a diagnostic, retryable cleanup state after a safe refusal."""
+
+        with self._session_factory() as session, session.begin():
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            record = _locked_run(session, run_id)
+            run = _domain_run(session, run_id)
+            blocked = block_filename_verification_cleanup(run, changed_at=persisted_at)
+            record.status = blocked.status.value
+            record.checkpoint = {
+                **dict(record.checkpoint),
+                "cleanup": "blocked",
+                "cleanupErrorCode": error_code,
+                "phase": "cleanup_blocked",
+            }
+            record.revision = blocked.revision
+            record.updated_at = blocked.updated_at
+        return self._get_run(run_id)
+
     def missing_ranges(self, run_id: UUID) -> tuple[tuple[int, int, int], ...]:
         with self._session_factory() as session:
             values = session.execute(
@@ -384,6 +573,12 @@ class SemiAutomaticImageSelectionJobHandler:
             payload = SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
             run = self._store.get_run_for_job(job.id)
             self._validate_contract(run, payload)
+            if run.status in {
+                SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
+                SemiAutomaticSelectionRunStatus.CLEANUP_BLOCKED,
+            }:
+                self._cleanup_filename_verification(context, job, run=run)
+                return
             if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
                 context.wait_for_review()
             source_root = _safe_child(self._browser_root, str(run.source.upload_id))
@@ -1076,7 +1271,88 @@ class SemiAutomaticImageSelectionJobHandler:
             persisted_at=context.now(),
         )
         _job_checkpoint(context, run, checkpoint, total=run.source.source_count)
+        if counters["filenameReviewRequired"] == 0:
+            self._cleanup_filename_verification(context, job, run=run)
+            return
         context.wait_for_review()
+
+    def _cleanup_filename_verification(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+        *,
+        run: SemiAutomaticSelectionRun,
+    ) -> None:
+        """Remove a completed filename run without touching operator-owned data."""
+
+        if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+                "Only filename verification runs may remove their working data.",
+            )
+        try:
+            reserved = self._store.begin_filename_verification_cleanup(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                persisted_at=context.now(),
+            )
+            plan = self._filename_verification_cleanup_plan(reserved)
+            self._quarantine_and_remove_cleanup_directories(plan)
+            completed = self._store.complete_filename_verification_cleanup(
+                job_id=job.id,
+                run_id=reserved.id,
+                lease_token=context.lease_token,
+                persisted_at=context.now(),
+            )
+        except JobHandlerError as error:
+            if error.code != "JOB_LEASE_LOST":
+                self._store.mark_filename_verification_cleanup_blocked(
+                    job_id=job.id,
+                    run_id=run.id,
+                    lease_token=context.lease_token,
+                    error_code=error.code,
+                    persisted_at=context.now(),
+                )
+            raise
+        _job_checkpoint(
+            context,
+            completed,
+            completed.checkpoint,
+            total=completed.source.source_count,
+        )
+
+    def _filename_verification_cleanup_plan(
+        self,
+        run: SemiAutomaticSelectionRun,
+    ) -> FilenameVerificationCleanupPlan:
+        artifacts_root = self._artifact_root / "exports" / "semi-automatic-selection"
+        staging_root = self._browser_root
+        return FilenameVerificationCleanupPlan(
+            artifact_directory=_managed_direct_child(artifacts_root, str(run.id)),
+            artifact_trash_directory=_managed_direct_child(
+                artifacts_root / ".filename-verification-trash",
+                str(run.id),
+            ),
+            staging_directory=_managed_direct_child(staging_root, str(run.source.upload_id)),
+            staging_trash_directory=_managed_direct_child(
+                staging_root / ".filename-verification-trash",
+                str(run.id),
+            ),
+        )
+
+    @staticmethod
+    def _quarantine_and_remove_cleanup_directories(
+        plan: FilenameVerificationCleanupPlan,
+    ) -> None:
+        pairs = (
+            (plan.artifact_directory, plan.artifact_trash_directory),
+            (plan.staging_directory, plan.staging_trash_directory),
+        )
+        for original, quarantined in pairs:
+            _quarantine_directory_for_cleanup(original, quarantined)
+        for _original, quarantined in pairs:
+            _delete_quarantined_directory(quarantined)
 
     @staticmethod
     def _validate_contract(
@@ -1491,7 +1767,10 @@ def _job_checkpoint(
     total: int,
 ) -> None:
     counters = run.counters
-    is_terminal_analysis = checkpoint["phase"] == "analysis_complete"
+    is_terminal_analysis = checkpoint["phase"] in {
+        "analysis_complete",
+        "cleanup_complete",
+    }
     if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
         success_count = counters.get("filenameVerified", 0) if is_terminal_analysis else 0
         review_count = counters.get("filenameReviewRequired", 0) if is_terminal_analysis else 0
@@ -1557,6 +1836,86 @@ def _safe_child(root: Path, relative_path: str) -> Path:
     return target
 
 
+def _managed_direct_child(root: Path, name: str) -> Path:
+    """Return one direct child of a managed root without following symlinks."""
+
+    if not name or Path(name).name != name or name in {".", ".."}:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "A filename verification cleanup path is unsafe.",
+        )
+    resolved_root = root.resolve()
+    if root.is_symlink():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "A managed filename verification root must not be a symbolic link.",
+        )
+    candidate = root / name
+    if candidate.is_symlink():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "A filename verification cleanup target must not be a symbolic link.",
+        )
+    if candidate.exists() and candidate.resolve().parent != resolved_root:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "A filename verification cleanup target escapes its managed root.",
+        )
+    return candidate
+
+
+def _quarantine_directory_for_cleanup(original: Path, quarantined: Path) -> None:
+    if original.is_symlink() or quarantined.is_symlink():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "A filename verification cleanup path must not be a symbolic link.",
+        )
+    if original.exists() and not original.is_dir():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "A managed filename verification directory has an unexpected file type.",
+        )
+    if original.exists() and quarantined.exists():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "A previous filename verification cleanup requires recovery.",
+        )
+    if not original.exists():
+        return
+    try:
+        quarantined.parent.mkdir(parents=True, exist_ok=True)
+        original.replace(quarantined)
+    except OSError as error:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_FAILED",
+            "The filename verification working directory could not be quarantined.",
+        ) from error
+
+
+def _delete_quarantined_directory(quarantined: Path) -> None:
+    if not quarantined.exists():
+        return
+    if quarantined.is_symlink() or not quarantined.is_dir():
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_PATH_UNSAFE",
+            "The filename verification quarantine is unsafe.",
+        )
+    try:
+        shutil.rmtree(quarantined)
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_FAILED",
+            "The filename verification quarantine could not be removed.",
+        ) from error
+    # The trash root may contain another resumable cleanup.  It is not a
+    # run-owned directory and therefore must never turn a successful cleanup
+    # into a failure just because it is non-empty.
+    with suppress(OSError):
+        quarantined.parent.rmdir()
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -1597,6 +1956,88 @@ def _locked_run(session: Session, run_id: UUID) -> SemiAutomaticImageSelectionRu
             "The semi-automatic selection run no longer exists.",
         )
     return record
+
+
+def _locked_job(session: Session, job_id: UUID) -> JobModel:
+    record = session.scalar(select(JobModel).where(JobModel.id == job_id).with_for_update())
+    if record is None:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
+            "The semi-automatic selection job no longer exists.",
+        )
+    return record
+
+
+def _assert_filename_verification_cleanup_references(
+    session: Session,
+    *,
+    run_record: SemiAutomaticImageSelectionRunModel,
+    job_id: UUID,
+) -> None:
+    """Fail closed whenever the staging is shared outside this one run.
+
+    Filename verification has no valid handoff: it must not own game data,
+    local output, or a second run.  The checks are repeated before database
+    finalization because filesystem deletion and SQL cannot share a transaction.
+    """
+
+    if run_record.workflow_mode != SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION.value:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "Only filename verification runs may remove this staging.",
+        )
+    shared_runs = tuple(
+        session.scalars(
+            select(SemiAutomaticImageSelectionRunModel.id)
+            .where(
+                SemiAutomaticImageSelectionRunModel.source_upload_id
+                == run_record.source_upload_id,
+                SemiAutomaticImageSelectionRunModel.id != run_record.id,
+            )
+            .with_for_update()
+        )
+    )
+    if shared_runs:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "The browser staging is still referenced by another selection run.",
+        )
+    foreign_jobs = tuple(
+        session.scalars(
+            select(JobModel.id)
+            .where(
+                JobModel.id != job_id,
+                JobModel.input_payload["source_selection_id"].as_string()
+                == str(run_record.source_upload_id),
+            )
+            .with_for_update()
+        )
+    )
+    if foreign_jobs:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "The browser staging is still referenced by another image job.",
+        )
+    protected_outputs = int(
+        session.scalar(
+            select(func.count())
+            .select_from(SemiAutomaticImageSelectionRangeModel)
+            .where(
+                SemiAutomaticImageSelectionRangeModel.run_id == run_record.id,
+                (
+                    SemiAutomaticImageSelectionRangeModel.status
+                    == SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED.value
+                )
+                | (SemiAutomaticImageSelectionRangeModel.output_checksum_sha256.is_not(None)),
+            )
+        )
+        or 0
+    )
+    if protected_outputs:
+        raise JobHandlerError(
+            "SEMI_AUTOMATIC_SELECTION_CLEANUP_BLOCKED",
+            "The filename verification run has a protected local output reference.",
+        )
 
 
 def _apply_run_progress(

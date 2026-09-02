@@ -8599,6 +8599,8 @@ export type SemiAutomaticSelectionRunStatus =
   | 'syncing_output'
   | 'review_mode'
   | 'edit_source_mode'
+  | 'cleanup_pending'
+  | 'cleanup_blocked'
   | 'completed'
   | 'failed'
   | 'cancelled';

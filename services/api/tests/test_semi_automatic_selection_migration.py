@@ -73,3 +73,21 @@ def test_migration_0091_adds_filename_verification_history_without_changing_job_
     assert FilenameRangeVerificationReviewModel.__tablename__ == (
         "semi_automatic_filename_verification_reviews"
     )
+
+
+def test_migration_0092_adds_only_resumable_cleanup_states() -> None:
+    path = (
+        REPOSITORY_ROOT
+        / "services"
+        / "api"
+        / "alembic"
+        / "versions"
+        / "0092_filename_verification_cleanup.py"
+    )
+    source = path.read_text(encoding="utf-8")
+
+    assert "0091_filename_range_verification_history" in source
+    assert "cleanup_pending" in source
+    assert "cleanup_blocked" in source
+    assert "UPDATE semi_automatic_image_selection_runs" in source
+    assert "drop_table" not in source

@@ -352,7 +352,6 @@ class SemiAutomaticImageSelectionService:
         if run.status not in {
             SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
             SemiAutomaticSelectionRunStatus.REVIEW_MODE,
-            SemiAutomaticSelectionRunStatus.COMPLETED,
         }:
             raise SemiAutomaticSelectionConflictError(
                 "SEMI_AUTOMATIC_SELECTION_NOT_REVIEWABLE",
@@ -372,6 +371,25 @@ class SemiAutomaticImageSelectionService:
             raise SemiAutomaticSelectionConflictError(
                 "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
                 "The reviewed source changed after it was loaded.",
+            )
+        observation_items = self.list_filename_verification_items(
+            run.id,
+            after_source_index=None if source_index == 0 else source_index - 1,
+            limit=1,
+        )
+        if (
+            len(observation_items) != 1
+            or _filename_verification_source_index(observation_items[0]) != source_index
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
+                "The requested filename verification observation is unavailable.",
+            )
+        if observation_items[0].get("verificationStatus") == "verified":
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_REVIEW_NOT_REQUIRED",
+                "A filename verification decision is allowed only for an unreadable, "
+                "mismatched, or invalid filename.",
             )
         existing = self._repository.get_filename_verification_reviews(
             run.id,

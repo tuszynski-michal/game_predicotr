@@ -1078,6 +1078,26 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 - Admin udostępnia przycisk `Wznów analizę` dla failed runu; komunikat jasno
   deklaruje wznowienie z zapisanych obserwacji OCR.
 
+## Terminalny cleanup weryfikacji nazw — TASK-0395
+
+- Run `filename_verification` po wyniku z samymi `verified` albo po ostatniej
+  decyzji dla pozycji `unreadable`, `mismatch` lub `invalid_filename` przechodzi
+  przez trwały stan `cleanup_pending` do `completed`. Manualna decyzja dla
+  automatycznie zgodnego pliku jest odrzucana przez backend.
+- W tym samym przypiętym jobie cleanup najpierw rezerwuje staging, a potem
+  usuwa wyłącznie zasoby tego runu: browserowy staging, observations OCR,
+  grupy, checkpointy, raporty robocze, rekordy zakresów i decyzji review.
+  Nie dotyka lokalnego folderu `seq_*`, katalogu operatora, danych ręcznej
+  selekcji, innych importów, cropów, modeli ani danych gry.
+- Przed usunięciem i przed finalizacją cleanup ponownie sprawdza aktywne oraz
+  obce referencje. Konflikt pozostawia zasoby bez zmian, przechodzi do
+  `cleanup_blocked` z diagnostyką i daje się wznowić bez OCR ani utraty decyzji.
+  Katalogi robocze są atomowo przenoszone do managed trash na tym samym
+  woluminie, więc restart pomiędzy etapami jest idempotentny.
+- Po sukcesie historia przechowuje wyłącznie lekki, nieedytowalny run: czasy,
+  liczbę plików, liczniki `verified`, ręcznie pozostawionych i odrzuconych oraz
+  `completed · dane robocze usunięte`. Szczegóły obrazów nie są już dostępne.
+
 ## Deterministyczny silnik wyboru zakresu — TASK-0353
 
 - Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w

@@ -1577,6 +1577,25 @@ fresh progress joba, ale zachowuje run, manifest oraz observation JSONL. Jeśli
 historyczny błędny wybór nie ma output checksum ani potwierdzenia lokalnego,
 jest atomowo cofany do `missing`; dowolny output blokuje cofnięcie fail-closed.
 
+## Trwałe domknięcie i cleanup filename verification — TASK-0395
+
+`filename_verification` ma odrębny terminalny lifecycle. Po skanie bez
+pozycji review albo po atomowym zapisie ostatniej dozwolonej decyzji repozytorium
+requeue'uje ten sam job wyłącznie do cleanupu i zapisuje `cleanup_pending`.
+Worker nie wczytuje wtedy manifestu ani obserwacji, nie uruchamia OCR i nie
+dotyka workflowu selekcji. Rezerwacja pod lockiem runu, joba oraz retencji
+stagingu wymaga, aby staging należał tylko do tego runu i nie miał game/import
+handoff, drugiego runu, drugiego joba ani outputu lokalnej selekcji.
+
+Usuwanie ma dwa kroki: katalog runu pod
+`exports/semi-automatic-selection/<runId>` i folder browser stagingu są
+najpierw przenoszone pod zarządzany `.filename-verification-trash/<runId>` na
+tym samym woluminie, a następnie kasowane. Dopiero ponownie zweryfikowana
+transakcja SQL usuwa review, ranges i retention oraz zapisuje kompaktowy
+checkpoint `cleanup_complete`. Brak katalogu po awarii jest idempotentny;
+zmieniony zasób albo obca referencja daje `cleanup_blocked`, nie częściowe
+usunięcie wspólnych danych.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

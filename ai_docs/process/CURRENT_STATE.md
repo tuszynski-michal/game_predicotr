@@ -35,6 +35,16 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   więc nie może zmaleć po rozpoczęciu wyborów. Failed run można wznowić z
   zapisanych obserwacji bez drugiego OCR; Admin pokazuje do tego jawną akcję.
 
+### Domknięcie i cleanup weryfikacji nazw — TASK-0395
+
+- Automatycznie zgodny `filename_verification` albo run po ostatniej ręcznej
+  decyzji przechodzi przez wznawialny `cleanup_pending` do `completed`.
+  Historia zachowuje tylko podsumowanie; staging, OCR, raporty, ranges i
+  decyzje tego runu są usuwane.
+- Przed cleanupem worker blokuje retencję i sprawdza obce joby, runy, outputy
+  oraz referencje. W razie konfliktu zapisuje `cleanup_blocked`, nie usuwa
+  wspólnych danych i pozwala wznowić sam cleanup bez drugiego OCR.
+
 ### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
 
 - Usuwanie stagingu bez plansz i review kasuje również automatyczne rewizje

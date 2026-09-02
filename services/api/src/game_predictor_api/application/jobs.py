@@ -1274,8 +1274,12 @@ class JobService:
             and job.input_payload.get("validation_kind") == "page_geometry_preflight"
         ):
             return self._repository.save_job(requeue_job_with_fresh_progress(job))
+        if (
+            job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+            and _is_filename_verification_job(job)
+        ):
+            return self._repository.save_job(requeue_job_with_fresh_progress(job))
         return self._repository.save_job(requeue_job(job))
-
     def delete_cancelled_image_selection_job(
         self,
         job_id: UUID,
@@ -1356,6 +1360,13 @@ class JobService:
         for quarantine in pending:
             if self._deletion_artifact_store is not None:
                 self._deletion_artifact_store.restore(quarantine)
+
+
+def _is_filename_verification_job(job: Job) -> bool:
+    # Migration 0091 materializes the workflow on historical v2 jobs.  A
+    # retry must rely on that durable classification rather than re-inferring
+    # it from a mutable recognizer configuration.
+    return job.input_payload.get("workflow_mode") == "filename_verification"
 
 
 def _page_geometry_manifest_fingerprint(value: dict[str, object] | None) -> str:

@@ -923,3 +923,52 @@ def test_failed_job_retry_requeues_the_same_record(tmp_path: Path) -> None:
     assert retried.json()["id"] == str(job_id)
     assert retried.json()["status"] == "created"
     assert retried.json()["error"] is None
+
+
+def test_filename_verification_retry_resets_only_technical_job_progress(
+    tmp_path: Path,
+) -> None:
+    _client_instance, _game_id, service, repository = _client(tmp_path)
+    job = replace(
+        create_job(
+            JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+            game_id=None,
+            input_payload={
+                "schema_version": 2,
+                "selection_kind": "semi_automatic_image_selection",
+                "workflow_mode": "filename_verification",
+                "run_id": str(uuid4()),
+                "source_upload_id": str(uuid4()),
+                "source_manifest_checksum_sha256": "a" * 64,
+                "source_fingerprint": "b" * 64,
+                "source_count": 2_200,
+                "first_sequence_number": 1,
+                "last_sequence_number": 19_809,
+                "direction": "ascending",
+                "range_convention": "seq-inclusive-v1",
+                "full_range_size": 9,
+                "expected_ranges_fingerprint": "c" * 64,
+                "recognizer_fingerprint": "d" * 64,
+                "grouping_policy_fingerprint": "e" * 64,
+            },
+        ),
+        status=JobStatus.FAILED,
+        progress_current=2_200,
+        progress_total=2_200,
+        success_count=247,
+        review_count=1_953,
+        error_code="JOB_PROGRESS_REGRESSION",
+        error_message="Review count cannot decrease.",
+        finished_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+
+    retried = service.retry_job(job.id)
+
+    assert retried.id == job.id
+    assert retried.status is JobStatus.CREATED
+    assert retried.progress_current == 0
+    assert retried.progress_total is None
+    assert retried.success_count == 0
+    assert retried.review_count == 0
+    assert retried.error_code is None

@@ -26,6 +26,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
+    SemiAutomaticSelectionWorkflowMode,
     create_semi_automatic_selection_run,
 )
 from game_predictor_worker.jobs.runtime import JobHandlerError
@@ -275,6 +276,7 @@ class _MemoryStore:
         self.run = run
         self.ranges = {(item.range_start, item.range_end): item for item in ranges}
         self.pause_after_processed_sources: int | None = None
+        self.apply_selection_calls = 0
 
     def get_run_for_job(self, job_id: UUID) -> SemiAutomaticSelectionRun:
         assert job_id == self.run.job.id
@@ -312,6 +314,7 @@ class _MemoryStore:
         persisted_at: datetime,
         **_values: object,
     ) -> SelectionApplyOutcome:
+        self.apply_selection_calls += 1
         group_selection = selection
         group = group_selection.group  # type: ignore[attr-defined]
         evidence = group_selection.evidence  # type: ignore[attr-defined]
@@ -361,6 +364,44 @@ class _MemoryStore:
         )
         return SelectionApplyOutcome(run=self.run, applied=applied)
 
+    def reset_unacknowledged_filename_selections(
+        self,
+        *,
+        persisted_at: datetime,
+        **_values: object,
+    ) -> SemiAutomaticSelectionRun:
+        restored = 0
+        for key, item in tuple(self.ranges.items()):
+            if item.status is not ApiRangeStatus.AUTO_SELECTED:
+                continue
+            self.ranges[key] = replace(
+                item,
+                status=ApiRangeStatus.MISSING,
+                source_index=None,
+                source_relative_path=None,
+                source_size_bytes=None,
+                source_checksum_sha256=None,
+                group_first_source_index=None,
+                group_last_source_index=None,
+                range_confidence=None,
+                selection_method=None,
+                output_checksum_sha256=None,
+                revision=item.revision + 1,
+                updated_at=persisted_at,
+            )
+            restored += 1
+        if restored:
+            counters = dict(self.run.counters)
+            counters["autoSelected"] = max(0, counters.get("autoSelected", 0) - restored)
+            counters["missing"] = counters.get("missing", 0) + restored
+            self.run = replace(
+                self.run,
+                counters=counters,
+                revision=self.run.revision + 1,
+                updated_at=persisted_at,
+            )
+        return self.run
+
     def missing_ranges(self, _run_id: UUID) -> tuple[tuple[int, int, int], ...]:
         return tuple(
             (item.expected_index, item.range_start, item.range_end)
@@ -403,6 +444,10 @@ def _ready_run(
     recognizer_fingerprint: str = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     source_count: int = 4,
     source_color: tuple[int, int, int] | None = None,
+    source_relative_paths: Sequence[str] | None = None,
+    workflow_mode: SemiAutomaticSelectionWorkflowMode = (
+        SemiAutomaticSelectionWorkflowMode.SELECTION
+    ),
 ) -> tuple[SemiAutomaticSelectionRun, tuple[ApiRange, ...]]:
     upload_id = uuid4()
     source_root = tmp_path / "imports" / "browser-selections" / str(upload_id)
@@ -412,7 +457,11 @@ def _ready_run(
     for index in range(source_count):
         content = _jpeg(source_color or (10 + index, 20 + index, 30 + index))
         checksum = hashlib.sha256(content).hexdigest()
-        relative_path = f"selection/photo-{index + 1}.jpg"
+        relative_path = (
+            source_relative_paths[index]
+            if source_relative_paths is not None
+            else f"selection/photo-{index + 1}.jpg"
+        )
         stored_file_name = f"{index + 1:08d}.jpg"
         (source_root / stored_file_name).write_bytes(content)
         source = SemiAutomaticSelectionSource(
@@ -469,6 +518,7 @@ def _ready_run(
                 else grouping_policy_fingerprint()
             )
         ),
+        workflow_mode=workflow_mode,
     )
 
 
@@ -519,6 +569,58 @@ def test_handler_scans_once_selects_middle_and_resumes_without_ocr(tmp_path: Pat
 
     def fail_if_recognizer_is_rebuilt(_path: Path, _contract: str) -> NoReturn:
         raise AssertionError("A completed checkpoint must not rerun OCR.")
+
+    resumed_handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=fail_if_recognizer_is_rebuilt,
+    )
+    with pytest.raises(_WaitForReview):
+        resumed_handler(_Context(), run.job)  # type: ignore[arg-type]
+
+
+def test_filename_verification_finishes_without_selection_or_progress_regression(
+    tmp_path: Path,
+) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        source_count=2,
+        source_relative_paths=("seq_1-9.jpg", "seq_10-18.jpg"),
+        workflow_mode=SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION,
+    )
+    store = _MemoryStore(run, ranges)
+    recognizer = _ScriptedRecognizer(
+        [_exact(1, 9, 0.95), _exact(10, 18, 0.95)],
+    )
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        recognizer_factory=lambda _path, _contract: recognizer,
+    )
+    context = _Context()
+
+    with pytest.raises(_WaitForReview):
+        handler(context, run.job)  # type: ignore[arg-type]
+
+    assert recognizer.calls == 2
+    assert store.apply_selection_calls == 0
+    assert store.run.status is SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE
+    assert store.run.counters["filenameVerified"] == 0
+    assert store.run.counters["filenameUnreadable"] == 2
+    assert store.run.counters["filenameReviewRequired"] == 2
+    assert [item.status for item in store.ranges.values()] == [
+        ApiRangeStatus.MISSING,
+        ApiRangeStatus.MISSING,
+    ]
+    assert context.checkpoints[-1]["success_count"] == 0
+    assert context.checkpoints[-1]["review_count"] == 2
+
+    def fail_if_recognizer_is_rebuilt(_path: Path, _contract: str) -> NoReturn:
+        raise AssertionError("A completed filename verification must not rerun OCR.")
 
     resumed_handler = SemiAutomaticImageSelectionJobHandler(
         store,  # type: ignore[arg-type]

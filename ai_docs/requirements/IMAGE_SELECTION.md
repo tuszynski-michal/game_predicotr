@@ -1065,6 +1065,19 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 - Runy failed i cancelled pozostają widoczne diagnostycznie, ale nie udostępniają
   decyzji review. Automat nigdy sam nie usuwa plików.
 
+## Domknięcie OCR weryfikacji nazw — TASK-0394
+
+- `filename_verification` kończy skan klasyfikacją pojedynczego pliku jako
+  `verified`, `unreadable`, `mismatch` albo `invalid_filename`; nie wybiera
+  reprezentanta, nie wywołuje `apply_selection` i nie tworzy `seq_*`.
+- Podczas OCR licznik review joba pozostaje równy zero. Dopiero atomowy,
+  terminalny checkpoint zapisuje liczbę pozycji wymagających decyzji, dlatego
+  progres joba nigdy nie maleje.
+- Retry failed runu resetuje wyłącznie techniczne liczniki joba. Zachowuje
+  checksummowany strumień obserwacji i kończy analizę bez ponownego OCR.
+- Admin udostępnia przycisk `Wznów analizę` dla failed runu; komunikat jasno
+  deklaruje wznowienie z zapisanych obserwacji OCR.
+
 ## Deterministyczny silnik wyboru zakresu — TASK-0353
 
 - Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w

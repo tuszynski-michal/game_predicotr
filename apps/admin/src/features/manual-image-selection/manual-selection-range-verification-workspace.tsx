@@ -60,6 +60,7 @@ type VerificationClient = SemiAutomaticSelectionClient &
     | 'getSemiAutomaticImageSelectionCapabilities'
     | 'listSemiAutomaticFilenameRangeVerifications'
     | 'listSemiAutomaticImageSelections'
+    | 'retryJob'
   >;
 
 export function ManualSelectionRangeVerificationWorkspace({
@@ -454,6 +455,34 @@ export function ManualSelectionRangeVerificationWorkspace({
     }
   }
 
+  async function retryAnalysis(): Promise<void> {
+    if (run === null || run.job.status !== 'failed' || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.retryJob(run.job.id);
+      if (result.error !== undefined || result.data === undefined) {
+        setError(apiErrorMessage(result.error, 'Nie udało się wznowić analizy.'));
+        return;
+      }
+      // The worker turns the durable run back to `running` at its first
+      // checkpoint.  Reflect the requeued job now so the existing poller
+      // starts immediately instead of leaving a failed view frozen.
+      const resumed = { ...run, job: result.data, status: 'running' as const };
+      setRun(resumed);
+      setRuns((existing) => replaceRun(existing, resumed));
+      setNotice(
+        'Wznowiono analizę z zapisanych obserwacji OCR — obrazy nie będą odczytywane ponownie.',
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
   async function decideCurrent(decision: 'keep' | 'reject'): Promise<void> {
     if (run === null || current === undefined || busyRef.current) return;
     if (decision === 'reject' && snapshot === null) {
@@ -690,10 +719,22 @@ export function ManualSelectionRangeVerificationWorkspace({
       </section>
 
       {run !== null && !isReviewable(run) ? (
-        <p className="manualImageSelectionStatus">
-          Ten proces ma status „{jobProgressLabel(run.job)}”. Wyniki review będą
-          dostępne po poprawnym zakończeniu.
-        </p>
+        <div className="manualImageSelectionActions">
+          <p className="manualImageSelectionStatus">
+            Ten proces ma status „{jobProgressLabel(run.job)}”. Wyniki review będą
+            dostępne po poprawnym zakończeniu.
+          </p>
+          {run.job.status === 'failed' ? (
+            <button
+              className="primaryButton"
+              disabled={busy}
+              onClick={() => void retryAnalysis()}
+              type="button"
+            >
+              Wznów analizę
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {run !== null && isReviewable(run) ? (
         <section className="manualImageSelectionActive">

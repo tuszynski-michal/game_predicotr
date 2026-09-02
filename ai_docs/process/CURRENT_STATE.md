@@ -26,6 +26,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   `keep/reject` są serwerowe i rewizyjne. Lokalny uchwyt katalogu jest potrzebny
   wyłącznie dla journalowanego delete.
 
+### Finalizacja OCR weryfikacji nazw — TASK-0394
+
+- Po OCR workflow `filename_verification` nie wybiera reprezentantów, nie
+  tworzy `seq_*` i nie wywołuje zwykłej ścieżki selekcji. Utrwala tylko wynik
+  `verified`, `unreadable`, `mismatch` albo `invalid_filename`.
+- Licznik review joba jest publikowany wyłącznie w terminalnym checkpointcie,
+  więc nie może zmaleć po rozpoczęciu wyborów. Failed run można wznowić z
+  zapisanych obserwacji bez drugiego OCR; Admin pokazuje do tego jawną akcję.
+
 ### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
 
 - Usuwanie stagingu bez plansz i review kasuje również automatyczne rewizje

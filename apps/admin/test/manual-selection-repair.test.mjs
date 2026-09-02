@@ -263,6 +263,8 @@ test('admin mounts durable filename range verification with five-anchor manual r
     /listSemiAutomaticImageSelections\(\s*'filename_verification'/,
   );
   assert.match(workspace, /decideSemiAutomaticFilenameRangeVerification/);
+  assert.match(workspace, /retryJob/);
+  assert.match(workspace, /Wznów analizę/);
   assert.match(workspace, /remoteAssetHandle/);
   assert.match(workspace, /directoryPermissionIsGranted/);
   assert.match(workspace, /Odrzuć i usuń F/);

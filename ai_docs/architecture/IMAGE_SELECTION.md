@@ -1562,6 +1562,21 @@ confirmation w IndexedDB. Odtwarza najpierw ostatni otwierany istniejący run,
 potem najnowszy aktywny, a na końcu najnowszy terminalny. Wybrany run ma jeden
 polling; przełączenie anulowuje poprzedni timer i nie tworzy uploadu ani joba.
 
+## Finalizacja weryfikacji nazw bez selekcji — TASK-0394
+
+Po zapisaniu ostatniej obserwacji workflow `filename_verification` pomija
+grupowanie do reprezentanta i nie dotyka tabeli wyborów lokalnego outputu.
+Worker klasyfikuje wyłącznie trwałe observation JSONL z pięcioma punktami
+dowodu: `verified`, `unreadable`, `mismatch` albo `invalid_filename`.
+
+Do terminalnego checkpointu job raportuje `reviewCount = 0`; po jednorazowym
+obliczeniu wszystkich klasyfikacji raportuje sumę wymagającą review. Dzięki
+temu domenowy `JOB_PROGRESS_REGRESSION` pozostaje wykrywalny i nie jest
+maskowany przez ogólną walidację checkpointu. Retry filename workflow używa
+fresh progress joba, ale zachowuje run, manifest oraz observation JSONL. Jeśli
+historyczny błędny wybór nie ma output checksum ani potwierdzenia lokalnego,
+jest atomowo cofany do `missing`; dowolny output blokuje cofnięcie fail-closed.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

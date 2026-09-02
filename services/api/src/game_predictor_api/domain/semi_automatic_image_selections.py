@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import cast
 from uuid import UUID, uuid4
 
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobType, create_job
@@ -16,6 +18,10 @@ SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION = "seq-inclusive-v1"
 SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE = 9
 SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY = "natural_relative_path_v1"
 SEMI_AUTOMATIC_SELECTION_WORKFLOW = "semi_automatic_image_selection"
+_SEQUENCE_FILE_PATTERN = re.compile(
+    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
+)
+_FILENAME_VERIFICATION_ANCHORS = frozenset({0, 2, 4, 6, 8})
 
 
 class SemiAutomaticSelectionDirection(StrEnum):
@@ -485,6 +491,106 @@ def run_identity_key(
     ).hexdigest()
 
 
+def classify_filename_range_verification(
+    observation: dict[str, object],
+) -> dict[str, object]:
+    """Compare a persisted OCR observation with the filename expectation.
+
+    The filename is used only after the OCR result is durable.  It cannot
+    provide evidence for a range, nor can it repair an unreadable image.
+    """
+
+    relative_path = str(observation.get("sourceRelativePath", ""))
+    file_name = relative_path.replace("\\", "/").rsplit("/", 1)[-1]
+    match = _SEQUENCE_FILE_PATTERN.fullmatch(file_name)
+    observed_raw = observation.get("observedRange")
+    observed = (
+        None
+        if not isinstance(observed_raw, dict)
+        else {
+            "start": int(observed_raw["start"]),
+            "end": int(observed_raw["end"]),
+        }
+    )
+    expected = (
+        None
+        if match is None
+        else {"start": int(match.group("start")), "end": int(match.group("end"))}
+    )
+    diagnostics = observation.get("runtimeDiagnostics")
+    label_evidence = diagnostics.get("labelEvidence", []) if isinstance(diagnostics, dict) else []
+    anchor_positions = _matching_filename_verification_anchor_positions(
+        label_evidence,
+        observed,
+    )
+    if (
+        expected is None
+        or expected["end"] < expected["start"]
+        or expected["end"] - expected["start"] >= SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE
+    ):
+        verification_status = "invalid_filename"
+    elif observed is None or not _has_spread_filename_verification_proof(anchor_positions):
+        verification_status = "unreadable"
+    elif observed == expected:
+        verification_status = "verified"
+    else:
+        verification_status = "mismatch"
+    return {
+        "anchorPositions": sorted(anchor_positions),
+        "expectedRange": expected,
+        "observedRange": observed,
+        "reasonCodes": list(cast(list[object], observation.get("reasonCodes", []))),
+        "sourceChecksumSha256": str(observation.get("sourceChecksumSha256", "")),
+        "sourceIndex": _object_as_int(observation["sourceIndex"]),
+        "sourceRelativePath": relative_path,
+        "sourceSizeBytes": _object_as_int(observation["sourceSizeBytes"]),
+        "verificationStatus": verification_status,
+    }
+
+
+def _matching_filename_verification_anchor_positions(
+    label_evidence: object,
+    observed: dict[str, int] | None,
+) -> frozenset[int]:
+    if observed is None or not isinstance(label_evidence, list):
+        return frozenset()
+    positions: set[int] = set()
+    for raw in label_evidence:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            position = int(raw["positionIndex"])
+            number = int(raw["sequenceNumber"])
+            confidence = float(raw["confidence"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (
+            position in _FILENAME_VERIFICATION_ANCHORS
+            and number == observed["start"] + position
+            and confidence >= 0.82
+        ):
+            positions.add(position)
+    return frozenset(positions)
+
+
+def _has_spread_filename_verification_proof(positions: frozenset[int]) -> bool:
+    if len(positions) < 3:
+        return False
+    rows = {position // 3 for position in positions}
+    columns = {position % 3 for position in positions}
+    return (
+        len(rows) >= 2
+        and len(columns) >= 2
+        and (4 in positions or {0, 8}.issubset(positions) or {2, 6}.issubset(positions))
+    )
+
+
+def _object_as_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        raise ValueError("Expected an integer-compatible observation value.")
+    return int(value)
+
+
 def _expected_ranges(
     *,
     run_id: UUID,
@@ -578,6 +684,7 @@ __all__ = [
     "acknowledge_output",
     "apply_range_status_transition",
     "cancel_run",
+    "classify_filename_range_verification",
     "create_semi_automatic_selection_run",
     "expected_ranges_fingerprint",
     "pause_run",

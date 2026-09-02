@@ -74,6 +74,11 @@ class SemiAutomaticSelectionAudit:
             if group.group_order >= start_group_order:
                 yield group
 
+    def iter_observation_payloads(self) -> Iterator[dict[str, object]]:
+        """Yield persisted observations without selecting a representative."""
+
+        yield from _iter_json_lines(self.observations_path)
+
     def iter_group_selections(
         self,
         *,

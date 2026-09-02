@@ -2813,3 +2813,10 @@ przyjmuje `decision`, `expectedSourceChecksumSha256` i `expectedRevision`.
 Backend sprawdza przynależność indeksu do immutable stagingu oraz jego
 checksummę. Pierwsza decyzja używa rewizji `0`; ponowienie identycznej decyzji
 jest idempotentne, a odmienna stale mutation kończy się `409`.
+
+Po OCR `filename_verification` nie używa endpointu ani mechanizmu wyboru
+reprezentanta. Worker zapisuje tylko klasyfikację `verified`, `unreadable`,
+`mismatch` albo `invalid_filename` w checksummowanym raporcie runu; nie tworzy
+local outputu `seq_*`. `POST /api/v1/admin/jobs/{jobId}/retry` dla failed
+filename workflow requeue'uje ten sam job ze świeżym postępem technicznym, a
+worker odczytuje istniejące obserwacje zamiast ponownie uruchamiać OCR.

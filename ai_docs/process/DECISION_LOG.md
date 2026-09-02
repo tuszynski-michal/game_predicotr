@@ -7015,3 +7015,19 @@ aktywnego prefiksu row-major, braku nakładania oraz pełnego source support dla
 padded cell quads. Niespełnienie tych warunków pozostaje korektą ręczną.
 Historyczne wykonania v1, ich fingerprinty i lokalne bramki linii pozostają
 niezmienne.
+
+## D-301 — Weryfikacja nazw nie jest selekcją zakresów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Workflow `filename_verification` używa OCR wyłącznie do porównania widocznego
+zakresu z nazwą pliku `seq_*`. Po skanie nie wybiera reprezentanta, nie tworzy
+pliku outputu ani nie korzysta z inferencji zakresu przez sąsiednie zdjęcia.
+Brak dowodu, niezgodność lub niepoprawna nazwa trafiają wyłącznie do ręcznej
+decyzji.
+
+Ponowienie failed runu zachowuje checksummowane obserwacje OCR i resetuje tylko
+techniczny progres joba. Pozwala to odtworzyć błąd checkpointu bez kosztu oraz
+ryzyka ponownej analizy obrazu; dowolny historyczny output blokuje automatyczne
+cofnięcie błędnego wyboru fail-closed.

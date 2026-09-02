@@ -14,11 +14,13 @@ from typing import Any, NoReturn, cast
 from uuid import UUID
 
 import numpy as np
-from game_predictor_api.domain.jobs import Job, JobConflictError, JobStatus
+from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobStatus
 from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
+    SemiAutomaticSelectionWorkflowMode,
+    classify_filename_range_verification,
 )
 from game_predictor_api.schemas.jobs import SemiAutomaticImageSelectionJobPayload
 from game_predictor_api.storage.models import (
@@ -282,6 +284,68 @@ class SemiAutomaticSelectionJobStore:
             )
             return tuple((int(index), int(start), int(end)) for index, start, end in values)
 
+    def reset_unacknowledged_filename_selections(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        persisted_at: datetime,
+    ) -> SemiAutomaticSelectionRun:
+        """Undo only output-free selections accidentally made by filename review."""
+
+        with self._session_factory() as session, session.begin():
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            run = _locked_run(session, run_id)
+            rows = tuple(
+                session.scalars(
+                    select(SemiAutomaticImageSelectionRangeModel)
+                    .where(SemiAutomaticImageSelectionRangeModel.run_id == run_id)
+                    .with_for_update()
+                )
+            )
+            protected = [
+                item
+                for item in rows
+                if item.status == SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED.value
+                or item.output_checksum_sha256 is not None
+            ]
+            if protected:
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_FILENAME_VERIFICATION_CONFLICT",
+                    "A filename-verification run has an acknowledged local output.",
+                )
+            accidental = tuple(
+                item
+                for item in rows
+                if item.status == SemiAutomaticSelectionRangeStatus.AUTO_SELECTED.value
+            )
+            if len(accidental) > 1:
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_FILENAME_VERIFICATION_CONFLICT",
+                    "A filename-verification run has multiple historical selections.",
+                )
+            restored = len(accidental)
+            for item in accidental:
+                item.status = SemiAutomaticSelectionRangeStatus.MISSING.value
+                item.source_index = None
+                item.source_relative_path = None
+                item.source_size_bytes = None
+                item.source_checksum_sha256 = None
+                item.group_first_source_index = None
+                item.group_last_source_index = None
+                item.range_confidence = None
+                item.selection_method = None
+                item.output_checksum_sha256 = None
+                item.revision += 1
+                item.updated_at = persisted_at
+            if restored:
+                counters = {key: int(value) for key, value in run.counters.items()}
+                counters["autoSelected"] = max(0, counters.get("autoSelected", 0) - restored)
+                counters["missing"] = counters.get("missing", 0) + restored
+                _apply_run_progress(run, run.checkpoint, counters, persisted_at)
+        return self._get_run(run_id)
+
     def _get_run(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         with self._session_factory() as session:
             return _domain_run(session, run_id)
@@ -344,6 +408,15 @@ class SemiAutomaticImageSelectionJobHandler:
                     checkpoint=checkpoint,
                 )
             if checkpoint["phase"] == "selecting":
+                if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+                    self._finish_filename_verification(
+                        context,
+                        job,
+                        run=run,
+                        audit=audit,
+                        checkpoint=checkpoint,
+                    )
+                    return
                 run, checkpoint = self._select(
                     context,
                     job,
@@ -354,7 +427,7 @@ class SemiAutomaticImageSelectionJobHandler:
             self._finish(context, job, run=run, audit=audit, checkpoint=checkpoint)
         except SemiAutomaticSelectionError as error:
             raise JobHandlerError(error.code, error.message) from error
-        except JobConflictError:
+        except JobError:
             raise
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             LOGGER.exception(
@@ -926,6 +999,85 @@ class SemiAutomaticImageSelectionJobHandler:
         _job_checkpoint(context, run, checkpoint, total=run.source.source_count)
         context.wait_for_review()
 
+    def _finish_filename_verification(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+        *,
+        run: SemiAutomaticSelectionRun,
+        audit: SemiAutomaticSelectionAudit,
+        checkpoint: dict[str, object],
+    ) -> None:
+        """Finalize OCR evidence without selecting or materializing any JPEG."""
+
+        run = self._store.reset_unacknowledged_filename_selections(
+            job_id=job.id,
+            run_id=run.id,
+            lease_token=context.lease_token,
+            persisted_at=context.now(),
+        )
+        totals = {
+            "invalid_filename": 0,
+            "mismatch": 0,
+            "unreadable": 0,
+            "verified": 0,
+        }
+        for observation in audit.iter_observation_payloads():
+            status = str(classify_filename_range_verification(observation)["verificationStatus"])
+            if status not in totals:
+                raise JobHandlerError(
+                    "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                    "The filename verification classifier returned an unsupported status.",
+                )
+            totals[status] += 1
+        observation_count = _checkpoint_int(checkpoint, "observationCount")
+        if sum(totals.values()) != observation_count:
+            raise JobHandlerError(
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                "The committed filename verification observations are incomplete.",
+            )
+        counters = dict(run.counters)
+        counters.update(
+            {
+                "filenameInvalidFilename": totals["invalid_filename"],
+                "filenameMismatch": totals["mismatch"],
+                "filenameReviewRequired": (
+                    totals["invalid_filename"] + totals["mismatch"] + totals["unreadable"]
+                ),
+                "filenameUnreadable": totals["unreadable"],
+                "filenameVerified": totals["verified"],
+            }
+        )
+        checkpoint = {
+            **checkpoint,
+            "phase": "analysis_complete",
+            "schemaVersion": SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION,
+        }
+        relative_path, checksum = audit.write_report(
+            {
+                "counters": counters,
+                "filenameVerification": totals,
+                "recognizerFingerprint": run.recognizer_fingerprint,
+                "runtimeRecognizerFingerprint": checkpoint.get("runtimeRecognizerFingerprint"),
+                "runId": str(run.id),
+                "sourceFingerprint": run.source.source_fingerprint,
+                "workflowMode": run.workflow_mode.value,
+            }
+        )
+        audit.write_checkpoint(checkpoint)
+        run = self._store.finalize_analysis(
+            job_id=job.id,
+            run_id=run.id,
+            lease_token=context.lease_token,
+            checkpoint=checkpoint,
+            counters=counters,
+            diagnostics_relative_path=relative_path,
+            diagnostics_checksum_sha256=checksum,
+            persisted_at=context.now(),
+        )
+        _job_checkpoint(context, run, checkpoint, total=run.source.source_count)
+        context.wait_for_review()
+
     @staticmethod
     def _validate_contract(
         run: SemiAutomaticSelectionRun,
@@ -1339,6 +1491,13 @@ def _job_checkpoint(
     total: int,
 ) -> None:
     counters = run.counters
+    is_terminal_analysis = checkpoint["phase"] == "analysis_complete"
+    if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+        success_count = counters.get("filenameVerified", 0) if is_terminal_analysis else 0
+        review_count = counters.get("filenameReviewRequired", 0) if is_terminal_analysis else 0
+    else:
+        success_count = counters.get("autoSelected", 0)
+        review_count = counters.get("missing", 0) if is_terminal_analysis else 0
     context.checkpoint(
         checkpoint_payload={
             "schema_version": 1,
@@ -1347,9 +1506,9 @@ def _job_checkpoint(
         stage=f"{SEMI_AUTOMATIC_SELECTION_STAGE}:{checkpoint['phase']}",
         current=_checkpoint_int(checkpoint, "observationCount"),
         total=total,
-        success_count=counters.get("autoSelected", 0),
+        success_count=success_count,
         failure_count=counters.get("sourceErrors", 0),
-        review_count=counters.get("missing", 0),
+        review_count=review_count,
     )
 
 

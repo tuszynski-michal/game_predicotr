@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -43,6 +42,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     acknowledge_output,
     apply_range_status_transition,
     cancel_run,
+    classify_filename_range_verification,
     create_semi_automatic_selection_run,
     pause_run,
     resume_run,
@@ -56,10 +56,6 @@ SEMI_AUTOMATIC_SELECTION_MODE = "selection"
 _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINTS = frozenset(
     {RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2}
 )
-_SEQUENCE_FILE_PATTERN = re.compile(
-    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
-)
-_VERIFICATION_ANCHORS = frozenset({0, 2, 4, 6, 8})
 
 
 def workflow_mode_for_recognizer_fingerprint(
@@ -303,14 +299,16 @@ class SemiAutomaticImageSelectionService:
             ) from error
         reviews = self._repository.get_filename_verification_reviews(
             run.id,
-            [_object_as_int(item["sourceIndex"]) for item in items],
+            [_filename_verification_source_index(item) for item in items],
         )
         return tuple(
             {
                 **item,
                 "reviewDecision": (
                     None
-                    if (review := reviews.get(_object_as_int(item["sourceIndex"]))) is None
+                    if (
+                        review := reviews.get(_filename_verification_source_index(item))
+                    ) is None
                     else review.decision.value
                 ),
                 "reviewRevision": (None if review is None else review.revision),
@@ -527,101 +525,14 @@ class SemiAutomaticImageSelectionService:
         return run
 
 
-def classify_filename_range_verification(
-    observation: dict[str, object],
-) -> dict[str, object]:
-    """Compare filename expectation with five source-local OCR anchors.
-
-    The filename never supplies OCR evidence. It is parsed only after the
-    recognition result has been persisted and is used as the expected value.
-    """
-
-    relative_path = str(observation.get("sourceRelativePath", ""))
-    file_name = relative_path.replace("\\", "/").rsplit("/", 1)[-1]
-    match = _SEQUENCE_FILE_PATTERN.fullmatch(file_name)
-    observed_raw = observation.get("observedRange")
-    observed = (
-        None
-        if not isinstance(observed_raw, dict)
-        else {
-            "start": int(observed_raw["start"]),
-            "end": int(observed_raw["end"]),
-        }
-    )
-    expected = (
-        None
-        if match is None
-        else {"start": int(match.group("start")), "end": int(match.group("end"))}
-    )
-    diagnostics = observation.get("runtimeDiagnostics")
-    label_evidence = diagnostics.get("labelEvidence", []) if isinstance(diagnostics, dict) else []
-    anchor_positions = _matching_anchor_positions(label_evidence, observed)
-    has_anchor_proof = _has_spread_five_anchor_proof(anchor_positions)
-    if (
-        expected is None
-        or expected["end"] < expected["start"]
-        or expected["end"] - expected["start"] >= 9
-    ):
-        verification_status = "invalid_filename"
-    elif observed is None or not has_anchor_proof:
-        verification_status = "unreadable"
-    elif observed == expected:
-        verification_status = "verified"
-    else:
-        verification_status = "mismatch"
-    return {
-        "anchorPositions": sorted(anchor_positions),
-        "expectedRange": expected,
-        "observedRange": observed,
-        "reasonCodes": list(cast(list[object], observation.get("reasonCodes", []))),
-        "sourceChecksumSha256": str(observation.get("sourceChecksumSha256", "")),
-        "sourceIndex": _object_as_int(observation["sourceIndex"]),
-        "sourceRelativePath": relative_path,
-        "sourceSizeBytes": _object_as_int(observation["sourceSizeBytes"]),
-        "verificationStatus": verification_status,
-    }
-
-
-def _object_as_int(value: object) -> int:
-    if isinstance(value, bool) or not isinstance(value, int | float | str):
-        raise ValueError("Expected an integer-compatible observation value.")
-    return int(value)
-
-
-def _matching_anchor_positions(
-    label_evidence: object,
-    observed: dict[str, int] | None,
-) -> frozenset[int]:
-    if observed is None or not isinstance(label_evidence, list):
-        return frozenset()
-    positions: set[int] = set()
-    for raw in label_evidence:
-        if not isinstance(raw, dict):
-            continue
-        try:
-            position = int(raw["positionIndex"])
-            number = int(raw["sequenceNumber"])
-            confidence = float(raw["confidence"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if (
-            position in _VERIFICATION_ANCHORS
-            and number == observed["start"] + position
-            and confidence >= 0.82
-        ):
-            positions.add(position)
-    return frozenset(positions)
-
-
-def _has_spread_five_anchor_proof(positions: frozenset[int]) -> bool:
-    if len(positions) < 3:
-        return False
-    rows = {position // 3 for position in positions}
-    columns = {position % 3 for position in positions}
-    has_center_or_opposite_corners = (
-        4 in positions or {0, 8}.issubset(positions) or {2, 6}.issubset(positions)
-    )
-    return len(rows) >= 2 and len(columns) >= 2 and has_center_or_opposite_corners
+def _filename_verification_source_index(item: dict[str, object]) -> int:
+    value = item.get("sourceIndex")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise SemiAutomaticSelectionError(
+            "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+            "A filename verification item has an invalid source index.",
+        )
+    return value
 
 
 def _committed_observation_count(run: SemiAutomaticSelectionRun) -> int:
@@ -639,6 +550,5 @@ __all__ = [
     "SEMI_AUTOMATIC_SELECTION_MODE",
     "SemiAutomaticImageSelectionService",
     "SemiAutomaticSelectionRepository",
-    "classify_filename_range_verification",
     "workflow_mode_for_recognizer_fingerprint",
 ]

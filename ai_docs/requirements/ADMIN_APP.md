@@ -375,8 +375,11 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
-jeden aktywny symbol albo nierozpoznane `?`. Symbol docelowy akcji
-`Zmień symbol` pozostaje niezależnym wyborem.
+jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
+`Wszystkie`, `Oczekujące` albo `Zatwierdzone`. Symbol docelowy akcji
+`Zmień symbol` pozostaje niezależnym wyborem. Nie istnieje status cropa
+`odrzucone`: `Zła siatka` i `Nieczytelny symbol` są odrębnymi problemami
+jakościowymi obsługiwanymi przez ich dedykowane kolejki.
 Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
 operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze

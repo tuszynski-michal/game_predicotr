@@ -33,6 +33,14 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   strony oraz viewport, a istniejące zaznaczenie nadal wymaga jawnego
   potwierdzenia wyczyszczenia.
 
+### Filtr stanu Weryfikacji symboli — TASK-0387
+
+- Radio `Wszystkie / Oczekujące / Zatwierdzone` wykorzystuje istniejący,
+  cursor-bound filtr `state`; zmiana resetuje strony, viewport i zaznaczenie
+  tak samo jak zmiana gry lub zakresu symbolu.
+- `Zła siatka` i `Nieczytelny symbol` nie są sztucznie prezentowane jako
+  status `odrzucone`: pozostają osobnymi problemami jakościowymi.
+
 ### Miniatury symboli od krawędzi do krawędzi — TASK-0386
 
 - Bieżący renderer cropów legacy nie dopisuje już czarnego płótna do atlasu;

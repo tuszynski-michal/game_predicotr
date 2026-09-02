@@ -884,6 +884,45 @@ export function SymbolReviewWorkspace({
             <option value="unknown">Nierozpoznany (?)</option>
           </select>
         </label>
+        <fieldset>
+          <legend>Stan weryfikacji</legend>
+          <label>
+            <input
+              checked={filters.state === 'all'}
+              disabled={interactionBusy}
+              name="symbol-review-state"
+              onChange={() =>
+                requestFilterChange({ ...filters, state: 'all' })
+              }
+              type="radio"
+            />
+            Wszystkie
+          </label>
+          <label>
+            <input
+              checked={filters.state === 'pending'}
+              disabled={interactionBusy}
+              name="symbol-review-state"
+              onChange={() =>
+                requestFilterChange({ ...filters, state: 'pending' })
+              }
+              type="radio"
+            />
+            Oczekujące
+          </label>
+          <label>
+            <input
+              checked={filters.state === 'approved'}
+              disabled={interactionBusy}
+              name="symbol-review-state"
+              onChange={() =>
+                requestFilterChange({ ...filters, state: 'approved' })
+              }
+              type="radio"
+            />
+            Zatwierdzone
+          </label>
+        </fieldset>
       </div>
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
@@ -1577,7 +1616,7 @@ function asPageFilters(
   return {
     gameId: filters.gameId,
     limit: filters.pageSize,
-    state: 'all',
+    state: filters.state,
     symbolId: filters.symbolId,
   };
 }

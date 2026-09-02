@@ -15,6 +15,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Rzeczywisty korpus regresyjny OCR zakresów — TASK-0402 (done)
+
+- Dodano mały, checksum-bound korpus czterech zanonimizowanych ekranów bez
+  panelu Admina i nazwy `seq_*`: trzy czytelne zakresy (`28–36`, `55–63`,
+  `64–72`) oraz jedna klatka przejściowa z mieszanymi zakresami.
+- Read-only runner przeprowadził rzeczywisty łańcuch lokalizator → preprocessing
+  → Paddle OCR wariantów v2–v5. Wszystkie historyczne warianty bezpiecznie
+  pozostawiły przejście jako `unknown`, ale żaden nie uzyskał `exact` dla trzech
+  czytelnych ekranów; jest to punkt wyjścia dla nowego fingerprintu, nie zgoda
+  na zmianę rolloutów ani danych użytkownika.
+
 ### Niepuste zbiory oceny treningu symboli — TASK-0397
 
 - Nowe iteracje modelu zbierają rodziny źródeł zarówno z kohort pełnych plansz,

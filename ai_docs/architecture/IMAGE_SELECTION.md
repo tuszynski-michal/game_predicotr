@@ -1540,6 +1540,23 @@ inferencji OCR. Jest to diagnostyka do osobnej iteracji z nowym fingerprintem,
 nie powód zmiany kontraktu proof, korzystania z nazw źródeł lub przestawienia
 domyślnego factory.
 
+## Rzeczywisty harness OCR zakresów — TASK-0402
+
+`scripts/run_range_ocr_real_regression_corpus.py` jest narzędziem wyłącznie do
+odczytu, uruchamianym na czterech neutralnie nazwanych, checksummowanych JPEG-ach
+pod `services/worker/tests/fixtures/range_ocr_real_v6`. Wykonuje historyczny
+łańcuch `decode → EXIF canonicalization → range locator → preprocessing →
+Paddle recognition`, ale nie importuje ani nie wywołuje geometrii, detekcji
+plansz, croppera czy inferencji symboli. Raport JSON jest artefaktem jakości,
+nie checkpointem joba ani źródłem decyzji produkcyjnej.
+
+Manifest fixture'ów zapisuje ręczny expected exact range wyłącznie jako
+kontrakt asercji. Neutralna nazwa pliku, source index, katalog i expected range
+nie są przekazywane do runtime'u. Klatka przejściowa zawiera dwa widoczne
+zakresy i jest testem anty-false-positive: wynik może być tylko `unknown` lub
+inny wynik nieautomatyczny. Nowy runtime może używać korpusu do regresji, lecz
+strojenie wymaga osobnego, niezamrożonego zestawu danych.
+
 ## Historia weryfikacji zakresów nazw plików — TASK-0393
 
 Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i

@@ -7047,3 +7047,19 @@ Cleanup nigdy nie usuwa folderu operatora `seq_*`, źródeł lokalnych, ręcznej
 selekcji, cropów, modeli, danych gry, innych importów ani zasobu ze wspólną lub
 aktywną referencją. Każdy taki przypadek jest fail-closed jako
 `cleanup_blocked`; wznowienie nie powtarza OCR ani decyzji ręcznych.
+
+## D-303 — Rzeczywiste ekrany są bramką regresji OCR zakresów
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+Rozpoznawanie zakresów i półautomatyczne grupowanie mają wspólny, mały,
+checksum-bound korpus rzeczywistych ekranów. Jego trzy czytelne przypadki
+sprawdzają coverage dokładnego odczytu, a klatka z dwoma widocznymi zakresami
+sprawdza, że automat nie tworzy false positive. Nazwy fixture'ów są neutralne,
+a panel zawierający `seq_*` jest z obrazu usunięty.
+
+Korpus może uruchamiać jedynie recognition-only OCR. Nie wolno użyć nazwy
+pliku, kolejności źródła, sąsiedniego zdjęcia ani etapów geometrii/plansz/
+symboli jako dowodu. Nie jest on treningiem ani samodzielnym holdoutem do
+rolloutu: nowy fingerprint wymaga dodatkowego, niezależnego odbioru.

@@ -1017,6 +1017,21 @@ maksymalna liczba kolejnych źródeł bez dowodu. Polityka
 korpusu rzeczywistych zdjęć; bieżąca wartość wynosi `160`. Parametr nie nadaje
 zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 
+### Rzeczywisty korpus regresji OCR zakresów — TASK-0402
+
+Każda przyszła wersja recognition-only OCR zakresu musi przejść przez mały,
+checksummowany korpus rzeczywistych ekranów bez widocznej nazwy `seq_*` ani
+tekstu panelu Admina. Korpus zawiera trzy samodzielnie czytelne zakresy
+`28–36`, `55–63` i `64–72` oraz klatkę przejściową z dwoma zakresami. Pierwsze
+trzy przypadki są bramką coverage, a przejście ma kontrakt bezpieczeństwa:
+nigdy nie może otrzymać automatycznego `exact`.
+
+Runner korpusu może wywołać wyłącznie dekodowanie, kanonizację EXIF,
+lokalizację etykiet, preprocessing i recognition-only OCR. Detekcja plansz,
+geometria, board/cell cropper i inferencja symboli są poza kontraktem oraz
+muszą pozostać niewywołane. Korpus jest diagnostyką regresji, nie zastępuje
+niezależnego holdoutu ani nie autoryzuje rollout'u nowego fingerprintu.
+
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
 - Workflow nie należy do gry: staging, run i job mają `gameId = null`.

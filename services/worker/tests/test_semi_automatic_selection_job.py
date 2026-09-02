@@ -35,13 +35,26 @@ from game_predictor_worker.semi_automatic_selection.contracts import (
     SemiAutomaticSelectionSource,
 )
 from game_predictor_worker.semi_automatic_selection.engine import grouping_policy_fingerprint
+from game_predictor_worker.semi_automatic_selection.five_anchor_range_label_locator import (
+    FiveAnchorBoundingBox,
+    FiveAnchorLabelCrop,
+    FiveAnchorLocation,
+    FiveAnchorLocatorMode,
+    FiveAnchorLocatorResult,
+    FiveAnchorPosition,
+)
+from game_predictor_worker.semi_automatic_selection.five_anchor_range_runtime import (
+    FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+)
 from game_predictor_worker.semi_automatic_selection.job import (
     SelectionApplyOutcome,
     SemiAutomaticImageSelectionJobHandler,
 )
 from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
+    FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
     MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
     ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+    five_anchor_grouping_policy_fingerprint,
     middle_row_grouping_policy_fingerprint,
     row_first_grouping_policy_fingerprint,
 )
@@ -268,6 +281,40 @@ class _RowFirstLocator:
         )
 
 
+class _FiveAnchorLocator:
+    fingerprint = "f" * 64
+
+    def __init__(self, values: Sequence[tuple[int, int, int, int, int]]) -> None:
+        self.values = list(values)
+
+    def locate(self, _rgb: np.ndarray) -> FiveAnchorLocatorResult:
+        values = self.values.pop(0)
+        cells = (np.indices((6, 12)).sum(axis=0) % 2).astype(np.uint8)
+        base = np.kron(cells, np.ones((4, 4), dtype=np.uint8)) * 228 + 16
+        pattern = np.stack((base, base, base), axis=2)
+
+        def crop_pixels(value: int) -> np.ndarray:
+            pixels = pattern.copy()
+            pixels[0, 0] = value
+            return pixels
+
+        crops = tuple(
+            FiveAnchorLabelCrop(
+                position=position,
+                box=FiveAnchorBoundingBox(left=0, top=0, right=48, bottom=24),
+                rgb=crop_pixels(value),
+                complete=True,
+                mode=FiveAnchorLocatorMode.VIEWPORT_FALLBACK,
+            )
+            for position, value in zip(FiveAnchorPosition, values, strict=True)
+        )
+        return FiveAnchorLocatorResult(
+            location=FiveAnchorLocation(crops=crops, fingerprint=self.fingerprint),
+            reason_code=None,
+            diagnostics={},
+        )
+
+
 class _MemoryStore:
     def __init__(
         self,
@@ -344,6 +391,7 @@ class _MemoryStore:
             if group_selection.selection_method in {
                 MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
                 ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+                FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
             }:
                 counters["selectedRanges"] = counters.get("selectedRanges", 0) + 1
         else:
@@ -351,6 +399,7 @@ class _MemoryStore:
             if group_selection.selection_method in {
                 MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION,
                 ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+                FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
             }:
                 counters["duplicateRanges"] = counters.get("duplicateRanges", 0) + 1
         if increment_out_of_order:
@@ -575,7 +624,11 @@ def _ready_run(
             else (
                 row_first_grouping_policy_fingerprint()
                 if recognizer_fingerprint == ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5
-                else grouping_policy_fingerprint()
+                else (
+                    five_anchor_grouping_policy_fingerprint()
+                    if recognizer_fingerprint == FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
+                    else grouping_policy_fingerprint()
+                )
             )
         ),
         workflow_mode=workflow_mode,
@@ -1081,6 +1134,40 @@ def test_v5_batch_checkpoint_resumes_without_duplicate_observations(
     assert store.run.counters["selectedRanges"] == 2
     assert store.ranges[(1, 9)].source_index == 2
     assert store.ranges[(10, 18)].source_index == 6
+
+
+def test_v6_five_anchor_contract_uses_a_separate_durable_runtime_and_selector(
+    tmp_path: Path,
+) -> None:
+    run, ranges = _ready_run(
+        tmp_path,
+        recognizer_fingerprint=FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+        source_count=6,
+    )
+    store = _MemoryStore(run, ranges)
+    backend = _MiddleRowRecognitionBackend()
+    handler = SemiAutomaticImageSelectionJobHandler(
+        store,  # type: ignore[arg-type]
+        browser_upload_root=tmp_path / "imports",
+        artifact_root=tmp_path / "artifacts",
+        repository_root=tmp_path,
+        middle_row_recognizer_factory=lambda _path: MiddleRowPaddleRecognitionAdapter(backend),
+        five_anchor_locator_factory=lambda: _FiveAnchorLocator(
+            tuple((1, 3, 5, 7, 9) for _ in range(6))
+        ),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(_WaitForReview):
+        handler(_Context(), run.job)  # type: ignore[arg-type]
+
+    assert backend.batch_sizes == [9, 9, 9, 3]
+    assert store.run.status is SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE
+    assert store.run.counters["selectedRanges"] == 1
+    assert store.ranges[(1, 9)].source_index == 2
+    assert store.run.checkpoint["runtimeVariant"] == (
+        FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
+    )
+    assert store.ranges[(1, 9)].selection_method == FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION
 
 
 def test_handler_preserves_lease_conflict_from_the_store(tmp_path: Path) -> None:

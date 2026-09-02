@@ -1080,6 +1080,27 @@ fingerprintem. Zwraca tylko `RangeEvidenceResult` w kolejności wejścia. Nie
 tworzy joba, checkpointu, grupy, plików `seq_*`, geometrii ani symboli. Nie jest
 jeszcze rejestrowany jako opcja produkcyjnego runu; v1–v5 pozostają bez zmian.
 
+### Jawny wariant trwałego runu pięciu anchorów v6 — TASK-0407
+
+`five_anchor_v6` jest zamkniętym, eksperymentalnym wariantem wyłącznie dla
+workflowu `selection`. API przyjmuje nazwę wariantu, nigdy dowolny fingerprint;
+capabilities zwraca nazwę, etykietę, fingerprint, stan domyślny i
+eksperymentalny. `default_v3` pozostaje wyborem domyślnym, a
+`filename_verification` przyjmuje wyłącznie swój historyczny recognizer v2.
+
+Run `five_anchor_v6` zapisuje fingerprint runtime'u v6 i niezależny fingerprint
+polityki grupowania/wyboru środka. Oba są częścią tożsamości idempotencji:
+identyczne żądanie v6 zwraca ten sam run, lecz ten sam staging uruchomiony na v3
+i v6 tworzy dwa rozłączne runy. Wznowienie odczytuje zapisany fingerprint,
+checkpoint i batch size; nie może przełączyć runtime'u ani przejąć zachowania
+v1–v5.
+
+Po source-local `exact` grupowanie obejmuje wyłącznie zdjęcia z własnym proofem
+v6, toleruje reason-coded `unknown` zgodnie z przypiętą polityką i wybiera środek
+spanu exact evidence. Nazwa pliku, indeks źródła ani sąsiednie zdjęcie nie są
+dowodem zakresu. Wariant nie jest automatycznie rolloutowany ani wykonywany na
+danych użytkownika przez samo wdrożenie.
+
 ## Trwały globalny run półautomatycznej selekcji — TASK-0352
 
 - Workflow nie należy do gry: staging, run i job mają `gameId = null`.

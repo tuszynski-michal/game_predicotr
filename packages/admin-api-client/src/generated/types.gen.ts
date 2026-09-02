@@ -8368,6 +8368,10 @@ export type SemiAutomaticSelectionCapabilitiesResponse = {
    */
   recognizerFingerprint: string;
   /**
+   * Selectionrecognizervariants
+   */
+  selectionRecognizerVariants: Array<SemiAutomaticSelectionRecognizerVariantResponse>;
+  /**
    * Stagingpurpose
    */
   stagingPurpose: 'semi_automatic_selection';
@@ -8390,6 +8394,10 @@ export type SemiAutomaticSelectionCreate = {
    * Mode
    */
   mode?: 'selection' | 'filename_verification';
+  /**
+   * Recognizervariant
+   */
+  recognizerVariant?: 'default_v3' | 'five_anchor_v6';
   /**
    * Uploadid
    */
@@ -8566,6 +8574,32 @@ export type SemiAutomaticSelectionRangeResponse = {
  */
 export type SemiAutomaticSelectionRangeStatus =
   'missing' | 'auto_selected' | 'output_synced' | 'conflict';
+
+/**
+ * SemiAutomaticSelectionRecognizerVariantResponse
+ */
+export type SemiAutomaticSelectionRecognizerVariantResponse = {
+  /**
+   * Default
+   */
+  default: boolean;
+  /**
+   * Experimental
+   */
+  experimental: boolean;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string;
+  /**
+   * Id
+   */
+  id: 'default_v3' | 'five_anchor_v6';
+  /**
+   * Label
+   */
+  label: string;
+};
 
 /**
  * SemiAutomaticSelectionRunPageResponse

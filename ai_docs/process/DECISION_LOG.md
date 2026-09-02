@@ -7136,3 +7136,26 @@ Runtime nie mutuje stanu trwałego i nie jest automatycznie wybierany przez job.
 Jego osobny fingerprint oraz observation key pozwalają kolejnemu taskowi dodać
 go do rejestru bez zmiany zachowania rozpoczętych runów v1–v5. Do tego czasu
 komponent służy wyłącznie jako testowalny adapter runtime'u.
+
+## D-308 — Pięć anchorów v6 jest jawnym, izolowanym wariantem durable runu
+
+- **Status:** accepted
+- **Date:** 2026-09-02
+
+`five_anchor_v6` jest jedyną nazwą klienta mapującą na fingerprint runtime'u
+pięciu anchorów. Klient nie może przesłać dowolnego fingerprintu; zamknięty
+rejestr capabilities opisuje v6 jako eksperymentalny, a `default_v3` pozostaje
+domyślnym wariantem zwykłej półautomatycznej selekcji. Weryfikacja nazw plików
+nie może uruchomić v6, ponieważ jest osobnym workflowem o trwałym kontrakcie v2.
+
+Fingerprint runtime'u v6 oraz osobny fingerprint grouping/selector są częścią
+tożsamości runu i checkpointu. Ten sam staging może więc bezpiecznie mieć
+niezależny run v3 i v6, ale identyczne żądanie v6 pozostaje idempotentne. Retry
+wybiera adapter tylko po fingerprintcie zapisanym w runie; drift fingerprintu
+runtime'u, batch size albo grouping policy kończy się fail-closed.
+
+Grupowanie używa wyłącznie source-local dowodów `exact` v6 i wybiera środek ich
+spanu. Unknown nie staje się dowodem ani nie jest interpolowany nazwą, indeksem
+źródła czy sąsiadem. Rejestracja nie wykonuje OCR, nie tworzy nowego joba na
+danych użytkownika i nie stanowi automatycznej promocji v6 do produkcyjnego
+rollout'u.

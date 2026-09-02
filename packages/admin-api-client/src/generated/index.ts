@@ -1632,6 +1632,7 @@ export type {
   SemiAutomaticSelectionRangePageResponse,
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRangeStatus,
+  SemiAutomaticSelectionRecognizerVariantResponse,
   SemiAutomaticSelectionRunPageResponse,
   SemiAutomaticSelectionRunResponse,
   SemiAutomaticSelectionRunStatus,

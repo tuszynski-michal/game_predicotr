@@ -4724,3 +4724,19 @@ observation key. Niewyraźny crop nie wywołuje OCR i pozostaje manualnym
 Runtime nie rejestruje się jeszcze w durable jobie, nie checkpointuje, nie
 grupuje i nie tworzy `seq_*`; nie zmieniono fingerprintów ani retry v1–v5.
 Kolejne zadanie może bezpiecznie dodać jego fingerprint do rejestru joba.
+
+### TASK-0407 — trwały wariant runu pięciu anchorów v6
+
+`five_anchor_v6` jest teraz jawnym, eksperymentalnym wariantem startu zwykłej
+półautomatycznej selekcji. Capabilities zwraca zamkniętą listę wariantów, Admin
+przekazuje wyłącznie ich nazwę, a `default_v3` pozostaje domyślny. Wariant v6
+jest blokowany dla `filename_verification`; nie występuje dowolne wejście
+fingerprintu od klienta.
+
+Run v6 utrwala fingerprint runtime'u, własny fingerprint grupowania i selektor
+środka dokładnych dowodów. Są częścią idempotencji, więc ten sam staging może
+mieć rozłączne runy v3 i v6, a ponowienie identycznego v6 zwraca ten sam run.
+Worker checkpointuje source-local batch po sześć źródeł, wznawia wyłącznie ten
+adapter i wybiera reprezentanta jedynie z własnych proofów exact. Audyt i
+liczniki wyborów rozpoznają selektor v6. Wdrożenie nie uruchomiło OCR ani nie
+utworzyło joba na danych użytkownika; v1–v5 zachowują poprzednie retry.

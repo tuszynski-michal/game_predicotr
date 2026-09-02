@@ -103,6 +103,7 @@ export async function uploadSemiAutomaticSelectionFolder(input: {
   readonly firstSequenceNumber: number;
   readonly lastSequenceNumber: number;
   readonly mode?: 'selection' | 'filename_verification';
+  readonly recognizerVariant?: 'default_v3' | 'five_anchor_v6';
   readonly onProgress?: (
     progress: SemiAutomaticSelectionUploadProgress,
   ) => void;
@@ -267,6 +268,7 @@ export async function uploadSemiAutomaticSelectionFolder(input: {
       firstSequenceNumber: input.firstSequenceNumber,
       lastSequenceNumber: input.lastSequenceNumber,
       mode: input.mode ?? 'selection',
+      recognizerVariant: input.recognizerVariant ?? 'default_v3',
       uploadId,
     });
     if (created.error !== undefined || created.data === undefined) {

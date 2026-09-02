@@ -24,6 +24,14 @@ from game_predictor_api.schemas.jobs import JobResponse
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
+class SemiAutomaticSelectionRecognizerVariantResponse(ApiModel):
+    id: Literal["default_v3", "five_anchor_v6"]
+    label: str = Field(min_length=1)
+    fingerprint: Sha256
+    default: bool
+    experimental: bool
+
+
 class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     enabled: bool
     filename_verification_enabled: bool
@@ -34,6 +42,7 @@ class SemiAutomaticSelectionCapabilitiesResponse(ApiModel):
     maximum_boards_per_range: Literal[9]
     staging_purpose: Literal["semi_automatic_selection"]
     recognizer_fingerprint: Sha256
+    selection_recognizer_variants: list[SemiAutomaticSelectionRecognizerVariantResponse]
     filename_verification_recognizer_fingerprint: Sha256
     grouping_policy_fingerprint: Sha256
 
@@ -44,6 +53,7 @@ class SemiAutomaticSelectionCreate(ApiModel):
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection = SemiAutomaticSelectionDirection.ASCENDING
     mode: Literal["selection", "filename_verification"] = "selection"
+    recognizer_variant: Literal["default_v3", "five_anchor_v6"] = "default_v3"
 
 
 class SequenceRangeValueResponse(ApiModel):

@@ -1623,6 +1623,34 @@ proweniencję EXIF, crop boxes/modes, lokalne wyniki jakości, teksty/confidence
 OCR i proof. Nie jest to checkpoint ani wynik joba; osobne późniejsze zadanie
 może zarejestrować dokładnie ten fingerprint jako nową durable ścieżkę v6.
 
+## Rejestr checkpointowanego runu pięciu anchorów v6 — TASK-0407
+
+Warstwa application mapuje zamknięty identyfikator `five_anchor_v6` na
+`FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6` oraz na osobny fingerprint
+`five-anchor-exact-span-grouping-v1`. Obie wartości trafiają do tożsamości runu,
+więc idempotencja rozdziela v3 i v6 nawet dla tego samego manifests stagingu,
+granic oraz kierunku. Niewspierany identyfikator i wariant v6 w
+`filename_verification` kończą się błędem domenowym przed utworzeniem runu.
+
+Worker wybiera implementation wyłącznie z utrwalonego fingerprintu. Ścieżka v6
+ładuje source bytes checksum-bound z browser stagingu, batchuje maksymalnie sześć
+źródeł przez `FiveAnchorBatchRuntime`, a wynik zapisuje w istniejącym
+observation JSONL i checkpointach. Checkpoint wiąże runtime fingerprint, batch
+size i `five-anchor-exact-span-grouping-v1`; drift dowolnej wartości kończy retry
+fail-closed. V1–v5 nadal przechodzą przez swoje niezmienione resolvery.
+
+`MiddleRowGroupingAccumulator` jest używany wyłącznie jako deterministyczny
+akumulator exact evidence span: tylko source-local `exact` może otworzyć albo
+poszerzyć grupę, a wybór reprezentanta wywołuje
+`five-anchor-evidence-span-midpoint-v1`. Audit rozpoznaje ten selektor jako
+wersjonowaną odmianę istniejącego wyboru exact-span i nie degraduje go do
+historycznego `middle exact` fallbacku. Wspólny zapis wyniku aktualizuje liczniki
+`selectedRanges`/`duplicateRanges` także dla v6.
+
+UI otrzymuje varianty wyłącznie z capabilities i przekazuje nazwę do API.
+`default_v3` zostaje domyślny; v6 jest opisany jako eksperymentalny. Rejestracja
+nie tworzy runu, nie uruchamia OCR i nie promuje v6 do rollout'u.
+
 ## Historia weryfikacji zakresów nazw plików — TASK-0393
 
 Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i

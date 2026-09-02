@@ -87,6 +87,9 @@ export function SemiAutomaticSelectionWorkspace({
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
+  const [recognizerVariant, setRecognizerVariant] = useState<
+    'default_v3' | 'five_anchor_v6'
+  >('default_v3');
   const [run, setRun] = useState<SemiAutomaticSelectionRunResponse | null>(
     null,
   );
@@ -131,6 +134,12 @@ export function SemiAutomaticSelectionWorkspace({
         return;
       }
       setCapabilities(result.data);
+      const defaultVariant = result.data.selectionRecognizerVariants.find(
+        (variant) => variant.default,
+      );
+      if (defaultVariant !== undefined) {
+        setRecognizerVariant(defaultVariant.id);
+      }
     });
     return () => {
       cancelled = true;
@@ -292,6 +301,7 @@ export function SemiAutomaticSelectionWorkspace({
         firstSequenceNumber: first,
         lastSequenceNumber: last,
         onProgress: setUploadProgress,
+        recognizerVariant,
         resume: activeResume,
         sourceDirectory: activeSourceDirectory,
       });
@@ -519,6 +529,34 @@ export function SemiAutomaticSelectionWorkspace({
               <option value="ascending">Rosnąco</option>
               <option value="descending">Malejąco</option>
             </select>
+          </label>
+          <label>
+            Wariant OCR zakresu
+            <select
+              disabled={
+                busy || capabilitiesLoading || capabilities?.enabled !== true
+              }
+              onChange={(event) =>
+                setRecognizerVariant(
+                  event.target.value as 'default_v3' | 'five_anchor_v6',
+                )
+              }
+              value={recognizerVariant}
+            >
+              {capabilities?.selectionRecognizerVariants.map((variant) => (
+                <option key={variant.id} value={variant.id}>
+                  {variant.label}
+                </option>
+              ))}
+            </select>
+            {capabilities?.selectionRecognizerVariants.find(
+              (variant) => variant.id === recognizerVariant,
+            )?.experimental ? (
+              <small>
+                Wariant testowy: tworzy osobny, checksum-bound run i nie zmienia
+                istniejących wyników.
+              </small>
+            ) : null}
           </label>
           <div className="semiAutomaticSelectionFolderButtons">
             <button

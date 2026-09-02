@@ -14574,6 +14574,13 @@
             "title": "Recognizerfingerprint",
             "type": "string"
           },
+          "selectionRecognizerVariants": {
+            "items": {
+              "$ref": "#/components/schemas/SemiAutomaticSelectionRecognizerVariantResponse"
+            },
+            "title": "Selectionrecognizervariants",
+            "type": "array"
+          },
           "stagingPurpose": {
             "const": "semi_automatic_selection",
             "title": "Stagingpurpose",
@@ -14590,6 +14597,7 @@
           "maximumBoardsPerRange",
           "stagingPurpose",
           "recognizerFingerprint",
+          "selectionRecognizerVariants",
           "filenameVerificationRecognizerFingerprint",
           "groupingPolicyFingerprint"
         ],
@@ -14620,6 +14628,15 @@
               "filename_verification"
             ],
             "title": "Mode",
+            "type": "string"
+          },
+          "recognizerVariant": {
+            "default": "default_v3",
+            "enum": [
+              "default_v3",
+              "five_anchor_v6"
+            ],
+            "title": "Recognizervariant",
             "type": "string"
           },
           "uploadId": {
@@ -14975,6 +14992,46 @@
         ],
         "title": "SemiAutomaticSelectionRangeStatus",
         "type": "string"
+      },
+      "SemiAutomaticSelectionRecognizerVariantResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "experimental": {
+            "title": "Experimental",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "default_v3",
+              "five_anchor_v6"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "fingerprint",
+          "default",
+          "experimental"
+        ],
+        "title": "SemiAutomaticSelectionRecognizerVariantResponse",
+        "type": "object"
       },
       "SemiAutomaticSelectionRunPageResponse": {
         "additionalProperties": false,

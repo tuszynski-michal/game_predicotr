@@ -13,6 +13,12 @@ from uuid import UUID
 from game_predictor_worker.semi_automatic_selection.engine import (
     grouping_policy_fingerprint,
 )
+from game_predictor_worker.semi_automatic_selection.five_anchor_range_runtime import (
+    FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+)
+from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
+    five_anchor_grouping_policy_fingerprint,
+)
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
@@ -53,9 +59,25 @@ SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRI
 SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = grouping_policy_fingerprint()
 SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE = "filename_verification"
 SEMI_AUTOMATIC_SELECTION_MODE = "selection"
+SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT = "default_v3"
+SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT = "five_anchor_v6"
 _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINTS = frozenset(
     {RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2}
 )
+_SELECTION_RECOGNIZER_VARIANTS: dict[str, dict[str, object]] = {
+    SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT: {
+        "default": True,
+        "experimental": False,
+        "fingerprint": SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
+        "label": "OCR zakresu v3 (domyślny)",
+    },
+    SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT: {
+        "default": False,
+        "experimental": True,
+        "fingerprint": FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+        "label": "OCR pięciu anchorów v6 (eksperymentalny)",
+    },
+}
 
 
 def workflow_mode_for_recognizer_fingerprint(
@@ -157,6 +179,10 @@ class SemiAutomaticImageSelectionService:
             "maximumBoardsPerRange": SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
             "stagingPurpose": ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION.value,
             "recognizerFingerprint": SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT,
+            "selectionRecognizerVariants": [
+                {"id": variant, **values}
+                for variant, values in _SELECTION_RECOGNIZER_VARIANTS.items()
+            ],
             "filenameVerificationRecognizerFingerprint": (
                 RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
             ),
@@ -171,6 +197,7 @@ class SemiAutomaticImageSelectionService:
         last_sequence_number: int,
         direction: SemiAutomaticSelectionDirection,
         mode: str = SEMI_AUTOMATIC_SELECTION_MODE,
+        recognizer_variant: str = SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT,
     ) -> tuple[SemiAutomaticSelectionRun, bool]:
         if mode == SEMI_AUTOMATIC_SELECTION_MODE and not self._enabled:
             raise SemiAutomaticSelectionError(
@@ -185,11 +212,27 @@ class SemiAutomaticImageSelectionService:
                 "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
                 "The requested semi-automatic workflow mode is unsupported.",
             )
-        recognizer_fingerprint = (
-            RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
-            if mode == SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE
-            else SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT
-        )
+        if mode == SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE:
+            if recognizer_variant != SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT:
+                raise SemiAutomaticSelectionError(
+                    "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_VARIANT_INVALID",
+                    "Filename verification does not support the selected recognizer variant.",
+                )
+            recognizer_fingerprint = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2
+            grouping_policy = SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT
+        else:
+            variant = _SELECTION_RECOGNIZER_VARIANTS.get(recognizer_variant)
+            if variant is None:
+                raise SemiAutomaticSelectionError(
+                    "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_VARIANT_INVALID",
+                    "The requested semi-automatic range recognizer variant is unsupported.",
+                )
+            recognizer_fingerprint = str(variant["fingerprint"])
+            grouping_policy = (
+                five_anchor_grouping_policy_fingerprint()
+                if recognizer_variant == SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT
+                else SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT
+            )
         ready = self._staging.get_ready_source_selection(
             upload_id,
             purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
@@ -208,7 +251,7 @@ class SemiAutomaticImageSelectionService:
             last_sequence_number=last_sequence_number,
             direction=direction,
             recognizer_fingerprint=recognizer_fingerprint,
-            grouping_policy_fingerprint=SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
+            grouping_policy_fingerprint=grouping_policy,
         )
         existing = self._repository.find_by_identity(identity_key)
         if existing is not None:
@@ -220,7 +263,7 @@ class SemiAutomaticImageSelectionService:
             direction=direction,
             workflow_mode=SemiAutomaticSelectionWorkflowMode(mode),
             recognizer_fingerprint=recognizer_fingerprint,
-            grouping_policy_fingerprint=SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
+            grouping_policy_fingerprint=grouping_policy,
         )
         try:
             stored = self._repository.add(run, ranges, identity_key=identity_key)
@@ -563,6 +606,8 @@ def _committed_observation_count(run: SemiAutomaticSelectionRun) -> int:
 
 __all__ = [
     "SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT",
+    "SEMI_AUTOMATIC_DEFAULT_RECOGNIZER_VARIANT",
+    "SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT",
     "SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT",
     "SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE",
     "SEMI_AUTOMATIC_SELECTION_MODE",

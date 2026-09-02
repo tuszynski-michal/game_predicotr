@@ -66,6 +66,20 @@ test('configures the global upload only through capabilities and range bounds', 
   assert.match(workspaceSource, /Sprawdzanie dostępności/);
 });
 
+test('offers the experimental five-anchor OCR only as an explicit run variant', () => {
+  assert.match(workspaceSource, /Wariant OCR zakresu/);
+  assert.match(workspaceSource, /selectionRecognizerVariants/);
+  assert.match(workspaceSource, /five_anchor_v6/);
+  assert.match(
+    workspaceSource,
+    /Wariant testowy: tworzy osobny, checksum-bound run/,
+  );
+  assert.match(
+    actionsSource,
+    /recognizerVariant: input\.recognizerVariant \?\? 'default_v3'/,
+  );
+});
+
 test('uploads JPEGs to the global staging purpose with bounded recovery', () => {
   assert.match(actionsSource, /purpose: 'semi_automatic_selection'/);
   assert.match(actionsSource, /gameId: null/);

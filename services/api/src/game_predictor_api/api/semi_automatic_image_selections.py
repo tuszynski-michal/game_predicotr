@@ -75,6 +75,7 @@ def create_semi_automatic_image_selections_router(
             last_sequence_number=payload.last_sequence_number,
             direction=payload.direction,
             mode=payload.mode,
+            recognizer_variant=payload.recognizer_variant,
         )
         return SemiAutomaticSelectionCreateResponse(run=to_run_response(run), created=created)
 

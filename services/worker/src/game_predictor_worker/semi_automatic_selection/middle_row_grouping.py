@@ -24,6 +24,8 @@ MIDDLE_ROW_GROUPING_VERSION = "middle-row-exact-span-grouping-v1"
 MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION = "middle-row-evidence-span-midpoint-v1"
 ROW_FIRST_GROUPING_VERSION = "row-first-exact-span-grouping-v1"
 ROW_FIRST_EVIDENCE_SELECTOR_VERSION = "row-first-evidence-span-midpoint-v1"
+FIVE_ANCHOR_GROUPING_VERSION = "five-anchor-exact-span-grouping-v1"
+FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION = "five-anchor-evidence-span-midpoint-v1"
 MIDDLE_ROW_GROUPING_CHECKPOINT_VERSION = 1
 MIDDLE_ROW_MAXIMUM_UNKNOWN_GAP = 160
 MIDDLE_ROW_GROUPING_CALIBRATION_MANIFEST_SHA256 = (
@@ -44,6 +46,15 @@ def row_first_grouping_policy_fingerprint() -> str:
     return exact_evidence_span_grouping_policy_fingerprint(
         algorithm_version=ROW_FIRST_GROUPING_VERSION,
         selector_version=ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
+    )
+
+
+def five_anchor_grouping_policy_fingerprint() -> str:
+    """Return the durable grouping identity for source-local v6 exact proofs."""
+
+    return exact_evidence_span_grouping_policy_fingerprint(
+        algorithm_version=FIVE_ANCHOR_GROUPING_VERSION,
+        selector_version=FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION,
     )
 
 
@@ -265,7 +276,7 @@ class MiddleRowGroupingAccumulator:
             first_source_index=value.first_exact_source_index,
             last_source_index=value.last_exact_source_index,
             exact_observation_count=value.exact_observation_count,
-            reason_codes=("MIDDLE_ROW_EXACT_EVIDENCE_SPAN",),
+            reason_codes=(_exact_evidence_span_reason_code(self._algorithm_version),),
         )
         self._next_group_order += 1
         return FinalizedMiddleRowGroup(
@@ -424,11 +435,21 @@ def _canonical_sha256(value: object) -> str:
     ).hexdigest()
 
 
+def _exact_evidence_span_reason_code(algorithm_version: str) -> str:
+    """Keep historical diagnostics stable while making v6 provenance explicit."""
+
+    if algorithm_version == FIVE_ANCHOR_GROUPING_VERSION:
+        return "FIVE_ANCHOR_EXACT_EVIDENCE_SPAN"
+    return "MIDDLE_ROW_EXACT_EVIDENCE_SPAN"
+
+
 def _fail(code: str, message: str) -> NoReturn:
     raise SemiAutomaticSelectionError(code, message)
 
 
 __all__ = [
+    "FIVE_ANCHOR_EVIDENCE_SELECTOR_VERSION",
+    "FIVE_ANCHOR_GROUPING_VERSION",
     "MIDDLE_ROW_EVIDENCE_SELECTOR_VERSION",
     "MIDDLE_ROW_GROUPING_CHECKPOINT_VERSION",
     "MIDDLE_ROW_GROUPING_VERSION",
@@ -438,6 +459,7 @@ __all__ = [
     "FinalizedMiddleRowGroup",
     "MiddleRowGroupingAccumulator",
     "exact_evidence_span_grouping_policy_fingerprint",
+    "five_anchor_grouping_policy_fingerprint",
     "middle_row_grouping_policy_fingerprint",
     "row_first_grouping_policy_fingerprint",
     "select_exact_evidence_span_observation",

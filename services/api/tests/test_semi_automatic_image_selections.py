@@ -20,6 +20,7 @@ from game_predictor_api.application.image_imports import (
     ImageSelectionPurpose,
 )
 from game_predictor_api.application.semi_automatic_image_selections import (
+    SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
     SemiAutomaticImageSelectionService,
     classify_filename_range_verification,
     workflow_mode_for_recognizer_fingerprint,
@@ -38,6 +39,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     FilenameRangeVerificationReviewDecision,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
+    SemiAutomaticSelectionError,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
@@ -49,6 +51,12 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
+from game_predictor_worker.semi_automatic_selection.five_anchor_range_runtime import (
+    FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+)
+from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (
+    five_anchor_grouping_policy_fingerprint,
+)
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
@@ -552,6 +560,74 @@ def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -
         "seq_10-18.jpg",
         "seq_19-19.jpg",
     ]
+
+
+def test_api_registers_five_anchor_v6_as_an_isolated_selection_run_variant(
+    tmp_path: Path,
+) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    service = SemiAutomaticImageSelectionService(
+        MemorySemiAutomaticSelectionRepository(), staging, enabled=True
+    )
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+    base_payload = {
+        "uploadId": str(upload_id),
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 18,
+        "direction": "ascending",
+    }
+
+    capabilities = client.get("/api/v1/admin/semi-automatic-image-selections/capabilities")
+    default_run = client.post("/api/v1/admin/semi-automatic-image-selections", json=base_payload)
+    v6_payload = {**base_payload, "recognizerVariant": "five_anchor_v6"}
+    v6_run = client.post("/api/v1/admin/semi-automatic-image-selections", json=v6_payload)
+    v6_duplicate = client.post("/api/v1/admin/semi-automatic-image-selections", json=v6_payload)
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["selectionRecognizerVariants"] == [
+        {
+            "id": "default_v3",
+            "label": "OCR zakresu v3 (domyślny)",
+            "fingerprint": RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
+            "default": True,
+            "experimental": False,
+        },
+        {
+            "id": SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
+            "label": "OCR pięciu anchorów v6 (eksperymentalny)",
+            "fingerprint": FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6,
+            "default": False,
+            "experimental": True,
+        },
+    ]
+    assert default_run.status_code == 200, default_run.text
+    assert v6_run.status_code == 200, v6_run.text
+    assert v6_duplicate.status_code == 200, v6_duplicate.text
+    assert default_run.json()["run"]["id"] != v6_run.json()["run"]["id"]
+    assert v6_run.json()["run"]["recognizerFingerprint"] == (
+        FIVE_ANCHOR_RECOGNIZER_CONTRACT_FINGERPRINT_V6
+    )
+    assert v6_run.json()["run"]["groupingPolicyFingerprint"] == (
+        five_anchor_grouping_policy_fingerprint()
+    )
+    assert v6_duplicate.json()["run"]["id"] == v6_run.json()["run"]["id"]
+    assert v6_duplicate.json()["created"] is False
+
+    with pytest.raises(SemiAutomaticSelectionError) as filename_rejection:
+        service.create(
+            upload_id=upload_id,
+            first_sequence_number=1,
+            last_sequence_number=18,
+            direction=SemiAutomaticSelectionDirection.ASCENDING,
+            mode="filename_verification",
+            recognizer_variant=SEMI_AUTOMATIC_FIVE_ANCHOR_RECOGNIZER_VARIANT,
+        )
+    assert filename_rejection.value.code == "SEMI_AUTOMATIC_SELECTION_RECOGNIZER_VARIANT_INVALID"
 
 
 def test_filename_verification_history_and_decisions_are_durable(tmp_path: Path) -> None:

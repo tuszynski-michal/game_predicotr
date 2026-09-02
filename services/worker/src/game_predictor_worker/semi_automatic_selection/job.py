@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -98,6 +99,7 @@ BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
 SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION = 1
 SEMI_AUTOMATIC_SELECTION_STAGE = "semi_automatic_image_selection"
 _NATURAL_PATH_PART = re.compile(r"(\d+)")
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +357,10 @@ class SemiAutomaticImageSelectionJobHandler:
         except JobConflictError:
             raise
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            LOGGER.exception(
+                "Semi-automatic selection failed while validating durable input for job %s.",
+                job.id,
+            )
             raise JobHandlerError(
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
                 "The semi-automatic selection could not validate its durable input.",
@@ -1334,7 +1340,10 @@ def _job_checkpoint(
 ) -> None:
     counters = run.counters
     context.checkpoint(
-        checkpoint_payload={"semi_automatic_image_selection": dict(checkpoint)},
+        checkpoint_payload={
+            "schema_version": 1,
+            "semi_automatic_image_selection": dict(checkpoint),
+        },
         stage=f"{SEMI_AUTOMATIC_SELECTION_STAGE}:{checkpoint['phase']}",
         current=_checkpoint_int(checkpoint, "observationCount"),
         total=total,

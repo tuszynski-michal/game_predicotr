@@ -57,6 +57,11 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             with self._session.begin_nested():
                 self._session.add(job_record_from_domain(run.job))
                 self._session.add(_run_record(run, identity_key=identity_key))
+                # Ranges refer to the durable run through a database foreign
+                # key, but the models deliberately have no ORM relationship.
+                # Persist the parent before staging its children so SQLAlchemy
+                # cannot flush the ranges first.
+                self._session.flush()
                 self._session.add_all(_range_record(item) for item in ranges)
                 self._pin_global_staging(run)
                 self._session.flush()

@@ -90,6 +90,9 @@ class _Context:
         return datetime.now(UTC)
 
     def checkpoint(self, **values: object) -> None:
+        payload = values["checkpoint_payload"]
+        assert isinstance(payload, dict)
+        assert payload.get("schema_version") == 1
         self.checkpoints.append(dict(values))
 
     def wait_for_review(self) -> NoReturn:

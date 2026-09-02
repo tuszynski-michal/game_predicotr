@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol, cast
 from uuid import UUID
@@ -27,13 +28,17 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION,
     SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
     SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
+    FilenameRangeVerificationReview,
+    FilenameRangeVerificationReviewDecision,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionError,
     SemiAutomaticSelectionNotFoundError,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRun,
+    SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
+    SemiAutomaticSelectionWorkflowMode,
     acknowledge_manual_output,
     acknowledge_output,
     apply_range_status_transition,
@@ -48,10 +53,23 @@ SEMI_AUTOMATIC_RECOGNIZER_FINGERPRINT = RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRI
 SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT = grouping_policy_fingerprint()
 SEMI_AUTOMATIC_FILENAME_VERIFICATION_MODE = "filename_verification"
 SEMI_AUTOMATIC_SELECTION_MODE = "selection"
+_LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINTS = frozenset(
+    {RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2}
+)
 _SEQUENCE_FILE_PATTERN = re.compile(
     r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.jpe?g$", re.IGNORECASE
 )
 _VERIFICATION_ANCHORS = frozenset({0, 2, 4, 6, 8})
+
+
+def workflow_mode_for_recognizer_fingerprint(
+    recognizer_fingerprint: str | None,
+) -> SemiAutomaticSelectionWorkflowMode:
+    """Classify version-one payloads without inferring from mutable job state."""
+
+    if recognizer_fingerprint in _LEGACY_FILENAME_VERIFICATION_RECOGNIZER_FINGERPRINTS:
+        return SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION
+    return SemiAutomaticSelectionWorkflowMode.SELECTION
 
 
 class SemiAutomaticSelectionRepository(Protocol):
@@ -73,6 +91,27 @@ class SemiAutomaticSelectionRepository(Protocol):
     ) -> SemiAutomaticSelectionRun | None: ...
 
     def save(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun: ...
+
+    def list_runs(
+        self,
+        *,
+        workflow_mode: SemiAutomaticSelectionWorkflowMode,
+        offset: int,
+        limit: int,
+    ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]: ...
+
+    def get_filename_verification_reviews(
+        self,
+        run_id: UUID,
+        source_indexes: Sequence[int],
+    ) -> dict[int, FilenameRangeVerificationReview]: ...
+
+    def save_filename_verification_review(
+        self,
+        review: FilenameRangeVerificationReview,
+        *,
+        expected_revision: int,
+    ) -> FilenameRangeVerificationReview: ...
 
     def list_ranges(
         self,
@@ -183,6 +222,7 @@ class SemiAutomaticImageSelectionService:
             first_sequence_number=first_sequence_number,
             last_sequence_number=last_sequence_number,
             direction=direction,
+            workflow_mode=SemiAutomaticSelectionWorkflowMode(mode),
             recognizer_fingerprint=recognizer_fingerprint,
             grouping_policy_fingerprint=SEMI_AUTOMATIC_GROUPING_CONTRACT_FINGERPRINT,
         )
@@ -203,7 +243,7 @@ class SemiAutomaticImageSelectionService:
         limit: int,
     ) -> tuple[dict[str, object], ...]:
         run = self.get(run_id)
-        if run.recognizer_fingerprint != RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2:
+        if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
             raise SemiAutomaticSelectionConflictError(
                 "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
                 "The run was not created for filename range verification.",
@@ -261,7 +301,108 @@ class SemiAutomaticImageSelectionService:
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
                 "The committed filename verification diagnostics are invalid.",
             ) from error
-        return tuple(items)
+        reviews = self._repository.get_filename_verification_reviews(
+            run.id,
+            [_object_as_int(item["sourceIndex"]) for item in items],
+        )
+        return tuple(
+            {
+                **item,
+                "reviewDecision": (
+                    None
+                    if (review := reviews.get(_object_as_int(item["sourceIndex"]))) is None
+                    else review.decision.value
+                ),
+                "reviewRevision": (None if review is None else review.revision),
+            }
+            for item in items
+        )
+
+    def list_runs(
+        self,
+        *,
+        workflow_mode: SemiAutomaticSelectionWorkflowMode,
+        offset: int,
+        limit: int,
+    ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]:
+        if offset < 0 or limit < 1 or limit > 100:
+            raise SemiAutomaticSelectionError(
+                "SEMI_AUTOMATIC_SELECTION_PAGE_INVALID",
+                "The run history page is invalid.",
+            )
+        return self._repository.list_runs(
+            workflow_mode=workflow_mode,
+            offset=offset,
+            limit=limit,
+        )
+
+    def decide_filename_verification(
+        self,
+        run_id: UUID,
+        source_index: int,
+        *,
+        decision: FilenameRangeVerificationReviewDecision,
+        expected_source_checksum_sha256: str,
+        expected_revision: int,
+    ) -> FilenameRangeVerificationReview:
+        run = self.get(run_id)
+        if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_MODE_INVALID",
+                "The run was not created for filename range verification.",
+            )
+        if run.status not in {
+            SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            SemiAutomaticSelectionRunStatus.REVIEW_MODE,
+            SemiAutomaticSelectionRunStatus.COMPLETED,
+        }:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_NOT_REVIEWABLE",
+                "Filename verification decisions are available only after analysis completes.",
+            )
+        ready = self._staging.get_ready_source_selection(
+            run.source.upload_id,
+            purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+        )
+        if source_index < 0 or source_index >= len(ready.sources):
+            raise SemiAutomaticSelectionNotFoundError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_NOT_FOUND",
+                "The requested source does not exist.",
+            )
+        source = ready.sources[source_index]
+        if source.checksum_sha256 != expected_source_checksum_sha256:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_SOURCE_CHANGED",
+                "The reviewed source changed after it was loaded.",
+            )
+        existing = self._repository.get_filename_verification_reviews(
+            run.id,
+            [source_index],
+        ).get(source_index)
+        if (
+            existing is not None
+            and existing.decision is decision
+            and existing.source_checksum_sha256 == source.checksum_sha256
+        ):
+            return existing
+        if existing is not None and existing.revision != expected_revision:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_REVIEW_STALE",
+                "The filename verification decision changed in another session.",
+            )
+        now = datetime.now(UTC)
+        return self._repository.save_filename_verification_review(
+            FilenameRangeVerificationReview(
+                run_id=run.id,
+                source_index=source_index,
+                source_checksum_sha256=source.checksum_sha256,
+                decision=decision,
+                revision=0 if existing is None else existing.revision + 1,
+                created_at=now if existing is None else existing.created_at,
+                updated_at=now,
+            ),
+            expected_revision=0 if existing is None else expected_revision,
+        )
 
     def get(self, run_id: UUID) -> SemiAutomaticSelectionRun:
         run = self._repository.get(run_id)
@@ -434,11 +575,17 @@ def classify_filename_range_verification(
         "observedRange": observed,
         "reasonCodes": list(cast(list[object], observation.get("reasonCodes", []))),
         "sourceChecksumSha256": str(observation.get("sourceChecksumSha256", "")),
-        "sourceIndex": int(observation["sourceIndex"]),
+        "sourceIndex": _object_as_int(observation["sourceIndex"]),
         "sourceRelativePath": relative_path,
-        "sourceSizeBytes": int(observation["sourceSizeBytes"]),
+        "sourceSizeBytes": _object_as_int(observation["sourceSizeBytes"]),
         "verificationStatus": verification_status,
     }
+
+
+def _object_as_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        raise ValueError("Expected an integer-compatible observation value.")
+    return int(value)
 
 
 def _matching_anchor_positions(
@@ -493,4 +640,5 @@ __all__ = [
     "SemiAutomaticImageSelectionService",
     "SemiAutomaticSelectionRepository",
     "classify_filename_range_verification",
+    "workflow_mode_for_recognizer_fingerprint",
 ]

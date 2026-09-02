@@ -10,10 +10,15 @@ from fastapi.responses import FileResponse
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
 )
+from game_predictor_api.domain.semi_automatic_image_selections import (
+    SemiAutomaticSelectionWorkflowMode,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.semi_automatic_image_selections import (
     FilenameRangeVerificationItemResponse,
     FilenameRangeVerificationPageResponse,
+    FilenameRangeVerificationReviewDecisionResponse,
+    FilenameRangeVerificationReviewDecisionUpdate,
     SemiAutomaticSelectionCapabilitiesResponse,
     SemiAutomaticSelectionCreate,
     SemiAutomaticSelectionCreateResponse,
@@ -21,7 +26,9 @@ from game_predictor_api.schemas.semi_automatic_image_selections import (
     SemiAutomaticSelectionOutputAcknowledgement,
     SemiAutomaticSelectionRangePageResponse,
     SemiAutomaticSelectionRangeResponse,
+    SemiAutomaticSelectionRunPageResponse,
     SemiAutomaticSelectionRunResponse,
+    to_filename_verification_review_response,
     to_range_response,
     to_run_response,
 )
@@ -70,6 +77,28 @@ def create_semi_automatic_image_selections_router(
             mode=payload.mode,
         )
         return SemiAutomaticSelectionCreateResponse(run=to_run_response(run), created=created)
+
+    @router.get(
+        "",
+        response_model=SemiAutomaticSelectionRunPageResponse,
+        operation_id="listSemiAutomaticImageSelections",
+        responses=ERROR_RESPONSES,
+    )
+    def list_runs(
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+        workflow_mode: Annotated[SemiAutomaticSelectionWorkflowMode, Query(alias="workflowMode")],
+        offset: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> SemiAutomaticSelectionRunPageResponse:
+        runs, next_offset = service.list_runs(
+            workflow_mode=workflow_mode,
+            offset=offset,
+            limit=limit,
+        )
+        return SemiAutomaticSelectionRunPageResponse(
+            items=[to_run_response(run) for run in runs],
+            next_offset=next_offset,
+        )
 
     @router.get(
         "/{run_id}",
@@ -129,6 +158,27 @@ def create_semi_automatic_image_selections_router(
                 responses[-1].source_index if len(responses) == limit else None
             ),
         )
+
+    @router.put(
+        "/{run_id}/filename-verifications/{source_index}/review-decision",
+        response_model=FilenameRangeVerificationReviewDecisionResponse,
+        operation_id="decideSemiAutomaticFilenameRangeVerification",
+        responses=ERROR_RESPONSES,
+    )
+    def decide_filename_verification(
+        run_id: UUID,
+        source_index: int,
+        payload: FilenameRangeVerificationReviewDecisionUpdate,
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+    ) -> FilenameRangeVerificationReviewDecisionResponse:
+        review = service.decide_filename_verification(
+            run_id,
+            source_index,
+            decision=payload.decision,
+            expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
+            expected_revision=payload.expected_revision,
+        )
+        return to_filename_verification_review_response(review)
 
     @router.get(
         "/{run_id}/diagnostics",

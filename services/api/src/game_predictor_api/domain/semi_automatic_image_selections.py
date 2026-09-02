@@ -23,6 +23,16 @@ class SemiAutomaticSelectionDirection(StrEnum):
     DESCENDING = "descending"
 
 
+class SemiAutomaticSelectionWorkflowMode(StrEnum):
+    SELECTION = "selection"
+    FILENAME_VERIFICATION = "filename_verification"
+
+
+class FilenameRangeVerificationReviewDecision(StrEnum):
+    KEEP = "keep"
+    REJECT = "reject"
+
+
 class SemiAutomaticSelectionRunStatus(StrEnum):
     READY = "ready"
     RUNNING = "running"
@@ -41,6 +51,22 @@ class SemiAutomaticSelectionRangeStatus(StrEnum):
     AUTO_SELECTED = "auto_selected"
     OUTPUT_SYNCED = "output_synced"
     CONFLICT = "conflict"
+
+
+@dataclass(frozen=True, slots=True)
+class FilenameRangeVerificationReview:
+    run_id: UUID
+    source_index: int
+    source_checksum_sha256: str
+    decision: FilenameRangeVerificationReviewDecision
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        if self.source_index < 0 or self.revision < 0:
+            raise ValueError("Filename verification review has invalid coordinates.")
+        _require_sha256(self.source_checksum_sha256, "filename verification checksum")
 
 
 class SemiAutomaticSelectionError(JobError):
@@ -115,6 +141,7 @@ class SemiAutomaticSelectionRun:
     first_sequence_number: int
     last_sequence_number: int
     direction: SemiAutomaticSelectionDirection
+    workflow_mode: SemiAutomaticSelectionWorkflowMode
     range_convention: str
     full_range_size: int
     expected_ranges_fingerprint: str
@@ -161,6 +188,9 @@ def create_semi_automatic_selection_run(
     direction: SemiAutomaticSelectionDirection,
     recognizer_fingerprint: str,
     grouping_policy_fingerprint: str,
+    workflow_mode: SemiAutomaticSelectionWorkflowMode = (
+        SemiAutomaticSelectionWorkflowMode.SELECTION
+    ),
     created_at: datetime | None = None,
 ) -> tuple[SemiAutomaticSelectionRun, tuple[SemiAutomaticSelectionRange, ...]]:
     if first_sequence_number < 1 or last_sequence_number < first_sequence_number:
@@ -180,8 +210,9 @@ def create_semi_automatic_selection_run(
     )
     expected_fingerprint = expected_ranges_fingerprint(ranges)
     payload: dict[str, object] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "selection_kind": SEMI_AUTOMATIC_SELECTION_WORKFLOW,
+        "workflow_mode": workflow_mode.value,
         "run_id": str(run_id),
         "source_upload_id": str(source.upload_id),
         "source_manifest_checksum_sha256": source.manifest_checksum_sha256,
@@ -210,6 +241,7 @@ def create_semi_automatic_selection_run(
             first_sequence_number=first_sequence_number,
             last_sequence_number=last_sequence_number,
             direction=direction,
+            workflow_mode=workflow_mode,
             range_convention=SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION,
             full_range_size=SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE,
             expected_ranges_fingerprint=expected_fingerprint,
@@ -289,10 +321,14 @@ def acknowledge_output(
             "SEMI_AUTOMATIC_SELECTION_CURSOR_STALE",
             "The expected range changed after it was loaded.",
         )
-    if item.status not in {
-        SemiAutomaticSelectionRangeStatus.AUTO_SELECTED,
-        SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
-    } or item.source_checksum_sha256 is None:
+    if (
+        item.status
+        not in {
+            SemiAutomaticSelectionRangeStatus.AUTO_SELECTED,
+            SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED,
+        }
+        or item.source_checksum_sha256 is None
+    ):
         raise SemiAutomaticSelectionConflictError(
             "SEMI_AUTOMATIC_SELECTION_RANGE_NOT_SELECTED",
             "The expected range has no selected source to acknowledge.",

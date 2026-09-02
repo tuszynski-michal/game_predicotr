@@ -17,6 +17,7 @@ from sqlalchemy import (
     Index,
     Integer,
     LargeBinary,
+    PrimaryKeyConstraint,
     SmallInteger,
     String,
     Text,
@@ -636,9 +637,12 @@ class SemiAutomaticImageSelectionRunModel(Base):
             name="ck_semi_automatic_selection_runs_bounds",
         ),
         CheckConstraint(
-            "direction IN ('ascending', 'descending') AND "
-            "range_convention = 'seq-inclusive-v1'",
+            "direction IN ('ascending', 'descending') AND range_convention = 'seq-inclusive-v1'",
             name="ck_semi_automatic_selection_runs_contract",
+        ),
+        CheckConstraint(
+            "workflow_mode IN ('selection', 'filename_verification')",
+            name="ck_semi_automatic_selection_runs_workflow_mode",
         ),
         CheckConstraint(
             "status IN ('ready', 'running', 'paused', 'analysis_complete', "
@@ -662,13 +666,16 @@ class SemiAutomaticImageSelectionRunModel(Base):
         UniqueConstraint("job_id", name="uq_semi_automatic_selection_runs_job"),
         UniqueConstraint("identity_key", name="uq_semi_automatic_selection_runs_identity"),
         Index("ix_semi_automatic_selection_runs_status_created", "status", "created_at"),
+        Index(
+            "ix_semi_automatic_selection_runs_workflow_created",
+            "workflow_mode",
+            "created_at",
+        ),
         Index("ix_semi_automatic_selection_runs_source_upload", "source_upload_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    job_id: Mapped[UUID] = mapped_column(
-        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
-    )
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     source_upload_id: Mapped[UUID] = mapped_column(nullable=False)
     source_display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     source_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -678,6 +685,7 @@ class SemiAutomaticImageSelectionRunModel(Base):
     first_sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     last_sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    workflow_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     range_convention: Mapped[str] = mapped_column(String(40), nullable=False)
     full_range_size: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     expected_ranges_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -688,9 +696,48 @@ class SemiAutomaticImageSelectionRunModel(Base):
     checkpoint: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
     counters: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False, default=dict)
     diagnostics_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    diagnostics_checksum_sha256: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
+    diagnostics_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FilenameRangeVerificationReviewModel(Base):
+    __tablename__ = "semi_automatic_filename_verification_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "source_index >= 0 AND revision >= 0",
+            name="ck_filename_verification_reviews_bounds",
+        ),
+        CheckConstraint(
+            "decision IN ('keep', 'reject')",
+            name="ck_filename_verification_reviews_decision",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_filename_verification_reviews_checksum",
+        ),
+        ForeignKeyConstraint(
+            ["run_id"],
+            ["semi_automatic_image_selection_runs.id"],
+            ondelete="CASCADE",
+        ),
+        PrimaryKeyConstraint("run_id", "source_index"),
+        Index(
+            "ix_filename_verification_reviews_run_decision",
+            "run_id",
+            "decision",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(nullable=False)
+    source_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

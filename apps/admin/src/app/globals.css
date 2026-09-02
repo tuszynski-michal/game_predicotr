@@ -1109,6 +1109,48 @@ nav {
   gap: 32px;
 }
 
+.manualSelectionRepairHistory {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(1, 7, 14, 0.35);
+}
+
+.manualSelectionRepairHistory h3,
+.manualSelectionRepairHistory p {
+  margin: 0;
+}
+
+.manualSelectionRepairHistoryList {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.manualSelectionRepairHistoryItem {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.manualSelectionRepairHistoryItem span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manualSelectionRepairHistoryItem.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .remoteManualSelectionHostPanel {
   display: grid;
   min-width: 0;

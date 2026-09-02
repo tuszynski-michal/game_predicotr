@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-29
+last_updated: 2026-09-02
 ---
 
 # Current State
@@ -14,6 +14,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 ## Phase
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
+
+### Historia i trwałe wznawianie weryfikacji zakresów — TASK-0393
+
+- Weryfikacja plików `seq_*` ma trwały `workflowMode=filename_verification`,
+  ale nie tworzy nowego `JobType` ani lane. Historyczne runy są przy migracji
+  rozpoznawane po fingerprintcie v2; aktywnego joba nie wolno przerywać ani
+  ponownie tworzyć.
+- Admin przechowuje listę runów oraz ich wybrany kontekst po reloadzie.
+  Podgląd podejrzanych źródeł jest checksum-bound do stagingu, a decyzje
+  `keep/reject` są serwerowe i rewizyjne. Lokalny uchwyt katalogu jest potrzebny
+  wyłącznie dla journalowanego delete.
 
 ### Bezpieczne usuwanie pustej historii browser stagingu — TASK-0391
 

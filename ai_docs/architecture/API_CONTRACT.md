@@ -2795,3 +2795,21 @@ zachowuje dotychczasowy payload automatycznego wyboru i opcjonalnie przyjmuje
 staging runu i wymaga zgodności indeksu, checksummy źródła, checksummy outputu
 oraz oczekiwanej rewizji zakresu. Nie można w ten sposób potwierdzić pliku
 spoza źródłowego manifestu ani zmienionego JPEG-a.
+
+### Historia weryfikacji zakresów nazw plików
+
+`GET /api/v1/admin/semi-automatic-image-selections?workflowMode=filename_verification&offset=0&limit=20`
+zwraca newest-first stronę trwałych runów wraz z `nextOffset`. Odpowiedź runu
+oraz zagnieżdżony `JobResponse` zawierają kompatybilne wstecznie
+`workflowMode`; klient nie wyprowadza nazwy workflowu z mutable statusu joba.
+
+`GET /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verifications`
+dołącza `reviewDecision` i `reviewRevision` do każdego observation. Endpoint
+pozostaje read-only także dla runów failed/cancelled, lecz mutacja decyzji jest
+dozwolona wyłącznie po terminalnym sukcesie.
+
+`PUT /api/v1/admin/semi-automatic-image-selections/{runId}/filename-verifications/{sourceIndex}/review-decision`
+przyjmuje `decision`, `expectedSourceChecksumSha256` i `expectedRevision`.
+Backend sprawdza przynależność indeksu do immutable stagingu oraz jego
+checksummę. Pierwsza decyzja używa rewizji `0`; ponowienie identycznej decyzji
+jest idempotentne, a odmienna stale mutation kończy się `409`.

@@ -54,6 +54,9 @@ export function jobTypeLabel(jobType: JobType): string {
 }
 
 export function jobWorkflowLabel(job: JobResponse): string {
+  if (job.workflowMode === 'filename_verification') {
+    return 'Weryfikacja zakresów plików';
+  }
   if (isImageImportJob(job)) {
     const stage = job.progress.stage;
     if (stage?.startsWith('image_source:') === true) {

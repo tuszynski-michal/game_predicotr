@@ -1041,6 +1041,30 @@ zakresu żadnemu zdjęciu i nie zmienia braku dowodu w automat.
 - Job używa istniejącego lane selekcji zdjęć i nie może zostać przejęty przez
   general lane.
 
+## Historia weryfikacji zakresów nazw plików — TASK-0393
+
+- Run zachowuje ten sam techniczny job i lane, lecz trwałe pole
+  `workflowMode` rozróżnia `selection` od `filename_verification`. Migracja
+  klasyfikuje historyczne runy po zamkniętej liście fingerprintów recognizera;
+  nie zmienia aktywnego joba ani jego checkpointu.
+- Panel listuje runy `filename_verification` od najnowszego, po 20 pozycji.
+  Reload wybiera najpierw zapamiętany run, następnie aktywny, a potem ostatni
+  ukończony. Polling dotyczy dokładnie jednego wybranego runu.
+- Po terminalnym sukcesie podejrzane (`mismatch`, `unreadable`,
+  `invalid_filename`) źródło ma trwałą, checksum-bound decyzję `keep` albo
+  `reject`. Domyślny widok pokazuje tylko nierozpatrzone; widok pełny zachowuje
+  audyt pozostawionych i usuniętych pozycji.
+- Podgląd korzysta z checksum-bound assetu stagingowego, nie z lokalnego
+  katalogu. Uchwyt `seq_*`, kursor i oczekujące potwierdzenie delete należą do
+  lokalnego stanu IndexedDB per run. Katalog jest wymagany dopiero przed
+  usunięciem i musi pasować liczbą, naturalną kolejnością oraz fingerprintem
+  stagingu.
+- `reject` najpierw wykonuje istniejące journalowane usunięcie lokalne, po
+  czym idempotentnie utrwala decyzję serwerową. Utrata odpowiedzi nie wykonuje
+  drugiego delete: klient wznawia wyłącznie potwierdzenie API.
+- Runy failed i cancelled pozostają widoczne diagnostycznie, ale nie udostępniają
+  decyzji review. Automat nigdy sam nie usuwa plików.
+
 ## Deterministyczny silnik wyboru zakresu — TASK-0353
 
 - Każdy JPEG jest dekodowany lekko, ale do range-only OCR trafia najwyżej raz w

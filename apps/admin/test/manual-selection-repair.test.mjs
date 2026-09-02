@@ -171,6 +171,32 @@ test('fills exact bytes and safely undoes only the checksummed repair file', asy
   assert.deepEqual(restored.manifest.deletedRanges, []);
 });
 
+test('refuses a delete when the staged source checksum no longer matches the local file', async () => {
+  const directory = new MemoryDirectoryHandle('selected', [
+    new File(['local-bytes'], 'seq_1-9.jpg', { type: 'image/jpeg' }),
+  ]);
+  const snapshot = await inspectRepairDirectory(directory);
+  await writeRepairManifest(directory, snapshot.repairManifest);
+
+  await assert.rejects(
+    deleteRepairFile({
+      directory,
+      expectedChecksumSha256: 'a'.repeat(64),
+      fileName: 'seq_1-9.jpg',
+      kind: 'delete',
+      manifest: snapshot.repairManifest,
+      outputManifest: null,
+      sourceIndex: 0,
+      sourcePath: 'seq_1-9.jpg',
+    }),
+    /REPAIR_FILE_CHECKSUM_MISMATCH:seq_1-9\.jpg/,
+  );
+  assert.equal(
+    await directory.getFileHandle('seq_1-9.jpg').then((handle) => handle.name),
+    'seq_1-9.jpg',
+  );
+});
+
 test('delete workspace uses fixed step one and keeps only one in-memory restore buffer', async () => {
   const source = await import('node:fs/promises').then(({ readFile }) =>
     readFile(
@@ -232,6 +258,13 @@ test('admin mounts durable filename range verification with five-anchor manual r
   assert.match(workspace, /pickLocalDirectory\(\{ id: 'gp-range-verify'/);
   assert.match(workspace, /filename_verification/);
   assert.match(workspace, /listSemiAutomaticFilenameRangeVerifications/);
+  assert.match(
+    workspace,
+    /listSemiAutomaticImageSelections\(\s*'filename_verification'/,
+  );
+  assert.match(workspace, /decideSemiAutomaticFilenameRangeVerification/);
+  assert.match(workspace, /remoteAssetHandle/);
+  assert.match(workspace, /directoryPermissionIsGranted/);
   assert.match(workspace, /Odrzuć i usuń F/);
   assert.match(workspace, /jobProgressPercent/);
 });

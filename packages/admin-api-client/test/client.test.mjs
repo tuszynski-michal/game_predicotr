@@ -2469,10 +2469,7 @@ test('semi-automatic output reads a checksum-bound source and acknowledges exact
         'GET',
         `/api/v1/admin/semi-automatic-image-selections/${runId}/sources/12/asset`,
       ],
-      [
-        'GET',
-        `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges`,
-      ],
+      ['GET', `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges`],
       [
         'POST',
         `/api/v1/admin/semi-automatic-image-selections/${runId}/ranges/3/output-acknowledgements`,
@@ -2535,6 +2532,51 @@ test('semi-automatic selection client binds capabilities, lifecycle, and run con
     firstSequenceNumber: 1,
     lastSequenceNumber: 99,
     uploadId: '33333333-3333-4333-8333-333333333333',
+  });
+});
+
+test('filename range verification client lists history and saves a checksum-bound decision', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.listSemiAutomaticImageSelections(
+    'filename_verification',
+    20,
+    20,
+  );
+  await client.decideSemiAutomaticFilenameRangeVerification(runId, 12, {
+    decision: 'keep',
+    expectedRevision: 0,
+    expectedSourceChecksumSha256: checksum,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', '/api/v1/admin/semi-automatic-image-selections'],
+      [
+        'PUT',
+        `/api/v1/admin/semi-automatic-image-selections/${runId}/filename-verifications/12/review-decision`,
+      ],
+    ],
+  );
+  assert.deepEqual(Object.fromEntries(new URL(requests[0].url).searchParams), {
+    limit: '20',
+    offset: '20',
+    workflowMode: 'filename_verification',
+  });
+  assert.deepEqual(await requests[1].clone().json(), {
+    decision: 'keep',
+    expectedRevision: 0,
+    expectedSourceChecksumSha256: checksum,
   });
 });
 

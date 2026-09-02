@@ -147,6 +147,9 @@ import type {
   CreateVirtualCellPreviewBatchData,
   CreateVirtualCellPreviewBatchErrors,
   CreateVirtualCellPreviewBatchResponses,
+  DecideSemiAutomaticFilenameRangeVerificationData,
+  DecideSemiAutomaticFilenameRangeVerificationErrors,
+  DecideSemiAutomaticFilenameRangeVerificationResponses,
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
@@ -486,6 +489,9 @@ import type {
   ListSemiAutomaticImageSelectionRangesData,
   ListSemiAutomaticImageSelectionRangesErrors,
   ListSemiAutomaticImageSelectionRangesResponses,
+  ListSemiAutomaticImageSelectionsData,
+  ListSemiAutomaticImageSelectionsErrors,
+  ListSemiAutomaticImageSelectionsResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -5216,6 +5222,24 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List Runs
+ */
+export const listSemiAutomaticImageSelections = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSemiAutomaticImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListSemiAutomaticImageSelectionsResponses,
+  ListSemiAutomaticImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSemiAutomaticImageSelectionsResponses,
+    ListSemiAutomaticImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/semi-automatic-image-selections', ...options });
+
+/**
  * Create Run
  */
 export const createSemiAutomaticImageSelection = <
@@ -5351,6 +5375,35 @@ export const listSemiAutomaticFilenameRangeVerifications = <
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications',
     ...options,
+  });
+
+/**
+ * Decide Filename Verification
+ */
+export const decideSemiAutomaticFilenameRangeVerification = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    DecideSemiAutomaticFilenameRangeVerificationData,
+    ThrowOnError
+  >,
+): RequestResult<
+  DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DecideSemiAutomaticFilenameRangeVerificationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    DecideSemiAutomaticFilenameRangeVerificationResponses,
+    DecideSemiAutomaticFilenameRangeVerificationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications/{source_index}/review-decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

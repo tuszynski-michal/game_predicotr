@@ -120,12 +120,16 @@ def create_job(
         and job_type is JobType.IMAGE_GRID_REINFERENCE
         and input_payload.get("inference_kind") == "pending_grid_only"
     )
+    supports_semi_automatic_selection_v2 = (
+        schema_version == 2 and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+    )
     if (
         schema_version != 1
         and not supports_pinned_image_model
         and not supports_symbol_training_v2
         and not supports_page_geometry_preflight_v2
         and not supports_pending_grid_reinference_v2
+        and not supports_semi_automatic_selection_v2
     ):
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",

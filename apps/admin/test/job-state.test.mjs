@@ -201,6 +201,19 @@ test('formats determinate and unknown progress without hiding counts', () => {
   assert.match(jobProgressLabel(unknown), /250/);
 });
 
+test('labels the filename verification workflow without changing its technical job type', () => {
+  assert.equal(
+    jobWorkflowLabel(
+      job({
+        gameId: null,
+        jobType: 'semi_automatic_image_selection',
+        workflowMode: 'filename_verification',
+      }),
+    ),
+    'Weryfikacja zakresów plików',
+  );
+});
+
 test('presents two-phase image imports as real image counts', () => {
   const imageImport = job({
     inputPayload: {

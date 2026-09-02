@@ -13,6 +13,8 @@ from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticSelectionRepository,
 )
 from game_predictor_api.domain.semi_automatic_image_selections import (
+    FilenameRangeVerificationReview,
+    FilenameRangeVerificationReviewDecision,
     SemiAutomaticSelectionConflictError,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
@@ -20,6 +22,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
     SemiAutomaticSelectionSourceManifest,
+    SemiAutomaticSelectionWorkflowMode,
 )
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
@@ -28,6 +31,7 @@ from game_predictor_api.storage.job_repository import (
 )
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
+    FilenameRangeVerificationReviewModel,
     JobModel,
     SemiAutomaticImageSelectionRangeModel,
     SemiAutomaticImageSelectionRunModel,
@@ -133,6 +137,85 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             raise RuntimeError("The updated semi-automatic selection run cannot be read.")
         return stored
 
+    def list_runs(
+        self,
+        *,
+        workflow_mode: SemiAutomaticSelectionWorkflowMode,
+        offset: int,
+        limit: int,
+    ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]:
+        rows = self._session.execute(
+            select(SemiAutomaticImageSelectionRunModel, JobModel)
+            .join(JobModel, JobModel.id == SemiAutomaticImageSelectionRunModel.job_id)
+            .where(SemiAutomaticImageSelectionRunModel.workflow_mode == workflow_mode.value)
+            .order_by(
+                SemiAutomaticImageSelectionRunModel.created_at.desc(),
+                SemiAutomaticImageSelectionRunModel.id.desc(),
+            )
+            .offset(offset)
+            .limit(limit + 1)
+        ).all()
+        visible = rows[:limit]
+        return (
+            tuple(_run_from_records(*row) for row in visible),
+            offset + limit if len(rows) > limit else None,
+        )
+
+    def get_filename_verification_reviews(
+        self,
+        run_id: UUID,
+        source_indexes: Sequence[int],
+    ) -> dict[int, FilenameRangeVerificationReview]:
+        if not source_indexes:
+            return {}
+        rows = self._session.scalars(
+            select(FilenameRangeVerificationReviewModel).where(
+                FilenameRangeVerificationReviewModel.run_id == run_id,
+                FilenameRangeVerificationReviewModel.source_index.in_(source_indexes),
+            )
+        )
+        return {row.source_index: _review_from_record(row) for row in rows}
+
+    def save_filename_verification_review(
+        self,
+        review: FilenameRangeVerificationReview,
+        *,
+        expected_revision: int,
+    ) -> FilenameRangeVerificationReview:
+        record = self._session.get(
+            FilenameRangeVerificationReviewModel,
+            {"run_id": review.run_id, "source_index": review.source_index},
+            with_for_update=True,
+        )
+        if record is None:
+            if expected_revision != 0:
+                raise SemiAutomaticSelectionConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_REVIEW_STALE",
+                    "The filename verification decision changed in another session.",
+                )
+            record = FilenameRangeVerificationReviewModel(
+                run_id=review.run_id,
+                source_index=review.source_index,
+                source_checksum_sha256=review.source_checksum_sha256,
+                decision=review.decision.value,
+                revision=review.revision,
+                created_at=review.created_at,
+                updated_at=review.updated_at,
+            )
+            self._session.add(record)
+        else:
+            if record.revision != expected_revision:
+                raise SemiAutomaticSelectionConflictError(
+                    "SEMI_AUTOMATIC_SELECTION_REVIEW_STALE",
+                    "The filename verification decision changed in another session.",
+                )
+            record.source_checksum_sha256 = review.source_checksum_sha256
+            record.decision = review.decision.value
+            record.revision = review.revision
+            record.updated_at = review.updated_at
+        self._session.flush()
+        return _review_from_record(record)
+
     def list_ranges(
         self,
         run_id: UUID,
@@ -216,6 +299,7 @@ def _run_record(
         first_sequence_number=run.first_sequence_number,
         last_sequence_number=run.last_sequence_number,
         direction=run.direction.value,
+        workflow_mode=run.workflow_mode.value,
         range_convention=run.range_convention,
         full_range_size=run.full_range_size,
         expected_ranges_fingerprint=run.expected_ranges_fingerprint,
@@ -274,6 +358,7 @@ def _run_from_records(
         first_sequence_number=record.first_sequence_number,
         last_sequence_number=record.last_sequence_number,
         direction=SemiAutomaticSelectionDirection(record.direction),
+        workflow_mode=SemiAutomaticSelectionWorkflowMode(record.workflow_mode),
         range_convention=record.range_convention,
         full_range_size=record.full_range_size,
         expected_ranges_fingerprint=record.expected_ranges_fingerprint,
@@ -309,6 +394,20 @@ def _range_from_record(
         range_confidence=record.range_confidence,
         selection_method=record.selection_method,
         output_checksum_sha256=record.output_checksum_sha256,
+        revision=record.revision,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _review_from_record(
+    record: FilenameRangeVerificationReviewModel,
+) -> FilenameRangeVerificationReview:
+    return FilenameRangeVerificationReview(
+        run_id=record.run_id,
+        source_index=record.source_index,
+        source_checksum_sha256=record.source_checksum_sha256,
+        decision=FilenameRangeVerificationReviewDecision(record.decision),
         revision=record.revision,
         created_at=record.created_at,
         updated_at=record.updated_at,

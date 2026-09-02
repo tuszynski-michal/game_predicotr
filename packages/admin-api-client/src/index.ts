@@ -43,6 +43,7 @@ import {
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   createSemiAutomaticImageSelection as createGeneratedSemiAutomaticImageSelection,
+  decideSemiAutomaticFilenameRangeVerification as decideGeneratedSemiAutomaticFilenameRangeVerification,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
   createPayline as createGeneratedPayline,
@@ -144,6 +145,7 @@ import {
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
+  listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
   listSemiAutomaticImageSelectionRanges as listGeneratedSemiAutomaticImageSelectionRanges,
   listSymbols as listGeneratedSymbols,
   listSymbolCellReviews as listGeneratedSymbolCellReviews,
@@ -298,11 +300,13 @@ import type {
   SymbolCellReviewProjectionStatusResponse,
   FilenameRangeVerificationItemResponse,
   FilenameRangeVerificationPageResponse,
+  FilenameRangeVerificationReviewDecisionUpdate,
   SymbolCellPreviewBatchRequest,
   SemiAutomaticSelectionOutputAcknowledgement,
   SemiAutomaticSelectionCreate,
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
+  SemiAutomaticSelectionRunPageResponse,
   StorageGcRunCreate,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
@@ -509,12 +513,15 @@ export type {
   SymbolCellReviewProjectionStatusResponse,
   FilenameRangeVerificationItemResponse,
   FilenameRangeVerificationPageResponse,
+  FilenameRangeVerificationReviewDecisionResponse,
+  FilenameRangeVerificationReviewDecisionUpdate,
   SemiAutomaticSelectionOutputAcknowledgement,
   SemiAutomaticSelectionCapabilitiesResponse,
   SemiAutomaticSelectionCreate,
   SemiAutomaticSelectionCreateResponse,
   SemiAutomaticSelectionRangeResponse,
   SemiAutomaticSelectionRunResponse,
+  SemiAutomaticSelectionRunPageResponse,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
   SymbolCellReviewMutationRequest,
@@ -728,6 +735,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { run_id: runId },
       }),
+    listSemiAutomaticImageSelections: (
+      workflowMode: 'selection' | 'filename_verification',
+      offset = 0,
+      limit = 20,
+    ) =>
+      listGeneratedSemiAutomaticImageSelections({
+        client,
+        query: { workflowMode, offset, limit },
+      }),
     listSemiAutomaticImageSelectionRanges: (
       runId: string,
       afterExpectedIndex?: number,
@@ -757,6 +773,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             : { after_source_index: afterSourceIndex }),
           limit,
         },
+      }),
+    decideSemiAutomaticFilenameRangeVerification: (
+      runId: string,
+      sourceIndex: number,
+      body: FilenameRangeVerificationReviewDecisionUpdate,
+    ) =>
+      decideGeneratedSemiAutomaticFilenameRangeVerification({
+        body,
+        client,
+        path: { run_id: runId, source_index: sourceIndex },
       }),
     pauseSemiAutomaticImageSelection: (runId: string) =>
       pauseGeneratedSemiAutomaticImageSelection({

@@ -1540,6 +1540,28 @@ inferencji OCR. Jest to diagnostyka do osobnej iteracji z nowym fingerprintem,
 nie powód zmiany kontraktu proof, korzystania z nazw źródeł lub przestawienia
 domyślnego factory.
 
+## Historia weryfikacji zakresów nazw plików — TASK-0393
+
+Weryfikacja `seq_*` pozostaje technicznie runem półautomatycznej selekcji i
+wykorzystuje ten sam worker lane, lecz `workflow_mode` rozróżnia ją od zwykłej
+selekcji. Nowe payloady joba zapisują tryb w schemacie v2. Historyczne payloady
+bez trybu klasyfikuje backend wyłącznie po zamkniętej liście fingerprintów
+recognizera; ta klasyfikacja nie zmienia joba ani nie powoduje jego ponownego
+uruchomienia.
+
+Stan review jest rekordem rewizyjnym `(run_id, source_index)`, checksum-bound
+do immutowalnego źródła stagingowego. `keep` nie dotyka pliku, a `reject`
+wymaga lokalnego, journalowanego delete dokładnie checksummowanego pliku, po
+którym klient trwale zapisuje pending confirmation. Po restarcie pending
+confirmation może zostać ponowiony do API bez drugiego delete. Assety do
+podglądu są zawsze pobierane ze stagingu z oczekiwaną checksumą; lokalny
+katalog służy tylko do jawnego usunięcia.
+
+Admin zapisuje per run kursor, uchwyt katalogu, fingerprint źródeł i pending
+confirmation w IndexedDB. Odtwarza najpierw ostatni otwierany istniejący run,
+potem najnowszy aktywny, a na końcu najnowszy terminalny. Wybrany run ma jeden
+polling; przełączenie anulowuje poprzedni timer i nie tworzy uploadu ani joba.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

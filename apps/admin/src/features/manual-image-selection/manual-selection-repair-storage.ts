@@ -241,6 +241,7 @@ export async function deleteRepairFile(input: {
   readonly manifest: ManualSelectionRepairManifest;
   readonly outputManifest: ManualSelectionOutputManifest | null;
   readonly fileName: string;
+  readonly expectedChecksumSha256?: string;
   readonly kind: 'delete' | 'undo_fill';
   readonly sourceIndex: number | null;
   readonly sourcePath: string | null;
@@ -260,6 +261,11 @@ export async function deleteRepairFile(input: {
   if (
     expected.checksumSha256 !== null &&
     expected.checksumSha256 !== checksumSha256
+  )
+    throw new Error(`REPAIR_FILE_CHECKSUM_MISMATCH:${input.fileName}`);
+  if (
+    input.expectedChecksumSha256 !== undefined &&
+    input.expectedChecksumSha256 !== checksumSha256
   )
     throw new Error(`REPAIR_FILE_CHECKSUM_MISMATCH:${input.fileName}`);
   const pendingOperation = repairOperation({

@@ -1724,6 +1724,11 @@ export type FilenameRangeVerificationItemResponse = {
    * Reasoncodes
    */
   reasonCodes: Array<string>;
+  reviewDecision?: FilenameRangeVerificationReviewDecision | null;
+  /**
+   * Reviewrevision
+   */
+  reviewRevision?: number | null;
   /**
    * Sourcechecksumsha256
    */
@@ -1759,6 +1764,57 @@ export type FilenameRangeVerificationPageResponse = {
    * Nextaftersourceindex
    */
   nextAfterSourceIndex?: number | null;
+};
+
+/**
+ * FilenameRangeVerificationReviewDecision
+ */
+export type FilenameRangeVerificationReviewDecision = 'keep' | 'reject';
+
+/**
+ * FilenameRangeVerificationReviewDecisionResponse
+ */
+export type FilenameRangeVerificationReviewDecisionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  decision: FilenameRangeVerificationReviewDecision;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * FilenameRangeVerificationReviewDecisionUpdate
+ */
+export type FilenameRangeVerificationReviewDecisionUpdate = {
+  decision: FilenameRangeVerificationReviewDecision;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
 };
 
 /**
@@ -4407,6 +4463,10 @@ export type JobResponse = {
    * Workerversion
    */
   workerVersion: string | null;
+  /**
+   * Workflowmode
+   */
+  workflowMode?: 'selection' | 'filename_verification' | null;
 };
 
 /**
@@ -8164,7 +8224,7 @@ export type SemiAutomaticImageSelectionJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1;
+  schemaVersion?: 1 | 2;
   /**
    * Selectionkind
    */
@@ -8185,6 +8245,10 @@ export type SemiAutomaticImageSelectionJobPayload = {
    * Sourceuploadid
    */
   sourceUploadId: string;
+  /**
+   * Workflowmode
+   */
+  workflowMode?: 'selection' | 'filename_verification' | null;
 };
 
 /**
@@ -8432,6 +8496,20 @@ export type SemiAutomaticSelectionRangeStatus =
   'missing' | 'auto_selected' | 'output_synced' | 'conflict';
 
 /**
+ * SemiAutomaticSelectionRunPageResponse
+ */
+export type SemiAutomaticSelectionRunPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SemiAutomaticSelectionRunResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset?: number | null;
+};
+
+/**
  * SemiAutomaticSelectionRunResponse
  */
 export type SemiAutomaticSelectionRunResponse = {
@@ -8507,6 +8585,7 @@ export type SemiAutomaticSelectionRunResponse = {
    * Updatedat
    */
   updatedAt: string;
+  workflowMode?: SemiAutomaticSelectionWorkflowMode | null;
 };
 
 /**
@@ -8553,6 +8632,12 @@ export type SemiAutomaticSelectionSourceResponse = {
    */
   uploadId: string;
 };
+
+/**
+ * SemiAutomaticSelectionWorkflowMode
+ */
+export type SemiAutomaticSelectionWorkflowMode =
+  'selection' | 'filename_verification';
 
 /**
  * SequenceRangeValueResponse
@@ -20019,6 +20104,51 @@ export type UpdateRulesVersionSymbolResponses = {
 export type UpdateRulesVersionSymbolResponse =
   UpdateRulesVersionSymbolResponses[keyof UpdateRulesVersionSymbolResponses];
 
+export type ListSemiAutomaticImageSelectionsData = {
+  body?: never;
+  path?: never;
+  query: {
+    workflowMode: SemiAutomaticSelectionWorkflowMode;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/semi-automatic-image-selections';
+};
+
+export type ListSemiAutomaticImageSelectionsErrors = {
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type ListSemiAutomaticImageSelectionsError =
+  ListSemiAutomaticImageSelectionsErrors[keyof ListSemiAutomaticImageSelectionsErrors];
+
+export type ListSemiAutomaticImageSelectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SemiAutomaticSelectionRunPageResponse;
+};
+
+export type ListSemiAutomaticImageSelectionsResponse =
+  ListSemiAutomaticImageSelectionsResponses[keyof ListSemiAutomaticImageSelectionsResponses];
+
 export type CreateSemiAutomaticImageSelectionData = {
   body: SemiAutomaticSelectionCreate;
   path?: never;
@@ -20247,6 +20377,54 @@ export type ListSemiAutomaticFilenameRangeVerificationsResponses = {
 
 export type ListSemiAutomaticFilenameRangeVerificationsResponse =
   ListSemiAutomaticFilenameRangeVerificationsResponses[keyof ListSemiAutomaticFilenameRangeVerificationsResponses];
+
+export type DecideSemiAutomaticFilenameRangeVerificationData = {
+  body: FilenameRangeVerificationReviewDecisionUpdate;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Source Index
+     */
+    source_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications/{source_index}/review-decision';
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationError =
+  DecideSemiAutomaticFilenameRangeVerificationErrors[keyof DecideSemiAutomaticFilenameRangeVerificationErrors];
+
+export type DecideSemiAutomaticFilenameRangeVerificationResponses = {
+  /**
+   * Successful Response
+   */
+  200: FilenameRangeVerificationReviewDecisionResponse;
+};
+
+export type DecideSemiAutomaticFilenameRangeVerificationResponse =
+  DecideSemiAutomaticFilenameRangeVerificationResponses[keyof DecideSemiAutomaticFilenameRangeVerificationResponses];
 
 export type PauseSemiAutomaticImageSelectionData = {
   body?: never;

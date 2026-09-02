@@ -3057,6 +3057,28 @@
             "title": "Reasoncodes",
             "type": "array"
           },
+          "reviewDecision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilenameRangeVerificationReviewDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewrevision"
+          },
           "sourceChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sourcechecksumsha256",
@@ -3128,6 +3150,88 @@
           "items"
         ],
         "title": "FilenameRangeVerificationPageResponse",
+        "type": "object"
+      },
+      "FilenameRangeVerificationReviewDecision": {
+        "enum": [
+          "keep",
+          "reject"
+        ],
+        "title": "FilenameRangeVerificationReviewDecision",
+        "type": "string"
+      },
+      "FilenameRangeVerificationReviewDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/FilenameRangeVerificationReviewDecision"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "sourceIndex",
+          "sourceChecksumSha256",
+          "decision",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "FilenameRangeVerificationReviewDecisionResponse",
+        "type": "object"
+      },
+      "FilenameRangeVerificationReviewDecisionUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/FilenameRangeVerificationReviewDecision"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "expectedSourceChecksumSha256",
+          "expectedRevision"
+        ],
+        "title": "FilenameRangeVerificationReviewDecisionUpdate",
         "type": "object"
       },
       "GameCreate": {
@@ -7921,6 +8025,21 @@
               }
             ],
             "title": "Workerversion"
+          },
+          "workflowMode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "selection",
+                  "filename_verification"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflowmode"
           }
         },
         "required": [
@@ -14223,8 +14342,11 @@
             "type": "string"
           },
           "schemaVersion": {
-            "const": 1,
             "default": 1,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schemaversion",
             "type": "integer"
           },
@@ -14252,6 +14374,21 @@
             "format": "uuid",
             "title": "Sourceuploadid",
             "type": "string"
+          },
+          "workflowMode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "selection",
+                  "filename_verification"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflowmode"
           }
         },
         "required": [
@@ -14726,6 +14863,35 @@
         "title": "SemiAutomaticSelectionRangeStatus",
         "type": "string"
       },
+      "SemiAutomaticSelectionRunPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SemiAutomaticSelectionRunResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SemiAutomaticSelectionRunPageResponse",
+        "type": "object"
+      },
       "SemiAutomaticSelectionRunResponse": {
         "additionalProperties": false,
         "properties": {
@@ -14834,6 +15000,16 @@
             "format": "date-time",
             "title": "Updatedat",
             "type": "string"
+          },
+          "workflowMode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemiAutomaticSelectionWorkflowMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -14919,6 +15095,14 @@
         ],
         "title": "SemiAutomaticSelectionSourceResponse",
         "type": "object"
+      },
+      "SemiAutomaticSelectionWorkflowMode": {
+        "enum": [
+          "selection",
+          "filename_verification"
+        ],
+        "title": "SemiAutomaticSelectionWorkflowMode",
+        "type": "string"
       },
       "SequenceRangeValueResponse": {
         "additionalProperties": false,
@@ -35995,6 +36179,88 @@
       }
     },
     "/api/v1/admin/semi-automatic-image-selections": {
+      "get": {
+        "operationId": "listSemiAutomaticImageSelections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "workflowMode",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SemiAutomaticSelectionWorkflowMode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemiAutomaticSelectionRunPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      },
       "post": {
         "operationId": "createSemiAutomaticImageSelection",
         "parameters": [],
@@ -36383,6 +36649,103 @@
           }
         },
         "summary": "List Filename Verifications",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/{run_id}/filename-verifications/{source_index}/review-decision": {
+      "put": {
+        "operationId": "decideSemiAutomaticFilenameRangeVerification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_index",
+            "required": true,
+            "schema": {
+              "title": "Source Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilenameRangeVerificationReviewDecisionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilenameRangeVerificationReviewDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Decide Filename Verification",
         "tags": [
           "semi-automatic-image-selections"
         ]

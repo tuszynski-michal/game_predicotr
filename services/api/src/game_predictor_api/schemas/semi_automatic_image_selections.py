@@ -9,11 +9,14 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.domain.semi_automatic_image_selections import (
+    FilenameRangeVerificationReview,
+    FilenameRangeVerificationReviewDecision,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
+    SemiAutomaticSelectionWorkflowMode,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
@@ -58,6 +61,24 @@ class FilenameRangeVerificationItemResponse(ApiModel):
     anchor_positions: list[int]
     verification_status: Literal["verified", "mismatch", "unreadable", "invalid_filename"]
     reason_codes: list[str]
+    review_decision: FilenameRangeVerificationReviewDecision | None = None
+    review_revision: int | None = Field(default=None, ge=0)
+
+
+class FilenameRangeVerificationReviewDecisionUpdate(ApiModel):
+    decision: FilenameRangeVerificationReviewDecision
+    expected_source_checksum_sha256: Sha256
+    expected_revision: int = Field(ge=0)
+
+
+class FilenameRangeVerificationReviewDecisionResponse(ApiModel):
+    run_id: UUID
+    source_index: int = Field(ge=0)
+    source_checksum_sha256: Sha256
+    decision: FilenameRangeVerificationReviewDecision
+    revision: int = Field(ge=0)
+    created_at: datetime
+    updated_at: datetime
 
 
 class FilenameRangeVerificationPageResponse(ApiModel):
@@ -82,6 +103,7 @@ class SemiAutomaticSelectionRunResponse(ApiModel):
     first_sequence_number: int = Field(ge=1)
     last_sequence_number: int = Field(ge=1)
     direction: SemiAutomaticSelectionDirection
+    workflow_mode: SemiAutomaticSelectionWorkflowMode | None = None
     range_convention: Literal["seq-inclusive-v1"]
     full_range_size: Literal[9]
     expected_ranges_fingerprint: Sha256
@@ -100,6 +122,11 @@ class SemiAutomaticSelectionRunResponse(ApiModel):
 class SemiAutomaticSelectionCreateResponse(ApiModel):
     run: SemiAutomaticSelectionRunResponse
     created: bool
+
+
+class SemiAutomaticSelectionRunPageResponse(ApiModel):
+    items: list[SemiAutomaticSelectionRunResponse]
+    next_offset: int | None = Field(default=None, ge=0)
 
 
 class SemiAutomaticSelectionRangeResponse(ApiModel):
@@ -161,6 +188,7 @@ def to_run_response(run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun
         first_sequence_number=run.first_sequence_number,
         last_sequence_number=run.last_sequence_number,
         direction=run.direction,
+        workflow_mode=run.workflow_mode,
         range_convention="seq-inclusive-v1",
         full_range_size=9,
         expected_ranges_fingerprint=run.expected_ranges_fingerprint,
@@ -174,6 +202,20 @@ def to_run_response(run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun
         revision=run.revision,
         created_at=run.created_at,
         updated_at=run.updated_at,
+    )
+
+
+def to_filename_verification_review_response(
+    review: FilenameRangeVerificationReview,
+) -> FilenameRangeVerificationReviewDecisionResponse:
+    return FilenameRangeVerificationReviewDecisionResponse(
+        run_id=review.run_id,
+        source_index=review.source_index,
+        source_checksum_sha256=review.source_checksum_sha256,
+        decision=review.decision,
+        revision=review.revision,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
     )
 
 
@@ -206,6 +248,8 @@ def to_range_response(
 __all__ = [
     "FilenameRangeVerificationItemResponse",
     "FilenameRangeVerificationPageResponse",
+    "FilenameRangeVerificationReviewDecisionResponse",
+    "FilenameRangeVerificationReviewDecisionUpdate",
     "SemiAutomaticSelectionCapabilitiesResponse",
     "SemiAutomaticSelectionCreate",
     "SemiAutomaticSelectionCreateResponse",
@@ -214,6 +258,8 @@ __all__ = [
     "SemiAutomaticSelectionRangePageResponse",
     "SemiAutomaticSelectionRangeResponse",
     "SemiAutomaticSelectionRunResponse",
+    "SemiAutomaticSelectionRunPageResponse",
+    "to_filename_verification_review_response",
     "to_range_response",
     "to_run_response",
 ]

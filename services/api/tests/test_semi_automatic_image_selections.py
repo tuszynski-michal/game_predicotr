@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -21,6 +22,7 @@ from game_predictor_api.application.image_imports import (
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
     classify_filename_range_verification,
+    workflow_mode_for_recognizer_fingerprint,
 )
 from game_predictor_api.domain.jobs import (
     JobError,
@@ -31,11 +33,13 @@ from game_predictor_api.domain.jobs import (
     wait_for_review,
 )
 from game_predictor_api.domain.semi_automatic_image_selections import (
+    FilenameRangeVerificationReview,
     SemiAutomaticSelectionDirection,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionRangeStatus,
     SemiAutomaticSelectionRun,
     SemiAutomaticSelectionRunStatus,
+    SemiAutomaticSelectionWorkflowMode,
 )
 from game_predictor_worker.jobs.runtime import GENERAL_JOB_TYPES as RUNTIME_GENERAL_JOB_TYPES
 from game_predictor_worker.jobs.store import GENERAL_JOB_TYPES as STORE_GENERAL_JOB_TYPES
@@ -51,6 +55,7 @@ class MemorySemiAutomaticSelectionRepository:
         self.runs: dict[UUID, SemiAutomaticSelectionRun] = {}
         self.identities: dict[str, UUID] = {}
         self.ranges: dict[tuple[UUID, int], SemiAutomaticSelectionRange] = {}
+        self.reviews: dict[tuple[UUID, int], FilenameRangeVerificationReview] = {}
 
     def find_by_identity(self, identity_key: str) -> SemiAutomaticSelectionRun | None:
         run_id = self.identities.get(identity_key)
@@ -82,6 +87,47 @@ class MemorySemiAutomaticSelectionRepository:
     def save(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun:
         self.runs[run.id] = run
         return run
+
+    def list_runs(
+        self,
+        *,
+        workflow_mode: SemiAutomaticSelectionWorkflowMode,
+        offset: int,
+        limit: int,
+    ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]:
+        matches = sorted(
+            (run for run in self.runs.values() if run.workflow_mode is workflow_mode),
+            key=lambda run: (run.created_at, run.id),
+            reverse=True,
+        )
+        page = matches[offset : offset + limit + 1]
+        return tuple(page[:limit]), offset + limit if len(page) > limit else None
+
+    def get_filename_verification_reviews(
+        self,
+        run_id: UUID,
+        source_indexes: Sequence[int],
+    ) -> dict[int, FilenameRangeVerificationReview]:
+        return {
+            source_index: review
+            for source_index in source_indexes
+            if (review := self.reviews.get((run_id, source_index))) is not None
+        }
+
+    def save_filename_verification_review(
+        self,
+        review: FilenameRangeVerificationReview,
+        *,
+        expected_revision: int,
+    ) -> FilenameRangeVerificationReview:
+        existing = self.reviews.get((review.run_id, review.source_index))
+        if existing is None:
+            if expected_revision != 0:
+                raise AssertionError("Unexpected stale review creation.")
+        elif existing.revision != expected_revision:
+            raise AssertionError("Unexpected stale review update.")
+        self.reviews[(review.run_id, review.source_index)] = review
+        return review
 
     def list_ranges(
         self,
@@ -490,6 +536,108 @@ def test_api_exposes_capabilities_idempotent_create_and_ranges(tmp_path: Path) -
         "seq_10-18.jpg",
         "seq_19-19.jpg",
     ]
+
+
+def test_filename_verification_history_and_decisions_are_durable(tmp_path: Path) -> None:
+    staging, upload_id, _ = _ready_staging(tmp_path)
+    repository = MemorySemiAutomaticSelectionRepository()
+    service = SemiAutomaticImageSelectionService(
+        repository,
+        staging,
+        enabled=True,
+        artifact_root=tmp_path / "artifacts",
+    )
+    run, _ = service.create(
+        upload_id=upload_id,
+        first_sequence_number=1,
+        last_sequence_number=18,
+        direction=SemiAutomaticSelectionDirection.ASCENDING,
+        mode="filename_verification",
+    )
+    ready = staging.get_ready_source_selection(
+        upload_id,
+        purpose=ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION,
+    )
+    observations = tmp_path / "artifacts" / "exports" / "semi-automatic-selection" / str(run.id)
+    observations.mkdir(parents=True)
+    observations.joinpath("observations.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "sourceIndex": index,
+                    "sourceRelativePath": source.relative_path,
+                    "sourceSizeBytes": source.size_bytes,
+                    "sourceChecksumSha256": source.checksum_sha256,
+                    "observedRange": None,
+                    "reasonCodes": ["NO_PROOF"],
+                    "runtimeDiagnostics": {"labelEvidence": []},
+                }
+            )
+            for index, source in enumerate(ready.sources)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    repository.save(
+        replace(
+            run,
+            job=replace(
+                run.job,
+                status=JobStatus.WAITING_FOR_REVIEW,
+                finished_at=datetime.now(UTC),
+            ),
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            checkpoint={"observationCount": 2},
+        )
+    )
+    app = FastAPI()
+    app.include_router(
+        create_semi_automatic_image_selections_router(lambda: service),
+        prefix="/api/v1",
+    )
+    client = TestClient(app)
+
+    history = client.get(
+        "/api/v1/admin/semi-automatic-image-selections",
+        params={"workflowMode": "filename_verification", "limit": 20},
+    )
+    items = client.get(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verifications"
+    )
+    decision = client.put(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/"
+        "filename-verifications/0/review-decision",
+        json={
+            "decision": "keep",
+            "expectedRevision": 0,
+            "expectedSourceChecksumSha256": ready.sources[0].checksum_sha256,
+        },
+    )
+    reloaded = client.get(
+        f"/api/v1/admin/semi-automatic-image-selections/{run.id}/filename-verifications"
+    )
+
+    assert history.status_code == 200, history.text
+    assert history.json()["items"][0]["workflowMode"] == "filename_verification"
+    assert history.json()["items"][0]["job"]["workflowMode"] == "filename_verification"
+    assert items.status_code == 200, items.text
+    assert items.json()["items"][0]["reviewDecision"] is None
+    assert decision.status_code == 200, decision.text
+    assert decision.json()["decision"] == "keep"
+    assert decision.json()["revision"] == 0
+    assert reloaded.json()["items"][0]["reviewDecision"] == "keep"
+    assert reloaded.json()["items"][0]["reviewRevision"] == 0
+
+
+def test_legacy_recognizer_fingerprint_classifies_filename_verification_only() -> None:
+    assert (
+        workflow_mode_for_recognizer_fingerprint(RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2)
+        is SemiAutomaticSelectionWorkflowMode.FILENAME_VERIFICATION
+    )
+    assert (
+        workflow_mode_for_recognizer_fingerprint(RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3)
+        is SemiAutomaticSelectionWorkflowMode.SELECTION
+    )
 
 
 def test_filename_verification_requires_three_spread_image_anchors() -> None:

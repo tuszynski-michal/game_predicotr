@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
+from game_predictor_api.application.semi_automatic_image_selections import (
+    workflow_mode_for_recognizer_fingerprint,
+)
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -244,8 +247,9 @@ class ImageSelectionJobPayload(ApiModel):
 
 
 class SemiAutomaticImageSelectionJobPayload(ApiModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     selection_kind: Literal["semi_automatic_image_selection"]
+    workflow_mode: Literal["selection", "filename_verification"] | None = None
     run_id: UUID
     source_upload_id: UUID
     source_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -259,6 +263,14 @@ class SemiAutomaticImageSelectionJobPayload(ApiModel):
     expected_ranges_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     recognizer_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     grouping_policy_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_workflow_mode(self) -> Self:
+        if self.schema_version == 2 and self.workflow_mode is None:
+            raise ValueError("schema v2 requires workflowMode")
+        if self.schema_version == 1 and self.workflow_mode is not None:
+            raise ValueError("workflowMode is only valid for schema v2")
+        return self
 
 
 class ValidateJobPayload(ApiModel):
@@ -582,6 +594,7 @@ class JobResponse(ApiModel):
     started_at: datetime | None
     finished_at: datetime | None
     cancel_requested_at: datetime | None
+    workflow_mode: Literal["selection", "filename_verification"] | None = None
 
     @classmethod
     def from_domain(cls, job: Job) -> JobResponse:
@@ -618,6 +631,7 @@ class JobResponse(ApiModel):
             started_at=job.started_at,
             finished_at=job.finished_at,
             cancel_requested_at=job.cancel_requested_at,
+            workflow_mode=_workflow_mode_from_domain(job),
         )
 
 
@@ -804,3 +818,17 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
+
+
+def _workflow_mode_from_domain(
+    job: Job,
+) -> Literal["selection", "filename_verification"] | None:
+    if job.job_type is not JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
+        return None
+    raw_mode = job.input_payload.get("workflow_mode")
+    if raw_mode in {"selection", "filename_verification"}:
+        return cast(Literal["selection", "filename_verification"], raw_mode)
+    raw_recognizer = job.input_payload.get("recognizer_fingerprint")
+    return workflow_mode_for_recognizer_fingerprint(
+        raw_recognizer if isinstance(raw_recognizer, str) else None
+    ).value

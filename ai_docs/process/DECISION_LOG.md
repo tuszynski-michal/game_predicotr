@@ -7159,3 +7159,19 @@ spanu. Unknown nie staje się dowodem ani nie jest interpolowany nazwą, indekse
 źródła czy sąsiadem. Rejestracja nie wykonuje OCR, nie tworzy nowego joba na
 danych użytkownika i nie stanowi automatycznej promocji v6 do produkcyjnego
 rollout'u.
+
+## D-309 — Duża projekcja symboli odświeża statystyki przed terminalnym sukcesem
+
+- **Status:** accepted
+- **Date:** 2026-09-03
+
+Autovacuum pozostaje włączony, ale jego harmonogram nie jest częścią gwarancji
+gotowości operatorskiego read modelu. Po dużym jednorazowym zasileniu może nie
+zdążyć wykonać `ANALYZE` przed pierwszym odczytem; planner traktuje wtedy
+setki tysięcy komórek jak pojedynczy rekord i wybiera kosztowny nested-loop.
+
+Dlatego finalizacja trwałego backfillu/reconciliacji Weryfikacji symboli
+odświeża statystyki tabel komórek, bieżących właścicieli, plansz, obserwacji i
+rewizji predykcji dokładnie raz, przed terminalnym sukcesem joba. Operacja nie
+usuwa danych i nie zastępuje autovacuum. Jej failure wycofuje finalizację, aby
+stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.

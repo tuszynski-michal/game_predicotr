@@ -68,3 +68,19 @@ Bramka metadanych p95 do 2 sekund została spełniona z zapasem. Pierwsze obrazy
 pojawiają się progresywnie, pełna strona nie generuje setek requestów, a powrót
 na stronę korzysta z content-addressed cache. Eksperymentalny podgląd v0.10
 pozostaje wyłącznie warstwą read-only i nie jest źródłem decyzji.
+
+## Odbiór po dużym zasileniu nowej gry — 2026-09-03
+
+Gra `b73c7a42-dfce-498c-be26-0df015721990` miała kompletny read model 19 914
+plansz i 298 710 bieżących komórek. Przed maintenance `last_analyze` oraz
+`last_autoanalyze` były puste dla komórek, fast documents, recognized boards i
+cell observations, a `n_mod_since_analyze` odpowiadało praktycznie całemu
+nowemu wsadowi. Plan pierwszego seeku estymował jeden rekord gry.
+
+Po ograniczonym `ANALYZE` pięciu tabel `n_mod_since_analyze` spadło do zera,
+estymacja seeku wzrosła do 310 232 rekordów i PostgreSQL użył indeksu
+`ix_image_symbol_review_cells_game_sequence`. Jeden rzeczywisty odczyt strony
+`wszystkie symbole / wszystkie stany / limit 500` zakończył się wynikiem 500
+elementów w 1,475 s z dostępnym następnym kursorem. Nie tworzono sztucznych
+danych, nie renderowano benchmarkowych atlasów i nie modyfikowano danych
+domenowych ani treningowych.

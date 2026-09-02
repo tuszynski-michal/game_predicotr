@@ -8,6 +8,10 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyImageSymbolReviewRepository,
     SymbolCellReviewBackfillError,
 )
+from game_predictor_api.storage.symbol_review_statistics import (
+    SymbolReviewStatisticsRefreshError,
+    refresh_symbol_review_query_statistics,
+)
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
@@ -28,9 +32,7 @@ class SymbolCellReviewBackfillHandler:
             )
         try:
             with self._session_factory.begin() as session:
-                SqlAlchemyImageSymbolReviewRepository(
-                    session
-                ).start_or_resume_backfill(job.game_id)
+                SqlAlchemyImageSymbolReviewRepository(session).start_or_resume_backfill(job.game_id)
             current = int(job.progress_current)
             success_count = int(job.success_count)
             failure_count = int(job.failure_count)
@@ -76,9 +78,9 @@ class SymbolCellReviewBackfillHandler:
             last_report = report
             for pass_number in range(1, _MAX_RECONCILIATION_PASSES + 1):
                 with self._session_factory.begin() as session:
-                    SqlAlchemyImageSymbolReviewRepository(
-                        session
-                    ).begin_reconciliation_pass(job.game_id)
+                    SqlAlchemyImageSymbolReviewRepository(session).begin_reconciliation_pass(
+                        job.game_id
+                    )
                 while True:
                     with self._session_factory.begin() as session:
                         reconciliation = SqlAlchemyImageSymbolReviewRepository(
@@ -102,8 +104,7 @@ class SymbolCellReviewBackfillHandler:
                             "processed_board_count": last_report.processed_review_item_count,
                             "persisted_cell_count": last_report.cell_count,
                             "problem_review_item_ids": [
-                                str(value)
-                                for value in last_report.sample_problem_review_item_ids
+                                str(value) for value in last_report.sample_problem_review_item_ids
                             ],
                         },
                         stage="symbol_cell_review_reconciliation",
@@ -121,6 +122,11 @@ class SymbolCellReviewBackfillHandler:
                         last_report = SqlAlchemyImageSymbolReviewRepository(
                             session
                         ).finalize_backfill(job.game_id)
+                        analyzed_tables = (
+                            refresh_symbol_review_query_statistics(session)
+                            if last_report.status == "ready"
+                            else ()
+                        )
                     success_count = max(success_count, last_report.cell_count)
                     failure_count = max(
                         failure_count,
@@ -137,9 +143,9 @@ class SymbolCellReviewBackfillHandler:
                             "processed_board_count": last_report.processed_review_item_count,
                             "persisted_cell_count": last_report.cell_count,
                             "problem_review_item_ids": [
-                                str(value)
-                                for value in last_report.sample_problem_review_item_ids
+                                str(value) for value in last_report.sample_problem_review_item_ids
                             ],
+                            "analyzed_query_tables": list(analyzed_tables),
                         },
                         stage="symbol_cell_review_finalization",
                         current=current,
@@ -157,7 +163,11 @@ class SymbolCellReviewBackfillHandler:
                 or "The symbol-cell projection did not stabilize after three "
                 "reconciliation passes.",
             )
-        except (SymbolCellReviewError, SymbolCellReviewBackfillError) as error:
+        except (
+            SymbolCellReviewError,
+            SymbolCellReviewBackfillError,
+            SymbolReviewStatisticsRefreshError,
+        ) as error:
             raise JobHandlerError(error.code, error.message) from error
 
 

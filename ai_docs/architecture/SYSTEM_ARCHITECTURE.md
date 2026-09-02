@@ -784,6 +784,14 @@ najwyżej trzy strony metadanych i wirtualne okno kart. Powtarzalny pomiar jest
 read-only dla domeny i nie tworzy syntetycznych rekordów; pełny wynik znajduje
 się w `quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md`.
 
+TASK-0408 domyka lifecycle dużej projekcji po stronie planera PostgreSQL.
+Pomyślna finalizacja backfillu/reconciliacji, po wszystkich bounded partiach,
+odświeża statystyki dokładnie pięciu tabel używanych przez seek, kontrolę
+bieżącego właściciela i hydrację strony. Maintenance wykonuje się raz przed
+opublikowaniem terminalnego sukcesu, nie po każdej partii. Awaria jest
+fail-closed i nie zmienia cropów, decyzji ani danych treningowych; dialekty
+testowe inne niż PostgreSQL pozostają no-op.
+
 Produkcja odczytuje `image_geometry_rollout_states` podczas tworzenia joba i
 kopiuje wersje oraz checksumę do input payloadu. Legacy zachowuje stary
 fingerprint bez żadnego dodatkowego hashowania; tryby 0.10 wiążą fingerprint z

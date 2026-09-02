@@ -4740,3 +4740,16 @@ Worker checkpointuje source-local batch po sześć źródeł, wznawia wyłączni
 adapter i wybiera reprezentanta jedynie z własnych proofów exact. Audyt i
 liczniki wyborów rozpoznają selektor v6. Wdrożenie nie uruchomiło OCR ani nie
 utworzyło joba na danych użytkownika; v1–v5 zachowują poprzednie retry.
+
+### TASK-0408 — statystyki dużej projekcji Weryfikacji symboli
+
+Diagnoza nowej gry `777` potwierdziła kompletną projekcję 19 914 plansz i
+298 710 bieżących komórek, lecz brak jakiegokolwiek `ANALYZE` głównych tabel po
+dużym zasileniu. Planner estymował jeden rekord gry, a zapytania strony czekały
+na I/O mimo braku blokad. Jednorazowe odświeżenie statystyk przywróciło plan
+indeksowy i zwróciło pierwsze 500 metadanych w 1,475 s.
+
+Worker backfillu/reconciliacji odświeża teraz statystyki zamkniętej listy tabel
+raz po kompletnej finalizacji i przed terminalnym sukcesem. Nie wykonuje
+`VACUUM FULL`, nie zmienia danych domenowych ani treningowych i jest no-op poza
+PostgreSQL. Nie ma potrzeby ponownie importować 19 000 plansz.

@@ -15606,6 +15606,7 @@
           "approve",
           "reassign",
           "mark_grid_issue",
+          "mark_blurry",
           "mark_unreadable"
         ],
         "title": "SymbolCellReviewAction",

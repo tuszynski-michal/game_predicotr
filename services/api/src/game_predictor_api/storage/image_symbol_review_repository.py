@@ -66,6 +66,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     derive_symbol_cell_board_resolution,
     invalidate_symbol_cell_reviews_for_geometry,
     map_current_symbol_cell_reviews,
+    mark_symbol_cell_blurry,
     mark_symbol_cell_grid_issue,
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
@@ -2249,6 +2250,11 @@ def _apply_symbol_cell_command(
         )
     if command.action is SymbolCellReviewAction.MARK_GRID_ISSUE:
         return mark_symbol_cell_grid_issue(review)
+    if command.action is SymbolCellReviewAction.MARK_BLURRY:
+        return mark_symbol_cell_blurry(
+            review,
+            active_symbol_codes=active_symbol_codes,
+        )
     if command.action is SymbolCellReviewAction.MARK_UNREADABLE:
         return mark_symbol_cell_unreadable(review)
     raise SymbolCellReviewError(

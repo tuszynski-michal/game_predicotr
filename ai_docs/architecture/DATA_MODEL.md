@@ -1078,7 +1078,7 @@ pozostaje `approved` z proweniencją poprzednio zatwierdzonych pikseli, natomias
 pole oznaczone `grid_issue` wraca jako `pending` bez problemu jakości.
 Reinferencja zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia
 człowieka.
-Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue` albo
+Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue`, `mark_blurry` albo
 `mark_unreadable` jest związana z
 dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzica:
 komplet `rows × columns` aktualnych `approved` bez problemu siatki domyka
@@ -1094,13 +1094,16 @@ niekompletnej, pozornej projekcji.
 
 Docelowy model 0.9 rozszerza tę projekcję bez łączenia jej z niezmiennymi
 `cell_observations`. `review_state` opisuje wyłącznie logiczną etykietę,
-`quality_issue` rozróżnia `grid_issue` i `unreadable`, a pola
+`quality_issue` rozróżnia `grid_issue`, `blurry` i `unreadable`, a pola
 `approved_crop_sample_id`, `approved_crop_checksum_sha256` oraz
 `approved_geometry_revision` wskazują dokładne piksele ostatnio zatwierdzone
 przez człowieka. Stan `current`, `changed_since_approval` albo `unverified` jest
 wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop nie kasuje
 zatwierdzonej etykiety, ale do czasu ponownej weryfikacji nowych pikseli blokuje
 ich udział w treningu.
+`blurry` wymaga rozpoznanego aktywnego symbolu i zachowuje `review_state =
+approved`; nie otwiera kolejki geometrii ani nieczytelnych plansz, lecz jako
+niepusty problem jakości wyklucza bieżący crop z treningu.
 
 Źródło bieżącej kohorty symboli stosuje wspólny predykat
 `symbol-cell-training-eligible-v1`. Oprócz aktywnej etykiety, braku problemu

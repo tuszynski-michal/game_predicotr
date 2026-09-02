@@ -42,6 +42,7 @@ from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellCropApprovalState,
     SymbolCellQualityIssue,
+    SymbolCellReviewAction,
     SymbolCellReviewAsset,
     SymbolCellReviewCounts,
     SymbolCellReviewError,
@@ -302,9 +303,13 @@ class MemorySymbolCellReviewMutationRepository:
             assigned_symbol_id=command.target_symbol_id,
             has_grid_issue=False,
             quality_issue=(
-                SymbolCellQualityIssue.UNREADABLE
-                if command.action.value == "mark_unreadable"
-                else None
+                SymbolCellQualityIssue.BLURRY
+                if command.action.value == "mark_blurry"
+                else (
+                    SymbolCellQualityIssue.UNREADABLE
+                    if command.action.value == "mark_unreadable"
+                    else None
+                )
             ),
             board_status="pending",
             board_resolution_action=None,
@@ -1276,6 +1281,46 @@ def test_single_cell_decision_routes_mark_unreadable_without_unknown_assignment(
     assert mutations.commands[0].target_symbol_id is None
 
 
+def test_single_cell_decision_routes_mark_blurry_as_a_quality_only_action(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+
+    with _client(
+        reviews,
+        artifact_root=tmp_path,
+        mutation_repository=mutations,
+    ) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "mark_blurry",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": item.crop_sample_id,
+                "expectedCropChecksumSha256": item.crop_checksum_sha256,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["qualityIssue"] == "blurry"
+    assert mutations.commands[0].action is SymbolCellReviewAction.MARK_BLURRY
+    assert mutations.commands[0].target_symbol_id is None
+
+
 def test_single_cell_decision_returns_conflict_for_stale_revision(tmp_path: Path) -> None:
     game_id, source_symbol_id, target_symbol_id = uuid4(), uuid4(), uuid4()
     item = _item(
@@ -1437,3 +1482,44 @@ def test_bulk_operation_accepts_mark_unreadable_action(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["action"] == "mark_unreadable"
     assert bulk.requests[0].action.value == "mark_unreadable"
+
+
+def test_bulk_operation_accepts_mark_blurry_action(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    item = _item(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        sequence_number=10,
+        cell_index=4,
+        review_item_id=UUID(int=1),
+    )
+    reviews = MemorySymbolCellReviewRepository(
+        game_id=game_id,
+        symbol_id=symbol_id,
+        items=(item,),
+    )
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview",
+            json={
+                "action": "mark_blurry",
+                "selection": {
+                    "kind": "explicit",
+                    "targets": [
+                        {
+                            "cellReviewId": str(item.cell_review_id),
+                            "expectedRevision": item.revision,
+                            "expectedGeometryRevision": item.geometry_revision,
+                            "expectedCropSampleId": item.crop_sample_id,
+                            "expectedCropChecksumSha256": item.crop_checksum_sha256,
+                        }
+                    ],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "mark_blurry"
+    assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY

@@ -8967,7 +8967,11 @@ export type SymbolCellPreviewTargetRequest = {
  * SymbolCellReviewAction
  */
 export type SymbolCellReviewAction =
-  'approve' | 'reassign' | 'mark_grid_issue' | 'mark_unreadable';
+  | 'approve'
+  | 'reassign'
+  | 'mark_grid_issue'
+  | 'mark_blurry'
+  | 'mark_unreadable';
 
 /**
  * SymbolCellReviewBackfillJobPayload

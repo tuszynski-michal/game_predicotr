@@ -48,11 +48,13 @@ class SymbolCellReviewAction(StrEnum):
     APPROVE = "approve"
     REASSIGN = "reassign"
     MARK_GRID_ISSUE = "mark_grid_issue"
+    MARK_BLURRY = "mark_blurry"
     MARK_UNREADABLE = "mark_unreadable"
 
 
 class SymbolCellQualityIssue(StrEnum):
     GRID_ISSUE = "grid_issue"
+    BLURRY = "blurry"
     UNREADABLE = "unreadable"
 
 
@@ -394,6 +396,14 @@ class SymbolCellReview:
                 "A crop marked with a grid issue must remain pending.",
             )
         if (
+            quality_issue is SymbolCellQualityIssue.BLURRY
+            and self.review_state is not SymbolCellReviewState.APPROVED
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BLURRY_STATE_INVALID",
+                "A blurry crop keeps its recognized label approved.",
+            )
+        if (
             self.review_state is SymbolCellReviewState.APPROVED
             and not _is_known_symbol(self.assigned_symbol_code)
             and quality_issue is not SymbolCellQualityIssue.UNREADABLE
@@ -559,6 +569,34 @@ def mark_symbol_cell_grid_issue(review: SymbolCellReview) -> SymbolCellReviewTra
             review_state=SymbolCellReviewState.PENDING,
             has_grid_issue=True,
             quality_issue=SymbolCellQualityIssue.GRID_ISSUE,
+            assignment_source=SymbolCellAssignmentSource.HUMAN,
+            revision=review.revision + 1,
+        ),
+        changed=True,
+    )
+
+
+def mark_symbol_cell_blurry(
+    review: SymbolCellReview,
+    *,
+    active_symbol_codes: Iterable[str],
+) -> SymbolCellReviewTransition:
+    """Approve the recognized label while excluding blurry pixels from training."""
+
+    _require_active_symbol(review.assigned_symbol_code, active_symbol_codes)
+    if (
+        review.review_state is SymbolCellReviewState.APPROVED
+        and review.quality_issue is SymbolCellQualityIssue.BLURRY
+        and review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    ):
+        return SymbolCellReviewTransition(review=review, changed=False)
+    return SymbolCellReviewTransition(
+        review=replace(
+            review,
+            review_state=SymbolCellReviewState.APPROVED,
+            has_grid_issue=False,
+            quality_issue=SymbolCellQualityIssue.BLURRY,
+            approved_crop=SymbolCellApprovedCropIdentity.from_crop(review.crop),
             assignment_source=SymbolCellAssignmentSource.HUMAN,
             revision=review.revision + 1,
         ),
@@ -933,6 +971,7 @@ __all__ = [
     "invalidate_symbol_cell_reviews_for_geometry",
     "is_symbol_cell_training_eligible",
     "map_current_symbol_cell_reviews",
+    "mark_symbol_cell_blurry",
     "mark_symbol_cell_grid_issue",
     "mark_symbol_cell_unreadable",
     "reassign_symbol_cell_review",

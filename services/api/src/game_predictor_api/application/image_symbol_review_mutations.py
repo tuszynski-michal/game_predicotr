@@ -211,6 +211,31 @@ class SymbolCellReviewMutationService:
             )
         )
 
+    def mark_blurry(
+        self,
+        *,
+        game_id: UUID,
+        cell_review_id: UUID,
+        expected_revision: int,
+        expected_geometry_revision: int,
+        expected_crop_sample_id: str,
+        expected_crop_checksum_sha256: str,
+        actor: str,
+    ) -> SymbolCellReviewMutationResult:
+        return self._apply(
+            SymbolCellReviewMutationCommand(
+                game_id=game_id,
+                cell_review_id=cell_review_id,
+                action=SymbolCellReviewAction.MARK_BLURRY,
+                expected_revision=expected_revision,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_crop_sample_id=expected_crop_sample_id,
+                expected_crop_checksum_sha256=expected_crop_checksum_sha256,
+                target_symbol_id=None,
+                actor=actor,
+            )
+        )
+
     def _apply(
         self,
         command: SymbolCellReviewMutationCommand,

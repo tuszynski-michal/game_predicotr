@@ -269,13 +269,16 @@ GET  /api/v1/admin/games/{gameId}/symbol-cell-review-operations/{operationId}
 ```
 
 Te endpointy są wyłącznie częścią lokalnego Admin API; token zdalnego
-Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`
-albo `mark_grid_issue`, albo `mark_unreadable` oraz jeden z dwóch modeli
+Reviewera nie ma do nich dostępu. Request wybiera akcję `approve`, `reassign`,
+`mark_grid_issue`, `mark_blurry` albo `mark_unreadable` oraz jeden z dwóch modeli
 zaznaczenia: jawne cropy z
 oczekiwaną rewizją i tożsamością cropa (maksymalnie 10 000) albo filtr
 `symbol + state + minConfidence/maxConfidence + catalogRevision` wraz z co
 najwyżej 10 000 wykluczeń. Snapshot filtra nie przekazuje ID całego wyniku.
 `approve` nie jest dostępne dla filtra technicznego `unknown`.
+`mark_blurry` wymaga istniejącego aktywnego przypisania symbolu, zachowuje je
+jako zatwierdzone i zapisuje `qualityIssue = blurry`; każdy taki crop jest
+wykluczony z treningu przez wspólną bramkę jakości.
 
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne

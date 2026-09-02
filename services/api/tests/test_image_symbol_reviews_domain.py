@@ -25,6 +25,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     invalidate_symbol_cell_reviews_for_geometry,
     is_symbol_cell_training_eligible,
     map_current_symbol_cell_reviews,
+    mark_symbol_cell_blurry,
     mark_symbol_cell_grid_issue,
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
@@ -380,6 +381,35 @@ def test_unreadable_crop_can_be_resolved_as_unknown_without_becoming_training_da
         is_current_owner=True,
         asset_checksum_verified=True,
     )
+
+
+def test_blurry_crop_keeps_recognized_symbol_but_is_not_training_eligible() -> None:
+    review = _mapped_reviews()[0]
+
+    blurry = mark_symbol_cell_blurry(
+        review,
+        active_symbol_codes=("cherry",),
+    ).review
+
+    assert blurry.assigned_symbol_code == "cherry"
+    assert blurry.review_state is SymbolCellReviewState.APPROVED
+    assert blurry.quality_issue is SymbolCellQualityIssue.BLURRY
+    assert blurry.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    assert not is_symbol_cell_training_eligible(
+        blurry,
+        active_symbol_codes=("cherry",),
+        is_current_owner=True,
+        asset_checksum_verified=True,
+    )
+
+
+def test_blurry_crop_requires_an_active_recognized_symbol() -> None:
+    review = replace(_mapped_reviews()[0], assigned_symbol_code=None)
+
+    with pytest.raises(SymbolCellReviewError) as captured:
+        mark_symbol_cell_blurry(review, active_symbol_codes=("cherry",))
+
+    assert captured.value.code == "SYMBOL_CELL_REVIEW_SYMBOL_INVALID"
 
 
 def test_unknown_label_completes_the_board_as_corrected() -> None:

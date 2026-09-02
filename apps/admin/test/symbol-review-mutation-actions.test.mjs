@@ -112,3 +112,38 @@ test('sends an unreadable decision without inventing a target symbol', async () 
   assert.equal(calls[0].body.action, 'mark_unreadable');
   assert.equal('targetSymbolId' in calls[0].body, false);
 });
+
+test('sends a blurry quality decision without changing the recognized symbol', async () => {
+  const calls = [];
+  const result = await applySingleSymbolReviewDecision(
+    {
+      async applySymbolCellReviewDecision(gameId, cellReviewId, body) {
+        calls.push({ body, cellReviewId, gameId });
+        return {
+          data: {
+            assignedSymbolId: 'symbol-1',
+            boardReopened: false,
+            boardResolutionAction: null,
+            boardStatus: 'accepted',
+            catalogRevision: 11,
+            cellReviewId,
+            cellRevision: 8,
+            hasGridIssue: false,
+            qualityIssue: 'blurry',
+            reviewItemId: 'review-1',
+            reviewState: 'approved',
+            sequenceNumber: 10,
+          },
+        };
+      },
+    },
+    'game-1',
+    'mark_blurry',
+    target,
+    null,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0].body.action, 'mark_blurry');
+  assert.equal('targetSymbolId' in calls[0].body, false);
+});

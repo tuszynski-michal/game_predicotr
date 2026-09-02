@@ -41,6 +41,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - `Zła siatka` i `Nieczytelny symbol` nie są sztucznie prezentowane jako
   status `odrzucone`: pozostają osobnymi problemami jakościowymi.
 
+### Niewyraźne cropy symboli — TASK-0388
+
+- Akcja `Niewyraźny` zachowuje rozpoznany symbol jako zatwierdzony, zapisuje
+  osobny `quality_issue = blurry` i wyklucza crop z kohort treningowych.
+- Toolbar grupuje w jednej linii akcje `Niewyraźny / Nieczytelny / Zła siatka`;
+  `blurry` nie trafia do kolejki nieczytelnych ani korekty geometrii.
+
 ### Miniatury symboli od krawędzi do krawędzi — TASK-0386
 
 - Bieżący renderer cropów legacy nie dopisuje już czarnego płótna do atlasu;

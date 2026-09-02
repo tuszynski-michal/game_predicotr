@@ -56,6 +56,11 @@ test('builds only explicit page-local crop-bound commands', () => {
       .action,
     'mark_unreadable',
   );
+  assert.equal(
+    createSymbolReviewBulkCommand('mark_blurry', explicit, null)?.request
+      .action,
+    'mark_blurry',
+  );
 });
 
 test('creates a frozen filter command without materializing matching crop IDs', () => {

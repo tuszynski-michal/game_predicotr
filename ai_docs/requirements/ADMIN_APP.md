@@ -452,11 +452,13 @@ kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już
 oraz krótki foreground start/preview bieżącej decyzji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
-symbol`, `Zła siatka` i `Nieczytelny symbol`. `Zła siatka` kieruje pole do
-kolejki korekty geometrii, natomiast `Nieczytelny symbol` pozostawia je poza
-kolejką geometrii i poza kohortą treningową. Karta pokazuje zwięzły badge
-`Zła siatka`, `Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy
-bieżących pikseli. Każda akcja najpierw pokazuje niezmienny preview
+symbol` i jednoliniową grupę `Niewyraźny / Nieczytelny / Zła siatka`.
+`Niewyraźny` zachowuje rozpoznany i zatwierdzony symbol, ale wyklucza bieżący
+crop z kohort treningowych. `Zła siatka` kieruje pole do kolejki korekty
+geometrii, natomiast `Nieczytelny` pozostawia je poza kolejką geometrii i poza
+kohortą treningową. Karta pokazuje zwięzły badge `Niewyraźny`, `Zła siatka`,
+`Nieczytelny`, `Nowy crop` albo `?`, gdy taki stan dotyczy bieżących pikseli.
+Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` jest niedostępne dla filtra technicznego `Nierozpoznany (?)`.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;

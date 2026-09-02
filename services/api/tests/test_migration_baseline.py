@@ -98,6 +98,7 @@ PER_GAME_IMAGE_ENGINE_POLICY_REVISION = "0085_per_game_image_engine_policy"
 PARTIAL_PAGE_GEOMETRY_OVERRIDES_REVISION = "0086_partial_page_geometry_overrides"
 SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION = "0087_semi_automatic_image_selection"
 SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION = "0088_symbol_review_game_sequence_index"
+BLURRY_SYMBOL_QUALITY_REVISION = "0089_blurry_symbol_quality"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -362,7 +363,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_review_game_sequence_index = script.get_revision(
         SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
     )
-    assert script.get_heads() == [SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION]
+    blurry_symbol_quality = script.get_revision(BLURRY_SYMBOL_QUALITY_REVISION)
+    assert script.get_heads() == [BLURRY_SYMBOL_QUALITY_REVISION]
     assert storage_retention is not None
     assert storage_retention.down_revision == OBSOLETE_BOARD_SEARCH_STORAGE_REVISION
     assert storage_capacity_guard is not None
@@ -396,6 +398,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert (
         symbol_review_game_sequence_index.down_revision == SEMI_AUTOMATIC_IMAGE_SELECTION_REVISION
     )
+    assert blurry_symbol_quality is not None
+    assert blurry_symbol_quality.down_revision == SYMBOL_REVIEW_GAME_SEQUENCE_INDEX_REVISION
     assert baseline is not None
     assert symbol_cell_training_cohorts is not None
     assert symbol_cell_training_cohorts.down_revision == SYMBOL_CELL_REVIEW_BACKFILL_JOB_REVISION

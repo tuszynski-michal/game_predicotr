@@ -659,7 +659,12 @@ export function SymbolReviewWorkspace({
   }
 
   async function previewOperation(
-    action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
+    action:
+      | 'approve'
+      | 'mark_blurry'
+      | 'mark_grid_issue'
+      | 'mark_unreadable'
+      | 'reassign',
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
     const gameId = filters.gameId;
@@ -695,7 +700,9 @@ export function SymbolReviewWorkspace({
               ? 'Symbol został zatwierdzony.'
               : action === 'mark_grid_issue'
                 ? 'Symbol został oznaczony jako problem siatki.'
-                : 'Symbol został oznaczony jako nieczytelny.',
+                : action === 'mark_blurry'
+                  ? 'Symbol został oznaczony jako niewyraźny i wykluczony z nauki.'
+                  : 'Symbol został oznaczony jako nieczytelny.',
       });
       return;
     }
@@ -933,6 +940,7 @@ export function SymbolReviewWorkspace({
           hasActiveSymbols={symbols.length > 0}
           onApprove={() => void previewOperation('approve')}
           onClear={() => setSelection(createEmptySymbolReviewSelection())}
+          onMarkBlurry={() => void previewOperation('mark_blurry')}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
           onReassign={() => void previewOperation('reassign')}
@@ -1169,6 +1177,8 @@ function SymbolReviewCard({
         ) : null}
         {item.qualityIssue === 'grid_issue' ? (
           <span className={styles.cardBadge}>Zła siatka</span>
+        ) : item.qualityIssue === 'blurry' ? (
+          <span className={styles.cardBadge}>Niewyraźny</span>
         ) : item.qualityIssue === 'unreadable' ? (
           <span className={styles.cardBadge}>Nieczytelny</span>
         ) : item.cropApprovalState === 'changed_since_approval' ? (
@@ -1188,6 +1198,7 @@ function SymbolReviewSelectionToolbar({
   hasActiveSymbols,
   onApprove,
   onClear,
+  onMarkBlurry,
   onMarkGridIssue,
   onMarkUnreadable,
   onReassign,
@@ -1204,6 +1215,7 @@ function SymbolReviewSelectionToolbar({
   readonly hasActiveSymbols: boolean;
   readonly onApprove: () => void;
   readonly onClear: () => void;
+  readonly onMarkBlurry: () => void;
   readonly onMarkGridIssue: () => void;
   readonly onMarkUnreadable: () => void;
   readonly onReassign: () => void;
@@ -1273,22 +1285,32 @@ function SymbolReviewSelectionToolbar({
         >
           Zastosuj zmianę
         </button>
-        <button
-          className="secondaryButton"
-          disabled={actionsDisabled}
-          onClick={onMarkGridIssue}
-          type="button"
-        >
-          Zła siatka
-        </button>
-        <button
-          className="secondaryButton"
-          disabled={actionsDisabled}
-          onClick={onMarkUnreadable}
-          type="button"
-        >
-          Nieczytelny symbol
-        </button>
+        <div className={styles.qualityActions}>
+          <button
+            className="secondaryButton"
+            disabled={actionsDisabled}
+            onClick={onMarkBlurry}
+            type="button"
+          >
+            Niewyraźny
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={actionsDisabled}
+            onClick={onMarkUnreadable}
+            type="button"
+          >
+            Nieczytelny
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={actionsDisabled}
+            onClick={onMarkGridIssue}
+            type="button"
+          >
+            Zła siatka
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -1589,11 +1611,17 @@ function formatBytes(value: number | null | undefined): string {
 }
 
 function operationLabel(
-  action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
+  action:
+    | 'approve'
+    | 'mark_blurry'
+    | 'mark_grid_issue'
+    | 'mark_unreadable'
+    | 'reassign',
 ): string {
   if (action === 'approve') return 'Zatwierdzenie';
   if (action === 'reassign') return 'Zmiana symbolu';
   if (action === 'mark_grid_issue') return 'Oznaczenie złej siatki';
+  if (action === 'mark_blurry') return 'Oznaczenie niewyraźnego symbolu';
   return 'Oznaczenie nieczytelnego symbolu';
 }
 

@@ -2361,7 +2361,7 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_approved_symbol",
         ),
         CheckConstraint(
-            "quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable')",
+            "quality_issue IS NULL OR quality_issue IN ('grid_issue', 'blurry', 'unreadable')",
             name="ck_image_symbol_review_cells_quality_issue",
         ),
         CheckConstraint(
@@ -2545,7 +2545,8 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_revisions",
         ),
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable', "
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', "
+            "'mark_unreadable', "
             "'board_synchronized', 'geometry_invalidated')",
             name="ck_image_symbol_review_events_action",
         ),
@@ -2556,8 +2557,8 @@ class ImageSymbolReviewEventModel(Base):
         ),
         CheckConstraint(
             "(previous_quality_issue IS NULL OR "
-            "previous_quality_issue IN ('grid_issue', 'unreadable')) AND "
-            "(quality_issue IS NULL OR quality_issue IN ('grid_issue', 'unreadable'))",
+            "previous_quality_issue IN ('grid_issue', 'blurry', 'unreadable')) AND "
+            "(quality_issue IS NULL OR quality_issue IN ('grid_issue', 'blurry', 'unreadable'))",
             name="ck_image_symbol_review_events_quality_issue",
         ),
         CheckConstraint(
@@ -2732,7 +2733,8 @@ class ImageSymbolReviewBulkOperationModel(Base):
     __tablename__ = "image_symbol_review_bulk_operations"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_unreadable')",
+            "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', "
+            "'mark_unreadable')",
             name="ck_image_symbol_review_bulk_operations_action",
         ),
         CheckConstraint(

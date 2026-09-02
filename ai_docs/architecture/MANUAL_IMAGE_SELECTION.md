@@ -6,9 +6,14 @@ last_updated: 2026-08-30
 
 # Architektura lokalnej ręcznej selekcji
 
-Workspace React działa wyłącznie w przeglądarce Admina. `showDirectoryPicker`
-udostępnia dwa uchwyty File System Access API: źródło tylko do odczytu oraz
-folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
+Workspace React działa wyłącznie w przeglądarce Admina. Wspólny lokalny
+koordynator `showDirectoryPicker` serializuje tylko aktywne natywne dialogi
+wszystkich workflowów Admina i zawsze wywołuje metodę z `window` jako receiver.
+Nie kolejkuje późniejszego dialogu, bo browser wymaga bezpośredniego user gesture;
+zamiast tego zwraca stabilny błąd, a po sukcesie, anulowaniu lub konflikcie
+zewnętrznego dialogu natychmiast zwalnia lock. Nie obejmuje on jobów ani
+operacji plikowych. Picker udostępnia dwa uchwyty File System Access API: źródło
+tylko do odczytu oraz folder wynikowy z prawem odczytu i zapisu. Rekurencyjne listowanie i naturalne
 sortowanie są czystą logiką w `manual-image-selection.ts`. Indeks przechowuje
 uchwyty i ścieżki bez otwierania wszystkich Blobów. Workspace utrzymuje
 ograniczony cache Object URL dla bieżącego JPEG-a i trzech sąsiadów z każdej

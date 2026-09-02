@@ -20,6 +20,11 @@ import {
   type SemiAutomaticSourceFile,
   type SemiAutomaticSelectionUploadProgress,
 } from '@/features/semi-automatic-image-selection/semi-automatic-selection-actions.ts';
+import {
+  isLocalDirectoryPickerActive,
+  pickLocalDirectory,
+  subscribeLocalDirectoryPickerActive,
+} from '../../lib/local-directory-picker.ts';
 
 import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
 import {
@@ -69,6 +74,9 @@ export function ManualSelectionRangeVerificationWorkspace({
   const [cursor, setCursor] = useState(0);
   const [upload, setUpload] = useState(EMPTY_UPLOAD);
   const [busy, setBusy] = useState(false);
+  const [directoryPickerActive, setDirectoryPickerActive] = useState(
+    isLocalDirectoryPickerActive,
+  );
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -103,6 +111,12 @@ export function ManualSelectionRangeVerificationWorkspace({
     current === undefined ? -1 : safeCursor,
     handleViewerError,
   );
+
+  useEffect(() => {
+    return subscribeLocalDirectoryPickerActive(() => {
+      setDirectoryPickerActive(isLocalDirectoryPickerActive());
+    });
+  }, []);
 
   useEffect(() => {
     if (run === null || !isActive(run)) return undefined;
@@ -343,7 +357,7 @@ export function ManualSelectionRangeVerificationWorkspace({
       <div className="manualImageSelectionSetup">
         <button
           className="secondaryButton"
-          disabled={busy}
+          disabled={busy || directoryPickerActive}
           onClick={() => void chooseDirectory()}
           type="button"
         >
@@ -428,17 +442,7 @@ async function loadVerificationItems(
 }
 
 async function pickReadWriteDirectory(): Promise<FileSystemDirectoryHandle> {
-  const picker = (
-    window as Window & {
-      showDirectoryPicker?: (options?: {
-        readonly id?: string;
-        readonly mode?: 'readwrite';
-      }) => Promise<FileSystemDirectoryHandle>;
-    }
-  ).showDirectoryPicker;
-  if (picker === undefined)
-    throw new Error('Ta przeglądarka nie obsługuje wyboru folderu.');
-  return picker({ id: 'gp-range-verify', mode: 'readwrite' });
+  return pickLocalDirectory({ id: 'gp-range-verify', mode: 'readwrite' });
 }
 
 function isActive(run: SemiAutomaticSelectionRunResponse): boolean {

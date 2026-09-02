@@ -106,9 +106,12 @@ nowego postępu. Pokazuje osobno brak folderu źródłowego lub wynikowego, pozw
 wskazać go ponownie i zachowuje `sessionKey`, decyzje, kolejny zakres oraz
 indeks zdjęcia. Naprawione uchwyty są ponownie zapisywane w IndexedDB.
 
-W danym momencie może być aktywne tylko jedno okno wyboru folderu. Oba przyciski
-wyboru są blokowane podczas aktywnego pickera, a ponowne kliknięcie jest
-obsługiwane jako komunikat zamiast drugiego wywołania przeglądarkowego dialogu.
+W całym lokalnym Adminie może być aktywne tylko jedno okno wyboru folderu.
+Wspólny koordynator File System Access utrzymuje blokadę wyłącznie do
+rozstrzygnięcia natywnego pickera; drugi klik nie wywołuje przeglądarkowego
+dialogu i otrzymuje czytelny komunikat. Job weryfikacji zakresów, skan folderu,
+upload i zapis pliku nie trzymają tej blokady, więc `Uzupełnij luki` oraz `Usuń
+sekwencje` mogą działać równolegle z OCR po zamknięciu dialogu wyboru folderu.
 
 Zapis korzysta z File System Access API i kopiuje oryginalne bajty JPEG-a, bez
 skalowania, obrotu ani zmiany perspektywy. Istniejący plik wynikowy jest

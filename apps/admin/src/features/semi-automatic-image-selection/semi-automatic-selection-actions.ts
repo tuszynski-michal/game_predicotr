@@ -6,6 +6,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { pickLocalDirectory } from '../../lib/local-directory-picker.ts';
 
 import type {
   SemiAutomaticOutputDirectoryHandle,
@@ -30,13 +31,6 @@ export interface BrowserDirectoryHandle extends SemiAutomaticSourceDirectoryHand
 }
 
 type BrowserDirectoryEntry = BrowserFileHandle | BrowserDirectoryHandle;
-
-interface DirectoryPickerWindow extends Window {
-  showDirectoryPicker?: (options?: {
-    readonly id?: string;
-    readonly mode?: 'read' | 'readwrite';
-  }) => Promise<BrowserDirectoryHandle>;
-}
 
 export interface SemiAutomaticSourceFile {
   readonly file: File;
@@ -79,19 +73,14 @@ export type SemiAutomaticSelectionUploadResult =
     };
 
 export async function pickSemiAutomaticSourceDirectory(): Promise<BrowserDirectoryHandle> {
-  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
-  if (picker === undefined) {
-    throw new Error('DIRECTORY_PICKER_UNAVAILABLE');
-  }
-  return picker({ id: 'gp-semi-source', mode: 'read' });
+  return (await pickLocalDirectory({
+    id: 'gp-semi-source',
+    mode: 'read',
+  })) as unknown as BrowserDirectoryHandle;
 }
 
 export async function pickSemiAutomaticOutputDirectory(): Promise<SemiAutomaticOutputDirectoryHandle> {
-  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
-  if (picker === undefined) {
-    throw new Error('DIRECTORY_PICKER_UNAVAILABLE');
-  }
-  return (await picker({
+  return (await pickLocalDirectory({
     id: 'gp-semi-output',
     mode: 'readwrite',
   })) as unknown as SemiAutomaticOutputDirectoryHandle;

@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  isLocalDirectoryPickerActive,
+  pickLocalDirectory,
+  subscribeLocalDirectoryPickerActive,
+} from '../../lib/local-directory-picker.ts';
+
+import {
   adjacentManualNavigationStep,
   createManualSelectionState,
   INDEPENDENT_MANUAL_SELECTION_ID,
@@ -39,12 +45,6 @@ import { ManualSelectionRepairWorkspace } from './manual-selection-repair-worksp
 import { ManualSelectionRangeVerificationWorkspace } from './manual-selection-range-verification-workspace';
 import { readRepairManifest } from './manual-selection-repair-storage.ts';
 
-interface DirectoryPickerWindow extends Window {
-  showDirectoryPicker?: (options?: {
-    readonly mode?: 'read' | 'readwrite';
-  }) => Promise<FileSystemDirectoryHandle>;
-}
-
 type ResumeRecoveryTarget = 'source' | 'output';
 
 const CURSOR_PREFIX = 'game-predictor:manual-image-selection-cursor:';
@@ -68,7 +68,6 @@ function LocalManualImageSelectionWorkspace() {
   const workspaceId = INDEPENDENT_MANUAL_SELECTION_ID;
   const store = useMemo(() => new ManualImageSelectionStore(), []);
   const busyRef = useRef(false);
-  const folderPickerActiveRef = useRef(false);
   const stateRef = useRef<ManualSelectionState | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const traceEventIndexRef = useRef(0);
@@ -89,6 +88,9 @@ function LocalManualImageSelectionWorkspace() {
   const [savedRecord, setSavedRecord] =
     useState<ManualSelectionSessionRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [directoryPickerActive, setDirectoryPickerActive] = useState(
+    isLocalDirectoryPickerActive,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resumeNotice, setResumeNotice] = useState<string | null>(null);
@@ -124,6 +126,12 @@ function LocalManualImageSelectionWorkspace() {
     currentImageIndex,
     handleViewerError,
   );
+
+  useEffect(() => {
+    return subscribeLocalDirectoryPickerActive(() => {
+      setDirectoryPickerActive(isLocalDirectoryPickerActive());
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,34 +222,10 @@ function LocalManualImageSelectionWorkspace() {
   async function pickDirectory(
     mode: 'read' | 'readwrite',
   ): Promise<FileSystemDirectoryHandle> {
-    const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
-    if (picker === undefined) {
-      throw new Error(
-        'Ta przeglądarka nie obsługuje wyboru folderu lokalnego.',
-      );
-    }
-    if (folderPickerActiveRef.current) {
-      throw new Error(
-        'Wybór folderu jest już aktywny. Zamknij bieżące okno wyboru folderu i spróbuj ponownie.',
-      );
-    }
-    folderPickerActiveRef.current = true;
-    try {
-      return await picker({ mode });
-    } catch (cause) {
-      if (
-        cause instanceof DOMException &&
-        (cause.name === 'InvalidStateError' ||
-          cause.message.toLowerCase().includes('file picker already active'))
-      ) {
-        throw new Error(
-          'Okno wyboru folderu jest już otwarte. Zamknij je i spróbuj ponownie.',
-        );
-      }
-      throw cause;
-    } finally {
-      folderPickerActiveRef.current = false;
-    }
+    return pickLocalDirectory({
+      id: mode === 'read' ? 'gp-manual-source' : 'gp-manual-output',
+      mode,
+    });
   }
 
   async function chooseSource(): Promise<void> {
@@ -886,7 +870,7 @@ function LocalManualImageSelectionWorkspace() {
           <div className="manualImageSelectionFolderActions">
             <button
               className="secondaryButton"
-              disabled={loading}
+              disabled={loading || directoryPickerActive}
               onClick={() => void chooseSource()}
               type="button"
             >
@@ -900,7 +884,7 @@ function LocalManualImageSelectionWorkspace() {
             </button>
             <button
               className="secondaryButton"
-              disabled={loading}
+              disabled={loading || directoryPickerActive}
               onClick={() => void chooseOutput()}
               type="button"
             >

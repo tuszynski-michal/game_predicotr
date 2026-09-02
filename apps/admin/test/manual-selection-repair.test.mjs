@@ -227,7 +227,9 @@ test('admin mounts durable filename range verification with five-anchor manual r
   );
 
   assert.match(parent, /ManualSelectionRangeVerificationWorkspace/);
+  assert.match(parent, /pickLocalDirectory/);
   assert.match(workspace, /Weryfikacja zakresów/);
+  assert.match(workspace, /pickLocalDirectory\(\{ id: 'gp-range-verify'/);
   assert.match(workspace, /filename_verification/);
   assert.match(workspace, /listSemiAutomaticFilenameRangeVerifications/);
   assert.match(workspace, /Odrzuć i usuń F/);
@@ -250,5 +252,6 @@ test('fill workspace exposes bounded steps, gap targets, shortcuts and visibilit
   assert.match(source, /key === 'a'/);
   assert.match(source, /setViewReady\(true\)/);
   assert.match(source, /writeRepairFile/);
+  assert.match(source, /pickLocalDirectory\(\{ id: 'gp-manual-repair'/);
   assert.match(source, /sourceCursor \+ 1/);
 });

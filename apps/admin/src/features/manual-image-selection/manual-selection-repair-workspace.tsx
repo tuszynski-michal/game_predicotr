@@ -7,6 +7,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  isLocalDirectoryPickerActive,
+  pickLocalDirectory,
+  subscribeLocalDirectoryPickerActive,
+} from '../../lib/local-directory-picker.ts';
+
+import {
   FileSystemManualSelectionSourceAdapter,
   type ManualImageFile,
 } from './manual-image-selection-fsa-adapter.ts';
@@ -23,12 +29,6 @@ import {
 } from './manual-selection-repair-storage.ts';
 
 const FILL_NAVIGATION_STEPS = [1, 2, 5, 10, 20, 50, 100] as const;
-
-interface DirectoryPickerWindow extends Window {
-  showDirectoryPicker?: (options?: {
-    readonly mode?: 'read' | 'readwrite';
-  }) => Promise<FileSystemDirectoryHandle>;
-}
 
 export function ManualSelectionRepairWorkspace() {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
@@ -50,6 +50,9 @@ export function ManualSelectionRepairWorkspace() {
   const [localState, setLocalState] =
     useState<ManualSelectionRepairLocalState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [directoryPickerActive, setDirectoryPickerActive] = useState(
+    isLocalDirectoryPickerActive,
+  );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewReady, setViewReady] = useState(false);
@@ -99,6 +102,12 @@ export function ManualSelectionRepairWorkspace() {
     mode === 'fill' ? sourceCursor : mode === 'delete' ? deleteCursor : -1,
     handleViewerError,
   );
+
+  useEffect(() => {
+    return subscribeLocalDirectoryPickerActive(() => {
+      setDirectoryPickerActive(isLocalDirectoryPickerActive());
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -843,7 +852,7 @@ export function ManualSelectionRepairWorkspace() {
       <div className="manualImageSelectionSetup">
         <button
           className="secondaryButton"
-          disabled={busy}
+          disabled={busy || directoryPickerActive}
           onClick={() => void chooseSelectedDirectory()}
           type="button"
         >
@@ -859,7 +868,7 @@ export function ManualSelectionRepairWorkspace() {
         <div className="manualImageSelectionFolderActions">
           <button
             className="primaryButton"
-            disabled={busy || snapshot === null}
+            disabled={busy || directoryPickerActive || snapshot === null}
             onClick={() => void startFill()}
             type="button"
           >
@@ -888,10 +897,7 @@ export function ManualSelectionRepairWorkspace() {
 }
 
 async function pickDirectory(mode: 'read' | 'readwrite') {
-  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
-  if (picker === undefined)
-    throw new Error('Ta przeglądarka nie obsługuje wyboru folderu lokalnego.');
-  return picker({ mode });
+  return pickLocalDirectory({ id: 'gp-manual-repair', mode });
 }
 
 async function hasPermission(

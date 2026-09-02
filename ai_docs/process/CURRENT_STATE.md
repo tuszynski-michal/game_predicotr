@@ -24,6 +24,17 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   nadal fail-closed chronione. Operacja wycofuje się w całości, zamiast usuwać
   część grafu danych.
 
+### Wspólna blokada lokalnego pickera katalogów — TASK-0392
+
+- Jeden współdzielony koordynator serializuje jedynie czas systemowego dialogu
+  File System Access dla lokalnych workflowów Admina. Nie obejmuje jobów OCR,
+  uploadu, skanu ani zapisu plików, więc aktywna `Weryfikacja zakresów` nie
+  blokuje `Uzupełnij luki` ani `Usuń sekwencje`.
+- Drugi dialog jest fail-fast z czytelną instrukcją zamknięcia pierwszego;
+  lock zwalnia się po anulowaniu, sukcesie i rozpoznanym konflikcie natywnego
+  pickera. Wywołanie zachowuje binding `window`, co eliminuje `Illegal
+  invocation`.
+
 ### Produkcyjny import structured z przypiętym preflightem — TASK-0390
 
 - Nowe joby `structured_default` przypinają silnik

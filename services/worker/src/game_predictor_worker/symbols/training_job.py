@@ -311,6 +311,18 @@ class SymbolTrainingJobHandler:
                 updated_at=context.now(),
             )
             return
+        empty_splits = [
+            split
+            for split in ("train", "validation", "test", "regression")
+            if not getattr(data, split)
+        ]
+        if empty_splits:
+            raise JobHandlerError(
+                "TRAINING_DATASET_REQUIRED_SPLIT_EMPTY",
+                "The deterministic training dataset has no samples in required split(s): "
+                + ", ".join(empty_splits)
+                + ".",
+            )
         total = spec.configuration.epochs + CANDIDATE_STAGE_COUNT
         self._store.update(
             spec.iteration_id,

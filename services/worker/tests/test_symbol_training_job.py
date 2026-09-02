@@ -19,6 +19,7 @@ from game_predictor_worker.symbols.candidate_gate import (
     build_symbol_candidate,
 )
 from game_predictor_worker.symbols.training_dataset import (
+    SplitName,
     TrainingDatasetConfig,
     TrainingSymbol,
     build_balanced_source_assignments,
@@ -104,7 +105,14 @@ def _artifact(root: Path, cohort_checksum: str) -> object:
     base = root / "data" / "training" / "fixture" / cohort_checksum
     for index in range(12):
         code = "A" if index % 2 == 0 else "B"
-        split = "train" if index < 8 else "validation"
+        if index < 6:
+            split = "train"
+        elif index < 8:
+            split = "validation"
+        elif index < 10:
+            split = "test"
+        else:
+            split = "regression"
         relative = f"assets/{index:02d}.png"
         path = base / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +132,12 @@ def _artifact(root: Path, cohort_checksum: str) -> object:
         "gameCode": "fixture",
         "seed": "test-seed",
         "samples": samples,
-        "splits": [{"name": "train"}, {"name": "validation"}],
+        "splits": [
+            {"name": "train"},
+            {"name": "validation"},
+            {"name": "test"},
+            {"name": "regression"},
+        ],
         "symbols": [
             {"symbolCode": "A", "symbolId": "symbol-a"},
             {"symbolCode": "B", "symbolId": "symbol-b"},
@@ -349,10 +362,26 @@ def test_failed_training_preserves_input_crop_checksums(tmp_path: Path) -> None:
     store = FakeTrainingStore(tmp_path, artifact, spec)
     context = FakeContext(_job(spec))
 
-    with pytest.raises(JobHandlerError, match="validation must not be empty"):
+    with pytest.raises(
+        JobHandlerError, match=r"required split\(s\): validation, test, regression"
+    ):
         SymbolTrainingJobHandler(store, candidate_builder=_candidate_builder)(context, context.job)
 
     assert store.updates[-1]["status"] is SymbolModelIterationStatus.FAILED
     assert source_checksums == {
         path: hashlib.sha256(path.read_bytes()).hexdigest() for path in source_checksums
+    }
+
+
+def test_balanced_assignments_repair_an_incomplete_historical_split() -> None:
+    sources = tuple(hashlib.sha256(f"source-{index}".encode()).hexdigest() for index in range(4))
+    broken: dict[str, SplitName] = {source: "train" for source in sources}
+
+    assignments = build_balanced_source_assignments(sources, existing=broken)
+
+    assert {split for _source, split in assignments} == {
+        "train",
+        "validation",
+        "test",
+        "regression",
     }

@@ -35,7 +35,9 @@ from game_predictor_api.storage.job_repository import job_from_record, job_recor
 from game_predictor_api.storage.models import (
     GameModel,
     JobModel,
+    SourceImageModel,
     SymbolModelIterationModel,
+    VerifiedTrainingCohortCellModel,
     VerifiedTrainingCohortItemModel,
     VerifiedTrainingCohortModel,
 )
@@ -47,6 +49,25 @@ _ACTIVE = (
     SymbolModelIterationStatus.TRAINED.value,
     SymbolModelIterationStatus.EVALUATING.value,
 )
+
+
+def _cohort_source_checksums(session: Session, cohort_id: UUID) -> tuple[str, ...]:
+    """Return source families for both legacy-board and individual-cell cohorts."""
+
+    legacy_checksums = session.scalars(
+        select(VerifiedTrainingCohortItemModel.source_checksum_sha256).where(
+            VerifiedTrainingCohortItemModel.cohort_id == cohort_id
+        )
+    ).all()
+    cell_checksums = session.scalars(
+        select(SourceImageModel.checksum_sha256)
+        .join(
+            VerifiedTrainingCohortCellModel,
+            VerifiedTrainingCohortCellModel.source_image_id == SourceImageModel.id,
+        )
+        .where(VerifiedTrainingCohortCellModel.cohort_id == cohort_id)
+    ).all()
+    return tuple(sorted(set(legacy_checksums).union(cell_checksums)))
 
 
 class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
@@ -71,13 +92,7 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                 "TRAINING_COHORT_GAME_MISMATCH", "Cohort belongs to another game."
             )
         model_payload = configuration.to_payload()
-        source_checksums = tuple(
-            self._session.scalars(
-                select(VerifiedTrainingCohortItemModel.source_checksum_sha256)
-                .where(VerifiedTrainingCohortItemModel.cohort_id == cohort_id)
-                .order_by(VerifiedTrainingCohortItemModel.source_checksum_sha256)
-            ).all()
-        )
+        source_checksums = _cohort_source_checksums(self._session, cohort_id)
         prior_assignments: dict[str, SplitName] = {}
         prior_rows = self._session.scalars(
             select(SymbolModelIterationModel)

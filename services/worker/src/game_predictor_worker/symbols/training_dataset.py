@@ -373,6 +373,14 @@ def build_balanced_source_assignments(
         if source in unique and split in SPLIT_ORDER
     }
     pending = [source for source in unique if source not in assignments]
+    missing_splits = [split for split in SPLIT_ORDER if split not in assignments.values()]
+    if assignments and len(unique) >= len(SPLIT_ORDER) and len(pending) < len(missing_splits):
+        # A historical incomplete assignment is not a valid stability anchor: it
+        # can never satisfy the required independent evaluation split. Rebuild it
+        # deterministically for the new iteration instead of training for many
+        # epochs only to fail in the candidate gate.
+        assignments = {}
+        pending = list(unique)
     # For a fresh cohort reserve one source for each independent split, then put
     # the remaining sources in train. This is intentionally explicit rather than
     # ratio-based so small cohorts never silently get an empty validation set.

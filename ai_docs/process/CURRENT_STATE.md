@@ -15,6 +15,15 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 `Version 0.10 active: virtual geometry and structured-CV rollout`
 
+### Niepuste zbiory oceny treningu symboli — TASK-0397
+
+- Nowe iteracje modelu zbierają rodziny źródeł zarówno z kohort pełnych plansz,
+  jak i z pojedynczo zatwierdzonych cropów. Dataset z co najmniej czterema
+  rodzinami nie może rozpocząć treningu z pustym train, validation, test ani
+  regression.
+- Wadliwe historyczne przypisanie jest naprawiane deterministycznie wyłącznie,
+  gdy nie da się go uzupełnić do pełnego podziału bez przesunięcia źródeł.
+
 ### Widoczność wykluczenia zatwierdzonego cropa z uczenia — TASK-0396
 
 - W widoku `Zatwierdzone` Weryfikacji symboli crop, który zachowuje decyzję

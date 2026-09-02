@@ -106,6 +106,13 @@ train/validation/test i osobny stały zestaw regresyjny. Ta sama grupa nie może
 wystąpić w kilku częściach. Kolejna iteracja trenuje od początku na całej
 skumulowanej kohorcie, co ogranicza dryf i pozwala dokładnie odtworzyć wynik.
 
+Konfiguracja podziału zbiera rodziny źródeł z rekordów pełnych plansz oraz z
+rekordów pojedynczo zatwierdzonych komórek przez ich `source_image_id`. Przy co
+najmniej czterech rodzinach każdy z czterech splitów musi być niepusty przed
+treningiem. Historyczne przypisanie, którego nie da się uzupełnić nowymi
+źródłami do pełnego podziału, nie jest poprawną kotwicą stabilności i w nowej
+iteracji zostaje odbudowane deterministycznie.
+
 Implementacja `verified-symbol-training-dataset-v1` przypisuje całą rodzinę
 źródła przez stabilny hash checksumy oryginału. Domyślny podział wynosi
 65% train, 15% validation, 10% test i 10% regression. Seed, wersja polityki

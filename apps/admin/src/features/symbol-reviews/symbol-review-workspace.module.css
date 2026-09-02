@@ -121,19 +121,23 @@
 }
 
 .card {
+  position: relative;
   display: grid;
   width: 100px;
   height: 100px;
   overflow: hidden;
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 12px;
-  background: var(--panel-soft);
+  background: transparent;
 }
 
 .cardSelected {
-  border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.cardSelected .cardToggle::after {
+  border-color: var(--accent);
 }
 
 .cardPending {
@@ -163,21 +167,31 @@
   outline-offset: -3px;
 }
 
+.cardToggle::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  content: '';
+  pointer-events: none;
+}
+
 .card img,
 .assetFallback {
   display: grid;
   width: 100px;
   height: 100px;
   place-items: center;
-  object-fit: contain;
-  background: #050b14;
+  object-fit: fill;
+  background: transparent;
 }
 
 .virtualPreview {
   display: block;
   width: 100px;
   height: 100px;
-  background: #050b14;
+  background-color: transparent;
   background-repeat: no-repeat;
 }
 

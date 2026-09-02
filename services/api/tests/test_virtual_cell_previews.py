@@ -154,6 +154,23 @@ def test_shared_preview_atlas_contains_legacy_and_virtual_cells(tmp_path: Path) 
         assert atlas.size == (200, 100)
 
 
+def test_legacy_preview_fills_the_complete_atlas_tile_without_black_letterbox(
+    tmp_path: Path,
+) -> None:
+    legacy = _legacy_asset(tmp_path)
+    service = VirtualCellPreviewService(tmp_path)
+
+    batch = service.render_batch(game_id=uuid4(), assets=(legacy,), preview_size=100)
+    cached = service.read_atlas(game_id=batch.game_id, batch_key=batch.batch_key)
+
+    assert batch.renderer_version == "symbol-review-current-crop-renderer-v2-edge-to-edge"
+    with Image.open(BytesIO(cached.content)) as atlas:
+        rgb = atlas.convert("RGB")
+        assert rgb.size == (100, 100)
+        for point in ((0, 0), (99, 0), (0, 99), (99, 99)):
+            assert sum(rgb.getpixel(point)) > 100
+
+
 def test_structured_v0_10_renderer_has_an_independent_cache_identity(tmp_path: Path) -> None:
     asset = _current_asset(tmp_path)
     service = VirtualCellPreviewService(tmp_path)

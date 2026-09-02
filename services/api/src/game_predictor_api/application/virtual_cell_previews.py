@@ -37,7 +37,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
 
 VIRTUAL_CELL_PREVIEW_CACHE_VERSION = "virtual-cell-preview-cache-v1"
 VIRTUAL_CELL_PREVIEW_EXTRACTION_MODE = "direct_perspective_cell_v1"
-CURRENT_SYMBOL_CELL_PREVIEW_RENDERER_VERSION = "symbol-review-current-crop-renderer-v1"
+CURRENT_SYMBOL_CELL_PREVIEW_RENDERER_VERSION = "symbol-review-current-crop-renderer-v2-edge-to-edge"
 STRUCTURED_V0_10_PREVIEW_RENDERER_VERSION = "symbol-review-structured-v0.10-renderer-v1"
 SymbolCellPreviewRendererMode = Literal["current", "structured_v0_10"]
 MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE = 100
@@ -412,13 +412,13 @@ class VirtualCellPreviewService:
         try:
             with Image.open(BytesIO(content)) as source:
                 image = source.convert("RGB")
-                image.thumbnail((preview_size, preview_size), Image.Resampling.LANCZOS)
-                canvas = Image.new("RGB", (preview_size, preview_size), color=(0, 0, 0))
-                canvas.paste(
-                    image,
-                    ((preview_size - image.width) // 2, (preview_size - image.height) // 2),
+                # Atlas tiles have a fixed square viewport.  Resizing the current crop
+                # directly keeps the complete symbol visible while avoiding the black
+                # letterbox that the legacy ``thumbnail`` canvas added around it.
+                return image.resize(
+                    (preview_size, preview_size),
+                    Image.Resampling.LANCZOS,
                 )
-                return canvas
         except OSError as error:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_ASSET_INVALID",

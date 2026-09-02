@@ -33,6 +33,13 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   strony oraz viewport, a istniejące zaznaczenie nadal wymaga jawnego
   potwierdzenia wyczyszczenia.
 
+### Miniatury symboli od krawędzi do krawędzi — TASK-0386
+
+- Bieżący renderer cropów legacy nie dopisuje już czarnego płótna do atlasu;
+  pełny crop wypełnia tile 100 × 100 tak samo jak źródło wirtualne.
+- Obramowanie karty jest nakładką na krawędzi grafiki. Nie zabiera miejsca
+  miniaturze i nie zmienia wirtualizacji, batchingu ani liczby requestów.
+
 ### Zakres cropów gry w Weryfikacji symboli — TASK-0371/TASK-0383
 
 - `Weryfikacja symboli` wybiera grę oraz jawny zakres: wszystkie bieżące cropy,

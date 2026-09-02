@@ -406,7 +406,9 @@ po pobraniu metadanych, a następnie uzupełnia niezależnie pełne liczniki. Za
 zatwierdzonego limitu (np. `1–50`, `51–100`) oraz pełne liczniki zatwierdzonych i oczekujących cropów
 wybranej gry. Zakres ostatniej strony kończy się na rzeczywistej liczbie
 wyników.
-Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Nazwa,
+Karta ma dokładnie 100 × 100 px i pokazuje wyłącznie crop symbolu. Crop
+wypełnia cały tile bez dopisywanego czarnego płótna, a cienkie obramowanie jest
+nakładane na krawędź grafiki i nie zmniejsza jej powierzchni. Nazwa,
 numer planszy, pozycja i stan review nie zajmują miejsca w siatce. Po wysłaniu
 decyzji karta jest nieaktywna, przygaszona i pokazuje centralny spinner; poprawnie
 przypisany do innego symbolu crop znika przed odświeżeniem strony z serwera.

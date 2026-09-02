@@ -1029,7 +1029,9 @@ def test_asset_endpoint_rechecks_expected_and_file_checksum(tmp_path: Path) -> N
     assert changed_file.json()["code"] == "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH"
     assert atlas_batch.status_code == 200
     assert atlas_batch.json()["rendererMode"] == "current"
-    assert atlas_batch.json()["rendererVersion"] == "symbol-review-current-crop-renderer-v1"
+    assert atlas_batch.json()["rendererVersion"] == (
+        "symbol-review-current-crop-renderer-v2-edge-to-edge"
+    )
     assert atlas_batch.json()["availableCount"] == 1
     assert atlas_batch.json()["unavailableCellReviewIds"] == []
     assert atlas.headers["cache-control"] == "private, immutable, max-age=31536000"
